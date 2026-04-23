@@ -2,10 +2,10 @@
  * Lightweight client-side stale-while-revalidate cache for screen data.
  *
  * Usage:
- *   const cached = getScreenCache<MyData[]>("areas");
+ *   const cached = getScreenCache<MyData[]>("centros-custo");
  *   if (cached) setRows(cached);            // instant render
  *   const fresh = await fetchFreshData();
- *   setScreenCache("areas", fresh);          // update cache
+ *   setScreenCache("centros-custo", fresh);  // update cache
  */
 
 const store = new Map<string, { data: unknown; ts: number }>();
@@ -30,7 +30,7 @@ export function setScreenCache<T>(key: string, data: T): void {
  * Only cadastros routes for now — easily extensible.
  */
 export const PREFETCH_MAP: Record<string, string> = {
-    "/areas": "/api/areas",
+    "/centros-custo": "/api/centros-custo",
     "/cargos": "/api/job-positions",
     "/funcionarios": "/api/funcionarios",
     "/unidades": "/api/units",

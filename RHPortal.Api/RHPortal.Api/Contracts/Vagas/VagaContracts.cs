@@ -5,8 +5,6 @@ namespace RhPortal.Api.Contracts.Vagas;
 
 public sealed record VagaCreateRequest(
     [Required, MaxLength(160)] string Titulo,
-    Guid? DepartmentId,
-    Guid? AreaId,
     [Required] VagaStatus Status,
     [MaxLength(40)] string? Codigo,
     VagaAreaTime? AreaTime,
@@ -91,6 +89,8 @@ public sealed record VagaCreateRequest(
     Guid? CentroCustoId,
     Guid? TurnoId,
     Guid? UnidadeLotacaoId,
+    Guid? EixoVagaId,
+    bool TravarFaixaSalarial,
     IReadOnlyList<VagaBeneficioRequest>? Beneficios,
     IReadOnlyList<VagaRequisitoRequest>? Requisitos,
     IReadOnlyList<VagaEtapaRequest>? Etapas,
@@ -99,12 +99,15 @@ public sealed record VagaCreateRequest(
 
 public sealed record UpdateVagaMatchingFiltrosRequest(string? MatchingFiltrosRaw);
 
+public sealed record AprovarAlcadaSalarialRequest(
+    [property: MaxLength(1000)] string? Justificativa,
+    [property: MaxLength(500)] string? ObservacaoAprovador
+);
+
 public sealed record ChangeVagaStatusRequest([Required] VagaStatus Status);
 
 public sealed record VagaUpdateRequest(
     [Required, MaxLength(160)] string Titulo,
-    Guid? DepartmentId,
-    Guid? AreaId,
     [Required] VagaStatus Status,
     [MaxLength(40)] string? Codigo,
     VagaAreaTime? AreaTime,
@@ -189,6 +192,8 @@ public sealed record VagaUpdateRequest(
     Guid? CentroCustoId,
     Guid? TurnoId,
     Guid? UnidadeLotacaoId,
+    Guid? EixoVagaId,
+    bool TravarFaixaSalarial,
     IReadOnlyList<VagaBeneficioRequest>? Beneficios,
     IReadOnlyList<VagaRequisitoRequest>? Requisitos,
     IReadOnlyList<VagaEtapaRequest>? Etapas,
@@ -199,13 +204,7 @@ public sealed record VagaResponse(
     Guid Id,
     string? Codigo,
     string Titulo,
-    Guid? DepartmentId,
-    string? DepartmentCode,
-    string? DepartmentName,
     VagaAreaTime? AreaTime,
-    Guid? AreaId,
-    string? AreaCode,
-    string? AreaName,
     VagaModalidade? Modalidade,
     VagaStatus Status,
     VagaSenioridade? Senioridade,
@@ -301,6 +300,19 @@ public sealed record VagaResponse(
     Guid? UnidadeLotacaoId,
     string? UnidadeLotacaoCode,
     string? UnidadeLotacaoDescription,
+    Guid? EixoVagaId,
+    string? EixoVagaCode,
+    string? EixoVagaName,
+    int? EixoVagaSlaDiasMetaFechamento,
+    int? SlaEfetivoDias,
+    bool TravarFaixaSalarial,
+    Guid? AlcadaSalarialAprovadaPorUserId,
+    DateTimeOffset? AlcadaSalarialAprovadaEmUtc,
+    string? AlcadaSalarialJustificativa,
+    string? AlcadaSalarialObservacaoAprovador,
+    decimal? FaixaSalarialMinimo,
+    decimal? FaixaSalarialMaximo,
+    bool FaixaSalarialViolada,
     IReadOnlyList<VagaBeneficioResponse> Beneficios,
     IReadOnlyList<VagaRequisitoResponse> Requisitos,
     IReadOnlyList<VagaEtapaResponse> Etapas,

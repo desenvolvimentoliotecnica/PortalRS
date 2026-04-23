@@ -274,7 +274,7 @@ export default function TabLogsTransacionais({ tenantId }: { tenantId: string })
 
             {/* Detail Dialog */}
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="w-[98vw] max-w-[1400px] max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-base">Transação {detail?.transactionId || "-"}</DialogTitle>
                     </DialogHeader>
@@ -299,16 +299,16 @@ export default function TabLogsTransacionais({ tenantId }: { tenantId: string })
                             {detail.changes?.length > 0 && (
                                 <Card className="shadow-sm"><CardContent className="pt-4">
                                     <div className="font-bold text-xs text-muted-foreground mb-2">Mudanças no banco</div>
-                                    <div className="overflow-x-auto"><table className="w-full text-xs">
+                                    <div className="overflow-x-auto"><table className="min-w-[1100px] w-full text-xs">
                                         <thead><tr className="border-b text-muted-foreground">
-                                            <th className="text-left py-1 px-2">Entidade</th><th className="py-1 px-2">Estado</th><th className="py-1 px-2">Chaves</th><th className="py-1 px-2">Colunas</th><th className="py-1 px-2">Horário</th>
+                                            <th className="text-left py-1 px-2 w-48">Entidade</th><th className="py-1 px-2 w-24">Estado</th><th className="py-1 px-2 w-80">Chaves</th><th className="py-1 px-2">Colunas</th><th className="py-1 px-2 w-44">Horário</th>
                                         </tr></thead>
                                         <tbody>{detail.changes.map((ch, i) => (
                                             <tr key={i} className="border-b">
-                                                <td className="py-1 px-2">{ch.entityName}</td>
-                                                <td className="py-1 px-2 font-mono">{ch.state}</td>
-                                                <td className="py-1 px-2 font-mono max-w-[150px] truncate">{ch.primaryKeyJson}</td>
-                                                <td className="py-1 px-2">{ch.changedColumns || "-"}</td>
+                                                <td className="py-1 px-2 whitespace-nowrap">{ch.entityName}</td>
+                                                <td className="py-1 px-2 font-mono whitespace-nowrap">{ch.state}</td>
+                                                <td className="py-1 px-2 font-mono whitespace-nowrap">{ch.primaryKeyJson}</td>
+                                                <td className="py-1 px-2 whitespace-nowrap">{ch.changedColumns || "-"}</td>
                                                 <td className="py-1 px-2 whitespace-nowrap">{new Date(ch.occurredAt).toLocaleString("pt-BR")}</td>
                                             </tr>
                                         ))}</tbody>

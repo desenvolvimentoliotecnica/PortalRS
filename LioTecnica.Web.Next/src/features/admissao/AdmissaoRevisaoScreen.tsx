@@ -67,7 +67,8 @@ interface PreAdmissao {
     estabelecimentoCodigo: string | null;
     matriculaRM: string | null;
     unitNome: string | null;
-    areaNome: string | null;
+    centroCustoNome: string | null;
+    areaNome?: string | null;
     jobPositionNome: string | null;
     dataAdmissao: string | null;
     salario: number | null;
@@ -354,7 +355,7 @@ export default function AdmissaoRevisaoScreen() {
                         <Info label="Estab." value={data.estabelecimentoCodigo} />
                         <Info label="Matrícula RM" value={data.matriculaRM} />
                         <Info label="Unidade" value={data.unitNome} />
-                        <Info label="Área" value={data.areaNome} />
+                        <Info label="Centro de Custo" value={data.centroCustoNome ?? data.areaNome} />
                         <Info label="Cargo" value={data.jobPositionNome} />
                         <Info label="Data Admissão" value={data.dataAdmissao} />
                         <Info label="Salário" value={fmtBrl(data.salario)} />

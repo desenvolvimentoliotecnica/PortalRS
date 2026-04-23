@@ -37,8 +37,6 @@ const CNH_CATS = ["A", "B", "AB", "C", "D", "E"];
 
 type EnumOption = { code: string; text: string };
 type EnumData = Record<string, EnumOption[]>;
-type AreaLookup = { id: string; name: string; code?: string };
-type DeptLookup = { id: string; name: string; code?: string };
 
 type BeneficioItem = {
   tipo: string; valor: string; recorrencia: string; obrigatorio: boolean; obs: string;
@@ -57,7 +55,7 @@ type PerguntaItem = {
 
 type VagaDraft = {
   id?: string;
-  titulo: string; codigo: string; departmentId: string; areaId: string;
+  titulo: string; codigo: string;
   areaTime: string; modalidade: string; status: string; senioridade: string;
   quantidadeVagas: number; tipoContratacao: string; matchMinimoPercentual: number;
   descricaoInterna: string; codigoInterno: string; codigoCbo: string;
@@ -79,6 +77,7 @@ type VagaDraft = {
   cidade: string; uf: string; politicaTrabalho: string; observacoesDeslocamento: string;
   moeda: string; salarioMinimo: string; salarioMaximo: string; periodicidade: string;
   bonusTipo: string; bonusPercentual: string; observacoesRemuneracao: string;
+  travarFaixaSalarial: boolean;
   beneficios: BeneficioItem[];
   escolaridade: string; formacaoArea: string; experienciaMinimaAnos: string;
   tagsStack: string; tagsIdiomas: string; diferenciais: string;
@@ -103,7 +102,7 @@ type VagaDraft = {
 
 function emptyDraft(): VagaDraft {
   return {
-    titulo: "", codigo: "", departmentId: "", areaId: "",
+    titulo: "", codigo: "",
     areaTime: "", modalidade: "presencial", status: "aberta", senioridade: "",
     quantidadeVagas: 1, tipoContratacao: "", matchMinimoPercentual: 70,
     descricaoInterna: "", codigoInterno: "", codigoCbo: "",
@@ -125,6 +124,7 @@ function emptyDraft(): VagaDraft {
     cidade: "", uf: "", politicaTrabalho: "", observacoesDeslocamento: "",
     moeda: "", salarioMinimo: "", salarioMaximo: "", periodicidade: "",
     bonusTipo: "", bonusPercentual: "", observacoesRemuneracao: "",
+    travarFaixaSalarial: false,
     beneficios: [],
     escolaridade: "", formacaoArea: "", experienciaMinimaAnos: "",
     tagsStack: "", tagsIdiomas: "", diferenciais: "",
@@ -455,8 +455,6 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
   const matchingFiltrosRaw = buildMatchingFiltrosRaw(d, enums);
   return {
     titulo: d.titulo.trim(),
-    departmentId: emptyToNull(d.departmentId),
-    areaId: d.areaId || null,
     status: d.status || "aberta",
     codigo: emptyToNull(d.codigo),
     areaTime: emptyToNull(d.areaTime),
@@ -517,6 +515,7 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     bonusTipo: emptyToNull(d.bonusTipo),
     bonusPercentual: d.bonusPercentual ? Number(d.bonusPercentual.replace(",", ".")) || null : null,
     observacoesRemuneracao: emptyToNull(d.observacoesRemuneracao),
+    travarFaixaSalarial: d.travarFaixaSalarial,
     escolaridade: emptyToNull(d.escolaridade),
     formacaoArea: emptyToNull(d.formacaoArea),
     experienciaMinimaAnos: d.experienciaMinimaAnos ? Number(d.experienciaMinimaAnos) || null : null,
@@ -828,8 +827,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [draft, setDraft] = useState<VagaDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [enums, setEnums] = useState<EnumData>({});
-  const [areas, setAreas] = useState<AreaLookup[]>([]);
-  const [depts, setDepts] = useState<DeptLookup[]>([]);
   const [vagas, setVagas] = useState<{ id: string; titulo: string; codigo: string }[]>([]);
   const [copySearch, setCopySearch] = useState("");
   const [wizardMode, setWizardMode] = useState(false);
@@ -837,7 +834,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
   const stepCompletion = useMemo(() => {
     const s = new Map<TabKey, boolean>();
-    s.set("dados", !!(draft.titulo.trim() && draft.areaId && draft.status));
+    s.set("dados", !!(draft.titulo.trim() && draft.centroCustoId && draft.status));
     s.set("requisitos", draft.requisitos.length > 0);
     s.set("matching", !!(draft.matchingModalidade || draft.matchingSenioridade || draft.matchingEscolaridade || draft.matchingHabilidades || draft.matchingCidade));
     s.set("publicacao", ["Externa", "InternaEExterna"].includes(draft.visibilidade));
@@ -864,10 +861,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
     void Promise.all([
       fetchJson<unknown>(`${BASE}/api/lookup/enums`).catch(() => null),
-      fetchJson<unknown>(`${BASE}/api/lookup/areas`).catch(() => []),
-      fetchJson<unknown>(`${BASE}/api/lookup/departments`).catch(() => []),
       fetchJson<unknown>(`${BASE}/api/vagas`).catch(() => []),
-    ]).then(([enumsRaw, areasRaw, deptsRaw, vagasRaw]) => {
+    ]).then(([enumsRaw, vagasRaw]) => {
       const eData: EnumData = {};
       if (enumsRaw && typeof enumsRaw === "object") {
         Object.entries(enumsRaw as Record<string, unknown>).forEach(([k, v]) => {
@@ -875,10 +870,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         });
       }
       setEnums(eData);
-      const aList = (Array.isArray(areasRaw) ? areasRaw : []).map((a: any) => ({ id: a.id, name: a.name ?? a.nome ?? "", code: a.code ?? "" }));
-      setAreas(aList);
-      const dList = (Array.isArray(deptsRaw) ? deptsRaw : []).map((d: any) => ({ id: d.id, name: d.name ?? d.nome ?? "", code: d.code ?? "" }));
-      setDepts(dList);
       const vItems = Array.isArray(vagasRaw) ? vagasRaw : (asRec(vagasRaw)?.items as unknown[] ?? []);
       setVagas((vItems as any[]).map((v: any) => ({ id: v.id, titulo: v.titulo ?? "", codigo: v.codigo ?? "" })));
 
@@ -905,7 +896,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       setDraft({
         id,
         titulo: pick(v.titulo), codigo: pick(v.codigo),
-        departmentId: pick(v.departmentId), areaId: pick(v.areaId),
         areaTime: pickEnum(v.areaTime), modalidade: pickEnum(v.modalidade, "presencial"),
         status: pickEnum(v.status, "aberta"), senioridade: pickEnum(v.senioridade),
         quantidadeVagas: pickNum(v.quantidadeVagas, 1), tipoContratacao: pickEnum(v.tipoContratacao),
@@ -949,6 +939,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         periodicidade: pickEnum(v.periodicidade), bonusTipo: pickEnum(v.bonusTipo),
         bonusPercentual: v.bonusPercentual != null ? String(v.bonusPercentual) : "",
         observacoesRemuneracao: pick(v.observacoesRemuneracao),
+        travarFaixaSalarial: pickBool(v.travarFaixaSalarial),
         beneficios: benefRaw.map((b: any) => ({ tipo: pickEnum(b.tipo), valor: b.valor != null ? String(b.valor) : "", recorrencia: pickEnum(b.recorrencia, "mensal"), obrigatorio: pickBool(b.obrigatorio), obs: pick(b.observacoes) })),
         escolaridade: pickEnum(v.escolaridade), formacaoArea: pickEnum(v.formacaoArea),
         experienciaMinimaAnos: v.experienciaMinimaAnos != null ? String(v.experienciaMinimaAnos) : "",
@@ -1151,7 +1142,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                       cargoId: item.id,
                       cargoCode: item.code,
                       cargoName: item.name,
-                      areaId: d.areaId || item.areaId || d.areaId,
+                      centroCustoId: d.centroCustoId || item.centroCustoId || d.centroCustoId,
                       senioridade: d.senioridade || (item.seniority ? item.seniority.toLowerCase() : ""),
                     }));
                   }}
@@ -1276,8 +1267,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de TI Sênior" value={draft.nomeEngessado} onChange={(e) => set("nomeEngessado", e.target.value)} maxLength={200} />
                 <p className="text-xs text-muted-foreground mt-1">Nome fixo para referência interna de cargo.</p>
               </Field>
-              <Field label="Departamento" span="col-span-12 md:col-span-4"><EnumSelect value={draft.departmentId} onChange={(v) => set("departmentId", v)} options={depts.map((d) => ({ code: d.id, text: d.name }))} placeholder="Selecionar departamento" /></Field>
-
               {/* Seção: Configurações */}
               <SectionHeader title="Configurações da vaga" />
               <Field label="Modalidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.modalidade} onChange={(v) => set("modalidade", v)} options={enumOpts(enums, "vagaModalidade")} /></Field>
@@ -1391,6 +1380,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <Field label="Tipo de bônus / extra" span="col-span-12 md:col-span-4"><EnumSelect value={draft.bonusTipo} onChange={(v) => set("bonusTipo", v)} options={enumOpts(enums, "vagaBonusTipo", "Selecionar")} /></Field>
               <Field label="% bônus" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0%" value={draft.bonusPercentual} onChange={(e) => set("bonusPercentual", e.target.value)} /></Field>
               <Field label="Observações de remuneração" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: faixa depende de senioridade" value={draft.observacoesRemuneracao} onChange={(e) => set("observacoesRemuneracao", e.target.value)} /></Field>
+              <Field label="Travar faixa salarial do cargo" span="col-span-12 md:col-span-6"><Toggle label={draft.travarFaixaSalarial ? "Travada — precisa de alçada para sair da faixa" : "Livre"} checked={draft.travarFaixaSalarial} onChange={(v) => set("travarFaixaSalarial", v)} /></Field>
               <div className="col-span-12 flex items-center justify-between gap-2 pt-1">
                 <div>
                   <p className="text-sm font-semibold">Benefícios</p>

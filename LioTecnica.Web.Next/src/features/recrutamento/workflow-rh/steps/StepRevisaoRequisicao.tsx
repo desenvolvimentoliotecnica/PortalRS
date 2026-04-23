@@ -54,7 +54,7 @@ export default function StepRevisaoRequisicao({
           <hr className="border-border" />
           <div className="grid grid-cols-2 gap-3">
             <FieldRow label="Cargo" value={sol.jobPositionName} origin="gestor" />
-            <FieldRow label="Área" value={sol.areaName} origin="gestor" />
+            <FieldRow label="Centro de Custo" value={sol.centroCustoNome ?? sol.areaName ?? null} origin="gestor" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <FieldRow label="Unidade" value={sol.unitName} origin="gestor" />

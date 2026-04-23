@@ -1,14 +1,29 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight, Building2 } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 import { ApiAutoLoginResponseSchema } from "@/lib/schemas/api";
-import { setAccessToken, setTenantId, getAccessToken, tryGetRolesFromJwt, tryGetTenantIdFromJwt } from "@/lib/session";
+import {
+  setAccessToken,
+  setTenantId,
+  getAccessToken,
+  tryGetRolesFromJwt,
+  tryGetTenantIdFromJwt,
+  getLastTenantSlug,
+  setLastTenantSlug,
+} from "@/lib/session";
 import { apiFetch } from "@/lib/api";
+import {
+  applyBrandingDefaults,
+  fetchPublicBranding,
+  renderFooterText,
+  type TenantBrandingPublic,
+} from "@/lib/tenant-branding";
 
 import { Button } from "@/components/ui/button";
-import RenderRHLogo from "@/components/brand/RenderRHLogo";
 import {
   Card,
   CardContent,
@@ -89,6 +104,125 @@ export default function LoginScreen({
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  /* ─── Branding / white-label (Sessão 29) ───
+   * Resolvemos o slug do tenant primeiro por ?tenant= (usado em links compartilhados
+   * tipo liotecnica.render-rh.com/app/login?tenant=liotecnica), e caímos para
+   * localStorage.lastTenantSlug (persistido após login anterior). Se nada disso
+   * existir, a tela renderiza com os defaults da plataforma.
+   */
+  const [branding, setBranding] = useState<TenantBrandingPublic | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromQuery = sp.get("tenant")?.trim().toLowerCase() || null;
+    const fromStorage = getLastTenantSlug();
+    const slug = fromQuery || fromStorage;
+    if (!slug) return;
+    void fetchPublicBranding(slug).then((b) => setBranding(b));
+  }, [sp]);
+
+  const ui = useMemo(() => applyBrandingDefaults(branding), [branding]);
+  const footerText = useMemo(() => renderFooterText(ui.rodapeTexto), [ui.rodapeTexto]);
+  const cardGradient = useMemo(
+    () => `linear-gradient(160deg, ${ui.corPrimariaHex} 0%, ${ui.corSecundariaHex} 100%)`,
+    [ui.corPrimariaHex, ui.corSecundariaHex],
+  );
+  const logoGradient = useMemo(
+    () => `linear-gradient(to bottom right, ${ui.corPrimariaHex}, ${ui.corSecundariaHex})`,
+    [ui.corPrimariaHex, ui.corSecundariaHex],
+  );
+
+  /* ─── Entra ID (SSO Microsoft) — Fase 13.2 ─── */
+  const [entraOpen, setEntraOpen] = useState(false);
+  const [entraTenant, setEntraTenant] = useState("");
+  const [entraEnabled, setEntraEnabled] = useState(false);
+  const [entraClientId, setEntraClientId] = useState<string | null>(null);
+  const [entraChecking, setEntraChecking] = useState(false);
+  const entraDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ─── Entra ID callback: processa #entra_token=...&tenant=...&return=... ─── */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Erros vindos da query string do callback (?entra_error=...).
+    const err = sp.get("entra_error");
+    if (err) {
+      const msgs: Record<string, string> = {
+        nao_configurado: "SSO Microsoft não configurado para este tenant.",
+        state_invalido: "Sessão de SSO expirou. Tente novamente.",
+        troca_de_code_falhou: "Falha ao trocar o código com a Microsoft.",
+        usuario_nao_autenticado: "Usuário do Microsoft não está cadastrado neste tenant.",
+        parametros_invalidos: "Parâmetros inválidos no retorno do SSO.",
+      };
+      setErrorMsg(msgs[err] ?? `Falha no SSO (${err}).`);
+    }
+
+    const hash = window.location.hash;
+    if (!hash.startsWith("#")) return;
+    const params = new URLSearchParams(hash.substring(1));
+    const tk = params.get("entra_token");
+    const tid = params.get("tenant");
+    const rtn = params.get("return");
+    if (!tk || !tid) return;
+
+    // Aplica sessão e redireciona. O fragmento é limpo pelo router.replace.
+    setAccessToken(tk);
+    setTenantId(tid);
+    let redirect = rtn && rtn.startsWith("/") ? rtn : "/dashboard";
+    if (redirect.startsWith("/app/")) redirect = redirect.slice("/app".length);
+    router.replace(redirect);
+  }, [router, sp]);
+
+  /* ─── Entra ID: checa se o tenant digitado tem SSO habilitado (debounced) ─── */
+  useEffect(() => {
+    const t = entraTenant.trim();
+    if (entraDebounce.current) clearTimeout(entraDebounce.current);
+    if (!t) {
+      setEntraEnabled(false);
+      setEntraClientId(null);
+      setEntraChecking(false);
+      return;
+    }
+    setEntraChecking(true);
+    entraDebounce.current = setTimeout(async () => {
+      try {
+        const res = await apiFetch(
+          `/api/auth/entra/enabled?tenantId=${encodeURIComponent(t)}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json().catch(() => null);
+        if (json && typeof json === "object") {
+          setEntraEnabled(Boolean((json as { enabled?: unknown }).enabled));
+          const cid = (json as { clientId?: unknown }).clientId;
+          setEntraClientId(typeof cid === "string" ? cid : null);
+        } else {
+          setEntraEnabled(false);
+          setEntraClientId(null);
+        }
+      } catch {
+        setEntraEnabled(false);
+        setEntraClientId(null);
+      } finally {
+        setEntraChecking(false);
+      }
+    }, 350);
+    return () => {
+      if (entraDebounce.current) clearTimeout(entraDebounce.current);
+    };
+  }, [entraTenant]);
+
+  function onEntraClick() {
+    const t = entraTenant.trim();
+    if (!t || !entraEnabled) return;
+    // Static export: precisamos ir direto para o host da API, não passa por basePath /app.
+    // O apiFetch já resolve NEXT_PUBLIC_API_BASE; aqui o navegador precisa seguir o Redirect.
+    const url =
+      `/api/auth/entra/challenge` +
+      `?tenantId=${encodeURIComponent(t)}` +
+      `&returnUrl=${encodeURIComponent(resolvedReturnUrl || "/dashboard")}`;
+    window.location.assign(url);
+  }
 
   /* ─── Health ─── */
   const [apiStatus, setApiStatus] = useState<HealthStatus>("unknown");
@@ -172,6 +306,11 @@ export default function LoginScreen({
 
       setAccessToken(parsed.data.accessToken);
       setTenantId(parsed.data.tenantId);
+      // Persiste o slug do tenant para que a próxima visita à tela de login
+      // já carregue o branding correto (sem depender de ?tenant= na URL).
+      if (parsed.data.tenantId && parsed.data.tenantId.toLowerCase() !== "owner") {
+        setLastTenantSlug(parsed.data.tenantId);
+      }
 
       // Redirect baseado no JWT (owner → /Owner/Tenants, tenant → /dashboard)
       const savedToken = getAccessToken();
@@ -204,19 +343,42 @@ export default function LoginScreen({
         {/* ── Left: Login Form ── */}
         <main className="flex items-center justify-center px-4 py-10 sm:px-8 lg:px-12">
           <div className="w-full max-w-[420px]">
-            {/* Brand — anima de baixo para cima */}
+            {/* Header — anima de baixo para cima */}
             <div
               className="mb-8 animate-in fade-in slide-in-from-bottom-6 duration-700"
               style={{ animationFillMode: "both" }}
             >
-              <div className="mb-4 text-xs font-semibold tracking-[0.25em] text-slate-500 uppercase">
-                Bem-vindo ao
+              <div className="mb-3 text-[11px] font-semibold tracking-[0.28em] text-slate-500 uppercase">
+                Acesso ao sistema
               </div>
-              <div className="flex items-center gap-4">
-                <RenderRHLogo variant="on-light" size={56} />
-                <h1 className="text-4xl font-bold tracking-[0.22em] text-[#0C3A64] uppercase">
-                  Render
-                </h1>
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex size-12 items-center justify-center rounded-xl shadow-lg shadow-blue-900/20 overflow-hidden"
+                  style={{ background: logoGradient }}
+                >
+                  {ui.logoUrl ? (
+                    // Logo customizada do tenant. `unoptimized` pra permitir
+                    // URLs externas sem ter que configurar next.config.images.domains.
+                    <Image
+                      src={ui.logoUrl}
+                      alt={ui.nomePortal}
+                      width={48}
+                      height={48}
+                      unoptimized
+                      className="size-full object-contain"
+                    />
+                  ) : (
+                    <Building2 className="size-6 text-white" strokeWidth={2.25} />
+                  )}
+                </div>
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-800">
+                    {ui.nomePortal}
+                  </h1>
+                  <p className="text-xs text-slate-500">
+                    {ui.subtitulo}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -225,7 +387,7 @@ export default function LoginScreen({
               className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150"
               style={{ animationFillMode: "both" }}
             >
-              <Card className="border-white/10 shadow-2xl shadow-black/30 backdrop-blur-sm" style={{ background: "linear-gradient(160deg, #0C3A64 0%, #105291 100%)" }}>
+              <Card className="border-white/10 shadow-2xl shadow-black/30 backdrop-blur-sm" style={{ background: cardGradient }}>
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg font-bold text-white">Entrar</CardTitle>
                   <CardDescription className="text-blue-200/60">
@@ -292,10 +454,11 @@ export default function LoginScreen({
                     {/* Submit */}
                     <Button
                       type="submit"
-                      className="w-full bg-white font-semibold text-[#0C3A64] shadow-md hover:bg-white/90 transition-colors disabled:opacity-60"
+                      className="w-full bg-white font-semibold shadow-md hover:bg-white/90 transition-colors disabled:opacity-60"
                       size="lg"
                       disabled={submitting}
                       id="loginSubmit"
+                      style={{ color: ui.corPrimariaHex }}
                     >
                       {submitting ? (
                         <><Loader2 className="size-4 animate-spin" />Aguarde...</>
@@ -304,6 +467,70 @@ export default function LoginScreen({
                       )}
                     </Button>
                   </form>
+
+                  {/* ── SSO Microsoft (Entra ID) — Fase 13.2 ── */}
+                  <div className="mt-5 border-t border-white/10 pt-4">
+                    {!entraOpen ? (
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-blue-200/70 underline-offset-2 hover:text-white hover:underline"
+                        onClick={() => setEntraOpen(true)}
+                      >
+                        Entrar com Microsoft (SSO)
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="entraTenant"
+                          className="flex items-center justify-between text-xs font-medium text-blue-100/80"
+                        >
+                          <span>Tenant para SSO</span>
+                          <button
+                            type="button"
+                            className="text-[10px] font-normal text-blue-200/60 hover:text-white"
+                            onClick={() => {
+                              setEntraOpen(false);
+                              setEntraTenant("");
+                            }}
+                          >
+                            fechar
+                          </button>
+                        </label>
+                        <Input
+                          id="entraTenant"
+                          value={entraTenant}
+                          onChange={(e) => setEntraTenant(e.target.value)}
+                          placeholder="ex.: liotecnica"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          disabled={submitting}
+                          className="border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-white/40 focus-visible:ring-white/10"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full border-white/25 bg-white/5 font-medium text-white hover:bg-white/15 disabled:opacity-50"
+                          disabled={submitting || entraChecking || !entraEnabled}
+                          onClick={onEntraClick}
+                        >
+                          {entraChecking ? (
+                            <><Loader2 className="size-4 animate-spin" /> Verificando tenant…</>
+                          ) : entraEnabled ? (
+                            <>Entrar com Microsoft</>
+                          ) : entraTenant.trim() ? (
+                            <>SSO não habilitado para este tenant</>
+                          ) : (
+                            <>Informe o tenant</>
+                          )}
+                        </Button>
+                        {entraEnabled && entraClientId ? (
+                          <p className="text-[10px] text-blue-200/40">
+                            Client ID: <span className="font-mono">{entraClientId}</span>
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
 
                 <CardFooter className="justify-between border-t border-white/10 pt-4">
@@ -312,7 +539,7 @@ export default function LoginScreen({
                     <HealthDot status={dbStatus} label="DB" />
                   </div>
                   <div className="text-[10px] font-medium tracking-wider text-white/25 uppercase">
-                    v2.5
+                    {ui.versaoExibida}
                   </div>
                 </CardFooter>
               </Card>
@@ -341,8 +568,14 @@ export default function LoginScreen({
         </aside>
 
         {/* ── Footer ── */}
-        <footer className="col-span-1 lg:col-span-2 py-4 text-center text-[11px] text-blue-800/40 select-none tracking-wide">
-          © {new Date().getFullYear()} QUALIIT SOLUÇÕES EM TECNOLOGIA
+        <footer className="col-span-1 lg:col-span-2 flex flex-col items-center gap-1 py-4 text-center text-[11px] text-slate-500/70 select-none tracking-wide">
+          <div>{footerText}</div>
+          <Link
+            href={`${BASE}/privacidade`}
+            className="text-slate-500/80 underline-offset-2 hover:text-slate-700 hover:underline"
+          >
+            Política de Privacidade (LGPD)
+          </Link>
         </footer>
       </div>
     </div>

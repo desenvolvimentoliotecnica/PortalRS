@@ -1,14 +1,16 @@
 "use client";
 
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Building2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/contexts/SidebarContext";
-import RenderRHLogo from "@/components/brand/RenderRHLogo";
 
 export default function Brand() {
   const { isCollapsed, toggle } = useSidebar();
 
+  // Header white-label da sidebar. Evitamos branding específico (Render / Quali IT):
+  // ícone neutro + rótulo "Portal de RH" funcionam para qualquer tenant.
+  // Quando a sidebar estiver colapsada, só o ícone aparece.
   return (
     <div
       className={cn(
@@ -16,11 +18,21 @@ export default function Brand() {
         isCollapsed ? "flex-col gap-2 justify-center" : "gap-3 justify-between",
       )}
     >
-      <RenderRHLogo
-        variant="on-dark"
-        size={40}
-        showWordmark={!isCollapsed}
-      />
+      <div className={cn("flex items-center gap-3 min-w-0", isCollapsed && "justify-center")}>
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/20 shrink-0">
+          <Building2 aria-hidden className="size-5 text-white" />
+        </div>
+        {!isCollapsed && (
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="truncate text-sm font-semibold tracking-tight text-white">
+              Portal de RH
+            </div>
+            <div className="truncate text-[10px] uppercase tracking-[0.18em] text-white/60">
+              Gestão de pessoas
+            </div>
+          </div>
+        )}
+      </div>
 
       <button
         type="button"

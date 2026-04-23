@@ -53,26 +53,27 @@ public sealed class VagaServiceOperacoesTests
         return (db, service);
     }
 
+    // 31.2: Area foi absorvido por CentroCusto. Mantemos o nome semântico "SeedArea" nos testes
+    // para expressar o cenário ("vaga em uma determinada área organizacional"), mas o seed
+    // cria CentroCusto agora. O Guid retornado é um CentroCustoId.
     private static Guid SeedArea(AppDbContext db)
     {
-        var area = new Area
+        var cc = new CentroCusto
         {
             Id = Guid.NewGuid(),
             TenantId = TenantTeste,
             Code = "TI",
-            Name = "Tecnologia da Informação",
+            Description = "Tecnologia da Informação",
             IsActive = true
         };
-        db.Areas.Add(area);
+        db.CentrosCusto.Add(cc);
         db.SaveChanges();
-        return area.Id;
+        return cc.Id;
     }
 
-    private static VagaCreateRequest CriarRequest(Guid areaId, string titulo = "Vaga Teste", VagaStatus status = VagaStatus.Rascunho) =>
+    private static VagaCreateRequest CriarRequest(Guid centroCustoId, string titulo = "Vaga Teste", VagaStatus status = VagaStatus.Rascunho) =>
         new(
             Titulo: titulo,
-            DepartmentId: null,
-            AreaId: areaId,
             Status: status,
             Codigo: null,
             AreaTime: null,
@@ -109,6 +110,7 @@ public sealed class VagaServiceOperacoesTests
             Regime: null,
             CargaSemanalHoras: null,
             Escala: null,
+            EscalaTrabalhoRaw: null,
             HoraEntrada: null,
             HoraSaida: null,
             Intervalo: null,
@@ -153,19 +155,19 @@ public sealed class VagaServiceOperacoesTests
             NomeEngessado: null,
             JobPositionId: null,
             CategoriaSalarialId: null,
-            CentroCustoId: null,
+            CentroCustoId: centroCustoId,
             TurnoId: null,
             UnidadeLotacaoId: null,
+            EixoVagaId: null,
+            TravarFaixaSalarial: false,
             Beneficios: null,
             Requisitos: null,
             Etapas: null,
             PerguntasTriagem: null);
 
-    private static VagaUpdateRequest ToUpdateRequest(Guid areaId, string titulo = "Vaga Atualizada", VagaStatus status = VagaStatus.Rascunho) =>
+    private static VagaUpdateRequest ToUpdateRequest(Guid centroCustoId, string titulo = "Vaga Atualizada", VagaStatus status = VagaStatus.Rascunho) =>
         new(
             Titulo: titulo,
-            DepartmentId: null,
-            AreaId: areaId,
             Status: status,
             Codigo: null,
             AreaTime: null,
@@ -202,6 +204,7 @@ public sealed class VagaServiceOperacoesTests
             Regime: null,
             CargaSemanalHoras: null,
             Escala: null,
+            EscalaTrabalhoRaw: null,
             HoraEntrada: null,
             HoraSaida: null,
             Intervalo: null,
@@ -246,9 +249,11 @@ public sealed class VagaServiceOperacoesTests
             NomeEngessado: null,
             JobPositionId: null,
             CategoriaSalarialId: null,
-            CentroCustoId: null,
+            CentroCustoId: centroCustoId,
             TurnoId: null,
             UnidadeLotacaoId: null,
+            EixoVagaId: null,
+            TravarFaixaSalarial: false,
             Beneficios: null,
             Requisitos: null,
             Etapas: null,
@@ -273,7 +278,7 @@ public sealed class VagaServiceOperacoesTests
         var (db, svc) = CriarServico(isReadOnly: true);
         var areaId = SeedArea(db);
         var (db2, svcNormal) = CriarServico();
-        db2.Areas.Add(new Area { Id = areaId, TenantId = TenantTeste, Code = "TI", Name = "TI", IsActive = true });
+        db2.CentrosCusto.Add(new CentroCusto { Id = areaId, TenantId = TenantTeste, Code = "TI", Description = "TI", IsActive = true });
         db2.SaveChanges();
         var created = await svcNormal.CreateAsync(CriarRequest(areaId), CancellationToken.None);
 
@@ -346,7 +351,7 @@ public sealed class VagaServiceOperacoesTests
         await svc.CreateAsync(CriarRequest(areaId, "Vaga 1"), CancellationToken.None);
         await svc.CreateAsync(CriarRequest(areaId, "Vaga 2"), CancellationToken.None);
 
-        var result = await svc.ListAsync(new VagaListQuery(null, null, null, null, null), CancellationToken.None);
+        var result = await svc.ListAsync(new VagaListQuery(null, null, null, null), CancellationToken.None);
 
         Assert.Equal(2, result.Count);
     }
@@ -360,28 +365,28 @@ public sealed class VagaServiceOperacoesTests
         await svc.CreateAsync(CriarRequest(areaId, "Rascunho", VagaStatus.Rascunho), CancellationToken.None);
         await svc.CreateAsync(CriarRequest(areaId, "Aberta", VagaStatus.Aberta), CancellationToken.None);
 
-        var result = await svc.ListAsync(new VagaListQuery(null, VagaStatus.Rascunho, null, null, null), CancellationToken.None);
+        var result = await svc.ListAsync(new VagaListQuery(null, VagaStatus.Rascunho, null, null), CancellationToken.None);
 
         Assert.Equal(1, result.Count);
         Assert.All(result, item => Assert.Equal(VagaStatus.Rascunho, item.Status));
     }
 
     [Fact]
-    public async Task List_FiltroArea_RetornaApenasVagasDaArea()
+    public async Task List_FiltroCentroCusto_RetornaApenasVagasDoCc()
     {
         var (db, svc) = CriarServico();
         var area1 = SeedArea(db);
-        var area2 = new Area { Id = Guid.NewGuid(), TenantId = TenantTeste, Code = "RH", Name = "RH", IsActive = true };
-        db.Areas.Add(area2);
+        var area2 = new CentroCusto { Id = Guid.NewGuid(), TenantId = TenantTeste, Code = "RH", Description = "RH", IsActive = true };
+        db.CentrosCusto.Add(area2);
         db.SaveChanges();
 
         await svc.CreateAsync(CriarRequest(area1, "Vaga TI"), CancellationToken.None);
         await svc.CreateAsync(CriarRequest(area2.Id, "Vaga RH"), CancellationToken.None);
 
-        var result = await svc.ListAsync(new VagaListQuery(null, null, area1, null, null), CancellationToken.None);
+        var result = await svc.ListAsync(new VagaListQuery(null, null, area1, null), CancellationToken.None);
 
         Assert.Equal(1, result.Count);
-        Assert.Equal(area1, result[0].AreaId);
+        Assert.Equal(area1, result[0].CentroCustoId);
     }
 
     // ── UpdateMatchingFiltrosAsync ─────────────────────────────────────────────

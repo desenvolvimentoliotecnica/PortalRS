@@ -66,7 +66,7 @@ public sealed class AuthenticationService
 
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(user, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
-        var areaId = user.Funcionario?.AreaId;
+        var centroCustoId = user.Funcionario?.CentroCustoId;
         await _awardPointsService.AwardAsync(
             user.Id,
             GamificationEventTypes.DailyLogin,
@@ -84,7 +84,7 @@ public sealed class AuthenticationService
             Roles: roleNames.ToList(),
             Permissions: permissions,
             FuncionarioId: user.FuncionarioId,
-            AreaId: areaId,
+            CentroCustoId: centroCustoId,
             VisibilityScope: visibilityScope,
             VagasDataScope: vagasDataScope,
             IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
@@ -102,7 +102,7 @@ public sealed class AuthenticationService
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
-        var areaId = user.Funcionario?.AreaId;
+        var centroCustoId = user.Funcionario?.CentroCustoId;
 
         return new CurrentUserResponse(
             UserId: user.Id,
@@ -112,7 +112,7 @@ public sealed class AuthenticationService
             Roles: roleNames.ToList(),
             Permissions: permissions,
             FuncionarioId: user.FuncionarioId,
-            AreaId: areaId,
+            CentroCustoId: centroCustoId,
             VisibilityScope: visibilityScope,
             VagasDataScope: vagasDataScope,
             IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
@@ -163,7 +163,7 @@ public sealed class AuthenticationService
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(userWithFuncionario, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
-        var areaId = userWithFuncionario.Funcionario?.AreaId;
+        var centroCustoId = userWithFuncionario.Funcionario?.CentroCustoId;
         await _awardPointsService.AwardAsync(
             user.Id,
             GamificationEventTypes.DailyLogin,
@@ -181,7 +181,7 @@ public sealed class AuthenticationService
             Roles: roleNames.ToList(),
             Permissions: permissions,
             FuncionarioId: userWithFuncionario.FuncionarioId,
-            AreaId: areaId,
+            CentroCustoId: centroCustoId,
             VisibilityScope: visibilityScope,
             VagasDataScope: vagasDataScope,
             IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
@@ -303,8 +303,9 @@ public sealed class AuthenticationService
 
         if (user.FuncionarioId.HasValue)
             claims.Add(new Claim("funcionario_id", user.FuncionarioId.Value.ToString()));
-        if (user.Funcionario?.AreaId is { } areaId)
-            claims.Add(new Claim("area_id", areaId.ToString()));
+        // 31.2: CentroCusto absorveu Area. A claim passa a se chamar centro_custo_id.
+        if (user.Funcionario?.CentroCustoId is { } centroCustoId)
+            claims.Add(new Claim("centro_custo_id", centroCustoId.ToString()));
 
         foreach (var role in roleNames)
             claims.Add(new Claim(ClaimTypes.Role, role));

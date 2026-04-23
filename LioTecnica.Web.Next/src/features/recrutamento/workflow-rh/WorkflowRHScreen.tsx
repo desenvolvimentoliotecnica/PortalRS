@@ -76,7 +76,7 @@ interface WorkflowGridRow {
 interface FilaRhItem {
   id: string;
   titulo: string;
-  areaName: string | null;
+  centroCustoName: string | null;
   urgencia?: number;
   createdAtUtc: string;
 }
@@ -340,7 +340,7 @@ function RecrutamentoContent() {
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate">{item.titulo}</div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                        {item.areaName && <span>{item.areaName}</span>}
+                        {item.centroCustoName && <span>{item.centroCustoName}</span>}
                         {urgMeta && <span className={urgMeta.cls}>{urgMeta.label}</span>}
                         <span>{days}d atrás</span>
                       </div>

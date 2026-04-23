@@ -33,6 +33,16 @@ interface Item {
   empresaDescription?: string | null;
   validFrom?: string | null;
   validUntil?: string | null;
+  parentId?: string | null;
+  parentCode?: string | null;
+  parentDescription?: string | null;
+  // Campos absorvidos de Department/Area (Sessão 31.2)
+  headcount?: number;
+  phone?: string | null;
+  branchOrLocation?: string | null;
+  ownerFuncionarioId?: string | null;
+  ownerFuncionarioName?: string | null;
+  description2?: string | null;
 }
 
 interface Draft {
@@ -47,6 +57,19 @@ interface Draft {
   empresaDescription: string | null;
   validFrom: string;
   validUntil: string;
+  parentId: string;
+  // Campos absorvidos de Department/Area (Sessão 31.2)
+  headcount: string;
+  phone: string;
+  branchOrLocation: string;
+  ownerFuncionarioId: string | null;
+  ownerFuncionarioName: string | null;
+  description2: string;
+}
+
+interface FuncionarioLookup {
+  id: string;
+  name: string;
 }
 
 interface ImportRow {
@@ -74,7 +97,14 @@ function statusBadge(active: boolean) {
   );
 }
 
-const emptyDraft: Draft = { code: "", description: "", manager: "", notes: "", isActive: true, empresaId: null, empresaCode: null, empresaDescription: null, validFrom: "", validUntil: "" };
+const emptyDraft: Draft = {
+  code: "", description: "", manager: "", notes: "", isActive: true,
+  empresaId: null, empresaCode: null, empresaDescription: null,
+  validFrom: "", validUntil: "", parentId: "",
+  headcount: "", phone: "", branchOrLocation: "",
+  ownerFuncionarioId: null, ownerFuncionarioName: null,
+  description2: "",
+};
 
 function fmtDate(s: string | null | undefined): string {
   if (!s) return "";
@@ -88,6 +118,7 @@ function fmtDate(s: string | null | undefined): string {
 export default function CentroCustoCadastroScreen() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Item[]>([]);
+  const [funcionarios, setFuncionarios] = useState<FuncionarioLookup[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortKey, setSortKey] = useState<keyof Item>("code");
@@ -117,6 +148,18 @@ export default function CentroCustoCadastroScreen() {
 
   useEffect(() => { syncList(); }, [syncList]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await fetchJson<{ items: Array<{ id: string; nome: string }> }>("/api/lookup/funcionarios?pageSize=200&onlyActive=true");
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setFuncionarios(items.map((f) => ({ id: f.id, name: f.nome })));
+      } catch {
+        setFuncionarios([]);
+      }
+    })();
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((x) => {
@@ -129,9 +172,17 @@ export default function CentroCustoCadastroScreen() {
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
-      const av = (a[sortKey] ?? "") as string;
-      const bv = (b[sortKey] ?? "") as string;
-      return sortDir === "asc" ? av.toString().localeCompare(bv.toString()) : bv.toString().localeCompare(av.toString());
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      // 31.2: headcount é number — usa comparação numérica para não ordenar "9" > "10" como string
+      if (typeof av === "number" || typeof bv === "number") {
+        const an = typeof av === "number" ? av : 0;
+        const bn = typeof bv === "number" ? bv : 0;
+        return sortDir === "asc" ? an - bn : bn - an;
+      }
+      const as = (av ?? "").toString();
+      const bs = (bv ?? "").toString();
+      return sortDir === "asc" ? as.localeCompare(bs) : bs.localeCompare(as);
     });
   }, [filtered, sortKey, sortDir]);
 
@@ -154,6 +205,7 @@ export default function CentroCustoCadastroScreen() {
   const kpis = useMemo(() => ({
     total: rows.length,
     ativos: rows.filter((r) => r.isActive).length,
+    headcountTotal: rows.reduce((acc, r) => acc + (r.headcount ?? 0), 0),
   }), [rows]);
 
   const save = async () => {
@@ -161,7 +213,24 @@ export default function CentroCustoCadastroScreen() {
     if (!draft.code.trim() || !draft.description.trim()) { toast.error("Código e descrição são obrigatórios"); return; }
     try {
       setSaving(true);
-      const payload = { code: draft.code.trim(), description: draft.description.trim(), manager: draft.manager?.trim() || null, notes: draft.notes?.trim() || null, isActive: draft.isActive, empresaId: draft.empresaId, validFrom: draft.validFrom || null, validUntil: draft.validUntil || null };
+      const headcountNum = draft.headcount ? Math.max(0, parseInt(draft.headcount, 10) || 0) : 0;
+      const payload = {
+        code: draft.code.trim(),
+        description: draft.description.trim(),
+        manager: draft.manager?.trim() || null,
+        notes: draft.notes?.trim() || null,
+        isActive: draft.isActive,
+        empresaId: draft.empresaId,
+        validFrom: draft.validFrom || null,
+        validUntil: draft.validUntil || null,
+        parentId: draft.parentId || null,
+        // Campos absorvidos de Department/Area (Sessão 31.2)
+        headcount: headcountNum,
+        phone: draft.phone?.trim() || null,
+        branchOrLocation: draft.branchOrLocation?.trim() || null,
+        ownerFuncionarioId: draft.ownerFuncionarioId || null,
+        description2: draft.description2?.trim() || null,
+      };
       if (draft.id) {
         await fetchJson(`/api/centros-custo/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         toast.success("Centro de Custo atualizado");
@@ -251,7 +320,7 @@ export default function CentroCustoCadastroScreen() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-lg font-bold">Centros de Custo</h4>
-          <div className="text-muted-foreground text-sm">Cadastro de centros de custo.</div>
+          <div className="text-muted-foreground text-sm">Cadastro unificado — absorveu Áreas e Departamentos (Sessão 31.2).</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={exportTsv} title="Exportar">
@@ -271,11 +340,12 @@ export default function CentroCustoCadastroScreen() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
           { label: "Total", value: kpis.total, color: "text-primary" },
           { label: "Ativos", value: kpis.ativos, color: "text-emerald-600" },
           { label: "Inativos", value: kpis.total - kpis.ativos, color: "text-zinc-500" },
+          { label: "Headcount total", value: kpis.headcountTotal, color: "text-blue-600" },
           { label: "Exibindo", value: filtered.length, color: "text-primary" },
         ].map((k) => (
           <div key={k.label} className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
@@ -311,6 +381,11 @@ export default function CentroCustoCadastroScreen() {
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("empresaCode")}>Empresa<SortIcon col="empresaCode" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("code")}>Código<SortIcon col="code" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("description")}>Descrição<SortIcon col="description" /></TableHead>
+              <TableHead>Pai</TableHead>
+              {/* 31.2: colunas herdadas de Area + Department */}
+              <TableHead className="cursor-pointer select-none text-right" onClick={() => toggleSort("headcount")}>Headcount<SortIcon col="headcount" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("ownerFuncionarioName")}>Responsável<SortIcon col="ownerFuncionarioName" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("branchOrLocation")}>Filial/Local<SortIcon col="branchOrLocation" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("validFrom")}>Data Início<SortIcon col="validFrom" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("validUntil")}>Data Fim<SortIcon col="validUntil" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("isActive")}>Status<SortIcon col="isActive" /></TableHead>
@@ -319,15 +394,21 @@ export default function CentroCustoCadastroScreen() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
             ) : paged.length ? paged.map((item) => {
               const today = new Date().toISOString().slice(0, 10);
               const isExpired = !!item.validUntil && item.validUntil < today;
+              // 31.2: Responsável prefere OwnerFuncionario (novo vínculo) e cai para Manager (campo legado livre)
+              const responsavel = item.ownerFuncionarioName || item.manager || null;
               return (
               <TableRow key={item.id}>
                 <TableCell className="text-sm text-muted-foreground font-mono">{item.empresaCode || "—"}</TableCell>
                 <TableCell className="font-mono text-sm">{item.code}</TableCell>
                 <TableCell className="text-sm">{item.description}</TableCell>
+                <TableCell className="text-xs text-muted-foreground font-mono">{item.parentCode ? `${item.parentCode}` : <span className="italic">—</span>}</TableCell>
+                <TableCell className="text-sm text-right font-mono">{item.headcount ?? 0}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{responsavel || <span className="italic">—</span>}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{item.branchOrLocation || <span className="italic">—</span>}</TableCell>
                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{fmtDate(item.validFrom) || "—"}</TableCell>
                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                   {fmtDate(item.validUntil) || "—"}
@@ -338,7 +419,29 @@ export default function CentroCustoCadastroScreen() {
                 <TableCell>{statusBadge(item.isActive)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => { setDraft({ id: item.id, code: item.code, description: item.description, manager: item.manager || "", notes: item.notes || "", isActive: item.isActive, empresaId: item.empresaId ?? null, empresaCode: item.empresaCode ?? null, empresaDescription: item.empresaDescription ?? null, validFrom: item.validFrom ?? "", validUntil: item.validUntil ?? "" }); setEditOpen(true); }}>
+                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => {
+                      setDraft({
+                        id: item.id,
+                        code: item.code,
+                        description: item.description,
+                        manager: item.manager || "",
+                        notes: item.notes || "",
+                        isActive: item.isActive,
+                        empresaId: item.empresaId ?? null,
+                        empresaCode: item.empresaCode ?? null,
+                        empresaDescription: item.empresaDescription ?? null,
+                        validFrom: item.validFrom ?? "",
+                        validUntil: item.validUntil ?? "",
+                        parentId: item.parentId ?? "",
+                        headcount: item.headcount != null ? String(item.headcount) : "",
+                        phone: item.phone ?? "",
+                        branchOrLocation: item.branchOrLocation ?? "",
+                        ownerFuncionarioId: item.ownerFuncionarioId ?? null,
+                        ownerFuncionarioName: item.ownerFuncionarioName ?? null,
+                        description2: item.description2 ?? "",
+                      });
+                      setEditOpen(true);
+                    }}>
                       <Pencil />
                     </Button>
                     <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(item)}>
@@ -349,7 +452,7 @@ export default function CentroCustoCadastroScreen() {
               </TableRow>
               );
             }) : (
-              <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Nenhum centro de custo encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={11} className="py-8 text-center text-muted-foreground">Nenhum centro de custo encontrado.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -400,6 +503,52 @@ export default function CentroCustoCadastroScreen() {
                 <option value="ativo">Ativo</option>
                 <option value="inativo">Inativo</option>
               </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Centro de custo pai (hierarquia)</label>
+              <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.parentId} onChange={(e) => setDraft((d) => ({ ...d, parentId: e.target.value }))}>
+                <option value="">— Raiz —</option>
+                {rows.filter((r) => r.id !== draft.id).map((r) => (
+                  <option key={r.id} value={r.id}>{r.code} — {r.description}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">Deixe vazio para CC raiz. O backend rejeita ciclos.</p>
+            </div>
+
+            {/* ── Campos absorvidos de Department (Sessão 31.2) ── */}
+            <div className="sm:col-span-2 pt-2 border-t border-border/40 mt-2">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Unidade operacional</div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Headcount planejado</label>
+              <Input type="number" min={0} placeholder="Ex: 10" value={draft.headcount} onChange={(e) => setDraft((d) => ({ ...d, headcount: e.target.value }))} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Telefone</label>
+              <Input placeholder="(11) 99999-9999" value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} maxLength={40} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Filial / Localização física</label>
+              <Input placeholder="Ex: Filial São Paulo — Andar 5" value={draft.branchOrLocation} onChange={(e) => setDraft((d) => ({ ...d, branchOrLocation: e.target.value }))} maxLength={160} />
+            </div>
+
+            {/* ── Campos absorvidos de Area (Sessão 31.2) ── */}
+            <div className="sm:col-span-2 pt-2 border-t border-border/40 mt-2">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Dono organizacional</div>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Funcionário responsável</label>
+              <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.ownerFuncionarioId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, ownerFuncionarioId: e.target.value || null }))}>
+                <option value="">— Nenhum —</option>
+                {funcionarios.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">Opcional. Vínculo com Funcionario (delete SET NULL).</p>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição detalhada</label>
+              <textarea className="min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" placeholder="Descrição complementar (opcional)" value={draft.description2} onChange={(e) => setDraft((d) => ({ ...d, description2: e.target.value }))} maxLength={1000} />
             </div>
           </div>
           <DialogFooter>

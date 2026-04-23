@@ -62,7 +62,7 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             q = q.Where(s => query.Statuses.Contains(s.Status));
 
         if (query.AreaId.HasValue)
-            q = q.Where(s => s.Solicitante != null && s.Solicitante.AreaId == query.AreaId.Value);
+            q = q.Where(s => s.Solicitante != null && s.Solicitante.CentroCustoId == query.AreaId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {

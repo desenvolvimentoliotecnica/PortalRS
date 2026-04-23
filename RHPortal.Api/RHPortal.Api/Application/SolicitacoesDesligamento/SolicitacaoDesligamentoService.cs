@@ -70,7 +70,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             q = q.Where(s => query.Statuses.Contains(s.Status));
 
         if (query.AreaId.HasValue)
-            q = q.Where(s => s.Funcionario != null && s.Funcionario.AreaId == query.AreaId.Value);
+            q = q.Where(s => s.Funcionario != null && s.Funcionario.CentroCustoId == query.AreaId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {

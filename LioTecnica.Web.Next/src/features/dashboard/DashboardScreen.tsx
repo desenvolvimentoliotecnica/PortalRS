@@ -663,6 +663,16 @@ export default function DashboardScreen({
           <p className="text-muted-foreground text-sm mt-0.5">Visão geral do recrutamento</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { window.location.href = "/app/dashboard/visao-por-perfil"; }}
+            className="gap-1.5"
+            title="Dashboard agregado por perfil (gestor / RH / diretor)"
+          >
+            <LayoutDashboard className="size-3.5" />
+            Visão por perfil
+          </Button>
           <Button variant="outline" size="sm" onClick={() => { if (!isEditMode) setFiltersOpen(true); }} disabled={isEditMode}>
             Filtros
           </Button>

@@ -86,7 +86,9 @@ const FIELD_LABELS: Record<string, string> = {
     solicitante: "Solicitante",
     // Promoção
     dataEfetiva: "Data Efetiva", justificativa: "Justificativa",
-    cargoAtual: "Cargo Atual", novoCargo: "Novo Cargo", areaAtual: "Área Atual", novaArea: "Nova Área",
+    cargoAtualNome: "Cargo Atual", novoCargoNome: "Novo Cargo",
+    centroCustoAtualNome: "Centro de Custo Atual", novoCentroCustoNome: "Novo Centro de Custo",
+    cargoAtual: "Cargo Atual", novoCargo: "Novo Cargo", areaAtual: "Centro de Custo Atual", novaArea: "Novo Centro de Custo",
     // Dependente
     tipoSolicitacao: "Tipo Solicitação", nomeCompleto: "Nome Completo", parentesco: "Parentesco",
     isPcd: "PCD", dependenteIR: "Dependente IR",

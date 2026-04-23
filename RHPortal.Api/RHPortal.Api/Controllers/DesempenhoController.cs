@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -10,6 +11,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/desempenho")]
+[RequireModule("desempenho")]
 public sealed class DesempenhoController : ControllerBase
 {
     private readonly AppDbContext _db;

@@ -18,7 +18,7 @@ public sealed class FuncionarioCreateRequestJsonConverter : JsonConverter<Funcio
         r.Status = GetEnum<FuncionarioStatus>(root, "Status", "status");
         r.Headcount = GetInt32(root, "Headcount", "headcount");
         r.UnitId = GetGuid(root, "UnitId", "unitId");
-        r.AreaId = GetGuid(root, "AreaId", "areaId");
+        r.CentroCustoId = GetGuid(root, "CentroCustoId", "centroCustoId");
         r.JobPositionId = GetGuid(root, "JobPositionId", "jobPositionId");
         r.RequisitoCategoriaId = GetGuid(root, "RequisitoCategoriaId", "requisitoCategoriaId");
         r.Notes = GetString(root, "Notes", "notes");

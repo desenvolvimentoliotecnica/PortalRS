@@ -745,7 +745,7 @@ export default function TenantsScreen() {
                                 id="newTenantId"
                                 value={newTenantId}
                                 onChange={(e) => setNewTenantId(e.target.value)}
-                                placeholder="ex: qualiit"
+                                placeholder="ex: acme"
                                 required
                                 maxLength={64}
                                 pattern="[a-zA-Z0-9][a-zA-Z0-9\-]{1,62}"
@@ -764,7 +764,7 @@ export default function TenantsScreen() {
                                 id="newName"
                                 value={newName}
                                 onChange={(e) => setNewName(e.target.value)}
-                                placeholder="ex: Qualiit"
+                                placeholder="ex: Acme Corp"
                                 required
                                 maxLength={120}
                                 disabled={creating}

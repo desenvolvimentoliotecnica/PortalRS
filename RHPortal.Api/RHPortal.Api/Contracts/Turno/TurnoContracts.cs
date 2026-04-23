@@ -8,7 +8,8 @@ public sealed record TurnoCreateRequest(
     [MaxLength(5)] string? StartTime,
     [MaxLength(5)] string? EndTime,
     [MaxLength(500)] string? Notes,
-    bool IsActive
+    bool IsActive,
+    Guid? UnidadeLotacaoId = null
 );
 
 public sealed record TurnoUpdateRequest(
@@ -17,7 +18,8 @@ public sealed record TurnoUpdateRequest(
     [MaxLength(5)] string? StartTime,
     [MaxLength(5)] string? EndTime,
     [MaxLength(500)] string? Notes,
-    bool IsActive
+    bool IsActive,
+    Guid? UnidadeLotacaoId = null
 );
 
 public sealed record TurnoResponse(
@@ -29,14 +31,17 @@ public sealed record TurnoResponse(
     string? Notes,
     bool IsActive,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    Guid? UnidadeLotacaoId = null,
+    string? UnidadeLotacaoNome = null
 );
 
 public sealed record TurnoLookupItem(
     Guid Id,
     string Code,
     string Description,
-    string DisplayLabel
+    string DisplayLabel,
+    Guid? UnidadeLotacaoId = null
 );
 
 /// <summary>Item para importação em lote de turnos.</summary>
@@ -46,7 +51,8 @@ public sealed record TurnoImportItem(
     [MaxLength(5)] string? StartTime,
     [MaxLength(5)] string? EndTime,
     [MaxLength(500)] string? Notes,
-    bool IsActive
+    bool IsActive,
+    Guid? UnidadeLotacaoId = null
 );
 
 public sealed record TurnoImportResult(int Created, int Updated, int Skipped, IReadOnlyList<string> Errors);

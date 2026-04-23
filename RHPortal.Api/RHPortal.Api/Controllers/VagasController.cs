@@ -10,6 +10,7 @@ using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using RHPortal.Api.Domain.Enums;
@@ -21,6 +22,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/vagas")]
+[RequireModule("recrutamento")]
 public sealed class VagasController : ControllerBase
 {
     private readonly ICurrentUserContext _userContext;
@@ -48,42 +50,45 @@ public sealed class VagasController : ControllerBase
     /// </summary>
     /// <param name="q">Busca textual por título/código.</param>
     /// <param name="status">Status da vaga (Aberta, Fechada, etc.).</param>
-    /// <param name="areaId">Filtrar por área.</param>
-    /// <param name="departmentId">Filtrar por departamento.</param>
+    /// <param name="centroCustoId">Filtrar por centro de custo (absorveu Area/Department em 31.2).</param>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<VagaListItemResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<VagaListItemResponse>>> List(
         [FromQuery] string? q,
         [FromQuery] VagaStatus? status,
-        [FromQuery] Guid? areaId,
-        [FromQuery] Guid? departmentId,
+        [FromQuery] Guid? centroCustoId,
         [FromServices] IListVagasHandler handler,
         CancellationToken ct)
     {
-        Guid? effectiveAreaId;
+        Guid? effectiveCentroCustoId;
         Guid? recrutadorUserId = null;
         if (_userContext.IsAdmin || _userContext.IsInRole("Owner"))
         {
-            effectiveAreaId = areaId;
+            effectiveCentroCustoId = centroCustoId;
         }
         else
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue)
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue)
             {
-                effectiveAreaId = _userContext.AreaId;
+                effectiveCentroCustoId = _userContext.CentroCustoId;
             }
             else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
             {
-                effectiveAreaId = null;
+                effectiveCentroCustoId = null;
                 recrutadorUserId = _userContext.UserId;
+            }
+            else if (_userContext.VagasDataScope == VagasDataScope.ByGestorRecrutador && _userContext.FuncionarioId.HasValue)
+            {
+                // Filtragem real acontece no ApplyVagasDataScopeFilter via navegação RecrutadorResponsavelUser.Funcionario.GestorDiretoId
+                effectiveCentroCustoId = null;
             }
             else
             {
-                effectiveAreaId = areaId;
+                effectiveCentroCustoId = centroCustoId;
             }
         }
 
-        var query = new VagaListQuery(q, status, effectiveAreaId, departmentId, recrutadorUserId);
+        var query = new VagaListQuery(q, status, effectiveCentroCustoId, recrutadorUserId);
         var items = await handler.HandleAsync(query, ct);
         return Ok(items);
     }
@@ -261,7 +266,7 @@ public sealed class VagasController : ControllerBase
             return NotFound();
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue && item.AreaId != _userContext.AreaId)
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue && item.CentroCustoId != _userContext.CentroCustoId)
                 return NotFound();
             if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue && item.RecrutadorResponsavelUserId != _userContext.UserId)
                 return NotFound();
@@ -491,6 +496,53 @@ public sealed class VagasController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Aprova a alçada salarial de uma vaga fora da faixa cadastrada (épico Fase 3C).
+    /// Após aprovação, a vaga pode ser salva mesmo com Salário fora da Faixa.
+    /// </summary>
+    [HttpPost("{id:guid}/aprovar-alcada-salarial")]
+    [ProducesResponseType(typeof(VagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VagaResponse>> AprovarAlcadaSalarial(
+        [FromRoute] Guid id,
+        [FromBody] AprovarAlcadaSalarialRequest request,
+        [FromServices] IVagaService vagaService,
+        CancellationToken ct)
+    {
+        if (_userContext.IsReadOnly) return Forbid();
+        if (!_userContext.IsAdmin && !_userContext.IsOwner && !_userContext.IsRH)
+            return Forbid();
+
+        try
+        {
+            var result = await vagaService.AprovarAlcadaSalarialAsync(id, request.Justificativa, request.ObservacaoAprovador, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Limpa uma alçada salarial previamente aprovada (volta a vaga a exigir faixa).</summary>
+    [HttpPost("{id:guid}/limpar-alcada-salarial")]
+    [ProducesResponseType(typeof(VagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VagaResponse>> LimparAlcadaSalarial(
+        [FromRoute] Guid id,
+        [FromServices] IVagaService vagaService,
+        CancellationToken ct)
+    {
+        if (_userContext.IsReadOnly) return Forbid();
+        if (!_userContext.IsAdmin && !_userContext.IsOwner && !_userContext.IsRH)
+            return Forbid();
+
+        var result = await vagaService.LimparAlcadaSalarialAsync(id, ct);
+        return result is null ? NotFound() : Ok(result);
     }
 
     private async Task RecalcMatchingScoresInBackgroundAsync(Guid vagaId, string tenantId)

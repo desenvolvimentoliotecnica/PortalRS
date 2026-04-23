@@ -45,7 +45,6 @@ public sealed class FuncionarioService : IFuncionarioService
             .AsNoTracking()
             .Include(x => x.Unit)
             .Include(x => x.UnidadeLotacao)
-            .Include(x => x.Area)
             .Include(x => x.JobPosition)
             .Include(x => x.RequisitoCategoria)
             .Include(x => x.GestorDireto)
@@ -60,7 +59,8 @@ public sealed class FuncionarioService : IFuncionarioService
                 (x.Email != null && EF.Functions.Like(x.Email, like)) ||
                 (x.Phone != null && EF.Functions.Like(x.Phone, like)) ||
                 (x.Unit != null && EF.Functions.Like(x.Unit.Name, like)) ||
-                (x.Area != null && EF.Functions.Like(x.Area.Name, like)) ||
+                (x.CentroCusto != null && EF.Functions.Like(x.CentroCusto.Description, like)) ||
+                (x.CentroCusto != null && EF.Functions.Like(x.CentroCusto.Code, like)) ||
                 (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Name, like)) ||
                 (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Code, like)) ||
                 (x.CdnFuncionario != null && EF.Functions.Like(x.CdnFuncionario, like)) ||
@@ -73,9 +73,6 @@ public sealed class FuncionarioService : IFuncionarioService
 
         if (query.UnitId.HasValue)
             q = q.Where(x => x.UnitId == query.UnitId.Value);
-
-        if (query.AreaId.HasValue)
-            q = q.Where(x => x.AreaId == query.AreaId.Value);
 
         if (query.JobPositionId.HasValue)
             q = q.Where(x => x.JobPositionId == query.JobPositionId.Value);
@@ -111,9 +108,9 @@ public sealed class FuncionarioService : IFuncionarioService
             "unit" => asc
                 ? q.OrderBy(x => x.Unit != null ? x.Unit.Name : "").ThenBy(x => x.Name)
                 : q.OrderByDescending(x => x.Unit != null ? x.Unit.Name : "").ThenByDescending(x => x.Name),
-            "area" => asc
-                ? q.OrderBy(x => x.Area != null ? x.Area.Name : "").ThenBy(x => x.Name)
-                : q.OrderByDescending(x => x.Area != null ? x.Area.Name : "").ThenByDescending(x => x.Name),
+            "area" or "centrocusto_desc" => asc
+                ? q.OrderBy(x => x.CentroCusto != null ? x.CentroCusto.Description : "").ThenBy(x => x.Name)
+                : q.OrderByDescending(x => x.CentroCusto != null ? x.CentroCusto.Description : "").ThenByDescending(x => x.Name),
             "jobposition" => asc
                 ? q.OrderBy(x => x.JobPosition != null ? x.JobPosition.Name : "").ThenBy(x => x.Name)
                 : q.OrderByDescending(x => x.JobPosition != null ? x.JobPosition.Name : "").ThenByDescending(x => x.Name),
@@ -140,8 +137,6 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.Headcount,
                 x.UnitId,
                 x.Unit != null ? x.Unit.Name : null,
-                x.AreaId,
-                x.Area != null ? x.Area.Name : null,
                 x.JobPositionId,
                 x.JobPosition != null ? x.JobPosition.Name : null,
                 x.RequisitoCategoriaId,
@@ -188,7 +183,6 @@ public sealed class FuncionarioService : IFuncionarioService
         return await _db.Funcionarios
             .AsNoTracking()
             .Include(x => x.Unit)
-            .Include(x => x.Area)
             .Include(x => x.JobPosition)
             .Include(x => x.RequisitoCategoria)
             .Include(x => x.GestorDireto)
@@ -206,8 +200,6 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.Headcount,
                 x.UnitId,
                 x.Unit != null ? x.Unit.Name : null,
-                x.AreaId,
-                x.Area != null ? x.Area.Name : null,
                 x.JobPositionId,
                 x.JobPosition != null ? x.JobPosition.Name : null,
                 x.JobPosition != null ? x.JobPosition.Code : null,
@@ -251,6 +243,14 @@ public sealed class FuncionarioService : IFuncionarioService
         string name = (request.Name ?? string.Empty).Trim();
         var normalizedEmail = NormalizeEmail(request.Email);
 
+        if (!string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            var emailJaExiste = await _db.Funcionarios
+                .AnyAsync(x => x.Email != null && x.Email == normalizedEmail, ct);
+            if (emailJaExiste)
+                throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioEmailDuplicado"]);
+        }
+
         ApplicationUser? user = null;
         if (request.UserId.HasValue && request.UserId.Value != Guid.Empty)
         {
@@ -264,8 +264,8 @@ public sealed class FuncionarioService : IFuncionarioService
                 normalizedEmail = NormalizeEmail(user.Email ?? "");
         }
 
-        if (request.UnitId.HasValue || request.AreaId.HasValue || request.JobPositionId.HasValue || request.RequisitoCategoriaId.HasValue)
-            await EnsureReferencesExist(request.UnitId, request.AreaId, request.JobPositionId, request.RequisitoCategoriaId, ct);
+        if (request.UnitId.HasValue || request.CentroCustoId.HasValue || request.JobPositionId.HasValue || request.RequisitoCategoriaId.HasValue)
+            await EnsureReferencesExist(request.UnitId, request.CentroCustoId, request.JobPositionId, request.RequisitoCategoriaId, ct);
 
         Guid? pessoaId = null;
         if (!string.IsNullOrWhiteSpace(normalizedEmail))
@@ -287,7 +287,7 @@ public sealed class FuncionarioService : IFuncionarioService
             Status = request.Status,
             Headcount = request.Headcount,
             UnitId = request.UnitId,
-            AreaId = request.AreaId,
+            CentroCustoId = request.CentroCustoId,
             JobPositionId = request.JobPositionId,
             RequisitoCategoriaId = request.RequisitoCategoriaId,
             Notes = TrimOrNull(request.Notes),
@@ -313,8 +313,16 @@ public sealed class FuncionarioService : IFuncionarioService
 
         var normalizedEmail = NormalizeEmail(request.Email);
 
-        if (request.UnitId.HasValue || request.AreaId.HasValue || request.JobPositionId.HasValue || request.RequisitoCategoriaId.HasValue)
-            await EnsureReferencesExist(request.UnitId, request.AreaId, request.JobPositionId, request.RequisitoCategoriaId, ct);
+        if (!string.IsNullOrWhiteSpace(normalizedEmail))
+        {
+            var emailConflitante = await _db.Funcionarios
+                .AnyAsync(x => x.Id != id && x.Email != null && x.Email == normalizedEmail, ct);
+            if (emailConflitante)
+                throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioEmailDuplicado"]);
+        }
+
+        if (request.UnitId.HasValue || request.CentroCustoId.HasValue || request.JobPositionId.HasValue || request.RequisitoCategoriaId.HasValue)
+            await EnsureReferencesExist(request.UnitId, request.CentroCustoId, request.JobPositionId, request.RequisitoCategoriaId, ct);
 
         entity.Name = (request.Name ?? string.Empty).Trim();
         entity.Email = string.IsNullOrWhiteSpace(normalizedEmail) ? null : normalizedEmail;
@@ -322,7 +330,7 @@ public sealed class FuncionarioService : IFuncionarioService
         entity.Status = request.Status;
         entity.Headcount = request.Headcount;
         entity.UnitId = request.UnitId;
-        entity.AreaId = request.AreaId;
+        entity.CentroCustoId = request.CentroCustoId;
         entity.JobPositionId = request.JobPositionId;
         entity.RequisitoCategoriaId = request.RequisitoCategoriaId;
         entity.Notes = TrimOrNull(request.Notes);
@@ -356,17 +364,17 @@ public sealed class FuncionarioService : IFuncionarioService
         return true;
     }
 
-    private async Task EnsureReferencesExist(Guid? unitId, Guid? areaId, Guid? jobPositionId, Guid? requisitoCategoriaId, CancellationToken ct)
+    private async Task EnsureReferencesExist(Guid? unitId, Guid? centroCustoId, Guid? jobPositionId, Guid? requisitoCategoriaId, CancellationToken ct)
     {
         if (unitId.HasValue)
         {
             var unitExists = await _db.Units.AnyAsync(x => x.Id == unitId.Value, ct);
             if (!unitExists) throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioUnitInvalid"]);
         }
-        if (areaId.HasValue)
+        if (centroCustoId.HasValue)
         {
-            var areaExists = await _db.Areas.AnyAsync(x => x.Id == areaId.Value, ct);
-            if (!areaExists) throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioAreaInvalid"]);
+            var ccExists = await _db.CentrosCusto.AnyAsync(x => x.Id == centroCustoId.Value, ct);
+            if (!ccExists) throw new InvalidOperationException(_localizer["ServiceErrors.FuncionarioCentroCustoInvalid"]);
         }
         if (jobPositionId.HasValue)
         {

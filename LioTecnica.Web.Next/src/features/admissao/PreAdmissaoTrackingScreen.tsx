@@ -42,7 +42,8 @@ interface PreAdmissaoDetail {
     dataAdmissao: string | null;
     cargo: string | null;
     jobPositionNome: string | null;
-    areaNome: string | null;
+    centroCustoNome: string | null;
+    areaNome?: string | null;
     unitNome: string | null;
     salario: number | null;
     observacaoRh: string | null;
@@ -498,7 +499,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     <InfoRow icon={<Mail className="size-4" />} label="E-mail" value={data.email} />
                     <InfoRow icon={<Phone className="size-4" />} label="Celular" value={data.celular} />
                     <InfoRow icon={<FileText className="size-4" />} label="CPF" value={data.cpf} />
-                    <InfoRow icon={<Building2 className="size-4" />} label="Área" value={data.areaNome} />
+                    <InfoRow icon={<Building2 className="size-4" />} label="Centro de Custo" value={data.centroCustoNome ?? data.areaNome} />
                     <InfoRow icon={<Briefcase className="size-4" />} label="Cargo" value={data.jobPositionNome} />
                     <InfoRow icon={<Building2 className="size-4" />} label="Unidade" value={data.unitNome} />
                     <InfoRow icon={<CalendarDays className="size-4" />} label="Data de Admissão" value={data.dataAdmissao ? formatDate(data.dataAdmissao) : null} />

@@ -8,6 +8,10 @@
 **/obj/
 *.docx
 
+# macOS metadata — nunca vai para o repo
+.DS_Store
+**/.DS_Store
+
 # Arquivos de ambiente sensíveis
 .env
 .env.local
@@ -16,6 +20,13 @@
 **/.env
 # Exceção: .env na raiz é template com placeholders (editar no servidor)
 !/.env
+
+# appsettings locais nunca devem ir para o repo — contêm connection strings,
+# senhas de Postgres e API keys de desenvolvimento. Use os arquivos
+# appsettings.Development.sample.json como template.
+**/appsettings.Development.json
+**/appsettings.Local.json
+!**/appsettings.Development.sample.json
 
 # Arquivos problemáticos no Windows
 nul

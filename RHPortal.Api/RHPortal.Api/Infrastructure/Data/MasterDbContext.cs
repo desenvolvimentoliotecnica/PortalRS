@@ -16,6 +16,8 @@ public sealed class MasterDbContext : DbContext
     public DbSet<AiModel> AiModels => Set<AiModel>();
     public DbSet<AiUsageRecord> AiUsageRecords => Set<AiUsageRecord>();
     public DbSet<OwnerAwsSettings> OwnerAwsSettings => Set<OwnerAwsSettings>();
+    public DbSet<TenantModule> TenantModules => Set<TenantModule>();
+    public DbSet<TenantPackage> TenantPackages => Set<TenantPackage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -109,6 +111,54 @@ public sealed class MasterDbContext : DbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Region).HasMaxLength(50);
             b.Property(x => x.BucketName).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<TenantModule>(b =>
+        {
+            b.ToTable("TenantModules");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ModuleKey).HasMaxLength(64).IsRequired();
+            b.Property(x => x.IsEnabled).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedByOwnerId);
+
+            b.HasOne(x => x.Tenant)
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.UpdatedByOwner)
+                .WithMany()
+                .HasForeignKey(x => x.UpdatedByOwnerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.ModuleKey }).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantPackage>(b =>
+        {
+            b.ToTable("TenantPackages");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.PackageKey).HasMaxLength(64).IsRequired();
+            b.Property(x => x.IsEnabled).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedByOwnerId);
+
+            b.HasOne(x => x.Tenant)
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.UpdatedByOwner)
+                .WithMany()
+                .HasForeignKey(x => x.UpdatedByOwnerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.PackageKey }).IsUnique();
         });
     }
 }

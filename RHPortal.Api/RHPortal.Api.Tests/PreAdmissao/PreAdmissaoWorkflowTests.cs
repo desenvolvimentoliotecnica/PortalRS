@@ -67,7 +67,8 @@ public sealed class PreAdmissaoWorkflowTests
         var service = new PreAdmissaoService(
             db, tenantMock.Object, userManager.Object,
             emailQueue.Object, italoService.Object, storage.Object, logger.Object,
-            httpAccessor.Object);
+            httpAccessor.Object,
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
 
         return (db, service);
     }
@@ -116,6 +117,39 @@ public sealed class PreAdmissaoWorkflowTests
         return pessoa.Id;
     }
 
+    private static async Task PreencherCamposObrigatoriosTotvsAsync(AppDbContext db, Guid id)
+    {
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().FirstAsync(x => x.Id == id);
+        entity.NomeAbreviado = "Fulano";
+        entity.PaisNacionalidade = "1058";
+        entity.DataNascimento = new DateOnly(1990, 1, 10);
+        entity.PaisNascimento = "1058";
+        entity.NaturalUf = "SP";
+        entity.NaturalCidade = "Sao Paulo";
+        entity.GrauInstrucao = 7;
+        entity.EstadoCivil = EstadoCivil.Solteiro;
+        entity.Sexo = Sexo.Masculino;
+        entity.Logradouro = "Rua A";
+        entity.Bairro = "Centro";
+        entity.Cidade = "Sao Paulo";
+        entity.Uf = "SP";
+        entity.Cep = "01001000";
+        entity.Cpf = CpfValido;
+        entity.OrigemFuncionario = 1;
+        entity.Cutis = 1;
+        entity.Cabelo = 1;
+        entity.Olhos = 1;
+        entity.MunicipioEnderecoIbge = 3550308;
+        entity.CategoriaSalarial = 1;
+        entity.DataAdmissao = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        entity.TipoFuncionario = 1;
+        entity.CodVinculoEmpregaticio = 10;
+        entity.EmitCartPonto = "S";
+        entity.TipoEstatistica = 1;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+    }
+
     // ── Submit (Rascunho/Enviado → Preenchido) ────────────────────────────────
 
     [Fact]
@@ -144,13 +178,16 @@ public sealed class PreAdmissaoWorkflowTests
     }
 
     [Fact]
-    public async Task Submit_StatusPreenchido_LancaInvalidOperationException()
+    public async Task Submit_StatusPreenchido_RevalidaEMantemPreenchido()
     {
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => svc.SubmitAsync(id, CancellationToken.None));
+        var result = await svc.SubmitAsync(id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
+        Assert.NotNull(result.SubmittedAtUtc);
     }
 
     [Fact]
@@ -185,6 +222,7 @@ public sealed class PreAdmissaoWorkflowTests
         // Sem email → CriarColaboradorAsync retorna early, sem chamar UserManager
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido, email: null);
+        await PreencherCamposObrigatoriosTotvsAsync(db, id);
         var aprovadorId = Guid.NewGuid();
 
         var result = await svc.ApproveAsync(

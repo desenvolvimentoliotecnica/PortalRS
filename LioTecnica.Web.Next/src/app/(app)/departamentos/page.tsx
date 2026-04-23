@@ -2,20 +2,18 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthGuard } from "@/hooks/useAuth";
 
-function DepartamentosRedirect() {
-    const router = useRouter();
-    useEffect(() => {
-        router.replace("/app/areas");
-    }, [router]);
-    return null;
-}
+/**
+ * Sessão 31.2 — consolidação Area+Department → CentroCusto.
+ * A rota /app/departamentos foi mantida como alias que redireciona para /app/centros-custo,
+ * preservando links antigos, bookmarks e deep-links de notificações.
+ */
+export default function DepartamentosRedirectPage() {
+  const router = useRouter();
 
-export default function DepartamentosPage() {
-    return (
-        <AuthGuard>
-            <DepartamentosRedirect />
-        </AuthGuard>
-    );
+  useEffect(() => {
+    router.replace("/centros-custo");
+  }, [router]);
+
+  return null;
 }

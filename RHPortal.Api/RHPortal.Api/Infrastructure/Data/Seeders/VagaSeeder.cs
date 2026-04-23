@@ -59,11 +59,6 @@ public static class VagaSeeder
         if (targetCount == 0)
             return;
 
-        var departmentsByCode = await db.Departments
-            .AsNoTracking()
-            .Where(d => d.Status == DepartmentStatus.Active)
-            .ToDictionaryAsync(x => x.Code, x => x, StringComparer.OrdinalIgnoreCase, ct);
-
         var unitsByCode = await db.Units
             .AsNoTracking()
             .ToDictionaryAsync(x => x.Code, x => x, StringComparer.OrdinalIgnoreCase, ct);
@@ -71,15 +66,13 @@ public static class VagaSeeder
         var funcionarios = await db.Funcionarios.AsNoTracking().ToListAsync(ct);
         var jobPositions = await db.JobPositions.AsNoTracking().ToListAsync(ct);
 
-        var areas = await db.Areas.AsNoTracking()
-            .Where(a => a.IsActive)
+        // 31.2: CentroCusto absorveu Area+Department; seeder itera sobre centros ativos.
+        var centrosCusto = await db.CentrosCusto.AsNoTracking()
+            .Where(cc => cc.IsActive)
             .ToListAsync(ct);
 
-        if (areas.Count == 0)
-            throw new InvalidOperationException(localizer["SeedErrors.NoAreas"]);
-
-        if (departmentsByCode.Count == 0)
-            throw new InvalidOperationException(localizer["SeedErrors.NoDepartments"]);
+        if (centrosCusto.Count == 0)
+            throw new InvalidOperationException(localizer["SeedErrors.NoCentrosCusto"]);
 
         if (unitsByCode.Count == 0)
             throw new InvalidOperationException(localizer["SeedErrors.NoUnits"]);
@@ -116,34 +109,33 @@ public static class VagaSeeder
         var descriptions = NormalizeTemplateMap(patterns.Descriptions);
         var requirements = NormalizeRequirements(LoadRequirements(requirementsFile, localizer).Requirements);
 
-        var funcionariosByArea = funcionarios
-            .Where(f => f.AreaId.HasValue)
-            .GroupBy(f => f.AreaId!.Value)
+        var funcionariosByCentroCusto = funcionarios
+            .Where(f => f.CentroCustoId.HasValue)
+            .GroupBy(f => f.CentroCustoId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        var cargosByArea = jobPositions
-            .Where(j => j.AreaId.HasValue)
-            .GroupBy(j => j.AreaId!.Value)
+        var cargosByCentroCusto = jobPositions
+            .Where(j => j.CentroCustoId.HasValue)
+            .GroupBy(j => j.CentroCustoId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var units = unitsByCode.Values.ToList();
-        var departments = departmentsByCode.Values.ToList();
 
         var toCreate = targetCount - existingCount;
-        var perArea = toCreate / areas.Count;
-        var remainder = toCreate % areas.Count;
+        var perArea = toCreate / centrosCusto.Count;
+        var remainder = toCreate % centrosCusto.Count;
 
         var areaCounters = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var toAdd = new List<Vaga>();
 
-        foreach (var area in areas)
+        foreach (var cc in centrosCusto)
         {
             for (var i = 0; i < perArea; i++)
-                AddVagaForArea(area);
+                AddVagaForCentroCusto(cc);
         }
 
         for (var i = 0; i < remainder; i++)
-            AddVagaForArea(faker.PickRandom(areas));
+            AddVagaForCentroCusto(faker.PickRandom(centrosCusto));
 
         if (toAdd.Count > 0)
         {
@@ -161,24 +153,23 @@ public static class VagaSeeder
             }
         }
 
-        void AddVagaForArea(Area areaEntity)
+        void AddVagaForCentroCusto(CentroCusto ccEntity)
         {
-            var areaCode = NormalizeAreaCode(areaEntity.Code);
+            var areaCode = NormalizeAreaCode(ccEntity.Code);
             if (string.IsNullOrWhiteSpace(areaCode))
                 return;
 
             var code = GetNextCode(areaCounters, areaCode, existingSet);
             var unit = units[faker.Random.Int(0, units.Count - 1)];
-            var depEntity = ResolveDepartment(departmentsByCode, departments, areaCode, faker);
 
-            if (!funcionariosByArea.TryGetValue(areaEntity.Id, out var funcs) || funcs.Count == 0)
+            if (!funcionariosByCentroCusto.TryGetValue(ccEntity.Id, out var funcs) || funcs.Count == 0)
             {
                 if (funcionarios.Count == 0)
                     throw new InvalidOperationException(localizer["SeedErrors.NoValidFuncionario"]);
             }
 
             var cargoId =
-                (cargosByArea.TryGetValue(areaEntity.Id, out var cargos) && cargos.Count > 0)
+                (cargosByCentroCusto.TryGetValue(ccEntity.Id, out var cargos) && cargos.Count > 0)
                     ? cargos[faker.Random.Int(0, cargos.Count - 1)].Id
                     : jobPositions[faker.Random.Int(0, jobPositions.Count - 1)].Id;
 
@@ -206,7 +197,7 @@ public static class VagaSeeder
 
             var now = DateTimeOffset.UtcNow;
             var title = BuildTitle(faker, areaCode, titlePatterns, localizer);
-            var description = BuildDescription(faker, areaEntity, descriptions, localizer);
+            var description = BuildDescription(faker, ccEntity, descriptions, localizer);
 
             var vaga = new Vaga
             {
@@ -215,8 +206,7 @@ public static class VagaSeeder
                 Codigo = code,
                 Titulo = title,
 
-                AreaId = areaEntity.Id,
-                DepartmentId = depEntity.Id,
+                CentroCustoId = ccEntity.Id,
 
                 Status = ParseEnumOrFirst<VagaStatus>("Aberta", "Open", "Ativa", "EmAberto"),
                 Senioridade = senior,
@@ -316,41 +306,6 @@ public static class VagaSeeder
     private static string NormalizeAreaCode(string? areaCode)
         => (areaCode ?? string.Empty).Trim().ToUpperInvariant();
 
-    private static Department ResolveDepartment(
-        IReadOnlyDictionary<string, Department> departmentsByCode,
-        IReadOnlyList<Department> departments,
-        string areaCode,
-        Faker faker)
-    {
-        var depCodeFromArea = MapDepartmentCodeFromAreaCode(areaCode);
-        if (!string.IsNullOrWhiteSpace(depCodeFromArea) &&
-            departmentsByCode.TryGetValue(depCodeFromArea, out var dep))
-        {
-            return dep;
-        }
-
-        return departments[faker.Random.Int(0, departments.Count - 1)];
-    }
-
-    private static string? MapDepartmentCodeFromAreaCode(string? areaCode)
-    {
-        var c = (areaCode ?? "").Trim().ToUpperInvariant();
-        return c switch
-        {
-            "OPS" => "OPS",
-            "SCM" => "LOG",
-            "COM" => "COM",
-            "TEC" => "TEC",
-            "FIN" => "FIN",
-            "RH" => "RH",
-            "QUA" => "QUA",
-            "ENG" => "ENG",
-            "ADM" => "ADM",
-            "PDI" => "PDI",
-            _ => null
-        };
-    }
-
     private static string GetNextCode(
         IDictionary<string, int> areaCounters,
         string areaCode,
@@ -416,13 +371,13 @@ public static class VagaSeeder
 
     private static string BuildDescription(
         Faker faker,
-        Area area,
+        CentroCusto centroCusto,
         IReadOnlyDictionary<string, string[]> descriptions,
         IStringLocalizer<SeedMessages> localizer)
     {
-        var templates = GetPatternValues(descriptions, area.Code ?? string.Empty, "descriptions", localizer);
+        var templates = GetPatternValues(descriptions, centroCusto.Code ?? string.Empty, "descriptions", localizer);
         var template = faker.PickRandom(templates);
-        return ApplyDescriptionTemplate(faker, template, area);
+        return ApplyDescriptionTemplate(faker, template, centroCusto);
     }
 
     private static VagaSeedPatterns LoadPatterns(string? patternsFile, IStringLocalizer<SeedMessages> localizer)
@@ -689,10 +644,11 @@ public static class VagaSeeder
         throw new InvalidOperationException(localizer["SeedErrors.PatternValueMissing", name, areaCode, DefaultPatternKey]);
     }
 
-    private static string ApplyDescriptionTemplate(Faker faker, string template, Area area)
+    private static string ApplyDescriptionTemplate(Faker faker, string template, CentroCusto centroCusto)
     {
-        var areaName = (area.Name ?? string.Empty).Trim();
-        var areaCode = NormalizeAreaCode(area.Code);
+        // Description do CC substitui Name (legado de Area): é a descrição apresentada ao usuário.
+        var areaName = (centroCusto.Description ?? string.Empty).Trim();
+        var areaCode = NormalizeAreaCode(centroCusto.Code);
         var resolvedName = string.IsNullOrWhiteSpace(areaName) ? areaCode : areaName;
 
         var result = template;

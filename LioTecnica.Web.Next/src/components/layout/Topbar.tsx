@@ -1,10 +1,10 @@
 "use client";
 
-import type { BffNavItem } from "@/lib/schemas/bff";
+import type { NavGrupoResponse } from "@/lib/schemas/navegacao";
 import TopbarClient from "@/components/layout/TopbarClient";
 import { useAuth } from "@/hooks/useAuth";
 
-export default function Topbar({ navItems }: { navItems: BffNavItem[] }) {
+export default function Topbar({ grupos }: { grupos: NavGrupoResponse[] }) {
   const { me } = useAuth();
-  return <TopbarClient navItems={navItems} me={me} />;
+  return <TopbarClient grupos={grupos} me={me} />;
 }

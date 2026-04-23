@@ -67,7 +67,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     {
         var q = _db.SolicitacoesVaga.AsNoTracking()
             .Include(s => s.Solicitante)
-            .Include(s => s.Area)
+            .Include(s => s.CentroCusto)
             .AsQueryable();
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
@@ -100,8 +100,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 .ToListAsync(ct);
 
             // Also apply VagasDataScope for "own" items
-            if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.AreaId.HasValue)
-                q = q.Where(s => s.AreaId == _currentUser.AreaId.Value
+            // 31.2: CentroCusto absorveu Area — o escopo ByArea agora é por CentroCusto.
+            if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.CentroCustoId.HasValue)
+                q = q.Where(s => s.CentroCustoId == _currentUser.CentroCustoId.Value
                     || solicitacaoIdsComEtapaPendente.Contains(s.Id));
             else if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && currentFuncionarioId.HasValue)
                 q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value
@@ -137,7 +138,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
                 AprovadorId = s.AprovadorId,
                 AprovadorNome = s.Aprovador != null ? s.Aprovador.Name : (string?)null,
-                AreaName = s.Area != null ? s.Area.Name : (string?)null,
+                CentroCustoNome = s.CentroCusto != null ? s.CentroCusto.Description : (string?)null,
                 s.QtdPosicoes, s.TipoSolicitacao, s.IsConfidencial, s.SubstituidoNome, s.CreatedAtUtc,
             }).ToListAsync(ct);
 
@@ -150,7 +151,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             etapasPendentes.TryGetValue(r.Id, out var ep);
             return new SolicitacaoVagaGridRow(
                 r.Id, r.Titulo, r.Urgencia, r.Status, r.SolicitanteId, r.SolicitanteNome,
-                r.AprovadorId, r.AprovadorNome, r.AreaName, r.QtdPosicoes,
+                r.AprovadorId, r.AprovadorNome, r.CentroCustoNome, r.QtdPosicoes,
                 r.TipoSolicitacao, r.IsConfidencial, r.SubstituidoNome, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,
                 ep?.CanAssume ?? false);
@@ -163,7 +164,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(x => x.Solicitante)
             .Include(x => x.Aprovador)
             .Include(x => x.JobPosition)
-            .Include(x => x.Area)
             .Include(x => x.Unit)
             .Include(x => x.Empresa)
             .Include(x => x.CentroCusto)
@@ -274,7 +274,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             SolicitanteId = resolvedSolicitanteId,
             AprovadorId = request.AprovadorId,
             JobPositionId = request.JobPositionId,
-            AreaId = request.AreaId,
             UnitId = request.UnitId,
             Titulo = request.Titulo,
             Justificativa = request.Justificativa,
@@ -325,7 +324,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             SolicitanteId = resolvedSolicitanteId,
             AprovadorId = source.AprovadorId,
             JobPositionId = source.JobPositionId,
-            AreaId = source.AreaId,
             UnitId = source.UnitId,
             EmpresaId = source.EmpresaId,
             CentroCustoId = source.CentroCustoId,
@@ -457,7 +455,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         entity.QtdPosicoes = Math.Max(request.QtdPosicoes, 1);
         entity.Urgencia = request.Urgencia;
         entity.JobPositionId = request.JobPositionId;
-        entity.AreaId = request.AreaId;
         entity.UnitId = request.UnitId;
         entity.AprovadorId = request.AprovadorId;
         // Sprint 1
@@ -731,7 +728,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             Id = vagaId,
             TenantId = tenantId,
             Titulo = entity.Titulo,
-            AreaId = entity.AreaId,
             Status = VagaStatus.Rascunho,
             QuantidadeVagas = entity.QtdPosicoes,
             DescricaoInterna = entity.Justificativa,
@@ -1028,8 +1024,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.Aprovador?.Name,
         s.JobPositionId,
         s.JobPosition?.Name,
-        s.AreaId,
-        s.Area?.Name,
         s.UnitId,
         s.Unit?.Name,
         s.VagaId,

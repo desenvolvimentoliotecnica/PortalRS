@@ -120,13 +120,31 @@ public sealed class SolicitacaoVagaServiceTests
             Status = status,
             TipoSolicitacao = TipoSolicitacaoVaga.VagaNova,
             IsConfidencial = false,
-            AreaId = areaId,
+            CentroCustoId = areaId,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
         db.SolicitacoesVaga.Add(entity);
         db.SaveChanges();
         return entity.Id;
+    }
+
+    private static void SeedEtapaPendente(AppDbContext db, Guid solicitacaoId, Guid? aprovadorId = null)
+    {
+        db.SolicitacoesAprovacaoEtapa.Add(new SolicitacaoAprovacaoEtapa
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            SolicitacaoId = solicitacaoId,
+            TipoFluxo = TipoFluxoAprovacao.RequisicaoPessoal,
+            Ordem = 1,
+            Label = "Aprovacao",
+            AprovadorId = aprovadorId,
+            Status = StatusAprovacao.Pendente,
+            AcaoEtapa = AcaoEtapa.Nenhuma,
+            MomentoAcao = MomentoAcao.AoChegar,
+        });
+        db.SaveChanges();
     }
 
     // ── Criação ───────────────────────────────────────────────────────────────
@@ -244,10 +262,23 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Submit_RascunhoComAprovadorIdFallback_TransicionaParaPendenteAprovacao()
     {
-        // Sem Funcionario, sem RegraAprovacao → usa AprovadorId como fallback
+        // Configuração explícita de etapa fixa para garantir aprovador resolvido
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var aprovadorFakeId = Guid.NewGuid();
+        var aprovadorFakeId = SeedFuncionario(db, Guid.NewGuid());
+        db.Set<EtapaConfigAprovacao>().Add(new EtapaConfigAprovacao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            TipoFluxo = TipoFluxoAprovacao.RequisicaoPessoal,
+            Ordem = 1,
+            Label = "Aprovacao",
+            TipoAprovador = TipoAprovador.FuncionarioFixo,
+            FuncionarioFixoId = aprovadorFakeId,
+            Ativo = true,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
+        db.SaveChanges();
         var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Rascunho,
             aprovadorId: aprovadorFakeId);
 
@@ -266,15 +297,22 @@ public sealed class SolicitacaoVagaServiceTests
     }
 
     [Fact]
-    public async Task Submit_SemNenhumAprovadorConfigurado_LancaInvalidOperationException()
+    public async Task Submit_SemNenhumAprovadorConfigurado_CriaEtapaPendenteSemAprovador()
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         // Sem AprovadorId, sem GestorDireto, sem RegraAprovacao
         var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Rascunho, aprovadorId: null);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => svc.SubmitAsync(id, CancellationToken.None));
+        var result = await svc.SubmitAsync(id, CancellationToken.None);
+
+        Assert.True(result);
+        var etapa = await db.SolicitacoesAprovacaoEtapa.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.SolicitacaoId == id);
+        Assert.NotNull(etapa);
+        Assert.Null(etapa!.AprovadorId);
+        Assert.Null(etapa.RoleFilaId);
+        Assert.Equal(StatusAprovacao.Pendente, etapa.Status);
     }
 
     [Fact]
@@ -297,6 +335,7 @@ public sealed class SolicitacaoVagaServiceTests
         var funcId = SeedFuncionario(db);
         // Sem AreaId → não tenta criar Vaga automaticamente
         var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.PendenteAprovacao);
+        SeedEtapaPendente(db, id, aprovadorId: funcId);
 
         var result = await svc.ApproveAsync(id, "Aprovado com excelência", CancellationToken.None);
 

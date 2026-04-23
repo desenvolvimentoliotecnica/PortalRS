@@ -204,4 +204,59 @@ public sealed class LoggingController : ControllerBase
 
         return Ok(new RequestLogSummaryResponse(topRoutes, topUsers, statuses));
     }
+
+    /// <summary>
+    /// Lista flat de log entries (logs operacionais do tenant) — usado pela tela
+    /// /app/admin/operational-logs. Suporta busca em Message/Category e filtro por Level.
+    /// </summary>
+    [RequirePermission("logs.view")]
+    [HttpGet("entries")]
+    public async Task<ActionResult<OperationalLogListResponse>> ListEntries(
+        [FromServices] AppDbContext db,
+        [FromQuery] string? q = null,
+        [FromQuery] string? level = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 5, 200);
+
+        var query = db.LogEntries.AsNoTracking();
+
+        var levelFilter = (level ?? string.Empty).Trim();
+        if (!string.IsNullOrEmpty(levelFilter))
+            query = query.Where(x => x.Level.ToLower() == levelFilter.ToLower());
+
+        var searchText = (q ?? string.Empty).Trim();
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            query = query.Where(x =>
+                x.Message.Contains(searchText) ||
+                x.Category.Contains(searchText) ||
+                (x.ExceptionMessage != null && x.ExceptionMessage.Contains(searchText)) ||
+                (x.ExceptionType != null && x.ExceptionType.Contains(searchText)));
+        }
+
+        var totalCount = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderByDescending(x => x.OccurredAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new OperationalLogItem(
+                x.Id,
+                x.Level,
+                x.Message,
+                x.Category,
+                x.OccurredAt,
+                x.ExceptionType != null
+                    ? (x.ExceptionType + (x.ExceptionMessage != null ? ": " + x.ExceptionMessage : string.Empty)
+                        + (x.ExceptionStackTrace != null ? "\n" + x.ExceptionStackTrace : string.Empty))
+                    : null
+            ))
+            .ToListAsync(ct);
+
+        return Ok(new OperationalLogListResponse(items, totalCount));
+    }
 }

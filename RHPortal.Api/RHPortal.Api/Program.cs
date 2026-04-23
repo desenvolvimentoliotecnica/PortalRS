@@ -21,8 +21,6 @@ using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Agenda;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
-using RhPortal.Api.Application.Departments;
-using RhPortal.Api.Application.Departments.Handlers;
 using RhPortal.Api.Application.JobPositions;
 using RhPortal.Api.Application.JobPositions.Handlers;
 using RhPortal.Api.Application.Funcionarios;
@@ -38,6 +36,7 @@ using RhPortal.Api.Application.Colaborador;
 using RhPortal.Api.Application.ItaloIntegracao;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Application.Menus;
+using RhPortal.Api.Application.Navegacao;
 using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Units;
@@ -267,6 +266,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.OpenAiProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
+builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();
 builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
@@ -408,9 +408,9 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ModuleAuthorizationHandler>();
 
 // Application services
-builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
@@ -433,10 +433,14 @@ builder.Services.AddScoped<IFaseProcessoService, FaseProcessoService>();
 builder.Services.AddScoped<ICampoPersonalizadoService, CampoPersonalizadoService>();
 builder.Services.AddScoped<IComunicacaoService, ComunicacaoService>();
 builder.Services.AddScoped<IAprovacaoFaixaService, AprovacaoFaixaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Dashboard.IDashboardAgregadoService, RhPortal.Api.Application.Dashboard.DashboardAgregadoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.TenantConfiguracao.ITenantConfiguracaoService, RhPortal.Api.Application.TenantConfiguracao.TenantConfiguracaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.TenantBranding.ITenantBrandingService, RhPortal.Api.Application.TenantBranding.TenantBrandingService>();
 builder.Services.AddScoped<RhPortal.Api.Application.NineBox.INineBoxService, RhPortal.Api.Application.NineBox.NineBoxService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Metas.IMetaService, RhPortal.Api.Application.Metas.MetaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoService, RhPortal.Api.Application.Avaliacao.AvaliacaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoConviteService, RhPortal.Api.Application.Avaliacao.AvaliacaoConviteService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoCalibragemService, RhPortal.Api.Application.Avaliacao.AvaliacaoCalibragemService>();
 builder.Services.AddScoped<IColaboradorService, ColaboradorService>();
 builder.Services.Configure<RhPortal.Api.Infrastructure.Storage.AwsOptions>(builder.Configuration.GetSection("Aws"));
 builder.Services.AddScoped<RhPortal.Api.Application.AwsSettings.IAwsSettingsService, RhPortal.Api.Application.AwsSettings.AwsSettingsService>();
@@ -450,6 +454,59 @@ builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 builder.Services.AddScoped<IVagaService, VagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.PropostasVaga.IPropostaVagaService, RhPortal.Api.Application.PropostasVaga.PropostaVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaService, RhPortal.Api.Application.Candidaturas.CandidaturaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaNotificacaoService, RhPortal.Api.Application.Candidaturas.CandidaturaNotificacaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.INotificacaoTemplateService, RhPortal.Api.Application.Candidaturas.NotificacaoTemplateService>();
+builder.Services.Configure<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>(
+    builder.Configuration.GetSection(RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions.SectionName));
+
+// HttpClients nomeados para os provedores reais (configurados sob demanda).
+builder.Services.AddHttpClient(RhPortal.Api.Messaging.WhatsApp.TwilioWhatsAppMessageSender.HttpClientName,
+    (sp, http) =>
+    {
+        var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>>().CurrentValue;
+        http.Timeout = TimeSpan.FromSeconds(20);
+        if (!string.IsNullOrWhiteSpace(opts.Twilio.BaseUrl))
+            http.BaseAddress = new Uri(opts.Twilio.BaseUrl.TrimEnd('/') + "/");
+    });
+builder.Services.AddHttpClient(RhPortal.Api.Messaging.WhatsApp.MetaCloudWhatsAppMessageSender.HttpClientName,
+    (sp, http) =>
+    {
+        var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>>().CurrentValue;
+        http.Timeout = TimeSpan.FromSeconds(20);
+        if (!string.IsNullOrWhiteSpace(opts.MetaCloud.BaseUrl))
+            http.BaseAddress = new Uri(opts.MetaCloud.BaseUrl.TrimEnd('/') + "/");
+    });
+
+// Resolução do provider WhatsApp por configuração (Logging | Twilio | MetaCloud).
+// Default = "Logging" (stub seguro). Mudança acontece via appsettings sem recompilar.
+builder.Services.AddSingleton<RhPortal.Api.Messaging.WhatsApp.IWhatsAppMessageSender>(sp =>
+{
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>>().CurrentValue;
+    var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>();
+    var httpFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var monitor = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>>();
+
+    var provider = (opts.Provider ?? "Logging").Trim();
+    if (string.Equals(provider, "Twilio", StringComparison.OrdinalIgnoreCase))
+    {
+        return new RhPortal.Api.Messaging.WhatsApp.TwilioWhatsAppMessageSender(
+            httpFactory.CreateClient(RhPortal.Api.Messaging.WhatsApp.TwilioWhatsAppMessageSender.HttpClientName),
+            monitor,
+            logger.CreateLogger<RhPortal.Api.Messaging.WhatsApp.TwilioWhatsAppMessageSender>());
+    }
+    if (string.Equals(provider, "MetaCloud", StringComparison.OrdinalIgnoreCase))
+    {
+        return new RhPortal.Api.Messaging.WhatsApp.MetaCloudWhatsAppMessageSender(
+            httpFactory.CreateClient(RhPortal.Api.Messaging.WhatsApp.MetaCloudWhatsAppMessageSender.HttpClientName),
+            monitor,
+            logger.CreateLogger<RhPortal.Api.Messaging.WhatsApp.MetaCloudWhatsAppMessageSender>());
+    }
+    // Default seguro
+    return new RhPortal.Api.Messaging.WhatsApp.LoggingWhatsAppMessageSender(
+        logger.CreateLogger<RhPortal.Api.Messaging.WhatsApp.LoggingWhatsAppMessageSender>());
+});
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
 builder.Services.AddScoped<IPessoaService, PessoaService>();
 builder.Services.AddScoped<ICvGptExtractor, CvGptExtractor>();
@@ -475,13 +532,11 @@ builder.Services.AddScoped<ITenantProvisioningService, TenantProvisioningService
 builder.Services.AddScoped<UserAdministrationService>();
 builder.Services.AddScoped<RoleAdministrationService>();
 builder.Services.AddScoped<MenuAdministrationService>();
+builder.Services.AddScoped<TenantPackageService>();
+builder.Services.AddScoped<TenantModuleService>();
+builder.Services.AddScoped<NavegacaoSidebarService>();
 
-// Departamentos
-builder.Services.AddScoped<IListDepartmentsHandler, ListDepartmentsHandler>();
-builder.Services.AddScoped<IGetDepartmentByIdHandler, GetDepartmentByIdHandler>();
-builder.Services.AddScoped<ICreateDepartmentHandler, CreateDepartmentHandler>();
-builder.Services.AddScoped<IUpdateDepartmentHandler, UpdateDepartmentHandler>();
-builder.Services.AddScoped<IDeleteDepartmentHandler, DeleteDepartmentHandler>();
+// Departamentos: removidos em 31.2 — consolidados em CentroCusto.
 
 // Unidades|Filiais
 builder.Services.AddScoped<IListUnitsHandler, ListUnitsHandler>();

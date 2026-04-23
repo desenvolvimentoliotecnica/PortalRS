@@ -31,7 +31,7 @@ interface PromocaoDraft {
     funcionarioId: string | null;
     dataEfetiva: string;
     novoCargoId: string | null;
-    novaAreaId: string | null;
+    novoCentroCustoId: string | null;
     novaUnidadeId: string | null;
     empresaId: string | null;
     unitId: string | null;
@@ -77,7 +77,7 @@ const emptyDraft: PromocaoDraft = {
     funcionarioId: null,
     dataEfetiva: "",
     novoCargoId: null,
-    novaAreaId: null,
+    novoCentroCustoId: null,
     novaUnidadeId: null,
     empresaId: null,
     unitId: null,
@@ -387,7 +387,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved, view
                         funcionarioId: d?.funcionarioId ? String(d.funcionarioId) : null,
                         dataEfetiva: d?.dataEfetiva ? String(d.dataEfetiva).slice(0, 10) : "",
                         novoCargoId: d?.novoCargoId ? String(d.novoCargoId) : null,
-                        novaAreaId: d?.novaAreaId ? String(d.novaAreaId) : null,
+                        novoCentroCustoId: d?.novoCentroCustoId ? String(d.novoCentroCustoId) : null,
                         novaUnidadeId: d?.novaUnidadeId ? String(d.novaUnidadeId) : null,
                         empresaId: d?.empresaId ? String(d.empresaId) : null,
                         unitId: d?.unitId ? String(d.unitId) : null,
@@ -431,7 +431,7 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved, view
             funcionarioId: draft.funcionarioId,
             dataEfetiva: draft.dataEfetiva,
             novoCargoId: draft.novoCargoId,
-            novaAreaId: draft.novaAreaId || null,
+            novoCentroCustoId: draft.novoCentroCustoId || null,
             novaUnidadeId: draft.novaUnidadeId || null,
             empresaId: draft.empresaId,
             unitId: draft.unitId,

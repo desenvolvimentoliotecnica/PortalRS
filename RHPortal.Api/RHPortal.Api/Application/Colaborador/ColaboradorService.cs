@@ -46,7 +46,7 @@ public sealed class ColaboradorService : IColaboradorService
     public async Task<ColaboradorPerfilResponse?> GetPerfilAsync(Guid funcionarioId, CancellationToken ct)
     {
         var f = await _db.Funcionarios.AsNoTracking()
-            .Include(x => x.Area)
+            .Include(x => x.CentroCusto)
             .Include(x => x.Unit)
             .Include(x => x.JobPosition)
             .FirstOrDefaultAsync(x => x.Id == funcionarioId, ct);
@@ -71,7 +71,7 @@ public sealed class ColaboradorService : IColaboradorService
         f.Name,
         f.Email ?? string.Empty,
         f.Phone,
-        f.Area?.Name,
+        f.CentroCusto?.Description,
         f.Unit?.Name,
         f.JobPosition?.Name,
         string.IsNullOrWhiteSpace(f.AvatarFileName) ? null : $"/api/colaborador/perfil/avatar"

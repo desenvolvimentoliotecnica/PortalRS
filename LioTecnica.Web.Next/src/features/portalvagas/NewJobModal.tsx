@@ -5,9 +5,13 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
-type LookupItem = { id: string; name: string };
+type CentroCustoLookup = { id: string; code: string; description: string; displayLabel?: string };
 type EnumOption = { code: string; text: string };
 type EnumMap = Record<string, EnumOption[]>;
+
+function ccLabel(c: CentroCustoLookup): string {
+  return c.displayLabel ?? (c.code ? `${c.code} — ${c.description}` : c.description);
+}
 
 function parseMoneyBR(val: string): number | null {
   if (!val || typeof val !== "string") return null;
@@ -34,8 +38,7 @@ interface NewJobModalProps {
 export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps) {
   const [alert, setAlert] = useState("");
   const [loading, setLoading] = useState(false);
-  const [areas, setAreas] = useState<LookupItem[]>([]);
-  const [departments, setDepartments] = useState<LookupItem[]>([]);
+  const [centrosCusto, setCentrosCusto] = useState<CentroCustoLookup[]>([]);
   const [enums, setEnums] = useState<EnumMap>({});
   const [ufs, setUfs] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
@@ -43,8 +46,7 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
 
   const [form, setForm] = useState({
     titulo: "",
-    areaId: "",
-    departmentId: "",
+    centroCustoId: "",
     status: "Aberta",
     modalidade: "",
     senioridade: "",
@@ -75,15 +77,13 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
     if (!open) return;
     let alive = true;
     Promise.all([
-      apiFetch("/api/lookup/areas", { cache: "no-store" }).then((r) => r.json()),
-      apiFetch("/api/lookup/departments", { cache: "no-store" }).then((r) => r.json()),
+      apiFetch("/api/centros-custo/lookup", { cache: "no-store" }).then((r) => r.json()),
       apiFetch("/api/lookup/enums", { cache: "no-store" }).then((r) => r.json()),
       apiFetch("/PortalVagas/Locations/Ufs", { cache: "no-store" }).then((r) => r.json()),
     ])
-      .then(([a, d, e, u]) => {
+      .then(([cc, e, u]) => {
         if (!alive) return;
-        setAreas(Array.isArray(a) ? a : []);
-        setDepartments(Array.isArray(d) ? d : []);
+        setCentrosCusto(Array.isArray(cc) ? cc : []);
         setEnums(e || {});
         const ufList = (Array.isArray(u) ? u : []).map((x: unknown) => String(x).trim().toUpperCase()).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, "pt-BR"));
         setUfs(ufList);
@@ -116,16 +116,15 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
       setAlert("Informe o título.");
       return;
     }
-    if (!form.areaId || !form.departmentId) {
-      setAlert("Selecione área e departamento.");
+    if (!form.centroCustoId) {
+      setAlert("Selecione o centro de custo.");
       return;
     }
     setLoading(true);
     try {
       const payload = {
         titulo: form.titulo.trim(),
-        departmentId: form.departmentId,
-        areaId: form.areaId,
+        centroCustoId: form.centroCustoId,
         status: form.status || "Aberta",
         codigo: null,
         areaTime: null,
@@ -223,8 +222,7 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
       onClose();
       setForm({
         titulo: "",
-        areaId: "",
-        departmentId: "",
+        centroCustoId: "",
         status: "Aberta",
         modalidade: "",
         senioridade: "",
@@ -278,18 +276,11 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
                 <label className="mini-title mb-1 block">Título *</label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} maxLength={160} required />
               </div>
-              <div>
-                <label className="mini-title mb-1 block">Área *</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.areaId} onChange={(e) => setForm((f) => ({ ...f, areaId: e.target.value }))} required>
+              <div className="md:col-span-2">
+                <label className="mini-title mb-1 block">Centro de Custo *</label>
+                <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.centroCustoId} onChange={(e) => setForm((f) => ({ ...f, centroCustoId: e.target.value }))} required>
                   <option value="">Selecione</option>
-                  {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="mini-title mb-1 block">Departamento *</label>
-                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.departmentId} onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))} required>
-                  <option value="">Selecione</option>
-                  {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {centrosCusto.map((c) => <option key={c.id} value={c.id}>{ccLabel(c)}</option>)}
                 </select>
               </div>
               <div>

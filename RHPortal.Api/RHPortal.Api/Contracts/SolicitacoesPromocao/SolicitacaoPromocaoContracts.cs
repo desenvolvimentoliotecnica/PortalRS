@@ -8,7 +8,8 @@ public sealed record SolicitacaoPromocaoListQuery(
     SolicitacaoStatus? Status,
     SolicitacaoStatus[]? Statuses,
     bool? ApenasMeus,
-    Guid? AreaId,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
     int? Page,
     int? PageSize
 );
@@ -26,9 +27,11 @@ public sealed class SolicitacaoPromocaoCreateRequest
     [Required]
     public Guid NovoCargoId { get; set; }
 
-    public Guid? AreaAtualId { get; set; }
+    /// <summary>Centro de custo atual — absorveu AreaAtualId em 31.2.</summary>
+    public Guid? CentroCustoAtualId { get; set; }
 
-    public Guid? NovaAreaId { get; set; }
+    /// <summary>Novo centro de custo — absorveu NovaAreaId em 31.2.</summary>
+    public Guid? NovoCentroCustoId { get; set; }
 
     public Guid? NovaUnidadeId { get; set; }
 
@@ -68,9 +71,11 @@ public sealed class SolicitacaoPromocaoUpdateRequest
     [Required]
     public Guid NovoCargoId { get; set; }
 
-    public Guid? AreaAtualId { get; set; }
+    /// <summary>Centro de custo atual — absorveu AreaAtualId em 31.2.</summary>
+    public Guid? CentroCustoAtualId { get; set; }
 
-    public Guid? NovaAreaId { get; set; }
+    /// <summary>Novo centro de custo — absorveu NovaAreaId em 31.2.</summary>
+    public Guid? NovoCentroCustoId { get; set; }
 
     public Guid? NovaUnidadeId { get; set; }
 
@@ -109,10 +114,12 @@ public sealed record SolicitacaoPromocaoResponse(
     string? CargoAtualNome,
     Guid NovoCargoId,
     string? NovoCargoNome,
-    Guid? AreaAtualId,
-    string? AreaAtualNome,
-    Guid? NovaAreaId,
-    string? NovaAreaNome,
+    /// <summary>Centro de custo atual — absorveu AreaAtualId em 31.2.</summary>
+    Guid? CentroCustoAtualId,
+    string? CentroCustoAtualNome,
+    /// <summary>Novo centro de custo — absorveu NovaAreaId em 31.2.</summary>
+    Guid? NovoCentroCustoId,
+    string? NovoCentroCustoNome,
     Guid? NovaUnidadeId,
     string? NovaUnidadeNome,
     Guid? EmpresaId,

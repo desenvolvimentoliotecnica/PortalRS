@@ -6,6 +6,7 @@ using RhPortal.Api.Application.Candidatos.Handlers;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Enums;
 
@@ -16,6 +17,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/candidatos")]
+[RequireModule("candidatos")]
 public sealed class CandidatosController : ControllerBase
 {
     private readonly IStringLocalizer<ControllerMessages> _localizer;
@@ -48,8 +50,8 @@ public sealed class CandidatosController : ControllerBase
         Guid? recrutadorUserId = null;
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue)
-                areaId = _userContext.AreaId;
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue)
+                areaId = _userContext.CentroCustoId;
             else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
                 recrutadorUserId = _userContext.UserId;
         }
@@ -76,7 +78,7 @@ public sealed class CandidatosController : ControllerBase
             return NotFound();
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue && item.VagaAreaId.HasValue && item.VagaAreaId != _userContext.AreaId)
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue && item.VagaAreaId.HasValue && item.VagaAreaId != _userContext.CentroCustoId)
                 return NotFound();
             if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue && item.VagaRecrutadorResponsavelUserId != _userContext.UserId)
                 return NotFound();

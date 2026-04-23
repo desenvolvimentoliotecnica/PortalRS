@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Owner;
@@ -200,4 +201,168 @@ public sealed class AuthController : ControllerBase
         var response = await service.GetCurrentUserAsync(userId, ct);
         return response is null ? NotFound() : Ok(response);
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Entra ID (Microsoft SSO) — fluxo Authorization Code server-side
+    // Substitui o middleware OIDC do antigo LioTecnica.Web (Fase 13.2, Sessão 25).
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Indica se o Entra ID está habilitado para um tenant (sem expor segredos).
+    /// </summary>
+    /// <remarks>
+    /// Endpoint público consumido pelo Next.js para decidir se renderiza o botão
+    /// "Entrar com Microsoft" na tela de login.
+    /// </remarks>
+    [AllowAnonymous]
+    [HttpGet("entra/enabled")]
+    [ProducesResponseType(typeof(EntraEnabledResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EntraEnabledResponse>> EntraEnabled(
+        [FromQuery] string tenantId,
+        [FromServices] IServiceScopeFactory scopeFactory,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return Ok(new EntraEnabledResponse(false, null));
+
+        using var scope = scopeFactory.CreateScope();
+        var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantCtx.SetTenantId(tenantId);
+        var configService = scope.ServiceProvider.GetRequiredService<IEntraIdConfigService>();
+
+        try
+        {
+            var cfg = await configService.GetAsync(ct);
+            var enabled = cfg?.IsEnabled == true
+                          && !string.IsNullOrWhiteSpace(cfg.EntraTenantId)
+                          && !string.IsNullOrWhiteSpace(cfg.ClientId)
+                          && cfg.HasClientSecret;
+            return Ok(new EntraEnabledResponse(enabled, enabled ? cfg!.ClientId : null));
+        }
+        catch
+        {
+            // Tenant inexistente ou sem tabela migrada — tratar como não habilitado.
+            return Ok(new EntraEnabledResponse(false, null));
+        }
+    }
+
+    /// <summary>
+    /// Inicia o fluxo OAuth 2.0 Authorization Code: redireciona para o endpoint
+    /// de autorização do Microsoft com state assinado (HMAC-SHA256).
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("entra/challenge")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> EntraChallenge(
+        [FromQuery] string tenantId,
+        [FromQuery] string? returnUrl,
+        [FromServices] IServiceScopeFactory scopeFactory,
+        [FromServices] IConfiguration configuration,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return BadRequest(new ProblemDetails { Title = "tenantId ausente", Status = 400 });
+
+        var redirectUri = BuildEntraCallbackRedirectUri(configuration);
+
+        using var scope = scopeFactory.CreateScope();
+        var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantCtx.SetTenantId(tenantId);
+        var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
+
+        var result = await challenge.BuildAuthorizationUrlAsync(tenantId, redirectUri, returnUrl ?? "/app/dashboard", ct);
+        if (result is null)
+        {
+            var back = BuildFrontendUrl(configuration, "/app/login?entra_error=nao_configurado");
+            return Redirect(back);
+        }
+        return Redirect(result.Url);
+    }
+
+    /// <summary>
+    /// Callback de retorno do Microsoft: troca o <c>code</c> por <c>id_token</c>,
+    /// emite o JWT do sistema e redireciona ao Next.js com o token no hash.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("entra/callback")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    public async Task<IActionResult> EntraCallback(
+        [FromQuery] string? code,
+        [FromQuery] string? state,
+        [FromQuery(Name = "error")] string? errorCode,
+        [FromServices] IServiceScopeFactory scopeFactory,
+        [FromServices] IConfiguration configuration,
+        CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(errorCode))
+            return Redirect(BuildFrontendUrl(configuration, $"/app/login?entra_error={Uri.EscapeDataString(errorCode)}"));
+
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
+            return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=parametros_invalidos"));
+
+        using var scope = scopeFactory.CreateScope();
+        var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
+        var payload = challenge.TryDecodeState(state);
+        if (payload is null)
+            return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=state_invalido"));
+
+        // Scope com tenant correto para troca de code + login.
+        var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantCtx.SetTenantId(payload.TenantId);
+
+        var redirectUri = BuildEntraCallbackRedirectUri(configuration);
+        var idToken = await challenge.ExchangeCodeForIdTokenAsync(payload.TenantId, code, redirectUri, ct);
+        if (string.IsNullOrWhiteSpace(idToken))
+            return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=troca_de_code_falhou"));
+
+        var authService = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
+        var login = await authService.LoginWithEntraAsync(new EntraLoginRequest(idToken), ct);
+        if (login is null)
+            return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=usuario_nao_autenticado"));
+
+        // Token no fragmento da URL — não vai para logs do servidor.
+        var fragment =
+            $"#entra_token={Uri.EscapeDataString(login.AccessToken)}" +
+            $"&tenant={Uri.EscapeDataString(login.TenantId ?? payload.TenantId)}" +
+            $"&return={Uri.EscapeDataString(payload.ReturnUrl)}";
+
+        return Redirect(BuildFrontendUrl(configuration, "/app/login") + fragment);
+    }
+
+    // ── helpers privados ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// URL pública do front (Next.js). Segue a mesma estratégia de
+    /// <c>PreAdmissaoService.BuildFrontendUrl</c> (Onda 15).
+    /// </summary>
+    private string BuildFrontendUrl(IConfiguration configuration, string pathAndQuery)
+    {
+        var baseOverride = configuration["Frontend:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(baseOverride))
+            return $"{baseOverride.TrimEnd('/')}{pathAndQuery}";
+
+        var port = configuration.GetValue<int?>("Frontend:Port") ?? 3000;
+        var scheme = Request?.Scheme ?? "http";
+        var host = Request?.Host.Host ?? "localhost";
+        return $"{scheme}://{host}:{port}{pathAndQuery}";
+    }
+
+    /// <summary>
+    /// URI de callback registrada no Azure AD. Corresponde ao endpoint
+    /// <c>GET /api/auth/entra/callback</c> deste controller.
+    /// </summary>
+    private string BuildEntraCallbackRedirectUri(IConfiguration configuration)
+    {
+        var apiBase = configuration["Authentication:ApiBaseUrl"];
+        if (!string.IsNullOrWhiteSpace(apiBase))
+            return $"{apiBase.TrimEnd('/')}/api/auth/entra/callback";
+
+        var scheme = Request?.Scheme ?? "https";
+        var host = Request?.Host.Value ?? "localhost";
+        return $"{scheme}://{host}/api/auth/entra/callback";
+    }
 }
+
+/// <summary>Resposta do endpoint público <c>GET /api/auth/entra/enabled</c>.</summary>
+public sealed record EntraEnabledResponse(bool Enabled, string? ClientId);

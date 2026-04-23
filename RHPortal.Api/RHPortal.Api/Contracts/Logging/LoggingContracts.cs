@@ -33,6 +33,21 @@ public sealed record LogEntryItem(
     DateTimeOffset OccurredAt
 );
 
+/// <summary>Item da listagem de logs operacionais (flat view cross-request).</summary>
+public sealed record OperationalLogItem(
+    Guid Id,
+    string? Level,
+    string? Message,
+    string? Source,
+    DateTimeOffset Timestamp,
+    string? Exception
+);
+
+public sealed record OperationalLogListResponse(
+    IReadOnlyList<OperationalLogItem> Items,
+    int TotalCount
+);
+
 public sealed record ExceptionLogItem(
     Guid Id,
     int Order,

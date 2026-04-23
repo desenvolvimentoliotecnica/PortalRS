@@ -46,23 +46,23 @@ public sealed class JobPositionServiceTests
     }
 
     /// <summary>
-    /// Semeia uma Area — obrigatório porque JobPositionService.CreateAsync valida
-    /// existência da área, e GetByIdAsync usa Include(x => x.Area) com FK não-nulável
-    /// (InMemory faz inner join, entidade some se área não existir).
+    /// 31.2: Area foi absorvido por CentroCusto. Semeia um CentroCusto — obrigatório
+    /// porque JobPositionService.CreateAsync valida existência e GetByIdAsync faz
+    /// Include do CC. Nome "SeedArea" preservado para clareza semântica.
     /// </summary>
     private static Guid SeedArea(AppDbContext db)
     {
-        var area = new Area
+        var cc = new CentroCusto
         {
             Id = Guid.NewGuid(),
             TenantId = TenantTeste,
             Code = "AREA-TEST",
-            Name = "Área de Teste",
+            Description = "Área de Teste",
             IsActive = true,
         };
-        db.Areas.Add(area);
+        db.CentrosCusto.Add(cc);
         db.SaveChanges();
-        return area.Id;
+        return cc.Id;
     }
 
     private static JobPositionCreateRequest RequestMinimo(Guid areaId, string code = "CAR-001") =>
@@ -83,7 +83,7 @@ public sealed class JobPositionServiceTests
         Assert.Equal("Cargo Teste", result.Name);
         Assert.Equal(CargoStatus.Active, result.Status);
         Assert.Equal(SeniorityLevel.Pleno, result.Seniority);
-        Assert.Equal(areaId, result.AreaId);
+        Assert.Equal(areaId, result.CentroCustoId);
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public sealed class JobPositionServiceTests
         Assert.NotNull(result);
         Assert.Equal(created.Id, result.Id);
         Assert.Equal("CAR-BUS", result.Code);
-        Assert.Equal("Área de Teste", result.AreaName);
+        Assert.Equal("Área de Teste", result.CentroCustoNome);
     }
 
     // ── Atualização ───────────────────────────────────────────────────────────

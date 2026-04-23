@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import {
     Plus, RefreshCw, CheckCircle2, Clock, Lock, ClipboardList,
-    ChevronRight, Trash2, BarChart2, LayoutGrid,
+    ChevronRight, Trash2, BarChart2, LayoutGrid, Mail, Play, Scale, Download, FileEdit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,13 +29,45 @@ interface CicloResponse {
     id: string;
     nome: string;
     periodo: string;
-    status: number; // 0=Aberto, 1=Fechado
+    status: number; // 0=Aberto, 1=Fechado, 2=Rascunho, 3=EmCalibragem
     criadoPorNome: string;
     totalPerguntas: number;
     totalRespostas: number;
     criadoEmUtc: string;
     perguntas: PerguntaResponse[];
 }
+
+interface CalibragemRow {
+    id: string;
+    cicloId: string;
+    funcionarioId: string;
+    funcionarioNome: string;
+    cargo: string | null;
+    scoreGestor: number;
+    desempenhoGestor: number | null;
+    potencialGestor: number | null;
+    scoreComite: number | null;
+    desempenhoComite: number | null;
+    potencialComite: number | null;
+    justificativaComite: string | null;
+    status: number; // 0=Pendente, 1=Calibrado, 2=Decidido
+    decisao: number; // 0=Indefinida, 1=Gestor, 2=Comite
+    decididoPorUserId: string | null;
+    decididoEmUtc: string | null;
+    observacaoDecisao: string | null;
+    nineBoxAssessmentId: string | null;
+    atualizadoEmUtc: string;
+}
+
+const CICLO_STATUS: Record<number, { label: string; tone: "default" | "secondary"; icon: typeof Clock }> = {
+    0: { label: "Aberto", tone: "default", icon: Clock },
+    1: { label: "Fechado", tone: "secondary", icon: Lock },
+    2: { label: "Rascunho", tone: "secondary", icon: FileEdit },
+    3: { label: "Em Calibragem", tone: "default", icon: Scale },
+};
+
+const CALIBRAGEM_STATUS: Record<number, string> = { 0: "Pendente", 1: "Calibrado", 2: "Decidido" };
+const CALIBRAGEM_DECISAO: Record<number, string> = { 0: "—", 1: "Gestor", 2: "Comitê" };
 
 interface ResultadoRow {
     avaliandoId: string;
@@ -90,6 +122,7 @@ export default function CiclosAvaliacaoScreen() {
     const [criarNome, setCriarNome] = useState("");
     const [criarPeriodo, setCriarPeriodo] = useState("");
     const [criarPerguntas, setCriarPerguntas] = useState<string[]>(["", "", ""]);
+    const [criarRascunho, setCriarRascunho] = useState(false);
     const [criarLoading, setCriarLoading] = useState(false);
 
     /* resultados */
@@ -97,6 +130,23 @@ export default function CiclosAvaliacaoScreen() {
     const [resultadosCiclo, setResultadosCiclo] = useState<CicloResponse | null>(null);
     const [resultados, setResultados] = useState<ResultadoRow[]>([]);
     const [resultadosLoading, setResultadosLoading] = useState(false);
+
+    /* calibragem */
+    const [calibragemOpen, setCalibragemOpen] = useState(false);
+    const [calibragemCiclo, setCalibragemCiclo] = useState<CicloResponse | null>(null);
+    const [calibragemRows, setCalibragemRows] = useState<CalibragemRow[]>([]);
+    const [calibragemLoading, setCalibragemLoading] = useState(false);
+    const [ajusteRow, setAjusteRow] = useState<CalibragemRow | null>(null);
+    const [ajusteDesempenho, setAjusteDesempenho] = useState<number>(2);
+    const [ajustePotencial, setAjustePotencial] = useState<number>(2);
+    const [ajusteScore, setAjusteScore] = useState<string>("");
+    const [ajusteJustificativa, setAjusteJustificativa] = useState<string>("");
+    const [ajusteSaving, setAjusteSaving] = useState(false);
+    const [decisaoRow, setDecisaoRow] = useState<CalibragemRow | null>(null);
+    const [decisaoVersao, setDecisaoVersao] = useState<1 | 2>(1);
+    const [decisaoObs, setDecisaoObs] = useState<string>("");
+    const [decisaoGerarNineBox, setDecisaoGerarNineBox] = useState<boolean>(true);
+    const [decisaoSaving, setDecisaoSaving] = useState(false);
 
     /* nine-box suggestion */
     const [nineBoxModal, setNineBoxModal] = useState<{ avaliandoId: string; avaliandoNome: string; cargo: string | null; desempenho: number } | null>(null);
@@ -164,11 +214,11 @@ export default function CiclosAvaliacaoScreen() {
             await fetchJson("/api/avaliacao/ciclos", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nome: criarNome.trim(), periodo: criarPeriodo.trim(), perguntas }),
+                body: JSON.stringify({ nome: criarNome.trim(), periodo: criarPeriodo.trim(), perguntas, iniciarEmRascunho: criarRascunho }),
             });
-            toast.success("Ciclo criado!");
+            toast.success(criarRascunho ? "Ciclo criado em rascunho — ative quando pronto." : "Ciclo criado!");
             setCriarOpen(false);
-            setCriarNome(""); setCriarPeriodo(""); setCriarPerguntas(["", "", ""]);
+            setCriarNome(""); setCriarPeriodo(""); setCriarPerguntas(["", "", ""]); setCriarRascunho(false);
             await load();
         } catch (e) {
             toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
@@ -199,6 +249,125 @@ export default function CiclosAvaliacaoScreen() {
             toast.error("Falha ao carregar resultados.");
         } finally {
             setResultadosLoading(false);
+        }
+    }
+
+    async function ativarCiclo(id: string) {
+        try {
+            await fetchJson(`/api/avaliacao/ciclos/${id}/ativar`, { method: "POST" });
+            toast.success("Ciclo ativado — convites serão gerados em segundo plano.");
+            await load();
+        } catch (e) {
+            toast.error(`Falha ao ativar: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    async function gerarConvites(id: string) {
+        if (!confirm("Gerar convocações para todos os avaliadores e enviar e-mails? (idempotente)")) return;
+        try {
+            const r = await fetchJson<{ convitesCriados: number; emailsEnfileirados: number; convitesExistentesIgnorados: number }>(
+                `/api/avaliacao/ciclos/${id}/convites/gerar`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({}),
+            });
+            toast.success(`${r.convitesCriados} convites criados · ${r.emailsEnfileirados} e-mails enfileirados.`);
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        }
+    }
+
+    async function openCalibragem(ciclo: CicloResponse) {
+        setCalibragemCiclo(ciclo);
+        setCalibragemOpen(true);
+        setCalibragemLoading(true);
+        try {
+            // garante que linhas foram criadas (idempotente)
+            await apiFetch(`/api/avaliacao/ciclos/${ciclo.id}/calibragem/iniciar`, { method: "POST" }).catch(() => { });
+            const data = await fetchJson<CalibragemRow[]>(`/api/avaliacao/ciclos/${ciclo.id}/calibragem`);
+            setCalibragemRows(data ?? []);
+        } catch (e) {
+            toast.error(`Falha ao carregar calibragem: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setCalibragemLoading(false);
+        }
+    }
+
+    async function reloadCalibragem(cicloId: string) {
+        setCalibragemLoading(true);
+        try {
+            const data = await fetchJson<CalibragemRow[]>(`/api/avaliacao/ciclos/${cicloId}/calibragem`);
+            setCalibragemRows(data ?? []);
+        } catch {
+            // silencioso
+        } finally {
+            setCalibragemLoading(false);
+        }
+    }
+
+    async function salvarAjuste() {
+        if (!ajusteRow || !calibragemCiclo) return;
+        setAjusteSaving(true);
+        try {
+            const scoreNum = ajusteScore.trim() ? Number(ajusteScore.replace(",", ".")) : null;
+            await fetchJson(`/api/avaliacao/ciclos/${calibragemCiclo.id}/calibragem/ajustar`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    funcionarioId: ajusteRow.funcionarioId,
+                    scoreComite: scoreNum,
+                    desempenhoComite: ajusteDesempenho,
+                    potencialComite: ajustePotencial,
+                    justificativa: ajusteJustificativa || null,
+                }),
+            });
+            toast.success("Calibragem do comitê registrada.");
+            setAjusteRow(null);
+            await reloadCalibragem(calibragemCiclo.id);
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setAjusteSaving(false);
+        }
+    }
+
+    async function salvarDecisao() {
+        if (!decisaoRow || !calibragemCiclo) return;
+        setDecisaoSaving(true);
+        try {
+            await fetchJson(`/api/avaliacao/ciclos/${calibragemCiclo.id}/calibragem/decidir`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    funcionarioId: decisaoRow.funcionarioId,
+                    versao: decisaoVersao,
+                    observacao: decisaoObs || null,
+                    gerarNineBox: decisaoGerarNineBox,
+                }),
+            });
+            toast.success(decisaoGerarNineBox ? "Decisão registrada + Nine-Box gerado." : "Decisão registrada.");
+            setDecisaoRow(null);
+            await reloadCalibragem(calibragemCiclo.id);
+        } catch (e) {
+            toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setDecisaoSaving(false);
+        }
+    }
+
+    async function exportarCsv(cicloId: string, nome: string) {
+        try {
+            const res = await apiFetch(`/api/avaliacao/ciclos/${cicloId}/resultados/export`, { cache: "no-store" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${nome.replace(/\s+/g, "_")}_resultados.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            toast.error(`Falha no download: ${e instanceof Error ? e.message : "erro"}`);
         }
     }
 
@@ -249,33 +418,54 @@ export default function CiclosAvaliacaoScreen() {
             ) : (
                 <div className="space-y-3">
                     {ciclos.map((ciclo) => {
+                        const cfg = CICLO_STATUS[ciclo.status] ?? CICLO_STATUS[0];
+                        const StatusIcon = cfg.icon;
                         const fechado = ciclo.status === 1;
+                        const rascunho = ciclo.status === 2;
+                        const emCalibragem = ciclo.status === 3;
+                        const aberto = ciclo.status === 0;
                         return (
                             <div key={ciclo.id} className="rounded-xl border border-border/40 bg-card p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        {fechado
-                                            ? <Lock className="size-4 text-muted-foreground shrink-0" />
-                                            : <Clock className="size-4 text-blue-500 shrink-0" />}
+                                        <StatusIcon className={`size-4 shrink-0 ${fechado ? "text-muted-foreground" : emCalibragem ? "text-violet-500" : rascunho ? "text-amber-500" : "text-blue-500"}`} />
                                         <span className="font-semibold text-sm">{ciclo.nome}</span>
-                                        <Badge variant={fechado ? "secondary" : "default"} className="text-xs">
-                                            {fechado ? "Fechado" : "Aberto"}
-                                        </Badge>
+                                        <Badge variant={cfg.tone} className="text-xs">{cfg.label}</Badge>
                                     </div>
                                     <div className="text-xs text-muted-foreground mt-0.5">
                                         Período: {ciclo.periodo} · {ciclo.totalPerguntas} pergunta{ciclo.totalPerguntas !== 1 ? "s" : ""} · {ciclo.totalRespostas} resposta{ciclo.totalRespostas !== 1 ? "s" : ""} · Criado por {ciclo.criadoPorNome}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                                    {rascunho && isAdmin && (
+                                        <Button size="sm" onClick={() => void ativarCiclo(ciclo.id)}>
+                                            <Play className="size-4 mr-1" /> Ativar
+                                        </Button>
+                                    )}
+                                    {aberto && isAdmin && (
+                                        <Button variant="outline" size="sm" onClick={() => void gerarConvites(ciclo.id)}>
+                                            <Mail className="size-4 mr-1" /> Gerar Convites
+                                        </Button>
+                                    )}
                                     <Button variant="outline" size="sm" onClick={() => void openResultados(ciclo)}>
                                         <BarChart2 className="size-4 mr-1" /> Resultados
                                     </Button>
-                                    {!fechado && (
+                                    {(emCalibragem || fechado) && isAdmin && (
+                                        <Button variant="outline" size="sm" onClick={() => void openCalibragem(ciclo)}>
+                                            <Scale className="size-4 mr-1" /> Calibragem
+                                        </Button>
+                                    )}
+                                    {isAdmin && (
+                                        <Button variant="outline" size="sm" onClick={() => void exportarCsv(ciclo.id, ciclo.nome)}>
+                                            <Download className="size-4 mr-1" /> CSV
+                                        </Button>
+                                    )}
+                                    {(aberto || emCalibragem) && (
                                         <Button size="sm" onClick={() => router.push(`/feedback/avaliacao/${ciclo.id}`)}>
                                             Responder <ChevronRight className="size-4 ml-1" />
                                         </Button>
                                     )}
-                                    {!fechado && isAdmin && (
+                                    {(aberto || emCalibragem) && isAdmin && (
                                         <Button variant="outline" size="sm" onClick={() => void fecharCiclo(ciclo.id)}>
                                             <Lock className="size-4 mr-1" /> Fechar
                                         </Button>
@@ -330,6 +520,10 @@ export default function CiclosAvaliacaoScreen() {
                             </div>
                         </div>
                     </div>
+                    <label className="flex items-center gap-2 text-sm mt-2">
+                        <input type="checkbox" checked={criarRascunho} onChange={(e) => setCriarRascunho(e.target.checked)} />
+                        Criar em rascunho (ativar depois; não aceita respostas até ativar)
+                    </label>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setCriarOpen(false)} disabled={criarLoading}>Cancelar</Button>
                         <Button onClick={() => void criarCiclo()} disabled={criarLoading || !criarNome.trim()}>
@@ -381,6 +575,165 @@ export default function CiclosAvaliacaoScreen() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setResultadosOpen(false)}>Fechar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Calibragem Dialog */}
+            <Dialog open={calibragemOpen} onOpenChange={setCalibragemOpen}>
+                <DialogContent className="sm:max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>Comitê de Calibragem — {calibragemCiclo?.nome}</DialogTitle>
+                        <DialogDescription>
+                            Score do gestor preservado. Comitê pode ajustar; gestor (palavra final) decide qual versão prevalece.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2 max-h-[65vh] overflow-y-auto">
+                        {calibragemLoading ? (
+                            <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
+                        ) : calibragemRows.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-6">Nenhuma linha de calibragem. Gere respostas antes.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {calibragemRows.map((r) => (
+                                    <div key={r.id} className="rounded-lg border border-border/40 px-3 py-2.5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-semibold">{r.funcionarioNome}</div>
+                                                <div className="text-[11px] text-muted-foreground">{r.cargo ?? "—"}</div>
+                                            </div>
+                                            <div className="text-xs text-right shrink-0">
+                                                <div>Status: <strong>{CALIBRAGEM_STATUS[r.status]}</strong></div>
+                                                <div>Decisão: <strong>{CALIBRAGEM_DECISAO[r.decisao]}</strong></div>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 mt-2 text-xs">
+                                            <div className="rounded bg-muted/30 p-2">
+                                                <div className="font-semibold mb-0.5">Gestor</div>
+                                                <div>Score: {r.scoreGestor.toFixed(2)} · D: {r.desempenhoGestor ?? "—"} · P: {r.potencialGestor ?? "—"}</div>
+                                            </div>
+                                            <div className="rounded bg-muted/30 p-2">
+                                                <div className="font-semibold mb-0.5">Comitê</div>
+                                                <div>Score: {r.scoreComite?.toFixed(2) ?? "—"} · D: {r.desempenhoComite ?? "—"} · P: {r.potencialComite ?? "—"}</div>
+                                                {r.justificativaComite && <div className="text-muted-foreground mt-1 italic">&ldquo;{r.justificativaComite}&rdquo;</div>}
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-end gap-2 mt-2">
+                                            {r.status !== 2 && (
+                                                <Button variant="outline" size="sm" onClick={() => {
+                                                    setAjusteRow(r);
+                                                    setAjusteDesempenho(r.desempenhoComite ?? r.desempenhoGestor ?? 2);
+                                                    setAjustePotencial(r.potencialComite ?? r.potencialGestor ?? 2);
+                                                    setAjusteScore(r.scoreComite?.toString() ?? "");
+                                                    setAjusteJustificativa(r.justificativaComite ?? "");
+                                                }}>
+                                                    <Scale className="size-3.5 mr-1" /> Ajustar (Comitê)
+                                                </Button>
+                                            )}
+                                            {r.status !== 2 && (
+                                                <Button size="sm" onClick={() => {
+                                                    setDecisaoRow(r);
+                                                    setDecisaoVersao(r.scoreComite != null ? 2 : 1);
+                                                    setDecisaoObs("");
+                                                    setDecisaoGerarNineBox(true);
+                                                }}>
+                                                    Decidir <ChevronRight className="size-3.5 ml-1" />
+                                                </Button>
+                                            )}
+                                            {r.nineBoxAssessmentId && (
+                                                <Badge variant="secondary" className="text-xs"><LayoutGrid className="size-3 mr-1" /> 9Box</Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCalibragemOpen(false)}>Fechar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Ajuste do Comitê */}
+            <Dialog open={ajusteRow != null} onOpenChange={(o) => { if (!o) setAjusteRow(null); }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Ajuste do Comitê</DialogTitle>
+                        <DialogDescription>{ajusteRow?.funcionarioNome}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Score (0-5)</label>
+                            <Input type="number" min={0} max={5} step={0.1} value={ajusteScore} onChange={(e) => setAjusteScore(e.target.value)} className="mt-1" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Desempenho</label>
+                            <div className="flex gap-2 mt-1">
+                                {[1, 2, 3].map((v) => (
+                                    <button key={v} onClick={() => setAjusteDesempenho(v)} className={`flex-1 rounded-md border px-2 py-2 text-xs font-medium ${ajusteDesempenho === v ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground"}`}>
+                                        {v === 1 ? "Baixo" : v === 2 ? "Médio" : "Alto"}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Potencial</label>
+                            <div className="flex gap-2 mt-1">
+                                {[1, 2, 3].map((v) => (
+                                    <button key={v} onClick={() => setAjustePotencial(v)} className={`flex-1 rounded-md border px-2 py-2 text-xs font-medium ${ajustePotencial === v ? "border-primary bg-primary/10 text-primary" : "border-border/40 text-muted-foreground"}`}>
+                                        {v === 1 ? "Baixo" : v === 2 ? "Médio" : "Alto"}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Justificativa</label>
+                            <textarea className="mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm" rows={3}
+                                value={ajusteJustificativa} onChange={(e) => setAjusteJustificativa(e.target.value)} maxLength={2000} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setAjusteRow(null)} disabled={ajusteSaving}>Cancelar</Button>
+                        <Button onClick={() => void salvarAjuste()} disabled={ajusteSaving}>{ajusteSaving ? "Salvando..." : "Salvar"}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Decisão do Gestor */}
+            <Dialog open={decisaoRow != null} onOpenChange={(o) => { if (!o) setDecisaoRow(null); }}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Decisão Final (Gestor)</DialogTitle>
+                        <DialogDescription>{decisaoRow?.funcionarioNome}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Qual versão prevalece?</label>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                                <button onClick={() => setDecisaoVersao(1)} className={`rounded-md border px-3 py-2 text-left ${decisaoVersao === 1 ? "border-primary bg-primary/10" : "border-border/40"}`}>
+                                    <div className="text-sm font-semibold">Gestor</div>
+                                    <div className="text-[11px] text-muted-foreground">Score {decisaoRow?.scoreGestor.toFixed(2)} · D {decisaoRow?.desempenhoGestor ?? "—"} · P {decisaoRow?.potencialGestor ?? "—"}</div>
+                                </button>
+                                <button onClick={() => setDecisaoVersao(2)} className={`rounded-md border px-3 py-2 text-left ${decisaoVersao === 2 ? "border-primary bg-primary/10" : "border-border/40"}`} disabled={decisaoRow?.scoreComite == null && decisaoRow?.desempenhoComite == null && decisaoRow?.potencialComite == null}>
+                                    <div className="text-sm font-semibold">Comitê</div>
+                                    <div className="text-[11px] text-muted-foreground">Score {decisaoRow?.scoreComite?.toFixed(2) ?? "—"} · D {decisaoRow?.desempenhoComite ?? "—"} · P {decisaoRow?.potencialComite ?? "—"}</div>
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Observação</label>
+                            <textarea className="mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm" rows={3}
+                                value={decisaoObs} onChange={(e) => setDecisaoObs(e.target.value)} maxLength={2000} />
+                        </div>
+                        <label className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" checked={decisaoGerarNineBox} onChange={(e) => setDecisaoGerarNineBox(e.target.checked)} />
+                            Gerar Nine-Box automaticamente (amarrado a este ciclo)
+                        </label>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDecisaoRow(null)} disabled={decisaoSaving}>Cancelar</Button>
+                        <Button onClick={() => void salvarDecisao()} disabled={decisaoSaving}>{decisaoSaving ? "Salvando..." : "Confirmar Decisão"}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

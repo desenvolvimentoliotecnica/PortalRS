@@ -1,0 +1,189 @@
+using RhPortal.Api.Infrastructure.Modules;
+
+namespace RhPortal.Api.Infrastructure.Navegacao;
+
+/// <summary>
+/// Manifesto code-first da navegação do app. Cada item declara:
+///   - permissão requerida para aparecer (se o usuário não tem, o item não é emitido);
+///   - módulo associado — explícito ou resolvido via <see cref="ModuleCatalog.ResolveModuleKey"/>;
+///   - bucket de UI (grupoKey) — resolvido via módulo/pacote ou override explícito;
+///   - se é "destacado" (aparece no topo, fora de qualquer header, em "Principais").
+///
+/// Este manifesto substitui o <c>permissionManifest.ts</c> do frontend como única
+/// fonte da verdade. O sidebar do Next.js deve consumir o endpoint
+/// <c>GET /api/navegacao/sidebar</c> e renderizar o que vier.
+/// </summary>
+public static class NavegacaoManifest
+{
+    public sealed record NavManifestItem(
+        string Id,
+        string Label,
+        string Href,
+        string Icon,
+        string PermissionKey,
+        string? ModuloKeyOverride = null,
+        string? GrupoUiOverride = null,
+        bool Destacado = false,
+        int Ordem = 0);
+
+    public sealed record GrupoUiDefinition(
+        string Key,
+        string Label,
+        int Ordem,
+        bool OcultarHeader = false);
+
+    /// <summary>
+    /// Buckets de UI exibidos no sidebar. A ordem aqui é a ordem final de render.
+    /// <c>principais</c> é especial — header oculto, itens "destacados" vão pra cá.
+    /// </summary>
+    public static readonly IReadOnlyList<GrupoUiDefinition> Grupos = new List<GrupoUiDefinition>
+    {
+        new("principais",          "Principais",             Ordem: 0,  OcultarHeader: true),
+        new("recrutamento-selecao","Recrutamento e Seleção", Ordem: 10),
+        new("gestao-pessoas",      "Gestão de Pessoas",      Ordem: 20),
+        new("folha-pagamento",     "Folha de Pagamento",     Ordem: 30),
+        new("cadastros",           "Cadastros",              Ordem: 40),
+        new("configuracoes",       "Configurações",          Ordem: 50),
+        new("administracao",       "Administração",          Ordem: 60),
+        new("relatorios",          "Relatórios",             Ordem: 70),
+    };
+
+    private static readonly Dictionary<string, GrupoUiDefinition> _gruposByKey =
+        Grupos.ToDictionary(g => g.Key, StringComparer.OrdinalIgnoreCase);
+
+    public static GrupoUiDefinition? GetGrupo(string key) =>
+        _gruposByKey.TryGetValue(key, out var g) ? g : null;
+
+    /// <summary>
+    /// Resolve o <c>grupoUi</c> para um item a partir do módulo dele.
+    ///   - destacado → "principais"
+    ///   - módulo com PackageKey → grupo = PackageKey (ex.: recrutamento-selecao, gestao-pessoas, folha-pagamento)
+    ///   - módulo core → grupo = módulo.Key (administracao/cadastros/configuracoes)
+    ///   - módulo standalone (sem pacote, não-core) → grupo = módulo.Key (ex.: relatorios)
+    ///   - dashboard sempre vai pra "principais" mesmo sem destacado explícito
+    /// </summary>
+    public static string ResolveGrupoUi(NavManifestItem item, ModuleCatalog.ModuleDefinition? module)
+    {
+        if (!string.IsNullOrWhiteSpace(item.GrupoUiOverride))
+            return item.GrupoUiOverride!;
+
+        if (item.Destacado)
+            return "principais";
+
+        if (module is null)
+            return "principais"; // fallback seguro
+
+        if (module.Key.Equals("dashboard", StringComparison.OrdinalIgnoreCase))
+            return "principais";
+
+        if (!string.IsNullOrWhiteSpace(module.PackageKey))
+            return module.PackageKey!;
+
+        // Core não-dashboard OU standalone → usa a própria key do módulo como bucket
+        return module.Key;
+    }
+
+    /// <summary>
+    /// Manifesto completo de itens. Ordem dentro do bucket segue <see cref="NavManifestItem.Ordem"/>.
+    /// Itens sem <c>ModuloKeyOverride</c> são mapeados via <see cref="ModuleCatalog.ResolveModuleKey"/>.
+    /// </summary>
+    public static readonly IReadOnlyList<NavManifestItem> Items = new List<NavManifestItem>
+    {
+        // ── Principais (destacados, respeitam gate de módulo) ────────────────
+        new("nav-dashboard",                "Dashboard",              "/dashboard",                      "layoutdashboard",   "dashboard.view",           Destacado: true, Ordem: 10),
+        new("nav-aprovacoes",               "Minhas Pendências",       "/gestao/aprovacoes",              "checkcheck",        "aprovacoes-vaga.view",     Destacado: true, Ordem: 20),
+        new("nav-solicitacoes",             "Solicitações",            "/gestao/solicitacoes",            "clipboardlist",     "solicitacoes-vaga.view",   Destacado: true, Ordem: 30),
+        // Painel de Solicitações — decidido como TRANSVERSAL CORE (Onda 14, 2026-04-20).
+        // Justificativa: agregador analítico multi-tipo (Vaga / Promoção / Desligamento /
+        // Férias / Benefício / Dependente / Endereço) que cruza R&S, Folha e Cadastros.
+        // Mantê-lo em "Gestão de Pessoas" excluiria o gestor que precisa ver pedidos de
+        // R&S e Folha; dividi-lo por pacote (opção B3) perderia a visão consolidada.
+        // Fica ao lado de Minhas Pendências/Solicitações como "visão consolidada do RH".
+        new("nav-painel-solicitacoes",      "Painel de Solicitações", "/gestao/painel-solicitacoes",     "gitbranch",         "gestao.dashboard",         Destacado: true, Ordem: 40),
+
+        // ── Recrutamento e Seleção (pacote) ──────────────────────────────────
+        new("nav-vagas",                    "Vagas",                  "/vagas",                          "briefcase",         "vagas.view",               Ordem: 10),
+        new("nav-painel-rh",                "Painel RH",              "/painel-rh",                      "clipboardcheck",    "entrada.view",             Ordem: 20),
+        new("nav-candidatos",               "Candidatos",             "/candidatos",                     "users",             "candidatos.view",          Ordem: 30),
+        new("nav-candidaturas",             "Kanban de Candidaturas", "/recrutamento/candidaturas",      "gitbranch",         "candidatos.view",          Ordem: 35),
+        new("nav-admissao",                 "Admissão",               "/admissao",                       "usercheck",         "admissao.view",            Ordem: 40),
+        new("nav-matching",                 "Matching IA",            "/matching",                       "sparkles",          "matching.view",            Ordem: 50),
+        new("nav-triagem",                  "Pipeline",               "/triagem",                        "filter",            "triagem.view",             Ordem: 60),
+        new("nav-processo-seletivo",        "Processo Seletivo",      "/gestao/processo-seletivo",       "listchecks",        "processo-seletivo.view",   Ordem: 70),
+        new("nav-agendas",                  "Agenda",                 "/agendas",                        "calendar",          "agenda.view",              Ordem: 80),
+        new("nav-portalvagas",              "Portal de Vagas",        "/portalvagas",                    "globe",             "portalvagas.view",         Ordem: 90),
+        new("nav-talentos",                 "Banco de Talentos",      "/talentos",                       "sparkles",          "candidatos.view",          ModuloKeyOverride: "candidatos", Ordem: 95),
+
+        // ── Gestão de Pessoas (pacote) ───────────────────────────────────────
+        // (Painel de Solicitações foi promovido para "Principais" — Onda 14)
+        new("nav-gestao-dashboard",         "Dashboard Gestão",       "/gestao/dashboard",               "layoutdashboard",   "gestao.dashboard",         Ordem: 20),
+        new("nav-planos-desenvolvimento",   "PDI",                    "/gestao/planosdesenvolvimento",   "target",            "feedback.desenvolvimento", Ordem: 30),
+        new("nav-humor",                    "Humor",                  "/gestao/humor",                   "smile",             "gestao.humor",             Ordem: 40),
+        new("nav-resumo-atividades",        "Resumo de Atividades",   "/gestao/resumoatividades",        "activity",          "gestao.resumo",            Ordem: 50),
+        new("nav-feedback-enviar",          "Enviar Feedback",        "/feedback/enviar",                "send",              "feedback.send",            Ordem: 60),
+        new("nav-feedback-lista",           "Meus Feedbacks",         "/feedback/feedbacks",             "message-square",    "feedback.view",            Ordem: 70),
+        new("nav-feedback-1a1",             "Reuniões 1:1",           "/feedback/reunioes1a1",           "users",             "feedback.oneonone.view",   Ordem: 80),
+        new("nav-feedback-celebracao",      "Celebrações",            "/feedback/celebracao",            "party-popper",      "feedback.celebracao.view", Ordem: 90),
+
+        // ── Desempenho (pacote gestao-pessoas — módulo "desempenho", Sessão 30) ──
+        // As rotas Next das duas últimas vivem em /feedback/* por razão histórica
+        // (o submódulo nasceu embutido no Feedback na Onda 1 do pacote). Migração
+        // para /desempenho/* é cosmética e fica pra próxima sessão — o módulo já
+        // está declarado no ModuleCatalog (PermissionKeyPrefixes=["desempenho."]),
+        // então PermissionKey resolve automaticamente para o módulo correto.
+        new("nav-desempenho-minhas",        "Minhas Avaliações",      "/desempenho",                     "trending-up",       "desempenho.view",              Ordem: 100),
+        new("nav-desempenho-ciclos",        "Ciclos de Avaliação",    "/feedback/avaliacao",             "target",            "desempenho.ciclos.manage",     Ordem: 110),
+        new("nav-desempenho-ninebox",       "Nine Box",               "/feedback/nine-box",              "grid",              "desempenho.calibragem.manage", Ordem: 120),
+
+        // ── Folha de Pagamento (pacote inativo hoje — itens aparecem bloqueados) ──
+        new("nav-batida-ponto",             "Batida de Ponto",        "/gestao/batida-ponto",            "clock",             "folha.batida-ponto.view",  ModuloKeyOverride: "folha-pagamento", Ordem: 10),
+        new("nav-pagamento-extra",          "Pagamento Extra",        "/gestao/comissoes",               "badge-dollar-sign", "folha.pagamento-extra.view", ModuloKeyOverride: "folha-pagamento", Ordem: 20),
+        new("nav-desligamentos",            "Desligamentos",          "/gestao/desligamentos",           "user-minus",        "folha.desligamentos.view", ModuloKeyOverride: "folha-pagamento", Ordem: 30),
+
+        // ── Cadastros (core) ─────────────────────────────────────────────────
+        new("nav-empresas",                 "Empresas",               "/empresas",                       "building2",         "areas.view",               Ordem: 10),
+        // 31.2: nav-departamentos e nav-areas removidos — Area + Department foram
+        // colapsados em CentroCusto. nav-centros-custo herdou a posição (ordem 20).
+        new("nav-centros-custo",            "Centros de Custo",       "/centros-custo",                  "landmark",          "areas.view",               Ordem: 20),
+        new("nav-categorias",               "Funções",                "/categorias",                     "tags",              "categories.view",          Ordem: 40),
+        new("nav-cargos",                   "Cargos",                 "/cargos",                         "briefcase",         "jobpositions.view",        Ordem: 50),
+        new("nav-descricao-cargo",          "Descrição de Cargos",    "/descricao-cargo",                "file-text",         "jobpositions.view",        Ordem: 60),
+        new("nav-eixo-vaga",                "Eixos de Vaga",          "/eixo-vaga",                      "layers",            "vagas.view",               GrupoUiOverride: "cadastros", Ordem: 70),
+        new("nav-unidades",                 "Estabelecimentos",       "/unidades",                       "map-pin",           "units.view",               Ordem: 80),
+        new("nav-categorias-salariais",     "Categorias Salariais",   "/categorias-salariais",           "badge-dollar-sign", "categories.view",          Ordem: 100),
+        new("nav-turnos",                   "Turnos",                 "/turnos",                         "clock",             "areas.view",               Ordem: 110),
+        new("nav-unidades-lotacao",         "Unidades de Lotação",    "/unidades-lotacao",               "building",          "units.view",               Ordem: 120),
+        new("nav-pessoas",                  "Pessoas",                "/pessoas",                        "user",              "funcionarios.view",        Ordem: 130),
+        new("nav-funcionarios",             "Funcionários",           "/funcionarios",                   "users",             "funcionarios.view",        Ordem: 140),
+
+        // ── Administração (core) ─────────────────────────────────────────────
+        new("nav-admin-users",              "Usuários",               "/admin/users",                    "users",             "users.read",               Ordem: 10),
+        new("nav-admin-roles",              "Perfis (Roles)",         "/admin/roles",                    "shield",            "roles.manage",             Ordem: 20),
+        new("nav-admin-accesses",           "Acessos",                "/admin/accesses",                 "bi-shield-lock",    "access.manage",            Ordem: 30),
+        new("nav-admin-organograma",        "Organograma",            "/admin/organograma",              "bi-diagram-2",      "access.manage",            Ordem: 40),
+        new("nav-admin-gestores",           "Gestores",               "/admin/gestores",                 "usercheck",         "access.manage",            Ordem: 50),
+        new("nav-admin-hierarquia",         "Hierarquia",             "/admin/hierarquia",               "bi-diagram-3",      "access.manage",            Ordem: 60),
+        new("nav-admin-headcount",          "Headcount",              "/admin/configuracoes-headcount",  "users",             "access.manage",            Ordem: 70),
+        new("nav-configuracao-aprovacoes",  "Config. de Aprovações",  "/admin/configuracao-aprovacoes",  "settings2",         "access.manage",            Ordem: 80),
+        new("nav-aprovadores-alternativos", "Aprovadores Alternativos","/admin/aprovadores-alternativos","user-check",        "access.manage",            Ordem: 90),
+        new("nav-admin-doc-padrao",         "Documentação Padrão",    "/admin/documentacao-padrao",      "bi-journal-text",   "access.manage",            Ordem: 100),
+        new("nav-admin-menus",              "Menus",                  "/admin/menus",                    "bi-list-check",     "access.manage",            Ordem: 110),
+        new("nav-admin-logs",               "Logs",                   "/admin/logs",                     "bi-journal-text",   "logs.view",                Ordem: 120),
+        new("nav-admin-operational-logs",   "Logs Operacionais",      "/admin/operational-logs",         "activity",          "logs.view",                Ordem: 130),
+        new("nav-admin-notif-candidatura",  "Notificações (Candidaturas)", "/administracao/notificacoes-candidatura", "bell-ring", "audit.view",           Ordem: 140),
+        new("nav-admin-notif-templates",    "Templates de Notificação",    "/administracao/notificacoes-templates",   "book-template", "audit.view",       Ordem: 145),
+
+        // ── Configurações (core) ─────────────────────────────────────────────
+        new("nav-admin-email-config",       "Config. de E-mail",      "/admin/email-config",             "bi-gear",           "email-config.manage",      Ordem: 10),
+        new("nav-admin-email-templates",    "Templates de E-mail",    "/admin/email-templates",          "bi-envelope-paper", "email-templates.manage",   Ordem: 20),
+        new("nav-admin-emails",             "E-mails Enviados",       "/admin/emails",                   "bi-envelope",       "emails.manage",            Ordem: 30),
+        new("nav-admin-entra-id",           "Entra ID",               "/admin/entra-id",                 "bi-microsoft",      "entra-config.manage",      Ordem: 40),
+        new("nav-admin-api-keys",           "API Keys",               "/admin/api-keys",                 "bi-key",            "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 50),
+        new("nav-admin-localization",       "Localização",            "/admin/localization",             "bi-translate",      "localization-config.manage", Ordem: 60),
+        new("nav-admin-tenant-config",      "Configurações do Tenant","/admin/tenant-configuracao",      "bi-gear",           "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 70),
+        new("nav-admin-tenant-branding",    "Branding / White-Label", "/admin/tenant-branding",          "palette",           "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 80),
+
+        // ── Relatórios (standalone) ──────────────────────────────────────────
+        new("nav-relatorios",               "Relatórios",             "/relatorios",                     "pie-chart",         "relatorios.view",          Ordem: 10),
+    };
+}

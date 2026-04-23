@@ -27,9 +27,6 @@ public sealed class Funcionario : ITenantEntity
     public Guid? UnidadeLotacaoId { get; set; }
     public UnidadeLotacao? UnidadeLotacao { get; set; }
 
-    public Guid? AreaId { get; set; }
-    public Area? Area { get; set; }
-
     public int Headcount { get; set; }
 
     public Guid? JobPositionId { get; set; }

@@ -81,8 +81,6 @@ interface SolicitacaoDetail {
     aprovadorNome: string | null;
     jobPositionId: string | null;
     jobPositionName: string | null;
-    areaId: string | null;
-    areaName: string | null;
     unitId: string | null;
     unitName: string | null;
     vagaId: string | null;
@@ -1011,7 +1009,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
 
                                         <SectionDivider title="Informações Gerais" />
                                         <DetailField label="Solicitante" value={detail.solicitanteNome} />
-                                        <DetailField label="Área" value={detail.areaName} />
+                                        <DetailField label="Centro de Custo" value={detail.centroCustoNome} />
                                         <DetailField label="Data criação" value={formatDate(detail.createdAtUtc)} />
                                         <DetailField label="Status" value={statusBadge(detail.status)} />
                                     </div>

@@ -28,8 +28,8 @@ interface CargoItem {
     id: string;
     codigo: string;
     nome: string;
-    area: string;
-    areaId?: string;
+    centroCustoNome: string;
+    centroCustoId?: string;
     senioridade: string;
     funcionarios?: number;
     gestores?: number;
@@ -49,7 +49,7 @@ interface CargoDraft {
     id?: string;
     code: string;
     name: string;
-    areaId: string | null;
+    centroCustoId: string | null;
     seniority: string;
     status: string;
     tipo: string;
@@ -65,7 +65,7 @@ interface CargoDraft {
     updatedAtUtc?: string;
 }
 
-interface AreaLookup { id: string; name: string }
+interface CentroCustoLookup { id: string; code: string; description: string; displayLabel?: string }
 
 /* ---------- helpers ---------- */
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -96,7 +96,7 @@ function statusBadge(s: string | null | undefined) {
 }
 
 const emptyDraft: CargoDraft = {
-    code: "", name: "", areaId: null, seniority: "", status: "ativo", tipo: "", occupationalClassification: "", description: "",
+    code: "", name: "", centroCustoId: null, seniority: "", status: "ativo", tipo: "", occupationalClassification: "", description: "",
     similarityIndicator: "", fullDescription: "", nivelCargoId: null, desEnvelPagto: "",
 };
 
@@ -109,7 +109,7 @@ const textareaClass = cn(
 export default function CargosScreen() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<CargoItem[]>([]);
-    const [areas, setAreas] = useState<AreaLookup[]>([]);
+    const [centrosCusto, setCentrosCusto] = useState<CentroCustoLookup[]>([]);
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [editOpen, setEditOpen] = useState(false);
@@ -199,8 +199,8 @@ export default function CargosScreen() {
             id: String(i.id ?? ""),
             codigo: String(i.code ?? ""),
             nome: String(i.name ?? ""),
-            area: String(i.areaName ?? ""),
-            areaId: i.areaId ? String(i.areaId) : undefined,
+            centroCustoNome: String(i.centroCustoDescription ?? i.centroCustoName ?? i.areaName ?? ""),
+            centroCustoId: i.centroCustoId ? String(i.centroCustoId) : undefined,
             senioridade: String(i.seniority ?? ""),
             funcionarios: typeof i.funcionariosCount === "number" ? i.funcionariosCount : 0,
             status: String(i.status ?? ""),
@@ -216,11 +216,11 @@ export default function CargosScreen() {
         setScreenCache("/cargos", mapped);
     }, []);
 
-    const loadAreas = useCallback(async () => {
+    const loadCentrosCusto = useCallback(async () => {
         try {
-            const payload = await fetchJson<unknown>(`/api/areas`);
-            const items = Array.isArray(payload) ? (payload as AreaLookup[]) : Array.isArray((payload as Record<string, unknown>)?.items) ? ((payload as Record<string, unknown>).items as AreaLookup[]) : [];
-            setAreas(items);
+            const payload = await fetchJson<unknown>(`/api/centros-custo/lookup`);
+            const items = Array.isArray(payload) ? (payload as CentroCustoLookup[]) : Array.isArray((payload as Record<string, unknown>)?.items) ? ((payload as Record<string, unknown>).items as CentroCustoLookup[]) : [];
+            setCentrosCusto(items);
         } catch { /* optional */ }
     }, []);
 
@@ -232,11 +232,11 @@ export default function CargosScreen() {
         } else {
             setLoading(true);
         }
-        Promise.all([syncList(), loadAreas()])
+        Promise.all([syncList(), loadCentrosCusto()])
             .catch((e) => { console.error("Cargos – load error", e); toast.error(`Falha ao carregar cargos: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
-    }, [syncList, loadAreas]);
+    }, [syncList, loadCentrosCusto]);
 
     type SortKey = "codigo" | "nivel" | "nome" | "envelop" | "cbo" | "status";
     const [sortKey, setSortKey] = useState<SortKey>("codigo");
@@ -261,7 +261,7 @@ export default function CargosScreen() {
             if (statusFilter === "ativo" && st !== "ativo" && st !== "active") return false;
             if (statusFilter === "inativo" && st !== "inativo" && st !== "inactive") return false;
             if (!qq) return true;
-            return [c.codigo, c.nome, c.area, c.desEnvelPagto, c.occupationalClassification].filter(Boolean).join(" ").toLowerCase().includes(qq);
+            return [c.codigo, c.nome, c.centroCustoNome, c.desEnvelPagto, c.occupationalClassification].filter(Boolean).join(" ").toLowerCase().includes(qq);
         });
 
         const dir = sortDir === "asc" ? 1 : -1;
@@ -304,7 +304,7 @@ export default function CargosScreen() {
                 id: item.id,
                 code: String(detail?.code ?? detail?.Code ?? item.codigo ?? ""),
                 name: String(detail?.name ?? detail?.Name ?? item.nome ?? ""),
-                areaId: String(detail?.areaId ?? detail?.AreaId ?? item.areaId ?? "") || null,
+                centroCustoId: String(detail?.centroCustoId ?? detail?.CentroCustoId ?? item.centroCustoId ?? "") || null,
                 seniority: String(detail?.seniority ?? detail?.Seniority ?? item.senioridade ?? ""),
                 status: String(detail?.status ?? item.status ?? "ativo"),
                 tipo: String(detail?.tipo ?? detail?.Tipo ?? detail?.type ?? detail?.Type ?? item.tipo ?? ""),
@@ -329,7 +329,7 @@ export default function CargosScreen() {
         const payload = {
             code: draft.code.trim() || null,
             name: draft.name.trim(),
-            areaId: draft.areaId || null,
+            centroCustoId: draft.centroCustoId || null,
             seniority: draft.seniority.trim() || null,
             status: draft.status.toLowerCase() === "inativo" ? "Inactive" : "Active",
             tipo: draft.tipo.trim() || null,
@@ -403,8 +403,8 @@ export default function CargosScreen() {
                 };
 
                 const parsed: CargoDraft[] = raw.map((r) => {
-                    const areaName = key(r, ["area", "area nome"]);
-                    const areaMatch = areas.find((a) => a.name.toLowerCase() === areaName.toLowerCase());
+                    const centroCustoName = key(r, ["centro de custo", "centrocusto", "area", "area nome"]);
+                    const centroCustoMatch = centrosCusto.find((c) => c.description.toLowerCase() === centroCustoName.toLowerCase() || c.code.toLowerCase() === centroCustoName.toLowerCase());
                     const statusStr = key(r, ["status", "ativo"]).toLowerCase();
                     // TOTVS exports "S"/"N"; portal exports "ativo"/"inativo"
                     const isInactive = statusStr === "inativo" || statusStr === "inactive" || statusStr === "n";
@@ -425,7 +425,7 @@ export default function CargosScreen() {
                     return {
                         code: compositeCode,
                         name,
-                        areaId: areaMatch?.id ?? null,
+                        centroCustoId: centroCustoMatch?.id ?? null,
                         seniority: key(r, ["senioridade", "seniority"]),
                         status: isInactive ? "inativo" : "ativo",
                         tipo: key(r, ["tipo", "type", "tipo do cargo", "cdn_tip_cargo"]),
@@ -459,12 +459,12 @@ export default function CargosScreen() {
     };
 
     const exportFilteredTsv = () => {
-        const headers = ["codigo", "nome", "area", "senioridade", "status", "funcionarios", "descricao", "atualizacao"];
+        const headers = ["codigo", "nome", "centroCusto", "senioridade", "status", "funcionarios", "descricao", "atualizacao"];
         const lines = filtered.map((c) =>
             [
                 c.codigo,
                 c.nome,
-                c.area,
+                c.centroCustoNome,
                 c.senioridade,
                 c.status,
                 String(c.funcionarios ?? c.gestores ?? 0),
@@ -490,7 +490,7 @@ export default function CargosScreen() {
             const payload = importRows.map((row) => ({
                 code: row.code || null,
                 name: row.name,
-                areaId: row.areaId || null,
+                centroCustoId: row.centroCustoId || null,
                 seniority: row.seniority || null,
                 tipo: row.tipo || null,
                 occupationalClassification: row.occupationalClassification || null,
@@ -671,10 +671,10 @@ export default function CargosScreen() {
                             </select>
                         </div>
                         <div>
-                            <label className="mb-1 block text-xs font-medium text-muted-foreground">Área</label>
-                            <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.areaId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, areaId: e.target.value || null }))}>
-                                <option value="">Selecionar área</option>
-                                {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">Centro de Custo</label>
+                            <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.centroCustoId ?? ""} onChange={(e) => setDraft((d) => ({ ...d, centroCustoId: e.target.value || null }))}>
+                                <option value="">Selecionar centro de custo</option>
+                                {centrosCusto.map((c) => <option key={c.id} value={c.id}>{c.displayLabel || `${c.code} — ${c.description}`}</option>)}
                             </select>
                         </div>
                         <div>
@@ -746,8 +746,8 @@ export default function CargosScreen() {
                             <p className="mt-0.5">{detailItem ? statusBadge(detailItem.status) : "—"}</p>
                         </div>
                         <div>
-                            <p className="text-xs font-medium text-muted-foreground">Área</p>
-                            <p className="mt-0.5">{detailItem?.area || "—"}</p>
+                            <p className="text-xs font-medium text-muted-foreground">Centro de Custo</p>
+                            <p className="mt-0.5">{detailItem?.centroCustoNome || "—"}</p>
                         </div>
                         <div>
                             <p className="text-xs font-medium text-muted-foreground">Senioridade</p>

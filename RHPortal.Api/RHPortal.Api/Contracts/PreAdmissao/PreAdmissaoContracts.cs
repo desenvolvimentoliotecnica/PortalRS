@@ -82,7 +82,7 @@ public sealed record PreAdmissaoDetailResponse(
 
     // Trabalhista
     string? EstabelecimentoCodigo, string? CodEmpresa, string? MatriculaRM,
-    Guid? UnitId, string? UnitNome, Guid? AreaId, string? AreaNome,
+    Guid? UnitId, string? UnitNome, Guid? CentroCustoId, string? CentroCustoNome,
     Guid? JobPositionId, string? JobPositionNome, Guid? RequisitoCategoriaId,
     DateOnly? DataAdmissao, decimal? Salario,
     TipoContratacaoAdmissao? TipoContratacao, short? CargaHorariaSemanal,
@@ -91,7 +91,7 @@ public sealed record PreAdmissaoDetailResponse(
     // TOTVS: Cargo/Vinculo
     int? CodCargoTotvs, int? CodVinculoEmpregaticio, int? TipoFuncionario,
     int? CategoriaSalarial, int? GrauInstrucao, int? CodTurno,
-    string? CentroCusto, string? UnidadeLotacao,
+    string? CentroCustoTotvs, string? UnidadeLotacao,
     int? CodPlanoLotacao, int? CodTurma, int? NumCartaoPonto, int? CodNivel,
     string? TipoMaoDeObra, int? FormaPagamento, decimal? SalarioSimulado,
     int? OrigemFuncionario, int? IndFuncVinculado, string? FuncQualificado,
@@ -240,7 +240,7 @@ public sealed record PreAdmissaoUpdateRequest(
 
     // Trabalhista
     string? EstabelecimentoCodigo, string? CodEmpresa,
-    Guid? UnitId, Guid? AreaId, Guid? JobPositionId, Guid? RequisitoCategoriaId,
+    Guid? UnitId, Guid? CentroCustoId, Guid? JobPositionId, Guid? RequisitoCategoriaId,
     DateOnly? DataAdmissao, decimal? Salario,
     TipoContratacaoAdmissao? TipoContratacao, short? CargaHorariaSemanal,
     string? PisPasep,
@@ -248,7 +248,7 @@ public sealed record PreAdmissaoUpdateRequest(
     // TOTVS: Cargo/Vinculo
     int? CodCargoTotvs, int? CodVinculoEmpregaticio, int? TipoFuncionario,
     int? CategoriaSalarial, int? GrauInstrucao, int? CodTurno,
-    string? CentroCusto, string? UnidadeLotacao,
+    string? CentroCustoTotvs, string? UnidadeLotacao,
     int? CodPlanoLotacao, int? CodTurma, int? NumCartaoPonto, int? CodNivel,
     string? TipoMaoDeObra, int? FormaPagamento, decimal? SalarioSimulado,
     int? OrigemFuncionario, int? IndFuncVinculado, string? FuncQualificado,
@@ -412,7 +412,7 @@ public sealed record AprovarContratacaoRequest(
     /// <summary>Celular/WhatsApp do candidato — usado pelo Ítalo para iniciar a coleta.</summary>
     string? Celular,
     Guid? UnitId,
-    Guid? AreaId,
+    Guid? CentroCustoId,
     Guid? JobPositionId,
     DateOnly? DataAdmissao,
     decimal? Salario
@@ -478,8 +478,8 @@ public sealed record IniciarManualRequest(
     DateOnly? DataAdmissao,
     /// <summary>ID do cargo (opcional — pode ser preenchido no wizard).</summary>
     Guid? JobPositionId,
-    /// <summary>ID da área/departamento (opcional).</summary>
-    Guid? AreaId,
+    /// <summary>ID do centro de custo organizacional (opcional). Absorveu Area/Department em 31.2.</summary>
+    Guid? CentroCustoId,
     /// <summary>ID da unidade/filial (opcional).</summary>
     Guid? UnitId,
     /// <summary>Salário proposto (opcional).</summary>

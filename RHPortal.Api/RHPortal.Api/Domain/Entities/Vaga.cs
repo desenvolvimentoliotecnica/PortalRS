@@ -21,14 +21,7 @@ namespace RHPortal.Api.Domain.Entities
         [StringLength(200)]
         public string? NomeEngessado { get; set; }           // nome interno/fixo (não editável após publicação)
 
-        public Guid? DepartmentId { get; set; }         // vagaDepartmentId (opcional)
-        public Department? Department { get; set; }     // navigation
-
         public VagaAreaTime? AreaTime { get; set; }         // vagaAreaTime
-
-        // ✅ agora vem de tabela (Areas), não enum — nullable em rascunho
-        public Guid? AreaId { get; set; }                    // vagaAreaId
-        public Area? Area { get; set; }                     // navigation
 
         public VagaModalidade? Modalidade { get; set; }     // vagaModalidade
         public VagaStatus Status { get; set; }              // vagaStatus *
@@ -112,6 +105,10 @@ namespace RHPortal.Api.Domain.Entities
 
         public Guid? UnidadeLotacaoId { get; set; }
         public UnidadeLotacao? UnidadeLotacao { get; set; }
+
+        // FK para EixoVaga (SLA por eixo pode sobrepor SlaDiasMetaFechamento)
+        public Guid? EixoVagaId { get; set; }
+        public EixoVaga? EixoVaga { get; set; }
 
         public VagaMotivoAbertura? MotivoAbertura { get; set; }   // vagaMotivoAbertura
         public VagaOrcamentoAprovado? OrcamentoAprovado { get; set; } // vagaOrcamento
@@ -201,6 +198,29 @@ namespace RHPortal.Api.Domain.Entities
 
         [StringLength(240)]
         public string? ObservacoesRemuneracao { get; set; } // vagaRemObs
+
+        // --------------------
+        // Alçada salarial — épico Fase 3C
+        // --------------------
+        /// <summary>
+        /// Quando true, a vaga não pode ser salva com salário fora da <see cref="FaixaSalarial"/> do JobPosition,
+        /// a menos que um approver autorize a alçada (preenche <see cref="AlcadaSalarialAprovadaPorUserId"/>).
+        /// </summary>
+        public bool TravarFaixaSalarial { get; set; } = true;
+
+        /// <summary>Id do usuário que aprovou a alçada salarial desta vaga (null = sem aprovação).</summary>
+        public Guid? AlcadaSalarialAprovadaPorUserId { get; set; }
+
+        /// <summary>Data/hora UTC da aprovação da alçada.</summary>
+        public DateTimeOffset? AlcadaSalarialAprovadaEmUtc { get; set; }
+
+        /// <summary>Justificativa do solicitante para a alçada salarial.</summary>
+        [StringLength(1000)]
+        public string? AlcadaSalarialJustificativa { get; set; }
+
+        /// <summary>Observação do approver ao conceder a alçada.</summary>
+        [StringLength(500)]
+        public string? AlcadaSalarialObservacaoAprovador { get; set; }
 
         // --------------------
         // Qualificações / requisitos

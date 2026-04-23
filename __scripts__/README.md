@@ -1,6 +1,9 @@
-# Testes automatizados (bateria + E2E)
+# Testes automatizados (bateria)
 
 Este diretório contém scripts para **validar automaticamente** os principais fluxos do RenderRH sem precisar clicar em tudo manualmente.
+
+> **Portal MVC (LioTecnica.Web) descomissionado na Fase 13** — 100% das telas estão no Next.js (`LioTecnica.Web.Next`).
+> O E2E baseado em Playwright+.NET (`LioTecnica.Web.E2E`) foi removido junto. Testes end-to-end novos devem ser escritos sobre o Next (e.g. Playwright em TypeScript dentro do `LioTecnica.Web.Next`).
 
 ## 1) Bateria rápida (API + AI + Web health)
 
@@ -12,9 +15,9 @@ Arquivo: `test-battery.sh`
   - **Owner login** e endpoints `api/owner/*`
   - **Tenant login (admin)** e endpoints `api/*` com `X-Tenant-Id`
   - Smoke em módulos (Dashboard, Vagas, Candidatos, Talentos, etc.)
-- **LioTecnica.Web**:
-  - `GET /Account/Login`
-  - `GET /api/health`
+- **LioTecnica.Web.Next**:
+  - `GET /app/` (SPA shell)
+  - `GET /app/login` (tela de login)
 
 ### Como rodar
 
@@ -27,7 +30,7 @@ bash __scripts__/test-battery.sh
 - **URLs**
   - `TB_API` (default: `http://localhost:5056`)
   - `TB_AI` (default: `http://localhost:8000`)
-  - `TB_WEB` (default: `http://localhost:5064`)
+  - `TB_WEB` (default: `http://localhost:3000`) — Next.js
 - **Credenciais**
   - `TB_OWNER_EMAIL`, `TB_OWNER_PASSWORD`
   - `TB_ADMIN_EMAIL`, `TB_ADMIN_EMAIL_FALLBACK`, `TB_ADMIN_PASSWORD`
@@ -49,31 +52,3 @@ Se o tenant estiver sem usuários, o script tenta rodar automaticamente:
 - `POST /api/owner/tenants/<tenant>/seed`
 
 Isso permite obter token admin e testar os endpoints scoped corretamente.
-
-## 2) E2E Web (Playwright em .NET)
-
-Projeto: `../LioTecnica.Web.E2E/`
-
-### Instalar browsers do Playwright (uma vez por máquina)
-
-No Windows (PowerShell):
-
-```powershell
-dotnet build .\LioTecnica.Web.E2E\LioTecnica.Web.E2E.csproj
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\LioTecnica.Web.E2E\bin\Debug\net8.0\playwright.ps1 install chromium
-```
-
-### Rodar os testes E2E
-
-```bash
-dotnet test Voltage.RenderRH/LioTecnica.Web.E2E/LioTecnica.Web.E2E.csproj
-```
-
-Variáveis (opcionais):
-- `E2E_WEB_BASEURL` (default: `http://localhost:5064`)
-- `E2E_TENANT_ID` (default: `dev`)
-- `E2E_EMAIL` (default: `admin@dev.local`)
-- `E2E_PASSWORD` (default: `ChangeThisPassword123!`)
-- `E2E_HEADLESS` (default: `true`)
-- `E2E_FAIL_ON_CONSOLE_ERROR` (default: `true`)
-

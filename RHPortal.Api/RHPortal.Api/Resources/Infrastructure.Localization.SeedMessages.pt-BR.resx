@@ -12,11 +12,8 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="SeedErrors.NoAreas" xml:space="preserve">
-    <value>Nenhuma Area ativa encontrada. Rode o seed de Areas antes.</value>
-  </data>
-  <data name="SeedErrors.NoDepartments" xml:space="preserve">
-    <value>Nenhum Department encontrado/ativo. Rode o seed de Departments antes.</value>
+  <data name="SeedErrors.NoCentrosCusto" xml:space="preserve">
+    <value>Nenhum Centro de Custo ativo encontrado. Rode o seed de Centros de Custo antes.</value>
   </data>
   <data name="SeedErrors.NoUnits" xml:space="preserve">
     <value>Nenhuma Unit encontrada. Rode o seed de Units antes.</value>

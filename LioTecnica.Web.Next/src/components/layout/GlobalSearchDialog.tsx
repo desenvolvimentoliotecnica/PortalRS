@@ -7,7 +7,7 @@ import {
     Users,
     UserCircle,
     BadgeCheck,
-    MapPin,
+    Building2,
     Search,
     Loader2,
     ArrowRight,
@@ -29,7 +29,7 @@ interface SearchResult {
     href: string;
 }
 
-type Category = "vagas" | "candidatos" | "pessoas" | "funcionarios" | "areas";
+type Category = "vagas" | "candidatos" | "pessoas" | "funcionarios" | "centrosCusto";
 
 interface CategoryMeta {
     label: string;
@@ -43,10 +43,10 @@ const CATEGORIES: Record<Category, CategoryMeta> = {
     candidatos: { label: "Candidatos", icon: Users, color: "text-violet-600", bg: "bg-violet-100" },
     pessoas: { label: "Pessoas", icon: UserCircle, color: "text-emerald-600", bg: "bg-emerald-100" },
     funcionarios: { label: "Funcionários", icon: BadgeCheck, color: "text-amber-600", bg: "bg-amber-100" },
-    areas: { label: "Áreas", icon: MapPin, color: "text-rose-600", bg: "bg-rose-100" },
+    centrosCusto: { label: "Centros de Custo", icon: Building2, color: "text-rose-600", bg: "bg-rose-100" },
 };
 
-const CATEGORY_ORDER: Category[] = ["vagas", "candidatos", "pessoas", "funcionarios", "areas"];
+const CATEGORY_ORDER: Category[] = ["vagas", "candidatos", "pessoas", "funcionarios", "centrosCusto"];
 
 /* ── Helpers ── */
 
@@ -134,22 +134,23 @@ async function searchFuncionarios(q: string): Promise<SearchResult[]> {
         }));
 }
 
-async function searchAreas(q: string): Promise<SearchResult[]> {
-    const data = await fetchJson<unknown>(`/api/areas`);
+async function searchCentrosCusto(q: string): Promise<SearchResult[]> {
+    const data = await fetchJson<unknown>(`/api/centros-custo`);
     const items = extractItems(data);
     const lower = q.toLowerCase();
     return items
-        .filter((a) => {
-            const name = str(a.name ?? a.nome ?? a.description);
-            return name.toLowerCase().includes(lower);
+        .filter((c) => {
+            const description = str(c.description ?? c.descricao ?? c.name ?? c.nome);
+            const code = str(c.code ?? c.codigo);
+            return description.toLowerCase().includes(lower) || code.toLowerCase().includes(lower);
         })
         .slice(0, 5)
-        .map((a) => ({
-            id: str(a.id),
-            label: str(a.name ?? a.nome) || "Área",
-            sublabel: str(a.description ?? a.descricao) || undefined,
-            category: "areas" as const,
-            href: "/app/cadastros/areas",
+        .map((c) => ({
+            id: str(c.id),
+            label: str(c.description ?? c.descricao ?? c.name ?? c.nome) || "Centro de Custo",
+            sublabel: str(c.code ?? c.codigo) || undefined,
+            category: "centrosCusto" as const,
+            href: "/centros-custo",
         }));
 }
 
@@ -197,7 +198,7 @@ export default function GlobalSearchDialog({
                     searchCandidatos(query),
                     searchPessoas(query),
                     searchFuncionarios(query),
-                    searchAreas(query),
+                    searchCentrosCusto(query),
                 ]);
 
                 const all: SearchResult[] = [];
@@ -271,7 +272,7 @@ export default function GlobalSearchDialog({
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={onKeyDown}
-                        placeholder="Buscar vagas, candidatos, pessoas, funcionários, áreas..."
+                        placeholder="Buscar vagas, candidatos, pessoas, funcionários, centros de custo..."
                         className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
                         autoComplete="off"
                         spellCheck={false}
@@ -292,7 +293,7 @@ export default function GlobalSearchDialog({
                             <Search className="size-8 mb-2 opacity-40" />
                             <p className="text-sm">Digite pelo menos 2 caracteres para buscar</p>
                             <p className="text-xs mt-1 text-muted-foreground/40">
-                                Pesquise em vagas, candidatos, pessoas, funcionários e áreas
+                                Pesquise em vagas, candidatos, pessoas, funcionários e centros de custo
                             </p>
                         </div>
                     ) : loading && results.length === 0 ? (

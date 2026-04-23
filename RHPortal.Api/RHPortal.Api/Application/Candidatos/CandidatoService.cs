@@ -8,6 +8,7 @@ using RhPortal.Api.Contracts.Talentos;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Contracts.Notifications;
+using RhPortal.Api.Application.Candidaturas;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Talentos;
 using RhPortal.Api.Infrastructure.Data;
@@ -51,6 +52,7 @@ public sealed class CandidatoService : ICandidatoService
     private readonly ICvGptExtractor _cvGptExtractor;
     private readonly IRHPortalAiMatchClient? _aiMatchClient;
     private readonly ICandidatoVagaMatchingScoreService? _matchingScoreService;
+    private readonly ICandidaturaService? _candidaturaService;
 
     public CandidatoService(
         AppDbContext db,
@@ -62,7 +64,8 @@ public sealed class CandidatoService : ICandidatoService
         IMatchingService matchingService,
         ICvGptExtractor cvGptExtractor,
         IRHPortalAiMatchClient? aiMatchClient = null,
-        ICandidatoVagaMatchingScoreService? matchingScoreService = null)
+        ICandidatoVagaMatchingScoreService? matchingScoreService = null,
+        ICandidaturaService? candidaturaService = null)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -74,6 +77,26 @@ public sealed class CandidatoService : ICandidatoService
         _cvGptExtractor = cvGptExtractor;
         _aiMatchClient = aiMatchClient;
         _matchingScoreService = matchingScoreService;
+        _candidaturaService = candidaturaService;
+    }
+
+    /// <summary>
+    /// Garante que exista uma <see cref="Candidatura"/> (Candidato↔Vaga) e sincroniza o cache
+    /// <c>Candidato.VagaId</c>. Best-effort em ambientes onde <c>ICandidaturaService</c> não está
+    /// injetado (testes legados que usam o overload sem o serviço).
+    /// </summary>
+    private async Task EnsureCandidaturaAndSyncAsync(Guid candidatoId, Guid vagaId, string? fonte, string? obs, CancellationToken ct)
+    {
+        if (vagaId == Guid.Empty) return;
+        if (_candidaturaService is null) return;
+        try
+        {
+            await _candidaturaService.GetOrCreateAsync(candidatoId, vagaId, fonte, obs, ct);
+        }
+        catch
+        {
+            // best-effort: não falha criação/atualização do candidato por causa da candidatura.
+        }
     }
 
     public async Task<int> DesvincularDaVagaAsync(Guid vagaId, CancellationToken ct)
@@ -130,7 +153,7 @@ public sealed class CandidatoService : ICandidatoService
             q = q.Where(c => c.VagaId == query.VagaId.Value);
 
         if (query.AreaId.HasValue && query.AreaId.Value != Guid.Empty)
-            q = q.Where(c => c.Vaga != null && c.Vaga.AreaId == query.AreaId.Value);
+            q = q.Where(c => c.Vaga != null && c.Vaga.CentroCustoId == query.AreaId.Value);
 
         if (query.RecrutadorUserId.HasValue && query.RecrutadorUserId.Value != Guid.Empty)
             q = q.Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == query.RecrutadorUserId.Value);
@@ -200,14 +223,14 @@ public sealed class CandidatoService : ICandidatoService
                 {
                     v.Codigo,
                     v.Titulo,
-                    v.AreaId,
+                    v.CentroCustoId,
                     v.RecrutadorResponsavelUserId
                 })
                 .FirstOrDefaultAsync(ct);
 
             vagaCodigo = vaga?.Codigo;
             vagaTitulo = vaga?.Titulo;
-            vagaAreaId = vaga?.AreaId;
+            vagaAreaId = vaga?.CentroCustoId;
             vagaRecrutadorResponsavelUserId = vaga?.RecrutadorResponsavelUserId;
         }
 
@@ -292,6 +315,8 @@ public sealed class CandidatoService : ICandidatoService
 
             if (request.VagaId != Guid.Empty)
             {
+                await EnsureCandidaturaAndSyncAsync(existing.Id, request.VagaId, request.Fonte.ToString(), null, ct);
+
                 _ = Task.Run(async () => {
                     try { await _matchingService.CalculateAndStoreAsync(existing.Id, request.VagaId, CancellationToken.None); } catch { }
                     try { await TrySaveAiScoreAsync(existing.Id, request.VagaId, CancellationToken.None); } catch { }
@@ -388,6 +413,12 @@ public sealed class CandidatoService : ICandidatoService
                 // Não impedir criação do candidato se Pessoa/Talento falhar
                 Console.Error.WriteLine($"[CandidatoService] Auto-criar Pessoa/Talento falhou: {ex.Message}");
             }
+        }
+
+        // Garante Candidatura + sincronização do cache Candidato.VagaId
+        if (request.VagaId != Guid.Empty)
+        {
+            await EnsureCandidaturaAndSyncAsync(entity.Id, request.VagaId, request.Fonte.ToString(), null, ct);
         }
 
         // ── Auto-vincular ao ProjetoVaga ativo (candidato aparece no Pipeline) ──
@@ -505,6 +536,7 @@ public sealed class CandidatoService : ICandidatoService
 
         if (entity.VagaId.HasValue && entity.VagaId.Value != Guid.Empty)
         {
+            await EnsureCandidaturaAndSyncAsync(id, entity.VagaId.Value, request.Fonte.ToString(), null, ct);
             await _matchingService.CalculateAndStoreAsync(id, entity.VagaId.Value, ct);
             await TrySaveAiScoreAsync(id, entity.VagaId.Value, ct);
         }
@@ -790,7 +822,7 @@ public sealed class CandidatoService : ICandidatoService
             c.VagaId,
             c.Vaga != null ? c.Vaga.Codigo : null,
             c.Vaga != null ? c.Vaga.Titulo : null,
-            c.Vaga?.AreaId,
+            c.Vaga?.CentroCustoId,
             c.Vaga?.RecrutadorResponsavelUserId,
             c.TalentoId,
             c.Obs,

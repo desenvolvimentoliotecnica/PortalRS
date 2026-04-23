@@ -29,8 +29,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<RoleMenu> RoleMenus => Set<RoleMenu>();
 
-    public DbSet<Department> Departments => Set<Department>();
-    public DbSet<Area> Areas => Set<Area>();
+    // Area e Department foram consolidados em CentroCusto na Sessão 31.2.
     public DbSet<RequisitoCategoria> RequisitoCategorias => Set<RequisitoCategoria>();
     public DbSet<Unit> Units => Set<Unit>();
     public DbSet<UserUnit> UserUnits => Set<UserUnit>();
@@ -118,6 +117,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<AvaliacaoCiclo> AvaliacaoCiclos => Set<AvaliacaoCiclo>();
     public DbSet<AvaliacaoPergunta> AvaliacaoPerguntas => Set<AvaliacaoPergunta>();
     public DbSet<AvaliacaoResposta> AvaliacaoRespostas => Set<AvaliacaoResposta>();
+    public DbSet<AvaliacaoConvite> AvaliacaoConvites => Set<AvaliacaoConvite>();
+    public DbSet<AvaliacaoCalibragem> AvaliacaoCalibragens => Set<AvaliacaoCalibragem>();
     public DbSet<OneOnOneMeeting> OneOnOneMeetings => Set<OneOnOneMeeting>();
     public DbSet<MoodEntry> MoodEntries => Set<MoodEntry>();
     public DbSet<RenderCoinBalance> RenderCoinBalances => Set<RenderCoinBalance>();
@@ -131,10 +132,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<TenantAwsSettings> TenantAwsSettings => Set<TenantAwsSettings>();
     public DbSet<TenantConfiguracao> TenantConfiguracoes => Set<TenantConfiguracao>();
+    public DbSet<TenantBranding> TenantBrandings => Set<TenantBranding>();
     public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
     public DbSet<VagaUnifiedMatchingCache> VagaUnifiedMatchingCaches => Set<VagaUnifiedMatchingCache>();
     public DbSet<Cargo> Cargos => Set<Cargo>();
     public DbSet<NivelCargo> NiveisCargo => Set<NivelCargo>();
+    public DbSet<DescricaoCargo> DescricoesCargo => Set<DescricaoCargo>();
+    public DbSet<EixoVaga> EixosVaga => Set<EixoVaga>();
+    public DbSet<PropostaVaga> PropostasVaga => Set<PropostaVaga>();
+    public DbSet<Candidatura> Candidaturas => Set<Candidatura>();
+    public DbSet<CandidaturaEtapaHistorico> CandidaturaEtapaHistoricos => Set<CandidaturaEtapaHistorico>();
+    public DbSet<NotificacaoCandidaturaLog> NotificacoesCandidaturaLogs => Set<NotificacaoCandidaturaLog>();
+    public DbSet<NotificacaoTemplate> NotificacoesTemplates => Set<NotificacaoTemplate>();
     public DbSet<CategoriaSalarial> CategoriasSalariais => Set<CategoriaSalarial>();
     public DbSet<Turno> Turnos => Set<Turno>();
     public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
@@ -145,6 +154,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
     public DbSet<AprovadorAlternativo> AprovadoresAlternativos => Set<AprovadorAlternativo>();
     public DbSet<DocumentacaoPadraoConfig> DocumentacaoPadraoConfigs => Set<DocumentacaoPadraoConfig>();
+    public DbSet<DocumentacaoPadraoPorNivelCargoConfig> DocumentacaoPadraoPorNivelCargoConfigs => Set<DocumentacaoPadraoPorNivelCargoConfig>();
+    public DbSet<DocumentacaoPadraoPorCargoConfig> DocumentacaoPadraoPorCargoConfigs => Set<DocumentacaoPadraoPorCargoConfig>();
+    public DbSet<DocumentacaoPadraoHistorico> DocumentacaoPadraoHistoricos => Set<DocumentacaoPadraoHistorico>();
     public DbSet<WorkflowRH> WorkflowsRH => Set<WorkflowRH>();
     public DbSet<EtapaWorkflowRH> EtapasWorkflowRH => Set<EtapaWorkflowRH>();
     public DbSet<EtapaConfigWorkflowRH> EtapasConfigWorkflowRH => Set<EtapaConfigWorkflowRH>();
@@ -251,30 +263,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
-        modelBuilder.Entity<Area>(b =>
-        {
-            b.ToTable("Areas");
-            b.HasKey(x => x.Id);
-
-            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
-            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
-            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
-            b.Property(x => x.Description).HasMaxLength(1000);
-
-            b.HasOne(x => x.Parent)
-                .WithMany(x => x.Children)
-                .HasForeignKey(x => x.ParentId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            b.HasOne(x => x.OwnerFuncionario)
-                .WithMany()
-                .HasForeignKey(x => x.OwnerFuncionarioId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            b.HasIndex(x => x.ParentId);
-            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
-            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
-        });
+        // Area foi consolidada em CentroCusto na Sessão 31.2 (ver Domain/Entities/CentroCusto.cs).
 
         modelBuilder.Entity<RequisitoCategoria>(b =>
         {
@@ -290,29 +279,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
-        modelBuilder.Entity<Department>(b =>
-        {
-            b.ToTable("Departments");
-            b.HasKey(x => x.Id);
-
-            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
-            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
-            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
-
-            b.Property(x => x.ManagerName).HasMaxLength(120);
-            b.Property(x => x.ManagerEmail).HasMaxLength(180);
-            b.Property(x => x.Phone).HasMaxLength(40);
-            b.Property(x => x.BranchOrLocation).HasMaxLength(80);
-            b.Property(x => x.Description).HasMaxLength(1000);
-
-            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
-            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
-
-            b.HasOne(x => x.Area)
-             .WithMany()
-             .HasForeignKey(x => x.AreaId)
-             .OnDelete(DeleteBehavior.SetNull);
-        });
+        // Department foi consolidado em CentroCusto na Sessão 31.2 (ver Domain/Entities/CentroCusto.cs).
 
         modelBuilder.Entity<Unit>(b =>
         {
@@ -394,13 +361,14 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.SimilarityIndicator).HasMaxLength(1);
             b.Property(x => x.FullDescription).HasMaxLength(500);
 
-            b.Property(x => x.AreaId).IsRequired(false);
+            b.Property(x => x.CentroCustoId).IsRequired(false);
 
-            b.HasOne(x => x.Area)
+            b.HasOne(x => x.CentroCusto)
                 .WithMany()
-                .HasForeignKey(x => x.AreaId)
+                .HasForeignKey(x => x.CentroCustoId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            b.HasIndex(x => x.CentroCustoId);
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
 
             b.HasIndex(x => new { x.TenantId, x.TotvsCargoBasicId, x.TotvsNivCargoId })
@@ -460,7 +428,13 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
             b.HasIndex(x => x.IsActive);
+            b.HasIndex(x => x.UnidadeLotacaoId);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+
+            b.HasOne(x => x.UnidadeLotacao)
+             .WithMany()
+             .HasForeignKey(x => x.UnidadeLotacaoId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<CentroCusto>(b =>
@@ -473,6 +447,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Description).HasMaxLength(120).IsRequired();
             b.Property(x => x.Manager).HasMaxLength(120);
             b.Property(x => x.Notes).HasMaxLength(500);
+            b.Property(x => x.Description2).HasMaxLength(1000);
+            b.Property(x => x.Phone).HasMaxLength(40);
+            b.Property(x => x.BranchOrLocation).HasMaxLength(160);
 
             b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.Code })
              .IsUnique()
@@ -484,6 +461,163 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
              .WithMany()
              .HasForeignKey(x => x.EmpresaId)
              .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => x.ParentId);
+            b.HasOne(x => x.Parent)
+             .WithMany(x => x.Children)
+             .HasForeignKey(x => x.ParentId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            // Dono organizacional (absorvido de Area.OwnerFuncionarioId — Sessão 31.2).
+            b.HasIndex(x => x.OwnerFuncionarioId);
+            b.HasOne(x => x.OwnerFuncionario)
+             .WithMany()
+             .HasForeignKey(x => x.OwnerFuncionarioId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<DescricaoCargo>(b =>
+        {
+            b.ToTable("DescricoesCargo");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Summary).HasMaxLength(2000);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => x.NivelCargoId);
+            b.HasIndex(x => x.IsActive);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+
+            b.HasOne(x => x.NivelCargo)
+             .WithMany()
+             .HasForeignKey(x => x.NivelCargoId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<EixoVaga>(b =>
+        {
+            b.ToTable("EixosVaga");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Description).HasMaxLength(400);
+
+            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasIndex(x => x.IsActive);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<PropostaVaga>(b =>
+        {
+            b.ToTable("PropostasVaga");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Status).HasConversion<short>();
+            b.Property(x => x.Moeda).HasMaxLength(3);
+            b.Property(x => x.SalarioOferecido).HasPrecision(18, 2);
+            b.Property(x => x.AccessToken).HasMaxLength(64);
+            b.Property(x => x.NomeConfirmadoCandidato).HasMaxLength(160);
+            b.Property(x => x.IpOrigemResposta).HasMaxLength(60);
+            b.Property(x => x.UserAgentResposta).HasMaxLength(400);
+            b.Property(x => x.MotivoRecusa).HasMaxLength(2000);
+            b.Property(x => x.ObservacaoInternaRh).HasMaxLength(500);
+            b.Property(x => x.DescricaoBeneficios).HasMaxLength(2000);
+            b.Property(x => x.MensagemPersonalizada).HasMaxLength(8000);
+
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasIndex(x => new { x.TenantId, x.CandidaturaId });
+            b.HasIndex(x => x.AccessToken).IsUnique();
+
+            b.HasOne(x => x.Vaga).WithMany().HasForeignKey(x => x.VagaId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Candidato).WithMany().HasForeignKey(x => x.CandidatoId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Candidatura).WithMany().HasForeignKey(x => x.CandidaturaId).OnDelete(DeleteBehavior.SetNull);
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Candidatura>(b =>
+        {
+            b.ToTable("Candidaturas");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Status).HasConversion<short>();
+            b.Property(x => x.EtapaMacro).HasConversion<short>();
+            b.Property(x => x.Fonte).HasMaxLength(60);
+            b.Property(x => x.Observacoes).HasMaxLength(2000);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasIndex(x => new { x.TenantId, x.VagaId });
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId, x.VagaId }).IsUnique();
+
+            b.HasOne(x => x.Candidato).WithMany().HasForeignKey(x => x.CandidatoId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Vaga).WithMany().HasForeignKey(x => x.VagaId).OnDelete(DeleteBehavior.Restrict);
+
+            b.HasMany(x => x.Historico)
+                .WithOne(x => x.Candidatura!)
+                .HasForeignKey(x => x.CandidaturaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidaturaEtapaHistorico>(b =>
+        {
+            b.ToTable("CandidaturaEtapaHistoricos");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.EtapaAnterior).HasConversion<short>();
+            b.Property(x => x.EtapaNova).HasConversion<short>();
+            b.Property(x => x.Observacao).HasMaxLength(2000);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidaturaId });
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<NotificacaoCandidaturaLog>(b =>
+        {
+            b.ToTable("NotificacoesCandidaturaLogs");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.EtapaMacro).HasConversion<short>();
+            b.Property(x => x.Canal).HasConversion<short>();
+            b.Property(x => x.Status).HasConversion<short>();
+            b.Property(x => x.Destino).HasMaxLength(200);
+            b.Property(x => x.Mensagem).HasMaxLength(4000);
+            b.Property(x => x.ErroMensagem).HasMaxLength(1000);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidaturaId });
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<NotificacaoTemplate>(b =>
+        {
+            b.ToTable("NotificacoesTemplates");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Etapa).HasConversion<short>();
+            b.Property(x => x.Canal).HasConversion<short>();
+            b.Property(x => x.Idioma).HasMaxLength(10);
+            b.Property(x => x.Assunto).HasMaxLength(240);
+            b.Property(x => x.Corpo).HasMaxLength(4000).IsRequired();
+
+            // Unicidade por (TenantId, Etapa, Canal, Idioma) — Idioma null = template default por canal.
+            b.HasIndex(x => new { x.TenantId, x.Etapa, x.Canal, x.Idioma }).IsUnique();
+
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
         modelBuilder.Entity<UnidadeLotacao>(b =>
@@ -736,10 +870,14 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.UnitId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            b.HasOne(x => x.Area)
-                .WithMany()
-                .HasForeignKey(x => x.AreaId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // Pareamento EXPLÍCITO com CentroCusto.Funcionarios (coleção) para que
+            // o EF Core não interprete esta referência como inverso de
+            // CentroCusto.OwnerFuncionario (o que gera um índice UNIQUE errado
+            // em OwnerFuncionarioId). Ver comentário em CentroCusto.Funcionarios.
+            b.HasOne(x => x.CentroCusto)
+                .WithMany(cc => cc.Funcionarios!)
+                .HasForeignKey(x => x.CentroCustoId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             b.HasOne(x => x.JobPosition)
                 .WithMany()
@@ -806,11 +944,6 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.JobPositionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            b.HasOne(x => x.Area)
-                .WithMany()
-                .HasForeignKey(x => x.AreaId)
-                .OnDelete(DeleteBehavior.Restrict);
-
             b.HasOne(x => x.Unit)
                 .WithMany()
                 .HasForeignKey(x => x.UnitId)
@@ -870,7 +1003,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.RevisadoPor).WithMany().HasForeignKey(x => x.RevisadoPorId).OnDelete(DeleteBehavior.NoAction);
             b.HasOne(x => x.AprovadoPor).WithMany().HasForeignKey(x => x.AprovadoPorId).OnDelete(DeleteBehavior.NoAction);
             b.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.SetNull);
-            b.HasOne(x => x.Area).WithMany().HasForeignKey(x => x.AreaId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.CentroCusto).WithMany().HasForeignKey(x => x.CentroCustoId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.JobPosition).WithMany().HasForeignKey(x => x.JobPositionId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.RequisitoCategoria).WithMany().HasForeignKey(x => x.RequisitoCategoriaId).OnDelete(DeleteBehavior.SetNull);
             b.Property(x => x.AccessToken).HasMaxLength(64);
@@ -1089,26 +1222,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.SalarioMinimo).HasPrecision(18, 2);
             b.Property(x => x.SalarioMaximo).HasPrecision(18, 2);
 
-            // ✅ AREA (FK + Navegação) — nullable para vagas em rascunho
-            b.Property(x => x.AreaId).IsRequired(false);
+            // CentroCusto (FK + Navegação) — absorveu Area + Department em 31.2.
+            b.Property(x => x.CentroCustoId).IsRequired(false);
 
-            b.Property(x => x.DepartmentId).IsRequired(false);
-
-            b.HasOne(x => x.Area)
-                .WithMany() // ou .WithMany(a => a.Vagas) se você tiver coleção em Area
-                .HasForeignKey(x => x.AreaId)
-                .OnDelete(DeleteBehavior.Restrict); // ou NoAction se preferir
-
-            b.HasOne(x => x.Department)
-                 .WithMany()
-                 .HasForeignKey(x => x.DepartmentId)
-                 .IsRequired(false)
-                 .OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.CentroCusto)
+                .WithMany()
+                .HasForeignKey(x => x.CentroCustoId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             b.HasOne(x => x.RecrutadorResponsavelUser)
                 .WithMany()
                 .HasForeignKey(x => x.RecrutadorResponsavelUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.EixoVaga)
+                .WithMany()
+                .HasForeignKey(x => x.EixoVagaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => x.EixoVagaId);
 
             // Relacionamentos (listas do modal)
             b.HasMany(x => x.Beneficios)
@@ -1133,10 +1265,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             // Índices úteis
             b.HasIndex(x => new { x.TenantId, x.Status });
-            b.HasIndex(x => new { x.TenantId, x.DepartmentId });
-
-            // ✅ antes era x.Area (enum) -> agora é AreaId (Guid)
-            b.HasIndex(x => new { x.TenantId, x.AreaId });
+            b.HasIndex(x => new { x.TenantId, x.CentroCustoId });
 
             // Multi-tenant
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
@@ -1194,6 +1323,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.PortalPasswordHash).HasMaxLength(400);
             b.Property(x => x.ApplicationRecruiterUserId).HasMaxLength(120);
             b.Property(x => x.ApplicationRecruiterUserName).HasMaxLength(200);
+
+            // VagaId = cache da candidatura ativa mais recente (source of truth = tabela Candidaturas).
+            // Sincronização via CandidaturaService.RecalcularVagaPrincipalAsync.
             b.Property(x => x.VagaId).IsRequired(false);
 
             b.HasIndex(x => new { x.TenantId, x.Email });
@@ -1757,6 +1889,24 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<TenantBranding>(b =>
+        {
+            b.ToTable("TenantBrandings");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NomePortal).HasMaxLength(80);
+            b.Property(x => x.Subtitulo).HasMaxLength(160);
+            b.Property(x => x.RodapeTexto).HasMaxLength(160);
+            b.Property(x => x.CorPrimariaHex).HasMaxLength(7);
+            b.Property(x => x.CorSecundariaHex).HasMaxLength(7);
+            b.Property(x => x.LogoUrl).HasMaxLength(512);
+            b.Property(x => x.VersaoExibida).HasMaxLength(32);
+
+            b.HasIndex(x => x.TenantId).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<EtapaConfigAprovacao>(b =>
         {
             b.ToTable("EtapasConfigAprovacao");
@@ -1825,6 +1975,63 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.TipoDocumento).IsRequired();
             b.Property(x => x.Configuracao).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.TipoDocumento }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DocumentacaoPadraoPorNivelCargoConfig>(b =>
+        {
+            b.ToTable("DocumentacaoPadraoPorNivelCargoConfigs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NivelCargoId).IsRequired();
+            b.Property(x => x.TipoDocumento).IsRequired();
+            b.Property(x => x.Configuracao).IsRequired();
+            b.HasOne(x => x.NivelCargo)
+                .WithMany()
+                .HasForeignKey(x => x.NivelCargoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.NivelCargoId, x.TipoDocumento }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.NivelCargoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DocumentacaoPadraoPorCargoConfig>(b =>
+        {
+            b.ToTable("DocumentacaoPadraoPorCargoConfigs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.JobPositionId).IsRequired();
+            b.Property(x => x.TipoDocumento).IsRequired();
+            b.Property(x => x.Configuracao).IsRequired();
+            b.HasOne(x => x.JobPosition)
+                .WithMany()
+                .HasForeignKey(x => x.JobPositionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.JobPositionId, x.TipoDocumento }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.JobPositionId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DocumentacaoPadraoHistorico>(b =>
+        {
+            b.ToTable("DocumentacaoPadraoHistoricos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Escopo).IsRequired();
+            b.Property(x => x.TipoDocumento).IsRequired();
+            b.Property(x => x.Acao).IsRequired();
+            b.Property(x => x.UserNome).HasMaxLength(200);
+            b.HasOne(x => x.NivelCargo)
+                .WithMany()
+                .HasForeignKey(x => x.NivelCargoId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Cargo)
+                .WithMany()
+                .HasForeignKey(x => x.CargoId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.CriadoEmUtc });
+            b.HasIndex(x => new { x.TenantId, x.Escopo, x.NivelCargoId });
+            b.HasIndex(x => new { x.TenantId, x.Escopo, x.CargoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -2271,8 +2478,14 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.AvaliadorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            b.HasOne(x => x.CicloAvaliacao)
+                .WithMany()
+                .HasForeignKey(x => x.CicloAvaliacaoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             b.HasIndex(x => new { x.TenantId, x.FuncionarioId });
             b.HasIndex(x => new { x.TenantId, x.CriadoEmUtc });
+            b.HasIndex(x => new { x.TenantId, x.CicloAvaliacaoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -2283,6 +2496,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.Property(x => x.Nome).HasMaxLength(200).IsRequired();
             b.Property(x => x.Periodo).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(2000);
             b.HasOne(x => x.CriadoPor).WithMany().HasForeignKey(x => x.CriadoPorId).OnDelete(DeleteBehavior.Restrict);
             b.HasMany(x => x.Perguntas).WithOne(p => p.Ciclo).HasForeignKey(p => p.CicloId).OnDelete(DeleteBehavior.Cascade);
             b.HasMany(x => x.Respostas).WithOne(r => r.Ciclo).HasForeignKey(r => r.CicloId).OnDelete(DeleteBehavior.Cascade);
@@ -2307,6 +2521,37 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Avaliador).WithMany().HasForeignKey(x => x.AvaliadorId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne(x => x.Avaliando).WithMany().HasForeignKey(x => x.AvaliandoId).OnDelete(DeleteBehavior.Restrict);
             b.HasIndex(x => new { x.TenantId, x.CicloId, x.AvaliandoId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AvaliacaoConvite>(b =>
+        {
+            b.ToTable("AvaliacaoConvites");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.HasOne(x => x.Ciclo).WithMany().HasForeignKey(x => x.CicloId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Avaliador).WithMany().HasForeignKey(x => x.AvaliadorId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Avaliando).WithMany().HasForeignKey(x => x.AvaliandoId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.TenantId, x.CicloId, x.AvaliadorId, x.AvaliandoId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CicloId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.AvaliadorId, x.Status });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AvaliacaoCalibragem>(b =>
+        {
+            b.ToTable("AvaliacaoCalibragens");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ScoreGestor).HasColumnType("decimal(5,2)");
+            b.Property(x => x.ScoreComite).HasColumnType("decimal(5,2)");
+            b.Property(x => x.JustificativaComite).HasMaxLength(2000);
+            b.Property(x => x.ObservacaoDecisao).HasMaxLength(2000);
+            b.HasOne(x => x.Ciclo).WithMany().HasForeignKey(x => x.CicloId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Funcionario).WithMany().HasForeignKey(x => x.FuncionarioId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.NineBoxAssessment).WithMany().HasForeignKey(x => x.NineBoxAssessmentId).OnDelete(DeleteBehavior.SetNull);
+            b.HasIndex(x => new { x.TenantId, x.CicloId, x.FuncionarioId }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.CicloId, x.Status });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -2835,14 +3080,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                     roleMenu.CreatedAtUtc = now;
             }
 
-            if (entry.Entity is Department dep)
-            {
-                if (entry.State == EntityState.Added)
-                    dep.CreatedAtUtc = now;
-
-                if (entry.State is EntityState.Added or EntityState.Modified)
-                    dep.UpdatedAtUtc = now;
-            }
+            // 31.2: Department foi removido — carimbos consolidados em CentroCusto.
 
             if (entry.Entity is Unit unit)
             {

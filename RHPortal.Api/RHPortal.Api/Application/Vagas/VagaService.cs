@@ -23,6 +23,8 @@ public interface IVagaService
     Task<VagaResponse?> UpdateMatchingFiltrosAsync(Guid id, string? matchingFiltrosRaw, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<VagaResponse?> ChangeStatusAsync(Guid id, VagaStatus newStatus, CancellationToken ct);
+    Task<VagaResponse?> AprovarAlcadaSalarialAsync(Guid id, string? justificativa, string? observacaoAprovador, CancellationToken ct);
+    Task<VagaResponse?> LimparAlcadaSalarialAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class VagaService : IVagaService
@@ -71,27 +73,21 @@ public sealed class VagaService : IVagaService
                 (v.Cidade != null && EF.Functions.Like(v.Cidade, like)) ||
                 (v.Uf != null && EF.Functions.Like(v.Uf, like)) ||
 
-                (v.Area != null &&
-                    ((v.Area.Code != null && EF.Functions.Like(v.Area.Code, like)) ||
-                     (v.Area.Name != null && EF.Functions.Like(v.Area.Name, like)))) ||
-
-                (v.Department != null &&
-                    ((v.Department.Code != null && EF.Functions.Like(v.Department.Code, like)) ||
-                     (v.Department.Name != null && EF.Functions.Like(v.Department.Name, like))))
+                (v.CentroCusto != null &&
+                    ((v.CentroCusto.Code != null && EF.Functions.Like(v.CentroCusto.Code, like)) ||
+                     (v.CentroCusto.Description != null && EF.Functions.Like(v.CentroCusto.Description, like))))
             );
         }
 
         if (query.Status.HasValue)
             q = q.Where(v => v.Status == query.Status.Value);
 
-        if (query.AreaId.HasValue && query.AreaId.Value != Guid.Empty)
-            q = q.Where(v => v.AreaId == query.AreaId.Value);
+        // 31.2: CentroCustoId absorveu AreaId + DepartmentId.
+        if (query.CentroCustoId.HasValue && query.CentroCustoId.Value != Guid.Empty)
+            q = q.Where(v => v.CentroCustoId == query.CentroCustoId.Value);
 
         if (query.RecrutadorUserId.HasValue && query.RecrutadorUserId.Value != Guid.Empty)
             q = q.Where(v => v.RecrutadorResponsavelUserId == query.RecrutadorUserId.Value);
-
-        if (query.DepartmentId.HasValue && query.DepartmentId.Value != Guid.Empty)
-            q = q.Where(v => v.DepartmentId == query.DepartmentId.Value);
 
         // Carregar configuração do tenant para calcular alerta
         var tenantConfig = await _db.TenantConfiguracoes
@@ -105,12 +101,9 @@ public sealed class VagaService : IVagaService
             .Select(v => new
             {
                 v.Id, v.Codigo, v.Titulo, v.Status,
-                v.AreaId,
-                AreaCode = v.Area != null ? v.Area.Code : null,
-                AreaName = v.Area != null ? v.Area.Name : null,
-                v.DepartmentId,
-                DepartmentCode = v.Department != null ? v.Department.Code : null,
-                DepartmentName = v.Department != null ? v.Department.Name : null,
+                v.CentroCustoId,
+                CentroCustoCode = v.CentroCusto != null ? v.CentroCusto.Code : null,
+                CentroCustoNome = v.CentroCusto != null ? v.CentroCusto.Description : null,
                 v.Modalidade, v.Senioridade, v.QuantidadeVagas, v.MatchMinimoPercentual,
                 v.Confidencial, v.Urgente, v.AceitaPcd,
                 v.DataInicio, v.DataEncerramento, v.DataAbertura, v.SlaDiasMetaFechamento,
@@ -145,8 +138,7 @@ public sealed class VagaService : IVagaService
 
                 return new VagaListItemResponse(
                     v.Id, v.Codigo, v.Titulo, v.Status,
-                    v.AreaId, v.AreaCode, v.AreaName,
-                    v.DepartmentId, v.DepartmentCode, v.DepartmentName,
+                    v.CentroCustoId, v.CentroCustoCode, v.CentroCustoNome,
                     v.Modalidade, v.Senioridade, v.QuantidadeVagas, v.MatchMinimoPercentual,
                     v.Confidencial, v.Urgente, v.AceitaPcd,
                     v.DataInicio, v.DataEncerramento, v.DataAbertura, v.SlaDiasMetaFechamento,
@@ -165,13 +157,12 @@ public sealed class VagaService : IVagaService
     {
         var entity = await _db.Vagas
             .AsNoTracking()
-            .Include(x => x.Area)
-            .Include(x => x.Department)
             .Include(x => x.JobPosition)
             .Include(x => x.CategoriaSalarial)
             .Include(x => x.CentroCusto)
             .Include(x => x.Turno)
             .Include(x => x.UnidadeLotacao)
+            .Include(x => x.EixoVaga)
             .Include(x => x.Beneficios)
             .Include(x => x.Requisitos)
             .Include(x => x.Etapas)
@@ -200,6 +191,27 @@ public sealed class VagaService : IVagaService
             };
         }
 
+        // Faixa salarial (dado externo ao Vaga) — populada sob demanda.
+        if (entity.JobPositionId.HasValue)
+        {
+            var faixa = await _db.Set<FaixaSalarial>()
+                .AsNoTracking()
+                .Where(f => f.JobPositionId == entity.JobPositionId.Value)
+                .OrderByDescending(f => f.UpdatedAtUtc)
+                .FirstOrDefaultAsync(ct);
+            if (faixa is not null)
+            {
+                var violaMin = entity.SalarioMinimo.HasValue && entity.SalarioMinimo.Value < faixa.SalarioMinimo;
+                var violaMax = entity.SalarioMaximo.HasValue && entity.SalarioMaximo.Value > faixa.SalarioMaximo;
+                response = response with
+                {
+                    FaixaSalarialMinimo = faixa.SalarioMinimo,
+                    FaixaSalarialMaximo = faixa.SalarioMaximo,
+                    FaixaSalarialViolada = violaMin || violaMax,
+                };
+            }
+        }
+
         return response;
     }
 
@@ -209,10 +221,8 @@ public sealed class VagaService : IVagaService
         if (_currentUser.IsReadOnly)
             throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar vagas.");
         // MatchingFiltrosRaw é opcional na criação (ex.: vaga auto-criada por solicitação aprovada)
-        if (request.AreaId.HasValue && request.AreaId.Value != Guid.Empty)
-            await EnsureAreaAsync(request.AreaId.Value, ct);
-        if (request.DepartmentId.HasValue && request.DepartmentId.Value != Guid.Empty)
-            await EnsureDepartmentAsync(request.DepartmentId.Value, ct);
+        if (request.CentroCustoId.HasValue && request.CentroCustoId.Value != Guid.Empty)
+            await EnsureCentroCustoAsync(request.CentroCustoId.Value, ct);
 
         var weights = NormalizeWeights(request.Weights, null);
         var entity = new Vaga
@@ -220,9 +230,7 @@ public sealed class VagaService : IVagaService
             Id = Guid.NewGuid(),
             Codigo = TrimOrNull(request.Codigo),
             Titulo = (request.Titulo ?? string.Empty).Trim(),
-            DepartmentId = request.DepartmentId,
             AreaTime = request.AreaTime,
-            AreaId = request.AreaId,
             Modalidade = request.Modalidade,
             Status = request.Status,
             Senioridade = request.Senioridade,
@@ -243,6 +251,8 @@ public sealed class VagaService : IVagaService
             CentroCustoId = request.CentroCustoId,
             TurnoId = request.TurnoId,
             UnidadeLotacaoId = request.UnidadeLotacaoId,
+            EixoVagaId = request.EixoVagaId,
+            TravarFaixaSalarial = request.TravarFaixaSalarial,
             MotivoAbertura = request.MotivoAbertura,
             OrcamentoAprovado = request.OrcamentoAprovado,
             GestorRequisitante = TrimOrNull(request.GestorRequisitante),
@@ -319,6 +329,8 @@ public sealed class VagaService : IVagaService
         if (request.Status == VagaStatus.Aberta)
             entity.DataAbertura = DateTimeOffset.UtcNow;
 
+        await ValidateFaixaSalarialAsync(entity, ct);
+
         _db.Vagas.Add(entity);
         await _db.SaveChangesAsync(ct);
 
@@ -373,14 +385,13 @@ public sealed class VagaService : IVagaService
         if (entity is null) return null;
         EnsureTenantOwnership(entity);
 
-        if (request.AreaId.HasValue && request.AreaId.Value != Guid.Empty)
-            await EnsureAreaAsync(request.AreaId.Value, ct);
-        if (request.DepartmentId.HasValue && request.DepartmentId.Value != Guid.Empty)
-            await EnsureDepartmentAsync(request.DepartmentId.Value, ct);
+        if (request.CentroCustoId.HasValue && request.CentroCustoId.Value != Guid.Empty)
+            await EnsureCentroCustoAsync(request.CentroCustoId.Value, ct);
 
         var oldFiltros = entity.MatchingFiltrosRaw;
         ApplyUpdate(entity, request);
         ReplaceChildren(entity, request);
+        await ValidateFaixaSalarialAsync(entity, ct);
 
         try
         {
@@ -402,6 +413,7 @@ public sealed class VagaService : IVagaService
 
             ApplyUpdate(refreshed, request);
             ReplaceChildren(refreshed, request);
+            await ValidateFaixaSalarialAsync(refreshed, ct);
             try
             {
                 await _db.SaveChangesAsync(ct);
@@ -532,13 +544,7 @@ public sealed class VagaService : IVagaService
             v.Id,
             v.Codigo,
             v.Titulo,
-            v.DepartmentId,
-            v.Department?.Code,
-            v.Department?.Name,
             v.AreaTime,
-            v.AreaId,
-            v.Area?.Code,
-            v.Area?.Name,
             v.Modalidade,
             v.Status,
             v.Senioridade,
@@ -634,6 +640,19 @@ public sealed class VagaService : IVagaService
             v.UnidadeLotacaoId,
             v.UnidadeLotacao?.Code,
             v.UnidadeLotacao?.Description,
+            v.EixoVagaId,
+            v.EixoVaga?.Code,
+            v.EixoVaga?.Name,
+            v.EixoVaga?.SlaDiasMetaFechamento,
+            v.EixoVaga?.SlaDiasMetaFechamento ?? v.SlaDiasMetaFechamento,
+            v.TravarFaixaSalarial,
+            v.AlcadaSalarialAprovadaPorUserId,
+            v.AlcadaSalarialAprovadaEmUtc,
+            v.AlcadaSalarialJustificativa,
+            v.AlcadaSalarialObservacaoAprovador,
+            null, // FaixaSalarialMinimo — preenchido em GetByIdAsync
+            null, // FaixaSalarialMaximo
+            false, // FaixaSalarialViolada — preenchido em GetByIdAsync
             v.Beneficios.OrderBy(x => x.Ordem).Select(MapBeneficio).ToList(),
             v.Requisitos.OrderBy(x => x.Ordem).Select(MapRequisito).ToList(),
             v.Etapas.OrderBy(x => x.Ordem).Select(MapEtapa).ToList(),
@@ -818,22 +837,16 @@ public sealed class VagaService : IVagaService
             _db.VagaPerguntas.AddRange(entity.PerguntasTriagem);
     }
 
-    private async Task EnsureAreaAsync(Guid areaId, CancellationToken ct)
+    private async Task EnsureCentroCustoAsync(Guid centroCustoId, CancellationToken ct)
     {
-        var exists = await _db.Areas.AnyAsync(a => a.Id == areaId, ct);
+        var exists = await _db.CentrosCusto.AnyAsync(a => a.Id == centroCustoId, ct);
         if (!exists)
         {
-            // Para testes: aceita área que exista no banco mesmo com outro TenantId (ex.: liotecnica)
-            var existsIgnoringTenant = await _db.Areas.IgnoreQueryFilters().AnyAsync(a => a.Id == areaId, ct);
+            // Para testes: aceita CC que exista no banco mesmo com outro TenantId (ex.: liotecnica)
+            var existsIgnoringTenant = await _db.CentrosCusto.IgnoreQueryFilters().AnyAsync(a => a.Id == centroCustoId, ct);
             if (!existsIgnoringTenant)
-                throw new InvalidOperationException(_localizer["ServiceErrors.AreaInvalid"]);
+                throw new InvalidOperationException(_localizer["ServiceErrors.CentroCustoInvalid"]);
         }
-    }
-
-    private async Task EnsureDepartmentAsync(Guid departmentId, CancellationToken ct)
-    {
-        var exists = await _db.Departments.AnyAsync(d => d.Id == departmentId, ct);
-        if (!exists) throw new InvalidOperationException(_localizer["ServiceErrors.DepartmentInvalid"]);
     }
 
     private static int ClampPercent(int value)
@@ -878,13 +891,77 @@ public sealed class VagaService : IVagaService
         return currentValue;
     }
 
+    /// <summary>
+    /// Quando <see cref="Vaga.TravarFaixaSalarial"/> está ativo e a vaga está atrelada a um JobPosition com
+    /// FaixaSalarial cadastrada, valida que o Salário Min/Max da vaga está dentro da faixa. Se viola e não há
+    /// alçada aprovada, lança <see cref="InvalidOperationException"/> (o controller converte em 409).
+    /// </summary>
+    private async Task ValidateFaixaSalarialAsync(Vaga entity, CancellationToken ct)
+    {
+        if (!entity.TravarFaixaSalarial) return;
+        if (entity.AlcadaSalarialAprovadaPorUserId.HasValue) return;
+        if (!entity.JobPositionId.HasValue) return;
+
+        var faixa = await _db.Set<FaixaSalarial>()
+            .AsNoTracking()
+            .Where(f => f.JobPositionId == entity.JobPositionId.Value)
+            .OrderByDescending(f => f.UpdatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+
+        if (faixa is null) return;
+
+        var propostoMin = entity.SalarioMinimo;
+        var propostoMax = entity.SalarioMaximo;
+        var violaMin = propostoMin.HasValue && propostoMin.Value < faixa.SalarioMinimo;
+        var violaMax = propostoMax.HasValue && propostoMax.Value > faixa.SalarioMaximo;
+
+        if (violaMin || violaMax)
+        {
+            var msg = $"Salário proposto ({propostoMin:N2} — {propostoMax:N2}) fora da faixa cadastrada para o cargo ({faixa.SalarioMinimo:N2} — {faixa.SalarioMaximo:N2}). Solicite alçada ou desative a trava.";
+            throw new InvalidOperationException(msg);
+        }
+    }
+
+    public async Task<VagaResponse?> AprovarAlcadaSalarialAsync(Guid id, string? justificativa, string? observacaoAprovador, CancellationToken ct)
+    {
+        var entity = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (entity is null) return null;
+        EnsureTenantOwnership(entity);
+
+        if (!_currentUser.UserId.HasValue)
+            throw new InvalidOperationException("Usuário atual inválido para aprovar alçada.");
+
+        entity.AlcadaSalarialAprovadaPorUserId = _currentUser.UserId.Value;
+        entity.AlcadaSalarialAprovadaEmUtc = DateTimeOffset.UtcNow;
+        entity.AlcadaSalarialJustificativa = TrimOrNull(justificativa);
+        entity.AlcadaSalarialObservacaoAprovador = TrimOrNull(observacaoAprovador);
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<VagaResponse?> LimparAlcadaSalarialAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == id, ct);
+        if (entity is null) return null;
+        EnsureTenantOwnership(entity);
+
+        entity.AlcadaSalarialAprovadaPorUserId = null;
+        entity.AlcadaSalarialAprovadaEmUtc = null;
+        entity.AlcadaSalarialJustificativa = null;
+        entity.AlcadaSalarialObservacaoAprovador = null;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
     private void ApplyUpdate(Vaga entity, VagaUpdateRequest request)
     {
         entity.Codigo = TrimOrNull(request.Codigo);
         entity.Titulo = (request.Titulo ?? string.Empty).Trim();
-        entity.DepartmentId = request.DepartmentId;
         entity.AreaTime = request.AreaTime;
-        entity.AreaId = request.AreaId;
         entity.Modalidade = request.Modalidade;
         entity.Status = request.Status;
         if (request.Status == VagaStatus.Aberta && entity.DataAbertura == null)
@@ -907,6 +984,8 @@ public sealed class VagaService : IVagaService
         entity.CentroCustoId = request.CentroCustoId;
         entity.TurnoId = request.TurnoId;
         entity.UnidadeLotacaoId = request.UnidadeLotacaoId;
+        entity.EixoVagaId = request.EixoVagaId;
+        entity.TravarFaixaSalarial = request.TravarFaixaSalarial;
         entity.MotivoAbertura = request.MotivoAbertura;
         entity.OrcamentoAprovado = request.OrcamentoAprovado;
         entity.GestorRequisitante = TrimOrNull(request.GestorRequisitante);
@@ -1093,13 +1172,20 @@ public sealed class VagaService : IVagaService
 
         return _currentUser.VagasDataScope switch
         {
-            VagasDataScope.ByArea when _currentUser.AreaId.HasValue =>
-                query.Where(v => v.AreaId == _currentUser.AreaId.Value),
+            // 31.2: escopo por área agora é escopo por Centro de Custo (absorveu Area).
+            VagasDataScope.ByArea when _currentUser.CentroCustoId.HasValue =>
+                query.Where(v => v.CentroCustoId == _currentUser.CentroCustoId.Value),
 
             VagasDataScope.ByRecrutador when _currentUser.UserId.HasValue =>
                 query.Where(v => v.RecrutadorResponsavelUserId == _currentUser.UserId.Value),
 
-            _ => query // All or no area/userId resolved
+            VagasDataScope.ByGestorRecrutador when _currentUser.FuncionarioId.HasValue =>
+                query.Where(v =>
+                    v.RecrutadorResponsavelUser != null
+                    && v.RecrutadorResponsavelUser.Funcionario != null
+                    && v.RecrutadorResponsavelUser.Funcionario.GestorDiretoId == _currentUser.FuncionarioId.Value),
+
+            _ => query // All or no centro-custo/userId/funcionarioId resolved
         };
     }
 }

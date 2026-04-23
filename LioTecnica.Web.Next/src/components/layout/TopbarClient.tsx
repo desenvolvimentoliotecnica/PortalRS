@@ -36,8 +36,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { BffNavItem } from "@/lib/schemas/bff";
 import type { BffMe } from "@/lib/schemas/bff";
+import type { NavGrupoResponse } from "@/lib/schemas/navegacao";
 import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
 import { clearSession, setAccessToken, setTenantId } from "@/lib/session";
@@ -47,10 +47,10 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 }
 
 export default function TopbarClient({
-  navItems,
+  grupos,
   me,
 }: {
-  navItems: BffNavItem[];
+  grupos: NavGrupoResponse[];
   me: BffMe | null;
 }) {
   const router = useRouter();
@@ -209,7 +209,7 @@ export default function TopbarClient({
                   <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
                 <div className="from-lt-primary to-lt-brand h-dvh bg-gradient-to-b text-white">
-                  <Sidebar items={navItems} />
+                  <Sidebar grupos={grupos} />
                 </div>
               </SheetContent>
             </Sheet>

@@ -34,14 +34,14 @@ public sealed class CartaService : ICartaService
     {
         var sol = await _db.SolicitacoesDesligamento.AsNoTracking()
             .Include(s => s.Funcionario).ThenInclude(f => f != null ? f.JobPosition : null)
-            .Include(s => s.Funcionario).ThenInclude(f => f != null ? f.Area : null)
+            .Include(s => s.Funcionario).ThenInclude(f => f != null ? f.CentroCusto : null)
             .Include(s => s.Solicitante)
             .FirstOrDefaultAsync(s => s.Id == solicitacaoId, ct)
             ?? throw new InvalidOperationException("Solicitação de desligamento não encontrada.");
 
         var funcionarioNome = sol.Funcionario?.Name ?? "–";
         var cargoNome = sol.Funcionario?.JobPosition?.Name ?? "–";
-        var areaNome = sol.Funcionario?.Area?.Name ?? "–";
+        var areaNome = sol.Funcionario?.CentroCusto?.Description ?? "–";
         var dataDesligamento = sol.DataDesligamento.ToString("dd/MM/yyyy");
         var tipoDesligamento = sol.TipoDesligamento.ToString();
         var motivo = sol.MotivoDesligamento;
@@ -79,8 +79,8 @@ public sealed class CartaService : ICartaService
             .Include(s => s.Funcionario)
             .Include(s => s.CargoAtual)
             .Include(s => s.NovoCargo)
-            .Include(s => s.AreaAtual)
-            .Include(s => s.NovaArea)
+            .Include(s => s.CentroCustoAtual)
+            .Include(s => s.NovoCentroCusto)
             .Include(s => s.Solicitante)
             .FirstOrDefaultAsync(s => s.Id == solicitacaoId, ct)
             ?? throw new InvalidOperationException("Solicitação de movimentação não encontrada.");
@@ -88,8 +88,8 @@ public sealed class CartaService : ICartaService
         var funcionarioNome = sol.Funcionario?.Name ?? "–";
         var cargoAtual = sol.CargoAtual?.Name ?? "–";
         var novoCargo = sol.NovoCargo?.Name ?? "–";
-        var areaAtual = sol.AreaAtual?.Name ?? "–";
-        var novaArea = sol.NovaArea?.Name ?? "–";
+        var areaAtual = sol.CentroCustoAtual?.Description ?? "–";
+        var novaArea = sol.NovoCentroCusto?.Description ?? "–";
         var dataEfetiva = sol.DataEfetiva.ToString("dd/MM/yyyy");
         var justificativa = sol.Justificativa;
         var solicitanteNome = sol.Solicitante?.Name ?? "–";
@@ -125,13 +125,13 @@ public sealed class CartaService : ICartaService
     {
         var sol = await _db.SolicitacoesFerias.AsNoTracking()
             .Include(s => s.Solicitante).ThenInclude(f => f != null ? f.JobPosition : null)
-            .Include(s => s.Solicitante).ThenInclude(f => f != null ? f.Area : null)
+            .Include(s => s.Solicitante).ThenInclude(f => f != null ? f.CentroCusto : null)
             .FirstOrDefaultAsync(s => s.Id == solicitacaoId, ct)
             ?? throw new InvalidOperationException("Solicitação de férias não encontrada.");
 
         var funcionarioNome = sol.Solicitante?.Name ?? "–";
         var cargoNome = sol.Solicitante?.JobPosition?.Name ?? "–";
-        var areaNome = sol.Solicitante?.Area?.Name ?? "–";
+        var areaNome = sol.Solicitante?.CentroCusto?.Description ?? "–";
         var dataInicio = sol.DataInicio.ToString("dd/MM/yyyy");
         var dataFim = sol.DataFim.ToString("dd/MM/yyyy");
         var qtdDias = sol.QtdDias.ToString();

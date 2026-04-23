@@ -11,8 +11,6 @@ public sealed record FuncionarioGridRowResponse(
     int Headcount,
     Guid? UnitId,
     string? UnitName,
-    Guid? AreaId,
-    string? AreaName,
     Guid? JobPositionId,
     string? JobPositionName,
     Guid? RequisitoCategoriaId,

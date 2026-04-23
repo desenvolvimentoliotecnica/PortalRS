@@ -31,6 +31,12 @@ public sealed class CandidatoNotificacaoPreferencia : ITenantEntity
 
     public string? Assinatura { get; set; }
 
+    /// <summary>Override por candidato: máximo de mensagens WhatsApp na janela. Quando null, usa default global.</summary>
+    public int? WhatsAppRateLimitMaxMensagens { get; set; }
+
+    /// <summary>Override por candidato: janela do rate limit (minutos). Quando null, usa default global.</summary>
+    public int? WhatsAppRateLimitJanelaMinutos { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 

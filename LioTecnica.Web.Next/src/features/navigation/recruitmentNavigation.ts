@@ -24,11 +24,16 @@ export const RECRUITMENT_ROUTE_KEYS = {
 /** Ordem linear do fluxo de recrutamento no sidebar (pipeline R&S).
  *  Cada item representa uma etapa do funil: demanda → publicação → avaliação → contratação.
  */
-/** Itens de 1º nível fora do grupo "Recrutamento" (sem header de módulo). */
+/** Itens de 1º nível fora do grupo "Recrutamento" (sem header de módulo).
+ *  Painel de Solicitações é o agregador analítico transversal (R&S + Folha +
+ *  Cadastros) — decisão de Onda 14 (2026-04-20): mora em "Principais" ao lado
+ *  do par workflow Minhas Pendências / Solicitações.
+ */
 export const PRINCIPAIS_ORDER = [
-  RECRUITMENT_ROUTE_KEYS.dashboard,        // Dashboard
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,       // Minhas Pendências
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,     // Solicitações
+  RECRUITMENT_ROUTE_KEYS.dashboard,           // Dashboard
+  RECRUITMENT_ROUTE_KEYS.aprovacoes,          // Minhas Pendências
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,        // Solicitações
+  RECRUITMENT_ROUTE_KEYS.painelSolicitacoes,  // Painel de Solicitações (visão consolidada RH/gestor)
 ] as const;
 
 /** Abas MVP do grupo "Recrutamento" — entregáveis prioritários */

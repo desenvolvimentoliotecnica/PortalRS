@@ -370,7 +370,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const requisitos = Array.isArray(vaga?.requisitos) ? (vaga.requisitos as unknown[]) : [];
   const etapas = Array.isArray(vaga?.etapas) ? (vaga.etapas as { nome: string; responsavel?: string; slaDias?: number }[]) : [];
   const tags = pick(vaga, "tagsKeywordsRaw", "");
-  const areaName = pick(vaga, "areaName", "");
+  const areaName = pick(vaga, "centroCustoName", "") || pick(vaga, "areaName", "");
   const modalidadeStr = pick(vaga, "modalidade", "");
   const senioridadeStr = pick(vaga, "senioridade", "");
   const cidade = pick(vaga, "cidade", "");

@@ -82,7 +82,7 @@ export interface DadosSolicitacao {
   isConfidencial: boolean;
   substituidoNome: string | null;
   jobPositionName: string | null;
-  areaName: string | null;
+  areaName?: string | null;
   unitName: string | null;
   tipoContratoLabel: string | null;
   prazoDias: number | null;

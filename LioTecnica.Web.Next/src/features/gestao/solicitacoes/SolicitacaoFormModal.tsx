@@ -31,7 +31,6 @@ export interface SolicitacaoDraft {
     urgencia: number;
     jobPositionId: string | null;
     origemVaga: "quadro" | "nova";
-    areaId: string | null;
     unitId: string | null;
     aprovadorId: string | null;
     tipoSolicitacao: number;
@@ -86,7 +85,6 @@ const emptyDraft: SolicitacaoDraft = {
     urgencia: 1,
     jobPositionId: null,
     origemVaga: "nova",
-    areaId: null,
     unitId: null,
     aprovadorId: null,
     tipoSolicitacao: 0,
@@ -249,7 +247,6 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             urgencia: (() => { const map: Record<string, number> = { Baixa: 0, Media: 1, Alta: 2, Critica: 3 }; const v = d?.urgencia; return typeof v === "number" ? v : (map[v as string] ?? 1); })(),
             jobPositionId: d?.jobPositionId ? String(d.jobPositionId) : null,
             origemVaga: d?.jobPositionId ? "quadro" : "nova",
-            areaId: d?.areaId ? String(d.areaId) : null,
             unitId: d?.unitId ? String(d.unitId) : null,
             aprovadorId: d?.aprovadorId ? String(d.aprovadorId) : null,
             tipoSolicitacao: (() => { const m: Record<string, number> = { VagaNova: 0, Substituicao: 1 }; const v = d?.tipoSolicitacao; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
@@ -311,7 +308,6 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             qtdPosicoes: Math.max(draft.qtdPosicoes, 1),
             urgencia: (["Baixa", "Media", "Alta", "Critica"][draft.urgencia] ?? "Media"),
             jobPositionId: draft.jobPositionId || null,
-            areaId: draft.areaId || null,
             unitId: draft.unitId,
             aprovadorId: draft.aprovadorId || null,
             tipoSolicitacao: (["VagaNova", "Substituicao"][draft.tipoSolicitacao] ?? "VagaNova"),

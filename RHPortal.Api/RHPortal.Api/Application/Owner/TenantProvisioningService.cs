@@ -44,6 +44,15 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await ApplyOrphanMigrationsAsync(db, tenantId, ct);
         if (seedAfterCreate)
             await RunSeedAsync(tenantId, tenantScope.ServiceProvider, ct);
+
+        // Habilita todos os pacotes ativos + módulos do catálogo para o tenant recém-provisionado.
+        // Ordem importa: pacotes antes dos módulos, porque módulos com PackageKey
+        // dependem do estado do pacote-pai ao calcular habilitação efetiva.
+        var packageService = tenantScope.ServiceProvider.GetRequiredService<TenantPackageService>();
+        await packageService.EnsureDefaultsAsync(tenantId, ct);
+
+        var moduleService = tenantScope.ServiceProvider.GetRequiredService<TenantModuleService>();
+        await moduleService.EnsureDefaultsAsync(tenantId, ct);
     }
 
     /// <summary>
@@ -134,9 +143,21 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
             """, ct);
 
         // ── 5. VagaDepartmentIdOptional ───────────────────────────────────────
-        // ALTER COLUMN ... DROP NOT NULL is a no-op if the column is already nullable.
+        // ALTER COLUMN ... DROP NOT NULL é no-op se a coluna já for nullable,
+        // mas **falha** se a coluna não existir (42703). Na Sessão 31.2 a
+        // coluna foi removida via consolidação Area + Department → CentroCusto;
+        // este script histórico só faz sentido para DBs ainda em estágio
+        // anterior à 31.2. Guard por information_schema garante idempotência
+        // em ambos os cenários (coluna presente → normaliza; ausente → skip).
         await db.Database.ExecuteSqlRawAsync("""
-            ALTER TABLE "Vagas" ALTER COLUMN "DepartmentId" DROP NOT NULL;
+            DO $$ BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'Vagas' AND column_name = 'DepartmentId'
+                ) THEN
+                    ALTER TABLE "Vagas" ALTER COLUMN "DepartmentId" DROP NOT NULL;
+                END IF;
+            END $$;
             """, ct);
 
         // ── 6. BackfillCandidatosTenantId ─────────────────────────────────────
@@ -384,7 +405,10 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         var adminPassword = _configuration.GetValue<string>("Seed:AdminPassword") ?? "ChangeThisPassword123!";
         var emailDomain = "dev.local";
         await AdminAccessSeeder.EnsureAsync(db, userManager, roleManager, tenantId, emailDomain, adminPassword, 0, localizer, ct, null);
-        await AreaDepartmentSeeder.EnsureAsync(db, emailDomain, ct);
+        // Garante roles padrão (Operacional, Gestor, Recrutador) — necessárias para atribuição de perfis.
+        await MenuRoleSeeder.EnsureRolesExistAsync(roleManager, localizer, ct);
+        // Sessão 31.2: AreaDepartmentSeeder foi substituído por CentroCustoSeeder após consolidação.
+        await CentroCustoSeeder.EnsureAsync(db, ct);
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
     }
@@ -398,7 +422,10 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         var adminPassword = _configuration.GetValue<string>("Seed:AdminPassword") ?? "ChangeThisPassword123!";
         var emailDomain = "dev.local";
         await AdminAccessSeeder.EnsureAsync(db, userManager, roleManager, tenantId, emailDomain, adminPassword, 0, localizer, ct, null);
-        await AreaDepartmentSeeder.EnsureAsync(db, emailDomain, ct);
+        // Garante roles padrão (Operacional, Gestor, Recrutador) no provisionamento de novo tenant.
+        await MenuRoleSeeder.EnsureRolesExistAsync(roleManager, localizer, ct);
+        // Sessão 31.2: AreaDepartmentSeeder foi substituído por CentroCustoSeeder após consolidação.
+        await CentroCustoSeeder.EnsureAsync(db, ct);
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
     }

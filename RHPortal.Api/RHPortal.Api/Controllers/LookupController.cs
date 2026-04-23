@@ -52,50 +52,39 @@ public sealed class LookupController : ControllerBase
     }
 
     /// <summary>
-    /// Lista áreas (para dropdowns).
+    /// [OBSOLETO 31.2] Alias de /centros-custo — Area foi absorvida por CentroCusto.
+    /// Mantido para compatibilidade retroativa com clientes antigos do frontend.
     /// </summary>
     [HttpGet("areas")]
     [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<OptionResponse>>> Areas(CancellationToken ct)
-    {
-        var items = await _db.Areas
-            .AsNoTracking()
-            .OrderBy(x => x.Name)
-            .Select(x => new OptionResponse(x.Id, x.Code, x.Name))
-            .ToListAsync(ct);
-
-        return Ok(items);
-    }
+    [Obsolete("Use /api/lookup/centros-custo")]
+    public Task<ActionResult<List<OptionResponse>>> Areas(CancellationToken ct) => CentrosCusto(ct);
 
     /// <summary>
-    /// Lista departamentos (para dropdowns).
+    /// [OBSOLETO 31.2] Alias de /centros-custo — Department foi absorvido por CentroCusto.
+    /// Mantido para compatibilidade retroativa com clientes antigos do frontend.
     /// </summary>
     [HttpGet("departments")]
     [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<OptionResponse>>> Departments(CancellationToken ct)
-    {
-        var items = await _db.Departments
-            .AsNoTracking()
-            .OrderBy(x => x.Name)
-            .Select(x => new OptionResponse(x.Id, x.Code, x.Name))
-            .ToListAsync(ct);
-
-        return Ok(items);
-    }
+    [Obsolete("Use /api/lookup/centros-custo")]
+    public Task<ActionResult<List<OptionResponse>>> Departments(CancellationToken ct) => CentrosCusto(ct);
 
     /// <summary>
-    /// Lista cargos (job positions). Pode filtrar por área.
+    /// Lista cargos (job positions). Pode filtrar por centro de custo (absorveu Area em 31.2).
+    /// O parâmetro legado <c>areaId</c> é aceito como alias de <c>centroCustoId</c>.
     /// </summary>
     [HttpGet("job-positions")]
     [ProducesResponseType(typeof(List<OptionResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<OptionResponse>>> JobPositions(
+        [FromQuery] Guid? centroCustoId,
         [FromQuery] Guid? areaId,
         CancellationToken ct)
     {
+        var effectiveId = centroCustoId ?? areaId;
         var q = _db.JobPositions.AsNoTracking();
 
-        if (areaId.HasValue && areaId.Value != Guid.Empty)
-            q = q.Where(x => x.AreaId == areaId.Value);
+        if (effectiveId.HasValue && effectiveId.Value != Guid.Empty)
+            q = q.Where(x => x.CentroCustoId == effectiveId.Value);
 
         var items = await q
             .OrderBy(x => x.Name)
@@ -255,7 +244,7 @@ public sealed class LookupController : ControllerBase
         var query = _db.Funcionarios
             .AsNoTracking()
             .Include(x => x.JobPosition)
-            .Include(x => x.Area)
+            .Include(x => x.CentroCusto)
             .Include(x => x.Unit)
             .AsQueryable();
 
@@ -273,7 +262,7 @@ public sealed class LookupController : ControllerBase
                 EF.Functions.Like(x.Name, like) ||
                 (x.Email != null && EF.Functions.Like(x.Email, like)) ||
                 (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Name, like)) ||
-                (x.Area != null && EF.Functions.Like(x.Area.Name, like)) ||
+                (x.CentroCusto != null && EF.Functions.Like(x.CentroCusto.Description, like)) ||
                 (x.Unit != null && EF.Functions.Like(x.Unit.Name, like))
             );
         }
@@ -292,7 +281,7 @@ public sealed class LookupController : ControllerBase
                 Email = x.Email,
 
                 Cargo = x.JobPosition != null ? x.JobPosition.Name : null,
-                Area = x.Area != null ? x.Area.Name : null,
+                Area = x.CentroCusto != null ? x.CentroCusto.Description : null,
                 Unidade = x.Unit != null ? x.Unit.Name : null,
 
                 Status = x.Status,

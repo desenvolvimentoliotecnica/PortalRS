@@ -29,10 +29,19 @@ public sealed class TurnoController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct,
         [FromQuery] string? search,
+        [FromQuery] Guid? unidadeLotacaoId,
+        [FromQuery] bool includeGlobals = true,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 5000)
     {
         var query = db.Turnos.AsNoTracking();
+
+        if (unidadeLotacaoId.HasValue)
+        {
+            query = includeGlobals
+                ? query.Where(x => x.UnidadeLotacaoId == unidadeLotacaoId || x.UnidadeLotacaoId == null)
+                : query.Where(x => x.UnidadeLotacaoId == unidadeLotacaoId);
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -49,7 +58,9 @@ public sealed class TurnoController : ControllerBase
             .Take(take)
             .Select(x => new TurnoResponse(
                 x.Id, x.Code, x.Description, x.StartTime, x.EndTime, x.Notes,
-                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc))
+                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
+                x.UnidadeLotacaoId,
+                x.UnidadeLotacao != null ? x.UnidadeLotacao.Description : null))
             .ToListAsync(ct);
 
         Response.Headers["X-Total-Count"] = total.ToString();
@@ -61,9 +72,18 @@ public sealed class TurnoController : ControllerBase
     public async Task<ActionResult<List<TurnoLookupItem>>> Lookup(
         [FromServices] AppDbContext db,
         CancellationToken ct,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] Guid? unidadeLotacaoId,
+        [FromQuery] bool includeGlobals = true)
     {
         var query = db.Turnos.AsNoTracking().Where(x => x.IsActive);
+
+        if (unidadeLotacaoId.HasValue)
+        {
+            query = includeGlobals
+                ? query.Where(x => x.UnidadeLotacaoId == unidadeLotacaoId || x.UnidadeLotacaoId == null)
+                : query.Where(x => x.UnidadeLotacaoId == unidadeLotacaoId);
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -78,7 +98,8 @@ public sealed class TurnoController : ControllerBase
             .Take(50)
             .Select(x => new TurnoLookupItem(
                 x.Id, x.Code, x.Description,
-                $"{x.Code} - {x.Description}"))
+                $"{x.Code} - {x.Description}",
+                x.UnidadeLotacaoId))
             .ToListAsync(ct);
 
         return Ok(items);
@@ -97,7 +118,9 @@ public sealed class TurnoController : ControllerBase
             .Where(x => x.Id == id)
             .Select(x => new TurnoResponse(
                 x.Id, x.Code, x.Description, x.StartTime, x.EndTime, x.Notes,
-                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc))
+                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
+                x.UnidadeLotacaoId,
+                x.UnidadeLotacao != null ? x.UnidadeLotacao.Description : null))
             .FirstOrDefaultAsync(ct);
 
         return item is null ? NotFound() : Ok(item);
@@ -111,8 +134,14 @@ public sealed class TurnoController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        if (await db.Turnos.AnyAsync(x => x.Code == request.Code, ct))
-            return Conflict(new { message = "Turno com este código já existe" });
+        if (request.UnidadeLotacaoId.HasValue &&
+            !await db.UnidadesLotacao.AnyAsync(u => u.Id == request.UnidadeLotacaoId, ct))
+        {
+            return BadRequest(new { message = "Unidade de lotação não encontrada." });
+        }
+
+        if (await db.Turnos.AnyAsync(x => x.Code == request.Code && x.UnidadeLotacaoId == request.UnidadeLotacaoId, ct))
+            return Conflict(new { message = "Turno com este código já existe nesta unidade." });
 
         var entity = new Turno
         {
@@ -122,15 +151,26 @@ public sealed class TurnoController : ControllerBase
             StartTime = string.IsNullOrWhiteSpace(request.StartTime) ? null : request.StartTime.Trim(),
             EndTime = string.IsNullOrWhiteSpace(request.EndTime) ? null : request.EndTime.Trim(),
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
-            IsActive = request.IsActive
+            IsActive = request.IsActive,
+            UnidadeLotacaoId = request.UnidadeLotacaoId
         };
 
         db.Turnos.Add(entity);
         await db.SaveChangesAsync(ct);
 
+        string? unidadeNome = null;
+        if (entity.UnidadeLotacaoId.HasValue)
+        {
+            unidadeNome = await db.UnidadesLotacao.AsNoTracking()
+                .Where(u => u.Id == entity.UnidadeLotacaoId)
+                .Select(u => u.Description)
+                .FirstOrDefaultAsync(ct);
+        }
+
         var response = new TurnoResponse(
             entity.Id, entity.Code, entity.Description, entity.StartTime, entity.EndTime,
-            entity.Notes, entity.IsActive, entity.CreatedAtUtc, entity.UpdatedAtUtc);
+            entity.Notes, entity.IsActive, entity.CreatedAtUtc, entity.UpdatedAtUtc,
+            entity.UnidadeLotacaoId, unidadeNome);
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, response);
     }
 
@@ -147,9 +187,16 @@ public sealed class TurnoController : ControllerBase
         var entity = await db.Turnos.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
-        var codeExists = await db.Turnos.AnyAsync(x => x.Id != id && x.Code == request.Code, ct);
+        if (request.UnidadeLotacaoId.HasValue &&
+            !await db.UnidadesLotacao.AnyAsync(u => u.Id == request.UnidadeLotacaoId, ct))
+        {
+            return BadRequest(new { message = "Unidade de lotação não encontrada." });
+        }
+
+        var codeExists = await db.Turnos.AnyAsync(
+            x => x.Id != id && x.Code == request.Code && x.UnidadeLotacaoId == request.UnidadeLotacaoId, ct);
         if (codeExists)
-            return Conflict(new { message = "Turno com este código já existe" });
+            return Conflict(new { message = "Turno com este código já existe nesta unidade." });
 
         entity.Code = request.Code.Trim();
         entity.Description = request.Description.Trim();
@@ -157,13 +204,24 @@ public sealed class TurnoController : ControllerBase
         entity.EndTime = string.IsNullOrWhiteSpace(request.EndTime) ? null : request.EndTime.Trim();
         entity.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
         entity.IsActive = request.IsActive;
+        entity.UnidadeLotacaoId = request.UnidadeLotacaoId;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
 
+        string? unidadeNome = null;
+        if (entity.UnidadeLotacaoId.HasValue)
+        {
+            unidadeNome = await db.UnidadesLotacao.AsNoTracking()
+                .Where(u => u.Id == entity.UnidadeLotacaoId)
+                .Select(u => u.Description)
+                .FirstOrDefaultAsync(ct);
+        }
+
         return Ok(new TurnoResponse(
             entity.Id, entity.Code, entity.Description, entity.StartTime, entity.EndTime,
-            entity.Notes, entity.IsActive, entity.CreatedAtUtc, entity.UpdatedAtUtc));
+            entity.Notes, entity.IsActive, entity.CreatedAtUtc, entity.UpdatedAtUtc,
+            entity.UnidadeLotacaoId, unidadeNome));
     }
 
     [HttpDelete("{id:guid}")]
@@ -200,10 +258,14 @@ public sealed class TurnoController : ControllerBase
         if (items.Count > 5000)
             return BadRequest(new { message = "Máximo de 5.000 registros por importação." });
 
-        var existingCodes = await db.Turnos
+        var existing = await db.Turnos
             .AsNoTracking()
-            .Select(x => new { x.Id, x.Code })
-            .ToDictionaryAsync(x => x.Code.ToLowerInvariant(), x => x.Id, ct);
+            .Select(x => new { x.Id, x.Code, x.UnidadeLotacaoId })
+            .ToListAsync(ct);
+
+        var existingByKey = existing.ToDictionary(
+            x => $"{x.Code.ToLowerInvariant()}|{x.UnidadeLotacaoId?.ToString() ?? string.Empty}",
+            x => x.Id);
 
         int created = 0, updated = 0, skipped = 0;
         var errors = new List<string>();
@@ -214,8 +276,9 @@ public sealed class TurnoController : ControllerBase
         {
             var item = items[i];
             var code = item.Code.Trim();
+            var key = $"{code.ToLowerInvariant()}|{item.UnidadeLotacaoId?.ToString() ?? string.Empty}";
 
-            if (existingCodes.TryGetValue(code.ToLowerInvariant(), out var existingId))
+            if (existingByKey.TryGetValue(key, out var existingId))
             {
                 var entity = await db.Turnos.FindAsync([existingId], ct);
                 if (entity is null) { skipped++; continue; }
@@ -225,6 +288,7 @@ public sealed class TurnoController : ControllerBase
                 entity.EndTime = string.IsNullOrWhiteSpace(item.EndTime) ? null : item.EndTime.Trim();
                 entity.Notes = string.IsNullOrWhiteSpace(item.Notes) ? null : item.Notes.Trim();
                 entity.IsActive = item.IsActive;
+                entity.UnidadeLotacaoId = item.UnidadeLotacaoId;
                 entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
                 updated++;
             }
@@ -239,9 +303,10 @@ public sealed class TurnoController : ControllerBase
                     EndTime = string.IsNullOrWhiteSpace(item.EndTime) ? null : item.EndTime.Trim(),
                     Notes = string.IsNullOrWhiteSpace(item.Notes) ? null : item.Notes.Trim(),
                     IsActive = item.IsActive,
+                    UnidadeLotacaoId = item.UnidadeLotacaoId,
                 };
                 toAdd.Add(entity);
-                existingCodes[code.ToLowerInvariant()] = entity.Id;
+                existingByKey[key] = entity.Id;
                 created++;
             }
 

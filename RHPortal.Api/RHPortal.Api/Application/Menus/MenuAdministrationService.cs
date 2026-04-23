@@ -2,11 +2,14 @@ using System.Globalization;
 using System.Resources;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Contracts.Menus;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Data.Seeders;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Modules;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.Menus;
 
@@ -14,6 +17,8 @@ public sealed class MenuAdministrationService
 {
     private readonly AppDbContext _db;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
+    private readonly TenantModuleService _moduleService;
+    private readonly ITenantContext _tenantContext;
     private static readonly ResourceManager SeedResourceManager = new(
         $"{typeof(SeedMessages).Assembly.GetName().Name}.Resources.Infrastructure.Localization.SeedMessages",
         typeof(SeedMessages).Assembly);
@@ -104,10 +109,34 @@ public sealed class MenuAdministrationService
 
     public MenuAdministrationService(
         AppDbContext db,
-        IStringLocalizer<ServiceMessages> localizer)
+        IStringLocalizer<ServiceMessages> localizer,
+        TenantModuleService moduleService,
+        ITenantContext tenantContext)
     {
         _db = db;
         _localizer = localizer;
+        _moduleService = moduleService;
+        _tenantContext = tenantContext;
+    }
+
+    /// <summary>
+    /// Remove menus cujo módulo correspondente está desabilitado para o tenant atual.
+    /// Menus com permissionKey que não mapeiam para nenhum módulo do catálogo passam livremente.
+    /// </summary>
+    private async Task<IReadOnlyList<MenuForCurrentUserResponse>> FilterByEnabledModulesAsync(
+        IReadOnlyList<MenuForCurrentUserResponse> menus,
+        CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId;
+        if (string.IsNullOrWhiteSpace(tenantId) || string.Equals(tenantId, "owner", StringComparison.OrdinalIgnoreCase))
+            return menus;
+
+        var enabled = await _moduleService.GetEnabledModuleKeysAsync(tenantId, ct);
+        return menus.Where(m =>
+        {
+            var moduleKey = ModuleCatalog.ResolveModuleKey(m.PermissionKey);
+            return moduleKey is null || enabled.Contains(moduleKey);
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<MenuListItemResponse>> ListAsync(CancellationToken ct)
@@ -292,17 +321,17 @@ public sealed class MenuAdministrationService
         return Array.Empty<MenuForCurrentUserResponse>();
     }
 
-    public Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForPermissionsAsync(
+    public async Task<IReadOnlyList<MenuForCurrentUserResponse>> ListForPermissionsAsync(
         IReadOnlyCollection<string> permissionKeys,
         CancellationToken ct)
     {
         if (permissionKeys.Count == 0)
-            return Task.FromResult<IReadOnlyList<MenuForCurrentUserResponse>>(Array.Empty<MenuForCurrentUserResponse>());
+            return Array.Empty<MenuForCurrentUserResponse>();
 
         var allMenus = BuildFullMenuTemplate();
-        
-        var permittedMenus = permissionKeys.Contains("*") 
-            ? allMenus.ToList() 
+
+        var permittedMenus = permissionKeys.Contains("*")
+            ? allMenus.ToList()
             : allMenus.Where(x => permissionKeys.Contains(x.PermissionKey)).ToList();
 
         // Include ancestors from memory
@@ -322,8 +351,8 @@ public sealed class MenuAdministrationService
             parentIds = parents.Where(x => x.ParentId.HasValue).Select(x => x.ParentId!.Value).Distinct().Where(id => !idSet.Contains(id)).ToList();
         }
 
-        var result = ExcludeOwnerOnlyMenus(ExcludeConfigOnlyMenus(permittedMenus.OrderBy(x => x.Order).ThenBy(x => x.DisplayName).ToList()));
-        return Task.FromResult<IReadOnlyList<MenuForCurrentUserResponse>>(result);
+        var filtered = ExcludeOwnerOnlyMenus(ExcludeConfigOnlyMenus(permittedMenus.OrderBy(x => x.Order).ThenBy(x => x.DisplayName).ToList()));
+        return await FilterByEnabledModulesAsync(filtered, ct);
     }
 
     private async Task<List<Menu>> IncludeAncestorMenusAsync(List<Menu> menus, CancellationToken ct)

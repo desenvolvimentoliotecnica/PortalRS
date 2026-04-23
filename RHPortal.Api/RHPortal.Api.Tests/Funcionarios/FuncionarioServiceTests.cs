@@ -283,7 +283,9 @@ public sealed class FuncionarioServiceTests
         await svc.CreateAsync(RequestMinimo("lst1@empresa.com"), CancellationToken.None);
         await svc.CreateAsync(RequestMinimo("lst2@empresa.com"), CancellationToken.None);
 
-        var query = new FuncionarioListQuery(null, null, null, null, null);
+        // 31.2: FuncionarioListQuery passou a ter 4 filtros posicionais
+        // (Search, Status, UnitId, JobPositionId) + os defaults de paginação.
+        var query = new FuncionarioListQuery(null, null, null, null);
         var result = await svc.ListGridAsync(query, CancellationToken.None);
 
         Assert.Equal(2, result.TotalItems);
@@ -305,7 +307,7 @@ public sealed class FuncionarioServiceTests
             Name = "Inativo", Email = "inativo@empresa.com", Status = FuncionarioStatus.Inactive
         }, CancellationToken.None);
 
-        var query = new FuncionarioListQuery(null, FuncionarioStatus.Active, null, null, null);
+        var query = new FuncionarioListQuery(null, FuncionarioStatus.Active, null, null);
         var result = await svc.ListGridAsync(query, CancellationToken.None);
 
         Assert.Equal(1, result.TotalItems);

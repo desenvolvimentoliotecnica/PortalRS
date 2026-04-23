@@ -178,7 +178,7 @@ export default function PesquisasScreen() {
                             <TableHead>Pesquisa</TableHead>
                             <TableHead>Data Criação</TableHead>
                             <TableHead>Data Encerramento</TableHead>
-                            <TableHead>Departamentos</TableHead>
+                            <TableHead>Centros de Custo</TableHead>
                             <TableHead className="text-right">Respostas</TableHead>
                             <TableHead className="text-right">Média</TableHead>
                             <TableHead>Status</TableHead>

@@ -50,7 +50,7 @@ export default function AdminOperationalLogsScreen() {
             const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
             if (q.trim()) params.set("q", q.trim());
             if (levelFilter !== "all") params.set("level", levelFilter);
-            const resp = await fetchJson<OpLogListResponse>(`/api/admin/operational-logs?${params}`);
+            const resp = await fetchJson<OpLogListResponse>(`/api/logs/entries?${params}`);
             setLogs(resp.items ?? []);
             setTotal(resp.totalCount ?? 0);
         } catch { toast.error("Falha ao carregar logs operacionais."); }

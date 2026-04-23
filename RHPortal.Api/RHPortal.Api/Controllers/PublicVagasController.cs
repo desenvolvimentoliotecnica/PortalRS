@@ -73,7 +73,7 @@ public sealed class PublicVagasController : ControllerBase
 
         IQueryable<Vaga> query = _db.Vagas
             .AsNoTracking()
-            .Include(v => v.Area)
+            .Include(v => v.CentroCusto)
             .Where(v => v.Status == VagaStatus.Aberta)
             .Where(v => !v.Confidencial)
             .Where(v => v.Visibilidade == VagaPublicacaoVisibilidade.Externa
@@ -92,13 +92,13 @@ public sealed class PublicVagasController : ControllerBase
                 (v.TagsKeywordsRaw != null && EF.Functions.Like(v.TagsKeywordsRaw, like)) ||
                 (v.TagsStackRaw != null && EF.Functions.Like(v.TagsStackRaw, like)) ||
                 (v.TagsResponsabilidadesRaw != null && EF.Functions.Like(v.TagsResponsabilidadesRaw, like)) ||
-                (v.Area != null && v.Area.Name != null && EF.Functions.Like(v.Area.Name, like)));
+                (v.CentroCusto != null && v.CentroCusto.Description != null && EF.Functions.Like(v.CentroCusto.Description, like)));
         }
 
         if (!string.IsNullOrWhiteSpace(area))
         {
             var areaLike = $"%{area.Trim()}%";
-            query = query.Where(v => v.Area != null && v.Area.Name != null && EF.Functions.Like(v.Area.Name, areaLike));
+            query = query.Where(v => v.CentroCusto != null && v.CentroCusto.Description != null && EF.Functions.Like(v.CentroCusto.Description, areaLike));
         }
 
         if (!string.IsNullOrWhiteSpace(location))
@@ -154,7 +154,7 @@ public sealed class PublicVagasController : ControllerBase
             .Select(v => new PortalVagaCardResponse(
                 v.Id,
                 v.Titulo,
-                v.Area != null ? v.Area.Name : null,
+                v.CentroCusto != null ? v.CentroCusto.Description : null,
                 v.Modalidade,
                 v.TipoContratacao,
                 v.Senioridade,
@@ -193,7 +193,7 @@ public sealed class PublicVagasController : ControllerBase
 
         var item = await _db.Vagas
             .AsNoTracking()
-            .Include(v => v.Area)
+            .Include(v => v.CentroCusto)
             .Where(v => v.Id == id)
             .Where(v => v.Status == VagaStatus.Aberta)
             .Where(v => !v.Confidencial)
@@ -204,7 +204,7 @@ public sealed class PublicVagasController : ControllerBase
             .Select(v => new PortalVagaCardResponse(
                 v.Id,
                 v.Titulo,
-                v.Area != null ? v.Area.Name : null,
+                v.CentroCusto != null ? v.CentroCusto.Description : null,
                 v.Modalidade,
                 v.TipoContratacao,
                 v.Senioridade,

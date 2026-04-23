@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -14,6 +15,7 @@ namespace RhPortal.Api.Controllers;
 [ApiController]
 [Route("api/matching")]
 [Authorize]
+[RequireModule("matching")]
 public sealed class MatchingController : ControllerBase
 {
     /// <summary>

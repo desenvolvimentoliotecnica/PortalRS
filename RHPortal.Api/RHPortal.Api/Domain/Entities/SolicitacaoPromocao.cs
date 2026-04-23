@@ -34,13 +34,13 @@ public sealed class SolicitacaoPromocao : ITenantEntity
     public Guid NovoCargoId { get; set; }
     public JobPosition? NovoCargo { get; set; }
 
-    /// <summary>Área atual (auto-preenchida ao selecionar funcionário).</summary>
-    public Guid? AreaAtualId { get; set; }
-    public Area? AreaAtual { get; set; }
+    /// <summary>Centro de custo atual (auto-preenchido ao selecionar funcionário).</summary>
+    public Guid? CentroCustoAtualId { get; set; }
+    public CentroCusto? CentroCustoAtual { get; set; }
 
-    /// <summary>Nova área (se houver mudança de departamento).</summary>
-    public Guid? NovaAreaId { get; set; }
-    public Area? NovaArea { get; set; }
+    /// <summary>Novo centro de custo (se houver mudança de unidade organizacional).</summary>
+    public Guid? NovoCentroCustoId { get; set; }
+    public CentroCusto? NovoCentroCusto { get; set; }
 
     /// <summary>Nova unidade (se houver transferência de base).</summary>
     public Guid? NovaUnidadeId { get; set; }

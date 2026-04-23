@@ -30,7 +30,7 @@ public sealed class NineBoxService : INineBoxService
         var assessments = await _db.NineBoxAssessments
             .AsNoTracking()
             .Include(a => a.Funcionario).ThenInclude(f => f!.JobPosition)
-            .Include(a => a.Funcionario).ThenInclude(f => f!.Area)
+            .Include(a => a.Funcionario).ThenInclude(f => f!.CentroCusto)
             .Include(a => a.Funcionario).ThenInclude(f => f!.NivelHierarquico)
             .Include(a => a.Avaliador)
             .GroupBy(a => a.FuncionarioId)
@@ -42,7 +42,7 @@ public sealed class NineBoxService : INineBoxService
             FuncionarioId: a.FuncionarioId,
             FuncionarioNome: a.Funcionario!.Name,
             Cargo: a.Funcionario.JobPosition?.Name,
-            AreaNome: a.Funcionario.Area?.Name,
+            AreaNome: a.Funcionario.CentroCusto?.Description,
             NivelHierarquicoNome: a.Funcionario.NivelHierarquico?.Nome,
             Desempenho: a.Desempenho,
             Potencial: a.Potencial,

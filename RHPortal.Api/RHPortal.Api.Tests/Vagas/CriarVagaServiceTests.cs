@@ -55,26 +55,25 @@ public sealed class CriarVagaServiceTests
         return (db, service);
     }
 
+    // 31.2: Area foi absorvido por CentroCusto. Nome "SeedArea" preservado para clareza semântica.
     private static Guid SeedArea(AppDbContext db, string tenantId = TenantTeste)
     {
-        var area = new Area
+        var cc = new CentroCusto
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             Code = "TI",
-            Name = "Tecnologia da Informação",
+            Description = "Tecnologia da Informação",
             IsActive = true
         };
-        db.Areas.Add(area);
+        db.CentrosCusto.Add(cc);
         db.SaveChanges();
-        return area.Id;
+        return cc.Id;
     }
 
-    private static VagaCreateRequest RequestMinimo(Guid areaId, string titulo = "Dev Backend", string? nomeEngessado = null) =>
+    private static VagaCreateRequest RequestMinimo(Guid centroCustoId, string titulo = "Dev Backend", string? nomeEngessado = null) =>
         new(
             Titulo: titulo,
-            DepartmentId: null,
-            AreaId: areaId,
             Status: VagaStatus.Rascunho,
             Codigo: null,
             AreaTime: null,
@@ -111,6 +110,7 @@ public sealed class CriarVagaServiceTests
             Regime: null,
             CargaSemanalHoras: null,
             Escala: null,
+            EscalaTrabalhoRaw: null,
             HoraEntrada: null,
             HoraSaida: null,
             Intervalo: null,
@@ -155,9 +155,11 @@ public sealed class CriarVagaServiceTests
             NomeEngessado: nomeEngessado,
             JobPositionId: null,
             CategoriaSalarialId: null,
-            CentroCustoId: null,
+            CentroCustoId: centroCustoId,
             TurnoId: null,
             UnidadeLotacaoId: null,
+            EixoVagaId: null,
+            TravarFaixaSalarial: false,
             Beneficios: null,
             Requisitos: null,
             Etapas: null,

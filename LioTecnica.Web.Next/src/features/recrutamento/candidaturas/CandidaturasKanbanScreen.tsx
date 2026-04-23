@@ -1,0 +1,217 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { apiJson } from "@/lib/api";
+import {
+  avancarEtapa,
+  ETAPAS_KANBAN,
+  getKanban,
+  resolveEtapa,
+  type EtapaMacroCandidatura,
+  type KanbanCandidaturaItem,
+  type KanbanCandidaturasResponse,
+} from "./candidaturaApi";
+
+type VagaLite = { id: string; titulo: string | null };
+
+const ETAPA_LABELS: Record<EtapaMacroCandidatura, string> = {
+  Aplicada: "Aplicada",
+  EmTriagem: "Em triagem",
+  Entrevista: "Entrevista",
+  Teste: "Teste",
+  Proposta: "Proposta",
+  Contratado: "Contratado",
+  Recusado: "Recusado",
+  Desistiu: "Desistiu",
+};
+
+const ETAPA_STYLES: Record<EtapaMacroCandidatura, { header: string; accent: string }> = {
+  Aplicada:   { header: "bg-sky-50 text-sky-900",         accent: "border-sky-200" },
+  EmTriagem:  { header: "bg-indigo-50 text-indigo-900",   accent: "border-indigo-200" },
+  Entrevista: { header: "bg-violet-50 text-violet-900",   accent: "border-violet-200" },
+  Teste:      { header: "bg-fuchsia-50 text-fuchsia-900", accent: "border-fuchsia-200" },
+  Proposta:   { header: "bg-amber-50 text-amber-900",     accent: "border-amber-200" },
+  Contratado: { header: "bg-emerald-50 text-emerald-900", accent: "border-emerald-200" },
+  Recusado:   { header: "bg-rose-50 text-rose-900",       accent: "border-rose-200" },
+  Desistiu:   { header: "bg-neutral-100 text-neutral-700", accent: "border-neutral-200" },
+};
+
+function formatDate(iso: string | null) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR");
+  } catch {
+    return iso;
+  }
+}
+
+export default function CandidaturasKanbanScreen() {
+  const [data, setData] = useState<KanbanCandidaturasResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [vagaId, setVagaId] = useState<string>("");
+  const [vagas, setVagas] = useState<VagaLite[]>([]);
+  const [dragging, setDragging] = useState<KanbanCandidaturaItem | null>(null);
+  const [hoverEtapa, setHoverEtapa] = useState<EtapaMacroCandidatura | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const resp = await getKanban(vagaId || null);
+      setData(resp);
+    } catch {
+      toast.error("Falha ao carregar o kanban.");
+    } finally {
+      setLoading(false);
+    }
+  }, [vagaId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const vs = await apiJson<VagaLite[]>("/api/vagas").catch(() => [] as VagaLite[]);
+        setVagas(vs);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  const columns = useMemo(() => {
+    const map = new Map<EtapaMacroCandidatura, KanbanCandidaturaItem[]>();
+    for (const e of ETAPAS_KANBAN) map.set(e, []);
+    if (data) {
+      for (const col of data.colunas) {
+        const etapa = resolveEtapa(col.etapa);
+        map.set(etapa, col.itens.map((it) => ({ ...it, etapaMacro: resolveEtapa(it.etapaMacro) })));
+      }
+    }
+    return map;
+  }, [data]);
+
+  const totals = useMemo(() => {
+    const t: Record<string, number> = {};
+    for (const [k, v] of columns) t[k] = v.length;
+    return t;
+  }, [columns]);
+
+  const onDropTo = async (etapa: EtapaMacroCandidatura) => {
+    setHoverEtapa(null);
+    const item = dragging;
+    setDragging(null);
+    if (!item) return;
+    const atual = resolveEtapa(item.etapaMacro);
+    if (atual === etapa) return;
+
+    const obs = window.prompt(
+      `Mover "${item.candidatoNome}" de ${ETAPA_LABELS[atual]} para ${ETAPA_LABELS[etapa]}. Observação (opcional):`,
+      "",
+    );
+    if (obs === null) return;
+
+    try {
+      await avancarEtapa(item.id, etapa, obs.trim() || null);
+      toast.success(`Movido para ${ETAPA_LABELS[etapa]}.`);
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message ?? "Falha ao mover.");
+    }
+  };
+
+  return (
+    <section className="space-y-4 p-4">
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900">Kanban de candidaturas</h1>
+          <p className="text-sm text-neutral-600">
+            Arraste os cards entre as colunas para avançar a etapa.
+            {data ? ` ${data.total} candidatura${data.total === 1 ? "" : "s"}.` : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-neutral-700">
+            Vaga:{" "}
+            <select
+              className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+              value={vagaId}
+              onChange={(e) => setVagaId(e.target.value)}
+            >
+              <option value="">Todas</option>
+              {vagas.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.titulo ?? v.id.slice(0, 8)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button variant="outline" onClick={() => void load()}>Atualizar</Button>
+        </div>
+      </header>
+
+      {loading ? (
+        <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
+          Carregando…
+        </div>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {ETAPAS_KANBAN.map((etapa) => {
+            const style = ETAPA_STYLES[etapa];
+            const itens = columns.get(etapa) ?? [];
+            const isHover = hoverEtapa === etapa;
+            return (
+              <div
+                key={etapa}
+                className={`flex w-72 shrink-0 flex-col rounded-lg border bg-white ${style.accent} ${isHover ? "ring-2 ring-sky-400" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setHoverEtapa(etapa); }}
+                onDragLeave={() => { if (hoverEtapa === etapa) setHoverEtapa(null); }}
+                onDrop={(e) => { e.preventDefault(); void onDropTo(etapa); }}
+              >
+                <div className={`rounded-t-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide ${style.header}`}>
+                  <div className="flex items-center justify-between">
+                    <span>{ETAPA_LABELS[etapa]}</span>
+                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] text-neutral-700">
+                      {totals[etapa] ?? 0}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex min-h-[120px] flex-1 flex-col gap-2 p-2">
+                  {itens.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-neutral-400">Vazio</div>
+                  ) : (
+                    itens.map((it) => (
+                      <article
+                        key={it.id}
+                        draggable
+                        onDragStart={() => setDragging(it)}
+                        onDragEnd={() => { setDragging(null); setHoverEtapa(null); }}
+                        className="cursor-grab rounded-md border border-neutral-200 bg-white p-3 text-sm shadow-sm hover:shadow-md active:cursor-grabbing"
+                      >
+                        <div className="font-medium text-neutral-900">{it.candidatoNome}</div>
+                        {it.candidatoEmail && (
+                          <div className="truncate text-xs text-neutral-500">{it.candidatoEmail}</div>
+                        )}
+                        <div className="mt-1 text-xs text-neutral-600">
+                          {it.vagaTitulo ?? it.vagaId.slice(0, 8)}
+                          {it.vagaCodigo ? ` · ${it.vagaCodigo}` : ""}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-[11px] text-neutral-500">
+                          <span>Aplicada: {formatDate(it.aplicadaEmUtc)}</span>
+                          {typeof it.matchScore === "number" && (
+                            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-800">
+                              match {it.matchScore}
+                            </span>
+                          )}
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}

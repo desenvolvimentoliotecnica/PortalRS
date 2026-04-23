@@ -30,7 +30,7 @@ export default function AdminLocalizationScreen() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        try { setConfig(await fetchJson<LocalizationConfig>("/api/admin/localization")); }
+        try { setConfig(await fetchJson<LocalizationConfig>("/api/localization-config")); }
         catch { /* may return default */ }
         finally { setLoading(false); }
     }, []);
@@ -40,7 +40,7 @@ export default function AdminLocalizationScreen() {
     async function handleSave() {
         setSaving(true);
         try {
-            const saved = await fetchJson<LocalizationConfig>("/api/admin/localization", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+            const saved = await fetchJson<LocalizationConfig>("/api/localization-config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
             setConfig(saved);
             toast.success("Configuração de localização salva!");
         } catch (err) { toast.error(err instanceof Error ? err.message : "Falha ao salvar."); }

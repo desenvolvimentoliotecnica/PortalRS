@@ -9,7 +9,7 @@ public sealed record RoleInfoResponse(
 
 public sealed record UnitInfoResponse(Guid Id, string Code, string Name);
 
-public sealed record FuncionarioInfoResponse(Guid Id, string Name, string Email, Guid? AreaId);
+public sealed record FuncionarioInfoResponse(Guid Id, string Name, string Email, Guid? CentroCustoId);
 
 public sealed record UserListItemResponse(
     Guid Id,

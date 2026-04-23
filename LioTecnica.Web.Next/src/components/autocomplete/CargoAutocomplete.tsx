@@ -9,7 +9,11 @@ export interface CargoLookup {
   id: string;
   code: string;
   name: string;
+  centroCustoId?: string;
+  centroCustoName?: string;
+  /** @deprecated use centroCustoId */
   areaId?: string;
+  /** @deprecated use centroCustoName */
   areaName?: string;
   seniority?: string;
 }
@@ -143,7 +147,7 @@ export function CargoAutocomplete({
                   <div className="font-medium">{cargo.name}</div>
                   <div className="text-xs text-muted-foreground">
                     <span className="font-mono">{cargo.code}</span>
-                    {cargo.areaName && <span className="ml-2">· {cargo.areaName}</span>}
+                    {(cargo.centroCustoName ?? cargo.areaName) && <span className="ml-2">· {cargo.centroCustoName ?? cargo.areaName}</span>}
                     {cargo.seniority && <span className="ml-2">· {cargo.seniority}</span>}
                   </div>
                 </button>

@@ -77,8 +77,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         if (query.Statuses is { Length: > 0 })
             q = q.Where(s => query.Statuses.Contains(s.Status));
 
-        if (query.AreaId.HasValue)
-            q = q.Where(s => s.Funcionario != null && s.Funcionario.AreaId == query.AreaId.Value);
+        if (query.CentroCustoId.HasValue)
+            q = q.Where(s => s.Funcionario != null && s.Funcionario.CentroCustoId == query.CentroCustoId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
@@ -126,8 +126,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             .Include(x => x.Funcionario)
             .Include(x => x.CargoAtual)
             .Include(x => x.NovoCargo)
-            .Include(x => x.AreaAtual)
-            .Include(x => x.NovaArea)
+            .Include(x => x.CentroCustoAtual)
+            .Include(x => x.NovoCentroCusto)
             .Include(x => x.NovaUnidade)
             .Include(x => x.Empresa)
             .Include(x => x.Unit)
@@ -155,12 +155,12 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
 
         var resolvedSolicitanteId = await _workflow.ResolveSolicitanteIdAsync(solicitanteId, ct);
 
-        // Auto-fill CargoAtualId and AreaAtualId from the selected Funcionario
+        // Auto-fill CargoAtualId and CentroCustoAtualId from the selected Funcionario
         var funcionario = await _db.Set<Funcionario>().AsNoTracking()
             .FirstOrDefaultAsync(f => f.Id == request.FuncionarioId, ct);
 
         var cargoAtualId = request.CargoAtualId ?? funcionario?.JobPositionId;
-        var areaAtualId = request.AreaAtualId ?? funcionario?.AreaId;
+        var centroCustoAtualId = request.CentroCustoAtualId ?? funcionario?.CentroCustoId;
 
         var entity = new SolicitacaoPromocao
         {
@@ -171,8 +171,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             DataEfetiva = request.DataEfetiva,
             CargoAtualId = cargoAtualId,
             NovoCargoId = request.NovoCargoId,
-            AreaAtualId = areaAtualId,
-            NovaAreaId = request.NovaAreaId,
+            CentroCustoAtualId = centroCustoAtualId,
+            NovoCentroCustoId = request.NovoCentroCustoId,
             NovaUnidadeId = request.NovaUnidadeId,
             EmpresaId = request.EmpresaId,
             UnitId = request.UnitId,
@@ -205,7 +205,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
-        // Auto-fill CargoAtualId and AreaAtualId from the selected Funcionario
+        // Auto-fill CargoAtualId and CentroCustoAtualId from the selected Funcionario
         var funcionario = await _db.Set<Funcionario>().AsNoTracking()
             .FirstOrDefaultAsync(f => f.Id == request.FuncionarioId, ct);
 
@@ -213,8 +213,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         entity.DataEfetiva = request.DataEfetiva;
         entity.CargoAtualId = request.CargoAtualId ?? funcionario?.JobPositionId;
         entity.NovoCargoId = request.NovoCargoId;
-        entity.AreaAtualId = request.AreaAtualId ?? funcionario?.AreaId;
-        entity.NovaAreaId = request.NovaAreaId;
+        entity.CentroCustoAtualId = request.CentroCustoAtualId ?? funcionario?.CentroCustoId;
+        entity.NovoCentroCustoId = request.NovoCentroCustoId;
         entity.NovaUnidadeId = request.NovaUnidadeId;
         entity.EmpresaId = request.EmpresaId;
         entity.UnitId = request.UnitId;
@@ -353,8 +353,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             if (funcionario is not null)
             {
                 funcionario.JobPositionId = entity.NovoCargoId;
-                if (entity.NovaAreaId.HasValue)
-                    funcionario.AreaId = entity.NovaAreaId;
+                if (entity.NovoCentroCustoId.HasValue)
+                    funcionario.CentroCustoId = entity.NovoCentroCustoId;
                 funcionario.UpdatedAtUtc = DateTimeOffset.UtcNow;
             }
 
@@ -632,8 +632,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             DataEfetiva = source.DataEfetiva,
             CargoAtualId = source.CargoAtualId,
             NovoCargoId = source.NovoCargoId,
-            AreaAtualId = source.AreaAtualId,
-            NovaAreaId = source.NovaAreaId,
+            CentroCustoAtualId = source.CentroCustoAtualId,
+            NovoCentroCustoId = source.NovoCentroCustoId,
             NovaUnidadeId = source.NovaUnidadeId,
             EmpresaId = source.EmpresaId,
             UnitId = source.UnitId,
@@ -673,10 +673,10 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             s.CargoAtual?.Name,
             s.NovoCargoId,
             s.NovoCargo?.Name,
-            s.AreaAtualId,
-            s.AreaAtual?.Name,
-            s.NovaAreaId,
-            s.NovaArea?.Name,
+            s.CentroCustoAtualId,
+            s.CentroCustoAtual?.Description,
+            s.NovoCentroCustoId,
+            s.NovoCentroCusto?.Description,
             s.NovaUnidadeId,
             s.NovaUnidade?.Name,
             s.EmpresaId,
