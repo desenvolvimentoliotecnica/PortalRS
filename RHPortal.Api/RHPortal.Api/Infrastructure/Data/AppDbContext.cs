@@ -144,6 +144,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<NotificacaoCandidaturaLog> NotificacoesCandidaturaLogs => Set<NotificacaoCandidaturaLog>();
     public DbSet<NotificacaoTemplate> NotificacoesTemplates => Set<NotificacaoTemplate>();
     public DbSet<CategoriaSalarial> CategoriasSalariais => Set<CategoriaSalarial>();
+    public DbSet<CategoriaSalarialStep> CategoriaSalarialSteps => Set<CategoriaSalarialStep>();
     public DbSet<Turno> Turnos => Set<Turno>();
     public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
     public DbSet<UnidadeLotacao> UnidadesLotacao => Set<UnidadeLotacao>();
@@ -392,6 +393,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.Property(x => x.Code).HasMaxLength(10).IsRequired();
             b.Property(x => x.Description).HasMaxLength(120).IsRequired();
+            b.Property(x => x.ValorBase).HasColumnType("decimal(18,2)");
 
             b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.EstabelecimentoId, x.Code })
              .IsUnique()
@@ -399,6 +401,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasIndex(x => x.IsActive);
             b.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.Estabelecimento).WithMany().HasForeignKey(x => x.EstabelecimentoId).OnDelete(DeleteBehavior.SetNull);
+            b.HasMany(x => x.Steps)
+                .WithOne(x => x.CategoriaSalarial!)
+                .HasForeignKey(x => x.CategoriaSalarialId)
+                .OnDelete(DeleteBehavior.Cascade);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CategoriaSalarialStep>(b =>
+        {
+            b.ToTable("CategoriaSalarialSteps");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Percentual).HasColumnType("decimal(8,2)");
+            b.Property(x => x.ValorOverride).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Observacao).HasMaxLength(200);
+
+            b.HasIndex(x => new { x.TenantId, x.CategoriaSalarialId });
+            b.HasIndex(x => new { x.TenantId, x.CategoriaSalarialId, x.Percentual }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
