@@ -199,7 +199,7 @@ public sealed class MagicLinkService : IMagicLinkService
             {
                 var sol = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == link.SolicitacaoId, ct);
                 if (sol is null) break;
-                sol.Status = SolicitacaoVagaStatus.Aprovada;
+                sol.Status = SolicitacaoStatus.Aprovada;
                 sol.ApprovedAtUtc = now;
                 sol.UpdatedAtUtc = now;
                 break;
@@ -219,7 +219,7 @@ public sealed class MagicLinkService : IMagicLinkService
             {
                 var sol = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == link.SolicitacaoId, ct);
                 if (sol is null) break;
-                sol.Status = SolicitacaoVagaStatus.Reprovada;
+                sol.Status = SolicitacaoStatus.Reprovada;
                 sol.ObservacaoAprovador = observacao;
                 sol.UpdatedAtUtc = now;
                 break;

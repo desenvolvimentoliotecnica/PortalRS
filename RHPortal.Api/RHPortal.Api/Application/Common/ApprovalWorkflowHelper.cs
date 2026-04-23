@@ -118,34 +118,50 @@ public sealed class ApprovalWorkflowHelper
     }
 
     /// <summary>
-    /// Valida que a solicitação pode ser aprovada (PendenteAprovacao ou PendenteAprovacaoRh).
+    /// Valida que a solicitação pode ser aprovada (PendenteAprovacao, PendenteAprovacaoRh ou PendenteAprovacaoAumentoHC).
     /// </summary>
     public static void ValidateCanApproveAny(SolicitacaoStatus status)
     {
-        if (status != SolicitacaoStatus.PendenteAprovacao && status != SolicitacaoStatus.PendenteAprovacaoRh)
+        if (status != SolicitacaoStatus.PendenteAprovacao
+            && status != SolicitacaoStatus.PendenteAprovacaoRh
+            && status != SolicitacaoStatus.PendenteAprovacaoAumentoHC)
             throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
     }
 
-    // ── Overloads para SolicitacaoVagaStatus (enum separado com mesmos valores) ──
-
-    public static void ValidateCanEdit(SolicitacaoVagaStatus status)
+    private async Task<Guid?> ResolveAdminRoleIdAsync(CancellationToken ct)
     {
-        if (status != SolicitacaoVagaStatus.Rascunho && status != SolicitacaoVagaStatus.AjustesNecessarios)
-            throw new InvalidOperationException("Solicitação não pode ser editada no status atual.");
+        var byTipo = await _db.Set<ApplicationRole>()
+            .AsNoTracking()
+            .Where(r => r.IsActive && r.Tipo == RHPortal.Api.Domain.Enums.RoleTipo.Admin)
+            .OrderBy(r => r.Name)
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(ct);
+        if (byTipo.HasValue) return byTipo;
+
+        return await _db.Set<ApplicationRole>()
+            .AsNoTracking()
+            .Where(r => r.IsActive && (
+                r.Name == "Admin" ||
+                r.Name == "Administrador" ||
+                r.Name == "Owner"))
+            .OrderBy(r => r.Name)
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(ct);
     }
 
-    public static void ValidateCanApproveAny(SolicitacaoVagaStatus status)
+    /// <summary>
+    /// Resolve o RoleFilaId para etapas de RevisaoRH no fluxo indicado.
+    /// Usa o role configurado em EtapaConfigAprovacao; fallback para role Admin.
+    /// </summary>
+    public async Task<Guid?> ResolveRhRoleIdAsync(TipoFluxoAprovacao tipoFluxo, CancellationToken ct)
     {
-        if (status != SolicitacaoVagaStatus.PendenteAprovacao
-            && status != SolicitacaoVagaStatus.PendenteAprovacaoRh
-            && status != SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC)
-            throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
-    }
+        var roleId = await _db.Set<EtapaConfigAprovacao>()
+            .AsNoTracking()
+            .Where(e => e.Ativo && e.TipoFluxo == tipoFluxo && e.TipoAprovador == TipoAprovador.RevisaoRH)
+            .Select(e => (Guid?)e.RoleFilaId)
+            .FirstOrDefaultAsync(ct);
 
-    public static void ValidateCanDelete(SolicitacaoVagaStatus status)
-    {
-        if (status != SolicitacaoVagaStatus.Rascunho)
-            throw new InvalidOperationException("Só é possível excluir solicitações em rascunho.");
+        return roleId ?? await ResolveAdminRoleIdAsync(ct);
     }
 
     /// <summary>
@@ -161,28 +177,7 @@ public sealed class ApprovalWorkflowHelper
             CancellationToken ct,
             Guid? targetUnidadeLotacaoId = null)
     {
-        async Task<Guid?> ResolveConsensoRoleIdAsync()
-        {
-            // Prefer explicit Admin profile type (tenant-level admin queue).
-            var byTipo = await _db.Set<ApplicationRole>()
-                .AsNoTracking()
-                .Where(r => r.IsActive && r.Tipo == RHPortal.Api.Domain.Enums.RoleTipo.Admin)
-                .OrderBy(r => r.Name)
-                .Select(r => (Guid?)r.Id)
-                .FirstOrDefaultAsync(ct);
-            if (byTipo.HasValue) return byTipo;
-
-            // Backward compatibility for legacy seeds/tenants.
-            return await _db.Set<ApplicationRole>()
-                .AsNoTracking()
-                .Where(r => r.IsActive && (
-                    r.Name == "Admin" ||
-                    r.Name == "Administrador" ||
-                    r.Name == "Owner"))
-                .OrderBy(r => r.Name)
-                .Select(r => (Guid?)r.Id)
-                .FirstOrDefaultAsync(ct);
-        }
+        async Task<Guid?> ResolveConsensoRoleIdAsync() => await ResolveAdminRoleIdAsync(ct);
 
         // 1. Load config
         var configEtapas = await _db.Set<EtapaConfigAprovacao>()

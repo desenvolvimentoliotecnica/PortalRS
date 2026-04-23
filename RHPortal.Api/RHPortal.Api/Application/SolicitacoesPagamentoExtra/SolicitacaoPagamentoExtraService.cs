@@ -27,17 +27,20 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoPagamentoExtraService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IReadOnlyList<SolicitacaoPagamentoExtraGridRow>> ListAsync(
@@ -47,9 +50,6 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
             .Include(s => s.Solicitante)
             .Include(s => s.Funcionario)
             .AsQueryable();
-
-        if (!_currentUser.IsAdmin && currentFuncionarioId.HasValue)
-            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
@@ -153,8 +153,13 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
+        var statusAnteriorSubmitPe = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPagamentoExtra, entity.Id,
+            statusAnteriorSubmitPe, entity.Status.ToString(), _currentUser, ct: ct);
 
         var resolution = await _workflow.ResolveApproversAsync(
             entity.SolicitanteId, entity.Aprovador2Habilitado, ct);
@@ -198,10 +203,15 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
 
         ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
 
+        var statusAnteriorApprovePe = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Aprovada;
         entity.ObservacaoAprovador = observacao;
         entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPagamentoExtra, entity.Id,
+            statusAnteriorApprovePe, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -222,9 +232,14 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
 
         ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
 
+        var statusAnteriorRejectPe = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPagamentoExtra, entity.Id,
+            statusAnteriorRejectPe, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -246,9 +261,14 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
 
         ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
 
+        var statusAnteriorChangesPe = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPagamentoExtra, entity.Id,
+            statusAnteriorChangesPe, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 

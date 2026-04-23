@@ -15,9 +15,7 @@ import {
   Briefcase,
   UserCheck,
   ChevronDown,
-  ChevronUp,
   Filter,
-  ExternalLink,
   TrendingUp,
   UserMinus,
   Palmtree,
@@ -26,6 +24,8 @@ import {
   MapPin,
   DollarSign,
   Users,
+  Download,
+  Plus,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import {
@@ -57,8 +57,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import StepperProgress from "@/components/feedback/StepperProgress";
-import type { StepperStep } from "@/components/feedback/StepperProgress";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
 import FeriasScreen from "@/features/gestao/ferias/FeriasScreen";
@@ -171,21 +169,6 @@ function RecrutamentoContent() {
   const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
 
   const [filaRh, setFilaRh] = useState<FilaRhItem[]>([]);
-  const FILA_RH_KEY = "workflow-rh:fila-rh-open";
-  const [filaRhOpen, setFilaRhOpen] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(FILA_RH_KEY);
-    if (stored !== null) setFilaRhOpen(stored === "true");
-  }, []);
-
-  function toggleFilaRh() {
-    setFilaRhOpen((prev) => {
-      const next = !prev;
-      localStorage.setItem(FILA_RH_KEY, String(next));
-      return next;
-    });
-  }
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -227,27 +210,6 @@ function RecrutamentoContent() {
     fetchFilaRh();
   }, [fetchList, fetchFilaRh]);
 
-  const pipelineSteps = useMemo<StepperStep[]>(() => {
-    const activeItems = items.filter((i) => i.status === 0 || i.status === 1);
-    if (activeItems.length === 0) return [];
-
-    const etapaOrder: string[] = [];
-    const etapaCounts: Record<string, number> = {};
-    for (const item of activeItems) {
-      const label = item.etapaAtualLabel ?? "Sem etapa";
-      if (!etapaCounts[label]) {
-        etapaOrder.push(label);
-        etapaCounts[label] = 0;
-      }
-      etapaCounts[label]++;
-    }
-
-    return etapaOrder.map((label, i) => ({
-      label: `${label} (${etapaCounts[label]})`,
-      status: i === 0 ? ("current" as const) : ("pending" as const),
-    }));
-  }, [items]);
-
   /** Client-side refinement: date range, aging bucket, tipo multi-select, and "sla" pseudo-filter */
   const filteredItems = useMemo(() => {
     return items.filter((row) => {
@@ -281,96 +243,41 @@ function RecrutamentoContent() {
         <div className="text-sm text-muted-foreground">
           Acompanhe o pipeline de candidatos, etapas e SLA de cada vaga
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => { fetchList(); fetchFilaRh(); }}
-          disabled={loading}
-        >
-          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          <span className="hidden sm:inline">Atualizar</span>
-        </Button>
-      </div>
-
-      {/* Pipeline Visual */}
-      {pipelineSteps.length > 0 && (
-        <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
-          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-            Pipeline de Workflows Ativos
-          </div>
-          <StepperProgress steps={pipelineSteps} orientation="horizontal" />
-        </div>
-      )}
-
-      {/* Fila de pendências RH */}
-      {filaRh.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-900/10 shadow-sm">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-4 py-3 text-left"
-            onClick={toggleFilaRh}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { fetchList(); fetchFilaRh(); }}
+            disabled={loading}
           >
-            <div className="flex items-center gap-2">
-              <Briefcase className="size-4 text-amber-600" />
-              <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                Vagas aguardando ação do RH
-              </span>
-              <Badge variant="secondary" className="text-xs">{filaRh.length}</Badge>
-            </div>
-            {filaRhOpen
-              ? <ChevronUp className="size-4 text-amber-600" />
-              : <ChevronDown className="size-4 text-amber-600" />
-            }
-          </button>
-          {filaRhOpen && (
-            <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {filaRh.map((item) => {
-                const days = daysSince(item.createdAtUtc);
-                const meta = urgenciaMeta(item.urgencia ?? 0);
-                const isUrgent = days > 7 || item.alertaHCProvVencido;
-                const hasPendente = (item.headcountPendente ?? 0) > 0;
-                return (
-                  <div
-                    key={item.id}
-                    className={`flex items-center justify-between rounded-lg border bg-white dark:bg-card px-3 py-2.5 transition-colors cursor-pointer ${
-                      isUrgent
-                        ? "border-red-300/70 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        : "border-amber-200/60 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                    }`}
-                    onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(item.id)}`)}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{item.titulo}</div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                        {item.areaName && <span>{item.areaName}</span>}
-                        <span className={meta.text}>{meta.label}</span>
-                        <span className={isUrgent ? "text-red-600 font-medium" : ""}>{days}d atrás</span>
-                        {hasPendente && (
-                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                            +{item.headcountPendente} HC pend.
-                          </span>
-                        )}
-                        {item.alertaHCProvVencido && (
-                          <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                            HC Prov. Vencido
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <ExternalLink className="size-3.5 text-muted-foreground shrink-0 ml-2" />
-                  </div>
-                );
-              })}
-            </div>
-          )}
+            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Atualizar</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              apiFetch("/api/workflow-rh/export")
+                .then((r) => r.blob())
+                .then((blob) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "recrutamento.csv"; a.click(); })
+                .catch(() => toast.error("Falha ao exportar."));
+            }}
+          >
+            <Download className="size-4" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+          <Button size="sm" onClick={() => router.push("/vagas")}>
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">Nova vaga</span>
+          </Button>
         </div>
-      )}
+      </div>
 
       {/* Filters + Table */}
       <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="font-semibold">Pipeline de Recrutamento</div>
+            <h4 className="text-lg font-bold">Pipeline de Recrutamento</h4>
             <div className="text-muted-foreground text-sm">
               {loading ? "Carregando…" : `${filteredItems.length} workflow(s)`}
             </div>
@@ -526,61 +433,6 @@ function RecrutamentoContent() {
               </TableRow>
             ))}
 
-            {/* Fila RH rows — vagas aguardando ação do RH */}
-            {!loading && filaRh.map((item) => {
-              const days = daysSince(item.createdAtUtc);
-              const meta = urgenciaMeta(item.urgencia ?? 0);
-              const isUrgent = days > 7 || item.alertaHCProvVencido;
-              const hasPendente = (item.headcountPendente ?? 0) > 0;
-              return (
-                <TableRow
-                  key={`fila-${item.id}`}
-                  className={`cursor-pointer border-l-4 ${isUrgent ? "border-red-400 bg-red-50/40 hover:bg-red-50/60 dark:bg-red-900/10 dark:hover:bg-red-900/20" : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/60 dark:bg-amber-900/10 dark:hover:bg-amber-900/20"}`}
-                  onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(item.id)}`)}
-                >
-                  <TableCell className="font-medium">
-                    <div className="truncate max-w-[200px]">{item.titulo}</div>
-                    {item.areaName && <div className="text-xs text-muted-foreground truncate">{item.areaName}</div>}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Briefcase className="size-3.5 text-amber-600" />
-                      <span className="text-amber-700 font-medium">Contratação</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                      <AlertTriangle className="size-3" />
-                      Aguarda RH
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs text-muted-foreground italic">—</span>
-                  </TableCell>
-                  <TableCell className="text-sm text-amber-700">Ação do RH necessária</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">—</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className={`text-xs font-medium ${isUrgent ? "text-red-600" : "text-muted-foreground"}`}>{days}d atrás</span>
-                      {hasPendente && (
-                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                          +{item.headcountPendente} HC pend.
-                        </span>
-                      )}
-                      {item.alertaHCProvVencido && (
-                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                          HC Prov. Vencido
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                    {new Date(item.createdAtUtc).toLocaleDateString("pt-BR")}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-
             {/* J2 — Rich empty state */}
             {!loading && filteredItems.length === 0 && filaRh.length === 0 && (
               <TableRow className="hover:bg-transparent">
@@ -654,6 +506,61 @@ function RecrutamentoContent() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                     {new Date(row.createdAtUtc).toLocaleDateString("pt-BR")}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+
+            {/* Fila RH rows — vagas aguardando ação do RH */}
+            {!loading && filaRh.map((item) => {
+              const days = daysSince(item.createdAtUtc);
+              const meta = urgenciaMeta(item.urgencia ?? 0);
+              const isUrgent = days > 7 || item.alertaHCProvVencido;
+              const hasPendente = (item.headcountPendente ?? 0) > 0;
+              return (
+                <TableRow
+                  key={`fila-${item.id}`}
+                  className={`cursor-pointer border-l-4 ${isUrgent ? "border-red-400 bg-red-50/40 hover:bg-red-50/60 dark:bg-red-900/10 dark:hover:bg-red-900/20" : "border-amber-400 bg-amber-50/40 hover:bg-amber-50/60 dark:bg-amber-900/10 dark:hover:bg-amber-900/20"}`}
+                  onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(item.id)}`)}
+                >
+                  <TableCell className="font-medium">
+                    <div className="truncate max-w-[200px]">{item.titulo}</div>
+                    {item.areaName && <div className="text-xs text-muted-foreground truncate">{item.areaName}</div>}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Briefcase className="size-3.5 text-amber-600" />
+                      <span className="text-amber-700 font-medium">Contratação</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                      <AlertTriangle className="size-3" />
+                      Aguarda RH
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs text-muted-foreground italic">—</span>
+                  </TableCell>
+                  <TableCell className="text-sm text-amber-700">Ação do RH necessária</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">—</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className={`text-xs font-medium ${isUrgent ? "text-red-600" : "text-muted-foreground"}`}>{days}d atrás</span>
+                      {hasPendente && (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                          +{item.headcountPendente} HC pend.
+                        </span>
+                      )}
+                      {item.alertaHCProvVencido && (
+                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          HC Prov. Vencido
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                    {new Date(item.createdAtUtc).toLocaleDateString("pt-BR")}
                   </TableCell>
                 </TableRow>
               );

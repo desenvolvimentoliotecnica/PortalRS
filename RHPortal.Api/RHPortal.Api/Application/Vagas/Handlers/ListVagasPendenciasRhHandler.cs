@@ -66,8 +66,8 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                 .AsNoTracking()
                 .Where(s => s.VagaId != null
                          && vagaIdHCPendenteSet.Contains(s.VagaId!.Value)
-                         && ((short)s.Status == (short)SolicitacaoVagaStatus.AguardandoDecisaoRH
-                          || (short)s.Status == (short)SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC))
+                         && ((short)s.Status == (short)SolicitacaoStatus.AguardandoDecisaoRH
+                          || (short)s.Status == (short)SolicitacaoStatus.PendenteAprovacaoAumentoHC))
                 .GroupBy(s => s.VagaId!.Value)
                 .Select(g => new { VagaId = g.Key, CreatedAtUtc = g.Max(s => s.CreatedAtUtc) })
                 .ToDictionaryAsync(x => x.VagaId, x => x.CreatedAtUtc, ct);
@@ -114,7 +114,10 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                     null,
                     v.AlertaVagaSemFillSnoozeAteUtc,
                     v.HeadcountPendente,
-                    false
+                    false,
+                    v.UnidadeLotacaoId,
+                    null,
+                    null
                 ))
                 .ToList();
 

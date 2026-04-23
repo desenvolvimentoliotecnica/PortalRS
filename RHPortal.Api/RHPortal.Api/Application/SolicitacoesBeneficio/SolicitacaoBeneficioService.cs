@@ -28,17 +28,20 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoBeneficioService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IReadOnlyList<SolicitacaoBeneficioGridRow>> ListAsync(
@@ -145,8 +148,13 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
+        var statusAnteriorSubmitBen = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoBeneficio, entity.Id,
+            statusAnteriorSubmitBen, entity.Status.ToString(), _currentUser, ct: ct);
 
         var existingEtapas = _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Beneficio);
@@ -238,6 +246,7 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
             proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
         }
 
+        var statusAnteriorApproveBen = entity.Status.ToString();
         if (proximaEtapa is not null)
         {
             entity.Status = proximaEtapa.RoleFilaId.HasValue
@@ -245,6 +254,10 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
                 : SolicitacaoStatus.PendenteAprovacao;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
             entity.ObservacaoAprovador = observacao;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoBeneficio, entity.Id,
+                statusAnteriorApproveBen, entity.Status.ToString(), _currentUser, observacao, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -264,6 +277,10 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
             entity.ObservacaoAprovador = observacao;
             entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoBeneficio, entity.Id,
+                statusAnteriorApproveBen, entity.Status.ToString(), _currentUser, observacao, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -299,9 +316,14 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
             etapaReject.Observacao = observacao;
         }
 
+        var statusAnteriorRejectBen = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoBeneficio, entity.Id,
+            statusAnteriorRejectBen, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -323,9 +345,14 @@ public sealed class SolicitacaoBeneficioService : ISolicitacaoBeneficioService
 
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        var statusAnteriorChangesBen = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoBeneficio, entity.Id,
+            statusAnteriorChangesBen, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 

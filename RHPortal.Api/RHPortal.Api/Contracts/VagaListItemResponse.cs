@@ -56,5 +56,9 @@ public sealed record VagaListItemResponse(
     int HeadcountPendente,
 
     // Alerta: headcount provisório (substituição) com prazo vencido
-    bool AlertaHCProvVencido
+    bool AlertaHCProvVencido,
+
+    Guid? UnidadeLotacaoId,
+    string? UnidadeLotacaoCode,
+    string? UnidadeLotacaoName
 );

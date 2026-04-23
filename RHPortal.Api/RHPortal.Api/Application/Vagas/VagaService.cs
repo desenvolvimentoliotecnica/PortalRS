@@ -11,6 +11,8 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.WorkflowRH;
+using RhPortal.Api.Application.Common;
 
 namespace RhPortal.Api.Application.Vagas;
 
@@ -33,14 +35,18 @@ public sealed class VagaService : IVagaService
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly IRHPortalAiMatchClient? _aiMatchClient;
     private readonly IVagaUnifiedMatchingCacheService? _unifiedMatchingCache;
-    private readonly ICurrentUserContext _currentUser; // Added
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IWorkflowRHService _workflowRH;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public VagaService(
         AppDbContext db,
         ITenantContext tenantContext,
         ILogger<VagaService> logger,
         IStringLocalizer<ServiceMessages> localizer,
-        ICurrentUserContext currentUser, // Added
+        ICurrentUserContext currentUser,
+        IWorkflowRHService workflowRH,
+        StatusHistoricoService statusHistorico,
         IRHPortalAiMatchClient? aiMatchClient = null,
         IVagaUnifiedMatchingCacheService? unifiedMatchingCache = null)
     {
@@ -48,7 +54,9 @@ public sealed class VagaService : IVagaService
         _tenantContext = tenantContext;
         _logger = logger;
         _localizer = localizer;
-        _currentUser = currentUser; // Added
+        _currentUser = currentUser;
+        _workflowRH = workflowRH;
+        _statusHistorico = statusHistorico;
         _aiMatchClient = aiMatchClient;
         _unifiedMatchingCache = unifiedMatchingCache;
     }
@@ -125,6 +133,9 @@ public sealed class VagaService : IVagaService
                 v.HeadcountProvisorioExpiresAtUtc,
                 v.AlertaVagaSemFillSnoozeAteUtc,
                 v.HeadcountPendente,
+                v.UnidadeLotacaoId,
+                UnidadeLotacaoCode = v.UnidadeLotacao != null ? v.UnidadeLotacao.Code : null,
+                UnidadeLotacaoName = v.UnidadeLotacao != null ? v.UnidadeLotacao.Description : null,
             })
             .ToListAsync(ct);
 
@@ -162,7 +173,10 @@ public sealed class VagaService : IVagaService
                     v.HeadcountProvisorio, v.HeadcountProvisorioExpiresAtUtc,
                     alertaAtivo, alertaAtivo ? diasSemFill : null, v.AlertaVagaSemFillSnoozeAteUtc,
                     v.HeadcountPendente,
-                    alertaHCProvVencido
+                    alertaHCProvVencido,
+                    v.UnidadeLotacaoId,
+                    v.UnidadeLotacaoCode,
+                    v.UnidadeLotacaoName
                 );
             })
             .ToList();
@@ -202,7 +216,7 @@ public sealed class VagaService : IVagaService
 
         if (solic != null)
         {
-            var isPendenteDecisao = solic.Status == SolicitacaoVagaStatus.AguardandoDecisaoRH;
+            var isPendenteDecisao = solic.Status == SolicitacaoStatus.AguardandoDecisaoRH;
             response = response with
             {
                 SolicitanteNome = solic.Solicitante?.Name,
@@ -234,7 +248,7 @@ public sealed class VagaService : IVagaService
         var entity = new Vaga
         {
             Id = Guid.NewGuid(),
-            Codigo = TrimOrNull(request.Codigo),
+            Codigo = TrimOrNull(request.Codigo) ?? await GerarCodigoAsync(ct),
             Titulo = (request.Titulo ?? string.Empty).Trim(),
             DepartmentId = request.DepartmentId,
             AreaTime = request.AreaTime,
@@ -395,7 +409,14 @@ public sealed class VagaService : IVagaService
             await EnsureDepartmentAsync(request.DepartmentId.Value, ct);
 
         var oldFiltros = entity.MatchingFiltrosRaw;
+        var oldStatus = entity.Status.ToString();
         ApplyUpdate(entity, request);
+        if (entity.Status.ToString() != oldStatus)
+        {
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.Vaga, entity.Id,
+                oldStatus, entity.Status.ToString(), _currentUser, null, ct);
+        }
         ReplaceChildren(entity, request);
 
         try
@@ -500,10 +521,15 @@ public sealed class VagaService : IVagaService
             }
         }
 
+        var statusAnteriorVaga = entity.Status.ToString();
         entity.Status = newStatus;
         if (newStatus == VagaStatus.Aberta && entity.DataAbertura == null)
             entity.DataAbertura = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.Vaga, entity.Id,
+            statusAnteriorVaga, entity.Status.ToString(), _currentUser, null, ct);
 
         // Ao cancelar a vaga, cancelar automaticamente os workflows ativos e SolicitacoesVaga pendentes
         if (newStatus == VagaStatus.Cancelada)
@@ -524,6 +550,18 @@ public sealed class VagaService : IVagaService
         }
 
         await _db.SaveChangesAsync(ct);
+
+        if (newStatus == VagaStatus.Aberta)
+        {
+            var jaExiste = await _db.WorkflowsRH
+                .AnyAsync(w => w.VagaId == id
+                            && w.TipoWorkflow == TipoWorkflowRH.TriagemVaga
+                            && w.Status != WorkflowRHStatus.Cancelado, ct);
+            if (!jaExiste)
+                await _workflowRH.CreateFromTemplateAsync(
+                    TipoWorkflowRH.TriagemVaga, vagaId: id, preAdmissaoId: null, ct);
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -561,9 +599,9 @@ public sealed class VagaService : IVagaService
     {
         var statusAtivos = new[]
         {
-            SolicitacaoVagaStatus.PendenteAprovacao,
-            SolicitacaoVagaStatus.AguardandoDecisaoRH,
-            SolicitacaoVagaStatus.PendenteAprovacaoAumentoHC,
+            SolicitacaoStatus.PendenteAprovacao,
+            SolicitacaoStatus.AguardandoDecisaoRH,
+            SolicitacaoStatus.PendenteAprovacaoAumentoHC,
         };
 
         var solicsPendentes = await _db.SolicitacoesVaga
@@ -587,7 +625,7 @@ public sealed class VagaService : IVagaService
         // Cancelar as solicitações e zerar headcount pendente
         foreach (var solic in solicsPendentes)
         {
-            solic.Status = SolicitacaoVagaStatus.Cancelada;
+            solic.Status = SolicitacaoStatus.Cancelada;
             solic.ObservacaoAprovador = "Cancelada automaticamente: vaga associada foi encerrada.";
             solic.UpdatedAtUtc = DateTimeOffset.UtcNow;
         }
@@ -948,6 +986,21 @@ public sealed class VagaService : IVagaService
 
     private static int NormalizeOrder(int ordem, int fallback)
         => ordem >= 0 ? ordem : fallback;
+
+    private async Task<string> GerarCodigoAsync(CancellationToken ct)
+    {
+        var ultimo = await _db.Vagas
+            .Where(v => v.Codigo != null && v.Codigo.StartsWith("VAG-"))
+            .Select(v => v.Codigo!)
+            .OrderByDescending(c => c)
+            .FirstOrDefaultAsync(ct);
+
+        int proximo = 1;
+        if (ultimo != null && int.TryParse(ultimo.AsSpan(4), out var n))
+            proximo = n + 1;
+
+        return $"VAG-{proximo:D4}";
+    }
 
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

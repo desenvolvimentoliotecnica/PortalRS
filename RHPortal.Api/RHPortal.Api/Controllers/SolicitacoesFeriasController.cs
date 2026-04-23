@@ -62,7 +62,7 @@ public sealed class SolicitacoesFeriasController : ControllerBase
     {
         try
         {
-            var created = await _service.CreateAsync(request, _userContext.FuncionarioId, ct);
+            var created = await _service.CreateAsync(request, request.FuncionarioId ?? _userContext.FuncionarioId, ct);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }

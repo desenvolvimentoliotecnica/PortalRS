@@ -67,7 +67,8 @@
       "Bash(npx next *)",
       "Bash(dotnet test *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(grep -E \"\\(tsx|ts\\)$\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

@@ -39,6 +39,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
     private readonly ApprovalWorkflowHelper _workflow;
     private readonly IEmailQueueService _emailQueue;
     private readonly IOcupacaoHistoricoService _ocupacaoService;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoPromocaoService(
         AppDbContext db,
@@ -46,7 +47,8 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         ICurrentUserContext currentUser,
         ApprovalWorkflowHelper workflow,
         IEmailQueueService emailQueue,
-        IOcupacaoHistoricoService ocupacaoService)
+        IOcupacaoHistoricoService ocupacaoService,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -54,6 +56,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         _workflow = workflow;
         _emailQueue = emailQueue;
         _ocupacaoService = ocupacaoService;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IReadOnlyList<SolicitacaoPromocaoGridRow>> ListAsync(
@@ -64,9 +67,6 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             .Include(s => s.Funcionario)
             .Include(s => s.NovoCargo)
             .AsQueryable();
-
-        if (!_currentUser.IsAdmin && !_currentUser.IsRH && currentFuncionarioId.HasValue)
-            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
@@ -241,8 +241,13 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
+        var statusAnteriorSubmit = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPromocao, entity.Id,
+            statusAnteriorSubmit, entity.Status.ToString(), _currentUser, null, ct);
 
         // Remove etapas anteriores (re-submit)
         var existingEtapas = _db.SolicitacoesAprovacaoEtapa
@@ -346,6 +351,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
         }
 
+        var statusAnteriorApprove = entity.Status.ToString();
         if (proximaEtapa is not null)
         {
             entity.Status = proximaEtapa.RoleFilaId.HasValue
@@ -353,6 +359,11 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
                 : SolicitacaoStatus.PendenteAprovacao;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
             entity.ObservacaoAprovador = observacao;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoPromocao, entity.Id,
+                statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
+
             await _db.SaveChangesAsync(ct);
 
             if (proximaEtapa.AprovadorId.HasValue)
@@ -372,6 +383,10 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             entity.ObservacaoAprovador = observacao;
             entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoPromocao, entity.Id,
+                statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
 
             var funcionario = await _db.Set<Funcionario>().FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct);
             if (funcionario is not null)
@@ -449,9 +464,15 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             etapaAtual.Observacao = observacao;
         }
 
+        var statusAnteriorReject = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPromocao, entity.Id,
+            statusAnteriorReject, entity.Status.ToString(), _currentUser, observacao, ct);
+
         await _db.SaveChangesAsync(ct);
 
         await _workflow.NotifyByFuncionarioIdAsync(
@@ -486,9 +507,15 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
         // etapaAtual stays Pendente — the solicitante fixes and resubmits (SubmitAsync will reset etapas)
+        var statusAnteriorChanges = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPromocao, entity.Id,
+            statusAnteriorChanges, entity.Status.ToString(), _currentUser, observacao, ct);
+
         await _db.SaveChangesAsync(ct);
 
         await _workflow.NotifyByFuncionarioIdAsync(
@@ -523,8 +550,14 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         if (entity.Status != SolicitacaoStatus.Aprovada)
             throw new InvalidOperationException("Apenas solicitações com status Aprovada podem ser efetivadas.");
 
+        var statusAnteriorEfetivar = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.EmIntegracao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPromocao, entity.Id,
+            statusAnteriorEfetivar, entity.Status.ToString(), _currentUser, null, ct);
+
         await _db.SaveChangesAsync(ct);
 
         return await GetByIdAsync(id, ct);
@@ -545,7 +578,14 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         if (resultado == IntegracaoResultado.Sucesso)
+        {
+            var statusAnteriorIntegracao = entity.Status.ToString();
             entity.Status = SolicitacaoStatus.Concluida;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoPromocao, entity.Id,
+                statusAnteriorIntegracao, entity.Status.ToString(), _currentUser, null, ct);
+        }
         // Erro: mantém EmIntegracao para o RH visualizar e reprocessar
 
         await _db.SaveChangesAsync(ct);
@@ -621,8 +661,13 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
         if (entity.Status == SolicitacaoStatus.Aprovada || entity.Status == SolicitacaoStatus.Cancelada)
             throw new InvalidOperationException("Solicitação não pode ser cancelada no status atual.");
 
+        var statusAnteriorCancel = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Cancelada;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPromocao, entity.Id,
+            statusAnteriorCancel, entity.Status.ToString(), _currentUser, null, ct);
 
         var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id

@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+    ArrowDown,
+    ArrowUp,
+    ArrowUpDown,
     Ban,
     Banknote,
     Briefcase,
@@ -304,7 +307,16 @@ export default function VagasScreen() {
         return (localStorage.getItem("renderrh.vagas.viewMode") as "list" | "kanban") || "list";
     });
     const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.vagas.viewMode", m); };
-    const [dateSort, setDateSort] = useState<"newest" | "oldest">("newest");
+    type SortCol = "codigo" | "titulo" | "createdAt" | "status" | "requisitos" | "headcount";
+    const [sortCol, setSortCol] = useState<SortCol>("createdAt");
+    const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+    const toggleSort = (col: SortCol) => {
+        if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+        else { setSortCol(col); setSortDir(col === "createdAt" ? "desc" : "asc"); }
+    };
+    const sortIcon = (col: SortCol) => sortCol === col
+        ? (sortDir === "asc" ? <ArrowUp className="inline size-3 ml-1" /> : <ArrowDown className="inline size-3 ml-1" />)
+        : <ArrowUpDown className="inline size-3 ml-1 opacity-30" />;
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
@@ -506,13 +518,34 @@ export default function VagasScreen() {
                 .toLowerCase()
                 .includes(qq);
         });
+        const dir = sortDir === "asc" ? 1 : -1;
         result.sort((a, b) => {
-            const da = new Date(pickString(a.updatedAt)).getTime() || 0;
-            const db = new Date(pickString(b.updatedAt)).getTime() || 0;
-            return dateSort === "newest" ? db - da : da - db;
+            switch (sortCol) {
+                case "codigo":
+                    return dir * (a.codigo ?? "").localeCompare(b.codigo ?? "");
+                case "titulo":
+                    return dir * (a.titulo ?? "").localeCompare(b.titulo ?? "");
+                case "status":
+                    return dir * (a.status ?? "").localeCompare(b.status ?? "");
+                case "requisitos": {
+                    const ta = calcReqTotals(a).total;
+                    const tb = calcReqTotals(b).total;
+                    return dir * (ta - tb);
+                }
+                case "headcount":
+                    return dir * (pickNumber(a.headcountAutorizado, 0) - pickNumber(b.headcountAutorizado, 0));
+                case "createdAt":
+                default: {
+                    const ra = a as Record<string, unknown>;
+                    const rb = b as Record<string, unknown>;
+                    const da = new Date((ra.createdAtUtc as string | undefined) ?? pickString(a.updatedAt) ?? "").getTime() || 0;
+                    const db = new Date((rb.createdAtUtc as string | undefined) ?? pickString(b.updatedAt) ?? "").getTime() || 0;
+                    return dir * (da - db);
+                }
+            }
         });
         return result;
-    }, [rows, q, status, dateSort, dateFrom, dateTo, agingBucket]);
+    }, [rows, q, status, sortCol, sortDir, dateFrom, dateTo, agingBucket]);
 
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
         initialPageSize: 20,
@@ -1030,9 +1063,9 @@ export default function VagasScreen() {
                             ))}
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <button type="button" className="inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => setDateSort(prev => prev === "newest" ? "oldest" : "newest")} title={dateSort === "newest" ? "Mais novas primeiro" : "Mais antigas primeiro"}>
+                    <button type="button" className="inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => { setSortCol("createdAt"); setSortDir(d => d === "desc" ? "asc" : "desc"); }} title={sortDir === "desc" ? "Mais novas primeiro" : "Mais antigas primeiro"}>
                         <CalendarDays className="size-3" />
-                        {dateSort === "newest" ? "Recentes" : "Antigas"}
+                        {sortDir === "desc" ? "Recentes" : "Antigas"}
                     </button>
                     <button
                         type="button"
@@ -1109,11 +1142,12 @@ export default function VagasScreen() {
                             <Table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
-                                        <TableHead className="min-w-[260px]">Vaga</TableHead>
-                                        <TableHead>Requisitos</TableHead>
-                                        <TableHead>Data criação</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Headcount</TableHead>
+                                        <TableHead className="min-w-[260px] cursor-pointer select-none" onClick={() => toggleSort("titulo")}>Vaga {sortIcon("titulo")}</TableHead>
+                                        <TableHead className="w-28 cursor-pointer select-none" onClick={() => toggleSort("codigo")}>Código {sortIcon("codigo")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("requisitos")}>Requisitos {sortIcon("requisitos")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>Data criação {sortIcon("createdAt")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>Status {sortIcon("status")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("headcount")}>Headcount {sortIcon("headcount")}</TableHead>
                                         <TableHead className="w-12" />
                                     </TableRow>
                                 </TableHeader>
@@ -1121,7 +1155,7 @@ export default function VagasScreen() {
                                     {loading ? (
                                         Array.from({ length: 5 }).map((_, i) => (
                                             <TableRow key={i}>
-                                                {Array.from({ length: 6 }).map((__, j) => (
+                                                {Array.from({ length: 7 }).map((__, j) => (
                                                     <TableCell key={j}>
                                                         <div className="h-4 animate-pulse rounded bg-muted" />
                                                     </TableCell>
@@ -1131,7 +1165,7 @@ export default function VagasScreen() {
                                     ) : paged.length === 0 ? (
                                         /* J2 — Rich empty state */
                                         <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={6} className="py-4">
+                                            <TableCell colSpan={7} className="py-4">
                                                 <EmptyState
                                                     icon={Briefcase}
                                                     title={rows.length === 0 ? "Nenhuma vaga ainda" : "Nenhuma vaga encontrada"}
@@ -1174,9 +1208,8 @@ export default function VagasScreen() {
                                                             <div>
                                                                 <div className="text-sm font-medium">{vaga.titulo ?? "—"}</div>
                                                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                                                                    {vaga.codigo && <span className="font-mono">{vaga.codigo}</span>}
-                                                                    {vaga.codigo && <span>·</span>}
-                                                                    <span>{vaga.modalidade ?? "Modalidade não definida"}</span>
+                                                                    {vagaRaw.unidadeLotacaoCode && <><span className="font-mono">{vagaRaw.unidadeLotacaoCode as string}</span><span>·</span></>}
+                                                                    <span>{vagaRaw.unidadeLotacaoName as string | undefined ?? "—"}</span>
                                                                     {location && <><span>·</span><span>{location}</span></>}
                                                                 </div>
                                                             </div>
@@ -1184,6 +1217,9 @@ export default function VagasScreen() {
                                                                 <Badge variant="secondary" className="shrink-0">Detalhes</Badge>
                                                             )}
                                                         </div>
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-xs text-muted-foreground">
+                                                        {vaga.codigo ?? "—"}
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2 text-xs">
