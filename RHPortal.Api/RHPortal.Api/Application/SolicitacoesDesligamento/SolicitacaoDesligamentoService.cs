@@ -38,6 +38,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
     private readonly IEmailQueueService _emailQueue;
     private readonly IEntrevistaSaidaService _entrevistaSaida;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoDesligamentoService(
         AppDbContext db,
@@ -46,7 +47,8 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         ApprovalWorkflowHelper workflow,
         IEmailQueueService emailQueue,
         IEntrevistaSaidaService entrevistaSaida,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -54,6 +56,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _workflow = workflow;
         _emailQueue = emailQueue;
         _entrevistaSaida = entrevistaSaida;
+        _statusHistorico = statusHistorico;
         _httpContextAccessor = httpContextAccessor;
     }
 
@@ -64,9 +67,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             .Include(s => s.Solicitante)
             .Include(s => s.Funcionario)
             .AsQueryable();
-
-        if (!_currentUser.IsAdmin && !_currentUser.IsRH && currentFuncionarioId.HasValue)
-            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
@@ -117,7 +117,8 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                 r.TipoDesligamento, r.DataDesligamento, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
                 ep?.AssumedByUserId,
-                ep?.CanAssume ?? false);
+                ep?.CanAssume ?? false,
+                ep?.CanApprove ?? false);
         }).ToList();
     }
 
@@ -237,8 +238,13 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
+        var statusAnteriorSubmitDesl = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
+            statusAnteriorSubmitDesl, entity.Status.ToString(), _currentUser, ct: ct);
 
         // Remove etapas anteriores (re-submit)
         var existingEtapas = _db.SolicitacoesAprovacaoEtapa
@@ -339,6 +345,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
         }
 
+        var statusAnteriorApproveDesl = entity.Status.ToString();
         if (proximaEtapa is not null)
         {
             entity.Status = proximaEtapa.RoleFilaId.HasValue
@@ -346,6 +353,11 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                 : SolicitacaoStatus.PendenteAprovacao;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
             entity.ObservacaoAprovador = observacao;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
+                statusAnteriorApproveDesl, entity.Status.ToString(), _currentUser, observacao, ct);
+
             await _db.SaveChangesAsync(ct);
 
             if (proximaEtapa.AprovadorId.HasValue)
@@ -365,6 +377,10 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             entity.ObservacaoAprovador = observacao;
             entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
+                statusAnteriorApproveDesl, entity.Status.ToString(), _currentUser, observacao, ct);
 
             // Se SubstituirPosicao=true, registrar para criação futura de SolicitacaoVaga
             // (campo SolicitacaoVagaGeradaId será preenchido quando a integração for implementada)
@@ -406,8 +422,14 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         if (entity.Status != SolicitacaoStatus.Aprovada)
             throw new InvalidOperationException("Apenas solicitações com status Aprovada podem ser efetivadas.");
 
+        var statusAnteriorEfetivarDesl = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.EmIntegracao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
+            statusAnteriorEfetivarDesl, entity.Status.ToString(), _currentUser, ct: ct);
+
         await _db.SaveChangesAsync(ct);
 
         // Disparar entrevista de saída ao funcionário (best-effort)
@@ -444,9 +466,15 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             etapaAtual.Observacao = observacao;
         }
 
+        var statusAnteriorRejectDesl = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
+            statusAnteriorRejectDesl, entity.Status.ToString(), _currentUser, observacao, ct);
+
         await _db.SaveChangesAsync(ct);
 
         await _workflow.NotifyByFuncionarioIdAsync(
@@ -481,9 +509,15 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
         // etapaAtual stays Pendente — the solicitante fixes and resubmits (SubmitAsync will reset etapas)
+        var statusAnteriorChangesDesl = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
+            statusAnteriorChangesDesl, entity.Status.ToString(), _currentUser, observacao, ct);
+
         await _db.SaveChangesAsync(ct);
 
         await _workflow.NotifyByFuncionarioIdAsync(
@@ -561,6 +595,9 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         else
             throw new InvalidOperationException("Não foi possível identificar o usuário autenticado.");
 
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -578,8 +615,13 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         if (entity.Status == SolicitacaoStatus.Aprovada || entity.Status == SolicitacaoStatus.Cancelada)
             throw new InvalidOperationException("Solicitação não pode ser cancelada no status atual.");
 
+        var statusAnteriorCancelDesl = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Cancelada;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
+            statusAnteriorCancelDesl, entity.Status.ToString(), _currentUser, ct: ct);
 
         var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id

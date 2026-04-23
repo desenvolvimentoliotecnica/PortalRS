@@ -421,6 +421,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.PublicApproval.IMagicLinkSer
 builder.Services.AddScoped<RhPortal.Api.Application.EntrevistasSaida.IEntrevistaSaidaService, RhPortal.Api.Application.EntrevistasSaida.EntrevistaSaidaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.WorkflowRH.IWorkflowRHService, RhPortal.Api.Application.WorkflowRH.WorkflowRHService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Common.ApprovalWorkflowHelper>();
+builder.Services.AddScoped<RhPortal.Api.Application.Common.StatusHistoricoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.EtapasConfigAprovacao.IEtapaConfigAprovacaoService, RhPortal.Api.Application.EtapasConfigAprovacao.EtapaConfigAprovacaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.OcupacaoHistorico.IOcupacaoHistoricoService, RhPortal.Api.Application.OcupacaoHistorico.OcupacaoHistoricoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesDesligamento.ISolicitacaoDesligamentoService, RhPortal.Api.Application.SolicitacoesDesligamento.SolicitacaoDesligamentoService>();

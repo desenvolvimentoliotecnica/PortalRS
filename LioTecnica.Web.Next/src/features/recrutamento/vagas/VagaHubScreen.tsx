@@ -379,6 +379,20 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [cancelSolWorking, setCancelSolWorking] = useState<string | null>(null);
   const [desligamentoDialog, setDesligamentoDialog] = useState<{ open: boolean; loading: boolean; data: DesligamentoDetail | null }>({ open: false, loading: false, data: null });
 
+  // ── Publicações (Rodadas) ──
+  interface RodadaItem {
+    id: string;
+    numero: number;
+    descricao: string | null;
+    status: string;
+    totalCandidatos: number;
+    createdAtUtc: string;
+    dataInicio: string | null;
+    dataEncerramento: string | null;
+  }
+  const [rodadas, setRodadas] = useState<RodadaItem[]>([]);
+  const [rodadasLoading, setRodadasLoading] = useState(false);
+
   async function cancelSolicitacao(id: string) {
     if (!confirm("Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.")) return;
     setCancelSolWorking(id);
@@ -780,11 +794,24 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       )}
 
       {/* ── Tabs ── */}
-      <Tabs value={activeTab} onValueChange={(v) => { if (v === "matching") { toast("Matching IA estará disponível em breve"); return; } setActiveTab(v); }}>
-        <TabsList className="w-full justify-start">
+      <Tabs value={activeTab} onValueChange={(v) => {
+        if (v === "matching") { toast("Matching IA estará disponível em breve"); return; }
+        setActiveTab(v);
+        if (v === "publicacoes" && rodadas.length === 0 && !rodadasLoading) {
+          setRodadasLoading(true);
+          fetchJson<RodadaItem[]>(`/api/vagas/${encodeURIComponent(vagaId)}/projetos`)
+            .then((data) => setRodadas(Array.isArray(data) ? data : []))
+            .catch(() => toast.error("Falha ao carregar publicações"))
+            .finally(() => setRodadasLoading(false));
+        }
+      }}>
+        <TabsList className="w-full justify-start flex-wrap">
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
           <TabsTrigger value="candidatos">
             Candidatos {candidateCount > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{candidateCount}</span>}
+          </TabsTrigger>
+          <TabsTrigger value="publicacoes">
+            Publicações {rodadas.length > 0 && <span className="ml-1 text-[10px] bg-emerald-500/15 text-emerald-700 rounded-full px-1.5">{rodadas.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="config">Etapas</TabsTrigger>
           {workflowData && <TabsTrigger value="workflow">Workflow</TabsTrigger>}
@@ -988,6 +1015,70 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Tab: Publicações (Rodadas) ── */}
+        <TabsContent value="publicacoes" className="mt-4 space-y-3 rounded-xl border border-border/40 bg-card p-4 shadow-sm">
+          <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Histórico de publicações</div>
+          {rodadasLoading ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">Carregando publicações...</div>
+          ) : rodadas.length === 0 ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">Nenhuma publicação registrada para esta vaga.</div>
+          ) : (
+            <div className="space-y-2">
+              {rodadas
+                .slice()
+                .sort((a, b) => b.numero - a.numero)
+                .map((r) => {
+                  const isActive = r.status?.toLowerCase() === "ativo";
+                  return (
+                    <div key={r.id} className={`flex items-start justify-between gap-3 rounded-lg border p-3 ${isActive ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-900/10" : "border-border/40 bg-muted/10"}`}>
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="flex flex-col items-center gap-0.5 shrink-0">
+                          <span className={`rounded-full w-7 h-7 flex items-center justify-center text-xs font-bold ${isActive ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                            {r.numero}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{r.descricao ?? `Publicação ${r.numero}`}</span>
+                            {isActive && (
+                              <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                Ativa
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                            {r.dataInicio && (
+                              <span className="inline-flex items-center gap-1">
+                                <CalendarDays className="size-3" />
+                                Início: {fmtDate(r.dataInicio)}
+                              </span>
+                            )}
+                            {r.dataEncerramento && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock className="size-3" />
+                                Encerrada: {fmtDate(r.dataEncerramento)}
+                              </span>
+                            )}
+                            {!r.dataEncerramento && r.dataInicio && (
+                              <span className="text-emerald-600 dark:text-emerald-400">Em andamento</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="shrink-0 flex flex-col items-end gap-1">
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title={`${r.totalCandidatos} candidato(s) inscrito(s) nesta rodada`}>
+                          <Users className="size-3.5" />
+                          {r.totalCandidatos}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">{fmtDate(r.createdAtUtc)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </TabsContent>

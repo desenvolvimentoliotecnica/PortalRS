@@ -31,17 +31,20 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoPagamentoExtraService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IReadOnlyList<SolicitacaoPagamentoExtraGridRow>> ListAsync(
@@ -55,7 +58,6 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
         if (!_currentUser.IsAdmin && !_currentUser.IsRH && currentFuncionarioId.HasValue)
         {
             var fid = currentFuncionarioId.Value;
-            // Vê registros que criou OU registros de subordinados diretos (para aprovação pelo Gestor)
             q = q.Where(s =>
                 s.SolicitanteId == fid ||
                 _db.Funcionarios.Any(f => f.Id == s.FuncionarioId && f.GestorDiretoId == fid));
@@ -184,8 +186,13 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
+        var statusAnteriorSubmitPe = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPagamentoExtra, entity.Id,
+            statusAnteriorSubmitPe, entity.Status.ToString(), _currentUser, ct: ct);
 
         // Remove etapas anteriores (para re-submit após ajustes)
         var existingEtapas = _db.SolicitacoesAprovacaoEtapa
@@ -251,6 +258,8 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
 
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        var statusAnteriorApprovePe = entity.Status.ToString();
+
         var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.PagamentoExtra && e.Status == StatusAprovacao.Pendente)
             .OrderBy(e => e.Ordem)
@@ -307,6 +316,11 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
             entity.Status = SolicitacaoStatus.Aprovada;
             entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoPagamentoExtra, entity.Id,
+                statusAnteriorApprovePe, entity.Status.ToString(), _currentUser, observacao, ct);
+
             await _db.SaveChangesAsync(ct);
 
             if (entity.SolicitanteId.HasValue)
@@ -346,8 +360,14 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
             etapaAtual.Observacao = observacao;
         }
 
+        var statusAnteriorRejectPe = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPagamentoExtra, entity.Id,
+            statusAnteriorRejectPe, entity.Status.ToString(), _currentUser, observacao, ct);
+
         await _db.SaveChangesAsync(ct);
 
         if (entity.SolicitanteId.HasValue)
@@ -369,9 +389,14 @@ public sealed class SolicitacaoPagamentoExtraService : ISolicitacaoPagamentoExtr
 
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
-        // A etapa atual permanece Pendente — solicitante corrige e re-submete
+        var statusAnteriorChangesPe = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoPagamentoExtra, entity.Id,
+            statusAnteriorChangesPe, entity.Status.ToString(), _currentUser, observacao, ct);
+
         await _db.SaveChangesAsync(ct);
 
         if (entity.SolicitanteId.HasValue)

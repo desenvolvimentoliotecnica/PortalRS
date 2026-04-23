@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.WorkflowRH;
 using RhPortal.Api.Contracts.WorkflowRH;
@@ -99,6 +100,22 @@ public sealed class WorkflowRHController : ControllerBase
     {
         var ok = await _service.CancelarAsync(workflowId, ct);
         return ok ? NoContent() : NotFound();
+    }
+
+    /// <summary>Exporta lista de workflows em CSV.</summary>
+    [HttpGet("export")]
+    public async Task<IActionResult> Export([FromQuery] WorkflowRHListQuery query, CancellationToken ct)
+    {
+        var rows = await _service.ListAsync(query, ct);
+        var sb = new StringBuilder();
+        sb.AppendLine("Vaga/Candidato;Tipo;Status;Etapa Atual;Responsável;SLA;Data");
+        foreach (var r in rows)
+        {
+            var sujeito = r.VagaTitulo ?? r.CandidatoNome ?? "—";
+            var sla = r.SlaPrazoDias.HasValue ? $"{r.SlaPrazoDias}d{(r.SlaExcedido ? " (excedido)" : "")}" : "—";
+            sb.AppendLine($"{sujeito};{r.TipoWorkflowLabel};{r.StatusLabel};{r.EtapaAtualLabel ?? "—"};{r.ResponsavelNome ?? "—"};{sla};{r.CreatedAtUtc:dd/MM/yyyy}");
+        }
+        return File(Encoding.UTF8.GetBytes(sb.ToString()), "text/csv; charset=utf-8", "recrutamento.csv");
     }
 
     /// <summary>Histórico de alterações do workflow (auditoria de quem alterou dados do gestor).</summary>

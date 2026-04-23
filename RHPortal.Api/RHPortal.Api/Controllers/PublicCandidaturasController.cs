@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.ProjetosVaga;
 using RhPortal.Api.Application.Talentos;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -67,6 +68,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         [FromServices] NotificationPublisher notificationPublisher,
         [FromServices] ITenantContext tenantContext,
         [FromServices] IEmailQueueService emailQueue,
+        [FromServices] IProjetoVagaService projetoVagaService,
         CancellationToken ct)
     {
         if (request.VagaId == Guid.Empty)
@@ -282,6 +284,33 @@ public sealed class PublicCandidaturasController : ControllerBase
                 }
                 catch { /* best-effort: não falha a candidatura */ }
             }
+
+            // Auto-assign à rodada ativa da vaga (best-effort — não falha a candidatura)
+            try
+            {
+                var rodada = await projetoVagaService.GetActiveAsync(request.VagaId, ct);
+                if (rodada is not null)
+                {
+                    var jaNoRodada = await db.Set<ProjetoCandidato>()
+                        .AnyAsync(pc => pc.ProjetoId == rodada.Id && pc.CandidatoId == result.Id, ct);
+                    if (!jaNoRodada)
+                    {
+                        db.Set<ProjetoCandidato>().Add(new ProjetoCandidato
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = tenantContext.TenantId,
+                            ProjetoId = rodada.Id,
+                            CandidatoId = result.Id,
+                            Status = StatusCandidatoProjeto.Ativo,
+                            Observacoes = "Inscrito via Portal de Vagas.",
+                            CreatedAtUtc = DateTimeOffset.UtcNow,
+                            UpdatedAtUtc = DateTimeOffset.UtcNow,
+                        });
+                        await db.SaveChangesAsync(ct);
+                    }
+                }
+            }
+            catch { /* best-effort: não bloqueia a candidatura */ }
 
             // 4) Email (best effort) — pode manter como está
             try

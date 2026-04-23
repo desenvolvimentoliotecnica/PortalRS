@@ -103,7 +103,7 @@ public sealed class SolicitacaoVagaServiceTests
     private static Guid SeedSolicitacao(
         AppDbContext db,
         Guid solicitanteId,
-        SolicitacaoVagaStatus status,
+        SolicitacaoStatus status,
         Guid? aprovadorId = null,
         Guid? areaId = null)
     {
@@ -168,7 +168,7 @@ public sealed class SolicitacaoVagaServiceTests
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("Dev Backend", result.Titulo);
-        Assert.Equal(SolicitacaoVagaStatus.Rascunho, result.Status);
+        Assert.Equal(SolicitacaoStatus.Rascunho, result.Status);
         Assert.Equal(2, result.QtdPosicoes);
         Assert.Equal(funcId, result.SolicitanteId);
         Assert.True(result.IsConfidencial);
@@ -200,7 +200,7 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Rascunho);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho);
 
         var updateRequest = new SolicitacaoVagaUpdateRequest
         {
@@ -225,7 +225,7 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Aprovada);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Aprovada);
 
         var updateRequest = new SolicitacaoVagaUpdateRequest
         {
@@ -248,7 +248,7 @@ public sealed class SolicitacaoVagaServiceTests
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var aprovadorFakeId = Guid.NewGuid();
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Rascunho,
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho,
             aprovadorId: aprovadorFakeId);
 
         var result = await svc.SubmitAsync(id, CancellationToken.None);
@@ -257,7 +257,7 @@ public sealed class SolicitacaoVagaServiceTests
         var entity = await db.SolicitacoesVaga
             .IgnoreQueryFilters()
             .FirstAsync(x => x.Id == id);
-        Assert.Equal(SolicitacaoVagaStatus.PendenteAprovacao, entity.Status);
+        Assert.Equal(SolicitacaoStatus.PendenteAprovacao, entity.Status);
         var etapa = await db.SolicitacoesAprovacaoEtapa.IgnoreQueryFilters()
             .FirstOrDefaultAsync(e => e.SolicitacaoId == id);
         Assert.NotNull(etapa);
@@ -271,7 +271,7 @@ public sealed class SolicitacaoVagaServiceTests
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         // Sem AprovadorId, sem GestorDireto, sem RegraAprovacao
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Rascunho, aprovadorId: null);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho, aprovadorId: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.SubmitAsync(id, CancellationToken.None));
@@ -282,7 +282,7 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.PendenteAprovacao);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.SubmitAsync(id, CancellationToken.None));
@@ -296,12 +296,12 @@ public sealed class SolicitacaoVagaServiceTests
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         // Sem AreaId → não tenta criar Vaga automaticamente
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.PendenteAprovacao);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
 
         var result = await svc.ApproveAsync(id, "Aprovado com excelência", CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(SolicitacaoVagaStatus.Aprovada, result.Status);
+        Assert.Equal(SolicitacaoStatus.Aprovada, result.Status);
         Assert.Equal("Aprovado com excelência", result.ObservacaoAprovador);
         Assert.NotNull(result.ApprovedAtUtc);
     }
@@ -321,7 +321,7 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Rascunho);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.ApproveAsync(id, null, CancellationToken.None));
@@ -334,12 +334,12 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.PendenteAprovacao);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
 
         var result = await svc.RejectAsync(id, "Não atende ao perfil", CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(SolicitacaoVagaStatus.Reprovada, result.Status);
+        Assert.Equal(SolicitacaoStatus.Reprovada, result.Status);
         Assert.Equal("Não atende ao perfil", result.ObservacaoAprovador);
     }
 
@@ -348,7 +348,7 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Rascunho);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.RejectAsync(id, "Motivo", CancellationToken.None));
@@ -361,12 +361,12 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.PendenteAprovacao);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
 
         var result = await svc.RequestChangesAsync(id, "Falta justificativa", CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(SolicitacaoVagaStatus.AjustesNecessarios, result.Status);
+        Assert.Equal(SolicitacaoStatus.AjustesNecessarios, result.Status);
         Assert.Equal("Falta justificativa", result.ObservacaoAprovador);
     }
 
@@ -375,7 +375,7 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Aprovada);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Aprovada);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.RequestChangesAsync(id, "Observação", CancellationToken.None));
@@ -388,7 +388,7 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Rascunho);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho);
 
         var result = await svc.DeleteAsync(id, CancellationToken.None);
 
@@ -402,7 +402,7 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.Aprovada);
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Aprovada);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.DeleteAsync(id, CancellationToken.None));
@@ -427,7 +427,7 @@ public sealed class SolicitacaoVagaServiceTests
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var aprovadorId = Guid.NewGuid();
-        var id = SeedSolicitacao(db, funcId, SolicitacaoVagaStatus.AjustesNecessarios,
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.AjustesNecessarios,
             aprovadorId: aprovadorId);
 
         var result = await svc.SubmitAsync(id, CancellationToken.None);
@@ -436,6 +436,6 @@ public sealed class SolicitacaoVagaServiceTests
         var entity = await db.SolicitacoesVaga
             .IgnoreQueryFilters()
             .FirstAsync(x => x.Id == id);
-        Assert.Equal(SolicitacaoVagaStatus.PendenteAprovacao, entity.Status);
+        Assert.Equal(SolicitacaoStatus.PendenteAprovacao, entity.Status);
     }
 }

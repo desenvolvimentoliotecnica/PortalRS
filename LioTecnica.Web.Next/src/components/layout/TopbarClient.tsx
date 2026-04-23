@@ -40,7 +40,7 @@ import type { BffNavItem } from "@/lib/schemas/bff";
 import type { BffMe } from "@/lib/schemas/bff";
 import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
-import { clearSession, setAccessToken, setTenantId } from "@/lib/session";
+import { clearSession, getTenantId, setAccessToken, setTenantId } from "@/lib/session";
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -345,7 +345,11 @@ export default function TopbarClient({
 
                   {/* Portal de Vagas */}
                   <DropdownMenuItem asChild>
-                    <Link href="/PortalVagas">
+                    <Link
+                      href={`/PortalVagas${getTenantId() ? `?tenantId=${encodeURIComponent(getTenantId()!)}` : ""}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <Globe className="size-4 mr-2" />
                       Portal de Vagas
                     </Link>

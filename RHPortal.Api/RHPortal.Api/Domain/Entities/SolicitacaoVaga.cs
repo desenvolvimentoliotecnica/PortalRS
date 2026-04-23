@@ -53,7 +53,7 @@ public sealed class SolicitacaoVaga : ITenantEntity
 
     public SolicitacaoVagaUrgencia Urgencia { get; set; } = SolicitacaoVagaUrgencia.Media;
 
-    public SolicitacaoVagaStatus Status { get; set; } = SolicitacaoVagaStatus.Rascunho;
+    public SolicitacaoStatus Status { get; set; } = SolicitacaoStatus.Rascunho;
 
     /// <summary>Vaga criada automaticamente após aprovação.</summary>
     public Guid? VagaId { get; set; }

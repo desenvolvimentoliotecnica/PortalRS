@@ -28,17 +28,20 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoEnderecoService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IReadOnlyList<SolicitacaoEnderecoGridRow>> ListAsync(
@@ -150,8 +153,13 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
+        var statusAnteriorSubmitEnd = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoEndereco, entity.Id,
+            statusAnteriorSubmitEnd, entity.Status.ToString(), _currentUser, ct: ct);
 
         var existingEtapas = _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Endereco);
@@ -243,6 +251,7 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
             proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
         }
 
+        var statusAnteriorApproveEnd = entity.Status.ToString();
         if (proximaEtapa is not null)
         {
             entity.Status = proximaEtapa.RoleFilaId.HasValue
@@ -250,6 +259,10 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
                 : SolicitacaoStatus.PendenteAprovacao;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
             entity.ObservacaoAprovador = observacao;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoEndereco, entity.Id,
+                statusAnteriorApproveEnd, entity.Status.ToString(), _currentUser, observacao, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -270,6 +283,10 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
             entity.ObservacaoAprovador = observacao;
             entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoEndereco, entity.Id,
+                statusAnteriorApproveEnd, entity.Status.ToString(), _currentUser, observacao, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -305,9 +322,14 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
             etapaReject.Observacao = observacao;
         }
 
+        var statusAnteriorRejectEnd = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoEndereco, entity.Id,
+            statusAnteriorRejectEnd, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -329,9 +351,14 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
 
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        var statusAnteriorChangesEnd = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoEndereco, entity.Id,
+            statusAnteriorChangesEnd, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -380,6 +407,10 @@ public sealed class SolicitacaoEnderecoService : ISolicitacaoEnderecoService
             throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
 
         etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
