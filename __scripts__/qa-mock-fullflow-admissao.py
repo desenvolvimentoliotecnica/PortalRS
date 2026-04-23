@@ -3,8 +3,12 @@
 Mock TOTVS Admissão — fluxo full via API QA.
 
 Cria pré-admissão com CPF aleatório, preenche via PUT com o payload do
-mock MARIANA (que integra no Datasul), chama submit e espera o worker
-processar. Serve como teste ponta-a-ponta depois de cada deploy de QA.
+mock LUIZ FERNANDO SOARES (validado pelo Datasul QA), chama submit e
+espera o worker processar. Serve como teste ponta-a-ponta depois de
+cada deploy de QA.
+
+Payload em ISO (datas yyyy-MM-dd) e gramas (peso) — exige API v2.6+
+(migration AlterCnhDatesParaDateOnlyEPesoParaGramas aplicada).
 
 Uso:
     python qa-mock-fullflow-admissao.py
@@ -23,7 +27,7 @@ from urllib.error import HTTPError
 
 # ── Config ──────────────────────────────────────────────────────────────────
 BASE_URL = os.environ.get("QA_BASE_URL", "https://renderrh-qa.qualiit.com.br")
-EMAIL    = os.environ.get("QA_EMAIL",    "admin@consigaz.com")
+EMAIL    = os.environ.get("QA_EMAIL",    "admin@dev.local")
 PASSWORD = os.environ.get("QA_PASSWORD", "ChangeThisPassword123!")
 TENANT   = os.environ.get("QA_TENANT",   "consigaz")
 
@@ -54,115 +58,117 @@ def gerar_cpf() -> str:
         base.append(0 if dv == 10 else dv)
     return "".join(str(d) for d in base)
 
-# ── Payload espelho do mock MARIANA que integrou com sucesso ────────────────
+# ── Payload espelho do mock LUIZ FERNANDO SOARES que integra no Datasul ─────
 def build_payload(nome: str, cpf: str) -> dict:
     return {
         # Pessoal
         "nome": nome, "nomeSocial": None, "nomeAbreviado": nome.split()[0],
         "cpf": cpf,
-        "rg": "478215036", "rgOrgaoExpedidor": "SSP", "rgUfExpedidor": "SP",
-        "rgDataExpedicao": "2012-04-18",
-        "dataNascimento": "1994-07-22",
-        "sexo": "Feminino", "estadoCivil": "Solteiro",
+        "rg": "353673791", "rgOrgaoExpedidor": "SSP", "rgUfExpedidor": "SP",
+        "rgDataExpedicao": "2010-10-27",
+        "dataNascimento": "1982-05-31",
+        "sexo": "Masculino", "estadoCivil": "Solteiro",
         "nacionalidade": "Brasileira", "paisNacionalidade": "BRA",
-        "nomeMae": "Sandra Regina Oliveira", "nomePai": "Carlos Eduardo Costa",
-        "naturalCidade": "CAMPINAS", "naturalUf": "SP", "paisNascimento": "BRA",
+        "nomeMae": "Aurelia Mercado", "nomePai": "Roberto Soares",
+        "naturalCidade": "SAO PAULO", "naturalUf": "SP", "paisNascimento": "BRA",
         # Estrangeiro
         "passaporte": None, "rnmRne": None, "validadeVisto": None, "tipoVisto": None,
         "resideExterior": "N", "tipoVistoEstrangeiro": 1,
         # RIC
-        "regIdentidCivilNumero": "478215036", "regIdentidCivilUf": "SP",
-        "regIdentidCivilCidade": "CAMPINAS", "regIdentidCivilOrgEmiss": "SSP",
-        "regIdentidCivilDataExped": "2012-04-18",
+        "regIdentidCivilNumero": "353673791", "regIdentidCivilUf": "SP",
+        "regIdentidCivilCidade": "SAO PAULO", "regIdentidCivilOrgEmiss": "SSP",
+        "regIdentidCivilDataExped": "2010-10-27",
         # Endereço
-        "cep": "01452000", "logradouro": "Avenida Brigadeiro Faria Lima",
-        "numero": "2845", "complemento": None, "bairro": "Jardim Paulistano",
+        "cep": "04562000", "logradouro": "Rua Indiana",
+        "numero": "71", "complemento": None, "bairro": "Brooklin",
         "cidade": "Sao Paulo", "uf": "SP",
-        "pontoReferencia": "Próximo ao Shopping Iguatemi",
-        "tipoLogradouroESocial": "AV", "municipioEnderecoIbge": 3550308,
+        "pontoReferencia": "Teste",
+        "tipoLogradouroESocial": "R", "municipioEnderecoIbge": 3550308,
         # Contato
-        "email": f"mariana.qa.{cpf[-6:]}@qualiit-test.com.br",
-        "emailAlternativo": None,
-        "telefone": "33214567", "celular": "987651234",
+        "email": f"luiz.qa.{cpf[-6:]}@qualiit-test.com.br",
+        "emailAlternativo": f"teste.qa.{cpf[-6:]}@qualiit-test.com.br",
+        "telefone": "38341345", "celular": "988224045",
         "dddTelefone": 11, "dddTelContato": 11,
-        "contatoEmergenciaNome": "Sandra Regina Oliveira",
-        "contatoEmergenciaFone": "11987651234",
+        "contatoEmergenciaNome": "Aurelia Mercado",
+        "contatoEmergenciaFone": "11988224045",
         # Bancário (TipoConta enum: "ContaCorrente" = 0 / "ContaPoupanca" = 1 / "ContaSalario" = 2)
-        "bancoCodigo": "341", "bancoNome": "Itaú Unibanco",
-        "agencia": "3271", "agenciaDigito": "0",
-        "conta": "2598431", "contaDigito": "8",
+        "bancoCodigo": "033", "bancoNome": "Santander",
+        "agencia": "4196", "agenciaDigito": "0",
+        "conta": "1079060", "contaDigito": "5",
         "tipoConta": "ContaCorrente",
         # Trabalhista
         "estabelecimentoCodigo": "099", "codEmpresa": "1",
         "unitId": None, "areaId": None, "jobPositionId": None, "requisitoCategoriaId": None,
-        "dataAdmissao": "2026-04-21", "salario": 5240.00,
+        "dataAdmissao": "2016-05-16", "salario": 3835.00,
         "tipoContratacao": "CLT", "cargaHorariaSemanal": 44,
-        "pisPasep": "20754193628",
+        "pisPasep": "38752119521",
         # TOTVS
-        "codCargoTotvs": 427, "codVinculoEmpregaticio": 10,
-        "tipoFuncionario": 1, "categoriaSalarial": 1, "grauInstrucao": 7,
+        "codCargoTotvs": 299, "codVinculoEmpregaticio": 10,
+        "tipoFuncionario": 1, "categoriaSalarial": 1, "grauInstrucao": 9,
         "codTurno": 1,
         "centroCusto": "99999", "unidadeLotacao": "00001001",
         "codPlanoLotacao": 101, "codTurma": 1,
-        "numCartaoPonto": 28201475, "codNivel": 1,
+        "numCartaoPonto": 28101049, "codNivel": 0,
         "tipoMaoDeObra": "ADM", "formaPagamento": 1,
-        "salarioSimulado": 5240.00,
+        "salarioSimulado": 9918.20,
         "origemFuncionario": 1, "indFuncVinculado": 1, "funcQualificado": "S",
         # FGTS/INSS
-        "optanteFgts": "S", "dataOpcaoFgts": "2026-04-21",
+        "optanteFgts": "S", "dataOpcaoFgts": "2018-11-17",
         "tipoAdmissaoFgts": 1, "recolheFgts": "S", "recolheInss": "S",
         # Sindicato
         "sindicalizado": "N", "descContribSindical": "N",
         "contribSindicDia": "S", "codSindicato": 1,
         # Flags cálculo
         "cargaAutomTurno": "S", "recebePericul": "N", "recebeInsalub": "N",
-        "recebeAdiantamento": "N", "considEmissRAIS": "S",
+        "recebeAdiantamento": "S", "considEmissRAIS": "S",
         "calcula13": "S", "recebeFerias": "S",
-        # Provisões 13
-        "avos13SalCalcAnterior": 0, "avos13SalCalc": 0,
-        "provAcum13Sal": 0, "provAcumInss13Sal": 0, "provAcumFgts13Sal": 0,
+        # Provisões 13 (funcionário migrado — valores históricos)
+        "avos13SalCalcAnterior": 5, "avos13SalCalc": 6,
+        "provAcum13Sal": 2093.14, "provAcumInss13Sal": 555.72, "provAcumFgts13Sal": 167.45,
         # Provisões Férias
-        "diasProvFeriasMesAnterior": 0, "diasProvFeriasMesAtual": 0,
-        "provAcumFerias": 0, "provAcumInssFerias": 0,
-        "provAcumFgtsFerias": 0, "provAcumFerias13": 0,
+        "diasProvFeriasMesAnterior": 475, "diasProvFeriasMesAtual": 500,
+        "provAcumFerias": 6661.47, "provAcumInssFerias": 2358.16,
+        "provAcumFgtsFerias": 710.55, "provAcumFerias13": 2220.49,
         # Ponto
         "emitCartPonto": "1",
         "codLocalMarcacao": 1, "codClassFuncPontoEletronico": 1,
         # Docs avulsos
-        "tituloEleitorNumero": "21459683022",
-        "tituloEleitorZona": "312", "tituloEleitorSecao": "215",
-        "tituloEleitorCidade": "CAMPINAS", "tituloEleitorUf": "SP",
+        "tituloEleitorNumero": "96215860116",
+        "tituloEleitorZona": "258", "tituloEleitorSecao": "190",
+        "tituloEleitorCidade": "SAO PAULO", "tituloEleitorUf": "SP",
         "reservistaNumero": None,
-        "categoriaCnh": "B", "validadeCnh": "2029-08-15",
-        "ctps": "78921", "ctpsSerie": "354", "ctpsUf": "SP",
-        "ctpsModelo": 3, "ctpsSerieESocial": "354",
-        "cnhNumero": "08745126930", "cnhUf": "SP", "cnhOrgaoEmissor": "SSP",
-        "cnhDataExpedicao": 15082024, "cnhPrimeiraHabilitacao": 22092014,
-        # Doc Militar (TOTVS rejeita tipo < 1 mesmo para mulheres)
-        "docMilitarTipo": 1, "docMilitarNumero": "412687", "docMilitarSerie": "B",
+        "categoriaCnh": "B", "validadeCnh": "2021-05-25",
+        "ctps": "30599", "ctpsSerie": "272", "ctpsUf": "SP",
+        "ctpsModelo": 3, "ctpsSerieESocial": "272",
+        "cnhNumero": "5555685014", "cnhUf": "SP", "cnhOrgaoEmissor": "SSP",
+        "cnhDataExpedicao": "2018-10-25", "cnhPrimeiraHabilitacao": "2002-06-14",
+        # Doc Militar
+        "docMilitarTipo": 1, "docMilitarNumero": "399855", "docMilitarSerie": "A",
+        # DocMilitarCircunscricao: mock TOTVS do Luiz diz 0, mas validator (ReqInt)
+        # trata 0 como "não preenchido" — enviamos 1 pra passar na validação.
         "docMilitarRegiao": 2, "docMilitarCircunscricao": 1,
         # Saúde
-        "grupoSanguineo": 2, "fatorRh": 1,
+        "grupoSanguineo": 1, "fatorRh": 2,
         "possuiDeficiencia": "N", "funcDoador": "S",
-        "cartaoSus": "70004193825",
-        "altura": 165, "peso": 62,
-        "cutis": 1, "cabelo": 2, "olhos": 2,
-        "manequim": 38, "sapato": 36,
-        # Contrato
-        "dataTerminoContrato": None,
+        "cartaoSus": "10000141200",
+        "altura": 180, "peso": 900,
+        "cutis": 3, "cabelo": 1, "olhos": 1,
+        "manequim": 40, "sapato": 42,
+        # Contrato (dataTerminoContrato continua legado int DDMMAAAA, não migrou pra DateOnly)
+        "dataTerminoContrato": 30082021,
         # Localidade
         "paisLocalidade": "BRA", "codLocalidade": 17, "codFpas": None,
         # eSocial
         "categoriaTrabalhoESocial": 101,
         "indAdmissao": 1, "naturezaAtividade": 1,
-        "municipioNascimentoIbge": 3509502,
+        "municipioNascimentoIbge": 3550308,
         "tipoAdmissaoESocial": 1,
         "regimeTrabalhista": 1, "regimePrevidenciario": 1, "regimeJornada": 1,
         "matriculaESocial": None,
         # Estatística + CAGED (TOTVS exige >= 1)
         "tipoEstatistica": 1, "ocorrenciaCAGED": 1,
         "codRegistroExterior": None,
-        "validacaoSalarioJustificativa": None,
+        "validacaoSalarioJustificativa": "QA mock — salário validado pelo gestor.",
     }
 
 # ── Fluxo ───────────────────────────────────────────────────────────────────
@@ -176,7 +182,7 @@ def main():
     print(f"✅ Login OK")
 
     cpf = gerar_cpf()
-    nome = f"Mariana QA {cpf[-4:]}"
+    nome = f"Luiz QA {cpf[-4:]}"
     print(f"\n📝 Criando pré-admissão: {nome} / CPF {cpf}")
     created = http("POST", "/api/pre-admissao",
                    {"preenchidoPor": "RH", "candidatoId": None, "nome": nome, "cpf": cpf},

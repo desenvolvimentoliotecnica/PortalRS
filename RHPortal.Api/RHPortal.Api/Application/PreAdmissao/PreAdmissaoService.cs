@@ -340,6 +340,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // CAGED
         e.OcorrenciaCAGED = r.OcorrenciaCAGED;
 
+        // Estatística
+        e.TipoEstatistica = r.TipoEstatistica;
+
         // Registro exterior
         e.CodRegistroExterior = r.CodRegistroExterior?.Trim();
 
