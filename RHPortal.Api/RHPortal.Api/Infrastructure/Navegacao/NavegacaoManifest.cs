@@ -145,7 +145,9 @@ public static class NavegacaoManifest
         // 31.2: nav-departamentos e nav-areas removidos — Area + Department foram
         // colapsados em CentroCusto. nav-centros-custo herdou a posição (ordem 20).
         new("nav-centros-custo",            "Centros de Custo",       "/centros-custo",                  "landmark",          "areas.view",               Ordem: 20),
-        new("nav-categorias",               "Funções",                "/categorias",                     "tags",              "categories.view",          Ordem: 40),
+        // nav-categorias ("Funções") removido — conceito redundante com Cargos (JobPosition).
+        // A entidade RequisitoCategoria foi removida do domínio; a permissão `categories.view`
+        // continua ativa apenas porque é compartilhada com "Categorias Salariais" (ordem 100).
         new("nav-cargos",                   "Cargos",                 "/cargos",                         "briefcase",         "jobpositions.view",        Ordem: 50),
         new("nav-descricao-cargo",          "Descrição de Cargos",    "/descricao-cargo",                "file-text",         "jobpositions.view",        Ordem: 60),
         new("nav-eixo-vaga",                "Eixos de Vaga",          "/eixo-vaga",                      "layers",            "vagas.view",               GrupoUiOverride: "cadastros", Ordem: 70),

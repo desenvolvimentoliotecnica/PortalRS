@@ -33,9 +33,6 @@ public sealed class FuncionarioCreateRequest
 
     public Guid? JobPositionId { get; set; }
 
-    /// <summary>Função do funcionário (RequisitoCategoria / PFUNCAO no RM).</summary>
-    public Guid? RequisitoCategoriaId { get; set; }
-
     [MaxLength(1000)]
     public string? Notes { get; set; }
 
@@ -67,7 +64,6 @@ public sealed record FuncionarioUpdateRequest(
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     Guid? CentroCustoId,
     Guid? JobPositionId,
-    Guid? RequisitoCategoriaId,
     [MaxLength(1000)] string? Notes
 );
 
@@ -190,8 +186,6 @@ public sealed record FuncionarioResponse(
     Guid? JobPositionId,
     string? JobPositionName,
     string? JobPositionCode,
-    Guid? RequisitoCategoriaId,
-    string? RequisitoCategoriaName,
     Guid? UserId,
     string? Notes,
     DateTimeOffset CreatedAtUtc,

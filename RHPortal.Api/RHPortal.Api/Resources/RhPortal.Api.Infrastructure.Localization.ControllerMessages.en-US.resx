@@ -90,12 +90,6 @@
   <data name="ControllerErrors.AreaCycleDescendant" xml:space="preserve">
     <value>Parent area cannot be a descendant of this area (hierarchy cycle).</value>
   </data>
-  <data name="ControllerErrors.RequisitoCategoriaCodeExists" xml:space="preserve">
-    <value>Category with code '{0}' already exists.</value>
-  </data>
-  <data name="ControllerErrors.RequisitoCategoriaHasDependencies" xml:space="preserve">
-    <value>Category has linked requirements and cannot be deleted.</value>
-  </data>
   <data name="ControllerErrors.CandidatoDocumentoFileInvalid" xml:space="preserve">
     <value>Invalid file.</value>
   </data>

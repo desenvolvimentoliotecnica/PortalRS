@@ -83,7 +83,7 @@ public sealed record PreAdmissaoDetailResponse(
     // Trabalhista
     string? EstabelecimentoCodigo, string? CodEmpresa, string? MatriculaRM,
     Guid? UnitId, string? UnitNome, Guid? CentroCustoId, string? CentroCustoNome,
-    Guid? JobPositionId, string? JobPositionNome, Guid? RequisitoCategoriaId,
+    Guid? JobPositionId, string? JobPositionNome,
     DateOnly? DataAdmissao, decimal? Salario,
     TipoContratacaoAdmissao? TipoContratacao, short? CargaHorariaSemanal,
     string? PisPasep,
@@ -240,7 +240,7 @@ public sealed record PreAdmissaoUpdateRequest(
 
     // Trabalhista
     string? EstabelecimentoCodigo, string? CodEmpresa,
-    Guid? UnitId, Guid? CentroCustoId, Guid? JobPositionId, Guid? RequisitoCategoriaId,
+    Guid? UnitId, Guid? CentroCustoId, Guid? JobPositionId,
     DateOnly? DataAdmissao, decimal? Salario,
     TipoContratacaoAdmissao? TipoContratacao, short? CargaHorariaSemanal,
     string? PisPasep,

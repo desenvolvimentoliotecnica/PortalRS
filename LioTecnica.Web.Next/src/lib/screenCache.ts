@@ -35,7 +35,6 @@ export const PREFETCH_MAP: Record<string, string> = {
     "/funcionarios": "/api/funcionarios",
     "/unidades": "/api/units",
     "/pessoas": "/api/pessoas",
-    "/cadastro/funcoes": "/api/requisito-categorias",
     "/vagas": "/api/vagas",
 };
 

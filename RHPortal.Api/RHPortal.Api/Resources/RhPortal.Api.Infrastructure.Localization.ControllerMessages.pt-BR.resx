@@ -90,12 +90,6 @@
   <data name="ControllerErrors.AreaCycleDescendant" xml:space="preserve">
     <value>Area pai nao pode ser uma subarea desta area (ciclo na hierarquia).</value>
   </data>
-  <data name="ControllerErrors.RequisitoCategoriaCodeExists" xml:space="preserve">
-    <value>Categoria com codigo '{0}' ja existe.</value>
-  </data>
-  <data name="ControllerErrors.RequisitoCategoriaHasDependencies" xml:space="preserve">
-    <value>Categoria possui requisitos vinculados e nao pode ser excluida.</value>
-  </data>
   <data name="ControllerErrors.CandidatoDocumentoFileInvalid" xml:space="preserve">
     <value>Arquivo invalido.</value>
   </data>

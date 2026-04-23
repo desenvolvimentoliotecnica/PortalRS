@@ -30,7 +30,6 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<RoleMenu> RoleMenus => Set<RoleMenu>();
 
     // Area e Department foram consolidados em CentroCusto na Sessão 31.2.
-    public DbSet<RequisitoCategoria> RequisitoCategorias => Set<RequisitoCategoria>();
     public DbSet<Unit> Units => Set<Unit>();
     public DbSet<UserUnit> UserUnits => Set<UserUnit>();
     public DbSet<JobPosition> JobPositions => Set<JobPosition>();
@@ -265,19 +264,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
         // Area foi consolidada em CentroCusto na Sessão 31.2 (ver Domain/Entities/CentroCusto.cs).
 
-        modelBuilder.Entity<RequisitoCategoria>(b =>
-        {
-            b.ToTable("RequisitoCategorias");
-            b.HasKey(x => x.Id);
-
-            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
-            b.Property(x => x.Code).HasMaxLength(40).IsRequired();
-            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
-            b.Property(x => x.Description).HasMaxLength(1000);
-
-            b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
-            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
-        });
+        // RequisitoCategoria ("Função") removida — conceito redundante com JobPosition
+        // (Cargo). Migration 20260423_RemoveRequisitoCategoria dropa FKs + tabela.
 
         // Department foi consolidado em CentroCusto na Sessão 31.2 (ver Domain/Entities/CentroCusto.cs).
 
@@ -884,10 +872,6 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.JobPositionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            b.HasOne(x => x.RequisitoCategoria)
-                .WithMany()
-                .HasForeignKey(x => x.RequisitoCategoriaId)
-                .OnDelete(DeleteBehavior.Restrict);
 
             // Sprint 2: Hierarquia
             b.HasOne(x => x.NivelHierarquico)
@@ -1005,7 +989,6 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.CentroCusto).WithMany().HasForeignKey(x => x.CentroCustoId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.JobPosition).WithMany().HasForeignKey(x => x.JobPositionId).OnDelete(DeleteBehavior.SetNull);
-            b.HasOne(x => x.RequisitoCategoria).WithMany().HasForeignKey(x => x.RequisitoCategoriaId).OnDelete(DeleteBehavior.SetNull);
             b.Property(x => x.AccessToken).HasMaxLength(64);
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.Cpf });

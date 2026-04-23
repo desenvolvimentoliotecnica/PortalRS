@@ -171,9 +171,6 @@ public sealed class PreAdmissao : ITenantEntity
     public Guid? JobPositionId { get; set; }
     public JobPosition? JobPosition { get; set; }
 
-    public Guid? RequisitoCategoriaId { get; set; }
-    public RequisitoCategoria? RequisitoCategoria { get; set; }
-
     public DateOnly? DataAdmissao { get; set; }
 
     public decimal? Salario { get; set; }

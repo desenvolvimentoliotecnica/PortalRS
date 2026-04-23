@@ -13,8 +13,6 @@ public sealed record FuncionarioGridRowResponse(
     string? UnitName,
     Guid? JobPositionId,
     string? JobPositionName,
-    Guid? RequisitoCategoriaId,
-    string? RequisitoCategoriaName,
     Guid? GestorDiretoId,
     string? GestorDiretoNome,
     Guid? NivelHierarquicoId,

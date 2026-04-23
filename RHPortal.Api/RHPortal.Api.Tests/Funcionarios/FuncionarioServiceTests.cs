@@ -177,7 +177,7 @@ public sealed class FuncionarioServiceTests
 
         var request = new FuncionarioUpdateRequest(
             "Nome", "email@empresa.com", null,
-            FuncionarioStatus.Active, 0, null, null, null, null, null);
+            FuncionarioStatus.Active, 0, null, null, null, null);
 
         var result = await svc.UpdateAsync(Guid.NewGuid(), request, CancellationToken.None);
 
@@ -194,7 +194,7 @@ public sealed class FuncionarioServiceTests
 
         var request = new FuncionarioUpdateRequest(
             "Novo Nome", "func1@empresa.com", null,
-            FuncionarioStatus.Active, 0, null, null, null, null, null);
+            FuncionarioStatus.Active, 0, null, null, null, null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.UpdateAsync(func2.Id, request, CancellationToken.None));
@@ -209,7 +209,7 @@ public sealed class FuncionarioServiceTests
 
         var request = new FuncionarioUpdateRequest(
             "Nome Atualizado", "upd@empresa.com", "11-88888-0000",
-            FuncionarioStatus.Inactive, 3, null, null, null, null, "Nova nota");
+            FuncionarioStatus.Inactive, 3, null, null, null, "Nova nota");
 
         var result = await svc.UpdateAsync(created.Id, request, CancellationToken.None);
 

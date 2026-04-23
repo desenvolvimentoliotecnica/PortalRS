@@ -99,9 +99,6 @@
   <data name="ServiceErrors.FuncionarioJobInvalid" xml:space="preserve">
     <value>Cargo invalido.</value>
   </data>
-  <data name="ServiceErrors.FuncionarioRequisitoCategoriaInvalid" xml:space="preserve">
-    <value>Função (categoria) inválida.</value>
-  </data>
   <data name="ServiceErrors.FuncionarioNotFound" xml:space="preserve">
     <value>Funcionario nao encontrado.</value>
   </data>

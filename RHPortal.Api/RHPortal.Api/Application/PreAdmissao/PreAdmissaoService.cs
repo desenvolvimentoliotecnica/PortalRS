@@ -213,7 +213,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Trabalhista
         e.EstabelecimentoCodigo = r.EstabelecimentoCodigo?.Trim(); e.CodEmpresa = r.CodEmpresa?.Trim();
         e.UnitId = r.UnitId; e.CentroCustoId = r.CentroCustoId; e.JobPositionId = r.JobPositionId;
-        e.RequisitoCategoriaId = r.RequisitoCategoriaId;
         e.DataAdmissao = r.DataAdmissao; e.Salario = r.Salario;
         e.TipoContratacao = r.TipoContratacao; e.CargaHorariaSemanal = r.CargaHorariaSemanal;
         e.PisPasep = r.PisPasep?.Trim();
@@ -434,7 +433,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             UnitId = pa.UnitId,
             CentroCustoId = pa.CentroCustoId,
             JobPositionId = pa.JobPositionId,
-            RequisitoCategoriaId = pa.RequisitoCategoriaId,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -1122,7 +1120,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Trabalhista
         e.EstabelecimentoCodigo, e.CodEmpresa, e.MatriculaRM,
         e.UnitId, e.Unit?.Name, e.CentroCustoId, e.CentroCusto?.Description,
-        e.JobPositionId, e.JobPosition?.Name, e.RequisitoCategoriaId,
+        e.JobPositionId, e.JobPosition?.Name,
         e.DataAdmissao, e.Salario, e.TipoContratacao, e.CargaHorariaSemanal, e.PisPasep,
         // TOTVS Cargo/Vinculo
         e.CodCargoTotvs, e.CodVinculoEmpregaticio, e.TipoFuncionario,

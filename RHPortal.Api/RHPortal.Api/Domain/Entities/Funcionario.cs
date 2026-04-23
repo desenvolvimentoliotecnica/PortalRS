@@ -32,10 +32,6 @@ public sealed class Funcionario : ITenantEntity
     public Guid? JobPositionId { get; set; }
     public JobPosition? JobPosition { get; set; }
 
-    /// <summary>Função do funcionário (PFUNCAO no RM → RequisitoCategorias no portal).</summary>
-    public Guid? RequisitoCategoriaId { get; set; }
-    public RequisitoCategoria? RequisitoCategoria { get; set; }
-
     // ── Sprint 2: Hierarquia ──
 
     /// <summary>Nível hierárquico do funcionário (configurável pelo Admin).</summary>

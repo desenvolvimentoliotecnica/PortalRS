@@ -69,7 +69,6 @@ interface PreAdmissao {
     unitId: string | null;
     centroCustoId: string | null;
     jobPositionId: string | null;
-    requisitoCategoriaId: string | null;
     dataAdmissao: string | null;
     salario: number | null;
     tipoContratacao: number | null;
