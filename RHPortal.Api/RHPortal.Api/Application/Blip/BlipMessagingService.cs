@@ -46,9 +46,25 @@ public sealed class BlipMessagingService
                 template = new
                 {
                     @namespace = "63f5fe62_5dc8_4018_9237_c78dc73ccc16",
-                    name = "admissao_rh_onboarding",
+                    name = "admissao_rh_onboarding_v02",
                     language = new { code = "pt_BR" },
-                    components = Array.Empty<object>()
+                    components = new object[]
+                    {
+                        new
+                        {
+                            type = "button",
+                            sub_type = "quick_reply",
+                            index = "0",
+                            parameters = new[] { new { type = "payload", payload = "#encerrar" } }
+                        },
+                        new
+                        {
+                            type = "button",
+                            sub_type = "quick_reply",
+                            index = "1",
+                            parameters = new[] { new { type = "payload", payload = "#rh" } }
+                        }
+                    }
                 }
             }
         };
