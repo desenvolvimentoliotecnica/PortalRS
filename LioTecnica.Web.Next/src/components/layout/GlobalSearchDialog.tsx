@@ -161,11 +161,9 @@ export default function GlobalSearchDialog({
         (result: SearchResult) => {
             onOpenChange(false);
             if (result.category === "funcionarios" && result.id) {
-                sessionStorage.setItem("renderrh.pendingFuncionarioDetail", result.id);
                 window.dispatchEvent(
                     new CustomEvent("renderrh:openFuncionario", { detail: { id: result.id } })
                 );
-                router.push("/funcionarios");
             } else {
                 router.push(result.href);
             }

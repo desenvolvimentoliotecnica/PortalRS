@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import type { BffNavItem } from "@/lib/schemas/bff";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
 import { PendenciasProvider } from "@/contexts/PendenciasContext";
+import FuncionarioDetailDialog from "@/features/cadastros/funcionarios/FuncionarioDetailDialog";
 
 /* Owner-only synthetic menu items (not stored in the DB) */
 const OWNER_NAV_ITEMS: BffNavItem[] = [
@@ -23,6 +24,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
   const { me } = useAuth();
   const { isCollapsed } = useSidebar();
   const [navItems, setNavItems] = useState<BffNavItem[]>([]);
+  const [globalFuncionarioId, setGlobalFuncionarioId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!me) {
@@ -43,6 +45,15 @@ function AppShellInner({ children }: { children: ReactNode }) {
     setNavItems(buildNavItemsForPermissions(me.permissions ?? []));
   }, [me]);
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<{ id: string }>).detail?.id;
+      if (id) setGlobalFuncionarioId(id);
+    };
+    window.addEventListener("renderrh:openFuncionario", handler);
+    return () => window.removeEventListener("renderrh:openFuncionario", handler);
+  }, []);
+
   return (
     <div className="flex min-h-dvh">
       <aside
@@ -59,6 +70,10 @@ function AppShellInner({ children }: { children: ReactNode }) {
         <div className="p-4 lg:p-6 flex-1">
           <RouteAllowlistGuard>{children}</RouteAllowlistGuard>
         </div>
+        <FuncionarioDetailDialog
+          funcionarioId={globalFuncionarioId}
+          onClose={() => setGlobalFuncionarioId(null)}
+        />
         <footer className="border-t border-[var(--lt-border)] px-4 py-3 text-center text-[11px] text-muted-foreground/50 select-none tracking-wide">
           © {new Date().getFullYear()} QUALIIT SOLUÇÕES EM TECNOLOGIA
         </footer>

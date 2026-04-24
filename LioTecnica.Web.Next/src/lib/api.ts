@@ -164,7 +164,7 @@ export async function apiFetch(
 
     if (res.status === 401 && !_redirecting401) {
         // Paths que podem retornar 401 legitimamente (owner, config, data endpoints opcionais, portal público)
-        const safePaths = /\/api\/(auth|owner|email-config|vagas\/pendencias|me|public)\b/i;
+        const safePaths = /\/api\/(auth|owner|email-config|vagas\/pendencias|me|public|audit|funcionarios)\b/i;
         if (!safePaths.test(path)) {
             _redirecting401 = true;
             clearSession();

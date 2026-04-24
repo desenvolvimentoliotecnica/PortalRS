@@ -20,6 +20,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
     private readonly ApprovalWorkflowHelper _workflow;
     private readonly IEmailQueueService _emailQueue;
     private readonly ITenantContext _tenantContext;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public IntegracaoTotvsService(
         AppDbContext db,
@@ -27,7 +28,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         IPreAdmissaoService preAdmissaoService,
         ApprovalWorkflowHelper workflow,
         IEmailQueueService emailQueue,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _ocupacaoService = ocupacaoService;
@@ -35,6 +37,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         _workflow = workflow;
         _emailQueue = emailQueue;
         _tenantContext = tenantContext;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IntegracaoTotvsPainelResponse> ListPainelAsync(IntegracaoTotvsPainelQuery query, CancellationToken ct)
@@ -413,102 +416,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     .Include(x => x.Funcionario).Include(x => x.Solicitante)
                     .FirstOrDefaultAsync(x => x.Id == id, ct);
                 if (s is null) return null;
-
-                // ── Mapeamento para payload TOTVS Datasul (apisfrescisao.p) ─────────
-                // Campos c* (char), i* (int), dat* (ddMMyyyy string), log* (S/N string).
-                // Códigos baseados no manual Datasul Progress + enums internos RenderRH.
-
-                // cdnSitAfast: código situação afastamento Datasul. 86 é o padrão para
-                // extinção de relação de emprego (desligamento comum CLT).
-                const int SIT_AFAST_DESLIG = 86;
-
-                // cdnTipoAviso: Datasul usa 1=Trabalhado, 2=Indenizado, 3=Dispensado.
-                // Nossos enums: Indenizado=0, Trabalhado=1, Dispensado=2.
-                var cdnTipoAviso = s.TipoAvisoPrevio switch
-                {
-                    TipoAvisoPrevio.Trabalhado => 1,
-                    TipoAvisoPrevio.Indenizado => 2,
-                    TipoAvisoPrevio.Dispensado => 3,
-                    _ => 2,
-                };
-
-                // percMultaFGTS: CLT define % por tipo de desligamento.
-                var percMultaFGTS = s.TipoDesligamento switch
-                {
-                    TipoDesligamento.SemJustaCausa => 40,
-                    TipoDesligamento.AcordoMutuo   => 20,
-                    _                              => 0, // PedidoDemissao, JustaCausa, FimContrato
-                };
-
-                // Datas derivadas — TODAS em formato ISO (yyyy-MM-dd).
-                // Padrão de todos os payloads de integração do RenderRH — o sync-service
-                // converte pro formato que o Datasul aceita (ddMMyyyy) no mapper dele.
-                // - Aviso trabalhado: datIniAviso = datDesligamento - DiasAvisoPrevio
-                // - Aviso indenizado/dispensado: datIniAviso em branco ("" — Datasul aceita como N/A)
-                var datIniAviso = s.TipoAvisoPrevio == TipoAvisoPrevio.Trabalhado
-                    ? (TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(-s.DiasAvisoPrevio)) ?? "")
-                    : "";
-
-                // datLimPgtoRecis (CLT art. 477 §6º): prazo legal até o 10º dia corrido,
-                // contado a partir do próprio desligamento — por isso +9 dias, não +10.
-                // datPagto: data efetiva de pagamento. Sem campo próprio na entidade,
-                // assume-se pagamento no limite legal (mesmo valor).
-                var datLimPgto = TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(9)) ?? "";
-                var datPagto   = datLimPgto;
-
-                return new
-                {
-                    s.Id,
-                    tipoIntegracao = (short)TipoIntegracao.Desligamento,
-                    tipoIntegracaoLabel = "Desligamento",
-
-                    // ── Payload TOTVS Datasul (apisfrescisao.p) ──
-                    cdnEmpresaFunc    = s.Funcionario?.CdnEmpresa ?? "",
-                    cdnEstabFunc      = s.Funcionario?.CdnEstab ?? "",
-                    cdnFuncionario    = int.TryParse(s.Funcionario?.CdnFuncionario ?? "", out var cdnFunc) ? cdnFunc : 0,
-                    cdnTipoCheque     = 1, // 1 = cheque emitido (default)
-                    cdnSitAfast       = SIT_AFAST_DESLIG,
-                    cdnTipoAviso      = cdnTipoAviso,
-                    datDesligamento   = TotvsPayloadHelper.FormatDate(s.DataDesligamento) ?? "",
-                    datIniAviso       = datIniAviso,
-                    datPagto          = datPagto,
-                    datAviso          = datIniAviso,
-                    datLimPgtoRecis   = datLimPgto,
-                    percMultaFGTS     = percMultaFGTS,
-                    codSaqueFGTS      = "",
-                    cdnTipoJornada    = 0,
-                    // Flags lógicas — vazias por padrão (Datasul aceita "" como N/A).
-                    // Ajustar se regras específicas do cliente exigirem "S"/"N".
-                    logCalcAdicAdmitidos   = "",
-                    logGeraComEstabilidade = s.PossuiEstabilidade ? "S" : "",
-                    logValidaProgFerias    = "",
-                    logImprimeAviso        = s.TipoAvisoPrevio == TipoAvisoPrevio.Trabalhado ? "S" : "",
-                    logRecFeriasProporc    = "",
-                    logReceb13Proporc      = "",
-                    logFGTSAnteriorGRFP    = "",
-                    logGeraSemExameDemis   = "",
-                    logGeraEPIDevolver     = "",
-
-                    // ── Metadados RenderRH (não fazem parte do contrato TOTVS) ──
-                    nome              = s.Funcionario?.Name ?? "—",
-                    funcionarioId     = s.FuncionarioId,
-                    solicitante       = s.Solicitante?.Name ?? "—",
-                    tipoDesligamento  = s.TipoDesligamento.ToString(),
-                    motivoDesligamento = s.MotivoDesligamento,
-                    tipoAvisoPrevio   = s.TipoAvisoPrevio.ToString(),
-                    s.DiasAvisoPrevio,
-                    s.ElegivelRecontratacao,
-                    s.SubstituirPosicao,
-                    s.PossuiEstabilidade,
-                    s.Observacoes,
-                    status = s.Status.ToString(),
-                    s.IntegracaoResultado, s.IntegracaoMensagem,
-                    integradaEmUtc            = TotvsPayloadHelper.FormatDate(s.IntegradaEmUtc),
-                    s.EfetivadoManualmentePorId,
-                    efetivadoManualmenteEmUtc = TotvsPayloadHelper.FormatDate(s.EfetivadoManualmenteEmUtc),
-                    approvedAtUtc             = TotvsPayloadHelper.FormatDate(s.ApprovedAtUtc),
-                    createdAtUtc              = TotvsPayloadHelper.FormatDate(s.CreatedAtUtc),
-                };
+                return BuildDesligamentoPayload(s);
             }
             case TipoIntegracao.Promocao:
             {
@@ -1298,5 +1206,252 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         return new IntegracaoReconciliacaoResponse(
             pendentes, emFalha, falhaDefinitiva,
             pendentes.Count + emFalha.Count + falhaDefinitiva.Count);
+    }
+
+    public async Task VoltarPendenteAsync(TipoIntegracao tipo, Guid id, ICurrentUserContext currentUser, CancellationToken ct)
+    {
+        // Mapeamento TipoIntegracao → TipoEntidadeStatus (para gravar no histórico).
+        // PreAdmissao (Admissao) não possui entrada em TipoEntidadeStatus — histórico ignorado.
+        var tipoEntidade = tipo switch
+        {
+            TipoIntegracao.PagamentoExtra    => (TipoEntidadeStatus?)TipoEntidadeStatus.SolicitacaoPagamentoExtra,
+            TipoIntegracao.Desligamento      => TipoEntidadeStatus.SolicitacaoDesligamento,
+            TipoIntegracao.Promocao          => TipoEntidadeStatus.SolicitacaoPromocao,
+            TipoIntegracao.AlteracaoEndereco => TipoEntidadeStatus.SolicitacaoEndereco,
+            TipoIntegracao.Dependente        => TipoEntidadeStatus.SolicitacaoDependente,
+            TipoIntegracao.Beneficio         => TipoEntidadeStatus.SolicitacaoBeneficio,
+            TipoIntegracao.Ferias            => TipoEntidadeStatus.SolicitacaoFerias,
+            TipoIntegracao.SolicitacaoVaga   => TipoEntidadeStatus.SolicitacaoVaga,
+            _                                => null,
+        };
+
+        switch (tipo)
+        {
+            case TipoIntegracao.Admissao:
+            {
+                var entity = await _db.PreAdmissoes.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"PreAdmissao {id} não encontrada.");
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem  = null;
+                entity.IntegradaEmUtc      = null;
+                entity.TentativasIntegracao = 0;
+                entity.UltimaTentativaUtc  = null;
+                break;
+            }
+            case TipoIntegracao.PagamentoExtra:
+            {
+                var entity = await _db.SolicitacoesPagamentoExtra.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoPagamentoExtra {id} não encontrada.");
+                var statusAnterior = entity.Status.ToString();
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem  = null;
+                entity.IntegradaEmUtc      = null;
+                if (tipoEntidade.HasValue)
+                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
+                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
+                break;
+            }
+            case TipoIntegracao.Desligamento:
+            {
+                var entity = await _db.SolicitacoesDesligamento.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoDesligamento {id} não encontrada.");
+                var statusAnterior = entity.Status.ToString();
+                entity.IntegracaoResultado        = null;
+                entity.IntegracaoMensagem         = null;
+                entity.IntegradaEmUtc             = null;
+                entity.EfetivadoManualmentePorId  = null;
+                entity.EfetivadoManualmenteEmUtc  = null;
+                if (entity.Status == SolicitacaoStatus.Concluida)
+                    entity.Status = SolicitacaoStatus.EmIntegracao;
+                entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                if (tipoEntidade.HasValue)
+                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
+                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
+                break;
+            }
+            case TipoIntegracao.Promocao:
+            {
+                var entity = await _db.SolicitacoesPromocao.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoPromocao {id} não encontrada.");
+                var statusAnterior = entity.Status.ToString();
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem  = null;
+                entity.IntegradaEmUtc      = null;
+                if (tipoEntidade.HasValue)
+                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
+                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
+                break;
+            }
+            case TipoIntegracao.AlteracaoEndereco:
+            {
+                var entity = await _db.SolicitacoesEndereco.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoEndereco {id} não encontrada.");
+                var statusAnterior = entity.Status.ToString();
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem  = null;
+                entity.IntegradaEmUtc      = null;
+                if (tipoEntidade.HasValue)
+                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
+                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
+                break;
+            }
+            case TipoIntegracao.Dependente:
+            {
+                var entity = await _db.SolicitacoesDependente.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoDependente {id} não encontrada.");
+                var statusAnterior = entity.Status.ToString();
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem  = null;
+                entity.IntegradaEmUtc      = null;
+                if (tipoEntidade.HasValue)
+                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
+                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
+                break;
+            }
+            case TipoIntegracao.Beneficio:
+            {
+                var entity = await _db.SolicitacoesBeneficio.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoBeneficio {id} não encontrada.");
+                var statusAnterior = entity.Status.ToString();
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem  = null;
+                entity.IntegradaEmUtc      = null;
+                if (tipoEntidade.HasValue)
+                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
+                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
+                break;
+            }
+            case TipoIntegracao.Ferias:
+            {
+                var entity = await _db.SolicitacoesFerias.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoFerias {id} não encontrada.");
+                var statusAnterior = entity.Status.ToString();
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem  = null;
+                entity.IntegradaEmUtc      = null;
+                if (tipoEntidade.HasValue)
+                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
+                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
+                break;
+            }
+            case TipoIntegracao.SolicitacaoVaga:
+            {
+                var entity = await _db.SolicitacoesVaga.FindAsync(new object[] { id }, ct)
+                    ?? throw new KeyNotFoundException($"SolicitacaoVaga {id} não encontrada.");
+                var statusAnterior = entity.Status.ToString();
+                entity.IntegracaoResultado = null;
+                entity.IntegracaoMensagem  = null;
+                entity.IntegradaEmUtc      = null;
+                if (tipoEntidade.HasValue)
+                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
+                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
+                break;
+            }
+            default:
+                throw new ArgumentOutOfRangeException(nameof(tipo), tipo, "Tipo de integração desconhecido.");
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<object>> ListDesligamentosPayloadAsync(SolicitacaoStatus[] statuses, CancellationToken ct)
+    {
+        var items = await _db.SolicitacoesDesligamento
+            .AsNoTracking()
+            .Include(x => x.Funcionario)
+            .Include(x => x.Solicitante)
+            .Where(x => statuses.Contains(x.Status))
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(ct);
+
+        return items.Select(BuildDesligamentoPayload).ToList<object>();
+    }
+
+    private static object BuildDesligamentoPayload(SolicitacaoDesligamento s)
+    {
+        // cdnSitAfast: código situação afastamento Datasul. 86 é o padrão para
+        // extinção de relação de emprego (desligamento comum CLT).
+        const int SIT_AFAST_DESLIG = 86;
+
+        // cdnTipoAviso: Datasul usa 1=Trabalhado, 2=Indenizado, 3=Dispensado.
+        var cdnTipoAviso = s.TipoAvisoPrevio switch
+        {
+            TipoAvisoPrevio.Trabalhado => 1,
+            TipoAvisoPrevio.Indenizado => 2,
+            TipoAvisoPrevio.Dispensado => 3,
+            _ => 2,
+        };
+
+        // percMultaFGTS: CLT define % por tipo de desligamento.
+        var percMultaFGTS = s.TipoDesligamento switch
+        {
+            TipoDesligamento.SemJustaCausa => 40,
+            TipoDesligamento.AcordoMutuo   => 20,
+            _                              => 0,
+        };
+
+        // Aviso trabalhado: datIniAviso = datDesligamento - DiasAvisoPrevio.
+        // Aviso indenizado/dispensado: datIniAviso em branco ("" — Datasul aceita como N/A).
+        var datIniAviso = s.TipoAvisoPrevio == TipoAvisoPrevio.Trabalhado
+            ? (TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(-s.DiasAvisoPrevio)) ?? "")
+            : "";
+
+        // datLimPgtoRecis (CLT art. 477 §6º): prazo legal até o 10º dia corrido,
+        // contado a partir do próprio desligamento — por isso +9 dias, não +10.
+        var datLimPgto = TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(9)) ?? "";
+        var datPagto   = datLimPgto;
+
+        return new
+        {
+            s.Id,
+            tipoIntegracao      = (short)TipoIntegracao.Desligamento,
+            tipoIntegracaoLabel = "Desligamento",
+
+            // ── Payload TOTVS Datasul (apisfrescisao.p) ──
+            cdnEmpresaFunc    = s.Funcionario?.CdnEmpresa ?? "",
+            cdnEstabFunc      = s.Funcionario?.CdnEstab ?? "",
+            cdnFuncionario    = int.TryParse(s.Funcionario?.CdnFuncionario ?? "", out var cdnFunc) ? cdnFunc : 0,
+            cdnTipoCheque     = 1,
+            cdnSitAfast       = SIT_AFAST_DESLIG,
+            cdnTipoAviso      = cdnTipoAviso,
+            datDesligamento   = TotvsPayloadHelper.FormatDate(s.DataDesligamento) ?? "",
+            datIniAviso       = datIniAviso,
+            datPagto          = datPagto,
+            datAviso          = datIniAviso,
+            datLimPgtoRecis   = datLimPgto,
+            percMultaFGTS     = percMultaFGTS,
+            codSaqueFGTS      = "",
+            cdnTipoJornada    = 0,
+            logCalcAdicAdmitidos   = "",
+            logGeraComEstabilidade = s.PossuiEstabilidade ? "S" : "",
+            logValidaProgFerias    = "",
+            logImprimeAviso        = s.TipoAvisoPrevio == TipoAvisoPrevio.Trabalhado ? "S" : "",
+            logRecFeriasProporc    = "",
+            logReceb13Proporc      = "",
+            logFGTSAnteriorGRFP    = "",
+            logGeraSemExameDemis   = "",
+            logGeraEPIDevolver     = "",
+
+            // ── Metadados RenderRH ──
+            nome               = s.Funcionario?.Name ?? "—",
+            funcionarioId      = s.FuncionarioId,
+            solicitante        = s.Solicitante?.Name ?? "—",
+            tipoDesligamento   = s.TipoDesligamento.ToString(),
+            motivoDesligamento = s.MotivoDesligamento,
+            tipoAvisoPrevio    = s.TipoAvisoPrevio.ToString(),
+            s.DiasAvisoPrevio,
+            s.ElegivelRecontratacao,
+            s.SubstituirPosicao,
+            s.PossuiEstabilidade,
+            s.Observacoes,
+            status                    = s.Status.ToString(),
+            s.IntegracaoResultado,
+            s.IntegracaoMensagem,
+            integradaEmUtc            = TotvsPayloadHelper.FormatDate(s.IntegradaEmUtc),
+            s.EfetivadoManualmentePorId,
+            efetivadoManualmenteEmUtc = TotvsPayloadHelper.FormatDate(s.EfetivadoManualmenteEmUtc),
+            approvedAtUtc             = TotvsPayloadHelper.FormatDate(s.ApprovedAtUtc),
+            createdAtUtc              = TotvsPayloadHelper.FormatDate(s.CreatedAtUtc),
+        };
     }
 }
