@@ -188,7 +188,6 @@ public sealed class PreAdmissao : ITenantEntity
     public JobPosition? JobPosition { get; set; }
 
     public Guid? RequisitoCategoriaId { get; set; }
-    public RequisitoCategoria? RequisitoCategoria { get; set; }
 
     /// <summary>Vaga de recrutamento que originou esta admissão. Usado na materialização para criar OcupacaoHistorico.</summary>
     public Guid? VagaId { get; set; }

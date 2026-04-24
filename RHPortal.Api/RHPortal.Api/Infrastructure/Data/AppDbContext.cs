@@ -1154,7 +1154,6 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.CentroCusto).WithMany().HasForeignKey(x => x.CentroCustoId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.JobPosition).WithMany().HasForeignKey(x => x.JobPositionId).OnDelete(DeleteBehavior.SetNull);
-            b.HasOne(x => x.RequisitoCategoria).WithMany().HasForeignKey(x => x.RequisitoCategoriaId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.Vaga).WithMany().HasForeignKey(x => x.VagaId).OnDelete(DeleteBehavior.SetNull);
             b.Property(x => x.AccessToken).HasMaxLength(64);
             b.HasIndex(x => new { x.TenantId, x.Status });
