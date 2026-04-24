@@ -827,7 +827,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         // Enviar email ao candidato
         var emailEnviado = false;
-        if (!string.IsNullOrWhiteSpace(pa.Email))
+        if (request.EnviarEmail && !string.IsNullOrWhiteSpace(pa.Email))
         {
             var tokens = new Dictionary<string, string?>
             {
@@ -867,10 +867,11 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         }
 
         // Notificar candidato via WhatsApp (Blip) — best-effort
-        if (!string.IsNullOrWhiteSpace(pa.Celular))
-            await _blipMessaging.EnviarOnboardingAdmissaoAsync(pa.Celular, ct);
+        var whatsappEnviado = false;
+        if (request.EnviarWhatsapp && !string.IsNullOrWhiteSpace(pa.Celular))
+            whatsappEnviado = await _blipMessaging.EnviarOnboardingAdmissaoAsync(pa.Celular, ct);
 
-        return new GerarLinkResponse(pa.AccessToken, url, emailEnviado);
+        return new GerarLinkResponse(pa.AccessToken, url, emailEnviado, whatsappEnviado);
     }
 
     public async Task<ValidarDocumentoResponse?> ValidarDocumentoAsync(
@@ -1042,6 +1043,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                 existing.JobPositionId = jobPositionId;
             if (existing.VagaId == null && candidato.VagaId != Guid.Empty)
                 existing.VagaId = candidato.VagaId;
+            if (string.IsNullOrWhiteSpace(existing.Celular))
+                existing.Celular = (candidato.Celular ?? candidato.Fone)?.Trim();
             existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(ct);
             return (await GetByIdAsync(existing.Id, ct))!;
@@ -1056,7 +1059,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             CandidatoId = candidato.Id,
             Nome = candidato.Nome.Trim(),
             Email = candidato.Email?.Trim(),
-            Celular = candidato.Fone?.Trim(),
+            Celular = (candidato.Celular ?? candidato.Fone)?.Trim(),
             JobPositionId = jobPositionId,
             CodCargoTotvs = jobPosition?.TotvsCargoBasicId,
             AreaId = request.AreaId ?? vaga?.AreaId,

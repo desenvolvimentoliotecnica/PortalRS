@@ -542,9 +542,9 @@ public sealed record DocumentoSolicitadoResponse(
 
 // ── Gerar link de acesso do candidato ──
 
-public sealed record GerarLinkRequest(string? Cpf);
+public sealed record GerarLinkRequest(string? Cpf, bool EnviarEmail = true, bool EnviarWhatsapp = true);
 
-public sealed record GerarLinkResponse(string AccessToken, string PublicUrl, bool EmailEnviado);
+public sealed record GerarLinkResponse(string AccessToken, string PublicUrl, bool EmailEnviado, bool WhatsappEnviado);
 
 // ── Validação de documento individual pelo RH ──
 

@@ -159,6 +159,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     existing.Nome,
                     existing.Email,
                     existing.Fone,
+                    existing.Celular,
                     existing.Cidade,
                     existing.Uf,
                     existing.LinkedinUrl,
@@ -215,6 +216,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     request.Nome,
                     email,
                     request.Fone,
+                    request.Fone ?? string.Empty,  // Celular — campo obrigatório; portal público usa o mesmo número
                     cidade,
                     uf,
                     null,                   // LinkedinUrl
