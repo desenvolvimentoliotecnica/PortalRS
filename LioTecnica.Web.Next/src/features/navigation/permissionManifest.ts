@@ -71,6 +71,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-categorias-salariais",      label: "Categorias Salariais",        href: "/categorias-salariais",           icon: "badge-dollar-sign", permission: "categories.view" },
     { id: "nav-turnos",                    label: "Turnos",                      href: "/turnos",                         icon: "clock",            permission: "areas.view" },
     { id: "nav-unidades-lotacao",          label: "Unidades de Lotação",         href: "/unidades-lotacao",               icon: "building",         permission: "units.view" },
+    { id: "nav-motivos-requisicao",        label: "Motivos de Requisição",       href: "/motivos-requisicao",             icon: "list-checks",      permission: "units.view" },
     { id: "nav-pessoas",                   label: "Pessoas",                     href: "/pessoas",                        icon: "user",             permission: "funcionarios.view" },
     { id: "nav-funcionarios",              label: "Funcionários",                href: "/funcionarios",                   icon: "users",            permission: "funcionarios.view" },
     { id: "nav-bloqueiopessoa",            label: "Bloqueio de Pessoa",          href: "/bloqueiopessoa",                 icon: "user-x",           permission: "funcionarios.view" },

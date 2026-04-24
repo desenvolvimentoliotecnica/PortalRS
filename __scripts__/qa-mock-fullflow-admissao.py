@@ -151,7 +151,7 @@ def build_payload(nome: str, cpf: str) -> dict:
         "grupoSanguineo": 1, "fatorRh": 2,
         "possuiDeficiencia": "N", "funcDoador": "S",
         "cartaoSus": "10000141200",
-        "altura": 180, "peso": 900,
+        "altura": 180, "peso": 90000,
         "cutis": 3, "cabelo": 1, "olhos": 1,
         "manequim": 40, "sapato": 42,
         # Contrato (dataTerminoContrato continua legado int DDMMAAAA, não migrou pra DateOnly)

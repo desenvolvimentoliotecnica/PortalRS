@@ -145,7 +145,6 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Ele
     "Cancelada": { label: "Cancelada", color: "bg-zinc-500/15 text-zinc-500", icon: XCircle },
     "EmIntegracao": { label: "Em Integração", color: "bg-blue-500/15 text-blue-700", icon: Activity },
     "Concluida": { label: "Concluída", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    "AguardandoDecisaoRH": { label: "Aguarda Decisão RH", color: "bg-violet-500/15 text-violet-700", icon: Clock },
     "PendenteAprovacaoAumentoHC": { label: "Aguarda Aprovação HC", color: "bg-amber-500/15 text-amber-700", icon: Clock },
     // fallback numérico para compatibilidade
     0: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
@@ -157,7 +156,6 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: React.Ele
     6: { label: "Cancelada", color: "bg-zinc-500/15 text-zinc-500", icon: XCircle },
     7: { label: "Em Integração", color: "bg-blue-500/15 text-blue-700", icon: Activity },
     8: { label: "Concluída", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    9: { label: "Aguarda Decisão RH", color: "bg-violet-500/15 text-violet-700", icon: Clock },
     10: { label: "Aguarda Aprovação HC", color: "bg-amber-500/15 text-amber-700", icon: Clock },
 };
 
@@ -361,8 +359,8 @@ function SolicitacoesVagaContent() {
     /* ── filtering ── */
     const ATIVAS = new Set([
         "Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh",
-        "AguardandoDecisaoRH", "PendenteAprovacaoAumentoHC", "EmIntegracao",
-        "0", "1", "4", "5", "7", "9", "10",
+        "PendenteAprovacaoAumentoHC", "EmIntegracao",
+        "0", "1", "4", "5", "7", "10",
     ]);
     const APROVADAS = new Set(["Aprovada", "Concluida", "2", "8"]);
 
@@ -806,9 +804,8 @@ function SolicitacoesVagaContent() {
                                                     <Eye />
                                                 </Button>
                                             )}
-                                            {/* AguardaRH / AguardaDecisaoRH / AguardaHC: visualizar + cancelar se sem movimentação */}
+                                            {/* AguardaRH / AguardaHC: visualizar + cancelar se sem movimentação */}
                                             {(r.status === 5 || r.status === "PendenteAprovacaoRh" ||
-                                              r.status === 9 || r.status === "AguardandoDecisaoRH" ||
                                               r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>

@@ -139,6 +139,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Turno> Turnos => Set<Turno>();
     public DbSet<CentroCusto> CentrosCusto => Set<CentroCusto>();
     public DbSet<UnidadeLotacao> UnidadesLotacao => Set<UnidadeLotacao>();
+    public DbSet<MotivoRequisicaoVagaConfig> MotivosRequisicaoVagaConfig => Set<MotivoRequisicaoVagaConfig>();
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
@@ -527,6 +528,21 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<MotivoRequisicaoVagaConfig>(b =>
+        {
+            b.ToTable("MotivosRequisicaoVagaConfig");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Codigo).HasMaxLength(60).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(120).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(500);
+
+            b.HasIndex(x => new { x.TenantId, x.Codigo }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.IsActive, x.Ordem });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
         modelBuilder.Entity<Pessoa>(b =>
         {
             b.ToTable("Pessoas");
@@ -832,8 +848,15 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.SetNull);
             b.Property(x => x.SubstituidoNome).HasMaxLength(160);
 
+            // Motivo parametrizável (substitui o enum MotivoRequisicao)
+            b.HasOne(x => x.Motivo)
+                .WithMany()
+                .HasForeignKey(x => x.MotivoRequisicaoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.SolicitanteId });
+            b.HasIndex(x => x.MotivoRequisicaoId);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
