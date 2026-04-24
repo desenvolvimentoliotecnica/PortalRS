@@ -542,7 +542,6 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 var s = await _db.SolicitacoesVaga.AsNoTracking()
                     .Include(x => x.Solicitante)
                     .Include(x => x.JobPosition)
-                    .Include(x => x.Area)
                     .Include(x => x.Empresa)
                     .Include(x => x.CentroCusto)
                     .Include(x => x.UnidadeLotacao)
@@ -555,7 +554,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.Titulo, s.Justificativa, s.QtdPosicoes,
                     urgencia = s.Urgencia.ToString(), status = s.Status.ToString(),
                     tipoSolicitacao = s.TipoSolicitacao.ToString(), s.IsConfidencial,
-                    cargoNome = s.JobPosition?.Description, areaNome = s.Area?.Description,
+                    cargoNome = s.JobPosition?.Description, areaNome = s.CentroCusto?.Description,
                     empresaNome = s.Empresa?.Description, centroCustoNome = s.CentroCusto?.Description,
                     unidadeLotacaoNome = s.UnidadeLotacao?.Description,
                     tipoContrato = s.TipoContrato.ToString(), s.PrazoDias,

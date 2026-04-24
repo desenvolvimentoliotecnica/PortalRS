@@ -495,7 +495,7 @@ public sealed class FuncionariosController : ControllerBase
     {
         var f = await db.Funcionarios.AsNoTracking()
             .Include(x => x.JobPosition)
-            .Include(x => x.Area)
+            .Include(x => x.CentroCusto)
             .Include(x => x.Unit)
             .Include(x => x.UnidadeLotacao)
             .Include(x => x.NivelHierarquico)
@@ -537,7 +537,7 @@ public sealed class FuncionariosController : ControllerBase
         // ── Histórico de carreira ──
         var historico = await db.OcupacoesHistorico.AsNoTracking()
             .Include(h => h.Vaga).ThenInclude(v => v!.JobPosition)
-            .Include(h => h.Vaga).ThenInclude(v => v!.Area)
+            .Include(h => h.Vaga).ThenInclude(v => v!.CentroCusto)
             .Where(h => h.FuncionarioId == id)
             .OrderByDescending(h => h.DataEntrada)
             .ToListAsync(ct);
@@ -546,7 +546,7 @@ public sealed class FuncionariosController : ControllerBase
             h.Id,
             h.Vaga?.Titulo,
             h.Vaga?.JobPosition?.Description,
-            h.Vaga?.Area?.Description,
+            h.Vaga?.CentroCusto?.Description,
             h.DataEntrada,
             h.DataSaida,
             h.MotivoSaida?.ToString(),
@@ -619,7 +619,7 @@ public sealed class FuncionariosController : ControllerBase
             diasRestantesExperiencia,
             progressoExperiencia,
             f.JobPosition?.Description,
-            f.Area?.Description,
+            null, // AreaNome — Area absorvida pelo CentroCusto em 31.2
             f.Unit?.Name,
             f.UnidadeLotacao?.Description,
             f.NivelHierarquico?.Nome,

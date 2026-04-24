@@ -267,7 +267,7 @@ public static class PreAdmissaoSeeder
             CategoriaSalarial      = 1,   // A
             GrauInstrucao          = 7,   // Superior Completo
             CodTurno               = 1,
-            CentroCusto            = "001.01",
+            CentroCustoTotvs       = "001.01",
             UnidadeLotacao         = "001.001",
 
             // ── TOTVS: Jornada, Ponto e Sindicato (7 campos novos) ──

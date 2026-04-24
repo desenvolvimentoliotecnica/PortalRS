@@ -583,7 +583,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             UnitId = pa.UnitId,
             CentroCustoId = pa.CentroCustoId,
             JobPositionId = pa.JobPositionId,
-            RequisitoCategoriaId = pa.RequisitoCategoriaId,
             CdnFuncionario = cdnFuncionario,
             CdnEmpresa = pa.CodEmpresa,
             CdnEstab = pa.EstabelecimentoCodigo,

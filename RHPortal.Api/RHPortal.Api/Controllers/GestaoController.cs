@@ -193,7 +193,7 @@ public sealed class GestaoController : ControllerBase
 
         var subordinados = await _db.Funcionarios.AsNoTracking()
             .Include(f => f.JobPosition)
-            .Include(f => f.Area)
+            .Include(f => f.CentroCusto)
             .Include(f => f.UnidadeLotacao)
             .Where(f => f.Status == FuncionarioStatus.Active
                 && f.Id != gestorId
@@ -205,7 +205,7 @@ public sealed class GestaoController : ControllerBase
                 f.Name,
                 f.Email,
                 cargo = f.JobPosition != null ? f.JobPosition.Description : null,
-                area = f.Area != null ? f.Area.Description : null,
+                area = f.CentroCusto != null ? f.CentroCusto.Description : null,
                 f.AvatarFileName,
                 f.DataAdmissao,
                 f.PeriodoExperienciaDias,
@@ -307,12 +307,12 @@ public sealed class GestaoController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> HeadcountArea(CancellationToken ct)
     {
-        var areaId = _userContext.AreaId;
+        var areaId = _userContext.CentroCustoId;
         if (areaId is null && !_userContext.IsAdmin)
             return Ok(new { autorizado = 0, ocupado = 0, disponivel = 0, provisorio = 0 });
 
         var vagasQ = _db.Vagas.AsNoTracking();
-        if (areaId.HasValue) vagasQ = vagasQ.Where(v => v.AreaId == areaId);
+        if (areaId.HasValue) vagasQ = vagasQ.Where(v => v.CentroCustoId == areaId);
 
         var vagas = await vagasQ
             .Select(v => new { v.HeadcountAutorizado, v.HeadcountProvisorio })
@@ -327,7 +327,7 @@ public sealed class GestaoController : ControllerBase
         if (areaId.HasValue)
         {
             var vagaIds = await _db.Vagas.AsNoTracking()
-                .Where(v => v.AreaId == areaId)
+                .Where(v => v.CentroCustoId == areaId)
                 .Select(v => v.Id)
                 .ToListAsync(ct);
             ocupadoQ = ocupadoQ.Where(h => h.VagaId.HasValue && vagaIds.Contains(h.VagaId.Value));

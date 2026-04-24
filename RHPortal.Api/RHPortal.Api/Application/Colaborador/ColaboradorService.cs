@@ -277,7 +277,7 @@ public sealed class ColaboradorService : IColaboradorService
             .Include(h => h.Vaga)
                 .ThenInclude(v => v!.JobPosition)
             .Include(h => h.Vaga)
-                .ThenInclude(v => v!.Area)
+                .ThenInclude(v => v!.CentroCusto)
             .Where(h => h.FuncionarioId == funcionarioId && h.TenantId == _tenantContext.TenantId)
             .OrderByDescending(h => h.DataEntrada)
             .ToListAsync(ct);
@@ -286,7 +286,7 @@ public sealed class ColaboradorService : IColaboradorService
             h.Id,
             h.Vaga?.Titulo,
             h.Vaga?.JobPosition?.Description,
-            h.Vaga?.Area?.Description,
+            h.Vaga?.CentroCusto?.Description,
             h.DataEntrada,
             h.DataSaida,
             h.MotivoSaida?.ToString(),

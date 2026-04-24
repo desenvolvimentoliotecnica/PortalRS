@@ -73,7 +73,6 @@ public sealed class PublicVagasController : ControllerBase
 
         IQueryable<Vaga> query = _db.Vagas
             .AsNoTracking()
-            .Include(v => v.Area)
             .Include(v => v.CentroCusto)
             .Include(v => v.Etapas)
             .Where(v => v.Status == VagaStatus.Aberta)
@@ -200,7 +199,6 @@ public sealed class PublicVagasController : ControllerBase
 
         var item = await _db.Vagas
             .AsNoTracking()
-            .Include(v => v.Area)
             .Include(v => v.CentroCusto)
             .Include(v => v.Etapas)
             .Where(v => v.Id == id)
