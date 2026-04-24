@@ -13,6 +13,7 @@ import {
   type KanbanCandidaturaItem,
   type KanbanCandidaturasResponse,
 } from "./candidaturaApi";
+import MatchingBreakdownDialog, { useMatchingBreakdownDialog } from "@/features/recrutamento/matching/MatchingBreakdownDialog";
 
 type VagaLite = { id: string; titulo: string | null };
 
@@ -54,6 +55,8 @@ export default function CandidaturasKanbanScreen() {
   const [vagas, setVagas] = useState<VagaLite[]>([]);
   const [dragging, setDragging] = useState<KanbanCandidaturaItem | null>(null);
   const [hoverEtapa, setHoverEtapa] = useState<EtapaMacroCandidatura | null>(null);
+  // Sessão 31.8 — explicabilidade do matching
+  const matchDialog = useMatchingBreakdownDialog();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -198,9 +201,17 @@ export default function CandidaturasKanbanScreen() {
                         <div className="mt-2 flex items-center justify-between text-[11px] text-neutral-500">
                           <span>Aplicada: {formatDate(it.aplicadaEmUtc)}</span>
                           {typeof it.matchScore === "number" && (
-                            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-800">
-                              match {it.matchScore}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                matchDialog.open(it.vagaId, it.candidatoId, it.candidatoNome);
+                              }}
+                              className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-800 hover:bg-sky-100 cursor-pointer transition-colors"
+                              title="Ver breakdown explicável (peso × score por critério)"
+                            >
+                              match {it.matchScore} →
+                            </button>
                           )}
                         </div>
                       </article>
@@ -211,6 +222,17 @@ export default function CandidaturasKanbanScreen() {
             );
           })}
         </div>
+      )}
+
+      {/* Sessão 31.8 — Breakdown explicável do matching */}
+      {matchDialog.target && (
+        <MatchingBreakdownDialog
+          open={!!matchDialog.target}
+          onClose={matchDialog.close}
+          vagaId={matchDialog.target.vagaId}
+          candidatoId={matchDialog.target.candidatoId}
+          candidatoNome={matchDialog.target.candidatoNome}
+        />
       )}
     </section>
   );

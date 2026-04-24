@@ -515,6 +515,8 @@ builder.Services.AddScoped<ICvGptExtractor, CvGptExtractor>();
 builder.Services.AddScoped<ITalentoService, TalentoService>();
 builder.Services.AddScoped<IBloqueioPessoaService, BloqueioPessoaService>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
+// Sessão 31.8 — matching baseado em DescricaoCargo (template DNALIO) + pesos calibrados + distância
+builder.Services.AddScoped<RhPortal.Api.Application.Matching.DescricaoCargoMatchingService>();
 builder.Services.AddScoped<IVagaUnifiedMatchingCacheService, VagaUnifiedMatchingCacheService>();
 builder.Services.AddScoped<AgendaService>();
 builder.Services.AddScoped<CelebrationService>();

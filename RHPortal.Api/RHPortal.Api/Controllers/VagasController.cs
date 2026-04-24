@@ -685,6 +685,38 @@ public sealed class VagasController : ControllerBase
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
+
+    /// <summary>
+    /// Sessão 31.8 — Breakdown explicável do matching de um candidato em uma vaga.
+    ///
+    /// Retorna o score final + cada critério usado (Competência, Experiência,
+    /// Formação, Localidade — distância em km, Idioma, Conhecimento Técnico,
+    /// Vivência Específica) com peso configurado, sub-score, contribuição e
+    /// itens cobertos/faltando para o RH entender por que o candidato bate
+    /// (ou não) com a vaga.
+    ///
+    /// Requer que a vaga tenha <c>DescricaoCargoId</c> preenchido (template
+    /// DNALIO). Para vagas sem template, usa o algoritmo legado (sem breakdown).
+    /// </summary>
+    [HttpGet("{id:guid}/matching-breakdown/{candidatoId:guid}")]
+    [ProducesResponseType(typeof(RhPortal.Api.Application.Matching.MatchingBreakdown), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMatchingBreakdown(
+        [FromRoute] Guid id,
+        [FromRoute] Guid candidatoId,
+        [FromServices] RhPortal.Api.Application.Matching.DescricaoCargoMatchingService descricaoCargoMatching,
+        CancellationToken ct)
+    {
+        var breakdown = await descricaoCargoMatching.CalcularBreakdownAsync(candidatoId, id, ct);
+        if (breakdown is null)
+        {
+            return NotFound(new
+            {
+                message = "Não foi possível calcular o breakdown — verifique se a vaga existe, tem DescricaoCargo vinculada (cadastro de Descrição de Cargos), e se o candidato existe."
+            });
+        }
+        return Ok(breakdown);
+    }
 }
 
 public record UpdateHeadcountRequest(int HeadcountAutorizado);
