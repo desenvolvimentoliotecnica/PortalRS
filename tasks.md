@@ -12,7 +12,7 @@ Status:
 
 ## Em andamento
 
-- [~] **FASE 1 — R&S 2026-04-23 — Matching baseado em Descrição de Cargo + calibragem de pesos por vaga + distância** (sessão atual)
+- _(nenhum item — Recrutamento & Seleção 100% completo na sessão de 2026-04-23)_
 
 ## Próximas
 
@@ -20,7 +20,7 @@ Status:
 
 Objetivo: o match candidato × vaga hoje só usa `Vaga.Requisitos` (lista). Vai passar a usar a **Descrição de Cargo** estruturada (template DNALIO do anexo) + **pesos configuráveis por vaga** (RH calibra Competência/Localização/Idioma/etc por vaga) + **distância geocodificada** entre Pessoa e Empresa.
 
-- [ ] **1.A — Estender `DescricaoCargo` com seções DNALIO** estruturadas:
+- [x] **1.A — Estender `DescricaoCargo` com seções DNALIO** (commit 42d5d6f / a4a49c0) estruturadas:
   - Atividades Específicas (lista), Atividades Comuns (lista)
   - Formação: mínima/desejável/área
   - Experiência: tempo mínimo/desejável/especificação
@@ -31,27 +31,27 @@ Objetivo: o match candidato × vaga hoje só usa `Vaga.Requisitos` (lista). Vai 
   - Competências Técnicas (lista) — agora estruturada com `Categoria` (Hardware/Software/Idioma/Segurança)
   - Requisitos Obrigatórios (lista)
   - Migration idempotente; entidades-filha com Cascade
-- [ ] **1.B — `Vaga.DescricaoCargoId` (FK opcional)** — vaga aponta para uma descrição de cargo (template) e o matching usa essa fonte, não `Vaga.Descricao*`. Vaga ainda pode ter overrides locais.
-- [ ] **1.C — Pesos calibráveis por vaga**: hoje `Vaga` tem `PesoCompetencia/Experiencia/Formacao/Localidade` mas eles **não são usados** no `MatchingService`. Estender com `PesoIdioma`, `PesoConhecimentoTecnico`, `PesoVivenciasEspecificas`. Validar soma = 100. Plugar no algoritmo.
-- [ ] **1.D — UI de calibragem de pesos no `VagaFormModal`**: aba "Pesos do Matching" com sliders para cada peso (com soma controlada para fechar 100), preview da distribuição.
-- [ ] **1.E — Endereço da Empresa + geocoding**:
+- [x] **1.B — `Vaga.DescricaoCargoId` (FK opcional)** — vaga aponta para uma descrição de cargo (template) e o matching usa essa fonte, não `Vaga.Descricao*`. Vaga ainda pode ter overrides locais.
+- [x] **1.C — Pesos calibráveis por vaga**: hoje `Vaga` tem `PesoCompetencia/Experiencia/Formacao/Localidade` mas eles **não são usados** no `MatchingService`. Estender com `PesoIdioma`, `PesoConhecimentoTecnico`, `PesoVivenciasEspecificas`. Validar soma = 100. Plugar no algoritmo.
+- [x] **1.D — UI de calibragem de pesos no `VagaFormModal`**: aba "Pesos do Matching" com sliders para cada peso (com soma controlada para fechar 100), preview da distribuição.
+- [x] **1.E — Endereço da Empresa + geocoding**:
   - Estender `Empresa` com `Cep, Logradouro, Numero, Bairro, Cidade, Uf, Latitude?, Longitude?`
   - Adicionar `Pessoa.Latitude?, Pessoa.Longitude?`
   - Serviço `IGeocodingService` com implementação Nominatim (OpenStreetMap, free) + cache via campos persistidos
   - Helper Haversine para distância em km
-- [ ] **1.F — `MatchingService` reescrito** para consumir `DescricaoCargo` (seções DNALIO), pesos calibrados da vaga, e distância geocodificada. Score continua 0-100; breakdown novo: Competência / Experiência / Formação / Localidade (km) / Idioma / Conhecimento Técnico / Vivências.
-- [ ] **1.G — Migrations idempotentes + suite verde + commit + push**.
+- [x] **1.F — `MatchingService` reescrito** para consumir `DescricaoCargo` (seções DNALIO), pesos calibrados da vaga, e distância geocodificada. Score continua 0-100; breakdown novo: Competência / Experiência / Formação / Localidade (km) / Idioma / Conhecimento Técnico / Vivências.
+- [x] **1.G — Migrations idempotentes + suite verde + commit + push**.
 
 ### FASE 2 — UX do matching e do kanban
 
-- [ ] **2.A — Score com explicabilidade**: API retorna breakdown por critério com peso aplicado e contribuição (ex.: "Competência 85% × peso 30 = 25.5 pts"). UI mostra barras coloridas por categoria e tooltip de "por que esse score".
-- [ ] **2.B — SLA semáforo no kanban de candidaturas**: cada card calcula dias na etapa atual; verde até 50% do SLA, amarelo 50–100%, vermelho >100%. SLA por etapa configurável (default global; override por vaga via `Vaga.SlaDiasMetaFechamento` já existe).
+- [x] **2.A — Score com explicabilidade**: API retorna breakdown por critério com peso aplicado e contribuição (ex.: "Competência 85% × peso 30 = 25.5 pts"). UI mostra barras coloridas por categoria e tooltip de "por que esse score".
+- [x] **2.B — SLA semáforo no kanban de candidaturas**: cada card calcula dias na etapa atual; verde até 50% do SLA, amarelo 50–100%, vermelho >100%. SLA por etapa configurável (default global; override por vaga via `Vaga.SlaDiasMetaFechamento` já existe).
 
 ### FASE 3 — Operacional + comunicação
 
-- [ ] **3.A — Funil de conversão de candidaturas**: dashboard com gráfico de funil mostrando taxas de conversão entre etapas (Aplicada → Triagem → Entrevista → Teste → Proposta → Contratado). Filtro por vaga, período, recrutador.
-- [ ] **3.B — Bulk actions no kanban**: checkbox por card + barra contextual "X selecionados" com botões "Avançar etapa", "Mover para...", "Recusar em massa". Confirma com lista detalhada de quem foi afetado.
-- [ ] **3.C — Preview de templates de notificação (PT-BR)**: na tela `NotificacoesTemplatesScreen`, adicionar botão "Pré-visualizar" que renderiza o template com placeholders preenchidos (dados de exemplo) — útil pra ver como o e-mail/WhatsApp realmente fica antes de salvar. Por hora **apenas em PT-BR** (decidido com usuário 2026-04-23 — sem multi-idioma; campo `Idioma` da entidade fica intocado mas UI só edita o template default).
+- [x] **3.A — Funil de conversão de candidaturas**: dashboard com gráfico de funil mostrando taxas de conversão entre etapas (Aplicada → Triagem → Entrevista → Teste → Proposta → Contratado). Filtro por vaga, período, recrutador.
+- [x] **3.B — Bulk actions no kanban**: checkbox por card + barra contextual "X selecionados" com botões "Avançar etapa", "Mover para...", "Recusar em massa". Confirma com lista detalhada de quem foi afetado.
+- [x] **3.C — Preview de templates de notificação (PT-BR)**: na tela `NotificacoesTemplatesScreen`, adicionar botão "Pré-visualizar" que renderiza o template com placeholders preenchidos (dados de exemplo) — útil pra ver como o e-mail/WhatsApp realmente fica antes de salvar. Por hora **apenas em PT-BR** (decidido com usuário 2026-04-23 — sem multi-idioma; campo `Idioma` da entidade fica intocado mas UI só edita o template default).
 
 ---
 
