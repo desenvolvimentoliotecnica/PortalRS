@@ -125,3 +125,20 @@ public sealed record DescricaoCargoLookupItem(
     string DisplayLabel,
     bool IsTemplate
 );
+
+/// <summary>Resultado individual de uma importação de .docx (1 arquivo).</summary>
+public sealed record DocxImportItemResult(
+    string FileName,
+    bool Sucesso,
+    Guid? DescricaoCargoId,
+    string? Title,
+    IReadOnlyList<string> Warnings
+);
+
+/// <summary>Resultado agregado da importação de N arquivos .docx.</summary>
+public sealed record DocxImportResponse(
+    int Total,
+    int Sucesso,
+    int Falha,
+    IReadOnlyList<DocxImportItemResult> Itens
+);

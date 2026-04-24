@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.DescricaoCargo;
 using RhPortal.Api.Contracts.DescricaoCargo;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
@@ -279,6 +280,228 @@ public sealed class DescricaoCargoController : ControllerBase
             .FirstAsync(x => x.Id == id, ct);
 
         return Ok(MapToResponse(updated));
+    }
+
+    /// <summary>
+    /// Sessão 31.8 — Importação em massa de Descrições de Cargo via .docx (template DNALIO).
+    ///
+    /// Aceita 1+ arquivos .docx via multipart/form-data. Para cada arquivo:
+    /// 1. Parseia com `DocxDescricaoCargoParser` (extrai cabeçalho, formação,
+    ///    experiência, seções DNALIO de itens, revisão).
+    /// 2. Deriva Code do nome do arquivo (sanitizado, max 30 chars). Se já existe
+    ///    no tenant, opcionalmente sobrescreve (parâmetro <c>overwriteIfExists</c>).
+    /// 3. Salva como template ativo (<c>IsTemplate=true, IsActive=true</c>).
+    ///
+    /// Retorna lista com resultado por arquivo: nome, sucesso/erro, Id criado, warnings.
+    /// </summary>
+    [HttpPost("import-docx")]
+    [RequestSizeLimit(50_000_000)] // 50 MB total
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(DocxImportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<DocxImportResponse>> ImportDocx(
+        [FromForm] IFormFileCollection files,
+        [FromQuery] bool overwriteIfExists,
+        [FromServices] AppDbContext db,
+        [FromServices] ITenantContext tenantContext,
+        CancellationToken ct)
+    {
+        if (files is null || files.Count == 0)
+            return BadRequest(new { message = "Nenhum arquivo enviado." });
+
+        if (files.Count > 50)
+            return BadRequest(new { message = "Máximo de 50 arquivos por requisição." });
+
+        var tenantId = tenantContext.TenantId ?? string.Empty;
+        var resultados = new List<DocxImportItemResult>();
+
+        foreach (var file in files)
+        {
+            var fileName = file.FileName ?? "(sem nome)";
+
+            if (file.Length == 0)
+            {
+                resultados.Add(new DocxImportItemResult(fileName, false, null, null, new[] { "Arquivo vazio." }));
+                continue;
+            }
+
+            if (!fileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
+            {
+                resultados.Add(new DocxImportItemResult(fileName, false, null, null, new[] { "Apenas .docx é suportado." }));
+                continue;
+            }
+
+            // Code derivado do nome do arquivo: sanitiza, upper, max 30
+            var code = SanitizeCodeFromFileName(fileName);
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                resultados.Add(new DocxImportItemResult(fileName, false, null, null, new[] { "Não foi possível derivar Code do nome do arquivo." }));
+                continue;
+            }
+
+            DocxParseResult parseResult;
+            using (var stream = file.OpenReadStream())
+            {
+                parseResult = DocxDescricaoCargoParser.Parse(stream, code);
+            }
+
+            if (parseResult.Request is null)
+            {
+                resultados.Add(new DocxImportItemResult(fileName, false, null, null, parseResult.Warnings));
+                continue;
+            }
+
+            var request = parseResult.Request;
+            var existing = await db.DescricoesCargo.FirstOrDefaultAsync(x => x.Code == code, ct);
+
+            if (existing is not null && !overwriteIfExists)
+            {
+                resultados.Add(new DocxImportItemResult(
+                    fileName, false, existing.Id, existing.Title,
+                    parseResult.Warnings.Concat(new[] {
+                        $"Code '{code}' já existe (descrição '{existing.Title}'). Use overwriteIfExists=true para sobrescrever ou renomeie o arquivo."
+                    }).ToList()));
+                continue;
+            }
+
+            try
+            {
+                if (existing is not null)
+                {
+                    // Update: aplica os campos do request + replace dos itens
+                    existing.Title = request.Title;
+                    existing.AreaTemplate = request.AreaTemplate;
+                    existing.CboCodigo = request.CboCodigo;
+                    existing.Summary = request.Summary;
+                    existing.FormacaoMinima = request.FormacaoMinima;
+                    existing.FormacaoDesejavel = request.FormacaoDesejavel;
+                    existing.FormacaoAreaEstudo = request.FormacaoAreaEstudo;
+                    existing.ExperienciaTempoMinimo = request.ExperienciaTempoMinimo;
+                    existing.ExperienciaTempoDesejavel = request.ExperienciaTempoDesejavel;
+                    existing.ExperienciaEspecificacao = request.ExperienciaEspecificacao;
+                    existing.RevisaoNumero = request.RevisaoNumero;
+                    existing.RevisaoData = request.RevisaoData;
+                    existing.RevisaoNatureza = request.RevisaoNatureza;
+                    existing.GestorNome = request.GestorNome;
+                    existing.GestorEmail = request.GestorEmail;
+                    existing.IsTemplate = request.IsTemplate;
+                    existing.IsActive = request.IsActive;
+                    existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+                    // Replace itens (cascade pelo AppDbContext)
+                    var oldItens = await db.DescricaoCargoItens.Where(i => i.DescricaoCargoId == existing.Id).ToListAsync(ct);
+                    db.DescricaoCargoItens.RemoveRange(oldItens);
+
+                    if (request.Itens is not null)
+                    {
+                        foreach (var i in request.Itens)
+                        {
+                            db.DescricaoCargoItens.Add(new DescricaoCargoItem
+                            {
+                                Id = Guid.NewGuid(),
+                                TenantId = tenantId,
+                                DescricaoCargoId = existing.Id,
+                                Categoria = i.Categoria,
+                                Texto = i.Texto.Trim(),
+                                IsObrigatoria = i.IsObrigatoria,
+                                NivelMinimo = NullIfBlank(i.NivelMinimo),
+                                Subcategoria = NullIfBlank(i.Subcategoria),
+                                Ordem = i.Ordem,
+                                CreatedAtUtc = DateTimeOffset.UtcNow,
+                                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                            });
+                        }
+                    }
+                    await db.SaveChangesAsync(ct);
+                    resultados.Add(new DocxImportItemResult(fileName, true, existing.Id, existing.Title,
+                        parseResult.Warnings.Concat(new[] { "Atualizado (overwrite)." }).ToList()));
+                }
+                else
+                {
+                    // Create
+                    var entity = new RhPortal.Api.Domain.Entities.DescricaoCargo
+                    {
+                        Id = Guid.NewGuid(),
+                        Code = code,
+                        Title = request.Title,
+                        AreaTemplate = request.AreaTemplate,
+                        CboCodigo = request.CboCodigo,
+                        Summary = request.Summary,
+                        FormacaoMinima = request.FormacaoMinima,
+                        FormacaoDesejavel = request.FormacaoDesejavel,
+                        FormacaoAreaEstudo = request.FormacaoAreaEstudo,
+                        ExperienciaTempoMinimo = request.ExperienciaTempoMinimo,
+                        ExperienciaTempoDesejavel = request.ExperienciaTempoDesejavel,
+                        ExperienciaEspecificacao = request.ExperienciaEspecificacao,
+                        RevisaoNumero = request.RevisaoNumero,
+                        RevisaoData = request.RevisaoData,
+                        RevisaoNatureza = request.RevisaoNatureza,
+                        GestorNome = request.GestorNome,
+                        GestorEmail = request.GestorEmail,
+                        IsTemplate = request.IsTemplate,
+                        IsActive = request.IsActive,
+                        NivelCargoId = null,
+                        CreatedAtUtc = DateTimeOffset.UtcNow,
+                        UpdatedAtUtc = DateTimeOffset.UtcNow,
+                    };
+                    db.DescricoesCargo.Add(entity);
+
+                    if (request.Itens is not null)
+                    {
+                        foreach (var i in request.Itens)
+                        {
+                            entity.Itens.Add(new DescricaoCargoItem
+                            {
+                                Id = Guid.NewGuid(),
+                                TenantId = tenantId,
+                                DescricaoCargoId = entity.Id,
+                                Categoria = i.Categoria,
+                                Texto = i.Texto.Trim(),
+                                IsObrigatoria = i.IsObrigatoria,
+                                NivelMinimo = NullIfBlank(i.NivelMinimo),
+                                Subcategoria = NullIfBlank(i.Subcategoria),
+                                Ordem = i.Ordem,
+                                CreatedAtUtc = DateTimeOffset.UtcNow,
+                                UpdatedAtUtc = DateTimeOffset.UtcNow,
+                            });
+                        }
+                    }
+
+                    await db.SaveChangesAsync(ct);
+                    resultados.Add(new DocxImportItemResult(fileName, true, entity.Id, entity.Title, parseResult.Warnings));
+                }
+            }
+            catch (Exception ex)
+            {
+                resultados.Add(new DocxImportItemResult(fileName, false, null, null,
+                    parseResult.Warnings.Concat(new[] { $"Erro ao salvar: {ex.GetType().Name} — {ex.Message}" }).ToList()));
+            }
+        }
+
+        return Ok(new DocxImportResponse(
+            Total: resultados.Count,
+            Sucesso: resultados.Count(r => r.Sucesso),
+            Falha: resultados.Count(r => !r.Sucesso),
+            Itens: resultados));
+    }
+
+    /// <summary>Sanitiza nome de arquivo para virar Code: maiúscula, A-Z 0-9 + hífen, max 30.</summary>
+    private static string SanitizeCodeFromFileName(string fileName)
+    {
+        var noExt = Path.GetFileNameWithoutExtension(fileName ?? string.Empty).ToUpperInvariant();
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in noExt)
+        {
+            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+                sb.Append(c);
+            else if (c == ' ' || c == '_' || c == '-')
+                sb.Append('-');
+            // outros chars (acentos, símbolos) descartados
+        }
+        // Colapsa múltiplos hífens
+        var raw = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"-+", "-").Trim('-');
+        if (raw.Length > 30) raw = raw.Substring(0, 30);
+        return raw;
     }
 
     [HttpDelete("{id:guid}")]

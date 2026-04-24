@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, Plus, RefreshCw, Pencil, Trash2, X } from "lucide-react";
+import { Search, Plus, RefreshCw, Pencil, Trash2, X, Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -173,6 +173,21 @@ const ALL_CATEGORIAS: Categoria[] = [
   "RequisitoObrigatorio",
 ];
 
+interface DocxImportItemResult {
+  fileName: string;
+  sucesso: boolean;
+  descricaoCargoId: string | null;
+  title: string | null;
+  warnings: string[];
+}
+
+interface DocxImportResponse {
+  total: number;
+  sucesso: number;
+  falha: number;
+  itens: DocxImportItemResult[];
+}
+
 export default function DescricaoCargoCadastroScreen() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Item[]>([]);
@@ -184,6 +199,14 @@ export default function DescricaoCargoCadastroScreen() {
   const [draft, setDraft] = useState<Draft>({ ...emptyDraft });
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
+
+  // Sessão 31.8 BONUS — Import .docx em massa
+  const docxFileInputRef = useRef<HTMLInputElement>(null);
+  const [importDocxOpen, setImportDocxOpen] = useState(false);
+  const [importingDocx, setImportingDocx] = useState(false);
+  const [docxResult, setDocxResult] = useState<DocxImportResponse | null>(null);
+  const [overwriteIfExists, setOverwriteIfExists] = useState(false);
+  const [pendingDocxFiles, setPendingDocxFiles] = useState<File[]>([]);
 
   const syncList = useCallback(async () => {
     try {
@@ -379,6 +402,39 @@ export default function DescricaoCargoCadastroScreen() {
     }
   };
 
+  // ── Import Word (DOCX) — Sessão 31.8 BONUS ─────────────────────────────────
+
+  const runDocxImport = async () => {
+    if (pendingDocxFiles.length === 0) return;
+    setImportingDocx(true);
+    try {
+      const formData = new FormData();
+      pendingDocxFiles.forEach((f) => formData.append("files", f));
+      const res = await apiFetch(
+        `/api/descricoes-cargo/import-docx?overwriteIfExists=${overwriteIfExists}`,
+        { method: "POST", body: formData, cache: "no-store" }
+      );
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}: ${t || res.statusText}`);
+      }
+      const result = (await res.json()) as DocxImportResponse;
+      setDocxResult(result);
+      await syncList();
+      if (result.sucesso > 0) {
+        toast.success(`${result.sucesso} de ${result.total} importado(s) com sucesso`);
+      }
+      if (result.falha > 0) {
+        toast.error(`${result.falha} arquivo(s) com falha — veja detalhes na tela.`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Falha na importação: ${msg}`);
+    } finally {
+      setImportingDocx(false);
+    }
+  };
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -389,6 +445,25 @@ export default function DescricaoCargoCadastroScreen() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => docxFileInputRef.current?.click()} title="Importar Words seguindo o template DNALIO">
+            <Upload className="size-4" /><span className="hidden sm:inline ml-1">Importar Word</span>
+          </Button>
+          <input
+            ref={docxFileInputRef}
+            type="file"
+            accept=".docx"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = "";
+              if (files.length === 0) return;
+              setPendingDocxFiles(files);
+              setDocxResult(null);
+              setOverwriteIfExists(false);
+              setImportDocxOpen(true);
+            }}
+          />
           <Button variant="outline" size="sm" onClick={syncList} disabled={loading}>
             <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
           </Button>
@@ -713,6 +788,88 @@ export default function DescricaoCargoCadastroScreen() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
             <Button onClick={save} disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Word Dialog (Sessão 31.8 BONUS) */}
+      <Dialog open={importDocxOpen} onOpenChange={(open) => { if (!importingDocx) { setImportDocxOpen(open); if (!open) { setPendingDocxFiles([]); setDocxResult(null); } } }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Importar Descrições de Cargo (Word)</DialogTitle>
+            <DialogDescription>
+              {docxResult
+                ? `Concluído: ${docxResult.sucesso} de ${docxResult.total} importado(s) com sucesso${docxResult.falha > 0 ? `, ${docxResult.falha} com falha` : ""}.`
+                : `${pendingDocxFiles.length} arquivo(s) selecionado(s). Os documentos devem seguir o template DNALIO. O Code é derivado do nome do arquivo (sanitizado).`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!docxResult && pendingDocxFiles.length > 0 && (
+            <div className="space-y-3">
+              <div className="rounded-md border border-border/40 max-h-48 overflow-y-auto">
+                <ul className="text-sm divide-y divide-border/30">
+                  {pendingDocxFiles.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 px-3 py-2">
+                      <FileText className="size-4 text-muted-foreground flex-shrink-0" />
+                      <span className="flex-1 truncate" title={f.name}>{f.name}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{(f.size / 1024).toFixed(1)} KB</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={overwriteIfExists}
+                  onChange={(e) => setOverwriteIfExists(e.target.checked)}
+                />
+                <span>Sobrescrever se o Code já existir (caso contrário, arquivo é ignorado).</span>
+              </label>
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+                <strong>Como o parser funciona:</strong> ele procura por seções nomeadas no documento
+                (&quot;Descrição Sumária&quot;, &quot;Atividades Específicas&quot;, &quot;Atividades Comuns&quot;, &quot;Formação&quot;,
+                &quot;Experiência&quot;, &quot;Vivências/Experiências Específicas&quot;, &quot;Competências Comportamentais — DNALIO&quot;,
+                &quot;Competências de Liderança&quot;, &quot;Competências Funcionais&quot;, &quot;Competências Técnicas&quot;,
+                &quot;Requisitos Obrigatórios&quot;, &quot;Revisão e Aprovação&quot;) e extrai os bullets/parágrafos de cada uma.
+                Pares chave-valor (&quot;Cargo:&quot;, &quot;CBO:&quot;, &quot;Tempo Mínimo:&quot;) também são reconhecidos.
+                Se algo ficar de fora, edite manualmente após o import.
+              </div>
+            </div>
+          )}
+
+          {docxResult && (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {docxResult.itens.map((item, i) => (
+                <div key={i} className={`rounded-md border p-3 ${item.sucesso ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}`}>
+                  <div className="flex items-start gap-2">
+                    {item.sucesso
+                      ? <CheckCircle2 className="size-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      : <AlertCircle className="size-5 text-red-600 flex-shrink-0 mt-0.5" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate" title={item.fileName}>{item.fileName}</div>
+                      {item.title && <div className="text-xs text-muted-foreground">→ {item.title}</div>}
+                      {item.warnings.length > 0 && (
+                        <ul className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                          {item.warnings.map((w, wi) => <li key={wi}>• {w}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setImportDocxOpen(false); setPendingDocxFiles([]); setDocxResult(null); }} disabled={importingDocx}>
+              {docxResult ? "Fechar" : "Cancelar"}
+            </Button>
+            {!docxResult && (
+              <Button onClick={runDocxImport} disabled={importingDocx || pendingDocxFiles.length === 0}>
+                {importingDocx ? "Importando…" : `Importar ${pendingDocxFiles.length} arquivo(s)`}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
