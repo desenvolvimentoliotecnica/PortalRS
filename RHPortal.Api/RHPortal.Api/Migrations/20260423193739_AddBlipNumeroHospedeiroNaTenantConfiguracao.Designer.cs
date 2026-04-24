@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RhPortal.Api.Infrastructure.Data;
 
 #nullable disable
 
-namespace RHPortal.Api.Migrations
+namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260423193739_AddBlipNumeroHospedeiroNaTenantConfiguracao")]
+    partial class AddBlipNumeroHospedeiroNaTenantConfiguracao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -5893,8 +5896,8 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<DateOnly?>("CnhDataExpedicao")
-                        .HasColumnType("date");
+                    b.Property<int?>("CnhDataExpedicao")
+                        .HasColumnType("integer");
 
                     b.Property<string>("CnhNumero")
                         .HasMaxLength(20)
@@ -5904,8 +5907,8 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<DateOnly?>("CnhPrimeiraHabilitacao")
-                        .HasColumnType("date");
+                    b.Property<int?>("CnhPrimeiraHabilitacao")
+                        .HasColumnType("integer");
 
                     b.Property<string>("CnhUf")
                         .HasMaxLength(2)
@@ -7440,9 +7443,6 @@ namespace RHPortal.Api.Migrations
                     b.Property<Guid?>("SolicitacaoVagaGeradaId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("SolicitacaoVagaOrigemId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("SolicitanteId")
                         .HasColumnType("uuid");
 
@@ -7895,9 +7895,6 @@ namespace RHPortal.Api.Migrations
                     b.Property<Guid?>("AreaId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("CandidatoContratadoId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid?>("CentroCustoId")
                         .HasColumnType("uuid");
 
@@ -7906,9 +7903,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateOnly?>("DataDesligamento")
-                        .HasColumnType("date");
 
                     b.Property<short?>("DecisaoRH")
                         .HasColumnType("smallint");
@@ -7921,12 +7915,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<Guid?>("DecisaoRHRevisadoPorId")
                         .HasColumnType("uuid");
-
-                    b.Property<Guid?>("DesligamentoVinculadoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("DiasAvisoPrevioDesligamento")
-                        .HasColumnType("integer");
 
                     b.Property<bool>("DisponibilidadeViagens")
                         .HasColumnType("boolean");
@@ -7963,19 +7951,12 @@ namespace RHPortal.Api.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
-                    b.Property<string>("MotivoDesligamentoTexto")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
                     b.Property<short?>("MotivoRequisicao")
                         .HasColumnType("smallint");
 
                     b.Property<string>("ObservacaoAprovador")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
-
-                    b.Property<bool?>("PossuiEstabilidadeDesligamento")
-                        .HasColumnType("boolean");
 
                     b.Property<int?>("PrazoDias")
                         .HasColumnType("integer");
@@ -8003,9 +7984,6 @@ namespace RHPortal.Api.Migrations
 
                     b.Property<int>("TentativasIntegracao")
                         .HasColumnType("integer");
-
-                    b.Property<short?>("TipoAvisoPrevioDesligamento")
-                        .HasColumnType("smallint");
 
                     b.Property<short>("TipoContrato")
                         .HasColumnType("smallint");
@@ -8041,8 +8019,6 @@ namespace RHPortal.Api.Migrations
                     b.HasIndex("AprovadorId");
 
                     b.HasIndex("AreaId");
-
-                    b.HasIndex("CandidatoContratadoId");
 
                     b.HasIndex("CentroCustoId");
 
@@ -8702,12 +8678,6 @@ namespace RHPortal.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("AzureAdTenantId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("BlipApiKey")
-                        .HasColumnType("text");
-
-                    b.Property<string>("BlipApiUrl")
                         .HasColumnType("text");
 
                     b.Property<string>("BlipNumeroHospedeiro")
@@ -11135,10 +11105,6 @@ namespace RHPortal.Api.Migrations
                         .HasForeignKey("AreaId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("RhPortal.Api.Domain.Entities.Candidato", "CandidatoContratado")
-                        .WithMany()
-                        .HasForeignKey("CandidatoContratadoId");
-
                     b.HasOne("RhPortal.Api.Domain.Entities.CentroCusto", "CentroCusto")
                         .WithMany()
                         .HasForeignKey("CentroCustoId");
@@ -11179,8 +11145,6 @@ namespace RHPortal.Api.Migrations
                     b.Navigation("Aprovador");
 
                     b.Navigation("Area");
-
-                    b.Navigation("CandidatoContratado");
 
                     b.Navigation("CentroCusto");
 
