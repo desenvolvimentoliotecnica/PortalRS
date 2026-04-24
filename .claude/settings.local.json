@@ -91,7 +91,9 @@
       "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_teste -c \"SELECT count\\(*\\), \\\\\"Status\\\\\" FROM \\\\\"Funcionarios\\\\\" GROUP BY \\\\\"Status\\\\\";\")",
       "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_teste -c \"SELECT count\\(*\\) FROM \\\\\"OcupacoesHistorico\\\\\";\")",
       "Bash(find /Users/victoralves/Projects/Voltage.RenderRH/LioTecnica.Web.Next/src -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"import.*pdf\\\\|upload.*cv\\\\|import-pdf\\\\|curriculo\" {} \\\\;)",
-      "Bash(grep -E \"\\\\.\\(cs|tsx|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(cs|tsx|ts\\)$\")",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(grep -E \"\\\\.\\(cs|ts\\)$\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

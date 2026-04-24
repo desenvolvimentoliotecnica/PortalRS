@@ -1391,10 +1391,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         };
 
         // Aviso trabalhado: datIniAviso = datDesligamento - DiasAvisoPrevio.
-        // Aviso indenizado/dispensado: datIniAviso em branco ("" — Datasul aceita como N/A).
+        // Aviso indenizado/dispensado: datIniAviso = datDesligamento (TOTVS requer uma data de referência).
         var datIniAviso = s.TipoAvisoPrevio == TipoAvisoPrevio.Trabalhado
             ? (TotvsPayloadHelper.FormatDate(s.DataDesligamento.AddDays(-s.DiasAvisoPrevio)) ?? "")
-            : "";
+            : (TotvsPayloadHelper.FormatDate(s.DataDesligamento) ?? "");
 
         // datLimPgtoRecis (CLT art. 477 §6º): prazo legal até o 10º dia corrido,
         // contado a partir do próprio desligamento — por isso +9 dias, não +10.

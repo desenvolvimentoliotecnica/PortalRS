@@ -34,6 +34,9 @@ public interface ISolicitacaoDesligamentoService
     /// Propaga reprovação a partir da vaga origem. Não valida permissões do usuário.
     /// Idempotente: ignora se o desligamento já está em estado terminal.
     /// </summary>
+    /// <summary>Datasul confirma resultado da integração — move para Concluida ou registra erro.</summary>
+    Task<SolicitacaoDesligamentoResponse?> ConfirmarIntegracaoAsync(Guid id, IntegracaoResultado resultado, string? mensagem, CancellationToken ct);
+
     Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct);
 
     /// <summary>
@@ -707,6 +710,35 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _db.SolicitacoesDesligamento.Add(copy);
         await _db.SaveChangesAsync(ct);
         return (await GetByIdAsync(copy.Id, ct))!;
+    }
+
+    public async Task<SolicitacaoDesligamentoResponse?> ConfirmarIntegracaoAsync(
+        Guid id, IntegracaoResultado resultado, string? mensagem, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.EmIntegracao)
+            throw new InvalidOperationException("Apenas solicitações em EmIntegracao podem ter o resultado confirmado.");
+
+        entity.IntegracaoResultado = resultado;
+        entity.IntegracaoMensagem = mensagem;
+        entity.IntegradaEmUtc = DateTimeOffset.UtcNow;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        if (resultado == IntegracaoResultado.Sucesso)
+        {
+            var statusAnterior = entity.Status.ToString();
+            entity.Status = SolicitacaoStatus.Concluida;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
+                statusAnterior, entity.Status.ToString(), _currentUser, null, ct);
+        }
+        // Erro: mantém EmIntegracao para o RH visualizar e reprocessar
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
     }
 
     public async Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct)

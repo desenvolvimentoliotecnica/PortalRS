@@ -4,6 +4,7 @@ using RhPortal.Api.Application.Cartas;
 using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Application.SolicitacoesDesligamento;
 using RhPortal.Api.Contracts.SolicitacoesDesligamento;
+using RhPortal.Api.Contracts.SolicitacoesPromocao;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -257,6 +258,25 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         try
         {
             var result = await _service.EfetivarAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Datasul confirma o resultado da integração do desligamento (sucesso ou erro).</summary>
+    [HttpPost("{id:guid}/confirmar-integracao")]
+    [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ConfirmarIntegracao(
+        Guid id, [FromBody] ConfirmarIntegracaoMovimentacaoRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.ConfirmarIntegracaoAsync(id, request.Resultado, request.Mensagem, ct);
             return result is null ? NotFound() : Ok(result);
         }
         catch (InvalidOperationException ex)
