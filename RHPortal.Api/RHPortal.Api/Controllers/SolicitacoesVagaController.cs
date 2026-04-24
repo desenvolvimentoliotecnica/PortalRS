@@ -267,32 +267,6 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// RH registra a decisão de headcount para uma VagaNova aprovada:
-    /// substituição provisória (com prazo em meses) ou aumento definitivo (escalado à Diretoria).
-    /// Só pode ser chamado quando a solicitação está em AguardandoDecisaoRH.
-    /// </summary>
-    [HttpPost("{id:guid}/decisao-rh")]
-    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> DecisaoRH(
-        Guid id,
-        [FromBody] DecisaoHeadcountRequest request,
-        CancellationToken ct)
-    {
-        try
-        {
-            var result = await _service.DecisaoRHAsync(id, request, ct);
-            return result is null ? NotFound() : Ok(result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { message = ex.Message });
-        }
-    }
-
     /// <summary>Exclui uma solicitação (somente rascunho).</summary>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

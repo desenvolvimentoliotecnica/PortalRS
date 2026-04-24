@@ -835,19 +835,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [wizardMode, setWizardMode] = useState(false);
   const loaded = useRef(false);
 
-  // Headcount pendente de decisão RH
-  const [headcountPendente, setHeadcountPendente] = useState(0);
-  const [headcountDisponivel, setHeadcountDisponivel] = useState(0);
-  const [solicitacaoPendenteDecisaoId, setSolicitacaoPendenteDecisaoId] = useState<string | null>(null);
+  // Histórico da decisão de headcount registrada na solicitação de vaga (read-only).
+  // Decisão agora é feita pelo GESTOR na criação da solicitação — RH não decide mais aqui.
   const [decisaoRHFeita, setDecisaoRHFeita] = useState<{
     tipo: number; revisadoPorNome: string | null; emUtc: string | null; prazoMeses: number | null;
     expiresAtUtc: string | null;
   } | null>(null);
-  const [decisaoRHSelecionada, setDecisaoRHSelecionada] = useState<"1" | "2" | "3" | "">("");
-  const [prazoUnidade, setPrazoUnidade] = useState<"minutos" | "dias" | "meses" | "data">("meses");
-  const [prazoValor, setPrazoValor] = useState(3);
-  const [prazoDataEspecifica, setPrazoDataEspecifica] = useState("");
-  const [savingDecisao, setSavingDecisao] = useState(false);
 
   const stepCompletion = useMemo(() => {
     const s = new Map<TabKey, boolean>();
@@ -872,14 +865,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   useEffect(() => {
     if (!open) {
       loaded.current = false;
-      setHeadcountPendente(0);
-      setHeadcountDisponivel(0);
-      setSolicitacaoPendenteDecisaoId(null);
       setDecisaoRHFeita(null);
-      setDecisaoRHSelecionada("");
-      setPrazoUnidade("meses");
-      setPrazoValor(3);
-      setPrazoDataEspecifica("");
       return;
     }
     if (loaded.current) return;
@@ -1006,12 +992,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         nomeEngessado: pick(v.nomeEngessado),
       });
 
-      // Headcount pendente de decisão RH
-      setHeadcountPendente(typeof v.headcountPendente === "number" ? v.headcountPendente : 0);
-      const autorizado = typeof v.headcountAutorizado === "number" ? v.headcountAutorizado : 0;
-      const ocupado = typeof v.headcountOcupado === "number" ? v.headcountOcupado : 0;
-      setHeadcountDisponivel(Math.max(0, autorizado - ocupado));
-      setSolicitacaoPendenteDecisaoId(v.solicitacaoPendenteDecisaoId ? String(v.solicitacaoPendenteDecisaoId) : null);
+      // Histórico da decisão de headcount (read-only — decisão é feita na criação da solicitação pelo gestor)
       if (v.decisaoRH != null) {
         setDecisaoRHFeita({
           tipo: Number(v.decisaoRH),
@@ -1033,67 +1014,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     toast.success("Dados copiados. Edite e salve como nova.");
   }
 
-  function calcPrazoDataAlvo(): string | null {
-    if (decisaoRHSelecionada !== "1") return null;
-    const now = new Date();
-    if (prazoUnidade === "minutos") {
-      return new Date(now.getTime() + prazoValor * 60_000).toISOString();
-    } else if (prazoUnidade === "dias") {
-      return new Date(now.getTime() + prazoValor * 86_400_000).toISOString();
-    } else if (prazoUnidade === "meses") {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() + prazoValor);
-      return d.toISOString();
-    } else {
-      // data específica
-      return prazoDataEspecifica ? new Date(prazoDataEspecifica).toISOString() : null;
-    }
-  }
-
-  async function handleConfirmarDecisaoRH() {
-    if (!solicitacaoPendenteDecisaoId) return;
-    if (!decisaoRHSelecionada) { toast.error("Selecione o tipo de decisão."); return; }
-    if (decisaoRHSelecionada === "1") {
-      if (prazoUnidade === "data" && !prazoDataEspecifica) { toast.error("Selecione a data/hora de notificação."); return; }
-      if (prazoUnidade !== "data" && prazoValor < 1) { toast.error("Informe um prazo válido."); return; }
-    }
-    setSavingDecisao(true);
-    const prazoDataAlvo = calcPrazoDataAlvo();
-    const prazoMesesParaBackend = prazoUnidade === "meses" ? prazoValor : null;
-    try {
-      await fetchJson(`${BASE}/api/solicitacoes-vaga/${encodeURIComponent(solicitacaoPendenteDecisaoId)}/decisao-rh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          decisao: Number(decisaoRHSelecionada),
-          prazoMeses: prazoMesesParaBackend,
-          prazoDataAlvo,
-        }),
-      });
-      if (decisaoRHSelecionada === "1") {
-        const dtFmt = prazoDataAlvo ? new Date(prazoDataAlvo).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "";
-        toast.success(`Substituição provisória registrada. Revisão prevista em ${dtFmt}.`);
-      } else if (decisaoRHSelecionada === "3") {
-        toast.success("Headcount existente consumido. A vaga está aberta para recrutamento.");
-      } else {
-        toast.success("Aumento de headcount encaminhado para aprovação da Diretoria.");
-      }
-      setHeadcountPendente(0);
-      setSolicitacaoPendenteDecisaoId(null);
-      setDecisaoRHSelecionada("");
-      setPrazoUnidade("meses");
-      setPrazoValor(3);
-      setPrazoDataEspecifica("");
-      if (vagaId) void loadVagaIntoDraft(vagaId, enums);
-      onSaved(vagaId ?? undefined);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao registrar decisão.";
-      toast.error(msg);
-    } finally {
-      setSavingDecisao(false);
-    }
-  }
-
   async function handleSave() {
     if (!draft.titulo.trim()) { toast.error("Informe o título da vaga."); setTab("identificacao"); return; }
     if (!draft.status) { toast.error("Selecione o status."); setTab("dados"); return; }
@@ -1101,10 +1021,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
     // Ao publicar, exige campos essenciais preenchidos
     if (draft.status.toLowerCase() === "aberta") {
-      if (headcountPendente > 0) {
-        toast.error("Defina a decisão de headcount antes de publicar.");
-        return;
-      }
       const campos: string[] = [];
       if (!draft.tipoContratacao) campos.push("Tipo de Contratação");
       if (!draft.modalidade) campos.push("Modalidade");
@@ -1236,99 +1152,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           </div>
         </div>
 
-        {/* Decisão de Headcount (RH) — banner âmbar quando há HC pendente */}
-        {headcountPendente > 0 && !decisaoRHFeita && (
-          <div className="mx-4 mb-1 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 shrink-0">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-amber-600">⚠</span>
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                Decisão de Headcount pendente (+{headcountPendente} aprovado pelo fluxo de gestores)
-              </p>
-            </div>
-            <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">
-              Esta vaga tem headcount aprovado aguardando definição do RH. A vaga não pode ser publicada antes desta decisão.
-            </p>
-            <div className="space-y-2 mb-3">
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input type="radio" name="decisaoRH" value="1" checked={decisaoRHSelecionada === "1"} onChange={() => setDecisaoRHSelecionada("1")} className="mt-0.5" />
-                <span className="text-sm text-amber-800 dark:text-amber-200">
-                  <strong>Substituição provisória</strong> — alguém está saindo; define prazo estimado de revisão
-                </span>
-              </label>
-              {decisaoRHSelecionada === "1" && (
-                <div className="ml-5 mt-2 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <label className="text-xs text-amber-700 dark:text-amber-400 shrink-0 font-medium">Prazo de revisão:</label>
-                    <select
-                      value={prazoUnidade}
-                      onChange={(e) => setPrazoUnidade(e.target.value as "minutos" | "dias" | "meses" | "data")}
-                      className="rounded-md border border-amber-300 bg-white dark:bg-amber-950 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
-                    >
-                      <option value="minutos">Minutos</option>
-                      <option value="dias">Dias</option>
-                      <option value="meses">Meses</option>
-                      <option value="data">Data específica</option>
-                    </select>
-                    {prazoUnidade !== "data" && (
-                      <input
-                        type="number" min={1} max={prazoUnidade === "minutos" ? 1440 : prazoUnidade === "dias" ? 365 : 24}
-                        value={prazoValor}
-                        onChange={(e) => setPrazoValor(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-20 rounded-md border border-amber-300 bg-white dark:bg-amber-950 px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-amber-400"
-                      />
-                    )}
-                    {prazoUnidade === "data" && (
-                      <input
-                        type="datetime-local"
-                        value={prazoDataEspecifica}
-                        onChange={(e) => setPrazoDataEspecifica(e.target.value)}
-                        min={new Date().toISOString().slice(0, 16)}
-                        className="rounded-md border border-amber-300 bg-white dark:bg-amber-950 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400"
-                      />
-                    )}
-                  </div>
-                  {prazoUnidade !== "data" && prazoValor > 0 && (() => {
-                    const d = new Date();
-                    if (prazoUnidade === "minutos") d.setMinutes(d.getMinutes() + prazoValor);
-                    else if (prazoUnidade === "dias") d.setDate(d.getDate() + prazoValor);
-                    else d.setMonth(d.getMonth() + prazoValor);
-                    return (
-                      <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                        Revisão prevista: {d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-                      </p>
-                    );
-                  })()}
-                </div>
-              )}
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input type="radio" name="decisaoRH" value="2" checked={decisaoRHSelecionada === "2"} onChange={() => setDecisaoRHSelecionada("2")} className="mt-0.5" />
-                <span className="text-sm text-amber-800 dark:text-amber-200">
-                  <strong>Aumento definitivo de headcount</strong> — precisamos de mais uma pessoa; encaminha para aprovação da Diretoria
-                </span>
-              </label>
-              {headcountDisponivel > 0 && (
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input type="radio" name="decisaoRH" value="3" checked={decisaoRHSelecionada === "3"} onChange={() => setDecisaoRHSelecionada("3")} className="mt-0.5" />
-                  <span className="text-sm text-amber-800 dark:text-amber-200">
-                    <strong>Consumir headcount disponível</strong> — já há{" "}
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">{headcountDisponivel} slot{headcountDisponivel > 1 ? "s" : ""} autorizado{headcountDisponivel > 1 ? "s" : ""} em aberto</span>;
-                    utiliza posições existentes sem aumentar o headcount
-                  </span>
-                </label>
-              )}
-            </div>
-            <Button
-              size="sm"
-              disabled={!decisaoRHSelecionada || savingDecisao}
-              onClick={() => void handleConfirmarDecisaoRH()}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              {savingDecisao ? "Registrando…" : "Confirmar decisão RH"}
-            </Button>
-          </div>
-        )}
-
-        {/* Histórico de decisão RH — quando já foi decidido */}
+        {/* Histórico de decisão de headcount — quando já registrada (read-only) */}
         {decisaoRHFeita && (
           <div className="mx-4 mb-1 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 px-4 py-3 shrink-0">
             <p className="text-xs text-emerald-700 dark:text-emerald-400">

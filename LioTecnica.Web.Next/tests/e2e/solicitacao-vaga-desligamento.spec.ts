@@ -163,7 +163,24 @@ test("UI Gap 3 — Nova posição + motivo de desligamento mostra alerta e bloqu
     await page.locator('[data-testid="btn-nova-posicao-picker"]').click();
     await expect(page.locator('[data-testid="select-motivo-requisicao"]')).toBeVisible({ timeout: 5_000 });
 
-    await page.locator('[data-testid="select-motivo-requisicao"]').selectOption("1");
+    // O motivo de requisição agora é parametrizável (FK para MotivosRequisicaoVagaConfig),
+    // então o value de cada option é um GUID — selecionamos pelo label exibido.
+    await page.waitForFunction(
+        () => {
+            const el = document.querySelector<HTMLSelectElement>('[data-testid="select-motivo-requisicao"]');
+            return el !== null && el.options.length > 1;
+        },
+        { timeout: 10_000 },
+    );
+    const motivoSelect = page.locator('[data-testid="select-motivo-requisicao"]');
+    // Descobre o value (GUID) da opção que tem "Pedido de demissão" como label
+    const valuePedidoDemissao = await motivoSelect.evaluate((el) => {
+        const select = el as HTMLSelectElement;
+        const match = Array.from(select.options).find((o) => /Pedido de demiss/i.test(o.text));
+        return match?.value ?? "";
+    });
+    expect(valuePedidoDemissao, "option 'Pedido de demissão' deveria existir no select").toBeTruthy();
+    await motivoSelect.selectOption(valuePedidoDemissao);
 
     // Alerta vermelho aparece, bloco de dados NÃO aparece
     await expect(page.locator('[data-testid="alerta-nova-posicao-desligamento"]')).toBeVisible();
@@ -331,6 +348,8 @@ test("API Auto-submit — vaga sem motivo de desligamento nasce em PendenteAprov
         motivoRequisicao: "AtenderDemanda",
         cnhObrigatoria: false,
         disponibilidadeViagens: false,
+        // VagaNova exige decisão de headcount antes do submit
+        decisaoRH: "ConsumirHeadcountExistente",
     };
     const createRes = await api(page, "POST", "/api/solicitacoes-vaga", createBody);
     expect(createRes.status).toBeLessThan(300);
@@ -361,6 +380,8 @@ test("API Amarração — SolicitacaoVaga response expõe os campos candidatoCon
         motivoRequisicao: "AtenderDemanda",
         cnhObrigatoria: false,
         disponibilidadeViagens: false,
+        // VagaNova exige decisão de headcount antes do submit
+        decisaoRH: "ConsumirHeadcountExistente",
     };
     const createRes = await api(page, "POST", "/api/solicitacoes-vaga", createBody);
     expect(createRes.status).toBeLessThan(300);
@@ -392,6 +413,8 @@ test("API Amarração — vincular candidato contratado preenche CandidatoContra
         motivoRequisicao: "AtenderDemanda",
         cnhObrigatoria: false,
         disponibilidadeViagens: false,
+        // VagaNova exige decisão de headcount antes do submit
+        decisaoRH: "ConsumirHeadcountExistente",
     });
     expect(solRes.status, `POST solicitacao-vaga: ${solRes.text.slice(0, 300)}`).toBeLessThan(300);
     const sol = JSON.parse(solRes.text);

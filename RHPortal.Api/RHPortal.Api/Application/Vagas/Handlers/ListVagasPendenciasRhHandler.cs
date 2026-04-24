@@ -32,7 +32,7 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                 .Distinct()
                 .ToListAsync(ct);
 
-            // Passo 1b: IDs de vagas com headcount pendente de decisão RH (AguardandoDecisaoRH = 9)
+            // Passo 1b: IDs de vagas com headcount pendente (aguardando aprovação do aumento pela Diretoria)
             var vagaIdHCPendente = await _db.Vagas
                 .AsNoTracking()
                 .Where(v => v.HeadcountPendente > 0)
@@ -66,8 +66,7 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                 .AsNoTracking()
                 .Where(s => s.VagaId != null
                          && vagaIdHCPendenteSet.Contains(s.VagaId!.Value)
-                         && ((short)s.Status == (short)SolicitacaoStatus.AguardandoDecisaoRH
-                          || (short)s.Status == (short)SolicitacaoStatus.PendenteAprovacaoAumentoHC))
+                         && (short)s.Status == (short)SolicitacaoStatus.PendenteAprovacaoAumentoHC)
                 .GroupBy(s => s.VagaId!.Value)
                 .Select(g => new { VagaId = g.Key, CreatedAtUtc = g.Max(s => s.CreatedAtUtc) })
                 .ToDictionaryAsync(x => x.VagaId, x => x.CreatedAtUtc, ct);

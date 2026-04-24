@@ -231,7 +231,6 @@ public sealed class AprovacoesController : ControllerBase
     {
         SolicitacaoStatus.PendenteAprovacao         => "Aguardando aprovação",
         SolicitacaoStatus.PendenteAprovacaoRh        => "Aguardando RH",
-        SolicitacaoStatus.AguardandoDecisaoRH        => "Aguardando decisão RH",
         SolicitacaoStatus.PendenteAprovacaoAumentoHC => "Aguardando aprovação de HC",
         _                                            => s.ToString(),
     };
