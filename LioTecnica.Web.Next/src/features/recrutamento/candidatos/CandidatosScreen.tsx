@@ -538,6 +538,7 @@ export default function CandidatosScreen() {
       nome: pickString(c.nome, "").trim(),
       email: pickString(c.email, "").trim(),
       fone: pickString(c.fone, "").trim() || null,
+      celular: pickString((c as Record<string, unknown>)?.celular, "").trim(),
       cidade: pickString(c.cidade, "").trim() || null,
       uf: pickString(c.uf, "").trim().toUpperCase().slice(0, 2) || null,
       linkedinUrl: c.linkedinUrl?.trim() || null,
@@ -567,8 +568,10 @@ export default function CandidatosScreen() {
     const nome = pickString(draft.nome, "").trim();
     const email = pickString(draft.email, "").trim();
     const vaga = pickString(draft.vagaId, "").trim();
+    const celular = pickString((draft as Record<string, unknown>)?.celular, "").trim();
     if (!nome) return toast.error("Informe o nome do candidato.");
     if (!email) return toast.error("Informe o email do candidato.");
+    if (!celular) return toast.error("Informe o celular do candidato.");
     if (vagas.length > 0 && !vaga) return toast.error("Selecione uma vaga.");
     const payload = buildCandidatePayload(draft);
     try {
@@ -1382,6 +1385,10 @@ export default function CandidatosScreen() {
                   <div className="md:col-span-4">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Telefone</label>
                     <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString(draft.fone, "")} onChange={(e) => setDraft({ ...draft, fone: e.target.value })} placeholder="(11) 99999-0000" />
+                  </div>
+                  <div className="md:col-span-4">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Celular *</label>
+                    <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={pickString((draft as Record<string, unknown>)?.celular, "")} onChange={(e) => setDraft({ ...draft, celular: e.target.value })} placeholder="(11) 99999-0000" />
                   </div>
                   <div className="md:col-span-4">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Cidade</label>

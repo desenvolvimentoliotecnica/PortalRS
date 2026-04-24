@@ -61,6 +61,7 @@ interface CandidateRow {
   nome: string;
   email: string | null;
   fone: string | null;
+  celular: string | null;
   status: string;
   createdAtUtc: string;
 }
@@ -69,11 +70,13 @@ interface AdmissaoDialogState {
   open: boolean;
   candidate: CandidateRow | null;
   modo: "manual" | "link";
+  canal: "whatsapp" | "email" | "whatsapp+email";
   tipoContratacao: "CLT" | "PJ";
   cpf: string;
   working: boolean;
   linkGerado: string | null;
   emailEnviado: boolean;
+  whatsappEnviado: boolean;
 }
 
 function pick(obj: VagaData | null, key: string, fallback = "—"): string {
@@ -364,10 +367,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [activeTab, setActiveTab] = useState("resumo");
   const [editOpen, setEditOpen] = useState(false);
   const [admissaoDialog, setAdmissaoDialog] = useState<AdmissaoDialogState>({
-    open: false, candidate: null, modo: "manual", tipoContratacao: "CLT", cpf: "", working: false, linkGerado: null, emailEnviado: false,
+    open: false, candidate: null, modo: "manual", canal: "whatsapp+email", tipoContratacao: "CLT", cpf: "", working: false, linkGerado: null, emailEnviado: false, whatsappEnviado: false,
   });
   const [newCandidateOpen, setNewCandidateOpen] = useState(false);
-  const [newCandForm, setNewCandForm] = useState({ nome: "", email: "", fone: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
+  const [newCandForm, setNewCandForm] = useState({ nome: "", email: "", fone: "", celular: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
   const [newCandWorking, setNewCandWorking] = useState(false);
   const [newCandDocTipo, setNewCandDocTipo] = useState("curriculo");
   const [newCandDocDesc, setNewCandDocDesc] = useState("");
@@ -513,8 +516,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
     }
   }, [vagaId]);
 
-  async function iniciarAdmissao() {
-    const { candidate, modo, tipoContratacao, cpf } = admissaoDialog;
+  async function iniciarAdmissao(canalOverride?: "whatsapp" | "email" | "whatsapp+email") {
+    const { candidate, tipoContratacao, cpf } = admissaoDialog;
+    const canal = canalOverride ?? admissaoDialog.canal;
+    const modo = canalOverride ? "link" : admissaoDialog.modo;
     if (!candidate) return;
     setAdmissaoDialog((d) => ({ ...d, working: true }));
     try {
@@ -527,13 +532,15 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         setAdmissaoDialog((d) => ({ ...d, open: false, working: false }));
         router.push(`/admissao/nova?id=${encodeURIComponent(res.id)}`);
       } else {
-        const linkRes = await fetchJson<{ publicUrl?: string; emailEnviado?: boolean }>(`/api/pre-admissao/${encodeURIComponent(res.id)}/gerar-link`, {
+        const enviarEmail = canal === "email" || canal === "whatsapp+email";
+        const enviarWhatsapp = canal === "whatsapp" || canal === "whatsapp+email";
+        const linkRes = await fetchJson<{ publicUrl?: string; emailEnviado?: boolean; whatsappEnviado?: boolean }>(`/api/pre-admissao/${encodeURIComponent(res.id)}/gerar-link`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cpf: cpf.replace(/\D/g, "") }),
+          body: JSON.stringify({ cpf: cpf.replace(/\D/g, ""), enviarEmail, enviarWhatsapp }),
         });
-        setAdmissaoDialog((d) => ({ ...d, working: false, linkGerado: linkRes.publicUrl ?? null, emailEnviado: linkRes.emailEnviado ?? false }));
-        void load(); // recarregar candidatos para atualizar botões
+        setAdmissaoDialog((d) => ({ ...d, working: false, linkGerado: linkRes.publicUrl ?? null, emailEnviado: linkRes.emailEnviado ?? false, whatsappEnviado: linkRes.whatsappEnviado ?? false }));
+        void load();
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro";
@@ -571,6 +578,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         nome: String(data.nome ?? ""),
         email: String(data.email ?? ""),
         fone: String(data.fone ?? ""),
+        celular: String(data.celular ?? ""),
         cidade: String(data.cidade ?? ""),
         uf: String(data.uf ?? "SP"),
         fonte: String(data.fonte ?? "Email"),
@@ -589,7 +597,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   function closeCandidateForm() {
     setNewCandidateOpen(false);
     setEditingCandidateId(null);
-    setNewCandForm({ nome: "", email: "", fone: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
+    setNewCandForm({ nome: "", email: "", fone: "", celular: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
     setNewCandPendingDocs([]);
   }
 
@@ -985,9 +993,17 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                           )}
                           {!isReadOnly && (
                             <Button size="sm" variant="outline" onClick={() => {
+                              const semEmail = !c.email?.trim();
+                              const semCelular = !c.celular?.trim();
+                              if (semEmail || semCelular) {
+                                const campos = [semEmail && "e-mail", semCelular && "celular"].filter(Boolean).join(" e ");
+                                toast.error(`Preencha o ${campos} do candidato antes de aprovar.`, { duration: 5000 });
+                                void openEditCandidate(c.id);
+                                return;
+                              }
                               const vagaTipo = pick(vaga, "tipoContratacao").toUpperCase();
                               const tipo = (vagaTipo === "CLT" || vagaTipo === "PJ") ? vagaTipo as "CLT" | "PJ" : "CLT";
-                              setAdmissaoDialog({ open: true, candidate: c, modo: "manual", tipoContratacao: tipo, cpf: "", working: false, linkGerado: null, emailEnviado: false });
+                              setAdmissaoDialog({ open: true, candidate: c, modo: "manual", canal: "whatsapp+email", tipoContratacao: tipo, cpf: "", working: false, linkGerado: null, emailEnviado: false, whatsappEnviado: false });
                             }}>
                               <Mail className="size-3.5 mr-1" /> {c.status === "Aprovado" ? "Reenviar" : "Aprovar Candidato"}
                             </Button>
@@ -1388,6 +1404,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                   <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandForm.fone} onChange={(e) => setNewCandForm(f => ({ ...f, fone: e.target.value }))} placeholder="(11) 99999-0000" />
                 </div>
                 <div className="md:col-span-4">
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Celular *</label>
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandForm.celular} onChange={(e) => setNewCandForm(f => ({ ...f, celular: e.target.value }))} placeholder="(11) 99999-0000" />
+                </div>
+                <div className="md:col-span-4">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Cidade</label>
                   <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandForm.cidade} onChange={(e) => setNewCandForm(f => ({ ...f, cidade: e.target.value }))} placeholder="São Paulo" />
                 </div>
@@ -1490,13 +1510,14 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           </div>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
             <Button variant="outline" size="sm" onClick={closeCandidateForm}>Cancelar</Button>
-            <Button disabled={!newCandForm.nome.trim() || !newCandForm.email.trim() || newCandWorking} onClick={async () => {
+            <Button disabled={!newCandForm.nome.trim() || !newCandForm.email.trim() || !newCandForm.celular.trim() || newCandWorking} onClick={async () => {
               setNewCandWorking(true);
               try {
                 const payload = {
                   nome: newCandForm.nome.trim(),
                   email: newCandForm.email.trim(),
                   fone: newCandForm.fone.trim() || null,
+                  celular: newCandForm.celular.trim(),
                   cidade: newCandForm.cidade.trim() || null,
                   uf: newCandForm.uf || null,
                   fonte: newCandForm.fonte,
@@ -1504,6 +1525,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                   trabalhandoAtualmente: newCandForm.trabalhandoAtualmente === "sim" ? true : newCandForm.trabalhandoAtualmente === "nao" ? false : null,
                   linkedinUrl: newCandForm.linkedinUrl.trim() || null,
                   obs: newCandForm.obs.trim() || null,
+                  vagaId,
                 };
                 const res = editingCandidateId
                   ? await apiFetch(`/api/candidatos/${encodeURIComponent(editingCandidateId)}`, {
@@ -1793,23 +1815,32 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           </DialogHeader>
           {admissaoDialog.linkGerado ? (
             <div className="space-y-3">
-              {admissaoDialog.emailEnviado ? (
+              {/* WhatsApp enviado */}
+              {admissaoDialog.whatsappEnviado && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center dark:border-emerald-800 dark:bg-emerald-900/20">
+                  <svg className="mx-auto size-6 text-emerald-600 mb-1" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">WhatsApp enviado com sucesso!</p>
+                </div>
+              )}
+              {/* Email enviado */}
+              {admissaoDialog.emailEnviado && (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center dark:border-emerald-800 dark:bg-emerald-900/20">
                   <Mail className="mx-auto size-6 text-emerald-600 mb-1" />
                   <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Email enviado ao candidato!</p>
                 </div>
-              ) : (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center dark:border-amber-800 dark:bg-amber-900/20">
-                  <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Email não configurado — compartilhe o link manualmente.</p>
+              )}
+              {/* Só mostra link se não enviou WhatsApp (canal foi só email ou nenhum canal funcionou) */}
+              {!admissaoDialog.whatsappEnviado && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground font-medium">Link de acesso do candidato:</p>
+                  <div className="flex gap-2">
+                    <input readOnly value={admissaoDialog.linkGerado} className="flex-1 rounded-md border border-input bg-muted/40 px-2 py-1.5 text-xs font-mono truncate" />
+                    <Button size="sm" variant="outline" onClick={() => { void navigator.clipboard.writeText(admissaoDialog.linkGerado!); toast.success("Link copiado!"); }}>Copiar</Button>
+                  </div>
                 </div>
               )}
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground font-medium">Link de acesso do candidato:</p>
-                <div className="flex gap-2">
-                  <input readOnly value={admissaoDialog.linkGerado} className="flex-1 rounded-md border border-input bg-muted/40 px-2 py-1.5 text-xs font-mono truncate" />
-                  <Button size="sm" variant="outline" onClick={() => { void navigator.clipboard.writeText(admissaoDialog.linkGerado!); toast.success("Link copiado!"); }}>Copiar</Button>
-                </div>
-              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setAdmissaoDialog((d) => ({ ...d, open: false }))}>Fechar</Button>
               </DialogFooter>
@@ -1834,32 +1865,57 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                 </p>
               </div>
 
-              <p className="text-sm text-muted-foreground">Escolha como prosseguir:</p>
+              {/* Editar candidato */}
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={admissaoDialog.working}
+                onClick={() => {
+                  setAdmissaoDialog((d) => ({ ...d, open: false }));
+                  if (admissaoDialog.candidate) void openEditCandidate(admissaoDialog.candidate.id);
+                }}
+              >
+                <PenSquare className="size-4 mr-2" /> Revisar candidato
+              </Button>
+
+              {/* Canais de envio */}
               <div className="space-y-2">
-                {([
-                  { value: "manual", label: "Preencher manualmente", desc: "RH preenche os dados no sistema" },
-                  { value: "link", label: "Enviar link para candidato", desc: "Candidato preenche os dados online" },
-                ] as const).map((opt) => (
-                  <label key={opt.value} className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${admissaoDialog.modo === opt.value ? "border-primary bg-primary/5" : "border-border/40 hover:bg-muted/20"}`}>
-                    <input type="radio" name="admissaoModo" value={opt.value} checked={admissaoDialog.modo === opt.value} onChange={() => setAdmissaoDialog((d) => ({ ...d, modo: opt.value }))} className="mt-0.5" />
-                    <div>
-                      <div className="text-sm font-medium">{opt.label}</div>
-                      <div className="text-xs text-muted-foreground">{opt.desc}</div>
-                    </div>
-                  </label>
-                ))}
+                <Button
+                  className="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white"
+                  disabled={admissaoDialog.working}
+                  onClick={() => { setAdmissaoDialog((d) => ({ ...d, modo: "link", canal: "whatsapp" })); void iniciarAdmissao("whatsapp"); }}
+                >
+                  <svg className="size-4 mr-2 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                  Enviar via WhatsApp
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={admissaoDialog.working}
+                  onClick={() => { setAdmissaoDialog((d) => ({ ...d, modo: "link", canal: "email" })); void iniciarAdmissao("email"); }}
+                >
+                  <Mail className="size-4 mr-2" /> Enviar via E-mail
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={admissaoDialog.working}
+                  onClick={() => { setAdmissaoDialog((d) => ({ ...d, modo: "link", canal: "whatsapp+email" })); void iniciarAdmissao("whatsapp+email"); }}
+                >
+                  <svg className="size-4 mr-2 shrink-0 text-[#25D366]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                  <Mail className="size-4 mr-2" /> Enviar via WhatsApp e E-mail
+                </Button>
               </div>
-              {admissaoDialog.modo === "link" && (
-                <div className="space-y-1.5">
-                  <label htmlFor="adm-cpf" className="text-sm font-medium">CPF do candidato</label>
-                  <Input id="adm-cpf" placeholder="000.000.000-00" value={admissaoDialog.cpf} onChange={(e) => setAdmissaoDialog((d) => ({ ...d, cpf: e.target.value }))} autoComplete="off" />
-                  <p className="text-xs text-muted-foreground">Opcional. Se não informado, o candidato registrará o próprio CPF no primeiro acesso ao portal.</p>
-                </div>
-              )}
+
               <DialogFooter>
-                <Button variant="outline" disabled={admissaoDialog.working} onClick={() => setAdmissaoDialog((d) => ({ ...d, open: false }))}>Cancelar</Button>
-                <Button disabled={admissaoDialog.working} onClick={() => void iniciarAdmissao()}>
-                  {admissaoDialog.working ? "Processando…" : "Confirmar"}
+                <Button variant="outline" disabled={admissaoDialog.working} onClick={() => setAdmissaoDialog((d) => ({ ...d, open: false }))}>
+                  Cancelar
                 </Button>
               </DialogFooter>
             </div>
