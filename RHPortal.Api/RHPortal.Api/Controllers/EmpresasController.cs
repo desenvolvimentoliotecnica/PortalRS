@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.Geocoding;
 using RhPortal.Api.Contracts.Empresa;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
@@ -9,11 +10,84 @@ namespace RhPortal.Api.Controllers;
 
 /// <summary>
 /// Cadastro de Empresas (agrupador de Estabelecimentos).
+/// Sessão 31.8: estendido com endereço completo + geocoding (Nominatim) para
+/// alimentar o cálculo de distância candidato × empresa no MatchingService.
 /// </summary>
 [ApiController]
 [Route("api/empresas")]
 public sealed class EmpresasController : ControllerBase
 {
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private static string? NullIfBlank(string? s)
+        => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static EmpresaResponse MapToResponse(Empresa x) =>
+        new(
+            x.Id, x.Code, x.Description, x.IsActive,
+            x.CreatedAtUtc, x.UpdatedAtUtc,
+            x.Cep, x.Logradouro, x.Numero, x.Bairro, x.Cidade, x.Uf,
+            x.Latitude, x.Longitude, x.GeocodificadoEmUtc);
+
+    /// <summary>
+    /// Aplica os campos de endereço na entidade. Se o endereço mudou, agenda
+    /// nova geocodificação (chamada externa best-effort, falha não bloqueia o save).
+    /// </summary>
+    private static async Task ApplyEnderecoEGeocodificarAsync(
+        Empresa entity,
+        string? cep,
+        string? logradouro,
+        string? numero,
+        string? bairro,
+        string? cidade,
+        string? uf,
+        IGeocodingService geocoding,
+        CancellationToken ct)
+    {
+        var novoCep = NullIfBlank(cep);
+        var novoLog = NullIfBlank(logradouro);
+        var novoNum = NullIfBlank(numero);
+        var novoBai = NullIfBlank(bairro);
+        var novaCid = NullIfBlank(cidade);
+        var novaUf = NullIfBlank(uf);
+
+        var enderecoMudou =
+            entity.Cep != novoCep ||
+            entity.Logradouro != novoLog ||
+            entity.Numero != novoNum ||
+            entity.Bairro != novoBai ||
+            entity.Cidade != novaCid ||
+            entity.Uf != novaUf;
+
+        entity.Cep = novoCep;
+        entity.Logradouro = novoLog;
+        entity.Numero = novoNum;
+        entity.Bairro = novoBai;
+        entity.Cidade = novaCid;
+        entity.Uf = novaUf;
+
+        // Geocodifica se o endereço mudou ou se nunca foi geocodificado e há dados úteis
+        if (enderecoMudou || (entity.Latitude is null && (novoCep != null || novaCid != null)))
+        {
+            var result = await geocoding.GeocodeAsync(novoCep, novoLog, novoNum, novaCid, novaUf, ct);
+            if (result is not null)
+            {
+                entity.Latitude = result.Latitude;
+                entity.Longitude = result.Longitude;
+                entity.GeocodificadoEmUtc = DateTimeOffset.UtcNow;
+            }
+            else if (enderecoMudou)
+            {
+                // Endereço mudou mas geocoding falhou — limpa coords antigas pra não usar valor errado
+                entity.Latitude = null;
+                entity.Longitude = null;
+                entity.GeocodificadoEmUtc = null;
+            }
+        }
+    }
+
+    // ── CRUD ─────────────────────────────────────────────────────────────────
+
     [HttpGet]
     [ProducesResponseType(typeof(List<EmpresaResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<EmpresaResponse>>> List(
@@ -38,13 +112,10 @@ public sealed class EmpresasController : ControllerBase
             .OrderBy(x => x.Code)
             .Skip(skip)
             .Take(take)
-            .Select(x => new EmpresaResponse(
-                x.Id, x.Code, x.Description, x.IsActive,
-                x.CreatedAtUtc, x.UpdatedAtUtc))
             .ToListAsync(ct);
 
         Response.Headers["X-Total-Count"] = total.ToString();
-        return Ok(items);
+        return Ok(items.Select(MapToResponse).ToList());
     }
 
     [HttpGet("lookup")]
@@ -84,15 +155,8 @@ public sealed class EmpresasController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        var item = await db.Empresas
-            .AsNoTracking()
-            .Where(x => x.Id == id)
-            .Select(x => new EmpresaResponse(
-                x.Id, x.Code, x.Description, x.IsActive,
-                x.CreatedAtUtc, x.UpdatedAtUtc))
-            .FirstOrDefaultAsync(ct);
-
-        return item is null ? NotFound() : Ok(item);
+        var entity = await db.Empresas.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        return entity is null ? NotFound() : Ok(MapToResponse(entity));
     }
 
     [HttpPost]
@@ -101,6 +165,7 @@ public sealed class EmpresasController : ControllerBase
     public async Task<ActionResult<EmpresaResponse>> Create(
         [FromBody] EmpresaCreateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] IGeocodingService geocoding,
         CancellationToken ct)
     {
         var code = request.Code.Trim().ToUpperInvariant();
@@ -114,16 +179,17 @@ public sealed class EmpresasController : ControllerBase
             Description = request.Description.Trim(),
             IsActive = request.IsActive,
             CreatedAtUtc = DateTimeOffset.UtcNow,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
+
+        await ApplyEnderecoEGeocodificarAsync(
+            entity, request.Cep, request.Logradouro, request.Numero,
+            request.Bairro, request.Cidade, request.Uf, geocoding, ct);
 
         db.Empresas.Add(entity);
         await db.SaveChangesAsync(ct);
 
-        var response = new EmpresaResponse(
-            entity.Id, entity.Code, entity.Description, entity.IsActive,
-            entity.CreatedAtUtc, entity.UpdatedAtUtc);
-        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, response);
+        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapToResponse(entity));
     }
 
     [HttpPut("{id:guid}")]
@@ -134,6 +200,7 @@ public sealed class EmpresasController : ControllerBase
         [FromRoute] Guid id,
         [FromBody] EmpresaUpdateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] IGeocodingService geocoding,
         CancellationToken ct)
     {
         var entity = await db.Empresas.FirstOrDefaultAsync(x => x.Id == id, ct);
@@ -148,11 +215,13 @@ public sealed class EmpresasController : ControllerBase
         entity.IsActive = request.IsActive;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
+        await ApplyEnderecoEGeocodificarAsync(
+            entity, request.Cep, request.Logradouro, request.Numero,
+            request.Bairro, request.Cidade, request.Uf, geocoding, ct);
+
         await db.SaveChangesAsync(ct);
 
-        return Ok(new EmpresaResponse(
-            entity.Id, entity.Code, entity.Description, entity.IsActive,
-            entity.CreatedAtUtc, entity.UpdatedAtUtc));
+        return Ok(MapToResponse(entity));
     }
 
     [HttpDelete("{id:guid}")]

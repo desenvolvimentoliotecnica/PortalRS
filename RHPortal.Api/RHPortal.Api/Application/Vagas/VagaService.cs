@@ -163,6 +163,7 @@ public sealed class VagaService : IVagaService
             .Include(x => x.Turno)
             .Include(x => x.UnidadeLotacao)
             .Include(x => x.EixoVaga)
+            .Include(x => x.DescricaoCargo)
             .Include(x => x.Beneficios)
             .Include(x => x.Requisitos)
             .Include(x => x.Etapas)
@@ -252,6 +253,14 @@ public sealed class VagaService : IVagaService
             TurnoId = request.TurnoId,
             UnidadeLotacaoId = request.UnidadeLotacaoId,
             EixoVagaId = request.EixoVagaId,
+            // Sessão 31.8 — DescricaoCargo + pesos calibrados extras
+            // (Os 4 originais — Competencia/Experiencia/Formacao/Localidade — vêm de
+            // request.Weights via NormalizeWeights acima; aqui só os novos)
+            DescricaoCargoId = request.DescricaoCargoId,
+            PesoIdioma = request.PesoIdioma ?? 0,
+            PesoConhecimentoTecnico = request.PesoConhecimentoTecnico ?? 0,
+            PesoVivenciaEspecifica = request.PesoVivenciaEspecifica ?? 0,
+            LocalidadeMaxDistanciaKm = request.LocalidadeMaxDistanciaKm,
             TravarFaixaSalarial = request.TravarFaixaSalarial,
             MotivoAbertura = request.MotivoAbertura,
             OrcamentoAprovado = request.OrcamentoAprovado,
@@ -645,6 +654,18 @@ public sealed class VagaService : IVagaService
             v.EixoVaga?.Name,
             v.EixoVaga?.SlaDiasMetaFechamento,
             v.EixoVaga?.SlaDiasMetaFechamento ?? v.SlaDiasMetaFechamento,
+            // Sessão 31.8 — DescricaoCargo + pesos calibrados
+            v.DescricaoCargoId,
+            v.DescricaoCargo?.Code,
+            v.DescricaoCargo?.Title,
+            v.PesoCompetencia,
+            v.PesoExperiencia,
+            v.PesoFormacao,
+            v.PesoLocalidade,
+            v.PesoIdioma,
+            v.PesoConhecimentoTecnico,
+            v.PesoVivenciaEspecifica,
+            v.LocalidadeMaxDistanciaKm,
             v.TravarFaixaSalarial,
             v.AlcadaSalarialAprovadaPorUserId,
             v.AlcadaSalarialAprovadaEmUtc,
@@ -985,6 +1006,16 @@ public sealed class VagaService : IVagaService
         entity.TurnoId = request.TurnoId;
         entity.UnidadeLotacaoId = request.UnidadeLotacaoId;
         entity.EixoVagaId = request.EixoVagaId;
+        // Sessão 31.8 — DescricaoCargo + pesos calibrados
+        entity.DescricaoCargoId = request.DescricaoCargoId;
+        if (request.PesoCompetencia.HasValue)         entity.PesoCompetencia         = request.PesoCompetencia.Value;
+        if (request.PesoExperiencia.HasValue)         entity.PesoExperiencia         = request.PesoExperiencia.Value;
+        if (request.PesoFormacao.HasValue)            entity.PesoFormacao            = request.PesoFormacao.Value;
+        if (request.PesoLocalidade.HasValue)          entity.PesoLocalidade          = request.PesoLocalidade.Value;
+        if (request.PesoIdioma.HasValue)              entity.PesoIdioma              = request.PesoIdioma.Value;
+        if (request.PesoConhecimentoTecnico.HasValue) entity.PesoConhecimentoTecnico = request.PesoConhecimentoTecnico.Value;
+        if (request.PesoVivenciaEspecifica.HasValue)  entity.PesoVivenciaEspecifica  = request.PesoVivenciaEspecifica.Value;
+        entity.LocalidadeMaxDistanciaKm = request.LocalidadeMaxDistanciaKm;
         entity.TravarFaixaSalarial = request.TravarFaixaSalarial;
         entity.MotivoAbertura = request.MotivoAbertura;
         entity.OrcamentoAprovado = request.OrcamentoAprovado;

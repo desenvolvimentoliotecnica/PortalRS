@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.Geocoding;
 using RhPortal.Api.Contracts.Pessoas;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -12,11 +13,40 @@ public sealed class PessoaService : IPessoaService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
+    /// <summary>
+    /// Geocoder opcional — quando presente, Create/Update tentam geocodificar
+    /// o endereço da pessoa (best-effort) para alimentar o cálculo de distância
+    /// no MatchingService. Opcional para preservar compat com testes que
+    /// instanciam <c>PessoaService</c> sem o service.
+    /// </summary>
+    private readonly IGeocodingService? _geocoding;
 
-    public PessoaService(AppDbContext db, ITenantContext tenantContext)
+    public PessoaService(AppDbContext db, ITenantContext tenantContext, IGeocodingService? geocoding = null)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _geocoding = geocoding;
+    }
+
+    /// <summary>
+    /// Tenta geocodificar o endereço da Pessoa (best-effort). Se o geocoder
+    /// não estiver injetado ou retornar null, deixa Lat/Lng como estão.
+    /// Sempre marca <c>UpdatedAtUtc</c> independente do resultado.
+    /// </summary>
+    private async Task TryGeocodificarPessoaAsync(Pessoa entity, CancellationToken ct)
+    {
+        if (_geocoding is null) return;
+
+        var result = await _geocoding.GeocodeAsync(
+            entity.Cep, entity.Logradouro, entity.Numero,
+            entity.Cidade, entity.Uf, ct);
+
+        if (result is not null)
+        {
+            entity.Latitude = result.Latitude;
+            entity.Longitude = result.Longitude;
+            entity.GeocodificadoEmUtc = DateTimeOffset.UtcNow;
+        }
     }
 
     public async Task<PessoaPagedResponse> ListAsync(PessoaListQuery query, CancellationToken ct)
@@ -240,6 +270,8 @@ public sealed class PessoaService : IPessoaService
                 UpdatedAtUtc = DateTimeOffset.UtcNow
             };
             Log("E", "PessoaService.CreateAsync:entityBuilt", "Entity built", new { entityTenantIdLen = entity.TenantId?.Length ?? 0, entityEmailLen = entity.Email?.Length ?? 0 });
+            // Sessão 31.8 — geocoding best-effort do endereço (alimenta MatchingService)
+            await TryGeocodificarPessoaAsync(entity, ct);
             _db.Pessoas.Add(entity);
             Log("C", "PessoaService.CreateAsync:beforeSaveChanges", "Before SaveChangesAsync");
             await _db.SaveChangesAsync(ct);
@@ -281,6 +313,9 @@ public sealed class PessoaService : IPessoaService
         entity.FoneContato = TrimToMax(request.FoneContato, 40);
         entity.DataNascimento = ToUtcDate(request.DataNascimento);
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        // Sessão 31.8 — re-geocodifica se endereço pode ter mudado
+        await TryGeocodificarPessoaAsync(entity, ct);
 
         await _db.SaveChangesAsync(ct);
         return MapToResponse(entity);
