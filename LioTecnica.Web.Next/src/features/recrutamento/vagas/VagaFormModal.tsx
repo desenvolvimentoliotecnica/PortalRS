@@ -1609,7 +1609,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                     </div>
                     <Button size="sm" variant="outline" type="button" onClick={() => {
                       const tenantId = getTenantId() ?? "";
-                      const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(draft.id)}`;
+                      const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(draft.id ?? "")}`;
                       void navigator.clipboard.writeText(url).then(() => toast.success("Link copiado!"));
                     }}>
                       Copiar link
