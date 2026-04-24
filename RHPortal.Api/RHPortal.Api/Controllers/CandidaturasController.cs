@@ -66,4 +66,43 @@ public sealed class CandidaturasController : ControllerBase
             return Conflict(new { message = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Sessão 31.8 (FASE 3.A) — Funil de conversão das candidaturas.
+    /// Filtros opcionais: vaga e período de aplicação.
+    /// Retorna total por etapa do funil cumulativo + taxa de conversão para a próxima.
+    /// </summary>
+    [HttpGet("funil")]
+    [ProducesResponseType(typeof(FunilCandidaturasResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<FunilCandidaturasResponse>> Funil(
+        [FromQuery] Guid? vagaId,
+        [FromQuery] DateTimeOffset? inicioUtc,
+        [FromQuery] DateTimeOffset? fimUtc,
+        CancellationToken ct)
+    {
+        var resp = await _service.FunilConversaoAsync(vagaId, inicioUtc, fimUtc, ct);
+        return Ok(resp);
+    }
+
+    /// <summary>
+    /// Sessão 31.8 (FASE 3.B) — Avança N candidaturas de etapa em massa.
+    /// Falha em uma não bloqueia as outras. Máximo 200 por requisição.
+    /// </summary>
+    [HttpPost("bulk-avancar-etapa")]
+    [ProducesResponseType(typeof(BulkAvancarEtapaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<BulkAvancarEtapaResponse>> BulkAvancarEtapa(
+        [FromBody] BulkAvancarEtapaRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var resp = await _service.AvancarEtapaEmMassaAsync(request, ct);
+            return Ok(resp);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

@@ -16,6 +16,20 @@ public interface ICandidaturaService
     Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct);
 
     /// <summary>
+    /// Sessão 31.8 (FASE 3.A) — Funil de conversão de candidaturas.
+    /// Filtros opcionais: vaga e período de aplicação.
+    /// Calcula taxa de conversão entre etapas adjacentes do funil principal
+    /// (Aplicada → EmTriagem → Entrevista → Teste → Proposta → Contratado).
+    /// </summary>
+    Task<FunilCandidaturasResponse> FunilConversaoAsync(Guid? vagaId, DateTimeOffset? inicioUtc, DateTimeOffset? fimUtc, CancellationToken ct);
+
+    /// <summary>
+    /// Sessão 31.8 (FASE 3.B) — Avança N candidaturas de etapa em massa.
+    /// Cada item retorna sucesso/falha individual; falha em um não bloqueia os outros.
+    /// </summary>
+    Task<BulkAvancarEtapaResponse> AvancarEtapaEmMassaAsync(BulkAvancarEtapaRequest request, CancellationToken ct);
+
+    /// <summary>
     /// Sincroniza <c>Candidato.VagaId</c> (cache) com a <c>VagaId</c> da
     /// <see cref="Candidatura"/> ativa (Status=Ativa) com maior <c>AplicadaEmUtc</c>.
     /// Se o candidato não tiver candidatura ativa, <c>Candidato.VagaId</c> fica <c>null</c>.
@@ -304,28 +318,208 @@ public sealed class CandidaturaService : ICandidaturaService
             (EtapaMacroCandidatura.Desistiu, "Desistiu"),
         };
 
+        var nowSla = DateTimeOffset.UtcNow;
         var colunas = etapas.Select(e =>
         {
+            var slaEtapaDefault = SlaDiasPorEtapa(e.Item1);
             var itens = rows
                 .Where(r => r.EtapaMacro == e.Item1)
-                .Select(r => new KanbanCandidaturaItem(
-                    r.Id,
-                    r.CandidatoId,
-                    r.CandidatoNome,
-                    r.CandidatoEmail,
-                    r.CandidatoAvatar,
-                    r.VagaId,
-                    r.VagaCodigo,
-                    r.VagaTitulo,
-                    r.Status,
-                    r.EtapaMacro,
-                    r.AplicadaEmUtc,
-                    r.EtapaAtualDesdeUtc,
-                    r.MatchScore))
+                .Select(r =>
+                {
+                    var dataRef = r.EtapaAtualDesdeUtc ?? r.AplicadaEmUtc;
+                    var dias = Math.Max(0, (int)(nowSla - dataRef).TotalDays);
+                    var semaforo = dias <= slaEtapaDefault / 2
+                        ? "verde"
+                        : (dias <= slaEtapaDefault ? "amarelo" : "vermelho");
+                    return new KanbanCandidaturaItem(
+                        r.Id,
+                        r.CandidatoId,
+                        r.CandidatoNome,
+                        r.CandidatoEmail,
+                        r.CandidatoAvatar,
+                        r.VagaId,
+                        r.VagaCodigo,
+                        r.VagaTitulo,
+                        r.Status,
+                        r.EtapaMacro,
+                        r.AplicadaEmUtc,
+                        r.EtapaAtualDesdeUtc,
+                        r.MatchScore,
+                        dias,
+                        slaEtapaDefault,
+                        semaforo);
+                })
                 .ToList();
             return new KanbanColunaResponse(e.Item1, e.Item2, itens.Count, itens);
         }).ToList();
 
         return new KanbanCandidaturasResponse(colunas, total);
     }
+
+    public async Task<FunilCandidaturasResponse> FunilConversaoAsync(
+        Guid? vagaId,
+        DateTimeOffset? inicioUtc,
+        DateTimeOffset? fimUtc,
+        CancellationToken ct)
+    {
+        var tenantId = _tenant.TenantId;
+        var query = _db.Candidaturas.AsNoTracking().Where(c => c.TenantId == tenantId);
+        if (vagaId.HasValue) query = query.Where(c => c.VagaId == vagaId.Value);
+        if (inicioUtc.HasValue) query = query.Where(c => c.AplicadaEmUtc >= inicioUtc.Value);
+        if (fimUtc.HasValue) query = query.Where(c => c.AplicadaEmUtc <= fimUtc.Value);
+
+        var grouped = await query
+            .GroupBy(c => c.EtapaMacro)
+            .Select(g => new { Etapa = g.Key, Total = g.Count() })
+            .ToListAsync(ct);
+
+        var totalGeral = grouped.Sum(g => g.Total);
+        var byEtapa = grouped.ToDictionary(g => g.Etapa, g => g.Total);
+
+        // Funil principal (linear): Aplicada → EmTriagem → Entrevista → Teste → Proposta → Contratado
+        // Etapas terminais (Recusado, Desistiu) não fazem parte do funil — exibidas separadas no UI se quiser
+        var funilOrdenado = new[]
+        {
+            (EtapaMacroCandidatura.Aplicada,    "Aplicada"),
+            (EtapaMacroCandidatura.EmTriagem,   "Em Triagem"),
+            (EtapaMacroCandidatura.Entrevista,  "Entrevista"),
+            (EtapaMacroCandidatura.Teste,       "Teste"),
+            (EtapaMacroCandidatura.Proposta,    "Proposta"),
+            (EtapaMacroCandidatura.Contratado,  "Contratado"),
+        };
+
+        // Para representar o funil "cumulativo": etapa N = quem ESTÁ ou JÁ PASSOU pela etapa N
+        // (porque candidato em "Entrevista" passou por "Aplicada" + "Triagem" antes)
+        // Cálculo: total de cada etapa = soma de todos quem está em etapa >= N
+        var ordemEtapa = new Dictionary<EtapaMacroCandidatura, int>();
+        for (int i = 0; i < funilOrdenado.Length; i++) ordemEtapa[funilOrdenado[i].Item1] = i;
+
+        var totaisCumulativos = new int[funilOrdenado.Length];
+        foreach (var g in grouped)
+        {
+            if (ordemEtapa.TryGetValue(g.Etapa, out var idx))
+            {
+                // Quem está em etapa idx passou por todas <= idx
+                for (int i = 0; i <= idx; i++) totaisCumulativos[i] += g.Total;
+            }
+            // Recusados/Desistidos: contam como passaram pela Aplicada (entraram no funil)
+            else if (g.Etapa == EtapaMacroCandidatura.Recusado || g.Etapa == EtapaMacroCandidatura.Desistiu)
+            {
+                totaisCumulativos[0] += g.Total;
+            }
+        }
+
+        var etapas = new List<FunilEtapaItem>();
+        for (int i = 0; i < funilOrdenado.Length; i++)
+        {
+            var total = totaisCumulativos[i];
+            decimal? taxa = null;
+            if (i < funilOrdenado.Length - 1 && total > 0)
+            {
+                var proxTotal = totaisCumulativos[i + 1];
+                taxa = Math.Round((decimal)proxTotal * 100m / total, 1);
+            }
+            etapas.Add(new FunilEtapaItem(funilOrdenado[i].Item1, funilOrdenado[i].Item2, total, taxa));
+        }
+
+        string? vagaTitulo = null;
+        if (vagaId.HasValue)
+        {
+            vagaTitulo = await _db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == vagaId.Value && v.TenantId == tenantId)
+                .Select(v => v.Titulo)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return new FunilCandidaturasResponse(
+            TotalGeral: totalGeral,
+            VagaId: vagaId,
+            VagaTitulo: vagaTitulo,
+            PeriodoInicioUtc: inicioUtc,
+            PeriodoFimUtc: fimUtc,
+            Etapas: etapas);
+    }
+
+    public async Task<BulkAvancarEtapaResponse> AvancarEtapaEmMassaAsync(
+        BulkAvancarEtapaRequest request,
+        CancellationToken ct)
+    {
+        var ids = (request.CandidaturaIds ?? Array.Empty<Guid>()).Distinct().Where(g => g != Guid.Empty).ToList();
+        var resultados = new List<BulkAvancarEtapaItemResult>();
+
+        if (ids.Count == 0)
+            return new BulkAvancarEtapaResponse(0, 0, 0, resultados);
+
+        if (ids.Count > 200)
+            throw new InvalidOperationException("Máximo de 200 candidaturas por operação em massa.");
+
+        // Carrega tudo de uma vez pra reduzir round-trips
+        var candidaturas = await _db.Candidaturas
+            .Where(c => ids.Contains(c.Id) && c.TenantId == _tenant.TenantId)
+            .ToListAsync(ct);
+        var byId = candidaturas.ToDictionary(c => c.Id);
+
+        // Nomes dos candidatos pra response (1 query batch)
+        var candidatoIds = candidaturas.Select(c => c.CandidatoId).Distinct().ToList();
+        var nomesPorCandidato = await _db.Candidatos
+            .AsNoTracking()
+            .Where(c => candidatoIds.Contains(c.Id) && c.TenantId == _tenant.TenantId)
+            .Select(c => new { c.Id, c.Nome })
+            .ToDictionaryAsync(x => x.Id, x => x.Nome, ct);
+
+        foreach (var id in ids)
+        {
+            if (!byId.TryGetValue(id, out var cand))
+            {
+                resultados.Add(new BulkAvancarEtapaItemResult(id, false, null, "Candidatura não encontrada."));
+                continue;
+            }
+
+            var nome = nomesPorCandidato.GetValueOrDefault(cand.CandidatoId);
+
+            try
+            {
+                // Reusa lógica de AvancarEtapaAsync (validações, histórico, notificação)
+                var result = await AvancarEtapaAsync(id, request.NovaEtapa, request.Observacao, ct);
+                if (result is null)
+                {
+                    resultados.Add(new BulkAvancarEtapaItemResult(id, false, nome, "Falha ao avançar etapa."));
+                }
+                else
+                {
+                    resultados.Add(new BulkAvancarEtapaItemResult(id, true, nome, null));
+                }
+            }
+            catch (Exception ex)
+            {
+                resultados.Add(new BulkAvancarEtapaItemResult(id, false, nome, ex.Message));
+            }
+        }
+
+        return new BulkAvancarEtapaResponse(
+            Total: ids.Count,
+            Sucesso: resultados.Count(r => r.Sucesso),
+            Falha: resultados.Count(r => !r.Sucesso),
+            Itens: resultados);
+    }
+
+    /// <summary>
+    /// SLA default em dias por etapa do funil de candidaturas (Sessão 31.8).
+    /// Estes thresholds geram o semáforo verde/amarelo/vermelho no kanban.
+    /// Etapas terminais (Contratado/Recusado/Desistiu) usam SLA muito alto
+    /// (qualquer tempo é aceitável — etapa final).
+    /// </summary>
+    private static int SlaDiasPorEtapa(EtapaMacroCandidatura etapa) => etapa switch
+    {
+        EtapaMacroCandidatura.Aplicada    => 2,
+        EtapaMacroCandidatura.EmTriagem   => 5,
+        EtapaMacroCandidatura.Entrevista  => 10,
+        EtapaMacroCandidatura.Teste       => 7,
+        EtapaMacroCandidatura.Proposta    => 5,
+        EtapaMacroCandidatura.Contratado  => 365, // terminal
+        EtapaMacroCandidatura.Recusado    => 365, // terminal
+        EtapaMacroCandidatura.Desistiu    => 365, // terminal
+        _                                 => 7,
+    };
 }

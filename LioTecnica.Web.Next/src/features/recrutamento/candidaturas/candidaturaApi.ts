@@ -52,6 +52,57 @@ export function resolveCandidaturaStatus(v: number | string): CandidaturaStatus 
   return (v as CandidaturaStatus) ?? "Ativa";
 }
 
+export type SlaSemaforo = "verde" | "amarelo" | "vermelho";
+
+// ── Sessão 31.8 (FASE 3.A) — Funil de conversão ──
+export type FunilEtapaItem = {
+  etapa: number | EtapaMacroCandidatura;
+  titulo: string;
+  total: number;
+  taxaConversaoPercent: number | null;
+};
+
+export type FunilCandidaturasResponse = {
+  totalGeral: number;
+  vagaId: string | null;
+  vagaTitulo: string | null;
+  periodoInicioUtc: string | null;
+  periodoFimUtc: string | null;
+  etapas: FunilEtapaItem[];
+};
+
+export async function getFunil(params: { vagaId?: string | null; inicioUtc?: string | null; fimUtc?: string | null }) {
+  const qs = new URLSearchParams();
+  if (params.vagaId) qs.set("vagaId", params.vagaId);
+  if (params.inicioUtc) qs.set("inicioUtc", params.inicioUtc);
+  if (params.fimUtc) qs.set("fimUtc", params.fimUtc);
+  const url = `/api/candidaturas/funil${qs.toString() ? `?${qs}` : ""}`;
+  const data = await apiJson<FunilCandidaturasResponse>(url);
+  return data;
+}
+
+// ── Sessão 31.8 (FASE 3.B) — Bulk avançar etapa ──
+export type BulkAvancarEtapaItemResult = {
+  candidaturaId: string;
+  sucesso: boolean;
+  candidatoNome: string | null;
+  erro: string | null;
+};
+
+export type BulkAvancarEtapaResponse = {
+  total: number;
+  sucesso: number;
+  falha: number;
+  itens: BulkAvancarEtapaItemResult[];
+};
+
+export async function bulkAvancarEtapa(candidaturaIds: string[], novaEtapa: EtapaMacroCandidatura, observacao?: string) {
+  return await apiJson<BulkAvancarEtapaResponse>("/api/candidaturas/bulk-avancar-etapa", {
+    method: "POST",
+    body: JSON.stringify({ candidaturaIds, novaEtapa, observacao: observacao ?? null }),
+  });
+}
+
 export type KanbanCandidaturaItem = {
   id: string;
   candidatoId: string;
@@ -66,6 +117,10 @@ export type KanbanCandidaturaItem = {
   aplicadaEmUtc: string;
   etapaAtualDesdeUtc: string | null;
   matchScore: number | null;
+  // Sessão 31.8 — SLA semáforo
+  diasNaEtapa: number;
+  slaDiasEtapa: number;
+  slaSemaforo: SlaSemaforo;
 };
 
 export type KanbanColunaResponse = {

@@ -45,7 +45,55 @@ public sealed record KanbanCandidaturaItem(
     EtapaMacroCandidatura EtapaMacro,
     DateTimeOffset AplicadaEmUtc,
     DateTimeOffset? EtapaAtualDesdeUtc,
-    int? MatchScore
+    int? MatchScore,
+    /// <summary>Sessão 31.8 — Dias na etapa atual (ou desde aplicação se etapa inicial). Calculado no servidor.</summary>
+    int DiasNaEtapa,
+    /// <summary>SLA esperado para a etapa em dias. Default por etapa: Aplicada=2, Triagem=5, Entrevista=10, Teste=7, Proposta=5. Override via Vaga.SlaDiasMetaFechamento (rateio igual entre etapas) ou EixoVaga.</summary>
+    int SlaDiasEtapa,
+    /// <summary>"verde" (até 50% do SLA) / "amarelo" (50-100%) / "vermelho" (>100%). Pré-calculado para o front não duplicar lógica.</summary>
+    string SlaSemaforo
+);
+
+/// <summary>
+/// Sessão 31.8 (FASE 3.A) — Etapa do funil de conversão de candidaturas.
+/// Cada etapa tem total + taxa de conversão para a próxima (% que avançou).
+/// </summary>
+public sealed record FunilEtapaItem(
+    EtapaMacroCandidatura Etapa,
+    string Titulo,
+    int Total,
+    /// <summary>% que avançou para a etapa seguinte. Null para etapas terminais (Contratado/Recusado/Desistiu) ou para a última do funil.</summary>
+    decimal? TaxaConversaoPercent
+);
+
+public sealed record FunilCandidaturasResponse(
+    int TotalGeral,
+    Guid? VagaId,
+    string? VagaTitulo,
+    DateTimeOffset? PeriodoInicioUtc,
+    DateTimeOffset? PeriodoFimUtc,
+    IReadOnlyList<FunilEtapaItem> Etapas
+);
+
+/// <summary>Sessão 31.8 (FASE 3.B) — Request para mover N candidaturas de etapa em massa.</summary>
+public sealed record BulkAvancarEtapaRequest(
+    IReadOnlyList<Guid> CandidaturaIds,
+    EtapaMacroCandidatura NovaEtapa,
+    string? Observacao
+);
+
+public sealed record BulkAvancarEtapaResponse(
+    int Total,
+    int Sucesso,
+    int Falha,
+    IReadOnlyList<BulkAvancarEtapaItemResult> Itens
+);
+
+public sealed record BulkAvancarEtapaItemResult(
+    Guid CandidaturaId,
+    bool Sucesso,
+    string? CandidatoNome,
+    string? Erro
 );
 
 /// <summary>Resposta do kanban: uma coluna por EtapaMacroCandidatura com os candidatos dentro.</summary>

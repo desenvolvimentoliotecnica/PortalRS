@@ -73,6 +73,28 @@ function cellKey(etapa: EtapaMacroCandidatura, canal: CanalNotificacao) {
   return `${etapa}|${canal}`;
 }
 
+/**
+ * Sessão 31.8 (FASE 3.C) — Substitui placeholders por valores de exemplo
+ * para a pré-visualização. Os placeholders aceitos casam com os do backend
+ * (CandidaturaNotificacaoService). Se algum placeholder não estiver no dict,
+ * é deixado como-está.
+ */
+const PLACEHOLDERS_EXEMPLO: Record<string, string> = {
+  candidatoNome: "Maria da Silva",
+  vagaTitulo: "Analista de Suporte Técnico Pleno",
+  vagaCodigo: "SUP-PLN-001",
+  empresaNome: "Liotecnica",
+  recrutadorNome: "Lucas Machado",
+  etapaAtual: "Entrevista",
+  dataEntrevista: "12/05/2026 às 14:00",
+  linkPortal: "https://portal.liotecnica.com.br/candidatura/abc123",
+};
+
+function resolverPlaceholders(texto: string): string {
+  if (!texto) return "";
+  return texto.replace(/\{(\w+)\}/g, (match, name) => PLACEHOLDERS_EXEMPLO[name] ?? match);
+}
+
 type Draft = {
   assunto: string;
   corpo: string;
@@ -329,6 +351,21 @@ export default function NotificacoesTemplatesScreen() {
                       />
                       <div className="mt-1 text-right text-xs text-zinc-400">
                         {draft.corpo.length}/4000
+                      </div>
+                    </div>
+
+                    {/* Sessão 31.8 (FASE 3.C) — Preview com placeholders resolvidos */}
+                    <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50/40 p-3 text-xs">
+                      <div className="text-[10px] font-semibold text-emerald-800 uppercase mb-1">
+                        Pré-visualização (placeholders resolvidos com dados de exemplo)
+                      </div>
+                      {isEmail && draft.assunto && (
+                        <div className="mb-1 text-zinc-700">
+                          <strong>Assunto:</strong> {resolverPlaceholders(draft.assunto)}
+                        </div>
+                      )}
+                      <div className="whitespace-pre-wrap text-zinc-700 font-sans">
+                        {resolverPlaceholders(draft.corpo) || <em className="text-zinc-400">(corpo vazio)</em>}
                       </div>
                     </div>
 

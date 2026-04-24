@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { apiJson } from "@/lib/api";
 import {
   avancarEtapa,
+  bulkAvancarEtapa,
   ETAPAS_KANBAN,
   getKanban,
   resolveEtapa,
@@ -57,6 +58,46 @@ export default function CandidaturasKanbanScreen() {
   const [hoverEtapa, setHoverEtapa] = useState<EtapaMacroCandidatura | null>(null);
   // Sessão 31.8 — explicabilidade do matching
   const matchDialog = useMatchingBreakdownDialog();
+
+  // Sessão 31.8 (FASE 3.B) — bulk actions
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTargetEtapa, setBulkTargetEtapa] = useState<EtapaMacroCandidatura | "">("");
+  const [bulkRunning, setBulkRunning] = useState(false);
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function runBulkAvancar() {
+    if (selectedIds.size === 0 || !bulkTargetEtapa) return;
+    setBulkRunning(true);
+    try {
+      const result = await bulkAvancarEtapa(Array.from(selectedIds), bulkTargetEtapa as EtapaMacroCandidatura);
+      if (result.sucesso > 0) toast.success(`${result.sucesso} de ${result.total} avançado(s)`);
+      if (result.falha > 0) {
+        const detalhes = result.itens
+          .filter((i) => !i.sucesso)
+          .map((i) => `• ${i.candidatoNome ?? i.candidaturaId.slice(0, 8)}: ${i.erro ?? "erro"}`)
+          .join("\n");
+        toast.error(`${result.falha} falha(s):\n${detalhes}`, { duration: 10000 });
+      }
+      clearSelection();
+      setBulkTargetEtapa("");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao executar ação em massa");
+    } finally {
+      setBulkRunning(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -152,6 +193,33 @@ export default function CandidaturasKanbanScreen() {
         </div>
       </header>
 
+      {/* Sessão 31.8 (FASE 3.B) — Barra contextual de bulk actions */}
+      {selectedIds.size > 0 && (
+        <div className="rounded-md border border-sky-300 bg-sky-50 px-4 py-3 flex items-center gap-3">
+          <span className="text-sm font-medium text-sky-900">
+            {selectedIds.size} candidatura(s) selecionada(s)
+          </span>
+          <select
+            className="rounded-md border border-sky-300 px-3 py-1.5 text-sm bg-white"
+            value={bulkTargetEtapa}
+            onChange={(e) => setBulkTargetEtapa(e.target.value as EtapaMacroCandidatura | "")}
+          >
+            <option value="">Mover para...</option>
+            {ETAPAS_KANBAN.map((e) => <option key={e} value={e}>{e}</option>)}
+          </select>
+          <Button
+            size="sm"
+            onClick={() => void runBulkAvancar()}
+            disabled={!bulkTargetEtapa || bulkRunning}
+          >
+            {bulkRunning ? "Movendo…" : "Aplicar"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={clearSelection} disabled={bulkRunning}>
+            Limpar seleção
+          </Button>
+        </div>
+      )}
+
       {loading ? (
         <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
           Carregando…
@@ -182,40 +250,73 @@ export default function CandidaturasKanbanScreen() {
                   {itens.length === 0 ? (
                     <div className="py-6 text-center text-xs text-neutral-400">Vazio</div>
                   ) : (
-                    itens.map((it) => (
-                      <article
-                        key={it.id}
-                        draggable
-                        onDragStart={() => setDragging(it)}
-                        onDragEnd={() => { setDragging(null); setHoverEtapa(null); }}
-                        className="cursor-grab rounded-md border border-neutral-200 bg-white p-3 text-sm shadow-sm hover:shadow-md active:cursor-grabbing"
-                      >
-                        <div className="font-medium text-neutral-900">{it.candidatoNome}</div>
-                        {it.candidatoEmail && (
-                          <div className="truncate text-xs text-neutral-500">{it.candidatoEmail}</div>
-                        )}
-                        <div className="mt-1 text-xs text-neutral-600">
-                          {it.vagaTitulo ?? it.vagaId.slice(0, 8)}
-                          {it.vagaCodigo ? ` · ${it.vagaCodigo}` : ""}
-                        </div>
-                        <div className="mt-2 flex items-center justify-between text-[11px] text-neutral-500">
-                          <span>Aplicada: {formatDate(it.aplicadaEmUtc)}</span>
-                          {typeof it.matchScore === "number" && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                matchDialog.open(it.vagaId, it.candidatoId, it.candidatoNome);
-                              }}
-                              className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-800 hover:bg-sky-100 cursor-pointer transition-colors"
-                              title="Ver breakdown explicável (peso × score por critério)"
-                            >
-                              match {it.matchScore} →
-                            </button>
-                          )}
-                        </div>
-                      </article>
-                    ))
+                    itens.map((it) => {
+                      // Sessão 31.8 — SLA semáforo: borda esquerda colorida + tooltip
+                      const slaBorder = it.slaSemaforo === "verde"
+                        ? "border-l-emerald-500"
+                        : it.slaSemaforo === "amarelo"
+                          ? "border-l-amber-500"
+                          : "border-l-red-500";
+                      const slaBg = it.slaSemaforo === "verde"
+                        ? "bg-emerald-50 text-emerald-800"
+                        : it.slaSemaforo === "amarelo"
+                          ? "bg-amber-50 text-amber-800"
+                          : "bg-red-50 text-red-800";
+                      const slaTooltip = `${it.diasNaEtapa} dia(s) na etapa (SLA: ${it.slaDiasEtapa} dias)`;
+                      const isSelected = selectedIds.has(it.id);
+                      return (
+                        <article
+                          key={it.id}
+                          draggable
+                          onDragStart={() => setDragging(it)}
+                          onDragEnd={() => { setDragging(null); setHoverEtapa(null); }}
+                          className={`cursor-grab rounded-md border border-l-4 ${slaBorder} ${isSelected ? "border-sky-400 ring-2 ring-sky-200" : "border-neutral-200"} bg-white p-3 text-sm shadow-sm hover:shadow-md active:cursor-grabbing`}
+                          title={slaTooltip}
+                        >
+                          <div className="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-1 accent-sky-600 cursor-pointer"
+                              checked={isSelected}
+                              onChange={(e) => { e.stopPropagation(); toggleSelected(it.id); }}
+                              onClick={(e) => e.stopPropagation()}
+                              title="Selecionar para ação em massa"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-neutral-900">{it.candidatoNome}</div>
+                              {it.candidatoEmail && (
+                                <div className="truncate text-xs text-neutral-500">{it.candidatoEmail}</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-1 text-xs text-neutral-600">
+                            {it.vagaTitulo ?? it.vagaId.slice(0, 8)}
+                            {it.vagaCodigo ? ` · ${it.vagaCodigo}` : ""}
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-neutral-500">
+                            <span className={`rounded-full px-2 py-0.5 font-medium ${slaBg}`} title={slaTooltip}>
+                              {it.diasNaEtapa}d / {it.slaDiasEtapa}d
+                            </span>
+                            {typeof it.matchScore === "number" && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  matchDialog.open(it.vagaId, it.candidatoId, it.candidatoNome);
+                                }}
+                                className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-800 hover:bg-sky-100 cursor-pointer transition-colors"
+                                title="Ver breakdown explicável (peso × score por critério)"
+                              >
+                                match {it.matchScore} →
+                              </button>
+                            )}
+                          </div>
+                          <div className="mt-1 text-[10px] text-neutral-400">
+                            Aplicada: {formatDate(it.aplicadaEmUtc)}
+                          </div>
+                        </article>
+                      );
+                    })
                   )}
                 </div>
               </div>

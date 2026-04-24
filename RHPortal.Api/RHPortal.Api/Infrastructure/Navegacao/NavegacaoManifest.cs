@@ -106,6 +106,8 @@ public static class NavegacaoManifest
         new("nav-painel-rh",                "Painel RH",              "/painel-rh",                      "clipboardcheck",    "entrada.view",             Ordem: 20),
         new("nav-candidatos",               "Candidatos",             "/candidatos",                     "users",             "candidatos.view",          Ordem: 30),
         new("nav-candidaturas",             "Kanban de Candidaturas", "/recrutamento/candidaturas",      "gitbranch",         "candidatos.view",          Ordem: 35),
+        // Sessão 31.8 (FASE 3.A) — funil de conversão entre etapas
+        new("nav-funil",                    "Funil de Conversão",     "/recrutamento/funil",             "barchart",          "candidatos.view",          Ordem: 36),
         new("nav-admissao",                 "Admissão",               "/admissao",                       "usercheck",         "admissao.view",            Ordem: 40),
         new("nav-matching",                 "Matching IA",            "/matching",                       "sparkles",          "matching.view",            Ordem: 50),
         new("nav-triagem",                  "Pipeline",               "/triagem",                        "filter",            "triagem.view",             Ordem: 60),
