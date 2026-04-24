@@ -346,7 +346,7 @@ const CADASTROS_OPERACIONAIS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
   "/unidades", "/categorias-salariais", "/turnos",
   "/centros-custo", "/unidades-lotacao", "/empresas",
-  "/nivel-cargo",
+  "/nivel-cargo", "/motivos-requisicao",
 ]);
 // Gestão de Pessoas (people management, não recrutamento)
 const GESTAO_PESSOAS_ROUTES = new Set([
