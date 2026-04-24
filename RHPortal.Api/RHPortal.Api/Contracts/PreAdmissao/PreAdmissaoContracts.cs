@@ -325,6 +325,9 @@ public sealed record PreAdmissaoUpdateRequest(
     // TOTVS: Registro exterior
     string? CodRegistroExterior,
 
+    // TOTVS: Estatística (obrigatório pelo validator; faltava no contract)
+    int? TipoEstatistica,
+
     // Salário justificativa
     string? ValidacaoSalarioJustificativa
 );

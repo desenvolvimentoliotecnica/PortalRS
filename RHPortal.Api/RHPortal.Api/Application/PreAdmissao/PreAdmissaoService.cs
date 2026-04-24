@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Application.Blip;
 using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Application.ItaloIntegracao;
 using RhPortal.Api.Application.OcupacaoHistorico;
@@ -78,6 +79,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly ILogger<PreAdmissaoService> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IOcupacaoHistoricoService _ocupacaoService;
+    private readonly BlipMessagingService _blipMessaging;
 
     public PreAdmissaoService(
         AppDbContext db,
@@ -88,7 +90,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         IS3StorageService storage,
         ILogger<PreAdmissaoService> logger,
         IHttpContextAccessor httpContextAccessor,
-        IOcupacaoHistoricoService ocupacaoService)
+        IOcupacaoHistoricoService ocupacaoService,
+        BlipMessagingService blipMessaging)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -99,6 +102,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _storage = storage;
         _logger = logger;
         _ocupacaoService = ocupacaoService;
+        _blipMessaging = blipMessaging;
     }
 
     // ── List ──
@@ -339,6 +343,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         // CAGED
         e.OcorrenciaCAGED = r.OcorrenciaCAGED;
+
+        // Estatística
+        e.TipoEstatistica = r.TipoEstatistica;
 
         // Registro exterior
         e.CodRegistroExterior = r.CodRegistroExterior?.Trim();
@@ -858,6 +865,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             }
             catch { /* best-effort: email pode não estar configurado */ }
         }
+
+        // Notificar candidato via WhatsApp (Blip) — best-effort
+        if (!string.IsNullOrWhiteSpace(pa.Celular))
+            await _blipMessaging.EnviarOnboardingAdmissaoAsync(pa.Celular, ct);
 
         return new GerarLinkResponse(pa.AccessToken, url, emailEnviado);
     }
