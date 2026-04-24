@@ -12,9 +12,10 @@ public enum SolicitacaoStatus : short
     EmIntegracao = 7,
     Concluida = 8,
 
-    /// <summary>Aprovada pelo fluxo de gestores; RH ainda não tomou a decisão de headcount.</summary>
-    AguardandoDecisaoRH = 9,
+    // 9 = AguardandoDecisaoRH foi removido: a decisão de headcount agora é feita pelo gestor na criação.
+    // O valor numérico 9 fica reservado/desativado; registros antigos foram migrados pra Aprovada (2)
+    // na migration 20260423_RemoveAguardandoDecisaoRH. Não reutilizar 9.
 
-    /// <summary>RH escalou para aprovação de aumento definitivo de headcount; aguarda aprovador configurável.</summary>
+    /// <summary>Aprovação de aumento definitivo de headcount; aguarda aprovador configurável (Diretoria).</summary>
     PendenteAprovacaoAumentoHC = 10,
 }

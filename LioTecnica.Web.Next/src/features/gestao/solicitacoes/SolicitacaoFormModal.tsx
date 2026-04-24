@@ -39,7 +39,8 @@ export interface SolicitacaoDraft {
     substituidoFuncionarioId: string | null;
     tipoContrato: number;
     prazoDias: number | null;
-    motivoRequisicao: number | null;
+    /** FK do motivo parametrizável (tabela MotivosRequisicaoVagaConfig). */
+    motivoRequisicaoId: string | null;
     cnhObrigatoria: boolean;
     disponibilidadeViagens: boolean;
     escalaTrabalho: string;
@@ -54,6 +55,10 @@ export interface SolicitacaoDraft {
     diasAvisoPrevioDesligamento: number | null;
     possuiEstabilidadeDesligamento: boolean | null;
     motivoDesligamentoTexto: string;
+    // Decisão de headcount (escolhida pelo gestor; obrigatória para VagaNova antes de submeter)
+    decisaoRH: number | null; // 1=SubstituicaoProvisoria, 2=AumentoDefinitivo, 3=ConsumirHeadcountExistente
+    decisaoRHPrazoMeses: number | null;
+    decisaoRHPrazoDataAlvo: string | null; // ISO datetime
 }
 
 interface Props {
@@ -102,7 +107,7 @@ const emptyDraft: SolicitacaoDraft = {
     substituidoFuncionarioId: null,
     tipoContrato: 0,
     prazoDias: null,
-    motivoRequisicao: null,
+    motivoRequisicaoId: null,
     cnhObrigatoria: false,
     disponibilidadeViagens: false,
     escalaTrabalho: "",
@@ -115,6 +120,9 @@ const emptyDraft: SolicitacaoDraft = {
     diasAvisoPrevioDesligamento: 30,
     possuiEstabilidadeDesligamento: null,
     motivoDesligamentoTexto: "",
+    decisaoRH: null,
+    decisaoRHPrazoMeses: 3,
+    decisaoRHPrazoDataAlvo: null,
 };
 
 /* ──────────────────────────── AutocompleteSelect ──────────────────────────── */
@@ -223,23 +231,38 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
     const [unidadesLotacao, setUnidadesLotacao] = useState<LookupItem[]>([]);
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
 
+    /**
+     * Motivos parametrizáveis carregados da tela de cadastro "Motivos de Requisição".
+     * Cada item traz o efeito no headcount, que controla a exibição do bloco de desligamento.
+     */
+    type MotivoLookup = { id: string; codigo: string; nome: string; efeitoHeadcount: "Aumenta" | "Diminui" | "Ambos" };
+    const [motivos, setMotivos] = useState<MotivoLookup[]>([]);
+
+    const motivoSelecionado = motivos.find((m) => m.id === draft.motivoRequisicaoId) ?? null;
+    // "Diminui" e "Ambos" implicam desligamento vinculado (sai alguém do quadro).
+    const isDesligamentoMotivo = motivoSelecionado
+        ? motivoSelecionado.efeitoHeadcount === "Diminui" || motivoSelecionado.efeitoHeadcount === "Ambos"
+        : false;
+
     const loadLookups = useCallback(async () => {
         // Lookup de funcionários NÃO é carregado aqui — é responsabilidade do useEffect abaixo,
         // que sabe se precisa aplicar filtros por vaga/cargo/lotação. Carregar aqui causava race
         // condition que podia sobrescrever a lista filtrada.
         type OptionRes = { id: string; name: string; code?: string };
-        const [cargosRes, unidadesRes, empresasRes, ccRes, lotacaoRes] = await Promise.all([
+        const [cargosRes, unidadesRes, empresasRes, ccRes, lotacaoRes, motivosRes] = await Promise.all([
             fetchJson<OptionRes[]>("/api/lookup/job-positions").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/units").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/empresas").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/centros-custo").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/unidades-lotacao").catch(() => []),
+            fetchJson<MotivoLookup[]>("/api/motivos-requisicao-vaga/lookup").catch(() => []),
         ]);
         setCargos(Array.isArray(cargosRes) ? cargosRes : []);
         setUnidades(Array.isArray(unidadesRes) ? unidadesRes : []);
         setEmpresas(Array.isArray(empresasRes) ? empresasRes : []);
         setCentrosCusto(Array.isArray(ccRes) ? ccRes : []);
         setUnidadesLotacao(Array.isArray(lotacaoRes) ? lotacaoRes : []);
+        setMotivos(Array.isArray(motivosRes) ? motivosRes : []);
 
         try {
             const meRes = await fetchJson<Record<string, unknown>>("/api/me");
@@ -304,7 +327,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             substituidoFuncionarioId: d?.substituidoFuncionarioId ? String(d.substituidoFuncionarioId) : null,
             tipoContrato: (() => { const m: Record<string, number> = { CLT: 0, Estagio: 1, Aprendiz: 2, Temporario: 3 }; const v = d?.tipoContrato; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
             prazoDias: d?.prazoDias != null ? Number(d.prazoDias) : null,
-            motivoRequisicao: (() => { const m: Record<string, number> = { AtenderDemanda: 0, PedidoDemissao: 1, DesligamentoSemJustaCausa: 2, CotaAprendiz: 3, TerminoContrato: 4, ExpansaoBase: 5, NovaUnidade: 6, Movimentacao: 7, Afastamento: 8 }; const v = d?.motivoRequisicao; return v == null ? null : typeof v === "number" ? v : (m[v as string] ?? null); })(),
+            motivoRequisicaoId: d?.motivoRequisicaoId ? String(d.motivoRequisicaoId) : null,
             cnhObrigatoria: Boolean(d?.cnhObrigatoria),
             disponibilidadeViagens: Boolean(d?.disponibilidadeViagens),
             escalaTrabalho: String(d?.escalaTrabalho ?? ""),
@@ -317,6 +340,13 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             diasAvisoPrevioDesligamento: d?.diasAvisoPrevioDesligamento != null ? Number(d.diasAvisoPrevioDesligamento) : 30,
             possuiEstabilidadeDesligamento: d?.possuiEstabilidadeDesligamento == null ? null : Boolean(d.possuiEstabilidadeDesligamento),
             motivoDesligamentoTexto: String(d?.motivoDesligamentoTexto ?? ""),
+            decisaoRH: (() => {
+                const m: Record<string, number> = { SubstituicaoProvisoria: 1, AumentoDefinitivo: 2, ConsumirHeadcountExistente: 3 };
+                const v = d?.decisaoRH;
+                return v == null ? null : typeof v === "number" ? v : (m[v as string] ?? null);
+            })(),
+            decisaoRHPrazoMeses: d?.decisaoRHPrazoMeses != null ? Number(d.decisaoRHPrazoMeses) : 3,
+            decisaoRHPrazoDataAlvo: d?.decisaoRHPrazoDataAlvo ? String(d.decisaoRHPrazoDataAlvo) : null,
         };
     }
 
@@ -358,15 +388,28 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
         if (!draft.unitId) errors.push("Local (Unidade)");
         if (!draft.centroCustoId) errors.push("Centro de Custo");
         if (!draft.unidadeLotacaoId) errors.push("Lotação");
-        if (draft.motivoRequisicao === null) errors.push("Motivo da Requisição");
-        const isDesligamentoMotivo = draft.motivoRequisicao === 1 || draft.motivoRequisicao === 2;
-        if (isDesligamentoMotivo && draft.origemVaga === "nova") {
+        if (!draft.motivoRequisicaoId) errors.push("Motivo da Requisição");
+        // isDesligamentoMotivo é derivado do efeito do motivo selecionado (fora deste escopo, no render).
+        // Recalcula localmente para usar sem depender da referência externa.
+        const saveMotivoSelecionado = motivos.find((m) => m.id === draft.motivoRequisicaoId) ?? null;
+        const saveIsDesligamentoMotivo = saveMotivoSelecionado
+            ? saveMotivoSelecionado.efeitoHeadcount === "Diminui" || saveMotivoSelecionado.efeitoHeadcount === "Ambos"
+            : false;
+        if (saveIsDesligamentoMotivo && draft.origemVaga === "nova") {
             toast.error("Nova posição não permite motivo de desligamento — esta vaga não existe ainda e não há funcionário para desligar. Selecione 'Do quadro de vagas' ou troque o motivo.");
             return;
         }
-        if (isDesligamentoMotivo) {
+        if (saveIsDesligamentoMotivo) {
             if (!draft.substituidoFuncionarioId) errors.push("Funcionário a desligar");
             if (!draft.dataDesligamento) errors.push("Data de desligamento");
+        }
+        // VagaNova exige decisão de headcount antes de submeter.
+        // Substituição pura (sem desligamento vinculado) não exige — provisório é default.
+        const isVagaNova = draft.tipoSolicitacao === 0;
+        if (isVagaNova && !draft.decisaoRH) errors.push("Decisão de headcount");
+        if (draft.decisaoRH === 1) {
+            // Substituição provisória: exige prazo
+            if (!draft.decisaoRHPrazoMeses || draft.decisaoRHPrazoMeses < 1) errors.push("Prazo da substituição provisória (meses)");
         }
         if (errors.length > 0) {
             toast.error(`Campos obrigatórios: ${errors.join(", ")}.`);
@@ -388,7 +431,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             substituidoFuncionarioId: draft.tipoSolicitacao === 1 ? (draft.substituidoFuncionarioId || null) : null,
             tipoContrato: (["CLT", "Estagio", "Aprendiz", "Temporario"][draft.tipoContrato] ?? "CLT"),
             prazoDias: draft.tipoContrato !== 0 ? draft.prazoDias : null,
-            motivoRequisicao: draft.motivoRequisicao !== null ? (["AtenderDemanda", "PedidoDemissao", "DesligamentoSemJustaCausa", "CotaAprendiz", "TerminoContrato", "ExpansaoBase", "NovaUnidade", "Movimentacao", "Afastamento"][draft.motivoRequisicao] ?? null) : null,
+            motivoRequisicaoId: draft.motivoRequisicaoId,
             cnhObrigatoria: draft.cnhObrigatoria,
             disponibilidadeViagens: draft.disponibilidadeViagens,
             escalaTrabalho: draft.escalaTrabalho || null,
@@ -396,13 +439,18 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
             centroCustoId: draft.centroCustoId,
             unidadeLotacaoId: draft.unidadeLotacaoId,
             vagaId: draft.vagaId || null,
-            dataDesligamento: isDesligamentoMotivo ? draft.dataDesligamento : null,
-            tipoAvisoPrevioDesligamento: isDesligamentoMotivo && draft.tipoAvisoPrevioDesligamento !== null
+            dataDesligamento: saveIsDesligamentoMotivo ? draft.dataDesligamento : null,
+            tipoAvisoPrevioDesligamento: saveIsDesligamentoMotivo && draft.tipoAvisoPrevioDesligamento !== null
                 ? (["Indenizado", "Trabalhado", "Dispensado"][draft.tipoAvisoPrevioDesligamento] ?? null)
                 : null,
-            diasAvisoPrevioDesligamento: isDesligamentoMotivo ? draft.diasAvisoPrevioDesligamento : null,
-            possuiEstabilidadeDesligamento: isDesligamentoMotivo ? draft.possuiEstabilidadeDesligamento : null,
-            motivoDesligamentoTexto: isDesligamentoMotivo ? (draft.motivoDesligamentoTexto.trim() || null) : null,
+            diasAvisoPrevioDesligamento: saveIsDesligamentoMotivo ? draft.diasAvisoPrevioDesligamento : null,
+            possuiEstabilidadeDesligamento: saveIsDesligamentoMotivo ? draft.possuiEstabilidadeDesligamento : null,
+            motivoDesligamentoTexto: saveIsDesligamentoMotivo ? (draft.motivoDesligamentoTexto.trim() || null) : null,
+            decisaoRH: draft.decisaoRH !== null
+                ? (["SubstituicaoProvisoria", "AumentoDefinitivo", "ConsumirHeadcountExistente"][draft.decisaoRH - 1] ?? null)
+                : null,
+            decisaoRHPrazoMeses: draft.decisaoRH === 1 ? draft.decisaoRHPrazoMeses : null,
+            decisaoRHPrazoDataAlvo: draft.decisaoRH === 1 ? draft.decisaoRHPrazoDataAlvo : null,
         };
 
         try {
@@ -629,7 +677,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                                     </div>
                                 )}
 
-                                {draft.tipoSolicitacao === 1 && draft.motivoRequisicao !== 1 && draft.motivoRequisicao !== 2 && (
+                                {draft.tipoSolicitacao === 1 && !isDesligamentoMotivo && (
                                     <div className="col-span-2">
                                         <label className={L}>Funcionário Substituído</label>
                                         <AutocompleteSelect items={funcionarios} value={draft.substituidoFuncionarioId} onChange={(v) => setDraft((d) => ({ ...d, substituidoFuncionarioId: v }))} placeholder="funcionário substituído" required disabled={viewOnly} />
@@ -640,33 +688,31 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                                     <label className={L}>Motivo da Requisição *</label>
                                     <select
                                         className={S}
-                                        value={draft.motivoRequisicao ?? ""}
+                                        value={draft.motivoRequisicaoId ?? ""}
                                         onChange={(e) => {
-                                            const v = e.target.value !== "" ? Number(e.target.value) : null;
+                                            const id = e.target.value || null;
+                                            const efeito = motivos.find((m) => m.id === id)?.efeitoHeadcount ?? null;
+                                            const isDesl = efeito === "Diminui" || efeito === "Ambos";
                                             setDraft((d) => ({
                                                 ...d,
-                                                motivoRequisicao: v,
-                                                // Desligamento implica Substituicao: fica visível o campo de funcionário
-                                                tipoSolicitacao: v === 1 || v === 2 ? 1 : d.tipoSolicitacao,
+                                                motivoRequisicaoId: id,
+                                                // Desligamento (Diminui/Ambos) implica Substituicao: fica visível o campo de funcionário.
+                                                tipoSolicitacao: isDesl ? 1 : d.tipoSolicitacao,
                                             }));
                                         }}
-                                        disabled={viewOnly}
+                                        disabled={viewOnly || motivos.length === 0}
                                         data-testid="select-motivo-requisicao"
                                     >
-                                        <option value="">Selecione...</option>
-                                        <option value={0}>Atender Demanda</option>
-                                        <option value={1}>Pedido de Demissão</option>
-                                        <option value={2}>Desligamento Sem Justa Causa</option>
-                                        <option value={3}>Cota Aprendiz</option>
-                                        <option value={4}>Término de Contrato</option>
-                                        <option value={5}>Expansão de Base</option>
-                                        <option value={6}>Nova Unidade</option>
-                                        <option value={7}>Movimentação</option>
-                                        <option value={8}>Afastamento</option>
+                                        <option value="">
+                                            {motivos.length === 0 ? "Carregando motivos..." : "Selecione..."}
+                                        </option>
+                                        {motivos.map((m) => (
+                                            <option key={m.id} value={m.id}>{m.nome}</option>
+                                        ))}
                                     </select>
                                 </div>
 
-                                {(draft.motivoRequisicao === 1 || draft.motivoRequisicao === 2) && draft.origemVaga === "nova" && (
+                                {isDesligamentoMotivo && draft.origemVaga === "nova" && (
                                     <div className="col-span-3 rounded-md border border-red-400 bg-red-50 p-3 text-sm text-red-800" data-testid="alerta-nova-posicao-desligamento">
                                         <b>Não é possível criar desligamento para uma nova posição.</b>
                                         <div className="mt-1">
@@ -677,7 +723,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                                     </div>
                                 )}
 
-                                {(draft.motivoRequisicao === 1 || draft.motivoRequisicao === 2) && draft.origemVaga !== "nova" && (
+                                {isDesligamentoMotivo && draft.origemVaga !== "nova" && (
                                     <div className="col-span-3 rounded-md border border-dashed border-amber-400/70 bg-amber-50/40 p-3" data-testid="bloco-desligamento">
                                         <div className="mb-2 text-xs font-semibold text-amber-800">
                                             Dados do desligamento
@@ -764,6 +810,85 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                                                     data-testid="textarea-motivo-desligamento"
                                                 />
                                             </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Decisão de headcount — obrigatória para VagaNova (substituição usa provisório por default) */}
+                                {draft.tipoSolicitacao === 0 && (
+                                    <div className="col-span-3 rounded-md border border-dashed border-sky-400/70 bg-sky-50/40 p-3" data-testid="bloco-decisao-hc">
+                                        <div className="mb-2 text-xs font-semibold text-sky-800">
+                                            Decisão de headcount *
+                                            <span className="ml-2 font-normal text-[11px] text-sky-700/80">
+                                                Como esta vaga afeta o quadro? Escolha antes de enviar para aprovação.
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className={`flex items-start gap-2 ${viewOnly ? "cursor-default" : "cursor-pointer"}`}>
+                                                <input
+                                                    type="radio" name="decisaoRH"
+                                                    checked={draft.decisaoRH === 3}
+                                                    onChange={() => setDraft((d) => ({ ...d, decisaoRH: 3 }))}
+                                                    disabled={viewOnly}
+                                                    data-testid="radio-decisao-consumir"
+                                                    className="mt-0.5"
+                                                />
+                                                <span className="text-sm">
+                                                    <strong>Consumir headcount existente</strong>
+                                                    <span className="text-muted-foreground"> — já há slot aprovado em aberto; a vaga utiliza posição existente sem aumentar HC.</span>
+                                                </span>
+                                            </label>
+                                            <label className={`flex items-start gap-2 ${viewOnly ? "cursor-default" : "cursor-pointer"}`}>
+                                                <input
+                                                    type="radio" name="decisaoRH"
+                                                    checked={draft.decisaoRH === 1}
+                                                    onChange={() => setDraft((d) => ({ ...d, decisaoRH: 1 }))}
+                                                    disabled={viewOnly}
+                                                    data-testid="radio-decisao-provisoria"
+                                                    className="mt-0.5"
+                                                />
+                                                <span className="text-sm">
+                                                    <strong>Substituição provisória</strong>
+                                                    <span className="text-muted-foreground"> — headcount temporário com prazo de revisão.</span>
+                                                </span>
+                                            </label>
+                                            {draft.decisaoRH === 1 && (
+                                                <div className="ml-6 grid grid-cols-2 gap-x-3 gap-y-2">
+                                                    <div>
+                                                        <label className={L}>Prazo (meses) *</label>
+                                                        <Input
+                                                            type="number" min={1} max={36}
+                                                            value={draft.decisaoRHPrazoMeses ?? ""}
+                                                            onChange={(e) => setDraft((d) => ({ ...d, decisaoRHPrazoMeses: e.target.value === "" ? null : Math.max(1, Number(e.target.value)) }))}
+                                                            disabled={viewOnly}
+                                                            data-testid="input-decisao-prazo-meses"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className={L}>Data alvo (opcional)</label>
+                                                        <Input
+                                                            type="datetime-local"
+                                                            value={draft.decisaoRHPrazoDataAlvo ? draft.decisaoRHPrazoDataAlvo.slice(0, 16) : ""}
+                                                            onChange={(e) => setDraft((d) => ({ ...d, decisaoRHPrazoDataAlvo: e.target.value ? new Date(e.target.value).toISOString() : null }))}
+                                                            disabled={viewOnly}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <label className={`flex items-start gap-2 ${viewOnly ? "cursor-default" : "cursor-pointer"}`}>
+                                                <input
+                                                    type="radio" name="decisaoRH"
+                                                    checked={draft.decisaoRH === 2}
+                                                    onChange={() => setDraft((d) => ({ ...d, decisaoRH: 2 }))}
+                                                    disabled={viewOnly}
+                                                    data-testid="radio-decisao-aumento"
+                                                    className="mt-0.5"
+                                                />
+                                                <span className="text-sm">
+                                                    <strong>Aumento definitivo de headcount</strong>
+                                                    <span className="text-muted-foreground"> — aumenta o quadro permanentemente; vai para aprovação da Diretoria antes de abrir.</span>
+                                                </span>
+                                            </label>
                                         </div>
                                     </div>
                                 )}

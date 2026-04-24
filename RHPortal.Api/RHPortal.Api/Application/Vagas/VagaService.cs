@@ -238,13 +238,14 @@ public sealed class VagaService : IVagaService
 
         if (solic != null)
         {
-            var isPendenteDecisao = solic.Status == SolicitacaoStatus.AguardandoDecisaoRH;
             response = response with
             {
                 SolicitanteNome = solic.Solicitante?.Name,
                 AprovadorNome = solic.Aprovador?.Name,
                 DataAprovacao = solic.ApprovedAtUtc,
-                SolicitacaoPendenteDecisaoId = isPendenteDecisao ? solic.Id : null,
+                // SolicitacaoPendenteDecisaoId — campo legado do fluxo antigo (RH decidia HC pós-aprovação).
+                // A decisão agora vem do gestor na criação, então não há mais "pendência" pós-aprovação.
+                SolicitacaoPendenteDecisaoId = null,
                 DecisaoRH = solic.DecisaoRH,
                 DecisaoRHRevisadoPorNome = solic.DecisaoRHRevisadoPor?.Name,
                 DecisaoRHEmUtc = solic.DecisaoRHEmUtc,
@@ -623,7 +624,7 @@ public sealed class VagaService : IVagaService
 
     /// <summary>
     /// Cancela (ou marca como Reprovada) todas as SolicitacaoVaga vinculadas à vaga
-    /// que ainda estejam em estados ativos (pendente de aprovação, aguardando decisão RH, etc.).
+    /// que ainda estejam em estados ativos (pendente de aprovação, aumento HC pendente).
     /// Também zera HeadcountPendente da vaga antes de removê-la/cancelá-la.
     /// </summary>
     private async Task CancelarSolicitacoesVinculadasAsync(Vaga vaga, CancellationToken ct)
@@ -631,7 +632,6 @@ public sealed class VagaService : IVagaService
         var statusAtivos = new[]
         {
             SolicitacaoStatus.PendenteAprovacao,
-            SolicitacaoStatus.AguardandoDecisaoRH,
             SolicitacaoStatus.PendenteAprovacaoAumentoHC,
         };
 
