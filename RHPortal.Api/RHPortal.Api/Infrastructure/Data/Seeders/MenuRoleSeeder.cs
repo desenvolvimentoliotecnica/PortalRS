@@ -48,7 +48,7 @@ public static class MenuRoleSeeder
     /// Ensures Operacional, Gestor, and Recrutador roles exist in the tenant.
     /// Does NOT write to RoleMenus — permissions come from RolePermissionManifest.
     /// </summary>
-    private static async Task EnsureRolesExistAsync(
+    public static async Task EnsureRolesExistAsync(
         RoleManager<ApplicationRole> roleManager,
         IStringLocalizer<SeedMessages> localizer,
         CancellationToken ct)

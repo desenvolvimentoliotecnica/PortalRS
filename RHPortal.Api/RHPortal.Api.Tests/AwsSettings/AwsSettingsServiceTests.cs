@@ -1,12 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Moq;
 using RhPortal.Api.Application.AwsSettings;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Storage;
-using RhPortal.Api.Infrastructure.Tenancy;
 using Xunit;
 
 namespace RhPortal.Api.Tests.AwsSettings;
@@ -16,8 +14,6 @@ namespace RhPortal.Api.Tests.AwsSettings;
 /// </summary>
 public sealed class AwsSettingsServiceTests
 {
-    private const string TenantTeste = "tenant-teste";
-
     // ── factory ──────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -31,9 +27,7 @@ public sealed class AwsSettingsServiceTests
             => cipherText.StartsWith("ENC:") ? cipherText[4..] : cipherText;
     }
 
-    private static (MasterDbContext Db, AwsSettingsService Service) CriarServico(
-        string tenantId = TenantTeste,
-        AwsOptions? fallback = null)
+    private static (MasterDbContext Db, AwsSettingsService Service) CriarServico(AwsOptions? fallback = null)
     {
         var options = new DbContextOptionsBuilder<MasterDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -68,10 +62,9 @@ public sealed class AwsSettingsServiceTests
         var (db, svc) = CriarServico();
 
         // Persiste direto no banco para simular configuração já salva
-        db.Set<TenantAwsSettings>().Add(new TenantAwsSettings
+        db.Set<OwnerAwsSettings>().Add(new OwnerAwsSettings
         {
             Id = Guid.NewGuid(),
-            TenantId = TenantTeste,
             AccessKeyIdEncrypted = "ENC:AKIAIOSFODNN7EXAMPLE",
             SecretAccessKeyEncrypted = "ENC:wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
             Region = "us-east-2",
@@ -97,10 +90,9 @@ public sealed class AwsSettingsServiceTests
     {
         var (db, svc) = CriarServico();
 
-        db.Set<TenantAwsSettings>().Add(new TenantAwsSettings
+        db.Set<OwnerAwsSettings>().Add(new OwnerAwsSettings
         {
             Id = Guid.NewGuid(),
-            TenantId = TenantTeste,
             AccessKeyIdEncrypted = "ENC:AKIAIOSFODNN7ABCD",
             BucketName = "b",
             UpdatedAtUtc = DateTimeOffset.UtcNow,
@@ -118,10 +110,9 @@ public sealed class AwsSettingsServiceTests
     {
         var (db, svc) = CriarServico();
 
-        db.Set<TenantAwsSettings>().Add(new TenantAwsSettings
+        db.Set<OwnerAwsSettings>().Add(new OwnerAwsSettings
         {
             Id = Guid.NewGuid(),
-            TenantId = TenantTeste,
             BucketName = "b",
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         });
@@ -148,9 +139,9 @@ public sealed class AwsSettingsServiceTests
             PresignedUrlExpirationMinutes = 20,
         }, CancellationToken.None);
 
-        var entity = await db.Set<TenantAwsSettings>()
+        var entity = await db.Set<OwnerAwsSettings>()
             .AsNoTracking()
-            .FirstAsync(x => x.TenantId == TenantTeste);
+            .SingleAsync();
 
         // FakeProtector prefixou com "ENC:" — garante que foi criptografado
         Assert.StartsWith("ENC:", entity.AccessKeyIdEncrypted);
@@ -183,9 +174,9 @@ public sealed class AwsSettingsServiceTests
             BucketName = "novo-bucket",
         }, CancellationToken.None);
 
-        var entity = await db.Set<TenantAwsSettings>()
+        var entity = await db.Set<OwnerAwsSettings>()
             .AsNoTracking()
-            .FirstAsync(x => x.TenantId == TenantTeste);
+            .SingleAsync();
 
         // Credenciais devem ser as originais
         Assert.Equal("ENC:ORIGINAL-KEY", entity.AccessKeyIdEncrypted);
@@ -221,10 +212,9 @@ public sealed class AwsSettingsServiceTests
     {
         var (db, svc) = CriarServico();
 
-        db.Set<TenantAwsSettings>().Add(new TenantAwsSettings
+        db.Set<OwnerAwsSettings>().Add(new OwnerAwsSettings
         {
             Id = Guid.NewGuid(),
-            TenantId = TenantTeste,
             AccessKeyIdEncrypted = "ENC:CHAVE-KEY",
             SecretAccessKeyEncrypted = "ENC:CHAVE-SECRET",
             Region = "us-east-2",
@@ -285,10 +275,9 @@ public sealed class AwsSettingsServiceTests
             Region = "us-east-1",
         });
 
-        db.Set<TenantAwsSettings>().Add(new TenantAwsSettings
+        db.Set<OwnerAwsSettings>().Add(new OwnerAwsSettings
         {
             Id = Guid.NewGuid(),
-            TenantId = TenantTeste,
             BucketName = "bucket-sem-credenciais",
             // AccessKeyIdEncrypted e SecretAccessKeyEncrypted nulos
             UpdatedAtUtc = DateTimeOffset.UtcNow,
@@ -302,17 +291,16 @@ public sealed class AwsSettingsServiceTests
         Assert.Equal("FALLBACK", opts!.AccessKeyId);
     }
 
-    // ── Isolamento por tenant ─────────────────────────────────────────────────
+    // ── Escopo global (owner) ────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetView_TenantsDiferentes_SaoIsolados()
+    public async Task GetView_ConfiguracaoGlobalOwner_EhRetornada()
     {
-        var (db, svcA) = CriarServico("tenant-a");
+        var (db, svc) = CriarServico();
 
-        db.Set<TenantAwsSettings>().Add(new TenantAwsSettings
+        db.Set<OwnerAwsSettings>().Add(new OwnerAwsSettings
         {
             Id = Guid.NewGuid(),
-            TenantId = "tenant-a",
             AccessKeyIdEncrypted = "ENC:KEY-A",
             SecretAccessKeyEncrypted = "ENC:SECRET-A",
             BucketName = "bucket-a",
@@ -320,15 +308,8 @@ public sealed class AwsSettingsServiceTests
         });
         await db.SaveChangesAsync();
 
-        // svcA enxerga bucket-a
-        var viewA = await svcA.GetViewAsync(CancellationToken.None);
-        Assert.Equal("bucket-a", viewA.BucketName);
-
-        // Novo serviço na mesma instância de DB
-        var svcB = new AwsSettingsService(db, new FakeProtector(), Options.Create(new AwsOptions()));
-
-        var viewB = await svcB.GetViewAsync(CancellationToken.None);
-        Assert.False(viewB.IsConfigured); // tenant-b não tem configuração
-        Assert.Null(viewB.BucketName);
+        var view = await svc.GetViewAsync(CancellationToken.None);
+        Assert.Equal("bucket-a", view.BucketName);
+        Assert.True(view.IsConfigured);
     }
 }

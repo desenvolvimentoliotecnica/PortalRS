@@ -22,7 +22,8 @@ public sealed record LoginResponse(
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions,
     Guid? FuncionarioId,
-    Guid? AreaId,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
     ProfileVisibilityScope VisibilityScope,
     VagasDataScope VagasDataScope,
     bool IsReadOnly
@@ -36,7 +37,8 @@ public sealed record CurrentUserResponse(
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions,
     Guid? FuncionarioId,
-    Guid? AreaId,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
     ProfileVisibilityScope VisibilityScope,
     VagasDataScope VagasDataScope,
     bool IsReadOnly

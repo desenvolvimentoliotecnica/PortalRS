@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
+using RhPortal.Api.Application.Candidaturas;
 using RhPortal.Api.Application.Portal;
+using RhPortal.Api.Contracts.Candidatura;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Infrastructure.Localization;
 
@@ -79,5 +81,26 @@ public sealed class PortalAuthController : ControllerBase
         {
             return Conflict(new { message = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Lista as candidaturas do candidato (histórico server-side com etapa macro por vaga).
+    /// </summary>
+    /// <remarks>
+    /// Recebe o <c>candidatoId</c> via rota — o front deve enviar o Id salvo após login/register.
+    /// Retorna lista ordenada da mais recente para a mais antiga.
+    /// </remarks>
+    [HttpGet("minhas-candidaturas/{candidatoId:guid}")]
+    [ProducesResponseType(typeof(IReadOnlyList<CandidaturaResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<CandidaturaResponse>>> MinhasCandidaturas(
+        Guid candidatoId,
+        [FromServices] ICandidaturaService service,
+        CancellationToken ct)
+    {
+        if (candidatoId == Guid.Empty)
+            return BadRequest(new { message = "candidatoId inválido." });
+
+        var list = await service.ListarDoCandidatoAsync(candidatoId, ct);
+        return Ok(list);
     }
 }

@@ -492,9 +492,9 @@ public sealed class InboxController : ControllerBase
         if (existing is not null)
             return existing.Id;
 
-        var area = await db.Areas.FirstOrDefaultAsync(ct);
-        var dep = await db.Departments.FirstOrDefaultAsync(ct);
-        if (area is null || dep is null)
+        // 31.2: Area+Department foram absorvidos por CentroCusto
+        var centroCusto = await db.CentrosCusto.FirstOrDefaultAsync(ct);
+        if (centroCusto is null)
             return Guid.Empty;
 
         var vaga = new Vaga
@@ -502,8 +502,7 @@ public sealed class InboxController : ControllerBase
             Id = Guid.NewGuid(),
             Codigo = code,
             Titulo = _infraLocalizer["InfrastructureInbox.VagaBaseTitulo"],
-            AreaId = area.Id,
-            DepartmentId = dep.Id,
+            CentroCustoId = centroCusto.Id,
             Status = VagaStatus.Rascunho,
             QuantidadeVagas = 1,
             MatchMinimoPercentual = 70,

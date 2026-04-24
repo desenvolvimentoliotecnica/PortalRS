@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.ProjetosVaga;
+using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[RequireModule("recrutamento")]
 public sealed class ProjetoVagaController : ControllerBase
 {
     private readonly IProjetoVagaService _service;

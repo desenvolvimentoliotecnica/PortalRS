@@ -1,5 +1,7 @@
 # Visão geral do projeto (Qualiit RenderRH / Voltage.RenderRH)
 
+> **Atualização (2026-04-20):** o antigo **`LioTecnica.Web`** (ASP.NET MVC Razor) foi **descomissionado** na Fase 13. Todo o frontend agora vive no **`LioTecnica.Web.Next`** (Next.js 16 + React 19, static export sob `/app`). O browser fala **direto** com a `RHPortal.Api` — não existe mais o proxy MVC. Consulte [`PORTAL_MVC_INVENTARIO_E_MIGRACAO.md`](./PORTAL_MVC_INVENTARIO_E_MIGRACAO.md) para o histórico.
+
 Documento para entender a arquitetura inteira, o fluxo de dados, onde está o matching (keyword vs IA) e como a parte nova de IA se encaixa — incluindo furos de lógica e o que falta para finalizar.
 
 ---
@@ -8,8 +10,8 @@ Documento para entender a arquitetura inteira, o fluxo de dados, onde está o ma
 
 ```
 Voltage.RenderRH/
-├── LioTecnica.sln                    # Solução principal (Web + Integration)
-├── LioTecnica.Web/                   # Frontend MVC (portal RH)
+├── LioTecnica.sln                    # Solução .NET: apenas Integração RM (MVC removido na Fase 13)
+├── LioTecnica.Web.Next/              # Frontend Next.js (SPA/static-export sob /app)
 ├── Liotecnica.Integration.RM/        # Integração com outro sistema (RM)
 ├── Liotecnica.Integration.RM.Schema/
 ├── Liotecnica.Integration.RM.Schema.Tables/
@@ -31,8 +33,9 @@ Voltage.RenderRH/
 └── ...
 ```
 
-- **LioTecnica.sln** inclui: **LioTecnica.Web**, **Liotecnica.Integration.RM**, **Liotecnica.Integration.RM.Schema**.  
-- **RHPortal.Api** tem sua própria solução (**RHPortal.Api.sln**) e **não** está referenciada na LioTecnica.sln.  
+- **LioTecnica.sln** contém apenas **Liotecnica.Integration.RM** e **Liotecnica.Integration.RM.Schema**. O antigo `LioTecnica.Web` e `LioTecnica.Web.E2E` foram removidos na Fase 13.
+- **LioTecnica.Web.Next** não está no .sln — é um projeto Node (`pnpm`), buildado pelo Azure Pipelines.
+- **RHPortal.Api** tem sua própria solução (**RHPortal.Api.sln**) e **não** está referenciada na LioTecnica.sln.
 - **RHPortal.Ai** é projeto Python **fora** de qualquer .sln; roda como processo separado.
 
 ---
@@ -41,8 +44,8 @@ Voltage.RenderRH/
 
 | Projeto | Função | Tecnologia |
 |--------|--------|------------|
-| **LioTecnica.Web** | Portal RH (telas de Vagas, Candidatos, Matching, Triagem, etc.). Faz proxy das chamadas para a API. | ASP.NET Core MVC, Razor, JS (wwwroot/js/views/) |
-| **RHPortal.Api** | API REST: CRUD de vagas, candidatos, matching por keywords, auth, multi-tenant. Fonte da verdade em PostgreSQL. | .NET 8, EF Core, PostgreSQL |
+| **LioTecnica.Web.Next** | Portal RH (telas de Vagas, Candidatos, Matching, Triagem, Dashboard, Admin, Owner, PortalVagas). Chama a `RHPortal.Api` diretamente via `fetch`. | Next.js 16 (static export), React 19, TypeScript, shadcn/ui, Tailwind |
+| **RHPortal.Api** | API REST: CRUD de vagas, candidatos, matching por keywords, auth (JWT + Entra ID OAuth2), multi-tenant. Fonte da verdade em PostgreSQL. | .NET 8, EF Core, PostgreSQL |
 | **RHPortal.Ai** | Matching por IA: lê vaga + candidatos no banco, usa LangChain + embeddings + Chroma, devolve ranking por similaridade 0–100. | Python, FastAPI, LangChain, ChromaDB, OpenAI |
 | **Liotecnica.Integration.RM** | Integração com sistema “RM” (configuração, logs, etc.). Usa appsettings (Portal.BaseUrl, AiService.Host/Port). | .NET |
 
@@ -51,22 +54,20 @@ Voltage.RenderRH/
 ## 3. Fluxo de uma requisição (ex.: tela de Matching)
 
 ```text
-Browser (matching.js)
-    → GET /api/vagas                    → LioTecnica.Web (VagasController.GetAll)
-    → GET /api/vagas/{id}               → LioTecnica.Web (VagasController.GetById)
-    → GET /api/vagas/{id}/matching-candidates  → LioTecnica.Web (VagasController.GetMatchingCandidates)
-    → POST /api/matching/recalculate    → LioTecnica.Web (MatchingController)
+Browser (Next.js / src/features/matching)
+    → GET /api/vagas                             → RHPortal.Api (VagasController)
+    → GET /api/vagas/{id}                        → RHPortal.Api
+    → GET /api/vagas/{id}/matching-candidates    → RHPortal.Api (MatchingController)
+    → POST /api/matching/recalculate             → RHPortal.Api
 ```
 
-O **VagasController** e **MatchingController** da **Web** não acessam o banco diretamente: eles usam **HttpClient** (VagasApiClient, MatchingApiClient) para chamar a **RHPortal.Api**:
+Após a Fase 13, o Next **não passa por um proxy** — usa `fetch` com:
 
-- Base URL da API: **Endpoints:RhApi** (ex.: `https://localhost:7073/` em appsettings.json da Web).
-- Cada request é enviado com header **X-Tenant-Id** (valor vindo do **PortalTenantContext**: claim `"tenant"` do usuário logado).
-- Autenticação: **ApiAuthenticationHandler** (cookie/session da Web → token ou credenciais repassadas à API).
+- Base URL: `NEXT_PUBLIC_API_BASE` (ex.: `https://renderrh.qualiit.com.br/`).
+- Header `X-Tenant-Id` injetado pelo `apiFetch` (`src/lib/api.ts`) a partir do JWT salvo em memória/sessionStorage.
+- Auth: JWT Bearer no header `Authorization`. SSO Entra ID via `GET /api/auth/entra/{enabled,challenge,callback}`.
 
-Ou seja: **Browser → LioTecnica.Web (proxy) → RHPortal.Api → PostgreSQL**.
-
-O **matching.js** usa URLs relativas (`/api/vagas`, etc.), então todas as chamadas passam pela Web, que atua como **proxy** e injeta tenant e auth.
+Ou seja: **Browser (Next) → RHPortal.Api → PostgreSQL**. A Web MVC de proxy não existe mais.
 
 ---
 
@@ -144,13 +145,11 @@ Ou seja: a **IA** usa exatamente **MatchingFiltrosRaw** + requisitos da vaga e c
    - Com a IA: você pode ter **dois** rankings (keyword e IA) ou **um só** (ex.: escolher “por IA” quando a vaga tiver MatchingFiltrosRaw).
    - **Falta**: definir se a tela mostra um ranking único (IA quando houver filtros) ou dois (keyword + IA) e implementar a chamada ao RHPortal.Ai conforme essa regra.
 
-4. **Proxy PATCH matching-filtros na Web**
-   - O **matching.js** chama `PATCH /api/vagas/{id}/matching-filtros` (Editar/Reverter filtros). A **LioTecnica.Web** não expõe essa rota: o **VagasController** não tem ação para PATCH e o **VagasApiClient** não tem método para repassar à API. Resultado: **404** ao salvar ou reverter filtros na tela de Matching.
-   - **Falta**: no VagasController da Web, ação `[HttpPatch("/api/vagas/{id:guid}/matching-filtros")]` que recebe o body e chama o VagasApiClient; no VagasApiClient, método que envia PATCH para `api/vagas/{id}/matching-filtros` e retorna a resposta.
+4. **PATCH matching-filtros**
+   - ✅ Resolvido: o Next chama `PATCH /api/vagas/{id}/matching-filtros` direto na `RHPortal.Api`. Não há mais proxy MVC.
 
 5. **Segurança e CORS**
-   - Se o **browser** chamar direto o RHPortal.Ai (localhost:8000), precisa de CORS liberado e (idealmente) alguma forma de autorização (ex.: só usuário logado no portal; a Web poderia gerar um token curto ou a API fazer a chamada ao Python em nome do usuário).
-   - Se só a **API .NET** chamar o Python (backend-to-backend), CORS some; a API usa uma URL configurável (ex.: Endpoints:RhAi) e repassa o resultado ao front.
+   - Como o **Next** (`LioTecnica.Web.Next`) chama direto a `RHPortal.Api`, a API já tem CORS configurado para a origem pública do portal. Para chamadas ao Python (RHPortal.Ai), prefira o padrão **backend-to-backend** (API .NET → Python), para não expor o serviço Python ao browser.
 
 6. **Tabelas/colunas em PascalCase**
    - **db.py** usa nomes com aspas (`"Candidatos"`, `"CvText"`, etc.). Se o seu PostgreSQL tiver tabelas/colunas em minúsculas (convenção Npgsql), as queries no **db.py** precisam ser ajustadas para o que está no banco.
@@ -179,13 +178,14 @@ Para **testes** você pode:
 
 | O quê | Onde |
 |-------|------|
-| Tela de Matching (lista de vagas, ranking, detalhe do candidato, “Editar filtros”, “Reverter”) | LioTecnica.Web/Views/Matching/Index.cshtml + wwwroot/js/views/matching.js |
-| Proxy /api/vagas e /api/vagas/.../matching-candidates | LioTecnica.Web/Controllers/VagasController.cs |
-| Cálculo de score por keywords | RHPortal.Api/Application/Matching/MatchingService.cs |
-| Persistência MatchingFiltrosRaw e PATCH matching-filtros | RHPortal.Api (VagaService, VagasController) |
-| Filtros de matching na criação/edição da vaga (selects + observações) | LioTecnica.Web/Views/Vagas/_ModalVaga.cshtml + wwwroot/js/views/vagas.js (buildMatchingFiltrosRawFromSelects, parseMatchingFiltrosRaw) |
-| Chave OpenAI nas configs (API .NET) | RHPortal.Api appsettings: Ai:OpenAI:ApiKey (ou User Secrets); UnifiedAiService usa essa chave quando não há chave no banco Master. |
-| Matching por IA (Python) | RHPortal.Ai/app/ (config, db, matching, main); host/porta em Liotecnica.Integration.RM/appsettings.Development.json → AiService. |
-| Integração Web ↔ API | LioTecnica.Web: Endpoints:RhApi; ApiAuthenticationHandler; VagasApiClient, CandidatosApiClient, MatchingApiClient. |
+| Tela de Matching (lista de vagas, ranking, detalhe do candidato, “Editar filtros”, “Reverter”) | `LioTecnica.Web.Next/src/features/matching/**` + `src/app/(app)/matching/page.tsx` |
+| Endpoints `/api/vagas` e `/api/vagas/.../matching-candidates` | `RHPortal.Api/Controllers/VagasController.cs` (chamado direto pelo Next) |
+| Cálculo de score por keywords | `RHPortal.Api/Application/Matching/MatchingService.cs` |
+| Persistência `MatchingFiltrosRaw` e `PATCH matching-filtros` | `RHPortal.Api` (VagaService, VagasController) |
+| Filtros de matching na criação/edição da vaga (selects + observações) | `LioTecnica.Web.Next/src/features/vagas/**` |
+| Chave OpenAI nas configs (API .NET) | `RHPortal.Api` appsettings: `Ai:OpenAI:ApiKey` (ou User Secrets); `UnifiedAiService` usa essa chave quando não há chave no banco Master. |
+| Matching por IA (Python) | `RHPortal.Ai/app/` (config, db, matching, main); host/porta em `Liotecnica.Integration.RM/appsettings.Development.json → AiService`. |
+| Integração Next ↔ API | `LioTecnica.Web.Next/src/lib/api.ts` — lê `NEXT_PUBLIC_API_BASE`, injeta `X-Tenant-Id` e `Authorization` Bearer. |
+| Login Entra ID (SSO Microsoft) | Fluxo OAuth2 Authorization Code 100% na `RHPortal.Api`: `EntraChallengeService` + endpoints `/api/auth/entra/{enabled,challenge,callback}`. |
 
 Com isso você tem uma visão geral do projeto inteiro, onde está o matching por keyword, onde está o por IA (RHPortal.Ai), e o que falta (integrar a chamada ao Python e definir uma única fonte de ranking ou duas) para finalizar a parte de IA e seguir com os testes.

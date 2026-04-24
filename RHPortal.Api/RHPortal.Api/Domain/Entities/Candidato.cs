@@ -47,7 +47,21 @@ public sealed class Candidato : ITenantEntity
     /// <summary>Pretensão salarial do candidato (em R$).</summary>
     public decimal? PretensaoSalarial { get; set; }
 
+    /// <summary>
+    /// Cache da Vaga principal do candidato — aponta para a <c>VagaId</c> da
+    /// <see cref="Candidatura"/> ativa mais recente (ordenada por <c>AplicadaEmUtc</c> desc).
+    /// A fonte-de-verdade é a tabela <c>Candidaturas</c>; este campo é um índice O(1)
+    /// para listas/dashboards e é sincronizado automaticamente por
+    /// <c>CandidaturaService.RecalcularVagaPrincipalAsync</c> sempre que uma Candidatura
+    /// é criada, avança de etapa ou é encerrada. Pode ser <c>null</c> se o candidato não
+    /// possui candidatura ativa no momento.
+    /// </summary>
     public Guid? VagaId { get; set; }
+
+    /// <summary>
+    /// Nav property ligada ao cache <see cref="VagaId"/>. Use <c>Candidaturas</c> para
+    /// enumerar todas as vagas às quais o candidato se candidatou.
+    /// </summary>
     public RHPortal.Api.Domain.Entities.Vaga? Vaga { get; set; }
 
     public Guid? TalentoId { get; set; }

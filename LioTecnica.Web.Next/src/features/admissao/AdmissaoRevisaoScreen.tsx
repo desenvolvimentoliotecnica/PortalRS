@@ -124,7 +124,8 @@ interface PreAdmissao {
     estabelecimentoCodigo: string | null;
     matriculaRM: string | null;
     unitNome: string | null;
-    areaNome: string | null;
+    centroCustoNome: string | null;
+    areaNome?: string | null;
     jobPositionNome: string | null;
     dataAdmissao: string | null;
     salario: number | null;
@@ -903,6 +904,8 @@ export default function AdmissaoRevisaoScreen() {
                         <Info label="Matrícula eSocial" value={data.matriculaESocial} />
                         <Info label="Unidade" value={data.unitNome} />
                         <Info label="Área" value={data.areaNome} />
+                        <Info label="Centro de Custo" value={data.centroCustoNome ?? data.areaNome} />
+                        <Info label="Cargo" value={data.jobPositionNome} />
                         <Info label="Data Admissão" value={data.dataAdmissao} />
                         <Info label="Data Opção FGTS" value={data.dataOpcaoFgts} />
                         <Info label="Data Término Contrato" value={data.dataTerminoContrato?.toString()} />

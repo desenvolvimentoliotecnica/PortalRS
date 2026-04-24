@@ -10,7 +10,15 @@ public sealed record CentroCustoCreateRequest(
     bool IsActive,
     Guid? EmpresaId = null,
     DateOnly? ValidFrom = null,
-    DateOnly? ValidUntil = null
+    DateOnly? ValidUntil = null,
+    Guid? ParentId = null,
+    // Campos absorvidos de Department (Sessão 31.2)
+    int Headcount = 0,
+    [MaxLength(40)] string? Phone = null,
+    [MaxLength(160)] string? BranchOrLocation = null,
+    // Campo absorvido de Area
+    Guid? OwnerFuncionarioId = null,
+    [MaxLength(1000)] string? Description2 = null
 );
 
 public sealed record CentroCustoUpdateRequest(
@@ -21,7 +29,15 @@ public sealed record CentroCustoUpdateRequest(
     bool IsActive,
     Guid? EmpresaId = null,
     DateOnly? ValidFrom = null,
-    DateOnly? ValidUntil = null
+    DateOnly? ValidUntil = null,
+    Guid? ParentId = null,
+    // Campos absorvidos de Department (Sessão 31.2)
+    int Headcount = 0,
+    [MaxLength(40)] string? Phone = null,
+    [MaxLength(160)] string? BranchOrLocation = null,
+    // Campo absorvido de Area
+    Guid? OwnerFuncionarioId = null,
+    [MaxLength(1000)] string? Description2 = null
 );
 
 public sealed record CentroCustoResponse(
@@ -37,7 +53,29 @@ public sealed record CentroCustoResponse(
     string? EmpresaCode = null,
     string? EmpresaDescription = null,
     DateOnly? ValidFrom = null,
-    DateOnly? ValidUntil = null
+    DateOnly? ValidUntil = null,
+    Guid? ParentId = null,
+    string? ParentCode = null,
+    string? ParentDescription = null,
+    // Campos absorvidos de Department (Sessão 31.2)
+    int Headcount = 0,
+    string? Phone = null,
+    string? BranchOrLocation = null,
+    // Campo absorvido de Area
+    Guid? OwnerFuncionarioId = null,
+    string? OwnerFuncionarioName = null,
+    string? Description2 = null
+);
+
+/// <summary>Nó da árvore hierárquica de centros de custo.</summary>
+public sealed record CentroCustoTreeNode(
+    Guid Id,
+    string Code,
+    string Description,
+    bool IsActive,
+    Guid? EmpresaId,
+    string? EmpresaCode,
+    IReadOnlyList<CentroCustoTreeNode> Children
 );
 
 public sealed record CentroCustoLookupItem(

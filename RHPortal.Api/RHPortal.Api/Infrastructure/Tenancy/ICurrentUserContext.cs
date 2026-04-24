@@ -30,11 +30,15 @@ public interface ICurrentUserContext
     /// <summary>ID do funcionário vinculado ao usuário (quando perfil Gestor).</summary>
     Guid? FuncionarioId { get; }
 
-    /// <summary>ID da área do funcionário vinculado (quando perfil Gestor com FuncionarioId).</summary>
-    Guid? AreaId { get; }
+    /// <summary>
+    /// ID do centro de custo do funcionário vinculado (quando perfil Gestor com FuncionarioId).
+    /// Em 31.2, CentroCusto absorveu Area: o mesmo escopo organizacional que antes era "área"
+    /// agora é representado pelo Centro de Custo do funcionário.
+    /// </summary>
+    Guid? CentroCustoId { get; }
 
-    /// <summary>True quando o usuário é Gestor e tem área definida (deve filtrar por AreaId).</summary>
-    bool IsGestorWithArea { get; }
+    /// <summary>True quando o usuário é Gestor e tem centro de custo definido (deve filtrar por CentroCustoId).</summary>
+    bool IsGestorWithCentroCusto { get; }
 
     /// <summary>IDs das unidades às quais o usuário tem acesso (vazio = sem restrição por unidade ou nenhuma unidade).</summary>
     IReadOnlyList<Guid> UnitIds { get; }

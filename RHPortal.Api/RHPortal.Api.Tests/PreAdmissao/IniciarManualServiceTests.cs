@@ -68,7 +68,8 @@ public sealed class IniciarManualServiceTests
         var service = new PreAdmissaoService(
             db, tenantMock.Object, userManager.Object,
             emailQueue.Object, italoService.Object, storageMock.Object, logger.Object,
-            httpAccessor.Object);
+            httpAccessor.Object,
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
 
         return (db, service, storageMock);
     }

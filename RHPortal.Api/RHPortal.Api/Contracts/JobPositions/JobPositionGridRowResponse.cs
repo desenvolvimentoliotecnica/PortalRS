@@ -6,8 +6,9 @@ public sealed record JobPositionGridRowResponse(
     Guid Id,
     string Name,
     string Code,
-    string AreaName,
-    Guid? AreaId,
+    string CentroCustoNome,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
     SeniorityLevel Seniority,
     int FuncionariosCount,
     CargoStatus Status,

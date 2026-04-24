@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Search, RefreshCw, Pencil, UserX, Unlock, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { lookupCep } from "@/lib/cepLookup";
 import { confirmDialog } from "@/lib/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
@@ -710,7 +711,24 @@ export default function PessoasScreen() {
             <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-12">
               <div className="md:col-span-3">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">CEP</label>
-                <Input value={draft.cep ?? ""} onChange={(e) => setDraft((d) => ({ ...d, cep: e.target.value }))} />
+                <Input
+                  value={draft.cep ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, cep: e.target.value }))}
+                  onBlur={async () => {
+                    // Sessão 31.8 — auto-preenche endereço via ViaCEP
+                    const res = await lookupCep(draft.cep ?? "");
+                    if (!res) return;
+                    setDraft((d) => ({
+                      ...d,
+                      logradouro: (d.logradouro ?? "").trim() || res.logradouro,
+                      bairro: (d.bairro ?? "").trim() || res.bairro,
+                      cidade: (d.cidade ?? "").trim() || res.cidade,
+                      uf: (d.uf ?? "").trim() || res.uf,
+                    }));
+                    toast.success("Endereço preenchido a partir do CEP");
+                  }}
+                  title="Sair do campo (Tab) busca o endereço automaticamente"
+                />
               </div>
               <div className="md:col-span-6">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Logradouro</label>

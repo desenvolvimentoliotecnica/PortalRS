@@ -13,6 +13,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/agenda")]
+[RequireModule("agenda")]
 public sealed class AgendaController : ControllerBase
 {
     private readonly IStringLocalizer<ControllerMessages> _localizer;

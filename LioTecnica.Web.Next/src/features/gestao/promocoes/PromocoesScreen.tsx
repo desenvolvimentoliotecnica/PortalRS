@@ -185,8 +185,8 @@ export default function PromocoesScreen() {
     /* ── filters ── */
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("ativas");
-    const [areaFilter, setAreaFilter] = useState("all");
-    const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
+    const [centroCustoFilter, setCentroCustoFilter] = useState("all");
+    const [centrosCusto, setCentrosCusto] = useState<{ id: string; code: string; description: string; displayLabel?: string }[]>([]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
@@ -226,12 +226,12 @@ export default function PromocoesScreen() {
     /* ── data loading ── */
     const syncList = useCallback(async () => {
         const params = new URLSearchParams();
-        if (areaFilter !== "all") params.set("areaId", areaFilter);
+        if (centroCustoFilter !== "all") params.set("centroCustoId", centroCustoFilter);
         const url = params.toString() ? `${API}?${params.toString()}` : API;
         const data = await fetchJson<SolicitacaoPromocaoGridRow[]>(url);
         setRows(Array.isArray(data) ? data.map(r => ({ ...r, status: normalizeStatus(r.status) })) : []);
         setSelected(new Set());
-    }, [areaFilter]);
+    }, [centroCustoFilter]);
 
     useEffect(() => {
         let alive = true;
@@ -242,11 +242,11 @@ export default function PromocoesScreen() {
         return () => { alive = false; };
     }, [syncList]);
 
-    /* ── fetch areas for filter ── */
+    /* ── fetch centros de custo for filter ── */
     useEffect(() => {
-        apiFetch("/api/lookup/areas")
+        apiFetch("/api/centros-custo/lookup")
             .then((r) => r.json())
-            .then((d: { id: string; name: string }[]) => setAreas(Array.isArray(d) ? d : []))
+            .then((d: { id: string; code: string; description: string; displayLabel?: string }[]) => setCentrosCusto(Array.isArray(d) ? d : []))
             .catch(() => { });
     }, []);
 
@@ -509,7 +509,7 @@ export default function PromocoesScreen() {
 
     function exportCsv() {
         const params = new URLSearchParams();
-        if (areaFilter !== "all") params.set("areaId", areaFilter);
+        if (centroCustoFilter !== "all") params.set("centroCustoId", centroCustoFilter);
         if (statusFilter !== "all") params.set("status", statusFilter);
         apiFetch(`${API}/export?${params.toString()}`)
             .then((res) => res.blob())
@@ -602,15 +602,15 @@ export default function PromocoesScreen() {
                                 onChange={(e) => setQ(e.target.value)}
                             />
                         </div>
-                        {areas.length > 0 && (
+                        {centrosCusto.length > 0 && (
                             <select
                                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                                value={areaFilter}
-                                onChange={(e) => setAreaFilter(e.target.value)}
+                                value={centroCustoFilter}
+                                onChange={(e) => setCentroCustoFilter(e.target.value)}
                             >
-                                <option value="all">Todas áreas</option>
-                                {areas.map((a) => (
-                                    <option key={a.id} value={a.id}>{a.name}</option>
+                                <option value="all">Todos centros de custo</option>
+                                {centrosCusto.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.displayLabel || `${c.code} — ${c.description}`}</option>
                                 ))}
                             </select>
                         )}

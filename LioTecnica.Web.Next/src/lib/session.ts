@@ -1,5 +1,6 @@
 const ACCESS_TOKEN_KEY = "renderrh.accessToken";
 const TENANT_ID_KEY = "renderrh.tenantId";
+const LAST_TENANT_SLUG_KEY = "renderrh.lastTenantSlug"; // usado pelo LoginScreen para pré-carregar branding white-label
 
 function safeGet(key: string): string | null {
   try {
@@ -67,6 +68,28 @@ export function clearTenantId() {
 export function clearSession() {
   clearAccessToken();
   clearTenantId();
+  // Deliberadamente preservamos lastTenantSlug: após logout, o próximo acesso à tela
+  // de login deve manter o branding do tenant anterior (não voltar a "Portal de RH" genérico).
+}
+
+/**
+ * Slug do último tenant usado para logar. Permite a tela de login pré-carregar
+ * o branding white-label (nome, cores, logo) antes do usuário digitar credenciais.
+ * Campo público: pode ser sniffado sem risco — é só o identificador do tenant.
+ */
+export function getLastTenantSlug(): string | null {
+  const v = safeGet(LAST_TENANT_SLUG_KEY);
+  return v && v.trim() ? v : null;
+}
+
+export function setLastTenantSlug(slug: string) {
+  const v = (slug ?? "").trim().toLowerCase();
+  if (!v) return;
+  safeSet(LAST_TENANT_SLUG_KEY, v);
+}
+
+export function clearLastTenantSlug() {
+  safeRemove(LAST_TENANT_SLUG_KEY);
 }
 
 function base64UrlDecode(input: string): string {

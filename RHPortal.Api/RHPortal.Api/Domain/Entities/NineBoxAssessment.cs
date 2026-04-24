@@ -24,6 +24,13 @@ public sealed class NineBoxAssessment : ITenantEntity
 
     public string? Observacoes { get; set; }
 
+    /// <summary>
+    /// Quando a posição vem de um ciclo de avaliação (via calibragem do comitê),
+    /// referencia o ciclo de origem. Null quando é snapshot avulso do gestor.
+    /// </summary>
+    public Guid? CicloAvaliacaoId { get; set; }
+    public AvaliacaoCiclo? CicloAvaliacao { get; set; }
+
     public DateTimeOffset CriadoEmUtc { get; set; }
     public DateTimeOffset AtualizadoEmUtc { get; set; }
 }

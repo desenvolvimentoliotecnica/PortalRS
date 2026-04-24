@@ -10,6 +10,7 @@ using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using RHPortal.Api.Domain.Enums;
@@ -21,6 +22,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/vagas")]
+[RequireModule("recrutamento")]
 public sealed class VagasController : ControllerBase
 {
     private readonly ICurrentUserContext _userContext;
@@ -48,42 +50,45 @@ public sealed class VagasController : ControllerBase
     /// </summary>
     /// <param name="q">Busca textual por título/código.</param>
     /// <param name="status">Status da vaga (Aberta, Fechada, etc.).</param>
-    /// <param name="areaId">Filtrar por área.</param>
-    /// <param name="departmentId">Filtrar por departamento.</param>
+    /// <param name="centroCustoId">Filtrar por centro de custo (absorveu Area/Department em 31.2).</param>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<VagaListItemResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<VagaListItemResponse>>> List(
         [FromQuery] string? q,
         [FromQuery] VagaStatus? status,
-        [FromQuery] Guid? areaId,
-        [FromQuery] Guid? departmentId,
+        [FromQuery] Guid? centroCustoId,
         [FromServices] IListVagasHandler handler,
         CancellationToken ct)
     {
-        Guid? effectiveAreaId;
+        Guid? effectiveCentroCustoId;
         Guid? recrutadorUserId = null;
         if (_userContext.IsAdmin || _userContext.IsInRole("Owner"))
         {
-            effectiveAreaId = areaId;
+            effectiveCentroCustoId = centroCustoId;
         }
         else
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue)
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue)
             {
-                effectiveAreaId = _userContext.AreaId;
+                effectiveCentroCustoId = _userContext.CentroCustoId;
             }
             else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
             {
-                effectiveAreaId = null;
+                effectiveCentroCustoId = null;
                 recrutadorUserId = _userContext.UserId;
+            }
+            else if (_userContext.VagasDataScope == VagasDataScope.ByGestorRecrutador && _userContext.FuncionarioId.HasValue)
+            {
+                // Filtragem real acontece no ApplyVagasDataScopeFilter via navegação RecrutadorResponsavelUser.Funcionario.GestorDiretoId
+                effectiveCentroCustoId = null;
             }
             else
             {
-                effectiveAreaId = areaId;
+                effectiveCentroCustoId = centroCustoId;
             }
         }
 
-        var query = new VagaListQuery(q, status, effectiveAreaId, departmentId, recrutadorUserId);
+        var query = new VagaListQuery(q, status, effectiveCentroCustoId, recrutadorUserId);
         var items = await handler.HandleAsync(query, ct);
         return Ok(items);
     }
@@ -261,7 +266,7 @@ public sealed class VagasController : ControllerBase
             return NotFound();
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue && item.AreaId != _userContext.AreaId)
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue && item.CentroCustoId != _userContext.CentroCustoId)
                 return NotFound();
             if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue && item.RecrutadorResponsavelUserId != _userContext.UserId)
                 return NotFound();
@@ -493,6 +498,53 @@ public sealed class VagasController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Aprova a alçada salarial de uma vaga fora da faixa cadastrada (épico Fase 3C).
+    /// Após aprovação, a vaga pode ser salva mesmo com Salário fora da Faixa.
+    /// </summary>
+    [HttpPost("{id:guid}/aprovar-alcada-salarial")]
+    [ProducesResponseType(typeof(VagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VagaResponse>> AprovarAlcadaSalarial(
+        [FromRoute] Guid id,
+        [FromBody] AprovarAlcadaSalarialRequest request,
+        [FromServices] IVagaService vagaService,
+        CancellationToken ct)
+    {
+        if (_userContext.IsReadOnly) return Forbid();
+        if (!_userContext.IsAdmin && !_userContext.IsOwner && !_userContext.IsRH)
+            return Forbid();
+
+        try
+        {
+            var result = await vagaService.AprovarAlcadaSalarialAsync(id, request.Justificativa, request.ObservacaoAprovador, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Limpa uma alçada salarial previamente aprovada (volta a vaga a exigir faixa).</summary>
+    [HttpPost("{id:guid}/limpar-alcada-salarial")]
+    [ProducesResponseType(typeof(VagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VagaResponse>> LimparAlcadaSalarial(
+        [FromRoute] Guid id,
+        [FromServices] IVagaService vagaService,
+        CancellationToken ct)
+    {
+        if (_userContext.IsReadOnly) return Forbid();
+        if (!_userContext.IsAdmin && !_userContext.IsOwner && !_userContext.IsRH)
+            return Forbid();
+
+        var result = await vagaService.LimparAlcadaSalarialAsync(id, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     private async Task RecalcMatchingScoresInBackgroundAsync(Guid vagaId, string tenantId)
     {
         try
@@ -632,6 +684,99 @@ public sealed class VagasController : ControllerBase
         vaga.HeadcountAutorizado = Math.Max(1, request.HeadcountAutorizado);
         await db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Sessão 31.8 — Breakdown explicável do matching de um candidato em uma vaga.
+    ///
+    /// Retorna o score final + cada critério usado (Competência, Experiência,
+    /// Formação, Localidade — distância em km, Idioma, Conhecimento Técnico,
+    /// Vivência Específica) com peso configurado, sub-score, contribuição e
+    /// itens cobertos/faltando para o RH entender por que o candidato bate
+    /// (ou não) com a vaga.
+    ///
+    /// Requer que a vaga tenha <c>DescricaoCargoId</c> preenchido (template
+    /// DNALIO). Para vagas sem template, usa o algoritmo legado (sem breakdown).
+    /// </summary>
+    [HttpGet("{id:guid}/matching-breakdown/{candidatoId:guid}")]
+    [ProducesResponseType(typeof(RhPortal.Api.Application.Matching.MatchingBreakdown), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMatchingBreakdown(
+        [FromRoute] Guid id,
+        [FromRoute] Guid candidatoId,
+        [FromServices] RhPortal.Api.Application.Matching.DescricaoCargoMatchingService descricaoCargoMatching,
+        CancellationToken ct)
+    {
+        var breakdown = await descricaoCargoMatching.CalcularBreakdownAsync(candidatoId, id, ct);
+        if (breakdown is null)
+        {
+            return NotFound(new
+            {
+                message = "Não foi possível calcular o breakdown — verifique se a vaga existe, tem DescricaoCargo vinculada (cadastro de Descrição de Cargos), e se o candidato existe."
+            });
+        }
+        return Ok(breakdown);
+    }
+
+    /// <summary>
+    /// Fase 4.R — Matching por LLM (Qwen 2.5). "LLM-as-a-Judge" — raciocínio profundo
+    /// sobre CV × DescCargo estruturada + pesos calibrados. Retorna score 0-100 +
+    /// justificativa em PT-BR + breakdown por critério com pontos fortes e gaps.
+    ///
+    /// <para>Cache automático: se CV + DescCargo + pesos não mudaram, retorna instantâneo.
+    /// Caso contrário, chama Qwen (10-15s). Idempotente por hash SHA256.</para>
+    ///
+    /// <para>Use <c>?force=true</c> para forçar regeração.</para>
+    /// </summary>
+    [HttpGet("{id:guid}/matching-llm/{candidatoId:guid}")]
+    [ProducesResponseType(typeof(RhPortal.Api.Application.Ai.LlmMatchingResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> GetMatchingLlm(
+        [FromRoute] Guid id,
+        [FromRoute] Guid candidatoId,
+        [FromQuery] bool force,
+        [FromServices] RhPortal.Api.Application.Ai.ILlmMatchingService llmMatching,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await llmMatching.ScoreAsync(candidatoId, id, force, ct);
+            if (result is null)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    message = "Não foi possível gerar score por LLM. Verifique: (1) vaga tem DescricaoCargo vinculada, (2) Ollama rodando com qwen2.5:7b carregado, (3) candidato válido."
+                });
+            }
+            return Ok(result);
+        }
+        catch (RhPortal.Api.Application.Ai.LlmTimeoutException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Fase 4 — Matching HÍBRIDO (léxico 30% + semântico 50% + localidade 20%).
+    /// Requer Ollama rodando + embeddings indexados. Se indisponíveis, retorna
+    /// automaticamente o matching léxico com <c>Modo="fallback"</c>.
+    /// </summary>
+    [HttpGet("{id:guid}/matching-breakdown-hybrid/{candidatoId:guid}")]
+    [ProducesResponseType(typeof(RhPortal.Api.Application.Matching.MatchingBreakdown), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMatchingBreakdownHybrid(
+        [FromRoute] Guid id,
+        [FromRoute] Guid candidatoId,
+        [FromServices] RhPortal.Api.Application.Matching.HybridMatchingService hybrid,
+        CancellationToken ct)
+    {
+        var breakdown = await hybrid.CalcularHybridAsync(candidatoId, id, ct);
+        if (breakdown is null)
+        {
+            return NotFound(new { message = "Não foi possível calcular breakdown híbrido — verifique vaga, DescricaoCargo e candidato." });
+        }
+        return Ok(breakdown);
     }
 }
 

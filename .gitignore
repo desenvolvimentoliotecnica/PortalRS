@@ -8,6 +8,10 @@
 **/obj/
 *.docx
 
+# macOS metadata — nunca vai para o repo
+.DS_Store
+**/.DS_Store
+
 # Arquivos de ambiente sensíveis
 .env
 .env.local
@@ -16,6 +20,15 @@
 **/.env
 # Exceção: .env na raiz é template com placeholders (editar no servidor)
 !/.env
+
+# appsettings.Local.json: nunca ir para o repo.
+**/appsettings.Local.json
+
+# appsettings.Development.json: decisão deliberada (sessão 2026-04-24) — versionar
+# no repo com senhas de DEV incluídas, até a próxima rotação. Trocar quando
+# aplicável e remover este bypass. Em produção, nunca fazer isso.
+# **/appsettings.Development.json  ← DESATIVADO INTENCIONALMENTE
+!**/appsettings.Development.sample.json
 
 # Arquivos problemáticos no Windows
 nul

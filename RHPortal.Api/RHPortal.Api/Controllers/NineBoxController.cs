@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.NineBox;
 using RhPortal.Api.Contracts.NineBox;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -12,6 +13,7 @@ namespace RhPortal.Api.Controllers;
 [ApiController]
 [Route("api/nine-box")]
 [Authorize]
+[RequireModule("desempenho")]
 public sealed class NineBoxController : ControllerBase
 {
     private readonly INineBoxService _service;

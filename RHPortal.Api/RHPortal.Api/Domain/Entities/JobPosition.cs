@@ -12,8 +12,9 @@ public sealed class JobPosition : ITenantEntity
 
     public CargoStatus Status { get; set; } = CargoStatus.Active;
 
-    public Guid? AreaId { get; set; }
-    public Area? Area { get; set; }
+    /// <summary>Centro de custo organizacional deste cargo (absorveu Area em 31.2).</summary>
+    public Guid? CentroCustoId { get; set; }
+    public CentroCusto? CentroCusto { get; set; }
 
     public SeniorityLevel Seniority { get; set; } = SeniorityLevel.Pleno;
 

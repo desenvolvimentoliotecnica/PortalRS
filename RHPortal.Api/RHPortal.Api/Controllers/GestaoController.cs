@@ -13,6 +13,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/gestao")]
+[RequireModule("gestao")]
 public sealed class GestaoController : ControllerBase
 {
     private readonly AppDbContext _db;

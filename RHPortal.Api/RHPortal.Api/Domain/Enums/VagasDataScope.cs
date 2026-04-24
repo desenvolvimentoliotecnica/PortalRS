@@ -12,5 +12,8 @@ public enum VagasDataScope : short
     ByArea = 1,
 
     /// <summary>Apenas vagas abertas pelo usuário (RecrutadorResponsavelUserId).</summary>
-    ByRecrutador = 2
+    ByRecrutador = 2,
+
+    /// <summary>Apenas vagas dos recrutadores do seu time (subordinados diretos via Funcionario.GestorDiretoId).</summary>
+    ByGestorRecrutador = 3
 }

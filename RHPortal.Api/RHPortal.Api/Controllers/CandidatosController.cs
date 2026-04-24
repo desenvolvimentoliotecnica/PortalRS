@@ -6,6 +6,7 @@ using RhPortal.Api.Application.Candidatos.Handlers;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Enums;
 
@@ -16,6 +17,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/candidatos")]
+[RequireModule("candidatos")]
 public sealed class CandidatosController : ControllerBase
 {
     private readonly IStringLocalizer<ControllerMessages> _localizer;
@@ -48,8 +50,8 @@ public sealed class CandidatosController : ControllerBase
         Guid? recrutadorUserId = null;
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue)
-                areaId = _userContext.AreaId;
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue)
+                areaId = _userContext.CentroCustoId;
             else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
                 recrutadorUserId = _userContext.UserId;
         }
@@ -76,7 +78,7 @@ public sealed class CandidatosController : ControllerBase
             return NotFound();
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.AreaId.HasValue && item.VagaAreaId.HasValue && item.VagaAreaId != _userContext.AreaId)
+            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue && item.VagaAreaId.HasValue && item.VagaAreaId != _userContext.CentroCustoId)
                 return NotFound();
             if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue && item.VagaRecrutadorResponsavelUserId != _userContext.UserId)
                 return NotFound();
@@ -143,6 +145,7 @@ public sealed class CandidatosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] IDeleteCandidatoHandler handler,
@@ -150,8 +153,28 @@ public sealed class CandidatosController : ControllerBase
     {
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
             return Forbid();
-        var deleted = await handler.HandleAsync(id, ct);
-        return deleted ? NoContent() : NotFound();
+
+        try
+        {
+            var deleted = await handler.HandleAsync(id, ct);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Pre-check no CandidatoService.DeleteAsync lança InvalidOperationException
+            // quando há vínculos que bloqueiam o delete (PropostaVaga, ProjetoCandidato).
+            // Mensagem já vem formatada em PT: "Não é possível excluir ... — há vínculos: ...".
+            return Conflict(new { message = ex.Message });
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == "23503")
+        {
+            // Safety net: FK nova com Restrict que o service ainda não sabe contar.
+            return Conflict(new
+            {
+                message = "Não é possível excluir este candidato — existe um vínculo em outra tabela que não foi detectado. Contate o suporte.",
+                detail = pg.ConstraintName,
+            });
+        }
     }
 
     /// <summary>

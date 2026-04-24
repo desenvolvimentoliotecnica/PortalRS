@@ -29,12 +29,10 @@ public sealed class FuncionarioCreateRequest
 
     public Guid? UnitId { get; set; }
 
-    public Guid? AreaId { get; set; }
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    public Guid? CentroCustoId { get; set; }
 
     public Guid? JobPositionId { get; set; }
-
-    /// <summary>Função do funcionário (RequisitoCategoria / PFUNCAO no RM).</summary>
-    public Guid? RequisitoCategoriaId { get; set; }
 
     [MaxLength(1000)]
     public string? Notes { get; set; }
@@ -64,7 +62,8 @@ public sealed record FuncionarioUpdateRequest(
     FuncionarioStatus Status,
     int Headcount,
     Guid? UnitId,
-    Guid? AreaId,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
     Guid? JobPositionId,
     Guid? RequisitoCategoriaId,
     [MaxLength(1000)] string? Notes,
@@ -73,7 +72,6 @@ public sealed record FuncionarioUpdateRequest(
     Guid? NivelHierarquicoId,
     // Lotação / Centro de Custo
     Guid? UnidadeLotacaoId,
-    Guid? CentroCustoId,
     // Chaves TOTVS
     [MaxLength(12)] string? CdnFuncionario,
     [MaxLength(3)] string? CdnEmpresa,
@@ -239,13 +237,9 @@ public sealed record FuncionarioResponse(
     int Headcount,
     Guid? UnitId,
     string? UnitName,
-    Guid? AreaId,
-    string? AreaName,
     Guid? JobPositionId,
     string? JobPositionName,
     string? JobPositionCode,
-    Guid? RequisitoCategoriaId,
-    string? RequisitoCategoriaName,
     Guid? UserId,
     string? Notes,
     DateTimeOffset CreatedAtUtc,

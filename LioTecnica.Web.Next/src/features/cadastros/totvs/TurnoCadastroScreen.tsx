@@ -28,6 +28,8 @@ interface Item {
   isActive: boolean;
   createdAtUtc: string;
   updatedAtUtc: string;
+  unidadeLotacaoId?: string | null;
+  unidadeLotacaoNome?: string | null;
 }
 
 interface Draft {
@@ -38,6 +40,7 @@ interface Draft {
   endTime: string;
   notes: string;
   isActive: boolean;
+  unidadeLotacaoId: string;
 }
 
 interface ImportRow {
@@ -47,6 +50,13 @@ interface ImportRow {
   endTime: string;
   notes: string;
   isActive: boolean;
+  unidadeLotacaoId: string;
+}
+
+interface UnidadeLotacaoOption {
+  id: string;
+  code: string;
+  description: string;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -64,13 +74,15 @@ function statusBadge(active: boolean) {
   );
 }
 
-const emptyDraft: Draft = { code: "", description: "", startTime: "", endTime: "", notes: "", isActive: true };
+const emptyDraft: Draft = { code: "", description: "", startTime: "", endTime: "", notes: "", isActive: true, unidadeLotacaoId: "" };
 
 export default function TurnoCadastroScreen() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Item[]>([]);
+  const [unidades, setUnidades] = useState<UnidadeLotacaoOption[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [unidadeFilter, setUnidadeFilter] = useState<string>("all");
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>({ ...emptyDraft });
   const [saving, setSaving] = useState(false);
@@ -85,8 +97,12 @@ export default function TurnoCadastroScreen() {
   const syncList = useCallback(async () => {
     try {
       setLoading(true);
-      const items = await fetchJson<Item[]>("/api/turnos?take=5000");
+      const [items, unidadesRes] = await Promise.all([
+        fetchJson<Item[]>("/api/turnos?take=5000"),
+        fetchJson<Array<{ id: string; code: string; description: string }>>("/api/unidades-lotacao?take=5000").catch(() => []),
+      ]);
       setRows(Array.isArray(items) ? items : []);
+      setUnidades(Array.isArray(unidadesRes) ? unidadesRes.map((u) => ({ id: u.id, code: u.code, description: u.description })) : []);
     } catch {
       toast.error("Erro ao carregar turnos");
     } finally {
@@ -113,6 +129,8 @@ export default function TurnoCadastroScreen() {
     const f = rows.filter((x) => {
       if (statusFilter === "ativo" && !x.isActive) return false;
       if (statusFilter === "inativo" && x.isActive) return false;
+      if (unidadeFilter === "global" && x.unidadeLotacaoId) return false;
+      if (unidadeFilter !== "all" && unidadeFilter !== "global" && x.unidadeLotacaoId !== unidadeFilter) return false;
       if (!q) return true;
       return x.code.toLowerCase().includes(q) || x.description.toLowerCase().includes(q);
     });
@@ -125,11 +143,11 @@ export default function TurnoCadastroScreen() {
         default: return 0;
       }
     });
-  }, [search, statusFilter, rows, sortKey, sortDir]);
+  }, [search, statusFilter, unidadeFilter, rows, sortKey, sortDir]);
 
   const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
     initialPageSize: 20,
-    resetDeps: [search, statusFilter, sortKey, sortDir],
+    resetDeps: [search, statusFilter, unidadeFilter, sortKey, sortDir],
   });
   const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice.start, slice.end]);
 
@@ -149,6 +167,7 @@ export default function TurnoCadastroScreen() {
         endTime: draft.endTime?.trim() || null,
         notes: draft.notes?.trim() || null,
         isActive: draft.isActive,
+        unidadeLotacaoId: draft.unidadeLotacaoId || null,
       };
       if (draft.id) {
         await fetchJson(`/api/turnos/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -181,6 +200,10 @@ export default function TurnoCadastroScreen() {
         const parsed: ImportRow[] = raw.map((r) => {
           const key = (variants: string[]) => { const f = Object.keys(r).find((k) => variants.some((v) => norm(k) === norm(v))); return f ? String(r[f] ?? "").trim() : ""; };
           const statusStr = key(["status", "ativo", "ativa"]).toLowerCase();
+          const unidadeKey = key(["unidade", "unidadelotacao", "unidade lotacao", "codigo unidade", "unidade_codigo"]);
+          const unidadeMatch = unidadeKey
+            ? unidades.find((u) => u.code.toLowerCase() === unidadeKey.toLowerCase() || u.description.toLowerCase() === unidadeKey.toLowerCase())
+            : null;
           return {
             code: key(["codigo", "code"]),
             description: key(["descricao", "description"]),
@@ -188,6 +211,7 @@ export default function TurnoCadastroScreen() {
             endTime: key(["fim", "end", "endtime", "hora fim"]),
             notes: key(["observacoes", "observacao", "notes", "obs"]),
             isActive: statusStr !== "inativo" && statusStr !== "inactive",
+            unidadeLotacaoId: unidadeMatch?.id ?? "",
           };
         }).filter((r) => r.code && r.description);
         if (parsed.length === 0) { toast.error("Nenhuma linha válida encontrada."); return; }
@@ -208,6 +232,7 @@ export default function TurnoCadastroScreen() {
         endTime: row.endTime || null,
         notes: row.notes || null,
         isActive: row.isActive,
+        unidadeLotacaoId: row.unidadeLotacaoId || null,
       }));
       const result = await fetchJson<{ created: number; updated: number; skipped: number; errors: string[] }>(
         "/api/turnos/import",
@@ -223,8 +248,8 @@ export default function TurnoCadastroScreen() {
   };
 
   const exportTsv = () => {
-    const csv = [["Código", "Descrição", "Início", "Fim", "Observações", "Status"].join("\t"),
-      ...rows.map((x) => [x.code, x.description, x.startTime || "", x.endTime || "", x.notes || "", x.isActive ? "Ativo" : "Inativo"].join("\t"))
+    const csv = [["Código", "Descrição", "Início", "Fim", "Observações", "Status", "Unidade"].join("\t"),
+      ...rows.map((x) => [x.code, x.description, x.startTime || "", x.endTime || "", x.notes || "", x.isActive ? "Ativo" : "Inativo", x.unidadeLotacaoNome || ""].join("\t"))
     ].join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob([csv], { type: "text/plain;charset=utf-8;" }));
@@ -289,6 +314,13 @@ export default function TurnoCadastroScreen() {
               <option value="ativo">Ativo</option>
               <option value="inativo">Inativo</option>
             </select>
+            <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={unidadeFilter} onChange={(e) => { setUnidadeFilter(e.target.value); setPage(1); }}>
+              <option value="all">Todas as unidades</option>
+              <option value="global">Global (sem unidade)</option>
+              {unidades.map((u) => (
+                <option key={u.id} value={u.id}>{u.code} — {u.description}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -297,21 +329,25 @@ export default function TurnoCadastroScreen() {
             <TableRow>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("code")}>Código<SortIcon col="code" /></TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("description")}>Descrição<SortIcon col="description" /></TableHead>
+              <TableHead>Unidade</TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>Status<SortIcon col="status" /></TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
             ) : paged.length ? paged.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono text-sm text-muted-foreground">{item.code}</TableCell>
                 <TableCell className="font-semibold">{item.description}</TableCell>
+                <TableCell className="text-sm">
+                  {item.unidadeLotacaoNome ? item.unidadeLotacaoNome : <span className="italic text-muted-foreground">Global</span>}
+                </TableCell>
                 <TableCell>{statusBadge(item.isActive)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => { setDraft({ id: item.id, code: item.code, description: item.description, startTime: item.startTime || "", endTime: item.endTime || "", notes: item.notes || "", isActive: item.isActive }); setEditOpen(true); }}>
+                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => { setDraft({ id: item.id, code: item.code, description: item.description, startTime: item.startTime || "", endTime: item.endTime || "", notes: item.notes || "", isActive: item.isActive, unidadeLotacaoId: item.unidadeLotacaoId || "" }); setEditOpen(true); }}>
                       <Pencil />
                     </Button>
                     <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(item)}>
@@ -321,7 +357,7 @@ export default function TurnoCadastroScreen() {
                 </TableCell>
               </TableRow>
             )) : (
-              <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Nenhum turno encontrado.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Nenhum turno encontrado.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -364,6 +400,16 @@ export default function TurnoCadastroScreen() {
                 <option value="inativo">Inativo</option>
               </select>
             </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Unidade de lotação</label>
+              <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.unidadeLotacaoId} onChange={(e) => setDraft((d) => ({ ...d, unidadeLotacaoId: e.target.value }))}>
+                <option value="">Global (todas as unidades)</option>
+                {unidades.map((u) => (
+                  <option key={u.id} value={u.id}>{u.code} — {u.description}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">Quando preenchido, o turno só é válido para a unidade escolhida.</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
@@ -388,6 +434,7 @@ export default function TurnoCadastroScreen() {
             { name: "Fim", hint: "Ex: 17:00" },
             { name: "Observacoes", hint: "Texto livre" },
             { name: "Status", hint: "Ativo / Inativo" },
+            { name: "Unidade", hint: "Código ou descrição (vazio = global)" },
           ]} />
           {!importResult && (
             <div className="max-h-64 overflow-y-auto border rounded-md">

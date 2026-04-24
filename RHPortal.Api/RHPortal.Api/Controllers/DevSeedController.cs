@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -13,22 +14,53 @@ namespace RhPortal.Api.Controllers;
 
 /// <summary>
 /// Endpoint de desenvolvimento para popular dados de teste.
-/// NÃO usar em produção.
+/// NÃO usar em produção. Protegido em runtime por <see cref="IHostEnvironment.IsDevelopment"/>
+/// — em qualquer ambiente fora Development, todas as actions retornam 404.
 /// </summary>
 [ApiController]
 [Route("api/dev")]
-[Authorize]
-public sealed class DevSeedController : ControllerBase
+[AllowAnonymous]
+public sealed class DevSeedController : ControllerBase, IActionFilter
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _env;
 
-    public DevSeedController(AppDbContext db, ITenantContext tenant, UserManager<ApplicationUser> userManager)
+    public DevSeedController(
+        AppDbContext db,
+        ITenantContext tenant,
+        UserManager<ApplicationUser> userManager,
+        IConfiguration configuration,
+        IHostEnvironment env)
     {
         _db = db;
         _tenant = tenant;
         _userManager = userManager;
+        _configuration = configuration;
+        _env = env;
+    }
+
+    /// <summary>Guard central — bloqueia toda action fora de Development retornando 404.</summary>
+    public void OnActionExecuting(ActionExecutingContext context)
+    {
+        if (!_env.IsDevelopment())
+        {
+            context.Result = NotFound();
+        }
+    }
+
+    public void OnActionExecuted(ActionExecutedContext context) { }
+
+    /// <summary>URL pública do front (Next.js) — `Frontend:BaseUrl` ou `http://localhost:{Frontend:Port}`.</summary>
+    private string FrontendBaseUrl()
+    {
+        var baseOverride = _configuration["Frontend:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(baseOverride))
+            return baseOverride.TrimEnd('/');
+        var port = _configuration.GetValue<int?>("Frontend:Port") ?? 3005;
+        return $"http://localhost:{port}";
     }
 
     /// <summary>
@@ -42,7 +74,7 @@ public sealed class DevSeedController : ControllerBase
     {
         var t = _tenant.TenantId;
         var now = DateTimeOffset.UtcNow;
-        const string senha = "Teste@123!";
+        const string senha = "YkmF@2022*";
 
         // ── Verificar se já existem todos ──
         var gestorExiste = await _userManager.FindByEmailAsync("gestor@teste.local");
@@ -65,12 +97,12 @@ public sealed class DevSeedController : ControllerBase
         if (gestorRole is null || recrutadorRole is null || adminRole is null)
             return BadRequest(new { message = "Roles 'Admin', 'Gestor' ou 'Recrutador' não encontradas. Execute o seed principal primeiro (suba a API com Seed:Enabled=true)." });
 
-        // ── Buscar/criar Área e Unidade ──
-        var area = await _db.Set<Area>().FirstOrDefaultAsync(a => a.IsActive, ct);
-        if (area is null)
+        // ── Buscar/criar Centro de Custo e Unidade ──
+        var centroCusto = await _db.Set<CentroCusto>().FirstOrDefaultAsync(cc => cc.IsActive, ct);
+        if (centroCusto is null)
         {
-            area = new Area { Id = Guid.NewGuid(), TenantId = t, Code = "OPS", Name = "Operações", IsActive = true };
-            _db.Set<Area>().Add(area);
+            centroCusto = new CentroCusto { Id = Guid.NewGuid(), TenantId = t, Code = "OPS", Description = "Operações", IsActive = true };
+            _db.Set<CentroCusto>().Add(centroCusto);
             await _db.SaveChangesAsync(ct);
         }
 
@@ -85,7 +117,7 @@ public sealed class DevSeedController : ControllerBase
             {
                 Id = Guid.NewGuid(), TenantId = t,
                 Name = "Roberto Diretor", Email = "diretor@teste.local", Phone = "(11) 99999-0000",
-                Status = FuncionarioStatus.Active, AreaId = area.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
+                Status = FuncionarioStatus.Active, CentroCustoId = centroCusto.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
                 CreatedAtUtc = now, UpdatedAtUtc = now,
             };
             _db.Set<Funcionario>().Add(diretorFunc);
@@ -99,7 +131,7 @@ public sealed class DevSeedController : ControllerBase
             {
                 Id = Guid.NewGuid(), TenantId = t,
                 Name = "Carlos Gestor", Email = "gestor@teste.local", Phone = "(11) 99999-0001",
-                Status = FuncionarioStatus.Active, AreaId = area.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
+                Status = FuncionarioStatus.Active, CentroCustoId = centroCusto.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
                 GestorDiretoId = diretorFunc.Id,
                 CreatedAtUtc = now, UpdatedAtUtc = now,
             };
@@ -114,7 +146,7 @@ public sealed class DevSeedController : ControllerBase
             {
                 Id = Guid.NewGuid(), TenantId = t,
                 Name = "Ana RH", Email = "rh@teste.local", Phone = "(11) 99999-0002",
-                Status = FuncionarioStatus.Active, AreaId = area.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
+                Status = FuncionarioStatus.Active, CentroCustoId = centroCusto.Id, UnitId = unit?.Id, JobPositionId = cargo?.Id,
                 GestorDiretoId = diretorFunc.Id,
                 CreatedAtUtc = now, UpdatedAtUtc = now,
             };
@@ -165,7 +197,7 @@ public sealed class DevSeedController : ControllerBase
                 new { email = "diretor@teste.local", nome = "Roberto Diretor", papel = "Diretor — aprova solicitação de vaga", funcionarioId = diretorFunc.Id },
                 new { email = "rh@teste.local", nome = "Ana RH", papel = "RH — preenche vaga, candidatos, processo seletivo, admissão", funcionarioId = rhFunc.Id },
             },
-            proximoPasso = "Abra http://localhost:3000/app/login e faça login com cada perfil. Consulte TESTE_FLUXO_ADMISSAO.md para o passo a passo.",
+            proximoPasso = $"Abra {FrontendBaseUrl()}/app/login e faça login com cada perfil. Consulte TESTE_FLUXO_ADMISSAO.md para o passo a passo.",
         });
     }
 
@@ -180,19 +212,19 @@ public sealed class DevSeedController : ControllerBase
         var existingVaga = await _db.Vagas.AsNoTracking().AnyAsync(v => v.Codigo == "SEED-DEV-001", ct);
         if (existingVaga) return Ok(new { message = "Dados de seed já existem. Use DELETE /api/dev/seed para limpar." });
 
-        // ── 2. Área (pré-requisito da Vaga) ──
-        var area = await _db.Set<Area>().FirstOrDefaultAsync(a => a.Code == "TI", ct);
-        if (area is null)
+        // ── 2. Centro de Custo (pré-requisito da Vaga) ──
+        var centroCusto = await _db.Set<CentroCusto>().FirstOrDefaultAsync(cc => cc.Code == "TI", ct);
+        if (centroCusto is null)
         {
-            area = new Area
+            centroCusto = new CentroCusto
             {
                 Id = Guid.NewGuid(),
                 TenantId = t,
                 Code = "TI",
-                Name = "Tecnologia da Informação",
+                Description = "Tecnologia da Informação",
                 IsActive = true,
             };
-            _db.Set<Area>().Add(area);
+            _db.Set<CentroCusto>().Add(centroCusto);
         }
 
         // ── 3. Unidade ──
@@ -232,7 +264,7 @@ public sealed class DevSeedController : ControllerBase
             TenantId = t,
             Titulo = "Desenvolvedor Backend Senior (.NET)",
             Codigo = "SEED-DEV-001",
-            AreaId = area.Id,
+            CentroCustoId = centroCusto.Id,
             Status = VagaStatus.Aberta,
             Senioridade = VagaSenioridade.Senior,
             QuantidadeVagas = 2,
@@ -333,7 +365,7 @@ public sealed class DevSeedController : ControllerBase
             Nome = "Felipe Augusto Martins", Email = "felipe.martins@testmail.com",
             Fone = "(31) 99906-6006", Cidade = "Belo Horizonte", Uf = "MG",
             Cpf = "11122233344",
-            DataNascimento = new DateTime(1988, 3, 12),
+            DataNascimento = DateTime.SpecifyKind(new DateTime(1988, 3, 12), DateTimeKind.Utc),
             Origem = OrigemPessoa.Manual,
             CreatedAtUtc = now, UpdatedAtUtc = now,
         };
@@ -344,7 +376,7 @@ public sealed class DevSeedController : ControllerBase
             Nome = "Gabriela Souza Nunes", Email = "gabriela.souza@testmail.com",
             Fone = "(41) 99907-7007", Cidade = "Curitiba", Uf = "PR",
             Cpf = "55566677788",
-            DataNascimento = new DateTime(1992, 7, 25),
+            DataNascimento = DateTime.SpecifyKind(new DateTime(1992, 7, 25), DateTimeKind.Utc),
             Origem = OrigemPessoa.Manual,
             CreatedAtUtc = now, UpdatedAtUtc = now,
         };

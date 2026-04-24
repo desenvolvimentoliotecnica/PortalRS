@@ -248,7 +248,7 @@ export default function TabLogsOperacionais({ tenantId }: { tenantId: string }) 
 
             {/* Detail Dialog */}
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="w-[98vw] max-w-[1400px] max-h-[85vh] overflow-y-auto">
                     <DialogHeader><DialogTitle className="text-base">Requisição {detail?.transactionId || "-"}</DialogTitle></DialogHeader>
                     {detail && (
                         <div className="space-y-4">
@@ -268,14 +268,14 @@ export default function TabLogsOperacionais({ tenantId }: { tenantId: string }) 
                             {detail.entries?.length > 0 && (
                                 <Card className="shadow-sm"><CardContent className="pt-4">
                                     <div className="font-bold text-xs text-muted-foreground mb-2">Log entries</div>
-                                    <div className="overflow-x-auto"><table className="w-full text-xs">
-                                        <thead><tr className="border-b text-muted-foreground"><th className="py-1 px-2">Nível</th><th className="py-1 px-2">Categoria</th><th className="py-1 px-2">Mensagem</th><th className="py-1 px-2">Horário</th></tr></thead>
+                                    <div className="overflow-x-auto"><table className="min-w-[1100px] w-full text-xs">
+                                        <thead><tr className="border-b text-muted-foreground"><th className="py-1 px-2 w-24">Nível</th><th className="py-1 px-2 w-64">Categoria</th><th className="py-1 px-2">Mensagem</th><th className="py-1 px-2 w-44">Horário</th></tr></thead>
                                         <tbody>{detail.entries.map((e, i) => (
                                             <tr key={i} className="border-b">
                                                 <td className="py-1 px-2"><span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${e.level.toLowerCase() === "error" ? "bg-red-100 text-red-700" : e.level.toLowerCase() === "warning" ? "bg-yellow-100 text-yellow-700" : "bg-blue-100 text-blue-700"}`}>{e.level.toUpperCase()}</span></td>
-                                                <td className="py-1 px-2">{e.category}</td>
-                                                <td className="py-1 px-2">{e.message}</td>
-                                                <td className="py-1 px-2 whitespace-nowrap">{new Date(e.occurredAt).toLocaleString("pt-BR")}</td>
+                                                <td className="py-1 px-2 whitespace-nowrap align-top">{e.category}</td>
+                                                <td className="py-1 px-2 whitespace-nowrap align-top">{e.message}</td>
+                                                <td className="py-1 px-2 whitespace-nowrap align-top">{new Date(e.occurredAt).toLocaleString("pt-BR")}</td>
                                             </tr>
                                         ))}</tbody>
                                     </table></div>

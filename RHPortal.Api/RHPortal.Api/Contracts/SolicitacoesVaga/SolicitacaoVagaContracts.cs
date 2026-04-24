@@ -30,7 +30,6 @@ public sealed class SolicitacaoVagaCreateRequest
     public SolicitacaoVagaUrgencia Urgencia { get; set; } = SolicitacaoVagaUrgencia.Media;
 
     public Guid? JobPositionId { get; set; }
-    public Guid? AreaId { get; set; }
     public Guid? UnitId { get; set; }
     public Guid? AprovadorId { get; set; }
 
@@ -56,6 +55,7 @@ public sealed class SolicitacaoVagaCreateRequest
     public bool DisponibilidadeViagens { get; set; }
     public string? EscalaTrabalho { get; set; }
     public Guid? EmpresaId { get; set; }
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     public Guid? CentroCustoId { get; set; }
     public Guid? UnidadeLotacaoId { get; set; }
 
@@ -88,7 +88,6 @@ public sealed class SolicitacaoVagaUpdateRequest
     public SolicitacaoVagaUrgencia Urgencia { get; set; } = SolicitacaoVagaUrgencia.Media;
 
     public Guid? JobPositionId { get; set; }
-    public Guid? AreaId { get; set; }
     public Guid? UnitId { get; set; }
     public Guid? AprovadorId { get; set; }
 
@@ -114,6 +113,7 @@ public sealed class SolicitacaoVagaUpdateRequest
     public bool DisponibilidadeViagens { get; set; }
     public string? EscalaTrabalho { get; set; }
     public Guid? EmpresaId { get; set; }
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     public Guid? CentroCustoId { get; set; }
     public Guid? UnidadeLotacaoId { get; set; }
 
@@ -171,8 +171,6 @@ public sealed record SolicitacaoVagaResponse(
     string? AprovadorNome,
     Guid? JobPositionId,
     string? JobPositionName,
-    Guid? AreaId,
-    string? AreaName,
     Guid? UnitId,
     string? UnitName,
     Guid? VagaId,
@@ -197,6 +195,7 @@ public sealed record SolicitacaoVagaResponse(
     string? EscalaTrabalho,
     Guid? EmpresaId,
     string? EmpresaNome,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     Guid? CentroCustoId,
     string? CentroCustoNome,
     Guid? UnidadeLotacaoId,
@@ -231,7 +230,8 @@ public sealed record SolicitacaoVagaGridRow(
     string? SolicitanteNome,
     Guid? AprovadorId,
     string? AprovadorNome,
-    string? AreaName,
+    /// <summary>Nome do centro de custo — absorveu Area em 31.2.</summary>
+    string? CentroCustoNome,
     int QtdPosicoes,
     // Sprint 1
     TipoSolicitacaoVaga TipoSolicitacao,

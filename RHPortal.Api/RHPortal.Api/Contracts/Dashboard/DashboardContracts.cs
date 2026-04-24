@@ -49,6 +49,22 @@ public sealed record DashboardVagaLookupResponse(
     string Titulo
 );
 
+/// <summary>
+/// Vaga com informação de quantos candidatos ainda não têm matching calculado.
+/// Usado pela tela de matching IA quando aberta sem <c>vagaId</c> (ex.: clique no card
+/// "N candidatos pendentes de matching" do dashboard) — mostra lista clicável.
+/// </summary>
+public sealed record VagaComPendentesMatchResponse(
+    Guid Id,
+    string? Codigo,
+    string Titulo,
+    string Status,
+    string? Senioridade,
+    string? Cidade,
+    string? Uf,
+    int CountPendentes
+);
+
 public sealed record DashboardAreaLookupResponse(
     Guid Id,
     string Nome

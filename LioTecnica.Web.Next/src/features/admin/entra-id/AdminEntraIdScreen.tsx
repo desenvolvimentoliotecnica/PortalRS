@@ -31,7 +31,7 @@ export default function AdminEntraIdScreen() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        try { setConfig(await fetchJson<EntraIdConfig>("/api/admin/entra-id")); }
+        try { setConfig(await fetchJson<EntraIdConfig>("/api/entra-config")); }
         catch { /* may not exist yet */ }
         finally { setLoading(false); }
     }, []);
@@ -41,7 +41,7 @@ export default function AdminEntraIdScreen() {
     async function handleSave() {
         setSaving(true);
         try {
-            const saved = await fetchJson<EntraIdConfig>("/api/admin/entra-id", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+            const saved = await fetchJson<EntraIdConfig>("/api/entra-config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
             setConfig(saved);
             toast.success("Configuração salva!");
         } catch (err) { toast.error(err instanceof Error ? err.message : "Falha ao salvar."); }

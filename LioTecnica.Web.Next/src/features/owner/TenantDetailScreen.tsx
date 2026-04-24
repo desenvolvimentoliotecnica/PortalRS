@@ -26,15 +26,9 @@ import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
 import { setAccessToken, setTenantId } from "@/lib/session";
 
 import TabUsuarios from "./tenant-tabs/TabUsuarios";
-import TabAcessos from "./tenant-tabs/TabAcessos";
-import TabMenus from "./tenant-tabs/TabMenus";
+import TabModulos from "./tenant-tabs/TabModulos";
 import TabLogsTransacionais from "./tenant-tabs/TabLogsTransacionais";
 import TabLogsOperacionais from "./tenant-tabs/TabLogsOperacionais";
-import TabEmailTemplates from "./tenant-tabs/TabEmailTemplates";
-import TabEmails from "./tenant-tabs/TabEmails";
-import TabEmailConfig from "./tenant-tabs/TabEmailConfig";
-import TabEntraIdConfig from "./tenant-tabs/TabEntraIdConfig";
-import TabIdioma from "./tenant-tabs/TabIdioma";
 
 /* ─── Types ─── */
 
@@ -87,16 +81,10 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 const TABS = [
     { key: "geral", label: "Geral" },
+    { key: "modulos", label: "Módulos" },
     { key: "usuarios", label: "Usuários" },
-    { key: "acessos", label: "Acessos" },
-    { key: "menus", label: "Menus" },
     { key: "logs", label: "Logs transacionais" },
     { key: "logs-op", label: "Logs operacionais" },
-    { key: "email-templates", label: "Templates de email" },
-    { key: "emails", label: "Emails" },
-    { key: "email-config", label: "Config email" },
-    { key: "entra-id", label: "Config Entra ID" },
-    { key: "idioma", label: "Idioma" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -451,26 +439,14 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
                         </Card>
                     )}
                 </div>
+            ) : activeTab === "modulos" ? (
+                <TabModulos tenantId={tenantId} />
             ) : activeTab === "usuarios" ? (
                 <TabUsuarios tenantId={tenantId} />
-            ) : activeTab === "acessos" ? (
-                <TabAcessos tenantId={tenantId} />
-            ) : activeTab === "menus" ? (
-                <TabMenus tenantId={tenantId} />
             ) : activeTab === "logs" ? (
                 <TabLogsTransacionais tenantId={tenantId} />
             ) : activeTab === "logs-op" ? (
                 <TabLogsOperacionais tenantId={tenantId} />
-            ) : activeTab === "email-templates" ? (
-                <TabEmailTemplates tenantId={tenantId} />
-            ) : activeTab === "emails" ? (
-                <TabEmails tenantId={tenantId} />
-            ) : activeTab === "email-config" ? (
-                <TabEmailConfig tenantId={tenantId} />
-            ) : activeTab === "entra-id" ? (
-                <TabEntraIdConfig tenantId={tenantId} />
-            ) : activeTab === "idioma" ? (
-                <TabIdioma tenantId={tenantId} />
             ) : null}
         </div>
     );

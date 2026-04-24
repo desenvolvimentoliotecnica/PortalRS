@@ -21,8 +21,6 @@ using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Agenda;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
-using RhPortal.Api.Application.Departments;
-using RhPortal.Api.Application.Departments.Handlers;
 using RhPortal.Api.Application.JobPositions;
 using RhPortal.Api.Application.JobPositions.Handlers;
 using RhPortal.Api.Application.Funcionarios;
@@ -38,6 +36,7 @@ using RhPortal.Api.Application.Colaborador;
 using RhPortal.Api.Application.ItaloIntegracao;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Application.Menus;
+using RhPortal.Api.Application.Navegacao;
 using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Units;
@@ -150,6 +149,8 @@ builder.Services.AddRateLimiter(options =>
 });
 builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
+// Sessão 31.8 — Geocoding via Nominatim (OpenStreetMap, free)
+builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.IGeocodingService, RhPortal.Api.Application.Geocoding.NominatimGeocodingService>();
 builder.Services.AddCors(options =>
 {
     var allowAny = string.Equals(builder.Configuration["Cors:AllowAny"], "true", StringComparison.OrdinalIgnoreCase);
@@ -267,6 +268,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.OpenAiProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
+builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();
 builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
@@ -293,8 +295,14 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     {
         npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
         npgsql.CommandTimeout(30);
+        // Habilita tipo vector do pgvector (usado em DescricaoCargoItemEmbedding,
+        // CandidatoEmbedding). Em bancos sem a extensão, o EF não gera DDL para
+        // embeddings — migration é idempotente (CREATE EXTENSION IF NOT EXISTS).
+        npgsql.UseVector();
     });
     options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+    // Fase 4.O — interceptor de reindexação automática de embeddings
+    options.AddInterceptors(sp.GetRequiredService<RhPortal.Api.Application.Ai.EmbeddingReindexInterceptor>());
 });
 
 // Identity
@@ -315,6 +323,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SlaVagaOptions>(builder.Configuration.GetSection(SlaVagaOptions.SectionName));
 builder.Services.Configure<RhAiOptions>(builder.Configuration.GetSection(RhAiOptions.SectionName));
+// Ollama/RAG (Fase 4): configuração local do stack IA aberto
+builder.Services.Configure<RhPortal.Api.Application.Ai.AiOptions>(builder.Configuration.GetSection(RhPortal.Api.Application.Ai.AiOptions.SectionName));
 
 // Cliente RHPortal.Ai (matching vetorial + LLM 80/20): só registra se RhAi:BaseUrl estiver configurado
 var rhAiBaseUrl = builder.Configuration[$"{RhAiOptions.SectionName}:BaseUrl"]?.Trim();
@@ -410,9 +420,9 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ModuleAuthorizationHandler>();
 
 // Application services
-builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
@@ -438,10 +448,14 @@ builder.Services.AddScoped<IFaseProcessoService, FaseProcessoService>();
 builder.Services.AddScoped<ICampoPersonalizadoService, CampoPersonalizadoService>();
 builder.Services.AddScoped<IComunicacaoService, ComunicacaoService>();
 builder.Services.AddScoped<IAprovacaoFaixaService, AprovacaoFaixaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Dashboard.IDashboardAgregadoService, RhPortal.Api.Application.Dashboard.DashboardAgregadoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.TenantConfiguracao.ITenantConfiguracaoService, RhPortal.Api.Application.TenantConfiguracao.TenantConfiguracaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.TenantBranding.ITenantBrandingService, RhPortal.Api.Application.TenantBranding.TenantBrandingService>();
 builder.Services.AddScoped<RhPortal.Api.Application.NineBox.INineBoxService, RhPortal.Api.Application.NineBox.NineBoxService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Metas.IMetaService, RhPortal.Api.Application.Metas.MetaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoService, RhPortal.Api.Application.Avaliacao.AvaliacaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoConviteService, RhPortal.Api.Application.Avaliacao.AvaliacaoConviteService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoCalibragemService, RhPortal.Api.Application.Avaliacao.AvaliacaoCalibragemService>();
 builder.Services.AddScoped<IColaboradorService, ColaboradorService>();
 builder.Services.Configure<RhPortal.Api.Infrastructure.Storage.AwsOptions>(builder.Configuration.GetSection("Aws"));
 builder.Services.AddScoped<RhPortal.Api.Application.AwsSettings.IAwsSettingsService, RhPortal.Api.Application.AwsSettings.AwsSettingsService>();
@@ -457,12 +471,106 @@ builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 builder.Services.AddScoped<IVagaService, VagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.PropostasVaga.IPropostaVagaService, RhPortal.Api.Application.PropostasVaga.PropostaVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaService, RhPortal.Api.Application.Candidaturas.CandidaturaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaNotificacaoService, RhPortal.Api.Application.Candidaturas.CandidaturaNotificacaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.INotificacaoTemplateService, RhPortal.Api.Application.Candidaturas.NotificacaoTemplateService>();
+builder.Services.Configure<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>(
+    builder.Configuration.GetSection(RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions.SectionName));
+
+// HttpClients nomeados para os provedores reais (configurados sob demanda).
+builder.Services.AddHttpClient(RhPortal.Api.Messaging.WhatsApp.TwilioWhatsAppMessageSender.HttpClientName,
+    (sp, http) =>
+    {
+        var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>>().CurrentValue;
+        http.Timeout = TimeSpan.FromSeconds(20);
+        if (!string.IsNullOrWhiteSpace(opts.Twilio.BaseUrl))
+            http.BaseAddress = new Uri(opts.Twilio.BaseUrl.TrimEnd('/') + "/");
+    });
+builder.Services.AddHttpClient(RhPortal.Api.Messaging.WhatsApp.MetaCloudWhatsAppMessageSender.HttpClientName,
+    (sp, http) =>
+    {
+        var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>>().CurrentValue;
+        http.Timeout = TimeSpan.FromSeconds(20);
+        if (!string.IsNullOrWhiteSpace(opts.MetaCloud.BaseUrl))
+            http.BaseAddress = new Uri(opts.MetaCloud.BaseUrl.TrimEnd('/') + "/");
+    });
+
+// Resolução do provider WhatsApp por configuração (Logging | Twilio | MetaCloud).
+// Default = "Logging" (stub seguro). Mudança acontece via appsettings sem recompilar.
+builder.Services.AddSingleton<RhPortal.Api.Messaging.WhatsApp.IWhatsAppMessageSender>(sp =>
+{
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>>().CurrentValue;
+    var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>();
+    var httpFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var monitor = sp.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>>();
+
+    var provider = (opts.Provider ?? "Logging").Trim();
+    if (string.Equals(provider, "Twilio", StringComparison.OrdinalIgnoreCase))
+    {
+        return new RhPortal.Api.Messaging.WhatsApp.TwilioWhatsAppMessageSender(
+            httpFactory.CreateClient(RhPortal.Api.Messaging.WhatsApp.TwilioWhatsAppMessageSender.HttpClientName),
+            monitor,
+            logger.CreateLogger<RhPortal.Api.Messaging.WhatsApp.TwilioWhatsAppMessageSender>());
+    }
+    if (string.Equals(provider, "MetaCloud", StringComparison.OrdinalIgnoreCase))
+    {
+        return new RhPortal.Api.Messaging.WhatsApp.MetaCloudWhatsAppMessageSender(
+            httpFactory.CreateClient(RhPortal.Api.Messaging.WhatsApp.MetaCloudWhatsAppMessageSender.HttpClientName),
+            monitor,
+            logger.CreateLogger<RhPortal.Api.Messaging.WhatsApp.MetaCloudWhatsAppMessageSender>());
+    }
+    // Default seguro
+    return new RhPortal.Api.Messaging.WhatsApp.LoggingWhatsAppMessageSender(
+        logger.CreateLogger<RhPortal.Api.Messaging.WhatsApp.LoggingWhatsAppMessageSender>());
+});
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
 builder.Services.AddScoped<IPessoaService, PessoaService>();
 builder.Services.AddScoped<ICvGptExtractor, CvGptExtractor>();
 builder.Services.AddScoped<ITalentoService, TalentoService>();
 builder.Services.AddScoped<IBloqueioPessoaService, BloqueioPessoaService>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
+// Sessão 31.8 — matching baseado em DescricaoCargo (template DNALIO) + pesos calibrados + distância
+builder.Services.AddScoped<RhPortal.Api.Application.Matching.DescricaoCargoMatchingService>();
+// Fase 4 — pipeline Ollama/RAG: cliente HTTP tipado + embedding + vector search + matching híbrido
+builder.Services.AddHttpClient<RhPortal.Api.Application.Ai.IOllamaClient, RhPortal.Api.Application.Ai.OllamaClient>((sp, http) =>
+{
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RhPortal.Api.Application.Ai.AiOptions>>().Value.Ollama;
+    if (!string.IsNullOrWhiteSpace(opts.Endpoint))
+        http.BaseAddress = new Uri(opts.Endpoint);
+    http.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+});
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IEmbeddingService, RhPortal.Api.Application.Ai.EmbeddingService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IVectorSearchService, RhPortal.Api.Application.Ai.VectorSearchService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Matching.HybridMatchingService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ILlmAssistantService, RhPortal.Api.Application.Ai.LlmAssistantService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IDescricaoCargoGeneratorService, RhPortal.Api.Application.Ai.DescricaoCargoGeneratorService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ICvResumoService, RhPortal.Api.Application.Ai.CvResumoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ISalarioSuggesterService, RhPortal.Api.Application.Ai.SalarioSuggesterService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ILlmMatchingService, RhPortal.Api.Application.Ai.LlmMatchingService>();
+// Fase 5 — Agent Tools (Function Calling do Qwen)
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentToolRegistry, RhPortal.Api.Application.Ai.Agent.AgentToolRegistry>();
+// Registra cada tool concreta como IAgentTool scoped — o registry consome via IEnumerable<IAgentTool>
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.VagasListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.VagasContarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.VagasInfoTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.VagasCandidatosTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidatosListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidatosInfoTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidatosContarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidaturasPorEtapaTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidaturasSlaAtrasadasTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidaturasPorFonteTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.PropostasListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.PropostasEstatisticasTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CentrosCustoListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.DescricoesCargoListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.DescricaoCargoInfoTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.EmpresasListarTool>();
+// Reindexação automática (Fase 4.O): fila singleton + interceptor no SaveChanges + worker background
+builder.Services.AddSingleton<RhPortal.Api.Application.Ai.IEmbeddingIndexQueue, RhPortal.Api.Application.Ai.EmbeddingIndexQueue>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.EmbeddingReindexInterceptor>();
+builder.Services.AddHostedService<RhPortal.Api.Application.Ai.EmbeddingIndexerHostedService>();
 builder.Services.AddScoped<IVagaUnifiedMatchingCacheService, VagaUnifiedMatchingCacheService>();
 builder.Services.AddScoped<AgendaService>();
 builder.Services.AddScoped<CelebrationService>();
@@ -482,13 +590,11 @@ builder.Services.AddScoped<ITenantProvisioningService, TenantProvisioningService
 builder.Services.AddScoped<UserAdministrationService>();
 builder.Services.AddScoped<RoleAdministrationService>();
 builder.Services.AddScoped<MenuAdministrationService>();
+builder.Services.AddScoped<TenantPackageService>();
+builder.Services.AddScoped<TenantModuleService>();
+builder.Services.AddScoped<NavegacaoSidebarService>();
 
-// Departamentos
-builder.Services.AddScoped<IListDepartmentsHandler, ListDepartmentsHandler>();
-builder.Services.AddScoped<IGetDepartmentByIdHandler, GetDepartmentByIdHandler>();
-builder.Services.AddScoped<ICreateDepartmentHandler, CreateDepartmentHandler>();
-builder.Services.AddScoped<IUpdateDepartmentHandler, UpdateDepartmentHandler>();
-builder.Services.AddScoped<IDeleteDepartmentHandler, DeleteDepartmentHandler>();
+// Departamentos: removidos em 31.2 — consolidados em CentroCusto.
 
 // Unidades|Filiais
 builder.Services.AddScoped<IListUnitsHandler, ListUnitsHandler>();

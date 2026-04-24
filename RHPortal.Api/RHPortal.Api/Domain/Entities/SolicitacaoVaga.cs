@@ -22,10 +22,6 @@ public sealed class SolicitacaoVaga : ITenantEntity
     public Guid? JobPositionId { get; set; }
     public JobPosition? JobPosition { get; set; }
 
-    /// <summary>Área solicitante.</summary>
-    public Guid? AreaId { get; set; }
-    public Area? Area { get; set; }
-
     /// <summary>Unidade/filial.</summary>
     public Guid? UnitId { get; set; }
     public Unit? Unit { get; set; }

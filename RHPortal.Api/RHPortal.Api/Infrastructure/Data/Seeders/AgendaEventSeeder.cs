@@ -29,8 +29,9 @@ public static class AgendaEventSeeder
             Random = new Randomizer(seed)
         };
 
-        var areaCodes = await db.Areas
+        var areaCodes = await db.CentrosCusto
             .AsNoTracking()
+            .Where(a => a.IsActive)
             .Select(a => a.Code)
             .ToListAsync(ct);
         if (areaCodes.Count == 0)

@@ -12,6 +12,8 @@ export const ApiLoginResponseSchema = z.object({
   roles: z.array(z.string()),
   permissions: z.array(z.string()),
   funcionarioId: z.string().nullable().optional(),
+  centroCustoId: z.string().nullable().optional(),
+  /** @deprecated use centroCustoId */
   areaId: z.string().nullable().optional(),
   visibilityScope: scopeValueSchema.optional(),
   vagasDataScope: scopeValueSchema.optional(),
@@ -39,6 +41,8 @@ export const ApiCurrentUserSchema = z.object({
   roles: z.array(z.string()),
   permissions: z.array(z.string()),
   funcionarioId: z.string().nullable().optional(),
+  centroCustoId: z.string().nullable().optional(),
+  /** @deprecated use centroCustoId */
   areaId: z.string().nullable().optional(),
   visibilityScope: scopeValueSchema.optional(),
   vagasDataScope: scopeValueSchema.optional(),

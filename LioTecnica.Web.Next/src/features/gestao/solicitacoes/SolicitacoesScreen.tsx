@@ -66,7 +66,7 @@ interface SolicitacaoGridRow {
     solicitanteNome: string | null;
     aprovadorId: string | null;
     aprovadorNome: string | null;
-    areaName: string | null;
+    centroCustoNome: string | null;
     qtdPosicoes: number;
     tipoSolicitacao: number | string;
     isConfidencial: boolean;
@@ -89,8 +89,8 @@ interface SolicitacaoDetail {
     aprovadorNome: string | null;
     jobPositionId: string | null;
     jobPositionName: string | null;
-    areaId: string | null;
-    areaName: string | null;
+    centroCustoId: string | null;
+    centroCustoNome: string | null;
     unitId: string | null;
     unitName: string | null;
     vagaId: string | null;
@@ -374,7 +374,7 @@ function SolicitacoesVagaContent() {
             if (statusFilter === "canceladas" && s !== "Cancelada" && s !== "6") return false;
             // "todas" — sem filtro de status
             if (!term) return true;
-            const blob = [r.titulo, r.solicitanteNome, r.areaName].filter(Boolean).join(" ").toLowerCase();
+            const blob = [r.titulo, r.solicitanteNome, r.centroCustoNome].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
     }, [q, rows, statusFilter]);
@@ -437,7 +437,6 @@ function SolicitacoesVagaContent() {
                 vagaId: vagaId,
                 titulo: String(v.titulo ?? v.name ?? ""),
                 jobPositionId: v.jobPositionId ? String(v.jobPositionId) : null,
-                areaId: v.areaId ? String(v.areaId) : null,
                 unitId: v.unitId ? String(v.unitId) : null,
                 centroCustoId: v.centroCustoId ? String(v.centroCustoId) : null,
                 unidadeLotacaoId: v.unidadeLotacaoId ? String(v.unidadeLotacaoId) : null,
@@ -920,7 +919,7 @@ function SolicitacoesVagaContent() {
                                 vagaPickerRows.map((v) => {
                                     const id = String(v.id ?? "");
                                     const titulo = String(v.titulo ?? v.name ?? "—");
-                                    const area = String(v.areaName ?? v.area ?? "");
+                                    const area = String(v.centroCustoNome ?? "");
                                     const status = String(v.status ?? "");
                                     const autorizado = Number(v.headcountAutorizado ?? 1);
                                     const ocupado = Number(v.headcountOcupado ?? 0);
@@ -1014,7 +1013,7 @@ function SolicitacoesVagaContent() {
                                 </div>
                                 <div>
                                     <div className="text-xs text-muted-foreground uppercase">Área</div>
-                                    <div className="text-sm">{detail.areaName || "—"}</div>
+                                    <div className="text-sm">{detail.centroCustoNome || "—"}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs text-muted-foreground uppercase">Cargo</div>

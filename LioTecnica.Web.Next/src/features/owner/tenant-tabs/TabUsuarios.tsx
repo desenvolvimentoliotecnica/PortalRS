@@ -55,7 +55,8 @@ const emptyForm = (): UserForm => ({
 });
 
 export default function TabUsuarios({ tenantId }: { tenantId: string }) {
-    const apiBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/users`;
+    const tenantBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}`;
+    const usersBase = `${tenantBase}/users`;
 
     const [users, setUsers] = useState<UserListItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -79,18 +80,18 @@ export default function TabUsuarios({ tenantId }: { tenantId: string }) {
         setLoading(true);
         try {
             const [u, r, un, f] = await Promise.all([
-                fetchJson<UserListItem[]>(`${apiBase}/list`),
-                fetchJson<RoleItem[]>(`${apiBase}/roles`),
-                fetchJson<UnitItem[]>(`${apiBase}/units`),
-                fetchJson<FuncItem[]>(`${apiBase}/funcionarios`),
+                fetchJson<UserListItem[]>(usersBase),
+                fetchJson<RoleItem[]>(`${tenantBase}/roles`),
+                fetchJson<{ items: UnitItem[] }>(`${tenantBase}/units`),
+                fetchJson<{ items: FuncItem[] }>(`${tenantBase}/funcionarios`),
             ]);
             setUsers(u || []);
             setRoles(r || []);
-            setUnits(un || []);
-            setFuncionarios(f || []);
+            setUnits(un?.items || []);
+            setFuncionarios(f?.items || []);
         } catch { toast.error("Erro ao carregar usuários."); }
         finally { setLoading(false); }
-    }, [apiBase]);
+    }, [usersBase, tenantBase]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -107,7 +108,7 @@ export default function TabUsuarios({ tenantId }: { tenantId: string }) {
                 roles: { id: string; name: string }[];
                 units: { id: string }[] | null;
                 funcionario: { id: string } | null;
-            }>(`${apiBase}/get/${user.id}`);
+            }>(`${usersBase}/${user.id}`);
             setEditUser(user);
             setForm({
                 email: detail.email,
@@ -126,14 +127,14 @@ export default function TabUsuarios({ tenantId }: { tenantId: string }) {
         setSaving(true);
         try {
             if (editUser) {
-                await fetchJson(`${apiBase}/update/${editUser.id}`, {
+                await fetchJson(`${usersBase}/${editUser.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(form),
                 });
                 toast.success("Usuário atualizado.");
             } else {
-                await fetchJson(`${apiBase}/create`, {
+                await fetchJson(usersBase, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(form),
@@ -149,7 +150,7 @@ export default function TabUsuarios({ tenantId }: { tenantId: string }) {
     const handleDelete = async (id: string) => {
         if (!(await confirmDialog({ title: "Remover usuário", description: "Remover este usuário?", confirmText: "Remover", destructive: true }))) return;
         try {
-            await fetchJson(`${apiBase}/delete/${id}`, { method: "POST" });
+            await fetchJson(`${usersBase}/${id}`, { method: "DELETE" });
             toast.success("Usuário removido.");
             await load();
         } catch { toast.error("Falha ao remover."); }
@@ -159,7 +160,7 @@ export default function TabUsuarios({ tenantId }: { tenantId: string }) {
         if (pwValue !== pwConfirm) { toast.error("As senhas não coincidem."); return; }
         if (pwValue.length < 8) { toast.error("Mínimo 8 caracteres."); return; }
         try {
-            await fetchJson(`${apiBase}/password/${pwUserId}`, {
+            await fetchJson(`${usersBase}/${pwUserId}/password`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ newPassword: pwValue }),

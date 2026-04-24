@@ -40,8 +40,8 @@ interface FuncItem {
     headcount?: number;
     unidade: string;
     unidadeId?: string;
-    area: string;
-    areaId?: string;
+    centroCustoNome: string;
+    centroCustoId?: string;
     cargo: string;
     cargoId?: string;
     nivelHierarquicoNome?: string;
@@ -394,8 +394,8 @@ export default function FuncionariosScreen() {
             headcount: typeof i.headcount === "number" ? i.headcount : 0,
             unidade: String(i.unidadeLotacaoDescricao ?? i.unitName ?? ""),
             unidadeId: i.unidadeLotacaoId ? String(i.unidadeLotacaoId) : (i.unitId ? String(i.unitId) : undefined),
-            area: String(i.areaName ?? ""),
-            areaId: i.areaId ? String(i.areaId) : undefined,
+            centroCustoNome: String(i.centroCustoDescricao ?? i.centroCustoName ?? ""),
+            centroCustoId: i.centroCustoId ? String(i.centroCustoId) : undefined,
             cargo: String(i.jobPositionName ?? ""),
             cargoId: i.jobPositionId ? String(i.jobPositionId) : undefined,
             nivelHierarquicoNome: i.nivelHierarquicoNome ? String(i.nivelHierarquicoNome) : undefined,
@@ -790,11 +790,11 @@ export default function FuncionariosScreen() {
 
     const exportTsv = () => {
         const csv = [
-            ["Matrícula", "Empresa", "Estab", "Nome", "Email", "Telefone", "Unid. Lotação", "Área", "Cargo", "Status"].join("\t"),
+            ["Matrícula", "Empresa", "Estab", "Nome", "Email", "Telefone", "Unid. Lotação", "Centro de Custo", "Cargo", "Status"].join("\t"),
             ...rows.map((f) => [
                 f.cdnFuncionario || "", f.cdnEmpresa || "", f.cdnEstab || "",
                 f.nome, f.email || "", f.telefone || "",
-                f.unidade, f.area, f.cargo, f.status,
+                f.unidade, f.centroCustoNome, f.cargo, f.status,
             ].join("\t")),
         ].join("\n");
         const link = document.createElement("a");

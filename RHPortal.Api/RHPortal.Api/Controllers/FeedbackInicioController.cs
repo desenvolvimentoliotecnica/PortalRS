@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -12,6 +13,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/feedback")]
+[RequireModule("feedback")]
 public sealed class FeedbackInicioController : ControllerBase
 {
     private readonly AppDbContext _db;

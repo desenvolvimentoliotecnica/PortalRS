@@ -14,7 +14,16 @@ public sealed class AvaliacaoCiclo : ITenantEntity
     /// <summary>Ex: "Q1 2026", "Semestral 2026"</summary>
     public string Periodo { get; set; } = default!;
 
+    /// <summary>Descrição pública do ciclo (contexto, objetivos). Opcional.</summary>
+    public string? Descricao { get; set; }
+
     public AvaliacaoCicloStatus Status { get; set; } = AvaliacaoCicloStatus.Aberto;
+
+    /// <summary>Abertura da janela de respostas (informativo).</summary>
+    public DateOnly? DataInicio { get; set; }
+
+    /// <summary>Encerramento planejado da janela de respostas (informativo).</summary>
+    public DateOnly? DataFim { get; set; }
 
     public Guid CriadoPorId { get; set; }
     public Funcionario? CriadoPor { get; set; }

@@ -44,14 +44,14 @@ public sealed class JobPositionService : IJobPositionService
             q = q.Where(x =>
                 x.Name.Contains(search) ||
                 x.Code.Contains(search) ||
-                (x.Area != null && x.Area.Name.Contains(search)));
+                (x.CentroCusto != null && x.CentroCusto.Description.Contains(search)));
         }
 
         if (query.Status.HasValue)
             q = q.Where(x => x.Status == query.Status.Value);
 
-        if (query.AreaId.HasValue)
-            q = q.Where(x => x.AreaId == query.AreaId.Value);
+        if (query.CentroCustoId.HasValue)
+            q = q.Where(x => x.CentroCustoId == query.CentroCustoId.Value);
 
         if (query.Seniority.HasValue)
             q = q.Where(x => x.Seniority == query.Seniority.Value);
@@ -64,8 +64,8 @@ public sealed class JobPositionService : IJobPositionService
             x.Id,
             x.Name,
             x.Code,
-            x.AreaId,
-            AreaName = x.Area != null ? x.Area.Name : string.Empty,
+            x.CentroCustoId,
+            CentroCustoNome = x.CentroCusto != null ? x.CentroCusto.Description : string.Empty,
             x.Seniority,
             x.Status,
             x.UpdatedAtUtc,
@@ -92,8 +92,12 @@ public sealed class JobPositionService : IJobPositionService
                 : projected.OrderByDescending(x => x.Code).ThenByDescending(x => x.Name),
 
             "area" => asc
-                ? projected.OrderBy(x => x.AreaName).ThenBy(x => x.Name)
-                : projected.OrderByDescending(x => x.AreaName).ThenByDescending(x => x.Name),
+                ? projected.OrderBy(x => x.CentroCustoNome).ThenBy(x => x.Name)
+                : projected.OrderByDescending(x => x.CentroCustoNome).ThenByDescending(x => x.Name),
+
+            "centrocusto" => asc
+                ? projected.OrderBy(x => x.CentroCustoNome).ThenBy(x => x.Name)
+                : projected.OrderByDescending(x => x.CentroCustoNome).ThenByDescending(x => x.Name),
 
             "seniority" => asc
                 ? projected.OrderBy(x => x.Seniority).ThenBy(x => x.Name)
@@ -119,8 +123,8 @@ public sealed class JobPositionService : IJobPositionService
                 x.Id,
                 x.Name,
                 x.Code,
-                x.AreaName,
-                x.AreaId,
+                x.CentroCustoNome,
+                x.CentroCustoId,
                 x.Seniority,
                 x.FuncionariosCount,
                 x.Status,
@@ -149,7 +153,7 @@ public sealed class JobPositionService : IJobPositionService
     {
         return await _db.JobPositions
             .AsNoTracking()
-            .Include(x => x.Area)
+            .Include(x => x.CentroCusto)
             .Include(x => x.NivelCargo)
             .Where(x => x.Id == id)
             .Select(x => new JobPositionResponse(
@@ -157,8 +161,8 @@ public sealed class JobPositionService : IJobPositionService
                 x.Code,
                 x.Name,
                 x.Status,
-                x.AreaId,
-                x.Area != null ? x.Area.Name : string.Empty,
+                x.CentroCustoId,
+                x.CentroCusto != null ? x.CentroCusto.Description : string.Empty,
                 x.Seniority,
                 x.Type,
                 x.OccupationalClassification,
@@ -182,9 +186,12 @@ public sealed class JobPositionService : IJobPositionService
         var normalizedCode = NormalizeCode(request.Code);
         ValidateCode(normalizedCode);
 
-        var areaExists = await _db.Areas.AnyAsync(a => a.Id == request.AreaId, ct);
-        if (!areaExists)
-            throw new InvalidOperationException(_localizer["ServiceErrors.JobAreaInvalid"]);
+        if (request.CentroCustoId.HasValue)
+        {
+            var centroCustoExists = await _db.CentrosCusto.AnyAsync(cc => cc.Id == request.CentroCustoId.Value, ct);
+            if (!centroCustoExists)
+                throw new InvalidOperationException(_localizer["ServiceErrors.JobCentroCustoInvalid"]);
+        }
 
         var codeAlreadyExists = await _db.JobPositions.AnyAsync(x => x.Code == normalizedCode, ct);
         if (codeAlreadyExists)
@@ -196,7 +203,7 @@ public sealed class JobPositionService : IJobPositionService
             Code = normalizedCode,
             Name = (request.Name ?? string.Empty).Trim(),
             Status = request.Status,
-            AreaId = request.AreaId,
+            CentroCustoId = request.CentroCustoId,
             Seniority = request.Seniority,
             Type = TrimOrNull(request.Type),
             OccupationalClassification = TrimOrNull(request.OccupationalClassification),
@@ -223,9 +230,12 @@ public sealed class JobPositionService : IJobPositionService
         var normalizedCode = NormalizeCode(request.Code);
         ValidateCode(normalizedCode);
 
-        var areaExists = await _db.Areas.AnyAsync(a => a.Id == request.AreaId, ct);
-        if (!areaExists)
-            throw new InvalidOperationException(_localizer["ServiceErrors.JobAreaInvalid"]);
+        if (request.CentroCustoId.HasValue)
+        {
+            var centroCustoExists = await _db.CentrosCusto.AnyAsync(cc => cc.Id == request.CentroCustoId.Value, ct);
+            if (!centroCustoExists)
+                throw new InvalidOperationException(_localizer["ServiceErrors.JobCentroCustoInvalid"]);
+        }
 
         var codeConflict = await _db.JobPositions.AnyAsync(x => x.Id != id && x.Code == normalizedCode, ct);
         if (codeConflict)
@@ -234,7 +244,7 @@ public sealed class JobPositionService : IJobPositionService
         entity.Code = normalizedCode;
         entity.Name = (request.Name ?? string.Empty).Trim();
         entity.Status = request.Status;
-        entity.AreaId = request.AreaId;
+        entity.CentroCustoId = request.CentroCustoId;
         entity.Seniority = request.Seniority;
         entity.Type = TrimOrNull(request.Type);
         entity.OccupationalClassification = TrimOrNull(request.OccupationalClassification);
@@ -356,7 +366,7 @@ public sealed class JobPositionService : IJobPositionService
 
                     entity.Code = code;
                     entity.Name = item.Name.Trim();
-                    if (item.AreaId.HasValue) entity.AreaId = item.AreaId.Value;
+                    if (item.CentroCustoId.HasValue) entity.CentroCustoId = item.CentroCustoId.Value;
                     entity.Seniority = item.Seniority ?? entity.Seniority;
                     entity.Type = TrimOrNull(item.Type) ?? entity.Type;
                     entity.OccupationalClassification = TrimOrNull(item.OccupationalClassification) ?? entity.OccupationalClassification;
@@ -379,7 +389,7 @@ public sealed class JobPositionService : IJobPositionService
                         Code = code,
                         Name = item.Name.Trim(),
                         Status = Domain.Enums.CargoStatus.Active,
-                        AreaId = item.AreaId,
+                        CentroCustoId = item.CentroCustoId,
                         Seniority = item.Seniority ?? Domain.Enums.SeniorityLevel.Pleno,
                         Type = TrimOrNull(item.Type),
                         OccupationalClassification = TrimOrNull(item.OccupationalClassification),

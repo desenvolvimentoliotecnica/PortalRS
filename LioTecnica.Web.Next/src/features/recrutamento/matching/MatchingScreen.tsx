@@ -13,6 +13,7 @@ import {
 } from "./matchingHelpers";
 import FilterModal from "./FilterModal";
 import CandidateDetailModal from "./CandidateDetailModal";
+import { VagasComPendentesPicker } from "./VagasComPendentesPicker";
 
 /* ── Score mini ring for cards ── */
 function ScoreCircle({ score, size = 40 }: { score: number; size?: number }) {
@@ -642,11 +643,7 @@ export default function MatchingScreen({ initialVagas, fixedVagaId }: { initialV
         </div>
       </div>
 
-      {!vagaId && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Vaga não informada. Abra o matching a partir da tela de vagas.
-        </div>
-      )}
+      {!vagaId && <VagasComPendentesPicker onPick={(id) => setVagaId(id)} />}
 
       {/* Pesos IA — barra horizontal compacta */}
       {vagaId && vagaDetail && (

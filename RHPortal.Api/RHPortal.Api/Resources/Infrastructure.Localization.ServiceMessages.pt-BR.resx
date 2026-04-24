@@ -54,6 +54,9 @@
   <data name="ServiceErrors.JobAreaInvalid" xml:space="preserve">
     <value>Area invalida.</value>
   </data>
+  <data name="ServiceErrors.JobCentroCustoInvalid" xml:space="preserve">
+    <value>Centro de custo invalido.</value>
+  </data>
   <data name="ServiceErrors.JobCodeExists" xml:space="preserve">
     <value>Ja existe um cargo com o codigo '{0}'.</value>
   </data>
@@ -90,14 +93,11 @@
   <data name="ServiceErrors.FuncionarioUnitInvalid" xml:space="preserve">
     <value>Unidade invalida.</value>
   </data>
-  <data name="ServiceErrors.FuncionarioAreaInvalid" xml:space="preserve">
-    <value>Area invalida.</value>
+  <data name="ServiceErrors.FuncionarioCentroCustoInvalid" xml:space="preserve">
+    <value>Centro de custo inválido.</value>
   </data>
   <data name="ServiceErrors.FuncionarioJobInvalid" xml:space="preserve">
     <value>Cargo invalido.</value>
-  </data>
-  <data name="ServiceErrors.FuncionarioRequisitoCategoriaInvalid" xml:space="preserve">
-    <value>Função (categoria) inválida.</value>
   </data>
   <data name="ServiceErrors.FuncionarioNotFound" xml:space="preserve">
     <value>Funcionario nao encontrado.</value>

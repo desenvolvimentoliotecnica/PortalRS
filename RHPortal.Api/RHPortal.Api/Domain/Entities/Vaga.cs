@@ -21,14 +21,7 @@ namespace RHPortal.Api.Domain.Entities
         [StringLength(200)]
         public string? NomeEngessado { get; set; }           // nome interno/fixo (não editável após publicação)
 
-        public Guid? DepartmentId { get; set; }         // vagaDepartmentId (opcional)
-        public Department? Department { get; set; }     // navigation
-
         public VagaAreaTime? AreaTime { get; set; }         // vagaAreaTime
-
-        // ✅ agora vem de tabela (Areas), não enum — nullable em rascunho
-        public Guid? AreaId { get; set; }                    // vagaAreaId
-        public Area? Area { get; set; }                     // navigation
 
         public VagaModalidade? Modalidade { get; set; }     // vagaModalidade
         public VagaStatus Status { get; set; }              // vagaStatus *
@@ -85,10 +78,38 @@ namespace RHPortal.Api.Domain.Entities
         public int MatchMinimoPercentual { get; set; } = 70; // vagaThreshold
 
         // Pesos por categoria (soma ideal = 100)
+        // ── Pesos calibráveis por vaga (Sessão 31.8) ────────────────────────
+        // Soma esperada = 100. RH ajusta por vaga via UI; defaults preservam
+        // comportamento histórico (compete/experi/formacao/local somam 100, novos
+        // critérios começam em 0 e o RH redistribui ao calibrar).
+        // Os pesos são consumidos pelo MatchingService que produz score por
+        // categoria (Competência, Experiência, Formação, Localidade — distância
+        // em km, Idioma, Conhecimento Técnico, Vivência Específica).
         public int PesoCompetencia { get; set; } = 40;
         public int PesoExperiencia { get; set; } = 30;
         public int PesoFormacao { get; set; } = 15;
         public int PesoLocalidade { get; set; } = 15;
+        public int PesoIdioma { get; set; } = 0;
+        public int PesoConhecimentoTecnico { get; set; } = 0;
+        public int PesoVivenciaEspecifica { get; set; } = 0;
+
+        /// <summary>
+        /// Distância máxima aceitável (km) entre endereço do candidato e endereço
+        /// da Empresa da vaga, para cálculo do score de Localidade. Null = usa
+        /// default do tenant (50km). Distância 0 = score 100; distância >= max = score 0.
+        /// </summary>
+        public int? LocalidadeMaxDistanciaKm { get; set; }
+
+        // ── Vínculo com Descrição de Cargo (Sessão 31.8) ────────────────────
+        /// <summary>
+        /// FK opcional para a <see cref="DescricaoCargo"/> que serve como fonte
+        /// estruturada (template DNALIO) do matching. Quando preenchida, o
+        /// MatchingService consulta os <see cref="DescricaoCargo.Itens"/>
+        /// (atividades, vivências, competências, requisitos) em vez de campos
+        /// HTML soltos da vaga.
+        /// </summary>
+        public Guid? DescricaoCargoId { get; set; }
+        public DescricaoCargo? DescricaoCargo { get; set; }
 
         /// <summary>Regras/filtros atuais de matching (prompt/contexto para IA).</summary>
         public string? MatchingFiltrosRaw { get; set; }
@@ -118,6 +139,10 @@ namespace RHPortal.Api.Domain.Entities
 
         public Guid? UnidadeLotacaoId { get; set; }
         public UnidadeLotacao? UnidadeLotacao { get; set; }
+
+        // FK para EixoVaga (SLA por eixo pode sobrepor SlaDiasMetaFechamento)
+        public Guid? EixoVagaId { get; set; }
+        public EixoVaga? EixoVaga { get; set; }
 
         public VagaMotivoAbertura? MotivoAbertura { get; set; }   // vagaMotivoAbertura
         public VagaOrcamentoAprovado? OrcamentoAprovado { get; set; } // vagaOrcamento
@@ -207,6 +232,29 @@ namespace RHPortal.Api.Domain.Entities
 
         [StringLength(240)]
         public string? ObservacoesRemuneracao { get; set; } // vagaRemObs
+
+        // --------------------
+        // Alçada salarial — épico Fase 3C
+        // --------------------
+        /// <summary>
+        /// Quando true, a vaga não pode ser salva com salário fora da <see cref="FaixaSalarial"/> do JobPosition,
+        /// a menos que um approver autorize a alçada (preenche <see cref="AlcadaSalarialAprovadaPorUserId"/>).
+        /// </summary>
+        public bool TravarFaixaSalarial { get; set; } = true;
+
+        /// <summary>Id do usuário que aprovou a alçada salarial desta vaga (null = sem aprovação).</summary>
+        public Guid? AlcadaSalarialAprovadaPorUserId { get; set; }
+
+        /// <summary>Data/hora UTC da aprovação da alçada.</summary>
+        public DateTimeOffset? AlcadaSalarialAprovadaEmUtc { get; set; }
+
+        /// <summary>Justificativa do solicitante para a alçada salarial.</summary>
+        [StringLength(1000)]
+        public string? AlcadaSalarialJustificativa { get; set; }
+
+        /// <summary>Observação do approver ao conceder a alçada.</summary>
+        [StringLength(500)]
+        public string? AlcadaSalarialObservacaoAprovador { get; set; }
 
         // --------------------
         // Qualificações / requisitos

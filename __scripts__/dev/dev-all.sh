@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# RH Portal — para rodar cada projeto em um terminal da IDE:
-#   Cursor/VS Code: Terminal > Run Task... > "Dev: All (4 terminais)"
-#   Isso abre 4 terminais na IDE (API, Portal, RHPortal.Ai, Integração RM).
+# RH Portal — sobe API (5056), RHPortal.Ai (8000), Integração RM e Next.js (3000) em background.
+# O Portal MVC (LioTecnica.Web, antiga porta 5051) foi DESCOMISSIONADO na Fase 13 (abr/2026).
 # Este script continua disponível para rodar tudo em um único terminal (background + foreground).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -10,14 +9,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/ports.sh"
 
-# Derruba as portas antes de subir (5056 = API, 5051 = Portal, 8000 = RHPortal.Ai, 3000/3001 = Next)
-for port in 5056 5051 8000 3000 3001; do
+# Derruba as portas antes de subir (5056 = API, 8000 = RHPortal.Ai, 3000/3001 = Next)
+for port in 5056 8000 3000 3001; do
   free_port "$port"
 done
 
 cleanup() {
   echo ""
-  echo "▶ Encerrando API, Portal, AI, Integração e Next..."
+  echo "▶ Encerrando API, AI, Integração e Next..."
   kill "$API_PID" 2>/dev/null || true
   [ -n "$AI_PID" ] && kill "$AI_PID" 2>/dev/null || true
   [ -n "$INTEGRATION_PID" ] && kill "$INTEGRATION_PID" 2>/dev/null || true
@@ -57,7 +56,10 @@ if [ -d "$INTEGRATION_DIR" ]; then
 fi
 
 echo "▶ Subindo API em background..."
-"$SCRIPT_DIR/dev-api.sh" &
+(
+  cd "$ROOT/RHPortal.Api/RHPortal.Api"
+  exec dotnet run --no-launch-profile --urls "http://localhost:5056"
+) &
 API_PID=$!
 
 AI_PID=""
@@ -115,7 +117,6 @@ if [ -d "$NEXT_DIR" ]; then
     rm -f .next/dev/lock 2>/dev/null || true
     pnpm install --silent
     NODE_OPTIONS="--max-old-space-size=2048" \
-    LEGACY_ORIGIN=http://localhost:5051 \
     DEV_API_ORIGIN=http://localhost:5056 \
     PORT=3000 \
     exec pnpm dev
@@ -140,5 +141,6 @@ fi
 echo "▶ Abrindo Next.js:  http://localhost:3000/app"
 open_url "http://localhost:3000/app" 2>/dev/null &
 
-echo "▶ Subindo Portal em foreground (Ctrl+C encerra todos)..."
-"$SCRIPT_DIR/dev-portal.sh"
+# Fica em foreground segurando tudo: Ctrl+C dispara o trap e encerra todos os processos filhos.
+echo "▶ Pronto. Serviços rodando — Ctrl+C para encerrar."
+wait

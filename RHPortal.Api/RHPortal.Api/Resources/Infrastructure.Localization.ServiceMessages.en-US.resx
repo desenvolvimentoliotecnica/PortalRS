@@ -54,6 +54,9 @@
   <data name="ServiceErrors.JobAreaInvalid" xml:space="preserve">
     <value>Invalid area.</value>
   </data>
+  <data name="ServiceErrors.JobCentroCustoInvalid" xml:space="preserve">
+    <value>Invalid cost center.</value>
+  </data>
   <data name="ServiceErrors.JobCodeExists" xml:space="preserve">
     <value>A job position with code '{0}' already exists.</value>
   </data>
@@ -90,14 +93,11 @@
   <data name="ServiceErrors.FuncionarioUnitInvalid" xml:space="preserve">
     <value>Invalid unit.</value>
   </data>
-  <data name="ServiceErrors.FuncionarioAreaInvalid" xml:space="preserve">
-    <value>Invalid area.</value>
+  <data name="ServiceErrors.FuncionarioCentroCustoInvalid" xml:space="preserve">
+    <value>Invalid cost center.</value>
   </data>
   <data name="ServiceErrors.FuncionarioJobInvalid" xml:space="preserve">
     <value>Invalid job position.</value>
-  </data>
-  <data name="ServiceErrors.FuncionarioRequisitoCategoriaInvalid" xml:space="preserve">
-    <value>Invalid function (category).</value>
   </data>
   <data name="ServiceErrors.FuncionarioNotFound" xml:space="preserve">
     <value>Funcionario not found.</value>

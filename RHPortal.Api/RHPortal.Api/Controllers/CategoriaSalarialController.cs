@@ -10,7 +10,12 @@ using RhPortal.Api.Infrastructure.Localization;
 namespace RhPortal.Api.Controllers;
 
 /// <summary>
-/// Cadastro de Categorias Salariais para integração TOTVS.
+/// Cadastro de Categorias Salariais — grade salarial por cargo.
+///
+/// Cada categoria define um <c>ValorBase</c> (salário de referência em 100%) e
+/// uma coleção de <c>Steps</c> (degraus percentuais: 80%, 85%, …, 120%, ou livre).
+/// O valor de cada step é calculado (<c>ValorBase × Percentual/100</c>) quando
+/// <c>ValorOverride</c> é null; caso contrário, o override prevalece.
 /// </summary>
 [ApiController]
 [Route("api/categorias-salariais")]
@@ -23,6 +28,73 @@ public sealed class CategoriaSalarialController : ControllerBase
         _localizer = localizer;
     }
 
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>Valor efetivo do step: override quando presente, caso contrário calculado.</summary>
+    private static decimal? ComputeValorEfetivo(decimal? valorBase, decimal percentual, decimal? valorOverride)
+    {
+        if (valorOverride.HasValue) return valorOverride.Value;
+        if (valorBase.HasValue) return Math.Round(valorBase.Value * percentual / 100m, 2);
+        return null;
+    }
+
+    private static CategoriaSalarialStepResponse MapStep(CategoriaSalarialStep s, decimal? valorBase) =>
+        new(
+            s.Id,
+            s.Percentual,
+            s.ValorOverride,
+            s.Ordem,
+            s.Observacao,
+            ComputeValorEfetivo(valorBase, s.Percentual, s.ValorOverride));
+
+    private static CategoriaSalarialResponse MapToResponse(CategoriaSalarial x) =>
+        new(
+            x.Id, x.Code, x.Description, x.IsActive,
+            x.CreatedAtUtc, x.UpdatedAtUtc,
+            x.ValorBase,
+            x.EmpresaId, x.EstabelecimentoId,
+            x.Empresa?.Code,
+            x.Estabelecimento?.Code,
+            x.Estabelecimento?.Name,
+            x.Steps
+                .OrderBy(s => s.Ordem)
+                .ThenBy(s => s.Percentual)
+                .Select(s => MapStep(s, x.ValorBase))
+                .ToList());
+
+    /// <summary>Substitui todos os steps da categoria pelos recebidos no request (pattern replace).</summary>
+    private static void ReplaceSteps(
+        CategoriaSalarial entity,
+        IReadOnlyList<CategoriaSalarialStepRequest>? steps,
+        string tenantId,
+        AppDbContext db)
+    {
+        // Remove os existentes — Cascade no DbContext garante que não sobre lixo órfão.
+        foreach (var existing in entity.Steps.ToList())
+            db.Remove(existing);
+        entity.Steps.Clear();
+
+        if (steps is null) return;
+
+        foreach (var s in steps)
+        {
+            entity.Steps.Add(new CategoriaSalarialStep
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                CategoriaSalarialId = entity.Id,
+                Percentual = s.Percentual,
+                ValorOverride = s.ValorOverride,
+                Ordem = s.Ordem,
+                Observacao = string.IsNullOrWhiteSpace(s.Observacao) ? null : s.Observacao.Trim(),
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+            });
+        }
+    }
+
+    // ── CRUD ─────────────────────────────────────────────────────────────────
+
     [HttpGet]
     [ProducesResponseType(typeof(List<CategoriaSalarialResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<CategoriaSalarialResponse>>> List(
@@ -32,7 +104,12 @@ public sealed class CategoriaSalarialController : ControllerBase
         [FromQuery] int skip = 0,
         [FromQuery] int take = 5000)
     {
-        var query = db.CategoriasSalariais.AsNoTracking();
+        var query = db.CategoriasSalariais
+            .AsNoTracking()
+            .Include(x => x.Empresa)
+            .Include(x => x.Estabelecimento)
+            .Include(x => x.Steps)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -43,21 +120,14 @@ public sealed class CategoriaSalarialController : ControllerBase
         }
 
         var total = await query.CountAsync(ct);
-        var items = await query
+        var entities = await query
             .OrderBy(x => x.Code)
             .Skip(skip)
             .Take(take)
-            .Select(x => new CategoriaSalarialResponse(
-                x.Id, x.Code, x.Description, x.IsActive,
-                x.CreatedAtUtc, x.UpdatedAtUtc,
-                x.EmpresaId, x.EstabelecimentoId,
-                x.Empresa != null ? x.Empresa.Code : null,
-                x.Estabelecimento != null ? x.Estabelecimento.Code : null,
-                x.Estabelecimento != null ? x.Estabelecimento.Name : null))
             .ToListAsync(ct);
 
         Response.Headers["X-Total-Count"] = total.ToString();
-        return Ok(items);
+        return Ok(entities.Select(MapToResponse).ToList());
     }
 
     [HttpGet("lookup")]
@@ -97,19 +167,14 @@ public sealed class CategoriaSalarialController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        var item = await db.CategoriasSalariais
+        var entity = await db.CategoriasSalariais
             .AsNoTracking()
-            .Where(x => x.Id == id)
-            .Select(x => new CategoriaSalarialResponse(
-                x.Id, x.Code, x.Description, x.IsActive,
-                x.CreatedAtUtc, x.UpdatedAtUtc,
-                x.EmpresaId, x.EstabelecimentoId,
-                x.Empresa != null ? x.Empresa.Code : null,
-                x.Estabelecimento != null ? x.Estabelecimento.Code : null,
-                x.Estabelecimento != null ? x.Estabelecimento.Name : null))
-            .FirstOrDefaultAsync(ct);
+            .Include(x => x.Empresa)
+            .Include(x => x.Estabelecimento)
+            .Include(x => x.Steps)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
 
-        return item is null ? NotFound() : Ok(item);
+        return entity is null ? NotFound() : Ok(MapToResponse(entity));
     }
 
     [HttpPost]
@@ -118,6 +183,7 @@ public sealed class CategoriaSalarialController : ControllerBase
     public async Task<ActionResult<CategoriaSalarialResponse>> Create(
         [FromBody] CategoriaSalarialCreateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] RhPortal.Api.Infrastructure.Tenancy.ITenantContext tenantContext,
         CancellationToken ct)
     {
         if (await db.CategoriasSalariais.AnyAsync(
@@ -132,26 +198,25 @@ public sealed class CategoriaSalarialController : ControllerBase
             Code = request.Code.Trim(),
             Description = request.Description.Trim(),
             IsActive = request.IsActive,
+            ValorBase = request.ValorBase,
             EmpresaId = request.EmpresaId,
-            EstabelecimentoId = request.EstabelecimentoId
+            EstabelecimentoId = request.EstabelecimentoId,
         };
 
         db.CategoriasSalariais.Add(entity);
+
+        ReplaceSteps(entity, request.Steps, tenantContext.TenantId ?? string.Empty, db);
+
         await db.SaveChangesAsync(ct);
 
         var created = await db.CategoriasSalariais
             .AsNoTracking()
-            .Where(x => x.Id == entity.Id)
-            .Select(x => new CategoriaSalarialResponse(
-                x.Id, x.Code, x.Description, x.IsActive,
-                x.CreatedAtUtc, x.UpdatedAtUtc,
-                x.EmpresaId, x.EstabelecimentoId,
-                x.Empresa != null ? x.Empresa.Code : null,
-                x.Estabelecimento != null ? x.Estabelecimento.Code : null,
-                x.Estabelecimento != null ? x.Estabelecimento.Name : null))
-            .FirstAsync(ct);
+            .Include(x => x.Empresa)
+            .Include(x => x.Estabelecimento)
+            .Include(x => x.Steps)
+            .FirstAsync(x => x.Id == entity.Id, ct);
 
-        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, created);
+        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, MapToResponse(created));
     }
 
     [HttpPut("{id:guid}")]
@@ -162,9 +227,12 @@ public sealed class CategoriaSalarialController : ControllerBase
         [FromRoute] Guid id,
         [FromBody] CategoriaSalarialUpdateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] RhPortal.Api.Infrastructure.Tenancy.ITenantContext tenantContext,
         CancellationToken ct)
     {
-        var entity = await db.CategoriasSalariais.FirstOrDefaultAsync(x => x.Id == id, ct);
+        var entity = await db.CategoriasSalariais
+            .Include(x => x.Steps)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
         if (await db.CategoriasSalariais.AnyAsync(
@@ -177,25 +245,23 @@ public sealed class CategoriaSalarialController : ControllerBase
         entity.Code = request.Code.Trim();
         entity.Description = request.Description.Trim();
         entity.IsActive = request.IsActive;
+        entity.ValorBase = request.ValorBase;
         entity.EmpresaId = request.EmpresaId;
         entity.EstabelecimentoId = request.EstabelecimentoId;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        ReplaceSteps(entity, request.Steps, tenantContext.TenantId ?? string.Empty, db);
 
         await db.SaveChangesAsync(ct);
 
         var updated = await db.CategoriasSalariais
             .AsNoTracking()
-            .Where(x => x.Id == id)
-            .Select(x => new CategoriaSalarialResponse(
-                x.Id, x.Code, x.Description, x.IsActive,
-                x.CreatedAtUtc, x.UpdatedAtUtc,
-                x.EmpresaId, x.EstabelecimentoId,
-                x.Empresa != null ? x.Empresa.Code : null,
-                x.Estabelecimento != null ? x.Estabelecimento.Code : null,
-                x.Estabelecimento != null ? x.Estabelecimento.Name : null))
-            .FirstAsync(ct);
+            .Include(x => x.Empresa)
+            .Include(x => x.Estabelecimento)
+            .Include(x => x.Steps)
+            .FirstAsync(x => x.Id == id, ct);
 
-        return Ok(updated);
+        return Ok(MapToResponse(updated));
     }
 
     [HttpDelete("{id:guid}")]
@@ -209,6 +275,7 @@ public sealed class CategoriaSalarialController : ControllerBase
         var entity = await db.CategoriasSalariais.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
+        // Steps morrem em cascade pelo config do AppDbContext.
         db.CategoriasSalariais.Remove(entity);
         await db.SaveChangesAsync(ct);
 
@@ -216,8 +283,10 @@ public sealed class CategoriaSalarialController : ControllerBase
     }
 
     /// <summary>
-    /// Importação em lote de categorias salariais. Upsert por (EmpresaCodigo, EstabelecimentoCodigo, Code).
-    /// Suporta até 5.000 registros por requisição.
+    /// Importação em lote de categorias salariais. Upsert por (EmpresaCodigo,
+    /// EstabelecimentoCodigo, Code). Steps da grade NÃO são importados por aqui —
+    /// o XLSX mantém a forma simples (só Code/Description/ValorBase), e a grade
+    /// é editada por tela. Suporta até 5.000 registros por requisição.
     /// </summary>
     [HttpPost("import")]
     [ProducesResponseType(typeof(CategoriaSalarialImportResult), StatusCodes.Status200OK)]
@@ -242,7 +311,6 @@ public sealed class CategoriaSalarialController : ControllerBase
             .Select(x => new { x.Id, x.Code })
             .ToDictionaryAsync(x => x.Code.ToLowerInvariant(), x => x.Id, ct);
 
-        // Existing map: "empresaCode|estabelecimentoCode|code"
         var existingList = await db.CategoriasSalariais
             .AsNoTracking()
             .Select(x => new
@@ -292,6 +360,7 @@ public sealed class CategoriaSalarialController : ControllerBase
                 entity.Code = code;
                 entity.Description = item.Description.Trim();
                 entity.IsActive = item.IsActive;
+                entity.ValorBase = item.ValorBase;
                 entity.EmpresaId = empresaId;
                 entity.EstabelecimentoId = estabId;
                 entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -305,6 +374,7 @@ public sealed class CategoriaSalarialController : ControllerBase
                     Code = code,
                     Description = item.Description.Trim(),
                     IsActive = item.IsActive,
+                    ValorBase = item.ValorBase,
                     EmpresaId = empresaId,
                     EstabelecimentoId = estabId,
                 };

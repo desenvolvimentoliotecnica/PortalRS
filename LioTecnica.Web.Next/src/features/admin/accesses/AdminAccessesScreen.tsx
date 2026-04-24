@@ -54,7 +54,7 @@ const MODULE_CONFIG: { key: string; label: string; icon: typeof LayoutDashboard;
     },
     {
         key: "cadastros", label: "Cadastros", icon: LayoutDashboard, color: "text-cyan-600",
-        routes: ["/cadastro/", "/cargos", "/unidades", "/funcionarios", "/categorias", "/areas", "/departamentos", "/pessoas", "/colaborador/dependentes"],
+        routes: ["/cadastro/", "/cargos", "/unidades", "/funcionarios", "/categorias", "/centros-custo", "/pessoas", "/colaborador/dependentes"],
     },
     {
         key: "relatorios", label: "Relatórios", icon: BarChart3, color: "text-orange-600",

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -13,6 +14,7 @@ namespace RhPortal.Api.Controllers;
 [ApiController]
 [Route("api/pre-admissao")]
 [Authorize]
+[RequireModule("admissao")]
 public sealed class PreAdmissaoController : ControllerBase
 {
     private readonly IPreAdmissaoService _service;

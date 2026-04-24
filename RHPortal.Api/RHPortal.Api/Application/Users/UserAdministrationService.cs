@@ -68,7 +68,7 @@ public sealed class UserAdministrationService
 
             FuncionarioInfoResponse? funcionarioInfo = null;
             if (u.Funcionario != null)
-                funcionarioInfo = new FuncionarioInfoResponse(u.Funcionario.Id, u.Funcionario.Name, u.Funcionario.Email ?? string.Empty, u.Funcionario.AreaId);
+                funcionarioInfo = new FuncionarioInfoResponse(u.Funcionario.Id, u.Funcionario.Name, u.Funcionario.Email ?? string.Empty, u.Funcionario.CentroCustoId);
 
             return new UserListItemResponse(
                 u.Id,
@@ -107,7 +107,7 @@ public sealed class UserAdministrationService
 
         FuncionarioInfoResponse? funcionarioInfo = null;
         if (user.Funcionario != null)
-            funcionarioInfo = new FuncionarioInfoResponse(user.Funcionario.Id, user.Funcionario.Name, user.Funcionario.Email ?? string.Empty, user.Funcionario.AreaId);
+            funcionarioInfo = new FuncionarioInfoResponse(user.Funcionario.Id, user.Funcionario.Name, user.Funcionario.Email ?? string.Empty, user.Funcionario.CentroCustoId);
 
         return new UserResponse(
             user.Id,

@@ -45,7 +45,7 @@ public sealed class JobPositionsController : ControllerBase
     {
         var query = db.JobPositions
             .AsNoTracking()
-            .Include(x => x.Area)
+            .Include(x => x.CentroCusto)
             .Where(x => x.Status == CargoStatus.Active);
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -65,6 +65,8 @@ public sealed class JobPositionsController : ControllerBase
                 x.Name,
                 x.AreaId,
                 x.Area != null ? x.Area.Name : null,
+                x.CentroCustoId,
+                x.CentroCusto != null ? x.CentroCusto.Description : null,
                 x.Seniority.ToString(),
                 x.TotvsCargoBasicId))
             .ToListAsync(ct);

@@ -10,14 +10,15 @@ public static class JobPositionSeeder
 {
     public static async Task EnsureAsync(AppDbContext db, IStringLocalizer<SeedMessages> localizer, CancellationToken ct)
     {
-        var areaIdByCode = await db.Areas
+        // 31.2: Area foi absorvida por CentroCusto. O seeder passa a resolver por Code do CentroCusto.
+        var centroCustoIdByCode = await db.CentrosCusto
             .AsNoTracking()
-            .ToDictionaryAsync(a => a.Code, a => a.Id, ct);
+            .ToDictionaryAsync(cc => cc.Code, cc => cc.Id, ct);
 
-        Guid GetAreaId(string areaCode)
+        Guid GetCentroCustoId(string code)
         {
-            if (!areaIdByCode.TryGetValue(areaCode, out var id))
-                throw new InvalidOperationException(localizer["SeedErrors.AreaNotFound", areaCode]);
+            if (!centroCustoIdByCode.TryGetValue(code, out var id))
+                throw new InvalidOperationException(localizer["SeedErrors.AreaNotFound", code]);
             return id;
         }
 
@@ -107,7 +108,7 @@ public static class JobPositionSeeder
                     Id = Guid.NewGuid(),
                     Code = code,
                     Name = c.Name,
-                    AreaId = GetAreaId(c.AreaCode),
+                    CentroCustoId = GetCentroCustoId(c.AreaCode),
                     Status = CargoStatus.Active,
                     Seniority = c.Seniority,
                     Type = c.Type,

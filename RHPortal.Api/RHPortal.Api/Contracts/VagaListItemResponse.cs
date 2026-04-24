@@ -8,13 +8,10 @@ public sealed record VagaListItemResponse(
     string Titulo,
     VagaStatus Status,
 
-    Guid? AreaId,
-    string? AreaCode,
-    string? AreaName,
-
-    Guid? DepartmentId,
-    string? DepartmentCode,
-    string? DepartmentName,
+    /// <summary>Centro de Custo — absorveu Area + Department em 31.2.</summary>
+    Guid? CentroCustoId,
+    string? CentroCustoCode,
+    string? CentroCustoNome,
 
     VagaModalidade? Modalidade,
     VagaSenioridade? Senioridade,

@@ -75,7 +75,7 @@ interface SolicitacaoRow {
     status: number | string;
     urgencia: number | string;
     tipoSolicitacao: number | string;
-    areaName: string | null;
+    centroCustoName: string | null;
     solicitanteNome?: string | null;
     qtdPosicoes: number;
     createdAtUtc: string;
@@ -144,7 +144,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 function mapVagaItem(raw: unknown): VagaListItem {
     const r = asRecord(raw) ?? {};
-    return { ...(r as unknown as VagaListItem), area: pickString(r.areaName ?? r.area, "") };
+    return { ...(r as unknown as VagaListItem), area: pickString(r.centroCustoName ?? r.areaName ?? r.area, "") };
 }
 
 function mapVagasPayload(payload: VagasPayload): VagaListItem[] {
@@ -355,7 +355,7 @@ export default function VagasScreen() {
     const [lastCreatedVagaId, setLastCreatedVagaId] = useState<string | null>(null);
 
     /* ── Fila de Análise RH ── */
-    interface FilaRhItem { id: string; titulo: string; areaName: string | null; createdAtUtc: string; }
+    interface FilaRhItem { id: string; titulo: string; centroCustoName: string | null; createdAtUtc: string; }
     const [filaRh, setFilaRh] = useState<FilaRhItem[]>([]);
     const [filaRhLoading, setFilaRhLoading] = useState(false);
 
@@ -380,8 +380,8 @@ export default function VagasScreen() {
             .then((solic) => {
                 setPrefillFromSolic({
                     titulo: solic.titulo ?? "",
-                    areaId: solic.areaId ?? "",
-                    areaName: solic.areaName ?? "",
+                    centroCustoId: solic.centroCustoId ?? "",
+                    centroCustoName: solic.centroCustoName ?? "",
                     unitId: solic.unitId ?? "",
                     descricaoInterna: solic.justificativa ?? "",
                     prioridade: solic.urgencia === 3 || solic.urgencia === "Critica" ? "Critica" : solic.urgencia === 2 || solic.urgencia === "Alta" ? "Alta" : solic.urgencia === 1 || solic.urgencia === "Media" ? "Media" : "Baixa",
@@ -755,17 +755,41 @@ export default function VagasScreen() {
                 });
                 if (!confirmaExcluir) return;
 
-                let failed = 0;
+                // Coleta falhas com razão estruturada em vez de só contar.
+                // Quando o backend retorna 409 com {message}, extraímos e mostramos
+                // a lista exata de candidatos que não puderam ser excluídos e o motivo
+                // de cada um — evita a experiência antiga de "Falha ao excluir 4
+                // candidato(s)" sem explicação. fetchJson joga Error("HTTP 409: {json}").
+                const falhas: { nome: string; motivo: string }[] = [];
                 for (const candidato of vinculados) {
                     try {
                         await fetchJson(`${BASE}/api/candidatos/${encodeURIComponent(candidato.id)}`, { method: "DELETE" });
-                    } catch {
-                        failed++;
+                    } catch (err) {
+                        const raw = err instanceof Error ? err.message : String(err);
+                        const bodyStart = raw.indexOf(": ");
+                        const body = bodyStart >= 0 ? raw.slice(bodyStart + 2) : raw;
+                        let motivo = raw;
+                        try {
+                            const parsed = JSON.parse(body) as { message?: string };
+                            if (parsed?.message) motivo = parsed.message;
+                        } catch { /* body não é JSON */ }
+                        const nome = (candidato as { nome?: string; email?: string }).nome
+                            ?? (candidato as { email?: string }).email
+                            ?? candidato.id;
+                        falhas.push({ nome, motivo });
                     }
                 }
 
-                if (failed > 0) {
-                    toast.error(`Falha ao excluir ${failed} candidato(s).`);
+                if (falhas.length > 0) {
+                    // Toast longo + confirm dialog com a lista detalhada.
+                    const detalhes = falhas.map((f) => `• ${f.nome}: ${f.motivo}`).join("\n");
+                    await confirmDialog({
+                        title: `${falhas.length} candidato(s) não puderam ser excluídos`,
+                        description: detalhes + "\n\nA vaga não foi excluída. Resolva os vínculos e tente novamente.",
+                        confirmText: "Entendi",
+                        cancelText: "",
+                        destructive: false,
+                    });
                     return;
                 }
 
@@ -808,8 +832,8 @@ export default function VagasScreen() {
     const currentVagaDetail = vagaDetail;
     const currentVagaId = pickString(currentVagaDetail?.id, "");
     const currentVagaTitle = pickString(currentVagaDetail?.titulo, "Vaga");
-    const currentVagaArea = pickString(currentVagaDetail?.areaName ?? currentVagaDetail?.area, "—");
-    const currentVagaDepartment = pickString(currentVagaDetail?.departmentName ?? currentVagaDetail?.department, "—");
+    const currentVagaArea = pickString(currentVagaDetail?.centroCustoName ?? currentVagaDetail?.areaName ?? currentVagaDetail?.area, "—");
+    const currentVagaDepartment = pickString(currentVagaDetail?.centroCustoName ?? currentVagaDetail?.departmentName ?? currentVagaDetail?.department, "—");
     const currentVagaStatus = pickString(currentVagaDetail?.status, "");
     const currentVagaVisibilidade = pickString(currentVagaDetail?.visibilidade, "");
     const visibilidadePermitePortal = ["Externa", "InternaEExterna"].includes(currentVagaVisibilidade);
@@ -982,7 +1006,7 @@ export default function VagasScreen() {
                                     return (
                                         <TableRow key={v.id} className="border-amber-100 hover:bg-amber-100/40">
                                             <TableCell className="font-medium text-amber-900 dark:text-amber-200">{v.titulo}</TableCell>
-                                            <TableCell className="text-sm text-amber-700 dark:text-amber-400">{v.areaName ?? "—"}</TableCell>
+                                            <TableCell className="text-sm text-amber-700 dark:text-amber-400">{v.centroCustoName ?? "—"}</TableCell>
                                             <TableCell className="text-sm text-amber-700 dark:text-amber-400">{formatDate(v.createdAtUtc)}</TableCell>
                                             <TableCell>
                                                 <span className={`text-xs font-medium ${days > 7 ? "text-red-600" : days > 3 ? "text-amber-700" : "text-amber-600"}`}>
@@ -1821,7 +1845,7 @@ export default function VagasScreen() {
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                                 <DetailField label="Solicitante" value={solicDetail.solicitanteNome || "—"} />
                                 <DetailField label="Aprovador" value={solicDetail.aprovadorNome || "—"} />
-                                <DetailField label="Área" value={solicDetail.areaName || "—"} />
+                                <DetailField label="Centro de Custo" value={solicDetail.centroCustoName || "—"} />
                                 <DetailField label="Unidade" value={solicDetail.unitName || "—"} />
                             </div>
 

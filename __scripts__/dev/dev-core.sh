@@ -17,7 +17,7 @@ export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
 # Libera portas usadas
-for port in 5056 3000 3001; do
+for port in 5056 3005 3006; do
   free_port "$port"
 done
 
@@ -39,7 +39,7 @@ echo "▶ Subindo API em background (porta 5056)..."
 API_PID=$!
 
 # --- Next.js em background (Turbopack)
-echo "▶ Subindo Next.js em background (porta 3000)..."
+echo "▶ Subindo Next.js em background (porta 3005)..."
 (
   cd "$ROOT/LioTecnica.Web.Next"
   rm -f .next/dev/lock 2>/dev/null || true
@@ -48,7 +48,7 @@ echo "▶ Subindo Next.js em background (porta 3000)..."
   fi
   NODE_OPTIONS="--max-old-space-size=2048" \
   DEV_API_ORIGIN=http://localhost:5056 \
-  PORT=3000 \
+  PORT=3005 \
   exec pnpm dev
 ) &
 NEXT_PID=$!
@@ -79,14 +79,14 @@ open_url "http://localhost:5056/swagger" 2>/dev/null &
 (
   nmax=60
   while [ $nmax -gt 0 ]; do
-    if curl -sf -o /dev/null "http://localhost:3000/app" 2>/dev/null; then
+    if curl -sf -o /dev/null "http://localhost:3005/app" 2>/dev/null; then
       echo "▶ Next.js pronto."
       break
     fi
     sleep 2
     nmax=$((nmax - 2))
   done
-  open_url "http://localhost:3000/app" 2>/dev/null
+  open_url "http://localhost:3005/app" 2>/dev/null
 ) &
 
 # --- Mantém vivo até Ctrl+C

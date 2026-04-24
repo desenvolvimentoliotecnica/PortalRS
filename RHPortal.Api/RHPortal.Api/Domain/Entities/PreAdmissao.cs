@@ -180,8 +180,9 @@ public sealed class PreAdmissao : ITenantEntity
     public Guid? UnitId { get; set; }
     public Unit? Unit { get; set; }
 
-    public Guid? AreaId { get; set; }
-    public Area? Area { get; set; }
+    /// <summary>Centro de custo organizacional do candidato (absorveu Area em 31.2).</summary>
+    public Guid? CentroCustoId { get; set; }
+    public CentroCusto? CentroCusto { get; set; }
 
     public Guid? JobPositionId { get; set; }
     public JobPosition? JobPosition { get; set; }
@@ -213,8 +214,9 @@ public sealed class PreAdmissao : ITenantEntity
     public int? GrauInstrucao { get; set; }
     public int? CodTurno { get; set; }
 
+    /// <summary>Código TOTVS do centro de custo (string legado usado na integração fp1500). A navegação tipada está em CentroCustoId.</summary>
     [StringLength(30)]
-    public string? CentroCusto { get; set; }
+    public string? CentroCustoTotvs { get; set; }
 
     [StringLength(30)]
     public string? UnidadeLotacao { get; set; }

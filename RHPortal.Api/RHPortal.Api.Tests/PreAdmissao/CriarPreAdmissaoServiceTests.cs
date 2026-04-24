@@ -59,7 +59,8 @@ public sealed class CriarPreAdmissaoServiceTests
             italoService.Object,
             storage.Object,
             logger.Object,
-            httpAccessor.Object);
+            httpAccessor.Object,
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
 
         return (db, service);
     }

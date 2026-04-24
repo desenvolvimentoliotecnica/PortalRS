@@ -13,7 +13,7 @@ public sealed class CurrentUserContext : ICurrentUserContext
     private Guid? _userId;
     private bool _userIdResolved;
     private Guid? _funcionarioId;
-    private Guid? _areaId;
+    private Guid? _centroCustoId;
     private bool _claimsResolved;
     private IReadOnlyList<string>? _roleNames;
     private IReadOnlyList<Guid>? _unitIds;
@@ -71,16 +71,16 @@ public sealed class CurrentUserContext : ICurrentUserContext
         }
     }
 
-    public Guid? AreaId
+    public Guid? CentroCustoId
     {
         get
         {
             EnsureClaimsResolved();
-            return _areaId;
+            return _centroCustoId;
         }
     }
 
-    public bool IsGestorWithArea => IsInRole("Gestor") && AreaId.HasValue && AreaId.Value != Guid.Empty;
+    public bool IsGestorWithCentroCusto => IsInRole("Gestor") && CentroCustoId.HasValue && CentroCustoId.Value != Guid.Empty;
 
     public ProfileVisibilityScope VisibilityScope
     {
@@ -149,20 +149,23 @@ public sealed class CurrentUserContext : ICurrentUserContext
         _email = user.FindFirstValue(ClaimTypes.Email);
         var funcionarioIdClaim = user.FindFirst("funcionario_id")?.Value;
         _funcionarioId = Guid.TryParse(funcionarioIdClaim, out var fid) ? fid : null;
-        var areaIdClaim = user.FindFirst("area_id")?.Value;
-        _areaId = Guid.TryParse(areaIdClaim, out var aid) ? aid : null;
+        // 31.2: claim "area_id" renomeada para "centro_custo_id"; mantemos fallback em leitura
+        // para tokens antigos ainda válidos, mas emitimos sempre "centro_custo_id" em AuthenticationService.
+        var centroCustoIdClaim = user.FindFirst("centro_custo_id")?.Value
+            ?? user.FindFirst("area_id")?.Value;
+        _centroCustoId = Guid.TryParse(centroCustoIdClaim, out var ccid) ? ccid : null;
 
         var visibilityScopeClaim = user.FindFirst(PermissionConstants.ClaimVisibilityScope)?.Value;
         if (short.TryParse(visibilityScopeClaim, out var vs) && Enum.IsDefined(typeof(ProfileVisibilityScope), (ProfileVisibilityScope)vs))
             _visibilityScope = (ProfileVisibilityScope)vs;
         else
-            _visibilityScope = IsGestorWithArea ? ProfileVisibilityScope.RestrictedByAreaOrRecruiter : ProfileVisibilityScope.FullStructure;
+            _visibilityScope = IsGestorWithCentroCusto ? ProfileVisibilityScope.RestrictedByAreaOrRecruiter : ProfileVisibilityScope.FullStructure;
 
         var vagasDataScopeClaim = user.FindFirst(PermissionConstants.ClaimVagasDataScope)?.Value;
         if (short.TryParse(vagasDataScopeClaim, out var vds) && Enum.IsDefined(typeof(VagasDataScope), (VagasDataScope)vds))
             _vagasDataScope = (VagasDataScope)vds;
         else
-            _vagasDataScope = IsGestorWithArea ? VagasDataScope.ByArea : VagasDataScope.All;
+            _vagasDataScope = IsGestorWithCentroCusto ? VagasDataScope.ByArea : VagasDataScope.All;
 
         var accessModeClaim = user.FindFirst(PermissionConstants.ClaimAccessMode)?.Value;
         if (short.TryParse(accessModeClaim, out var am) && Enum.IsDefined(typeof(ProfileAccessMode), (ProfileAccessMode)am))

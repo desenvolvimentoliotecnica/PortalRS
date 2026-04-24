@@ -202,9 +202,9 @@ public sealed class InboxFileProcessor
         if (existing is not null)
             return existing.Id;
 
-        var area = await _db.Areas.FirstOrDefaultAsync(ct);
-        var dep = await _db.Departments.FirstOrDefaultAsync(ct);
-        if (area is null || dep is null)
+        // 31.2: Area+Department foram absorvidos por CentroCusto
+        var centroCusto = await _db.CentrosCusto.FirstOrDefaultAsync(ct);
+        if (centroCusto is null)
             return Guid.Empty;
 
         var baseTitle = _localizer["InfrastructureInbox.VagaBaseTitulo"].Value;
@@ -215,8 +215,7 @@ public sealed class InboxFileProcessor
             Id = Guid.NewGuid(),
             Codigo = code,
             Titulo = baseTitle,
-            AreaId = area.Id,
-            DepartmentId = dep.Id,
+            CentroCustoId = centroCusto.Id,
             Status = VagaStatus.Rascunho,
             QuantidadeVagas = 1,
             MatchMinimoPercentual = 70,

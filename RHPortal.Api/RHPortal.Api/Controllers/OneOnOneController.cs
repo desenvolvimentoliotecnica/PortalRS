@@ -8,6 +8,7 @@ namespace RhPortal.Api.Controllers;
 
 [ApiController]
 [Route("api/feedback/oneonone")]
+[RequireModule("feedback")]
 public sealed class OneOnOneController : ControllerBase
 {
     [RequirePermission("feedback.oneonone.view")]

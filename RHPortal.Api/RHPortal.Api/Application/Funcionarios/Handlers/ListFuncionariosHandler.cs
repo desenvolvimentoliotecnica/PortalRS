@@ -22,6 +22,6 @@ public sealed class ListFuncionariosHandler : IListFuncionariosHandler
 
     public async Task<PagedResult<FuncionarioGridRowResponse>> HandleAsync(FuncionarioListQuery query, CancellationToken ct)
     {
-        return await _service.ListGridAsync(query ?? new FuncionarioListQuery(null, null, null, null, null), ct);
+        return await _service.ListGridAsync(query ?? new FuncionarioListQuery(null, null, null, null), ct);
     }
 }

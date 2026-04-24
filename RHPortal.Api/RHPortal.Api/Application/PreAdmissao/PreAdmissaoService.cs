@@ -80,6 +80,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IOcupacaoHistoricoService _ocupacaoService;
     private readonly BlipMessagingService _blipMessaging;
+    private readonly IConfiguration _configuration;
 
     public PreAdmissaoService(
         AppDbContext db,
@@ -91,7 +92,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         ILogger<PreAdmissaoService> logger,
         IHttpContextAccessor httpContextAccessor,
         IOcupacaoHistoricoService ocupacaoService,
-        BlipMessagingService blipMessaging)
+        BlipMessagingService blipMessaging,
+        IConfiguration configuration)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -103,6 +105,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _logger = logger;
         _ocupacaoService = ocupacaoService;
         _blipMessaging = blipMessaging;
+        _configuration = configuration;
     }
 
     // ── List ──
@@ -111,7 +114,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     {
         var q = _db.Set<Domain.Entities.PreAdmissao>().AsNoTracking()
             .Include(x => x.JobPosition)
-            .Include(x => x.Area)
+            .Include(x => x.CentroCusto)
             .Include(x => x.Unit)
             .AsQueryable();
 
@@ -133,7 +136,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         return await q.Select(x => new PreAdmissaoGridRow(
             x.Id, x.Nome, x.Cpf, x.Email,
             x.JobPosition != null ? x.JobPosition.Name : null,
-            x.Area != null ? x.Area.Name : null,
+            x.CentroCusto != null ? x.CentroCusto.Description : null,
             x.Unit != null ? x.Unit.Name : null,
             x.Status, x.DataAdmissao, x.Salario, x.PreenchidoPor, x.CreatedAtUtc,
             x.DocumentosSolicitados.Count(),
@@ -153,7 +156,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     public async Task<PreAdmissaoDetailResponse?> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var e = await _db.Set<Domain.Entities.PreAdmissao>().AsNoTracking()
-            .Include(x => x.Unit).Include(x => x.Area).Include(x => x.JobPosition)
+            .Include(x => x.Unit).Include(x => x.CentroCusto).Include(x => x.JobPosition)
             .Include(x => x.RevisadoPor).Include(x => x.AprovadoPor)
             .Include(x => x.Documentos)
             .Include(x => x.DocumentosSolicitados)
@@ -252,8 +255,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         // Trabalhista
         e.EstabelecimentoCodigo = r.EstabelecimentoCodigo?.Trim(); e.CodEmpresa = r.CodEmpresa?.Trim();
-        e.UnitId = r.UnitId; e.AreaId = r.AreaId; e.JobPositionId = r.JobPositionId;
-        e.RequisitoCategoriaId = r.RequisitoCategoriaId;
+        e.UnitId = r.UnitId; e.CentroCustoId = r.CentroCustoId; e.JobPositionId = r.JobPositionId;
         e.DataAdmissao = r.DataAdmissao; e.Salario = r.Salario;
         e.TipoContratacao = r.TipoContratacao; e.CargaHorariaSemanal = r.CargaHorariaSemanal;
         // PIS/PASEP só dígitos — TOTVS recusa máscara.
@@ -263,7 +265,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.CodCargoTotvs = r.CodCargoTotvs; e.CodVinculoEmpregaticio = r.CodVinculoEmpregaticio;
         e.TipoFuncionario = r.TipoFuncionario; e.CategoriaSalarial = r.CategoriaSalarial;
         e.GrauInstrucao = r.GrauInstrucao; e.CodTurno = r.CodTurno;
-        e.CentroCusto = r.CentroCusto?.Trim(); e.UnidadeLotacao = r.UnidadeLotacao?.Trim();
+        e.CentroCustoTotvs = r.CentroCustoTotvs?.Trim(); e.UnidadeLotacao = r.UnidadeLotacao?.Trim();
         e.CodPlanoLotacao = r.CodPlanoLotacao; e.CodTurma = r.CodTurma;
         e.NumCartaoPonto = r.NumCartaoPonto; e.CodNivel = r.CodNivel;
         e.TipoMaoDeObra = r.TipoMaoDeObra?.Trim(); e.FormaPagamento = r.FormaPagamento;
@@ -579,7 +581,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Headcount = 1,
             UserId = userId,
             UnitId = pa.UnitId,
-            AreaId = pa.AreaId,
+            CentroCustoId = pa.CentroCustoId,
             JobPositionId = pa.JobPositionId,
             RequisitoCategoriaId = pa.RequisitoCategoriaId,
             CdnFuncionario = cdnFuncionario,
@@ -819,11 +821,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        // Construir URL pública — usa o host do request mas porta 3000 (Next.js)
-        var httpCtx = _httpContextAccessor?.HttpContext;
-        var scheme = httpCtx?.Request.Scheme ?? "http";
-        var host = httpCtx?.Request.Host.Host ?? "localhost";
-        var url = $"{scheme}://{host}:3000/app/DocumentoAdmissao?tenantId={_tenantContext.TenantId}&preAdmissaoId={pa.Id}";
+        // Construir URL pública — Frontend:BaseUrl tem precedência (override completo);
+        // caso vazio, monta com host do request + Frontend:Port (default 3005).
+        var url = BuildFrontendUrl($"/app/DocumentoAdmissao?tenantId={_tenantContext.TenantId}&preAdmissaoId={pa.Id}");
 
         // Enviar email ao candidato
         var emailEnviado = false;
@@ -893,6 +893,28 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     }
 
     private static string NormalizeCpf(string cpf) => cpf.Replace(".", "").Replace("-", "").Replace(" ", "").Trim();
+
+    /// <summary>
+    /// Resolve a URL pública do front (Next.js) para um path. Precedência:
+    ///  1) <c>Frontend:BaseUrl</c> (override completo, ex.: <c>https://app.empresa.com</c>)
+    ///  2) Construção dinâmica = <c>{request.scheme}://{request.host}:{Frontend:Port}</c>
+    /// Default da porta = 3005 (Next.js dev). Substitui o hardcode antigo.
+    /// </summary>
+    private string BuildFrontendUrl(string pathAndQuery)
+    {
+        var baseUrlOverride = _configuration["Frontend:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(baseUrlOverride))
+        {
+            var trimmed = baseUrlOverride.TrimEnd('/');
+            return $"{trimmed}{pathAndQuery}";
+        }
+
+        var port = _configuration.GetValue<int?>("Frontend:Port") ?? 3005;
+        var httpCtx = _httpContextAccessor?.HttpContext;
+        var scheme = httpCtx?.Request.Scheme ?? "http";
+        var host = httpCtx?.Request.Host.Host ?? "localhost";
+        return $"{scheme}://{host}:{port}{pathAndQuery}";
+    }
 
     // ── Integração TOTVS ──
 
@@ -1060,9 +1082,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Nome = candidato.Nome.Trim(),
             Email = candidato.Email?.Trim(),
             Celular = (candidato.Celular ?? candidato.Fone)?.Trim(),
-            JobPositionId = jobPositionId,
+            JobPositionId = request.JobPositionId,
             CodCargoTotvs = jobPosition?.TotvsCargoBasicId,
-            AreaId = request.AreaId ?? vaga?.AreaId,
+            CentroCustoId = request.CentroCustoId ?? vaga?.CentroCustoId,
             UnitId = request.UnitId,
             VagaId = candidato.VagaId != Guid.Empty ? candidato.VagaId : null,
             DataAdmissao = request.DataAdmissao,
@@ -1075,10 +1097,42 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
 
-        // Carrega configuração padrão do tenant; se não houver, usa lista hardcoded por tipo de contratação
-        var configsPadrao = await _db.Set<DocumentacaoPadraoConfig>()
-            .Where(c => c.Configuracao != 2)
-            .ToListAsync(ct);
+        // Resolve NivelCargo (via JobPosition) para aplicar override de onboarding por cargo macro.
+        Guid? nivelCargoId = null;
+        Guid? cargoId = entity.JobPositionId;
+        if (entity.JobPositionId is Guid jpId)
+        {
+            nivelCargoId = await _db.Set<Domain.Entities.JobPosition>()
+                .Where(j => j.Id == jpId)
+                .Select(j => j.NivelCargoId)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        // Resolução hierárquica: Global → NivelCargo → Cargo específico (mais específico vence).
+        // Se nada configurado, cai para fallback por tipo de contratação.
+        var globais = await _db.Set<DocumentacaoPadraoConfig>().AsNoTracking().ToListAsync(ct);
+        var efetivos = globais.ToDictionary(x => x.TipoDocumento, x => x.Configuracao);
+        if (nivelCargoId is Guid nid)
+        {
+            var overrides = await _db.Set<DocumentacaoPadraoPorNivelCargoConfig>()
+                .AsNoTracking()
+                .Where(x => x.NivelCargoId == nid)
+                .ToListAsync(ct);
+            foreach (var o in overrides) efetivos[o.TipoDocumento] = o.Configuracao;
+        }
+        if (cargoId is Guid cid)
+        {
+            var overrides = await _db.Set<DocumentacaoPadraoPorCargoConfig>()
+                .AsNoTracking()
+                .Where(x => x.JobPositionId == cid)
+                .ToListAsync(ct);
+            foreach (var o in overrides) efetivos[o.TipoDocumento] = o.Configuracao;
+        }
+
+        var configsPadrao = efetivos
+            .Where(kv => kv.Value != 2)
+            .Select(kv => (TipoDocumento: kv.Key, Configuracao: kv.Value))
+            .ToList();
 
         if (configsPadrao.Count > 0)
         {
@@ -1137,7 +1191,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Email = request.Email?.Trim(),
             Celular = request.Celular?.Trim(),
             UnitId = request.UnitId,
-            AreaId = request.AreaId,
+            CentroCustoId = request.CentroCustoId,
             JobPositionId = request.JobPositionId,
             DataAdmissao = request.DataAdmissao,
             Salario = request.Salario,
@@ -1319,13 +1373,13 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.BancoCodigo, e.BancoNome, e.Agencia, e.AgenciaDigito, e.Conta, e.ContaDigito, e.TipoConta,
         // Trabalhista
         e.EstabelecimentoCodigo, e.CodEmpresa, e.MatriculaRM,
-        e.UnitId, e.Unit?.Name, e.AreaId, e.Area?.Name,
-        e.JobPositionId, e.JobPosition?.Name, e.RequisitoCategoriaId,
+        e.UnitId, e.Unit?.Name, e.CentroCustoId, e.CentroCusto?.Description,
+        e.JobPositionId, e.JobPosition?.Name,
         e.DataAdmissao, e.Salario, e.TipoContratacao, e.CargaHorariaSemanal, e.PisPasep,
         // TOTVS Cargo/Vinculo
         e.CodCargoTotvs, e.CodVinculoEmpregaticio, e.TipoFuncionario,
         e.CategoriaSalarial, e.GrauInstrucao, e.CodTurno,
-        e.CentroCusto, e.UnidadeLotacao,
+        e.CentroCustoTotvs, e.UnidadeLotacao,
         e.CodPlanoLotacao, e.CodTurma, e.NumCartaoPonto, e.CodNivel,
         e.TipoMaoDeObra, e.FormaPagamento, e.SalarioSimulado,
         e.OrigemFuncionario, e.IndFuncVinculado, e.FuncQualificado,

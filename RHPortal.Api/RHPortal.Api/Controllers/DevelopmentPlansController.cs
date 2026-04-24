@@ -8,6 +8,7 @@ namespace RhPortal.Api.Controllers;
 
 [ApiController]
 [Route("api/feedback/plans")]
+[RequireModule("feedback")]
 public sealed class DevelopmentPlansController : ControllerBase
 {
     [RequirePermission("feedback.myplans.view")]

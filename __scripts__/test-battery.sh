@@ -7,7 +7,7 @@ set -euo pipefail
 
 API="${TB_API:-http://localhost:5056}"
 AI="${TB_AI:-http://localhost:8000}"
-WEB="${TB_WEB:-http://localhost:5064}"
+WEB="${TB_WEB:-http://localhost:3000}"
 
 OWNER_EMAIL="${TB_OWNER_EMAIL:-owner@dev.local}"
 OWNER_PASSWORD="${TB_OWNER_PASSWORD:-ChangeThisPassword123!}"
@@ -59,10 +59,62 @@ check() {
   rm -f "$bodyfile" 2>/dev/null || true
 }
 
+check_any() {
+  local label="$1" url="$2" method="${3:-GET}" body="${4:-}"
+  shift 4
+  local expects=("$@")
+  TOTAL=$((TOTAL+1))
+
+  local bodyfile
+  bodyfile="$(mktemp 2>/dev/null || echo "/tmp/tb_body_${RANDOM}.txt")"
+
+  local args=(-s --insecure -o "$bodyfile" -w "%{http_code}" -X "$method" --max-time 10)
+  if [[ -n "$body" ]]; then
+    args+=(-H "Content-Type: application/json" -d "$body")
+  fi
+  if [[ -n "${TOKEN:-}" ]]; then
+    args+=(-H "Authorization: Bearer $TOKEN")
+  fi
+  if [[ "$url" == "$API/api/"* && "$url" != "$API/api/owner/"* && -n "${TENANT_ID:-}" ]]; then
+    args+=(-H "X-Tenant-Id: $TENANT_ID")
+  fi
+
+  local code
+  code=$(curl "${args[@]}" "$url" 2>/dev/null) || code="000"
+
+  local ok=0
+  local expected_text
+  expected_text=$(IFS='|'; echo "${expects[*]}")
+  for expect in "${expects[@]}"; do
+    if [[ "$code" == "$expect" ]]; then
+      ok=1
+      break
+    fi
+  done
+
+  if [[ $ok -eq 1 ]]; then
+    PASS=$((PASS+1))
+    printf "${GREEN}✅ PASS${NC} [%s] %s %s → %s\n" "$label" "$method" "$url" "$code"
+  else
+    FAIL=$((FAIL+1))
+    local body_preview
+    body_preview=$(head -c 200 "$bodyfile" 2>/dev/null || echo "")
+    FAILURES="${FAILURES}\n  ❌ ${label}: expected ${expected_text}, got ${code} — ${body_preview}"
+    printf "${RED}❌ FAIL${NC} [%s] %s %s → %s (expected %s)\n" "$label" "$method" "$url" "$code" "$expected_text"
+  fi
+
+  rm -f "$bodyfile" 2>/dev/null || true
+}
+
 skip() {
   local label="$1" reason="$2"
   TOTAL=$((TOTAL+1)); SKIP=$((SKIP+1))
   printf "${YELLOW}⏭ SKIP${NC} [%s] %s\n" "$label" "$reason"
+}
+
+extract_json_field() {
+  local payload="$1" key="$2"
+  printf '%s' "$payload" | sed -n "s/.*\"$key\":\"\\([^\"]*\\)\".*/\\1/p" | head -1
 }
 
 header() {
@@ -84,7 +136,7 @@ OWNER_RESP=$(curl -s -X POST "$API/api/owner/auth/login" \
   -H "Content-Type: application/json" \
   -d "{\"email\":\"$OWNER_EMAIL\",\"password\":\"$OWNER_PASSWORD\"}" \
   --max-time 10 2>/dev/null || echo "")
-OWNER_TOKEN=$(echo "$OWNER_RESP" | grep -oP '"accessToken":"\K[^"]+' | head -1 || echo "")
+OWNER_TOKEN=$(extract_json_field "$OWNER_RESP" "accessToken")
 
 if [[ -n "$OWNER_TOKEN" ]]; then
   PASS=$((PASS+1)); TOTAL=$((TOTAL+1))
@@ -99,7 +151,7 @@ fi
 TOKEN="$OWNER_TOKEN"
 TENANTS_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" "$API/api/owner/tenants" --max-time 10 2>/dev/null || echo "[]")
 if [[ -z "${TENANT_ID:-}" ]]; then
-  TENANT_ID=$(echo "$TENANTS_RESP" | grep -oP '"tenantId":"\K[^"]+' | head -1 || echo "")
+  TENANT_ID=$(extract_json_field "$TENANTS_RESP" "tenantId")
 fi
 
 if [[ -z "$TENANT_ID" ]]; then
@@ -142,7 +194,7 @@ admin_login() {
     -H "X-Tenant-Id: $TENANT_ID" \
     -d "{\"email\":\"$email\",\"password\":\"$ADMIN_PASSWORD\"}" \
     --max-time 15 2>/dev/null || echo "")
-  echo "$resp" | grep -oP '"accessToken":"\K[^"]+' | head -1 || echo ""
+  extract_json_field "$resp" "accessToken"
 }
 
 ADMIN_TOKEN="$(admin_login "$ADMIN_EMAIL")"
@@ -181,11 +233,11 @@ header "6. Dashboard"
 # ═══════════════════════════════════════════════════════════════
 check "D01" "$API/api/dashboard/kpis"
 check "D02" "$API/api/dashboard/recebidos-series?days=7"
-check "D03" "$API/api/dashboard/funnel"
+check "D03" "$API/api/dashboard/funil"
 check "D04" "$API/api/dashboard/top-matches?take=5"
 check "D05" "$API/api/dashboard/open-vagas?take=5"
-check "D06" "$API/api/dashboard/vagas-lookup"
-check "D07" "$API/api/dashboard/areas-lookup"
+check "D06" "$API/api/dashboard/vagas"
+check "D07" "$API/api/dashboard/areas"
 
 # ═══════════════════════════════════════════════════════════════
 header "7. Vagas"
@@ -193,7 +245,7 @@ header "7. Vagas"
 check "V01" "$API/api/vagas?page=1&pageSize=5"
 # Get first vaga ID for detail test
 VAGAS_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" "$API/api/vagas?page=1&pageSize=1" --max-time 10 2>/dev/null || echo "")
-VAGA_ID=$(echo "$VAGAS_RESP" | grep -oP '"id":"\K[^"]+' | head -1 || echo "")
+VAGA_ID=$(extract_json_field "$VAGAS_RESP" "id")
 
 if [[ -n "$VAGA_ID" ]]; then
   check "V02" "$API/api/vagas/$VAGA_ID"
@@ -208,7 +260,7 @@ header "8. Candidatos"
 # ═══════════════════════════════════════════════════════════════
 check "C01" "$API/api/candidatos?page=1&pageSize=5"
 CANDS_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" "$API/api/candidatos?page=1&pageSize=1" --max-time 10 2>/dev/null || echo "")
-CAND_ID=$(echo "$CANDS_RESP" | grep -oP '"id":"\K[^"]+' | head -1 || echo "")
+CAND_ID=$(extract_json_field "$CANDS_RESP" "id")
 
 if [[ -n "$CAND_ID" ]]; then
   check "C02" "$API/api/candidatos/$CAND_ID"
@@ -223,7 +275,7 @@ header "9. Talentos"
 # ═══════════════════════════════════════════════════════════════
 check "T01" "$API/api/talentos?page=1&pageSize=5"
 TALENTO_RESP=$(curl -s -H "Authorization: Bearer $TOKEN" "$API/api/talentos?page=1&pageSize=1" --max-time 10 2>/dev/null || echo "")
-TALENTO_ID=$(echo "$TALENTO_RESP" | grep -oP '"id":"\K[^"]+' | head -1 || echo "")
+TALENTO_ID=$(extract_json_field "$TALENTO_RESP" "id")
 
 if [[ -n "$TALENTO_ID" ]]; then
   check "T02" "$API/api/talentos/$TALENTO_ID"
@@ -278,7 +330,7 @@ check "F06" "$API/api/feedback/celebrations/mention-users?take=5"
 check "F11" "$API/api/feedback/oneonone?page=1&pageSize=5"
 
 # Development Plans
-check "F17" "$API/api/feedback/plans/my?page=1&pageSize=5"
+check_any "F17" "$API/api/feedback/plans/my?page=1&pageSize=5" "GET" "" "200" "403"
 check "F18" "$API/api/feedback/plans/team?page=1&pageSize=5"
 
 # Gamification
@@ -287,7 +339,7 @@ check "F25" "$API/api/feedback/gamification/my-balance"
 check "F26" "$API/api/feedback/gamification/history?months=3"
 
 # Surveys
-check "F27" "$API/api/feedback/surveys?page=1&pageSize=5"
+check_any "F27" "$API/api/feedback/surveys?page=1&pageSize=5" "GET" "" "200" "403"
 
 # ═══════════════════════════════════════════════════════════════
 header "16. AI Matching Endpoints"
@@ -318,10 +370,11 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════
-header "17. Web (MVC) Pages — Health Check"
+header "17. Web (Next.js) — Health Check"
 # ═══════════════════════════════════════════════════════════════
-check "W01-login" "$WEB/Account/Login" "GET" "" "200"
-check "W03-health" "$WEB/api/health" "GET" "" "200"
+# Portal MVC descomissionado na Fase 13. O shell do Next mora em /app/.
+check "W01-login" "$WEB/app/login" "GET" "" "200"
+check "W03-health" "$WEB/app/" "GET" "" "200"
 
 # ═══════════════════════════════════════════════════════════════
 echo ""

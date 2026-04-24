@@ -63,6 +63,20 @@ public sealed class Pessoa : ITenantEntity
     /// <summary>Data de nascimento (apenas data, sem hora).</summary>
     public DateTime? DataNascimento { get; set; }
 
+    /// <summary>
+    /// Latitude geocodificada (graus decimais, WGS84). Cache do resultado de
+    /// `IGeocodingService.GeocodeAsync` baseado no endereço (CEP+rua+cidade+UF).
+    /// Recalculada quando endereço muda. Usada pelo MatchingService para
+    /// calcular distância candidato × empresa.
+    /// </summary>
+    public decimal? Latitude { get; set; }
+
+    /// <summary>Longitude geocodificada. Veja nota em <see cref="Latitude"/>.</summary>
+    public decimal? Longitude { get; set; }
+
+    /// <summary>Quando a geocodificação foi computada pela última vez. Null = nunca.</summary>
+    public DateTimeOffset? GeocodificadoEmUtc { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 

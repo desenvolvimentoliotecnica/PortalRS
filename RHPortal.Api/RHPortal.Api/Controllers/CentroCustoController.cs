@@ -53,7 +53,16 @@ public sealed class CentroCustoController : ControllerBase
                 x.EmpresaId,
                 x.Empresa != null ? x.Empresa.Code : null,
                 x.Empresa != null ? x.Empresa.Description : null,
-                x.ValidFrom, x.ValidUntil))
+                x.ValidFrom, x.ValidUntil,
+                x.ParentId,
+                x.Parent != null ? x.Parent.Code : null,
+                x.Parent != null ? x.Parent.Description : null,
+                x.Headcount,
+                x.Phone,
+                x.BranchOrLocation,
+                x.OwnerFuncionarioId,
+                x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
+                x.Description2))
             .ToListAsync(ct);
 
         Response.Headers["X-Total-Count"] = total.ToString();
@@ -108,7 +117,16 @@ public sealed class CentroCustoController : ControllerBase
                 x.EmpresaId,
                 x.Empresa != null ? x.Empresa.Code : null,
                 x.Empresa != null ? x.Empresa.Description : null,
-                x.ValidFrom, x.ValidUntil))
+                x.ValidFrom, x.ValidUntil,
+                x.ParentId,
+                x.Parent != null ? x.Parent.Code : null,
+                x.Parent != null ? x.Parent.Description : null,
+                x.Headcount,
+                x.Phone,
+                x.BranchOrLocation,
+                x.OwnerFuncionarioId,
+                x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
+                x.Description2))
             .FirstOrDefaultAsync(ct);
 
         return item is null ? NotFound() : Ok(item);
@@ -126,6 +144,12 @@ public sealed class CentroCustoController : ControllerBase
             x => x.EmpresaId == request.EmpresaId && x.Code == request.Code.Trim(), ct))
             return Conflict(new { message = $"Já existe um centro de custo com o código '{request.Code}' nesta empresa." });
 
+        if (request.ParentId.HasValue &&
+            !await db.CentrosCusto.AnyAsync(p => p.Id == request.ParentId, ct))
+        {
+            return BadRequest(new { message = "Centro de custo pai não encontrado." });
+        }
+
         var entity = new CentroCusto
         {
             Id = Guid.NewGuid(),
@@ -136,7 +160,15 @@ public sealed class CentroCustoController : ControllerBase
             IsActive = request.IsActive,
             EmpresaId = request.EmpresaId,
             ValidFrom = request.ValidFrom,
-            ValidUntil = request.ValidUntil
+            ValidUntil = request.ValidUntil,
+            ParentId = request.ParentId,
+            // Campos absorvidos de Department (Sessão 31.2)
+            Headcount = Math.Max(0, request.Headcount),
+            Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+            BranchOrLocation = string.IsNullOrWhiteSpace(request.BranchOrLocation) ? null : request.BranchOrLocation.Trim(),
+            // Campo absorvido de Area
+            OwnerFuncionarioId = request.OwnerFuncionarioId,
+            Description2 = string.IsNullOrWhiteSpace(request.Description2) ? null : request.Description2.Trim(),
         };
 
         db.CentrosCusto.Add(entity);
@@ -151,7 +183,16 @@ public sealed class CentroCustoController : ControllerBase
                 x.EmpresaId,
                 x.Empresa != null ? x.Empresa.Code : null,
                 x.Empresa != null ? x.Empresa.Description : null,
-                x.ValidFrom, x.ValidUntil))
+                x.ValidFrom, x.ValidUntil,
+                x.ParentId,
+                x.Parent != null ? x.Parent.Code : null,
+                x.Parent != null ? x.Parent.Description : null,
+                x.Headcount,
+                x.Phone,
+                x.BranchOrLocation,
+                x.OwnerFuncionarioId,
+                x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
+                x.Description2))
             .FirstAsync(ct);
 
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, created);
@@ -174,6 +215,16 @@ public sealed class CentroCustoController : ControllerBase
             x => x.Id != id && x.EmpresaId == request.EmpresaId && x.Code == request.Code.Trim(), ct))
             return Conflict(new { message = $"Já existe outro centro de custo com o código '{request.Code}' nesta empresa." });
 
+        if (request.ParentId.HasValue)
+        {
+            if (request.ParentId == id)
+                return BadRequest(new { message = "Um centro de custo não pode ser pai de si mesmo." });
+            if (!await db.CentrosCusto.AnyAsync(p => p.Id == request.ParentId, ct))
+                return BadRequest(new { message = "Centro de custo pai não encontrado." });
+            if (await WouldCreateCycle(db, id, request.ParentId.Value, ct))
+                return BadRequest(new { message = "Atribuição criaria um ciclo na hierarquia." });
+        }
+
         entity.Code = request.Code.Trim();
         entity.Description = request.Description.Trim();
         entity.Manager = string.IsNullOrWhiteSpace(request.Manager) ? null : request.Manager.Trim();
@@ -182,6 +233,14 @@ public sealed class CentroCustoController : ControllerBase
         entity.EmpresaId = request.EmpresaId;
         entity.ValidFrom = request.ValidFrom;
         entity.ValidUntil = request.ValidUntil;
+        entity.ParentId = request.ParentId;
+        // Campos absorvidos de Department (Sessão 31.2)
+        entity.Headcount = Math.Max(0, request.Headcount);
+        entity.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        entity.BranchOrLocation = string.IsNullOrWhiteSpace(request.BranchOrLocation) ? null : request.BranchOrLocation.Trim();
+        // Campo absorvido de Area
+        entity.OwnerFuncionarioId = request.OwnerFuncionarioId;
+        entity.Description2 = string.IsNullOrWhiteSpace(request.Description2) ? null : request.Description2.Trim();
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
@@ -195,7 +254,16 @@ public sealed class CentroCustoController : ControllerBase
                 x.EmpresaId,
                 x.Empresa != null ? x.Empresa.Code : null,
                 x.Empresa != null ? x.Empresa.Description : null,
-                x.ValidFrom, x.ValidUntil))
+                x.ValidFrom, x.ValidUntil,
+                x.ParentId,
+                x.Parent != null ? x.Parent.Code : null,
+                x.Parent != null ? x.Parent.Description : null,
+                x.Headcount,
+                x.Phone,
+                x.BranchOrLocation,
+                x.OwnerFuncionarioId,
+                x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
+                x.Description2))
             .FirstAsync(ct);
 
         return Ok(updated);
@@ -204,6 +272,7 @@ public sealed class CentroCustoController : ControllerBase
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] AppDbContext db,
@@ -212,10 +281,123 @@ public sealed class CentroCustoController : ControllerBase
         var entity = await db.CentrosCusto.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
 
-        db.CentrosCusto.Remove(entity);
-        await db.SaveChangesAsync(ct);
+        // Pre-check de todos os vínculos antes de chamar SaveChanges.
+        // Sem este bloco, o DELETE quebra com 23503 foreign_key_violation vindo do Postgres
+        // (JobPositions, Vagas, SolicitacoesVaga, SolicitacoesPromocao, Funcionarios,
+        // PreAdmissoes e a auto-ref ParentId). A mensagem bruta que o EF retorna é
+        // inútil para o usuário — aqui montamos uma lista humanamente legível com
+        // contagens, para que o front exiba exatamente o que impede a exclusão.
+        var filhosCc       = await db.CentrosCusto.CountAsync(x => x.ParentId == id, ct);
+        var vagas          = await db.Vagas.CountAsync(x => x.CentroCustoId == id, ct);
+        var cargos         = await db.Set<JobPosition>().CountAsync(x => x.CentroCustoId == id, ct);
+        var funcionarios   = await db.Set<Funcionario>().CountAsync(x => x.CentroCustoId == id, ct);
+        var solicVagas     = await db.Set<SolicitacaoVaga>().CountAsync(x => x.CentroCustoId == id, ct);
+        var solicPromocoes = await db.Set<SolicitacaoPromocao>().CountAsync(x => x.CentroCustoId == id, ct);
+        var preAdmissoes   = await db.Set<PreAdmissao>().CountAsync(x => x.CentroCustoId == id, ct);
+
+        var blocos = new List<string>();
+        if (filhosCc       > 0) blocos.Add($"{filhosCc} centro(s) de custo filho(s) na hierarquia");
+        if (vagas          > 0) blocos.Add($"{vagas} vaga(s)");
+        if (cargos         > 0) blocos.Add($"{cargos} cargo(s)");
+        if (funcionarios   > 0) blocos.Add($"{funcionarios} funcionário(s)");
+        if (solicVagas     > 0) blocos.Add($"{solicVagas} solicitação(ões) de vaga");
+        if (solicPromocoes > 0) blocos.Add($"{solicPromocoes} solicitação(ões) de promoção");
+        if (preAdmissoes   > 0) blocos.Add($"{preAdmissoes} pré-admissão(ões)");
+
+        if (blocos.Count > 0)
+        {
+            return Conflict(new
+            {
+                message = $"Não é possível excluir \"{entity.Code} - {entity.Description}\" — há vínculos: "
+                          + string.Join(", ", blocos)
+                          + ". Remova ou transfira esses vínculos antes.",
+                dependencies = new
+                {
+                    centrosCustoFilhos = filhosCc,
+                    vagas,
+                    cargos,
+                    funcionarios,
+                    solicitacoesVaga = solicVagas,
+                    solicitacoesPromocao = solicPromocoes,
+                    preAdmissoes,
+                }
+            });
+        }
+
+        try
+        {
+            db.CentrosCusto.Remove(entity);
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pg && pg.SqlState == "23503")
+        {
+            // Safety net: outra FK foi adicionada e esqueci de incluir acima.
+            // Devolve mensagem clara em vez de 500. PG constraint name vai no detail
+            // para o log / suporte identificar qual tabela/coluna tocar.
+            return Conflict(new
+            {
+                message = "Não é possível excluir — existe um vínculo em outra tabela que não foi detectado. "
+                          + "Contate o suporte informando o centro de custo.",
+                detail = pg.ConstraintName,
+            });
+        }
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Árvore hierárquica de centros de custo do tenant.
+    /// Raízes são os CCs com ParentId null.
+    /// </summary>
+    [HttpGet("tree")]
+    [ProducesResponseType(typeof(List<CentroCustoTreeNode>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<CentroCustoTreeNode>>> GetTree(
+        [FromServices] AppDbContext db,
+        CancellationToken ct,
+        [FromQuery] bool onlyActive = false)
+    {
+        var query = db.CentrosCusto.AsNoTracking();
+        if (onlyActive) query = query.Where(x => x.IsActive);
+
+        var flat = await query
+            .OrderBy(x => x.Code)
+            .Select(x => new
+            {
+                x.Id, x.Code, x.Description, x.IsActive, x.EmpresaId, x.ParentId,
+                EmpresaCode = x.Empresa != null ? x.Empresa.Code : null
+            })
+            .ToListAsync(ct);
+
+        var byParent = flat.ToLookup(x => x.ParentId);
+
+        List<CentroCustoTreeNode> BuildChildren(Guid? parentId)
+        {
+            return byParent[parentId]
+                .Select(x => new CentroCustoTreeNode(
+                    x.Id, x.Code, x.Description, x.IsActive,
+                    x.EmpresaId, x.EmpresaCode,
+                    BuildChildren(x.Id)))
+                .ToList();
+        }
+
+        return Ok(BuildChildren(null));
+    }
+
+    private static async Task<bool> WouldCreateCycle(AppDbContext db, Guid nodeId, Guid candidateParentId, CancellationToken ct)
+    {
+        var current = candidateParentId;
+        for (int hops = 0; hops < 1000; hops++)
+        {
+            if (current == nodeId) return true;
+            var parent = await db.CentrosCusto
+                .AsNoTracking()
+                .Where(x => x.Id == current)
+                .Select(x => x.ParentId)
+                .FirstOrDefaultAsync(ct);
+            if (parent is null) return false;
+            current = parent.Value;
+        }
+        return true;
     }
 
     /// <summary>

@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using RhPortal.Api.Application.Dashboard;
 using RhPortal.Api.Contracts.Dashboard;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Configuration;
+using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 
@@ -207,7 +209,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         var safeTake = Math.Clamp(take <= 0 ? 100 : take, 1, 300);
 
         var items = await db.Vagas.AsNoTracking()
-            .Include(v => v.Area)
+            .Include(v => v.CentroCusto)
             .Where(v => v.Status == VagaStatus.Aberta)
             .OrderBy(v => v.Titulo)
             .Take(safeTake)
@@ -215,7 +217,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
                 v.Id,
                 v.Codigo,
                 v.Titulo,
-                v.Area != null ? v.Area.Name : null,
+                v.CentroCusto != null ? v.CentroCusto.Description : null,
                 v.Modalidade != null ? v.Modalidade.ToString() : null,
                 v.Cidade,
                 v.Uf,
@@ -245,6 +247,55 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
     }
 
     /// <summary>
+    /// Vagas com pelo menos 1 candidato sem matching calculado (<c>LastMatchAtUtc == null</c>).
+    /// Usado pela tela de matching quando o usuário chega sem vagaId (via card "candidatos pendentes"
+    /// do dashboard) — assim ele escolhe qual vaga trabalhar antes de ver o ranking.
+    /// Retorna código, título, status e <c>countPendentes</c> de cada vaga.
+    /// </summary>
+    [HttpGet("vagas-com-pendentes-match")]
+    [ProducesResponseType(typeof(IReadOnlyList<VagaComPendentesMatchResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<VagaComPendentesMatchResponse>>> GetVagasComPendentesMatch(
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        // Fase 1 — GROUP BY SQL-puro (materializa contagens por vaga)
+        var grupos = await db.Candidatos.AsNoTracking()
+            .Where(c => c.VagaId != null && c.LastMatchAtUtc == null && c.LastMatchScore == null)
+            .GroupBy(c => c.VagaId!.Value)
+            .Select(g => new { VagaId = g.Key, CountPendentes = g.Count() })
+            .ToListAsync(ct);
+
+        if (grupos.Count == 0)
+            return Ok(Array.Empty<VagaComPendentesMatchResponse>());
+
+        // Fase 2 — join com vagas pelos IDs já materializados (evita LINQ complexo)
+        var ids = grupos.Select(g => g.VagaId).ToList();
+        var vagas = await db.Vagas.AsNoTracking()
+            .Where(v => ids.Contains(v.Id))
+            .Select(v => new
+            {
+                v.Id, v.Codigo, v.Titulo,
+                Status = v.Status,
+                Senioridade = v.Senioridade,
+                v.Cidade, v.Uf
+            })
+            .ToListAsync(ct);
+
+        // Fase 3 — combina em memória e retorna ordenado
+        var contagemPorVaga = grupos.ToDictionary(g => g.VagaId, g => g.CountPendentes);
+        var response = vagas
+            .Select(v => new VagaComPendentesMatchResponse(
+                v.Id, v.Codigo, v.Titulo, v.Status.ToString(),
+                v.Senioridade?.ToString(),
+                v.Cidade, v.Uf,
+                contagemPorVaga.GetValueOrDefault(v.Id, 0)))
+            .OrderByDescending(r => r.CountPendentes)
+            .ToList();
+
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Lookup simples de áreas.
     /// </summary>
     [HttpGet("areas")]
@@ -253,12 +304,45 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        var items = await db.Areas.AsNoTracking()
-            .OrderBy(a => a.Name)
-            .Select(a => new DashboardAreaLookupResponse(a.Id, a.Name))
+        // Legacy alias: agora retorna Centros de Custo (após consolidação Area→CentroCusto, Sessão 31.2).
+        var items = await db.CentrosCusto.AsNoTracking()
+            .Where(a => a.IsActive)
+            .OrderBy(a => a.Description)
+            .Select(a => new DashboardAreaLookupResponse(a.Id, a.Description))
             .ToListAsync(ct);
 
         return Ok(items);
+    }
+
+    /// <summary>
+    /// Dashboard agregado por perfil (Sessão 31). Substitui a colcha de retalhos
+    /// de chamadas isoladas no frontend por uma única resposta ricamente tipada,
+    /// que concentra KPIs + rankings necessários para as telas "Gestor", "RH" e
+    /// "Diretor".
+    /// </summary>
+    /// <param name="perfil">
+    /// "gestor", "rh" ou "diretor". Valores inválidos retornam 400.
+    /// Para "gestor" sem <c>FuncionarioId</c> vinculado (usuário sem colaborador no tenant),
+    /// a seção vem <c>null</c> — o frontend mostra aviso "perfil indisponível" em vez de 403.
+    /// </param>
+    [HttpGet("agregado")]
+    [ProducesResponseType(typeof(DashboardAgregadoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<DashboardAgregadoResponse>> GetAgregado(
+        [FromQuery] string perfil,
+        [FromServices] IDashboardAgregadoService agregado,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        try
+        {
+            var resposta = await agregado.ObterAsync(perfil, currentUser.FuncionarioId, ct);
+            return Ok(resposta);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     private static string MapOrigem(CandidateOrigin fonte)

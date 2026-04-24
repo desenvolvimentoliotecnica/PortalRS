@@ -12,8 +12,11 @@ using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Units.Handlers;
 using RhPortal.Api.Application.Users;
+using RhPortal.Api.Contracts.Auditing;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Funcionarios;
+using RhPortal.Api.Contracts.Logging;
+using RhPortal.Api.Contracts.Modules;
 using RhPortal.Api.Contracts.Owner;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Contracts.Roles;
@@ -631,9 +634,536 @@ public sealed class OwnerController : ControllerBase
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantContext.SetTenantId(id);
         var handler = scope.ServiceProvider.GetRequiredService<IListFuncionariosHandler>();
-        var q = query ?? new FuncionarioListQuery(null, null, null, null, null, 1, 500);
+        var q = query ?? new FuncionarioListQuery(null, null, null, null, 1, 500);
         var result = await handler.HandleAsync(q, ct);
         return Ok(result);
+    }
+
+    // ── Logs no contexto Owner (proxy scoped por tenant) ──
+
+    [HttpGet("tenants/{tenantId}/config/logs/transactions")]
+    [ProducesResponseType(typeof(AuditTransactionListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AuditTransactionListResponse>> ListTenantAuditTransactions(
+        string tenantId,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? methods = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        using var scope = _scope.CreateScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.SetTenantId(id);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 10, 200);
+
+        var query = db.AuditTransactions.AsNoTracking()
+            .Where(x => x.Method != null && x.Method != "" && x.Path != null && x.Path != "");
+
+        if (from.HasValue) query = query.Where(x => x.StartedAt >= from.Value);
+        if (to.HasValue) query = query.Where(x => x.StartedAt <= to.Value);
+
+        var statusFilter = (status ?? string.Empty).Trim().ToLowerInvariant();
+        if (statusFilter == "success") query = query.Where(x => x.IsSuccess);
+        else if (statusFilter == "error") query = query.Where(x => !x.IsSuccess);
+
+        var searchText = (search ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            query = query.Where(x =>
+                x.TransactionId.Contains(searchText) ||
+                (x.Path != null && x.Path.Contains(searchText)) ||
+                (x.UserName != null && x.UserName.Contains(searchText)) ||
+                (x.Method != null && x.Method.Contains(searchText)));
+        }
+
+        var methodsFilter = (methods ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.ToUpperInvariant())
+            .ToArray();
+        if (methodsFilter.Length > 0)
+            query = query.Where(x => x.Method != null && methodsFilter.Contains(x.Method.ToUpper()));
+
+        var totalItems = await query.CountAsync(ct);
+        var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+        var items = await query
+            .OrderByDescending(x => x.StartedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new AuditTransactionListItem(
+                x.Id, x.TransactionId, x.CorrelationId, x.StartedAt, x.DurationMs, x.UserName, x.Method, x.Path, x.StatusCode, x.IsSuccess))
+            .ToListAsync(ct);
+
+        return Ok(new AuditTransactionListResponse(items, page, pageSize, totalItems, totalPages));
+    }
+
+    [HttpGet("tenants/{tenantId}/config/logs/transactions/{id:guid}")]
+    [ProducesResponseType(typeof(AuditTransactionDetailResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AuditTransactionDetailResponse>> GetTenantAuditTransactionById(
+        string tenantId,
+        Guid id,
+        CancellationToken ct)
+    {
+        var tid = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(tid) || !TenantIdPattern.IsMatch(tid))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == tid, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {tid} não encontrado." });
+
+        using var scope = _scope.CreateScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.SetTenantId(tid);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var transaction = await db.AuditTransactions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (transaction is null) return NotFound();
+
+        var events = await db.AuditEvents.AsNoTracking()
+            .Where(x => x.AuditTransactionId == id)
+            .OrderBy(x => x.Order)
+            .Select(x => new AuditEventItem(x.Id, x.Order, x.EventType, x.Name, x.OccurredAt, x.DataJson))
+            .ToListAsync(ct);
+
+        var changes = await db.AuditEntityChanges.AsNoTracking()
+            .Where(x => x.AuditTransactionId == id)
+            .OrderBy(x => x.Order)
+            .ThenBy(x => x.EntityName)
+            .Select(x => new AuditEntityChangeItem(
+                x.Id, x.Order, x.EntityName, x.TableName, x.State, x.PrimaryKeyJson, x.BeforeJson, x.AfterJson, x.ChangedColumns, x.DataJson, x.OccurredAt))
+            .ToListAsync(ct);
+
+        var changeIds = changes.Select(x => x.Id).ToArray();
+        var properties = changeIds.Length == 0
+            ? new List<AuditPropertyChangeItem>()
+            : await db.AuditEntityPropertyChanges.AsNoTracking()
+                .Where(x => changeIds.Contains(x.AuditEntityChangeId))
+                .Select(x => new AuditPropertyChangeItem(x.Id, x.PropertyName, x.BeforeValue, x.AfterValue, x.IsSensitive))
+                .ToListAsync(ct);
+
+        return Ok(new AuditTransactionDetailResponse(
+            transaction.Id,
+            transaction.TransactionId,
+            transaction.CorrelationId,
+            transaction.TraceId,
+            transaction.SpanId,
+            transaction.ParentSpanId,
+            transaction.Environment,
+            transaction.AppVersion,
+            transaction.StartedAt,
+            transaction.EndedAt,
+            transaction.DurationMs,
+            transaction.UserId,
+            transaction.UserName,
+            transaction.ClientId,
+            transaction.Ip,
+            transaction.UserAgent,
+            transaction.Host,
+            transaction.Method,
+            transaction.Path,
+            transaction.QueryString,
+            transaction.RouteTemplate,
+            transaction.Controller,
+            transaction.Action,
+            transaction.StatusCode,
+            transaction.IsSuccess,
+            transaction.RequestContentType,
+            transaction.ResponseContentType,
+            transaction.RequestBody,
+            transaction.ResponseBody,
+            transaction.RequestBodyHash,
+            transaction.ResponseBodyHash,
+            transaction.RequestIsTruncated,
+            transaction.ResponseIsTruncated,
+            transaction.RequestTruncatedBytes,
+            transaction.ResponseTruncatedBytes,
+            transaction.ErrorMessage,
+            transaction.ErrorStackTrace,
+            events,
+            changes,
+            properties));
+    }
+
+    [HttpGet("tenants/{tenantId}/config/logs/summary")]
+    [ProducesResponseType(typeof(AuditSummaryResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AuditSummaryResponse>> GetTenantAuditSummary(
+        string tenantId,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] int top = 6,
+        CancellationToken ct = default)
+    {
+        var tid = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(tid) || !TenantIdPattern.IsMatch(tid))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == tid, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {tid} não encontrado." });
+
+        using var scope = _scope.CreateScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.SetTenantId(tid);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        top = Math.Clamp(top, 3, 12);
+        var query = db.AuditTransactions.AsNoTracking();
+        if (from.HasValue) query = query.Where(x => x.StartedAt >= from.Value);
+        if (to.HasValue) query = query.Where(x => x.StartedAt <= to.Value);
+
+        var topRoutes = await query.GroupBy(x => x.Path)
+            .OrderByDescending(g => g.Count())
+            .Take(top)
+            .Select(g => new AuditSummaryItem(g.Key, g.Count(), (long)g.Average(x => x.DurationMs)))
+            .ToListAsync(ct);
+
+        var topUsers = await query.Where(x => x.UserName != null && x.UserName != "")
+            .GroupBy(x => x.UserName!)
+            .OrderByDescending(g => g.Count())
+            .Take(top)
+            .Select(g => new AuditSummaryItem(g.Key, g.Count(), (long)g.Average(x => x.DurationMs)))
+            .ToListAsync(ct);
+
+        var statuses = await query.GroupBy(x => x.StatusCode ?? 0)
+            .OrderByDescending(g => g.Count())
+            .Select(g => new AuditStatusItem(g.Key, g.Count()))
+            .ToListAsync(ct);
+
+        return Ok(new AuditSummaryResponse(topRoutes, topUsers, statuses));
+    }
+
+    [HttpGet("tenants/{tenantId}/config/operational-logs/requests")]
+    [ProducesResponseType(typeof(RequestLogListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<RequestLogListResponse>> ListTenantOperationalRequests(
+        string tenantId,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? level = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        var tid = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(tid) || !TenantIdPattern.IsMatch(tid))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == tid, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {tid} não encontrado." });
+
+        using var scope = _scope.CreateScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.SetTenantId(tid);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 10, 200);
+
+        var query = db.RequestLogs.AsNoTracking().Where(x => x.EndedAt != null);
+        if (from.HasValue) query = query.Where(x => x.StartedAt >= from.Value);
+        if (to.HasValue) query = query.Where(x => x.StartedAt <= to.Value);
+
+        var searchText = (search ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            query = query.Where(x =>
+                x.TransactionId.Contains(searchText) ||
+                (x.Path != null && x.Path.Contains(searchText)) ||
+                (x.UserName != null && x.UserName.Contains(searchText)) ||
+                (x.Method != null && x.Method.Contains(searchText)));
+        }
+
+        var levelFilter = (level ?? string.Empty).Trim().ToLowerInvariant();
+        if (levelFilter is "error" or "warning")
+            query = levelFilter == "error" ? query.Where(x => x.ErrorCount > 0) : query.Where(x => x.WarningCount > 0);
+
+        var totalItems = await query.CountAsync(ct);
+        var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+        var items = await query
+            .OrderByDescending(x => x.StartedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new RequestLogListItem(
+                x.Id, x.TransactionId, x.StartedAt, x.DurationMs, x.Method, x.Path, x.StatusCode, x.IsSuccess, x.UserName, x.EnvironmentNormalized, x.DeviceType ?? "unknown"))
+            .ToListAsync(ct);
+
+        return Ok(new RequestLogListResponse(items, page, pageSize, totalItems, totalPages));
+    }
+
+    [HttpGet("tenants/{tenantId}/config/operational-logs/requests/{id:guid}")]
+    [ProducesResponseType(typeof(RequestLogDetailResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<RequestLogDetailResponse>> GetTenantOperationalRequestById(
+        string tenantId,
+        Guid id,
+        CancellationToken ct)
+    {
+        var tid = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(tid) || !TenantIdPattern.IsMatch(tid))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == tid, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {tid} não encontrado." });
+
+        using var scope = _scope.CreateScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.SetTenantId(tid);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var log = await db.RequestLogs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (log is null) return NotFound();
+
+        var entries = await db.LogEntries.AsNoTracking()
+            .Where(x => x.RequestLogId == id)
+            .OrderBy(x => x.Order)
+            .Select(x => new LogEntryItem(x.Id, x.Order, x.Level, x.Category, x.EventId, x.EventName, x.Message, x.OccurredAt))
+            .ToListAsync(ct);
+
+        var exceptions = await db.ExceptionLogs.AsNoTracking()
+            .Where(x => x.RequestLogId == id)
+            .OrderBy(x => x.Order)
+            .Select(x => new ExceptionLogItem(x.Id, x.Order, x.IsHandled, x.StatusCode, x.ExceptionType, x.Message, x.Tags, x.OccurredAt))
+            .ToListAsync(ct);
+
+        return Ok(new RequestLogDetailResponse(
+            log.Id,
+            log.TransactionId,
+            log.CorrelationId,
+            log.TraceId,
+            log.EnvironmentName,
+            log.EnvironmentNormalized,
+            log.DeviceId,
+            log.DeviceType,
+            log.Platform,
+            log.Browser,
+            log.DeviceAppVersion,
+            log.Locale,
+            log.StartedAt,
+            log.EndedAt,
+            log.DurationMs,
+            log.Method,
+            log.Path,
+            log.QueryString,
+            log.StatusCode,
+            log.IsSuccess,
+            log.UserId,
+            log.UserName,
+            log.ClientId,
+            log.Ip,
+            log.UserAgent,
+            log.Host,
+            log.Controller,
+            log.Action,
+            log.RouteTemplate,
+            log.ErrorCount,
+            log.WarningCount,
+            entries,
+            exceptions));
+    }
+
+    [HttpGet("tenants/{tenantId}/config/operational-logs/summary")]
+    [ProducesResponseType(typeof(RequestLogSummaryResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<RequestLogSummaryResponse>> GetTenantOperationalSummary(
+        string tenantId,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] int top = 6,
+        CancellationToken ct = default)
+    {
+        var tid = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(tid) || !TenantIdPattern.IsMatch(tid))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == tid, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {tid} não encontrado." });
+
+        using var scope = _scope.CreateScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.SetTenantId(tid);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        top = Math.Clamp(top, 3, 12);
+        var query = db.RequestLogs.AsNoTracking().Where(x => x.EndedAt != null);
+        if (from.HasValue) query = query.Where(x => x.StartedAt >= from.Value);
+        if (to.HasValue) query = query.Where(x => x.StartedAt <= to.Value);
+
+        var topRoutes = await query.GroupBy(x => x.Path)
+            .OrderByDescending(g => g.Count())
+            .Take(top)
+            .Select(g => new RequestLogSummaryItem(g.Key, g.Count(), (long)g.Average(x => x.DurationMs)))
+            .ToListAsync(ct);
+
+        var topUsers = await query.Where(x => x.UserName != null && x.UserName != "")
+            .GroupBy(x => x.UserName!)
+            .OrderByDescending(g => g.Count())
+            .Take(top)
+            .Select(g => new RequestLogSummaryItem(g.Key, g.Count(), (long)g.Average(x => x.DurationMs)))
+            .ToListAsync(ct);
+
+        var statuses = await query.GroupBy(x => x.StatusCode ?? 0)
+            .OrderByDescending(g => g.Count())
+            .Select(g => new RequestLogStatusItem(g.Key, g.Count()))
+            .ToListAsync(ct);
+
+        return Ok(new RequestLogSummaryResponse(topRoutes, topUsers, statuses));
+    }
+
+    // ── Módulos do tenant (habilitação comercial) ──
+
+    /// <summary>
+    /// Lista todos os módulos do catálogo com o status (ativo/inativo) para o tenant.
+    /// </summary>
+    [HttpGet("tenants/{tenantId}/modules")]
+    [ProducesResponseType(typeof(IReadOnlyList<TenantModuleResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TenantModuleResponse>>> ListTenantModules(string tenantId, CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        var service = _scope.GetRequiredService<TenantModuleService>();
+        var list = await service.ListAsync(id, ct);
+        return Ok(list);
+    }
+
+    /// <summary>
+    /// Lista todos os módulos do catálogo com o status (ativo/inativo) para o tenant
+    /// e a lista de telas (derivadas do <c>NavegacaoManifest</c>) que cada módulo entrega.
+    /// Usada pela tela do Owner para mostrar, por card de módulo, as funcionalidades
+    /// liberadas ao contratar o pacote.
+    /// </summary>
+    [HttpGet("tenants/{tenantId}/modules/detailed")]
+    [ProducesResponseType(typeof(IReadOnlyList<TenantModuleDetailedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TenantModuleDetailedResponse>>> ListTenantModulesDetailed(string tenantId, CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        var service = _scope.GetRequiredService<TenantModuleService>();
+        var list = await service.ListDetailedAsync(id, ct);
+        return Ok(list);
+    }
+
+    /// <summary>
+    /// Liga ou desliga um módulo para o tenant. Módulos core não podem ser desativados.
+    /// </summary>
+    [HttpPut("tenants/{tenantId}/modules/{moduleKey}")]
+    [ProducesResponseType(typeof(TenantModuleResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TenantModuleResponse>> SetTenantModule(
+        string tenantId,
+        string moduleKey,
+        [FromBody] TenantModuleUpdateRequest request,
+        CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        var ownerIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid? ownerId = Guid.TryParse(ownerIdClaim, out var g) ? g : null;
+
+        var service = _scope.GetRequiredService<TenantModuleService>();
+        try
+        {
+            var updated = await service.SetEnabledAsync(id, moduleKey, request.IsEnabled, ownerId, ct);
+            return updated is null
+                ? NotFound(new ProblemDetails { Title = "Module not found", Detail = $"Módulo '{moduleKey}' não existe no catálogo." })
+                : Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Conflict", Detail = ex.Message, Status = StatusCodes.Status409Conflict });
+        }
+    }
+
+    // ── Pacotes comerciais do tenant (entitlement de alto nível) ──
+
+    /// <summary>
+    /// Lista os pacotes comerciais disponíveis com o status contratado (ativo/inativo) para o tenant.
+    /// Pacotes marcados como <c>IsActive=false</c> no catálogo (ex.: em construção) ficam fora da listagem.
+    /// </summary>
+    [HttpGet("tenants/{tenantId}/packages")]
+    [ProducesResponseType(typeof(IReadOnlyList<TenantPackageResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TenantPackageResponse>>> ListTenantPackages(string tenantId, CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        var service = _scope.GetRequiredService<TenantPackageService>();
+        var list = await service.ListAsync(id, ct);
+        return Ok(list);
+    }
+
+    /// <summary>
+    /// Liga ou desliga um pacote comercial para o tenant. Pacotes com <c>IsActive=false</c>
+    /// no catálogo não podem ser ligados.
+    /// </summary>
+    [HttpPut("tenants/{tenantId}/packages/{packageKey}")]
+    [ProducesResponseType(typeof(TenantPackageResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TenantPackageResponse>> SetTenantPackage(
+        string tenantId,
+        string packageKey,
+        [FromBody] TenantPackageUpdateRequest request,
+        CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        var ownerIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid? ownerId = Guid.TryParse(ownerIdClaim, out var g) ? g : null;
+
+        var service = _scope.GetRequiredService<TenantPackageService>();
+        try
+        {
+            var updated = await service.SetEnabledAsync(id, packageKey, request.IsEnabled, ownerId, ct);
+            return updated is null
+                ? NotFound(new ProblemDetails { Title = "Package not found", Detail = $"Pacote '{packageKey}' não existe no catálogo." })
+                : Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Conflict", Detail = ex.Message, Status = StatusCodes.Status409Conflict });
+        }
     }
 
     // ── Painel Integração TOTVS (cross-tenant) ──

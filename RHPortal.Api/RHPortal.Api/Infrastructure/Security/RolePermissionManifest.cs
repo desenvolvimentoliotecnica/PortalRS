@@ -40,6 +40,12 @@ public static class RolePermissionManifest
         "gestao.planos",
         "gestao.humor",
         "gestao.resumo",
+        "desempenho.view",
+        "desempenho.ciclos.manage",
+        "desempenho.convites.manage",
+        "desempenho.calibragem.manage",
+        "desempenho.calibragem.decidir",
+        "desempenho.export",
         "departments.view",
         "areas.view",
         "categories.view",
@@ -60,6 +66,11 @@ public static class RolePermissionManifest
         "email-config.manage",
         "entra-config.manage",
         "localization-config.manage",
+        // Pacote Folha de Pagamento (hoje inativo — itens aparecem com cadeado
+        // até o pacote ser ativado no ModuleCatalog/PackageCatalog).
+        "folha.batida-ponto.view",
+        "folha.pagamento-extra.view",
+        "folha.desligamentos.view",
     ];
 
     /// <summary>Permissions for Colaborador role.</summary>

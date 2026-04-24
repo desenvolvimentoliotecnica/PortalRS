@@ -140,6 +140,11 @@ public static class DbSeeder
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.MotivoRequisicaoVagaSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
 
+                    // Garante defaults do catálogo de módulos para tenants provisionados antes da
+                    // introdução do TenantModules (idempotente).
+                    var tenantModuleService = tenantScope.ServiceProvider.GetRequiredService<TenantModuleService>();
+                    await tenantModuleService.EnsureDefaultsAsync(tenantId, ct);
+
                     pct = Math.Min(pct + step, 60);
                 }
             }

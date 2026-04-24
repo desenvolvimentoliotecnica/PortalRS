@@ -464,10 +464,6 @@ def _get_person_profile_text(
     return result[0] if result else None
 
 
-# Reexport for backward compatibility
-get_person_profile = _get_person_profile
-
-
 def _get_person_profile(
     person_id: str,
     source: str,
@@ -492,6 +488,10 @@ def _get_person_profile(
         uf = pessoa.get("Uf") or pessoa.get("uf")
         return (_build_talento_text_for_embedding(perfil), None, cidade, uf)
     return None
+
+
+# Reexport for backward compatibility
+get_person_profile = _get_person_profile
 
 
 def _build_requisitos_text(requisitos: list[dict[str, Any]]) -> str:

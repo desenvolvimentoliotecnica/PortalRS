@@ -1,7 +1,12 @@
 # Análise da migração LioTecnica.Web (Razor) → LioTecnica.Web.Next (Next.js)
 
-**Data:** 02/03/2025  
-**Objetivo:** Ter o Next funcionando igual ao legado Razor — mesma funcionalidade, mesma experiência.
+> **⚠️ DOCUMENTO SUPERSEDED (2026-04-20).**
+> A migração descrita aqui foi concluída na **Fase 13** (ver [`PORTAL_MVC_INVENTARIO_E_MIGRACAO.md`](./PORTAL_MVC_INVENTARIO_E_MIGRACAO.md)).
+> O projeto `LioTecnica.Web` **não existe mais** no repositório — foi removido junto com `LioTecnica.Web.E2E` e o `Dockerfile` legado. O login Entra ID roda 100% via `RHPortal.Api` + `LioTecnica.Web.Next`.
+> Este arquivo é mantido por registro histórico; consulte `PORTAL_MVC_INVENTARIO_E_MIGRACAO.md` para o estado atual da arquitetura.
+
+**Data:** 02/03/2025
+**Objetivo (histórico):** Ter o Next funcionando igual ao legado Razor — mesma funcionalidade, mesma experiência.
 
 ---
 

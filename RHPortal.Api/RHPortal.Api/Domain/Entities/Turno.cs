@@ -32,6 +32,16 @@ public sealed class Turno : ITenantEntity
     public string? Notes { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Unidade de lotação à qual o turno pertence. Null = turno global do tenant
+    /// (compatibilidade retroativa com registros anteriores ao épico "Turnos por unidade").
+    /// Quando preenchido, indica que o turno só é válido para aquela unidade — usado por
+    /// triagem, escala e alocação de vaga.
+    /// </summary>
+    public Guid? UnidadeLotacaoId { get; set; }
+    public UnidadeLotacao? UnidadeLotacao { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }

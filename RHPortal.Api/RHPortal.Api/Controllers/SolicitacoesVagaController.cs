@@ -5,6 +5,7 @@ using RhPortal.Api.Contracts.SolicitacoesVaga;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -14,6 +15,7 @@ namespace RhPortal.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/solicitacoes-vaga")]
+[RequireModule("recrutamento")]
 public sealed class SolicitacoesVagaController : ControllerBase
 {
     private readonly ISolicitacaoVagaService _service;

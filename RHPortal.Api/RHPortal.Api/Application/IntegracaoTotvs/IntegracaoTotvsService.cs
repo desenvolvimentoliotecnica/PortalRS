@@ -423,7 +423,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 var s = await _db.SolicitacoesPromocao.AsNoTracking()
                     .Include(x => x.Funcionario).Include(x => x.Solicitante)
                     .Include(x => x.CargoAtual).Include(x => x.NovoCargo)
-                    .Include(x => x.AreaAtual).Include(x => x.NovaArea)
+                    .Include(x => x.CentroCustoAtual).Include(x => x.NovoCentroCusto)
                     .Include(x => x.NovaUnidade)
                     .Include(x => x.CentroCusto)
                     .Include(x => x.UnidadeLotacao)
@@ -437,7 +437,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.DataEfetiva, s.Justificativa,
                     motivoMovimentacao = s.MotivoMovimentacao?.ToString(),
                     cargoAtualNome = s.CargoAtual?.Description, novoCargoNome = s.NovoCargo?.Description,
-                    areaAtualNome = s.AreaAtual?.Description, novaAreaNome = s.NovaArea?.Description,
+                    centroCustoAtualNome = s.CentroCustoAtual?.Description, novoCentroCustoNome = s.NovoCentroCusto?.Description,
                     novaUnidadeNome = s.NovaUnidade?.Name,
                     centroCustoNome = s.CentroCusto?.Description,
                     unidadeLotacaoNome = s.UnidadeLotacao?.Description,

@@ -177,7 +177,7 @@ public sealed class FuncionarioServiceTests
 
         var request = new FuncionarioUpdateRequest(
             "Nome", "email@empresa.com", null,
-            FuncionarioStatus.Active, 0, null, null, null, null, null);
+            FuncionarioStatus.Active, 0, null, null, null, null);
 
         var result = await svc.UpdateAsync(Guid.NewGuid(), request, CancellationToken.None);
 
@@ -194,7 +194,7 @@ public sealed class FuncionarioServiceTests
 
         var request = new FuncionarioUpdateRequest(
             "Novo Nome", "func1@empresa.com", null,
-            FuncionarioStatus.Active, 0, null, null, null, null, null);
+            FuncionarioStatus.Active, 0, null, null, null, null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.UpdateAsync(func2.Id, request, CancellationToken.None));
@@ -209,7 +209,7 @@ public sealed class FuncionarioServiceTests
 
         var request = new FuncionarioUpdateRequest(
             "Nome Atualizado", "upd@empresa.com", "11-88888-0000",
-            FuncionarioStatus.Inactive, 3, null, null, null, null, "Nova nota");
+            FuncionarioStatus.Inactive, 3, null, null, null, "Nova nota");
 
         var result = await svc.UpdateAsync(created.Id, request, CancellationToken.None);
 
@@ -283,7 +283,9 @@ public sealed class FuncionarioServiceTests
         await svc.CreateAsync(RequestMinimo("lst1@empresa.com"), CancellationToken.None);
         await svc.CreateAsync(RequestMinimo("lst2@empresa.com"), CancellationToken.None);
 
-        var query = new FuncionarioListQuery(null, null, null, null, null);
+        // 31.2: FuncionarioListQuery passou a ter 4 filtros posicionais
+        // (Search, Status, UnitId, JobPositionId) + os defaults de paginação.
+        var query = new FuncionarioListQuery(null, null, null, null);
         var result = await svc.ListGridAsync(query, CancellationToken.None);
 
         Assert.Equal(2, result.TotalItems);
@@ -305,7 +307,7 @@ public sealed class FuncionarioServiceTests
             Name = "Inativo", Email = "inativo@empresa.com", Status = FuncionarioStatus.Inactive
         }, CancellationToken.None);
 
-        var query = new FuncionarioListQuery(null, FuncionarioStatus.Active, null, null, null);
+        var query = new FuncionarioListQuery(null, FuncionarioStatus.Active, null, null);
         var result = await svc.ListGridAsync(query, CancellationToken.None);
 
         Assert.Equal(1, result.TotalItems);

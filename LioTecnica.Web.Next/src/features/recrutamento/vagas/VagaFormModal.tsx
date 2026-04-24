@@ -6,10 +6,12 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { getTenantId } from "@/lib/session";
+import { lookupCep } from "@/lib/cepLookup";
 import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
 import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
+import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
 import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
@@ -38,8 +40,6 @@ const CNH_CATS = ["A", "B", "AB", "C", "D", "E"];
 
 type EnumOption = { code: string; text: string };
 type EnumData = Record<string, EnumOption[]>;
-type AreaLookup = { id: string; name: string; code?: string };
-type DeptLookup = { id: string; name: string; code?: string };
 
 type BeneficioItem = {
   tipo: string; valor: string; recorrencia: string; obrigatorio: boolean; obs: string;
@@ -58,7 +58,7 @@ type PerguntaItem = {
 
 type VagaDraft = {
   id?: string;
-  titulo: string; codigo: string; departmentId: string; areaId: string;
+  titulo: string; codigo: string;
   areaTime: string; modalidade: string; status: string; senioridade: string;
   quantidadeVagas: number; tipoContratacao: string; matchMinimoPercentual: number;
   descricaoInterna: string; codigoInterno: string; codigoCbo: string;
@@ -80,6 +80,7 @@ type VagaDraft = {
   cidade: string; uf: string; politicaTrabalho: string; observacoesDeslocamento: string;
   moeda: string; salarioMinimo: string; salarioMaximo: string; periodicidade: string;
   bonusTipo: string; bonusPercentual: string; observacoesRemuneracao: string;
+  travarFaixaSalarial: boolean;
   beneficios: BeneficioItem[];
   escolaridade: string; formacaoArea: string; experienciaMinimaAnos: string;
   tagsStack: string; tagsIdiomas: string; diferenciais: string;
@@ -90,6 +91,10 @@ type VagaDraft = {
   matchingIdadeMin: string; matchingIdadeMax: string; matchingRequerCnh: boolean;
   matchingCnhCategoria: string; matchingHabilidades: string; matchingObs: string;
   weightsCompetencia: number; weightsExperiencia: number; weightsFormacao: number; weightsLocalidade: number;
+  // Sessão 31.8 — DescricaoCargo + pesos extras + max distância
+  descricaoCargoId: string; descricaoCargoCode: string; descricaoCargoTitle: string;
+  weightsIdioma: number; weightsConhecimentoTecnico: number; weightsVivenciaEspecifica: number;
+  localidadeMaxDistanciaKm: string;
   etapas: EtapaItem[];
   perguntasTriagem: PerguntaItem[];
   observacoesProcesso: string;
@@ -104,7 +109,7 @@ type VagaDraft = {
 
 function emptyDraft(): VagaDraft {
   return {
-    titulo: "", codigo: "", departmentId: "", areaId: "",
+    titulo: "", codigo: "",
     areaTime: "", modalidade: "presencial", status: "aberta", senioridade: "",
     quantidadeVagas: 1, tipoContratacao: "", matchMinimoPercentual: 70,
     descricaoInterna: "", codigoInterno: "", codigoCbo: "",
@@ -126,6 +131,7 @@ function emptyDraft(): VagaDraft {
     cidade: "", uf: "", politicaTrabalho: "", observacoesDeslocamento: "",
     moeda: "", salarioMinimo: "", salarioMaximo: "", periodicidade: "",
     bonusTipo: "", bonusPercentual: "", observacoesRemuneracao: "",
+    travarFaixaSalarial: false,
     beneficios: [],
     escolaridade: "", formacaoArea: "", experienciaMinimaAnos: "",
     tagsStack: "", tagsIdiomas: "", diferenciais: "",
@@ -136,6 +142,9 @@ function emptyDraft(): VagaDraft {
     matchingIdadeMin: "", matchingIdadeMax: "", matchingRequerCnh: false,
     matchingCnhCategoria: "", matchingHabilidades: "", matchingObs: "",
     weightsCompetencia: 40, weightsExperiencia: 30, weightsFormacao: 15, weightsLocalidade: 15,
+    descricaoCargoId: "", descricaoCargoCode: "", descricaoCargoTitle: "",
+    weightsIdioma: 0, weightsConhecimentoTecnico: 0, weightsVivenciaEspecifica: 0,
+    localidadeMaxDistanciaKm: "",
     etapas: [],
     perguntasTriagem: [],
     observacoesProcesso: "",
@@ -456,8 +465,6 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
   const matchingFiltrosRaw = buildMatchingFiltrosRaw(d, enums);
   return {
     titulo: d.titulo.trim(),
-    departmentId: emptyToNull(d.departmentId),
-    areaId: d.areaId || null,
     status: d.status || "aberta",
     codigo: emptyToNull(d.codigo),
     areaTime: emptyToNull(d.areaTime),
@@ -467,6 +474,16 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     tipoContratacao: emptyToNull(d.tipoContratacao),
     matchMinimoPercentual: clamp(d.matchMinimoPercentual, 0, 100),
     weights: { competencia: d.weightsCompetencia, experiencia: d.weightsExperiencia, formacao: d.weightsFormacao, localidade: d.weightsLocalidade },
+    // Sessão 31.8 — DescricaoCargo + pesos extras + max distância (calibragem por vaga)
+    descricaoCargoId: emptyToNull(d.descricaoCargoId) || null,
+    pesoCompetencia: d.weightsCompetencia,
+    pesoExperiencia: d.weightsExperiencia,
+    pesoFormacao: d.weightsFormacao,
+    pesoLocalidade: d.weightsLocalidade,
+    pesoIdioma: d.weightsIdioma,
+    pesoConhecimentoTecnico: d.weightsConhecimentoTecnico,
+    pesoVivenciaEspecifica: d.weightsVivenciaEspecifica,
+    localidadeMaxDistanciaKm: d.localidadeMaxDistanciaKm.trim() ? Number(d.localidadeMaxDistanciaKm) : null,
     matchingFiltrosRaw,
     descricaoInterna: emptyToNull(d.descricaoInterna),
     codigoInterno: emptyToNull(d.codigoInterno),
@@ -518,6 +535,7 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     bonusTipo: emptyToNull(d.bonusTipo),
     bonusPercentual: d.bonusPercentual ? Number(d.bonusPercentual.replace(",", ".")) || null : null,
     observacoesRemuneracao: emptyToNull(d.observacoesRemuneracao),
+    travarFaixaSalarial: d.travarFaixaSalarial,
     escolaridade: emptyToNull(d.escolaridade),
     formacaoArea: emptyToNull(d.formacaoArea),
     experienciaMinimaAnos: d.experienciaMinimaAnos ? Number(d.experienciaMinimaAnos) || null : null,
@@ -829,8 +847,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [draft, setDraft] = useState<VagaDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [enums, setEnums] = useState<EnumData>({});
-  const [areas, setAreas] = useState<AreaLookup[]>([]);
-  const [depts, setDepts] = useState<DeptLookup[]>([]);
   const [vagas, setVagas] = useState<{ id: string; titulo: string; codigo: string }[]>([]);
   const [copySearch, setCopySearch] = useState("");
   const [wizardMode, setWizardMode] = useState(false);
@@ -845,7 +861,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
   const stepCompletion = useMemo(() => {
     const s = new Map<TabKey, boolean>();
-    s.set("dados", !!(draft.titulo.trim() && draft.areaId && draft.status));
+    s.set("dados", !!(draft.titulo.trim() && draft.centroCustoId && draft.status));
     s.set("requisitos", draft.requisitos.length > 0);
     s.set("matching", !!(draft.matchingModalidade || draft.matchingSenioridade || draft.matchingEscolaridade || draft.matchingHabilidades || draft.matchingCidade));
     s.set("publicacao", ["Externa", "InternaEExterna"].includes(draft.visibilidade));
@@ -876,10 +892,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
     void Promise.all([
       fetchJson<unknown>(`${BASE}/api/lookup/enums`).catch(() => null),
-      fetchJson<unknown>(`${BASE}/api/lookup/areas`).catch(() => []),
-      fetchJson<unknown>(`${BASE}/api/lookup/departments`).catch(() => []),
       fetchJson<unknown>(`${BASE}/api/vagas`).catch(() => []),
-    ]).then(([enumsRaw, areasRaw, deptsRaw, vagasRaw]) => {
+    ]).then(([enumsRaw, vagasRaw]) => {
       const eData: EnumData = {};
       if (enumsRaw && typeof enumsRaw === "object") {
         Object.entries(enumsRaw as Record<string, unknown>).forEach(([k, v]) => {
@@ -887,10 +901,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         });
       }
       setEnums(eData);
-      const aList = (Array.isArray(areasRaw) ? areasRaw : []).map((a: any) => ({ id: a.id, name: a.name ?? a.nome ?? "", code: a.code ?? "" }));
-      setAreas(aList);
-      const dList = (Array.isArray(deptsRaw) ? deptsRaw : []).map((d: any) => ({ id: d.id, name: d.name ?? d.nome ?? "", code: d.code ?? "" }));
-      setDepts(dList);
       const vItems = Array.isArray(vagasRaw) ? vagasRaw : (asRec(vagasRaw)?.items as unknown[] ?? []);
       setVagas((vItems as any[]).map((v: any) => ({ id: v.id, titulo: v.titulo ?? "", codigo: v.codigo ?? "" })));
 
@@ -917,7 +927,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       setDraft({
         id,
         titulo: pick(v.titulo), codigo: pick(v.codigo),
-        departmentId: pick(v.departmentId), areaId: pick(v.areaId),
         areaTime: pickEnum(v.areaTime), modalidade: pickEnum(v.modalidade, "presencial"),
         status: pickEnum(v.status, "aberta"), senioridade: pickEnum(v.senioridade),
         quantidadeVagas: pickNum(v.quantidadeVagas, 1), tipoContratacao: pickEnum(v.tipoContratacao),
@@ -961,6 +970,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         periodicidade: pickEnum(v.periodicidade), bonusTipo: pickEnum(v.bonusTipo),
         bonusPercentual: v.bonusPercentual != null ? String(v.bonusPercentual) : "",
         observacoesRemuneracao: pick(v.observacoesRemuneracao),
+        travarFaixaSalarial: pickBool(v.travarFaixaSalarial),
         beneficios: benefRaw.map((b: any) => ({ tipo: pickEnum(b.tipo), valor: b.valor != null ? String(b.valor) : "", recorrencia: pickEnum(b.recorrencia, "mensal"), obrigatorio: pickBool(b.obrigatorio), obs: pick(b.observacoes) })),
         escolaridade: pickEnum(v.escolaridade), formacaoArea: pickEnum(v.formacaoArea),
         experienciaMinimaAnos: v.experienciaMinimaAnos != null ? String(v.experienciaMinimaAnos) : "",
@@ -976,6 +986,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         matchingCnhCategoria: mf.cnhCategoria, matchingHabilidades: mf.habilidades, matchingObs: mf.observacoes,
         weightsCompetencia: pickNum(w?.competencia, 40), weightsExperiencia: pickNum(w?.experiencia, 30),
         weightsFormacao: pickNum(w?.formacao, 15), weightsLocalidade: pickNum(w?.localidade, 15),
+        // Sessão 31.8 — DescricaoCargo + pesos extras + max distância
+        descricaoCargoId: pick(v.descricaoCargoId), descricaoCargoCode: pick(v.descricaoCargoCode), descricaoCargoTitle: pick(v.descricaoCargoTitle),
+        weightsIdioma: pickNum(v.pesoIdioma, 0),
+        weightsConhecimentoTecnico: pickNum(v.pesoConhecimentoTecnico, 0),
+        weightsVivenciaEspecifica: pickNum(v.pesoVivenciaEspecifica, 0),
+        localidadeMaxDistanciaKm: v.localidadeMaxDistanciaKm != null ? String(v.localidadeMaxDistanciaKm) : "",
         etapas: etaRaw.map((e: any) => ({ nome: pick(e.nome), responsavel: pickEnum(e.responsavel), modo: pickEnum(e.modo), slaDias: e.slaDias != null ? String(e.slaDias) : "", descricao: pick(e.descricaoInstrucoes) })),
         perguntasTriagem: pergRaw.map((p: any) => ({ texto: pick(p.texto), tipo: pickEnum(p.tipo), peso: pick(p.peso, "1"), obrigatoria: pickBool(p.obrigatoria), knockout: pickBool(p.knockout), opcoes: pick(p.opcoesRaw) })),
         observacoesProcesso: pick(v.observacoesProcesso),
@@ -1196,7 +1212,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                       cargoId: item.id,
                       cargoCode: item.code,
                       cargoName: item.name,
-                      areaId: d.areaId || item.areaId || d.areaId,
+                      centroCustoId: d.centroCustoId || item.centroCustoId || d.centroCustoId,
                       senioridade: d.senioridade || (item.seniority ? item.seniority.toLowerCase() : ""),
                     }));
                   }}
@@ -1321,8 +1337,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de TI Sênior" value={draft.nomeEngessado} onChange={(e) => set("nomeEngessado", e.target.value)} maxLength={200} />
                 <p className="text-xs text-muted-foreground mt-1">Nome fixo para referência interna de cargo.</p>
               </Field>
-              <Field label="Departamento" span="col-span-12 md:col-span-4"><EnumSelect value={draft.departmentId} onChange={(v) => set("departmentId", v)} options={depts.map((d) => ({ code: d.id, text: d.name }))} placeholder="Selecionar departamento" /></Field>
-
               {/* Seção: Configurações */}
               <SectionHeader title="Configurações da vaga" />
               <Field label="Modalidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.modalidade} onChange={(v) => set("modalidade", v)} options={enumOpts(enums, "vagaModalidade")} /></Field>
@@ -1414,7 +1428,28 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {tab === "local" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
               <SectionHeader title="Localização" />
-              <Field label="CEP" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="00000-000" value={draft.cep} onChange={(e) => set("cep", e.target.value)} /></Field>
+              <Field label="CEP" span="col-span-6 md:col-span-2">
+                <input
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  placeholder="00000-000"
+                  value={draft.cep}
+                  onChange={(e) => set("cep", e.target.value)}
+                  onBlur={async () => {
+                    // Sessão 31.8 — auto-preenche endereço via ViaCEP
+                    const res = await lookupCep(draft.cep);
+                    if (!res) return;
+                    setDraft((d) => ({
+                      ...d,
+                      logradouro: d.logradouro.trim() || res.logradouro,
+                      bairro: d.bairro.trim() || res.bairro,
+                      cidade: d.cidade.trim() || res.cidade,
+                      uf: d.uf.trim() || res.uf,
+                    }));
+                    toast.success("Endereço preenchido a partir do CEP");
+                  }}
+                  title="Sair do campo (Tab) busca o endereço automaticamente"
+                />
+              </Field>
               <Field label="Logradouro" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Rua / Av." value={draft.logradouro} onChange={(e) => set("logradouro", e.target.value)} /></Field>
               <Field label="Número" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="123" value={draft.numero} onChange={(e) => set("numero", e.target.value)} /></Field>
               <Field label="Bairro" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Centro" value={draft.bairro} onChange={(e) => set("bairro", e.target.value)} /></Field>
@@ -1428,7 +1463,16 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {/* ── Remuneração ──────────────────────────────────────── */}
           {tab === "remuneracao" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
-              <SectionHeader title="Salário" />
+              <div className="col-span-12 flex items-center justify-between">
+                <SectionHeader title="Salário" />
+                <SugerirSalarioButton
+                  vagaId={vagaId}
+                  onAplicar={(min, max) => {
+                    set("salarioMinimo", min.toFixed(2).replace(".", ","));
+                    set("salarioMaximo", max.toFixed(2).replace(".", ","));
+                  }}
+                />
+              </div>
               <Field label="Moeda" span="col-span-6 md:col-span-2"><EnumSelect value={draft.moeda} onChange={(v) => set("moeda", v)} options={enumOpts(enums, "vagaMoeda", "Selecionar")} /></Field>
               <Field label="Salário mínimo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0,00" value={draft.salarioMinimo} onChange={(e) => set("salarioMinimo", e.target.value)} /></Field>
               <Field label="Salário máximo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0,00" value={draft.salarioMaximo} onChange={(e) => set("salarioMaximo", e.target.value)} /></Field>
@@ -1436,6 +1480,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <Field label="Tipo de bônus / extra" span="col-span-12 md:col-span-4"><EnumSelect value={draft.bonusTipo} onChange={(v) => set("bonusTipo", v)} options={enumOpts(enums, "vagaBonusTipo", "Selecionar")} /></Field>
               <Field label="% bônus" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0%" value={draft.bonusPercentual} onChange={(e) => set("bonusPercentual", e.target.value)} /></Field>
               <Field label="Observações de remuneração" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: faixa depende de senioridade" value={draft.observacoesRemuneracao} onChange={(e) => set("observacoesRemuneracao", e.target.value)} /></Field>
+              <Field label="Travar faixa salarial do cargo" span="col-span-12 md:col-span-6"><Toggle label={draft.travarFaixaSalarial ? "Travada — precisa de alçada para sair da faixa" : "Livre"} checked={draft.travarFaixaSalarial} onChange={(v) => set("travarFaixaSalarial", v)} /></Field>
               <div className="col-span-12 flex items-center justify-between gap-2 pt-1">
                 <div>
                   <p className="text-sm font-semibold">Benefícios</p>
@@ -1524,12 +1569,38 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <Field label="Habilidades desejadas" span="col-span-12"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: .NET, SQL, APIs REST (separadas por vírgula)" value={draft.matchingHabilidades} onChange={(e) => set("matchingHabilidades", e.target.value)} /></Field>
               <Field label="Observações adicionais (opcional)" span="col-span-12"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} placeholder="Outros critérios em texto livre" value={draft.matchingObs} onChange={(e) => set("matchingObs", e.target.value)} /></Field>
 
-              <SectionHeader title="Pesos do matching" description="Distribua o peso entre as dimensões — total recomendado: 100." />
+              <SectionHeader title="Descrição de Cargo (template DNALIO)" description="Vincule uma descrição de cargo — o matching consome as seções estruturadas (Atividades, Competências, Vivências, Requisitos) para calcular score por categoria." />
+              <Field label="Descrição de cargo (ID)" span="col-span-12">
+                <input
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
+                  placeholder="Cole o ID da descrição (cadastrada em /app/descricao-cargo) — opcional"
+                  value={draft.descricaoCargoId}
+                  onChange={(e) => set("descricaoCargoId", e.target.value.trim())}
+                />
+                {draft.descricaoCargoCode && (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1">
+                    Vinculado: {draft.descricaoCargoCode} — {draft.descricaoCargoTitle}
+                  </p>
+                )}
+              </Field>
+
+              <SectionHeader title="Pesos do matching (calibragem por vaga)" description="Distribua o peso entre as 7 dimensões — total recomendado: 100." />
               <Field label={`Competência (${draft.weightsCompetencia})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsCompetencia} onChange={(e) => set("weightsCompetencia", Number(e.target.value) || 0)} /></Field>
               <Field label={`Experiência (${draft.weightsExperiencia})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsExperiencia} onChange={(e) => set("weightsExperiencia", Number(e.target.value) || 0)} /></Field>
               <Field label={`Formação (${draft.weightsFormacao})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsFormacao} onChange={(e) => set("weightsFormacao", Number(e.target.value) || 0)} /></Field>
               <Field label={`Localidade (${draft.weightsLocalidade})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsLocalidade} onChange={(e) => set("weightsLocalidade", Number(e.target.value) || 0)} /></Field>
-              <div className="col-span-12"><span className={`badge-soft ${weightsTotal === 100 ? "" : "text-red-600"}`}>Total: {weightsTotal}%{weightsTotal !== 100 && " (recomendado: 100%)"}</span></div>
+              <Field label={`Idioma (${draft.weightsIdioma})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsIdioma} onChange={(e) => set("weightsIdioma", Number(e.target.value) || 0)} /></Field>
+              <Field label={`Conhecimento Técnico (${draft.weightsConhecimentoTecnico})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsConhecimentoTecnico} onChange={(e) => set("weightsConhecimentoTecnico", Number(e.target.value) || 0)} /></Field>
+              <Field label={`Vivência Específica (${draft.weightsVivenciaEspecifica})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsVivenciaEspecifica} onChange={(e) => set("weightsVivenciaEspecifica", Number(e.target.value) || 0)} /></Field>
+              <Field label="Distância máxima (km)" span="col-span-6 md:col-span-3">
+                <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={1} placeholder="50 (default)" value={draft.localidadeMaxDistanciaKm} onChange={(e) => set("localidadeMaxDistanciaKm", e.target.value)} />
+              </Field>
+              <div className="col-span-12">
+                {(() => {
+                  const total = draft.weightsCompetencia + draft.weightsExperiencia + draft.weightsFormacao + draft.weightsLocalidade + draft.weightsIdioma + draft.weightsConhecimentoTecnico + draft.weightsVivenciaEspecifica;
+                  return <span className={`badge-soft ${total === 100 ? "" : "text-red-600"}`}>Total: {total}%{total !== 100 && " (recomendado: 100%)"}</span>;
+                })()}
+              </div>
             </div>
           )}
 

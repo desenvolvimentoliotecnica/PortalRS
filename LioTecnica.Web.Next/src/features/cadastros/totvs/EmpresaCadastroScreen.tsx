@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Search, Plus, RefreshCw, Pencil, Trash2, Upload, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
+import { lookupCep } from "@/lib/cepLookup";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,15 @@ interface Item {
   isActive: boolean;
   createdAtUtc: string;
   updatedAtUtc: string;
+  cep?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geocodificadoEmUtc?: string | null;
 }
 
 interface Draft {
@@ -32,6 +42,17 @@ interface Draft {
   code: string;
   description: string;
   isActive: boolean;
+  // Sessão 31.8 — endereço (alimenta geocoding p/ matching por distância)
+  cep: string;
+  logradouro: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+  // Coords são read-only no UI — exibidas pra debug
+  latitude: number | null;
+  longitude: number | null;
+  geocodificadoEmUtc: string | null;
 }
 
 interface ImportRow {
@@ -55,7 +76,11 @@ function statusBadge(active: boolean) {
   );
 }
 
-const emptyDraft: Draft = { code: "", description: "", isActive: true };
+const emptyDraft: Draft = {
+  code: "", description: "", isActive: true,
+  cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "",
+  latitude: null, longitude: null, geocodificadoEmUtc: null,
+};
 
 export default function EmpresaCadastroScreen() {
   const [loading, setLoading] = useState(true);
@@ -133,7 +158,17 @@ export default function EmpresaCadastroScreen() {
     if (!draft.code.trim() || !draft.description.trim()) { toast.error("Código e descrição são obrigatórios"); return; }
     try {
       setSaving(true);
-      const payload = { code: draft.code.trim(), description: draft.description.trim(), isActive: draft.isActive };
+      const payload = {
+        code: draft.code.trim(),
+        description: draft.description.trim(),
+        isActive: draft.isActive,
+        cep: draft.cep.trim() || null,
+        logradouro: draft.logradouro.trim() || null,
+        numero: draft.numero.trim() || null,
+        bairro: draft.bairro.trim() || null,
+        cidade: draft.cidade.trim() || null,
+        uf: draft.uf.trim().toUpperCase() || null,
+      };
       if (draft.id) {
         await fetchJson(`/api/empresas/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         toast.success("Empresa atualizada");
@@ -273,7 +308,24 @@ export default function EmpresaCadastroScreen() {
                 <TableCell>{statusBadge(item.isActive)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => { setDraft({ id: item.id, code: item.code, description: item.description, isActive: item.isActive }); setEditOpen(true); }}>
+                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => {
+                      setDraft({
+                        id: item.id,
+                        code: item.code,
+                        description: item.description,
+                        isActive: item.isActive,
+                        cep: item.cep ?? "",
+                        logradouro: item.logradouro ?? "",
+                        numero: item.numero ?? "",
+                        bairro: item.bairro ?? "",
+                        cidade: item.cidade ?? "",
+                        uf: item.uf ?? "",
+                        latitude: item.latitude ?? null,
+                        longitude: item.longitude ?? null,
+                        geocodificadoEmUtc: item.geocodificadoEmUtc ?? null,
+                      });
+                      setEditOpen(true);
+                    }}>
                       <Pencil />
                     </Button>
                     <Button variant="destructive" size="icon-xs" title="Desativar" onClick={() => setDeleteTarget(item)}>
@@ -293,10 +345,10 @@ export default function EmpresaCadastroScreen() {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{draft.id ? "Editar empresa" : "Nova empresa"}</DialogTitle>
-            <DialogDescription>Preencha os dados da empresa.</DialogDescription>
+            <DialogDescription>Preencha os dados da empresa. O endereço alimenta o cálculo de distância candidato × empresa no matching.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -315,6 +367,71 @@ export default function EmpresaCadastroScreen() {
               </select>
             </div>
           </div>
+
+          {/* Endereço (Sessão 31.8) */}
+          <div className="pt-4 border-t border-border/40 space-y-3">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endereço (geocodificado para matching por distância)</div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">CEP</label>
+                <Input
+                  placeholder="01310-100"
+                  value={draft.cep}
+                  onChange={(e) => setDraft((d) => ({ ...d, cep: e.target.value }))}
+                  onBlur={async () => {
+                    // Sessão 31.8 — auto-preenche endereço via ViaCEP
+                    const res = await lookupCep(draft.cep);
+                    if (!res) return;
+                    setDraft((d) => ({
+                      ...d,
+                      // Só preenche se o campo estiver vazio (não sobrescreve edição manual)
+                      logradouro: d.logradouro.trim() || res.logradouro,
+                      bairro: d.bairro.trim() || res.bairro,
+                      cidade: d.cidade.trim() || res.cidade,
+                      uf: d.uf.trim() || res.uf,
+                    }));
+                    toast.success(`Endereço preenchido a partir do CEP`);
+                  }}
+                  maxLength={20}
+                  title="Sair do campo (Tab) busca o endereço automaticamente"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Logradouro</label>
+                <Input placeholder="Avenida Paulista" value={draft.logradouro} onChange={(e) => setDraft((d) => ({ ...d, logradouro: e.target.value }))} maxLength={200} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Número</label>
+                <Input placeholder="1000" value={draft.numero} onChange={(e) => setDraft((d) => ({ ...d, numero: e.target.value }))} maxLength={40} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Bairro</label>
+                <Input placeholder="Bela Vista" value={draft.bairro} onChange={(e) => setDraft((d) => ({ ...d, bairro: e.target.value }))} maxLength={120} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Cidade</label>
+                <Input placeholder="São Paulo" value={draft.cidade} onChange={(e) => setDraft((d) => ({ ...d, cidade: e.target.value }))} maxLength={120} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">UF</label>
+                <Input placeholder="SP" value={draft.uf} onChange={(e) => setDraft((d) => ({ ...d, uf: e.target.value.toUpperCase() }))} maxLength={2} />
+              </div>
+            </div>
+            {draft.latitude != null && draft.longitude != null && (
+              <div className="text-xs text-muted-foreground bg-emerald-500/10 border border-emerald-500/30 rounded p-2">
+                <strong>Geocodificado:</strong> {draft.latitude.toFixed(6)}, {draft.longitude.toFixed(6)}
+                {draft.geocodificadoEmUtc && (
+                  <span className="ml-2">(em {new Date(draft.geocodificadoEmUtc).toLocaleString("pt-BR")})</span>
+                )}
+              </div>
+            )}
+            {draft.latitude == null && (draft.cep || draft.cidade) && (
+              <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded p-2">
+                Endereço será geocodificado ao salvar (Nominatim/OpenStreetMap, best-effort).
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
             <Button onClick={save} disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button>

@@ -68,16 +68,18 @@ bash __scripts__/dev/dev-all.sh
 ```
 
 Abre automaticamente:
-- `http://localhost:3000/app` — Next.js (frontend principal)
+- `http://localhost:3000/app` — Next.js (frontend único)
 - `http://localhost:5056/swagger` — API .NET (Swagger)
-- `http://localhost:5051` — Portal (LioTecnica.Web MVC)
+
+> **Nota (Fase 13, abr/2026):** o antigo Portal MVC (`LioTecnica.Web`, porta 5051) foi **descomissionado e removido do repositório**. Tudo que vivia lá — incluindo o login Entra ID — agora é atendido pelo Next + RHPortal.Api.
 
 ### Serviços individualmente
 
 ```bash
-bash __scripts__/dev/dev-api.sh      # Só a API .NET (porta 5056)
-bash __scripts__/dev/dev-portal.sh   # Só o Portal MVC (porta 5051)
-bash __scripts__/dev/dev-next.sh     # Só o Next.js (porta 3000)
+# Todos os serviços subidos pelo dev-all.sh — edite o script ou rode manualmente:
+cd RHPortal.Api/RHPortal.Api && dotnet run --urls http://localhost:5056   # API
+cd LioTecnica.Web.Next && pnpm dev                                       # Next (3000)
+cd RHPortal.Ai && . .venv/bin/activate && python -m app.main             # IA (8000)
 ```
 
 ---
@@ -129,9 +131,8 @@ bash __scripts__/dev/kill-ports.sh
 ## Arquitetura resumida
 
 ```
-LioTecnica.Web.Next      :3000   Next.js 16 (App Router) — frontend principal
-RHPortal.Api             :5056   .NET 8 API — backend principal
-LioTecnica.Web (Portal)  :5051   ASP.NET MVC — portal legado / admissão
+LioTecnica.Web.Next      :3000   Next.js 16 (App Router) — frontend único (static export sob /app)
+RHPortal.Api             :5056   .NET 8 API — backend principal, auth, multi-tenant, SSO Entra ID
 RHPortal.Ai              :8000   Python FastAPI — matching por IA
 Liotecnica.Integration.RM        .NET — integração TOTVS RM
 ```

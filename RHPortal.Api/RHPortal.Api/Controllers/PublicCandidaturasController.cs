@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
+using RhPortal.Api.Application.Candidaturas;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.ProjetosVaga;
 using RhPortal.Api.Application.Talentos;
@@ -69,6 +70,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         [FromServices] ITenantContext tenantContext,
         [FromServices] IEmailQueueService emailQueue,
         [FromServices] IProjetoVagaService projetoVagaService,
+        [FromServices] ICandidaturaService candidaturaService,
         CancellationToken ct)
     {
         if (request.VagaId == Guid.Empty)
@@ -170,7 +172,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     existing.VagaId,
                     existing.Vaga?.Codigo,
                     existing.Vaga?.Titulo,
-                    existing.Vaga?.AreaId,
+                    existing.Vaga?.CentroCustoId,
                     existing.Vaga?.RecrutadorResponsavelUserId,
                     existing.TalentoId,
                     existing.Obs,
@@ -262,6 +264,18 @@ public sealed class PublicCandidaturasController : ControllerBase
                 }
                 catch { /* best-effort: não falha a candidatura */ }
             }
+
+            // ── Registrar/atualizar Candidatura (junction Candidato↔Vaga com histórico) ──
+            try
+            {
+                await candidaturaService.GetOrCreateAsync(
+                    result.Id,
+                    request.VagaId,
+                    fonte: "Portal",
+                    obs: obs,
+                    ct);
+            }
+            catch { /* best-effort: não falha a candidatura */ }
 
             // ── Persistir respostas de campos personalizados ──
             if (camposRespostas.Count > 0)

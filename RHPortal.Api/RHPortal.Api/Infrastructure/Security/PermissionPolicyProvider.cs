@@ -28,6 +28,16 @@ public sealed class PermissionPolicyProvider : IAuthorizationPolicyProvider
             return Task.FromResult<AuthorizationPolicy?>(policy);
         }
 
+        if (policyName.StartsWith(PermissionConstants.ModulePolicyPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            var moduleKey = policyName[PermissionConstants.ModulePolicyPrefix.Length..];
+            var policy = new AuthorizationPolicyBuilder()
+                .AddRequirements(new ModuleRequirement(moduleKey))
+                .Build();
+
+            return Task.FromResult<AuthorizationPolicy?>(policy);
+        }
+
         return _fallbackPolicyProvider.GetPolicyAsync(policyName);
     }
 }

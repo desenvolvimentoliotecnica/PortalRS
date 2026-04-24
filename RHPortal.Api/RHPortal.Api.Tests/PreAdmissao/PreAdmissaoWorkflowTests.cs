@@ -67,7 +67,8 @@ public sealed class PreAdmissaoWorkflowTests
         var service = new PreAdmissaoService(
             db, tenantMock.Object, userManager.Object,
             emailQueue.Object, italoService.Object, storage.Object, logger.Object,
-            httpAccessor.Object);
+            httpAccessor.Object,
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
 
         return (db, service);
     }
@@ -114,6 +115,39 @@ public sealed class PreAdmissaoWorkflowTests
         db.Pessoas.Add(pessoa);
         db.SaveChanges();
         return pessoa.Id;
+    }
+
+    private static async Task PreencherCamposObrigatoriosTotvsAsync(AppDbContext db, Guid id)
+    {
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().FirstAsync(x => x.Id == id);
+        entity.NomeAbreviado = "Fulano";
+        entity.PaisNacionalidade = "1058";
+        entity.DataNascimento = new DateOnly(1990, 1, 10);
+        entity.PaisNascimento = "1058";
+        entity.NaturalUf = "SP";
+        entity.NaturalCidade = "Sao Paulo";
+        entity.GrauInstrucao = 7;
+        entity.EstadoCivil = EstadoCivil.Solteiro;
+        entity.Sexo = Sexo.Masculino;
+        entity.Logradouro = "Rua A";
+        entity.Bairro = "Centro";
+        entity.Cidade = "Sao Paulo";
+        entity.Uf = "SP";
+        entity.Cep = "01001000";
+        entity.Cpf = CpfValido;
+        entity.OrigemFuncionario = 1;
+        entity.Cutis = 1;
+        entity.Cabelo = 1;
+        entity.Olhos = 1;
+        entity.MunicipioEnderecoIbge = 3550308;
+        entity.CategoriaSalarial = 1;
+        entity.DataAdmissao = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        entity.TipoFuncionario = 1;
+        entity.CodVinculoEmpregaticio = 10;
+        entity.EmitCartPonto = "S";
+        entity.TipoEstatistica = 1;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
     }
 
     // ── Submit (Rascunho/Enviado → Preenchido → auto-aprova se TOTVS ok) ──
@@ -164,6 +198,21 @@ public sealed class PreAdmissaoWorkflowTests
     }
 
     [Fact]
+    public async Task Submit_StatusPreenchido_RevalidaEMantemPreenchido()
+    {
+        // Status Preenchido é submissível (o Submit roda validator e pode ir pra Aprovada);
+        // com dados mínimos, ainda falha por não passar no validator.
+        var (db, svc) = CriarServico();
+        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido);
+
+        var result = await svc.SubmitAsync(id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
+        Assert.NotNull(result.SubmittedAtUtc);
+    }
+
+    [Fact]
     public async Task Submit_CpfValido_SetaValidacaoCpfOkTrue()
     {
         // CPF válido: o ValidacaoCpfOk é marcado antes do validator TOTVS rodar;
@@ -201,6 +250,7 @@ public sealed class PreAdmissaoWorkflowTests
         // cenário em que RH tenta aprovar sem preencher o wizard completo.
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido, email: null);
+        await PreencherCamposObrigatoriosTotvsAsync(db, id);
         var aprovadorId = Guid.NewGuid();
 
         await Assert.ThrowsAsync<TotvsValidationException>(() =>

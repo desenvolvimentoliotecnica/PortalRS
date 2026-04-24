@@ -7,7 +7,8 @@ public sealed record JobPositionCreateRequest(
     [Required, MaxLength(40)] string Code,
     [Required, MaxLength(160)] string Name,
     CargoStatus Status,
-    Guid? AreaId,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
     SeniorityLevel Seniority,
     [MaxLength(180)] string? Type,
     [MaxLength(30)] string? OccupationalClassification,
@@ -24,7 +25,8 @@ public sealed record JobPositionUpdateRequest(
     [Required, MaxLength(40)] string Code,
     [Required, MaxLength(160)] string Name,
     CargoStatus Status,
-    Guid? AreaId,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
     SeniorityLevel Seniority,
     [MaxLength(180)] string? Type,
     [MaxLength(30)] string? OccupationalClassification,
@@ -44,7 +46,8 @@ public sealed record JobPositionUpdateRequest(
 public sealed record JobPositionImportItem(
     [MaxLength(40)] string? Code,
     [Required, MaxLength(160)] string Name,
-    Guid? AreaId,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
     [MaxLength(30)] string? OccupationalClassification,
     [MaxLength(500)] string? FullDescription,
     [MaxLength(40)] string? DesEnvelPagto,
@@ -69,6 +72,9 @@ public sealed record JobPositionLookupItem(
     string Name,
     Guid? AreaId,
     string? AreaName,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
+    string? CentroCustoNome,
     string? Seniority,
     int? TotvsCargoBasicId
 );
@@ -78,8 +84,9 @@ public sealed record JobPositionResponse(
     string Code,
     string Name,
     CargoStatus Status,
-    Guid? AreaId,
-    string AreaName,
+    /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
+    Guid? CentroCustoId,
+    string CentroCustoNome,
     SeniorityLevel Seniority,
     string? Type,
     string? OccupationalClassification,

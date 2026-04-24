@@ -4,6 +4,7 @@ public static class PermissionConstants
 {
     public const string ClaimType = "permission";
     public const string PolicyPrefix = "Permission:";
+    public const string ModulePolicyPrefix = "Module:";
 
     public const string ClaimVisibilityScope = "visibility_scope";
     public const string ClaimVagasDataScope = "vagas_data_scope";

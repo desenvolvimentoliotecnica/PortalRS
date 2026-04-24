@@ -242,6 +242,7 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
                                 <option value="All">Todas</option>
                                 <option value="ByArea">Por Área</option>
                                 <option value="ByRecrutador">Apenas do Recrutador</option>
+                                <option value="ByGestorRecrutador">Gestor do Recrutador (time)</option>
                             </select>
                         </div>
 

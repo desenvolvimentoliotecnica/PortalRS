@@ -14,7 +14,7 @@ export type VagaTab = "dados" | "diversidade" | "projeto" | "local" | "remunerac
 export interface VagaDraftFull {
     id?: string;
     // Dados básicos
-    titulo: string; codigo: string; departmentId: string; areaTime: string; areaId: string;
+    titulo: string; codigo: string; centroCustoId: string; areaTime: string;
     modalidade: string; status: string; senioridade: string;
     quantidadeVagas: number; tipoContratacao: string; threshold: number;
     descricao: string; codigoInterno: string; cbo: string;
@@ -58,7 +58,7 @@ export interface VagaDraftFull {
 }
 
 export const EMPTY_DRAFT: VagaDraftFull = {
-    titulo: "", codigo: "", departmentId: "", areaTime: "", areaId: "", modalidade: "presencial", status: "aberta", senioridade: "",
+    titulo: "", codigo: "", centroCustoId: "", areaTime: "", modalidade: "presencial", status: "aberta", senioridade: "",
     quantidadeVagas: 1, tipoContratacao: "", threshold: 70, descricao: "", codigoInterno: "", cbo: "",
     motivoAbertura: "", orcamentoAprovado: "", gestorRequisitante: "", recrutadorResponsavel: "", prioridade: "",
     resumoPitch: "", tagsResponsabilidades: "", tagsKeywords: "", confidencial: false, aceitaPcd: false, urgente: false,
@@ -145,8 +145,7 @@ export function buildSavePayload(d: VagaDraftFull, enumText: (key: string, code:
     const matchingFiltrosRaw = buildMatchingFiltrosRaw(d, enumText);
     return {
         titulo: d.titulo.trim(),
-        departmentId: emptyToNull(d.departmentId),
-        areaId: emptyToNull(d.areaId),
+        centroCustoId: emptyToNull(d.centroCustoId),
         status: emptyToNull(d.status),
         codigo: emptyToNull(d.codigo),
         areaTime: emptyToNull(d.areaTime),
@@ -230,7 +229,7 @@ export function mapApiToFormDraft(r: Record<string, unknown>): VagaDraftFull {
         ...EMPTY_DRAFT,
         id: ps("id"),
         titulo: ps("titulo"), codigo: ps("codigo"),
-        departmentId: ps("departmentId"), areaTime: ps("areaTime"), areaId: ps("areaId") || ps("area"),
+        centroCustoId: ps("centroCustoId") || ps("areaId") || ps("departmentId"), areaTime: ps("areaTime"),
         modalidade: ps("modalidade", "presencial"), status: ps("status", "aberta"),
         senioridade: ps("senioridade"),
         quantidadeVagas: pn("quantidadeVagas", 1),

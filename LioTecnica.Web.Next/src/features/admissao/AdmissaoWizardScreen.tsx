@@ -106,9 +106,8 @@ interface PreAdmissao {
     codEmpresa: string | null;
     estabelecimentoCodigo: string | null;
     unitId: string | null;
-    areaId: string | null;
+    centroCustoId: string | null;
     jobPositionId: string | null;
-    requisitoCategoriaId: string | null;
     dataAdmissao: string | null;
     salario: number | null;
     tipoContratacao: number | null;

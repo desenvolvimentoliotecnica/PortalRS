@@ -8,6 +8,7 @@ namespace RhPortal.Api.Controllers;
 
 [ApiController]
 [Route("api/feedback/items")]
+[RequireModule("feedback")]
 public sealed class FeedbackItemsController : ControllerBase
 {
     [RequirePermission("feedback.send")]
