@@ -45,7 +45,13 @@ public sealed class SolicitacaoVagaCreateRequest
     // A.RH.013
     public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
     public int? PrazoDias { get; set; }
+
+    /// <summary>Motivo legado (enum). Mantido para compatibilidade — prefira <see cref="MotivoRequisicaoId"/>.</summary>
     public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+
+    /// <summary>FK da tabela parametrizável de motivos (MotivosRequisicaoVagaConfig).</summary>
+    public Guid? MotivoRequisicaoId { get; set; }
+
     public bool CnhObrigatoria { get; set; }
     public bool DisponibilidadeViagens { get; set; }
     public string? EscalaTrabalho { get; set; }
@@ -97,7 +103,13 @@ public sealed class SolicitacaoVagaUpdateRequest
     // A.RH.013
     public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
     public int? PrazoDias { get; set; }
+
+    /// <summary>Motivo legado (enum). Mantido para compatibilidade — prefira <see cref="MotivoRequisicaoId"/>.</summary>
     public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+
+    /// <summary>FK da tabela parametrizável de motivos (MotivosRequisicaoVagaConfig).</summary>
+    public Guid? MotivoRequisicaoId { get; set; }
+
     public bool CnhObrigatoria { get; set; }
     public bool DisponibilidadeViagens { get; set; }
     public string? EscalaTrabalho { get; set; }
@@ -173,7 +185,13 @@ public sealed record SolicitacaoVagaResponse(
     // A.RH.013
     TipoContratoVaga TipoContrato,
     int? PrazoDias,
+    /// <summary>Motivo legado (enum) — mantido para compatibilidade com clientes antigos.</summary>
     MotivoRequisicaoVaga? MotivoRequisicao,
+    /// <summary>FK do motivo parametrizável. Preferir este campo.</summary>
+    Guid? MotivoRequisicaoId,
+    string? MotivoRequisicaoCodigo,
+    string? MotivoRequisicaoNome,
+    EfeitoHeadcount? MotivoRequisicaoEfeito,
     bool CnhObrigatoria,
     bool DisponibilidadeViagens,
     string? EscalaTrabalho,

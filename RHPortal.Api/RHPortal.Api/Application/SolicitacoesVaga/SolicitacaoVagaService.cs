@@ -12,6 +12,7 @@ using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Data.Seeders;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
@@ -189,6 +190,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(x => x.UnidadeLotacao)
             .Include(x => x.DecisaoRHRevisadoPor)
             .Include(x => x.CandidatoContratado)
+            .Include(x => x.Motivo)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (s is null) return null;
@@ -288,6 +290,15 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             substituidoNome = func?.Name;
         }
 
+        // Resolve motivo parametrizável (novo) ou legacy (enum). Preenche ambos os campos para garantir
+        // compatibilidade com clientes antigos e consistência de leitura nos helpers IsMotivoDesligamento.
+        var (motivoId, motivoEnum, motivoConfig) = await ResolveMotivoAsync(
+            request.MotivoRequisicaoId, request.MotivoRequisicao, ct);
+
+        var ehDesligamento = motivoConfig is not null
+            ? motivoConfig.EfeitoHeadcount is EfeitoHeadcount.Diminui or EfeitoHeadcount.Ambos
+            : IsMotivoDesligamentoLegacy(motivoEnum);
+
         var entity = new SolicitacaoVaga
         {
             Id = Guid.NewGuid(),
@@ -310,7 +321,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             // A.RH.013
             TipoContrato = request.TipoContrato,
             PrazoDias = request.PrazoDias,
-            MotivoRequisicao = request.MotivoRequisicao,
+            MotivoRequisicao = motivoEnum,
+            MotivoRequisicaoId = motivoId,
+            Motivo = motivoConfig, // só para permitir que IsMotivoDesligamento/ResolverTipoDesligamento leiam o efeito sem ir no DB
             CnhObrigatoria = request.CnhObrigatoria,
             DisponibilidadeViagens = request.DisponibilidadeViagens,
             EscalaTrabalho = request.EscalaTrabalho,
@@ -319,12 +332,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             UnidadeLotacaoId = request.UnidadeLotacaoId,
             // Vaga pré-vinculada quando criada a partir do painel de vagas
             VagaId = request.VagaId,
-            // Dados desligamento (populados somente quando motivo ∈ {PedidoDemissao, DesligamentoSemJustaCausa})
-            DataDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.DataDesligamento : null,
-            TipoAvisoPrevioDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.TipoAvisoPrevioDesligamento : null,
-            DiasAvisoPrevioDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.DiasAvisoPrevioDesligamento : null,
-            PossuiEstabilidadeDesligamento = IsMotivoDesligamento(request.MotivoRequisicao) ? request.PossuiEstabilidadeDesligamento : null,
-            MotivoDesligamentoTexto = IsMotivoDesligamento(request.MotivoRequisicao) ? request.MotivoDesligamentoTexto : null,
+            // Dados desligamento (populados somente quando o motivo reduz/substitui headcount)
+            DataDesligamento = ehDesligamento ? request.DataDesligamento : null,
+            TipoAvisoPrevioDesligamento = ehDesligamento ? request.TipoAvisoPrevioDesligamento : null,
+            DiasAvisoPrevioDesligamento = ehDesligamento ? request.DiasAvisoPrevioDesligamento : null,
+            PossuiEstabilidadeDesligamento = ehDesligamento ? request.PossuiEstabilidadeDesligamento : null,
+            MotivoDesligamentoTexto = ehDesligamento ? request.MotivoDesligamentoTexto : null,
             // Decisão de headcount escolhida pelo gestor na criação
             DecisaoRH = request.DecisaoRH,
             DecisaoRHPrazoMeses = request.DecisaoRHPrazoMeses,
@@ -355,12 +368,98 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         return (await GetByIdAsync(entity.Id, ct))!;
     }
 
-    private static bool IsMotivoDesligamento(MotivoRequisicaoVaga? m) =>
-        m == MotivoRequisicaoVaga.PedidoDemissao || m == MotivoRequisicaoVaga.DesligamentoSemJustaCausa;
+    /// <summary>
+    /// Checa se o motivo da solicitação implica desligamento (Diminui ou Ambos no efeito de headcount).
+    /// Prioriza o motivo parametrizável (<see cref="SolicitacaoVaga.Motivo"/>). Fallback para o enum legado
+    /// enquanto existirem linhas antigas que ainda não foram backfilled.
+    /// </summary>
+    private static bool IsMotivoDesligamento(SolicitacaoVaga s)
+    {
+        if (s.Motivo is not null)
+            return s.Motivo.EfeitoHeadcount is EfeitoHeadcount.Diminui or EfeitoHeadcount.Ambos;
+        return s.MotivoRequisicao is MotivoRequisicaoVaga.PedidoDemissao
+            or MotivoRequisicaoVaga.DesligamentoSemJustaCausa;
+    }
+
+    private static bool IsMotivoDesligamentoLegacy(MotivoRequisicaoVaga? m) =>
+        m is MotivoRequisicaoVaga.PedidoDemissao or MotivoRequisicaoVaga.DesligamentoSemJustaCausa;
+
+    /// <summary>
+    /// Resolve o motivo da requisição aceitando tanto o novo FK (<paramref name="motivoId"/>) quanto o
+    /// enum legado (<paramref name="enumLegacy"/>). Retorna a configuração carregada (quando existir)
+    /// e os dois valores normalizados para gravação.
+    /// </summary>
+    private async Task<(Guid? MotivoId, MotivoRequisicaoVaga? EnumLegacy, MotivoRequisicaoVagaConfig? Config)>
+        ResolveMotivoAsync(Guid? motivoId, MotivoRequisicaoVaga? enumLegacy, CancellationToken ct)
+    {
+        // Caminho preferencial: cliente novo envia Id direto.
+        if (motivoId.HasValue)
+        {
+            var cfg = await _db.MotivosRequisicaoVagaConfig
+                .FirstOrDefaultAsync(x => x.Id == motivoId.Value, ct);
+            if (cfg is null)
+                throw new InvalidOperationException("Motivo de requisição não encontrado.");
+
+            var derivedEnum = cfg.Codigo switch
+            {
+                MotivoRequisicaoVagaSeeder.CodAtenderDemanda             => MotivoRequisicaoVaga.AtenderDemanda,
+                MotivoRequisicaoVagaSeeder.CodPedidoDemissao             => MotivoRequisicaoVaga.PedidoDemissao,
+                MotivoRequisicaoVagaSeeder.CodDesligamentoSemJustaCausa  => MotivoRequisicaoVaga.DesligamentoSemJustaCausa,
+                MotivoRequisicaoVagaSeeder.CodCotaAprendiz               => MotivoRequisicaoVaga.CotaAprendiz,
+                MotivoRequisicaoVagaSeeder.CodTerminoContrato            => MotivoRequisicaoVaga.TerminoContrato,
+                MotivoRequisicaoVagaSeeder.CodExpansaoBase               => MotivoRequisicaoVaga.ExpansaoBase,
+                MotivoRequisicaoVagaSeeder.CodNovaUnidade                => MotivoRequisicaoVaga.NovaUnidade,
+                MotivoRequisicaoVagaSeeder.CodMovimentacao               => MotivoRequisicaoVaga.Movimentacao,
+                MotivoRequisicaoVagaSeeder.CodAfastamento                => MotivoRequisicaoVaga.Afastamento,
+                _                                                         => (MotivoRequisicaoVaga?)null, // motivo custom criado pelo tenant
+            };
+
+            return (cfg.Id, derivedEnum, cfg);
+        }
+
+        // Cliente antigo: enum legado. Tenta encontrar o motivo seed correspondente para popular o FK.
+        if (enumLegacy.HasValue)
+        {
+            var codigo = enumLegacy.Value switch
+            {
+                MotivoRequisicaoVaga.AtenderDemanda             => MotivoRequisicaoVagaSeeder.CodAtenderDemanda,
+                MotivoRequisicaoVaga.PedidoDemissao             => MotivoRequisicaoVagaSeeder.CodPedidoDemissao,
+                MotivoRequisicaoVaga.DesligamentoSemJustaCausa  => MotivoRequisicaoVagaSeeder.CodDesligamentoSemJustaCausa,
+                MotivoRequisicaoVaga.CotaAprendiz               => MotivoRequisicaoVagaSeeder.CodCotaAprendiz,
+                MotivoRequisicaoVaga.TerminoContrato            => MotivoRequisicaoVagaSeeder.CodTerminoContrato,
+                MotivoRequisicaoVaga.ExpansaoBase               => MotivoRequisicaoVagaSeeder.CodExpansaoBase,
+                MotivoRequisicaoVaga.NovaUnidade                => MotivoRequisicaoVagaSeeder.CodNovaUnidade,
+                MotivoRequisicaoVaga.Movimentacao               => MotivoRequisicaoVagaSeeder.CodMovimentacao,
+                MotivoRequisicaoVaga.Afastamento                => MotivoRequisicaoVagaSeeder.CodAfastamento,
+                _ => null,
+            };
+
+            var cfg = codigo is null ? null : await _db.MotivosRequisicaoVagaConfig
+                .FirstOrDefaultAsync(x => x.Codigo == codigo, ct);
+
+            return (cfg?.Id, enumLegacy, cfg);
+        }
+
+        return (null, null, null);
+    }
+
+    /// <summary>Resolve o TipoDesligamento a partir do motivo (pelo código canônico do seed).</summary>
+    private static TipoDesligamento ResolverTipoDesligamento(SolicitacaoVaga s)
+    {
+        if (s.Motivo is not null)
+        {
+            return string.Equals(s.Motivo.Codigo, MotivoRequisicaoVagaSeeder.CodPedidoDemissao, StringComparison.OrdinalIgnoreCase)
+                ? TipoDesligamento.PedidoDemissao
+                : TipoDesligamento.SemJustaCausa;
+        }
+        return s.MotivoRequisicao == MotivoRequisicaoVaga.PedidoDemissao
+            ? TipoDesligamento.PedidoDemissao
+            : TipoDesligamento.SemJustaCausa;
+    }
 
     private static void ValidarCamposDesligamento(SolicitacaoVaga s)
     {
-        if (!IsMotivoDesligamento(s.MotivoRequisicao)) return;
+        if (!IsMotivoDesligamento(s)) return;
         if (!s.SubstituidoFuncionarioId.HasValue)
             throw new InvalidOperationException("Informe o funcionário que será desligado.");
         if (!s.DataDesligamento.HasValue)
@@ -369,13 +468,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
     private async Task CriarDesligamentoVinculadoAsync(SolicitacaoVaga vaga, CancellationToken ct)
     {
-        if (!IsMotivoDesligamento(vaga.MotivoRequisicao)) return;
+        if (!IsMotivoDesligamento(vaga)) return;
         if (vaga.DesligamentoVinculadoId.HasValue) return; // idempotente
         if (!vaga.SubstituidoFuncionarioId.HasValue || !vaga.DataDesligamento.HasValue) return;
 
-        var tipo = vaga.MotivoRequisicao == MotivoRequisicaoVaga.PedidoDemissao
-            ? TipoDesligamento.PedidoDemissao
-            : TipoDesligamento.SemJustaCausa;
+        var tipo = ResolverTipoDesligamento(vaga);
 
         var solicitanteNome = (await _db.Set<Funcionario>().AsNoTracking()
             .FirstOrDefaultAsync(f => f.Id == vaga.SolicitanteId, ct))?.Name ?? "gestor";
@@ -589,7 +686,17 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         // A.RH.013
         entity.TipoContrato = request.TipoContrato;
         entity.PrazoDias = request.PrazoDias;
-        entity.MotivoRequisicao = request.MotivoRequisicao;
+
+        var (motivoIdUpd, motivoEnumUpd, motivoConfigUpd) = await ResolveMotivoAsync(
+            request.MotivoRequisicaoId, request.MotivoRequisicao, ct);
+        entity.MotivoRequisicao = motivoEnumUpd;
+        entity.MotivoRequisicaoId = motivoIdUpd;
+        entity.Motivo = motivoConfigUpd;
+
+        var ehDesligamentoUpd = motivoConfigUpd is not null
+            ? motivoConfigUpd.EfeitoHeadcount is EfeitoHeadcount.Diminui or EfeitoHeadcount.Ambos
+            : IsMotivoDesligamentoLegacy(motivoEnumUpd);
+
         entity.CnhObrigatoria = request.CnhObrigatoria;
         entity.DisponibilidadeViagens = request.DisponibilidadeViagens;
         entity.EscalaTrabalho = request.EscalaTrabalho;
@@ -601,7 +708,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             entity.VagaId = request.VagaId;
 
         // Dados desligamento (limpa quando motivo não é de desligamento)
-        if (IsMotivoDesligamento(request.MotivoRequisicao))
+        if (ehDesligamentoUpd)
         {
             entity.DataDesligamento = request.DataDesligamento;
             entity.TipoAvisoPrevioDesligamento = request.TipoAvisoPrevioDesligamento;
@@ -631,7 +738,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         //   (a) se motivo passou a ser de desligamento e ainda não há vínculo → cria agora
         //   (b) se já existe vínculo e motivo ainda é de desligamento → atualiza dados
         //   (c) se já existe vínculo mas motivo deixou de ser de desligamento → cancela em cascata
-        if (IsMotivoDesligamento(entity.MotivoRequisicao))
+        if (IsMotivoDesligamento(entity))
         {
             if (!entity.DesligamentoVinculadoId.HasValue)
             {
@@ -669,9 +776,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             desligamento.Status != SolicitacaoStatus.PendenteAprovacao)
             return;
 
-        var tipo = vaga.MotivoRequisicao == MotivoRequisicaoVaga.PedidoDemissao
-            ? TipoDesligamento.PedidoDemissao
-            : TipoDesligamento.SemJustaCausa;
+        var tipo = ResolverTipoDesligamento(vaga);
 
         if (vaga.SubstituidoFuncionarioId.HasValue)
             desligamento.FuncionarioId = vaga.SubstituidoFuncionarioId.Value;
@@ -1747,6 +1852,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.TipoContrato,
         s.PrazoDias,
         s.MotivoRequisicao,
+        s.MotivoRequisicaoId,
+        s.Motivo?.Codigo,
+        s.Motivo?.Nome,
+        s.Motivo?.EfeitoHeadcount,
         s.CnhObrigatoria,
         s.DisponibilidadeViagens,
         s.EscalaTrabalho,

@@ -75,11 +75,6 @@ const SOLICITACAO_STATUS: Record<string, StatusInfo> = {
         descricao: "Aprovada pelos gestores e agora aguarda validação final da equipe de RH.",
         responsavel: "RH",
     },
-    AguardandoDecisaoRH: {
-        label: "Aguardando Decisão do RH",
-        descricao: "Aprovada pelo fluxo de gestores; o RH ainda não tomou a decisão de headcount (apenas Solicitações de Vaga).",
-        responsavel: "RH",
-    },
     PendenteAprovacaoAumentoHC: {
         label: "Pendente Aprovação de Aumento de HC",
         descricao: "O RH escalou para aprovação de aumento definitivo de headcount, aguardando aprovador configurado (apenas Solicitações de Vaga).",

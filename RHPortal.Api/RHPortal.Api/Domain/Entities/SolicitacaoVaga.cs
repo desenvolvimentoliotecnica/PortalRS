@@ -84,8 +84,16 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Prazo em dias (para Estágio e Temporário).</summary>
     public int? PrazoDias { get; set; }
 
-    /// <summary>Motivo estruturado da requisição.</summary>
+    /// <summary>Motivo estruturado da requisição (legado — mantido para compatibilidade com dados existentes).</summary>
+    /// <remarks>
+    /// Substituído por <see cref="MotivoRequisicaoId"/> que referencia a tabela parametrizável MotivosRequisicaoVagaConfig.
+    /// Após a migração completa dos dados, este campo deve ser removido.
+    /// </remarks>
     public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+
+    /// <summary>Motivo parametrizável da requisição (FK para MotivosRequisicaoVagaConfig).</summary>
+    public Guid? MotivoRequisicaoId { get; set; }
+    public MotivoRequisicaoVagaConfig? Motivo { get; set; }
 
     /// <summary>CNH obrigatória para a vaga.</summary>
     public bool CnhObrigatoria { get; set; }
