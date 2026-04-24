@@ -40,6 +40,10 @@ public sealed record CreateTenantRequest(
     [Required, MinLength(2), MaxLength(120)] string Name
 );
 
+public sealed record UpdateTenantNameRequest(
+    [Required, MinLength(2), MaxLength(120)] string Name
+);
+
 /// <summary>Status de migrações do banco do tenant (diferença em relação ao modelo atual).</summary>
 public sealed record TenantMigrationStatusResponse(
     string TenantId,

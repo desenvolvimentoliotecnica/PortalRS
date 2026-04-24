@@ -120,6 +120,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         var shouldNotify = false;
         var notifyCandidateId = Guid.Empty;
         var notifyTenantId = tenantContext.TenantId;
+        var talentoId = Guid.Empty;
 
         try
         {
@@ -137,6 +138,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     obs ?? existing.Obs,
                     OrigemTalento.Candidatura,
                     ct);
+                talentoId = talentoExisting.Id;
                 existing.TalentoId = talentoExisting.Id;
 
                 existing.VagaId = request.VagaId;
@@ -207,6 +209,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     obs,
                     OrigemTalento.Candidatura,
                     ct);
+                talentoId = talentoNew.Id;
 
                 var create = new CandidateCreateRequest(
                     request.Nome,
@@ -243,6 +246,19 @@ public sealed class PublicCandidaturasController : ControllerBase
                         request.Arquivo,
                         ct);
                 }
+            }
+
+            // Enfileira extração GPT do currículo no talento (best-effort, apenas PDF)
+            if (talentoId != Guid.Empty &&
+                request.Arquivo is { Length: > 0 } &&
+                request.Arquivo.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await using var cvStream = request.Arquivo.OpenReadStream();
+                    await talentoService.StartImportPdfAsync(talentoId, cvStream, request.Arquivo.FileName, enviarParaGpt: true, ct);
+                }
+                catch { /* best-effort: não falha a candidatura */ }
             }
 
             // ── Persistir respostas de campos personalizados ──

@@ -74,7 +74,7 @@ public sealed class MagicLinkService : IMagicLinkService
 
         var scheme = httpScheme ?? "http";
         var host = httpHost ?? "localhost";
-        var baseUrl = $"{scheme}://{host}:3000";
+        var baseUrl = $"{scheme}://{host}";
         var approveUrl = $"{baseUrl}/app/public/approve?token={token}&action=approve";
         var rejectUrl  = $"{baseUrl}/app/public/approve?token={token}&action=reject";
         var portalUrl  = $"{baseUrl}/rs/solicitacoes/{solicitacaoId}";

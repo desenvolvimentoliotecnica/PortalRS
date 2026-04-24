@@ -1,14 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ArrowLeft,
+    Check,
     Database,
     Loader2,
     LogIn,
+    Pencil,
     Sprout,
     Trash2,
     Users,
+    X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,6 +20,7 @@ import { confirmDialog } from "@/lib/confirm-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
 import { setAccessToken, setTenantId } from "@/lib/session";
@@ -105,6 +109,9 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
     const [detail, setDetail] = useState<TenantDetail | null>(null);
     const [busy, setBusy] = useState(false);
     const [activeTab, setActiveTab] = useState<TabKey>("geral");
+    const [editingName, setEditingName] = useState(false);
+    const [nameValue, setNameValue] = useState("");
+    const nameInputRef = useRef<HTMLInputElement>(null);
 
     const loadDetail = useCallback(async () => {
         setLoading(true);
@@ -130,6 +137,44 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
     useEffect(() => { void loadDetail(); }, [loadDetail]);
 
     /* ─── Actions ─── */
+
+    function startEditName() {
+        setNameValue(detail?.tenant.name ?? "");
+        setEditingName(true);
+        setTimeout(() => nameInputRef.current?.focus(), 0);
+    }
+
+    function cancelEditName() {
+        setEditingName(false);
+        setNameValue("");
+    }
+
+    async function handleRenameTenant() {
+        const newName = nameValue.trim();
+        if (!newName || newName === detail?.tenant.name) {
+            cancelEditName();
+            return;
+        }
+        setBusy(true);
+        try {
+            const updated = await fetchJson<TenantInfo>(
+                `/api/owner/tenants/${encodeURIComponent(tenantId)}`,
+                {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: newName }),
+                },
+            );
+            setDetail((prev) => prev ? { ...prev, tenant: updated } : prev);
+            setEditingName(false);
+            setNameValue("");
+            toast.success("Nome atualizado com sucesso.");
+        } catch (err) {
+            toast.error(`Erro: ${(err as Error).message}`);
+        } finally {
+            setBusy(false);
+        }
+    }
 
     async function handleApplyMigrations() {
         setBusy(true);
@@ -285,7 +330,36 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
                                 <dd className="font-mono font-medium">{tenant.tenantId}</dd>
 
                                 <dt className="text-sm font-semibold text-muted-foreground">Nome</dt>
-                                <dd className="font-medium">{tenant.name}</dd>
+                                <dd className="font-medium">
+                                    {editingName ? (
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                ref={nameInputRef}
+                                                value={nameValue}
+                                                onChange={(e) => setNameValue(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") void handleRenameTenant();
+                                                    if (e.key === "Escape") cancelEditName();
+                                                }}
+                                                className="h-8 max-w-xs"
+                                                disabled={busy}
+                                            />
+                                            <Button size="icon" variant="ghost" className="size-7" onClick={() => void handleRenameTenant()} disabled={busy}>
+                                                <Check className="size-4 text-emerald-600" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="size-7" onClick={cancelEditName} disabled={busy}>
+                                                <X className="size-4 text-muted-foreground" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <span>{tenant.name}</span>
+                                            <Button size="icon" variant="ghost" className="size-7" onClick={startEditName}>
+                                                <Pencil className="size-3.5 text-muted-foreground" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </dd>
 
                                 <dt className="text-sm font-semibold text-muted-foreground">Ativo</dt>
                                 <dd>{tenant.isActive ? <StatusBadge variant="success" label="Sim" /> : <StatusBadge variant="muted" label="Não" />}</dd>

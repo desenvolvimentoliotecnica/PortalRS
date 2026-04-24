@@ -67,7 +67,21 @@ public sealed record FuncionarioUpdateRequest(
     Guid? AreaId,
     Guid? JobPositionId,
     Guid? RequisitoCategoriaId,
-    [MaxLength(1000)] string? Notes
+    [MaxLength(1000)] string? Notes,
+    // Hierarquia
+    Guid? GestorDiretoId,
+    Guid? NivelHierarquicoId,
+    // Lotação / Centro de Custo
+    Guid? UnidadeLotacaoId,
+    Guid? CentroCustoId,
+    // Chaves TOTVS
+    [MaxLength(12)] string? CdnFuncionario,
+    [MaxLength(3)] string? CdnEmpresa,
+    [MaxLength(5)] string? CdnEstab,
+    // Dados pessoais
+    DateOnly? DataAdmissao,
+    DateOnly? DataNascimento,
+    [MaxLength(1)] string? Sexo
 );
 
 /// <summary>Request para atualizar apenas o gestor direto e nível hierárquico de um funcionário.</summary>
@@ -253,5 +267,9 @@ public sealed record FuncionarioResponse(
     string? CentroCustoDescricao,
     // Códigos para exibição
     string? UnidadeLotacaoCode,
-    string? CentroCustoCode
+    string? CentroCustoCode,
+    // Dados pessoais
+    DateOnly? DataAdmissao,
+    DateOnly? DataNascimento,
+    string? Sexo
 );

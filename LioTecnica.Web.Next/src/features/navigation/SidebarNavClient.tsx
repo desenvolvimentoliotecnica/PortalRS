@@ -340,7 +340,7 @@ const OPERACIONAL_ROUTES = new Set([
   "/gestao/desligamentos",
 ]);
 const CADASTROS_PESSOAS_ROUTES = new Set([
-  "/pessoas", "/funcionarios", "/bloqueiopessoa",
+  "/pessoas", "/funcionarios", "/bloqueiopessoa", "/talentos",
 ]);
 const CADASTROS_OPERACIONAIS_ROUTES = new Set([
   "/departamentos", "/areas", "/categorias", "/cargos",
@@ -370,7 +370,6 @@ const COLABORADOR_ROUTES = new Set([
 const HIDDEN_ROUTES = new Set([
   "/departamentos", "/gestao/pipeline",
   "/portalvagas",
-  "/talentos",
   "/gestao/projetos",
   "/admissao/integracao",
   // Pesquisas antigas removidas — unificadas em /feedback/pesquisas

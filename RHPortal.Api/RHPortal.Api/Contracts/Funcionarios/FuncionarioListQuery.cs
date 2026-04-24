@@ -14,5 +14,8 @@ public sealed record FuncionarioListQuery(
     string Dir = "asc",
     bool? HasMissingData = null,
     Guid? UnidadeLotacaoId = null,
-    Guid? CentroCustoId = null
+    Guid? CentroCustoId = null,
+    Guid? GestorDiretoId = null,
+    Guid? OnlyFuncionarioId = null,
+    IReadOnlyList<Guid>? GestorUnidadeIds = null
 );

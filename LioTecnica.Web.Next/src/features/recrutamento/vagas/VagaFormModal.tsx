@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { getTenantId } from "@/lib/session";
 import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
 import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
@@ -1603,11 +1604,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                     <div>
                       <div className="text-sm font-semibold">Link do Portal de Candidatura</div>
                       <div className="text-xs text-muted-foreground mt-0.5 font-mono truncate max-w-xs">
-                        {typeof window !== "undefined" ? `${window.location.origin}/portalvagas?vagaId=${draft.id}` : `/portalvagas?vagaId=${draft.id}`}
+                        {typeof window !== "undefined" ? `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(getTenantId() ?? "")}&vagaId=${encodeURIComponent(draft.id)}` : `/app/PortalVagas?vagaId=${draft.id}`}
                       </div>
                     </div>
                     <Button size="sm" variant="outline" type="button" onClick={() => {
-                      const url = `${window.location.origin}/portalvagas?vagaId=${draft.id}`;
+                      const tenantId = getTenantId() ?? "";
+                      const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(draft.id)}`;
                       void navigator.clipboard.writeText(url).then(() => toast.success("Link copiado!"));
                     }}>
                       Copiar link

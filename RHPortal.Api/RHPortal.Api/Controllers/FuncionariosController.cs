@@ -36,8 +36,50 @@ public sealed class FuncionariosController : ControllerBase
     public async Task<ActionResult<PagedResult<FuncionarioGridRowResponse>>> List(
         [FromQuery] FuncionarioListQuery query,
         [FromServices] IListFuncionariosHandler handler,
+        [FromServices] ICurrentUserContext userContext,
+        [FromServices] AppDbContext db,
         CancellationToken ct)
-        => Ok(await handler.HandleAsync(query, ct));
+    {
+        if (!userContext.IsAdmin && !userContext.IsRH)
+        {
+            if (userContext.IsInRole("Gestor"))
+            {
+                var gestorId = userContext.FuncionarioId;
+                if (!gestorId.HasValue)
+                    return Ok(new PagedResult<FuncionarioGridRowResponse>([], 1, query.PageSize, 0, 0));
+
+                // Resolve unidades de lotação do gestor (mesma lógica do GestaoController.MeuTime)
+                var todasUnidades = await db.UnidadesLotacao.AsNoTracking()
+                    .Where(u => u.IsActive)
+                    .Select(u => new { u.Id, u.ParentId, u.OwnerFuncionarioId })
+                    .ToListAsync(ct);
+
+                var unidadesDoGestor = new HashSet<Guid>();
+                var fila = new Queue<Guid>(
+                    todasUnidades.Where(u => u.OwnerFuncionarioId == gestorId).Select(u => u.Id));
+                while (fila.Count > 0)
+                {
+                    var unitId = fila.Dequeue();
+                    if (!unidadesDoGestor.Add(unitId)) continue;
+                    foreach (var child in todasUnidades.Where(u => u.ParentId == unitId))
+                        fila.Enqueue(child.Id);
+                }
+
+                query = query with
+                {
+                    GestorUnidadeIds = unidadesDoGestor.Count > 0 ? unidadesDoGestor.ToList() : null,
+                };
+            }
+            else if (userContext.IsInRole("Colaborador"))
+            {
+                if (!userContext.FuncionarioId.HasValue)
+                    return Ok(new PagedResult<FuncionarioGridRowResponse>([], 1, query.PageSize, 0, 0));
+                query = query with { OnlyFuncionarioId = userContext.FuncionarioId.Value };
+            }
+        }
+
+        return Ok(await handler.HandleAsync(query, ct));
+    }
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(FuncionarioResponse), StatusCodes.Status200OK)]
