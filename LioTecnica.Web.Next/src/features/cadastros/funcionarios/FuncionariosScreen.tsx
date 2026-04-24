@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Search, RefreshCw, Trash2, Eye, Download, Upload, AlertTriangle, ChevronUp, ChevronDown, ChevronsUpDown, X, UserCircle } from "lucide-react";
+import { Search, RefreshCw, Trash2, Eye, Download, Upload, AlertTriangle, ChevronUp, ChevronDown, ChevronsUpDown, X, UserCircle, Pencil } from "lucide-react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
@@ -63,23 +63,67 @@ interface FuncDetail {
     phone?: string;
     status: string;
     headcount: number;
+    unitId?: string;
+    unitName?: string;
+    areaId?: string;
+    areaName?: string;
+    jobPositionId?: string;
     jobPositionName?: string;
     jobPositionCode?: string;
+    requisitoCategoriaId?: string;
+    requisitoCategoriaName?: string;
     notes?: string;
     createdAtUtc: string;
     updatedAtUtc: string;
     // Hierarquia
+    gestorDiretoId?: string;
     gestorDiretoNome?: string;
+    nivelHierarquicoId?: string;
     nivelHierarquicoNome?: string;
     // Lotação TOTVS
+    unidadeLotacaoId?: string;
     unidadeLotacaoDescricao?: string;
     unidadeLotacaoCode?: string;
+    centroCustoId?: string;
     centroCustoDescricao?: string;
     centroCustoCode?: string;
     // Chaves TOTVS
     cdnFuncionario?: string;
     cdnEmpresa?: string;
     cdnEstab?: string;
+    // Dados pessoais
+    dataAdmissao?: string;
+    dataNascimento?: string;
+    sexo?: string;
+}
+
+interface LookupOption { id: string; label: string; }
+interface EditForm {
+    name: string;
+    email: string;
+    phone: string;
+    status: string;
+    headcount: number;
+    // org
+    unitId: string; unitLabel: string;
+    areaId: string; areaLabel: string;
+    jobPositionId: string; jobPositionLabel: string;
+    requisitoCategoriaId: string; requisitoCategoriaLabel: string;
+    // hierarquia
+    gestorDiretoId: string; gestorDiretoLabel: string;
+    nivelHierarquicoId: string; nivelHierarquicoLabel: string;
+    // lotação
+    unidadeLotacaoId: string; unidadeLotacaoLabel: string;
+    centroCustoId: string; centroCustoLabel: string;
+    // totvs
+    cdnFuncionario: string;
+    cdnEmpresa: string;
+    cdnEstab: string;
+    // pessoal
+    dataAdmissao: string;
+    dataNascimento: string;
+    sexo: string;
+    notes: string;
 }
 
 interface ImportRow {
@@ -171,16 +215,18 @@ function FilterAutocomplete({
     value,
     onChange,
     placeholder,
+    initialLabel,
 }: {
     fetchOptions: (search: string) => Promise<{ id: string; label: string }[]>;
     value: string;
     onChange: (id: string, label: string) => void;
     placeholder: string;
+    initialLabel?: string;
 }) {
     const [inputValue, setInputValue] = useState("");
     const [options, setOptions] = useState<{ id: string; label: string }[]>([]);
     const [open, setOpen] = useState(false);
-    const [selectedLabel, setSelectedLabel] = useState("");
+    const [selectedLabel, setSelectedLabel] = useState(initialLabel ?? "");
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Load options on mount (empty search = first 50 sorted by code)
@@ -199,10 +245,12 @@ function FilterAutocomplete({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [inputValue, open]);
 
-    // Clear selected label when value is cleared externally
+    // Sync when value+initialLabel change together (e.g. opening a different record)
     useEffect(() => {
         if (!value) setSelectedLabel("");
-    }, [value]);
+        else if (initialLabel) setSelectedLabel(initialLabel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value, initialLabel]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -280,9 +328,15 @@ export default function FuncionariosScreen() {
     const [detailId, setDetailId] = useState<string | null>(null);
     const [detailData, setDetailData] = useState<FuncDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
-    const [detailTab, setDetailTab] = useState<"dados" | "historico">("dados");
+    const [detailTab, setDetailTab] = useState<"dados" | "editar" | "historico">("dados");
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyItems, setHistoryItems] = useState<EntityChangeListItem[]>([]);
+
+    const EMPTY_EDIT_FORM: EditForm = { name: "", email: "", phone: "", status: "Active", headcount: 1, unitId: "", unitLabel: "", areaId: "", areaLabel: "", jobPositionId: "", jobPositionLabel: "", requisitoCategoriaId: "", requisitoCategoriaLabel: "", gestorDiretoId: "", gestorDiretoLabel: "", nivelHierarquicoId: "", nivelHierarquicoLabel: "", unidadeLotacaoId: "", unidadeLotacaoLabel: "", centroCustoId: "", centroCustoLabel: "", cdnFuncionario: "", cdnEmpresa: "", cdnEstab: "", dataAdmissao: "", dataNascimento: "", sexo: "", notes: "" };
+    const [editForm, setEditForm] = useState<EditForm>(EMPTY_EDIT_FORM);
+    const [editOptions, setEditOptions] = useState<{ units: LookupOption[]; areas: LookupOption[]; jobPositions: LookupOption[]; nivelHierarquicos: LookupOption[]; requisitoCategorias: LookupOption[] } | null>(null);
+    const [editOptionsLoading, setEditOptionsLoading] = useState(false);
+    const [editSaving, setEditSaving] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importRows, setImportRows] = useState<ImportRow[]>([]);
@@ -296,6 +350,22 @@ export default function FuncionariosScreen() {
     const [totalPages, setTotalPages] = useState(1);
     const [sort, setSort] = useState("funcionario");
     const [dir, setDir] = useState("asc");
+
+    // Abre detalhe via evento customizado (quando já na tela) ou sessionStorage (ao navegar até ela)
+    useEffect(() => {
+        const pending = sessionStorage.getItem("renderrh.pendingFuncionarioDetail");
+        if (pending) {
+            sessionStorage.removeItem("renderrh.pendingFuncionarioDetail");
+            void openDetail(pending);
+        }
+
+        const handler = (e: Event) => {
+            const id = (e as CustomEvent<{ id: string }>).detail?.id;
+            if (id) void openDetail(id);
+        };
+        window.addEventListener("renderrh:openFuncionario", handler);
+        return () => window.removeEventListener("renderrh:openFuncionario", handler);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const syncList = useCallback(async (opts: { page: number; pageSize: number; search?: string; status?: string; sort?: string; dir?: string; lotacao?: string; centroCusto?: string }) => {
         const nextPage = opts.page;
@@ -399,17 +469,110 @@ export default function FuncionariosScreen() {
         return Array.isArray(items) ? items.map((o) => ({ id: String(o.id), label: o.displayLabel ?? "" })) : [];
     }, []);
 
+    /* Edit form autocomplete callbacks */
+    const fetchEditUnits = useCallback(async (search: string) => {
+        const opts = editOptions?.units ?? [];
+        const lower = search.toLowerCase();
+        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
+    }, [editOptions?.units]);
+
+    const fetchEditAreas = useCallback(async (search: string) => {
+        const opts = editOptions?.areas ?? [];
+        const lower = search.toLowerCase();
+        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
+    }, [editOptions?.areas]);
+
+    const fetchEditJobPositions = useCallback(async (search: string) => {
+        const opts = editOptions?.jobPositions ?? [];
+        const lower = search.toLowerCase();
+        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
+    }, [editOptions?.jobPositions]);
+
+    const fetchEditRequisitoCategorias = useCallback(async (search: string) => {
+        const opts = editOptions?.requisitoCategorias ?? [];
+        const lower = search.toLowerCase();
+        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
+    }, [editOptions?.requisitoCategorias]);
+
+    const fetchEditNivelHierarquico = useCallback(async (search: string) => {
+        const opts = editOptions?.nivelHierarquicos ?? [];
+        const lower = search.toLowerCase();
+        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
+    }, [editOptions?.nivelHierarquicos]);
+
+    const fetchEditGestorDireto = useCallback(async (search: string) => {
+        const params = new URLSearchParams({ onlyActive: "true", pageSize: "30" });
+        if (search) params.set("q", search);
+        const res = await fetchJson<{ items?: { id: string; nome: string }[] }>(`/api/lookup/funcionarios?${params}`);
+        return (res?.items ?? []).map((o) => ({ id: String(o.id), label: o.nome }));
+    }, []);
+
+    const fetchEditUnidadeLotacao = useCallback(async (search: string) => {
+        const params = new URLSearchParams();
+        if (search) params.set("search", search);
+        const items = await fetchJson<{ id: string; displayLabel: string }[]>(`/api/unidades-lotacao/lookup?${params}`);
+        return Array.isArray(items) ? items.map((o) => ({ id: String(o.id), label: o.displayLabel ?? "" })) : [];
+    }, []);
+
+    const fetchEditCentroCusto = useCallback(async (search: string) => {
+        const params = new URLSearchParams();
+        if (search) params.set("search", search);
+        const items = await fetchJson<{ id: string; displayLabel: string }[]>(`/api/centros-custo/lookup?${params}`);
+        return Array.isArray(items) ? items.map((o) => ({ id: String(o.id), label: o.displayLabel ?? "" })) : [];
+    }, []);
+
     /* Detail */
     async function loadDetailHistory(id: string) {
         setHistoryLoading(true);
         setHistoryItems([]);
         try {
             const qs = new URLSearchParams({ entityName: "Funcionario", entityId: id, page: "1", pageSize: "50" });
-            const payload = await fetchJson<Record<string, unknown>>(`/api/audit/entity-changes?${qs.toString()}`);
+            const res = await apiFetch(`/api/audit/entity-changes?${qs.toString()}`);
+            if (!res.ok) { setHistoryItems([]); return; } // 403 para roles sem permissão — ignora silenciosamente
+            const payload = await res.json() as Record<string, unknown>;
             const list = Array.isArray(payload?.items) ? (payload.items as EntityChangeListItem[]) : [];
             setHistoryItems(list);
         } catch { setHistoryItems([]); }
         finally { setHistoryLoading(false); }
+    }
+
+    function mapFuncDetail(d: Record<string, unknown>, id: string): FuncDetail {
+        return {
+            id: String(d.id ?? id),
+            name: String(d.name ?? ""),
+            email: d.email ? String(d.email) : undefined,
+            phone: d.phone ? String(d.phone) : undefined,
+            status: String(d.status ?? ""),
+            headcount: typeof d.headcount === "number" ? d.headcount : 0,
+            unitId: d.unitId ? String(d.unitId) : undefined,
+            unitName: d.unitName ? String(d.unitName) : undefined,
+            areaId: d.areaId ? String(d.areaId) : undefined,
+            areaName: d.areaName ? String(d.areaName) : undefined,
+            jobPositionId: d.jobPositionId ? String(d.jobPositionId) : undefined,
+            jobPositionName: d.jobPositionName ? String(d.jobPositionName) : undefined,
+            jobPositionCode: d.jobPositionCode ? String(d.jobPositionCode) : undefined,
+            requisitoCategoriaId: d.requisitoCategoriaId ? String(d.requisitoCategoriaId) : undefined,
+            requisitoCategoriaName: d.requisitoCategoriaName ? String(d.requisitoCategoriaName) : undefined,
+            notes: d.notes ? String(d.notes) : undefined,
+            createdAtUtc: String(d.createdAtUtc ?? ""),
+            updatedAtUtc: String(d.updatedAtUtc ?? ""),
+            gestorDiretoId: d.gestorDiretoId ? String(d.gestorDiretoId) : undefined,
+            gestorDiretoNome: d.gestorDiretoNome ? String(d.gestorDiretoNome) : undefined,
+            nivelHierarquicoId: d.nivelHierarquicoId ? String(d.nivelHierarquicoId) : undefined,
+            nivelHierarquicoNome: d.nivelHierarquicoNome ? String(d.nivelHierarquicoNome) : undefined,
+            unidadeLotacaoId: d.unidadeLotacaoId ? String(d.unidadeLotacaoId) : undefined,
+            unidadeLotacaoDescricao: d.unidadeLotacaoDescricao ? String(d.unidadeLotacaoDescricao) : undefined,
+            unidadeLotacaoCode: d.unidadeLotacaoCode ? String(d.unidadeLotacaoCode) : undefined,
+            centroCustoId: d.centroCustoId ? String(d.centroCustoId) : undefined,
+            centroCustoDescricao: d.centroCustoDescricao ? String(d.centroCustoDescricao) : undefined,
+            centroCustoCode: d.centroCustoCode ? String(d.centroCustoCode) : undefined,
+            cdnFuncionario: d.cdnFuncionario ? String(d.cdnFuncionario) : undefined,
+            cdnEmpresa: d.cdnEmpresa ? String(d.cdnEmpresa) : undefined,
+            cdnEstab: d.cdnEstab ? String(d.cdnEstab) : undefined,
+            dataAdmissao: d.dataAdmissao ? String(d.dataAdmissao) : undefined,
+            dataNascimento: d.dataNascimento ? String(d.dataNascimento) : undefined,
+            sexo: d.sexo ? String(d.sexo) : undefined,
+        };
     }
 
     async function openDetail(id: string) {
@@ -421,33 +584,104 @@ export default function FuncionariosScreen() {
         void loadDetailHistory(id);
         try {
             const d = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${id}`);
-            setDetailData({
-                id: String(d.id ?? id),
-                name: String(d.name ?? ""),
-                email: d.email ? String(d.email) : undefined,
-                phone: d.phone ? String(d.phone) : undefined,
-                status: String(d.status ?? ""),
-                headcount: typeof d.headcount === "number" ? d.headcount : 0,
-                jobPositionName: d.jobPositionName ? String(d.jobPositionName) : undefined,
-                jobPositionCode: d.jobPositionCode ? String(d.jobPositionCode) : undefined,
-                notes: d.notes ? String(d.notes) : undefined,
-                createdAtUtc: String(d.createdAtUtc ?? ""),
-                updatedAtUtc: String(d.updatedAtUtc ?? ""),
-                gestorDiretoNome: d.gestorDiretoNome ? String(d.gestorDiretoNome) : undefined,
-                nivelHierarquicoNome: d.nivelHierarquicoNome ? String(d.nivelHierarquicoNome) : undefined,
-                unidadeLotacaoDescricao: d.unidadeLotacaoDescricao ? String(d.unidadeLotacaoDescricao) : undefined,
-                unidadeLotacaoCode: d.unidadeLotacaoCode ? String(d.unidadeLotacaoCode) : undefined,
-                centroCustoDescricao: d.centroCustoDescricao ? String(d.centroCustoDescricao) : undefined,
-                centroCustoCode: d.centroCustoCode ? String(d.centroCustoCode) : undefined,
-                cdnFuncionario: d.cdnFuncionario ? String(d.cdnFuncionario) : undefined,
-                cdnEmpresa: d.cdnEmpresa ? String(d.cdnEmpresa) : undefined,
-                cdnEstab: d.cdnEstab ? String(d.cdnEstab) : undefined,
-            });
+            setDetailData(mapFuncDetail(d, id));
         } catch { toast.error("Falha ao carregar dados do funcionário."); setDetailId(null); }
         finally { setDetailLoading(false); }
     }
 
-    function closeDetail() { setDetailId(null); setDetailData(null); setHistoryItems([]); setDetailTab("dados"); }
+    function closeDetail() { setDetailId(null); setDetailData(null); setHistoryItems([]); setDetailTab("dados"); setEditForm(EMPTY_EDIT_FORM); }
+
+    async function enterEditMode(data: FuncDetail) {
+        setEditForm({
+            name: data.name,
+            email: data.email ?? "",
+            phone: data.phone ?? "",
+            status: data.status,
+            headcount: data.headcount,
+            unitId: data.unitId ?? "", unitLabel: data.unitName ?? "",
+            areaId: data.areaId ?? "", areaLabel: data.areaName ?? "",
+            jobPositionId: data.jobPositionId ?? "", jobPositionLabel: data.jobPositionName ? (data.jobPositionCode ? `${data.jobPositionCode} - ${data.jobPositionName}` : data.jobPositionName) : "",
+            requisitoCategoriaId: data.requisitoCategoriaId ?? "", requisitoCategoriaLabel: data.requisitoCategoriaName ?? "",
+            gestorDiretoId: data.gestorDiretoId ?? "", gestorDiretoLabel: data.gestorDiretoNome ?? "",
+            nivelHierarquicoId: data.nivelHierarquicoId ?? "", nivelHierarquicoLabel: data.nivelHierarquicoNome ?? "",
+            unidadeLotacaoId: data.unidadeLotacaoId ?? "", unidadeLotacaoLabel: data.unidadeLotacaoDescricao ? (data.unidadeLotacaoCode ? `${data.unidadeLotacaoCode} - ${data.unidadeLotacaoDescricao}` : data.unidadeLotacaoDescricao) : "",
+            centroCustoId: data.centroCustoId ?? "", centroCustoLabel: data.centroCustoDescricao ? (data.centroCustoCode ? `${data.centroCustoCode} - ${data.centroCustoDescricao}` : data.centroCustoDescricao) : "",
+            cdnFuncionario: data.cdnFuncionario ?? "",
+            cdnEmpresa: data.cdnEmpresa ?? "",
+            cdnEstab: data.cdnEstab ?? "",
+            dataAdmissao: data.dataAdmissao ?? "",
+            dataNascimento: data.dataNascimento ?? "",
+            sexo: data.sexo ?? "",
+            notes: data.notes ?? "",
+        });
+        setDetailTab("editar");
+        if (!editOptions) {
+            setEditOptionsLoading(true);
+            try {
+                const [units, areas, jobPositions, nivelHierarquicos, requisitoCategorias] = await Promise.all([
+                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/units"),
+                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/areas"),
+                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/job-positions"),
+                    fetchJson<{ id: string; nome: string }[]>("/api/niveis-hierarquicos"),
+                    fetchJson<{ id: string; code: string; name: string }[]>("/api/requisito-categorias"),
+                ]);
+                setEditOptions({
+                    units: (units ?? []).map((u) => ({ id: String(u.id), label: u.code ? `${u.code} - ${u.name}` : u.name })),
+                    areas: (areas ?? []).map((a) => ({ id: String(a.id), label: a.name })),
+                    jobPositions: (jobPositions ?? []).map((j) => ({ id: String(j.id), label: j.code ? `${j.code} - ${j.name}` : j.name })),
+                    nivelHierarquicos: (nivelHierarquicos ?? []).map((n) => ({ id: String(n.id), label: n.nome })),
+                    requisitoCategorias: (requisitoCategorias ?? []).map((r) => ({ id: String(r.id), label: r.code ? `${r.code} - ${r.name}` : r.name })),
+                });
+            } catch {
+                toast.error("Falha ao carregar opções de edição.");
+            } finally {
+                setEditOptionsLoading(false);
+            }
+        }
+    }
+
+    async function saveEdit() {
+        if (!detailId || !detailData) return;
+        setEditSaving(true);
+        try {
+            const body = {
+                name: editForm.name.trim(),
+                email: editForm.email.trim() || null,
+                phone: editForm.phone.trim() || null,
+                status: editForm.status,
+                headcount: editForm.headcount,
+                unitId: editForm.unitId || null,
+                areaId: editForm.areaId || null,
+                jobPositionId: editForm.jobPositionId || null,
+                requisitoCategoriaId: editForm.requisitoCategoriaId || null,
+                notes: editForm.notes.trim() || null,
+                gestorDiretoId: editForm.gestorDiretoId || null,
+                nivelHierarquicoId: editForm.nivelHierarquicoId || null,
+                unidadeLotacaoId: editForm.unidadeLotacaoId || null,
+                centroCustoId: editForm.centroCustoId || null,
+                cdnFuncionario: editForm.cdnFuncionario.trim() || null,
+                cdnEmpresa: editForm.cdnEmpresa.trim() || null,
+                cdnEstab: editForm.cdnEstab.trim() || null,
+                dataAdmissao: editForm.dataAdmissao || null,
+                dataNascimento: editForm.dataNascimento || null,
+                sexo: editForm.sexo || null,
+            };
+            const updated = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${detailId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            const mapped = mapFuncDetail(updated, detailId);
+            setDetailData(mapped);
+            setDetailTab("dados");
+            toast.success("Funcionário atualizado com sucesso.");
+            void syncList({ page, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter });
+        } catch (e) {
+            toast.error(`Falha ao salvar: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setEditSaving(false);
+        }
+    }
 
     /* Delete */
     async function confirmDelete() {
@@ -733,13 +967,14 @@ export default function FuncionariosScreen() {
                 <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{detailData?.name ?? "Funcionário"}</DialogTitle>
-                        <DialogDescription>Dados do colaborador. Somente leitura.</DialogDescription>
+                        <DialogDescription>{detailTab === "editar" ? "Edite os dados do colaborador." : "Dados do colaborador."}</DialogDescription>
                     </DialogHeader>
 
                     <div className="flex flex-wrap gap-2">
                         {(
                             [
                                 { k: "dados", label: "Dados" },
+                                { k: "editar", label: "Editar" },
                                 { k: "historico", label: "Histórico" },
                             ] as const
                         ).map((t) => (
@@ -748,8 +983,13 @@ export default function FuncionariosScreen() {
                                 type="button"
                                 size="sm"
                                 variant={detailTab === t.k ? "default" : "outline"}
-                                onClick={() => setDetailTab(t.k)}
+                                onClick={() => {
+                                    if (t.k === "editar" && detailData) { void enterEditMode(detailData); }
+                                    else setDetailTab(t.k);
+                                }}
+                                disabled={detailLoading}
                             >
+                                {t.k === "editar" && <Pencil className="size-3 mr-1" />}
                                 {t.label}
                             </Button>
                         ))}
@@ -770,15 +1010,12 @@ export default function FuncionariosScreen() {
                                 return missing.length > 0 ? (
                                     <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                                         <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                                        <div>
-                                            <span className="font-semibold">Dados incompletos: </span>
-                                            {missing.join(", ")}
-                                        </div>
+                                        <div><span className="font-semibold">Dados incompletos: </span>{missing.join(", ")}</div>
                                     </div>
                                 ) : null;
                             })()}
 
-                            {/* Seção 1 — Identificação */}
+                            {/* Identificação */}
                             <div>
                                 <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</p>
                                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
@@ -786,79 +1023,57 @@ export default function FuncionariosScreen() {
                                         <dt className="text-xs font-medium text-muted-foreground">Nome</dt>
                                         <dd className="mt-0.5 text-sm font-semibold">{detailData.name}</dd>
                                     </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">E-mail</dt>
-                                        <dd className="mt-0.5 text-sm">{detailData.email || "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Telefone</dt>
-                                        <dd className="mt-0.5 text-sm">{detailData.phone || "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Status</dt>
-                                        <dd className="mt-0.5">{statusBadge(detailData.status)}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Headcount</dt>
-                                        <dd className="mt-0.5 text-sm">{detailData.headcount}</dd>
-                                    </div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">E-mail</dt><dd className="mt-0.5 text-sm">{detailData.email || "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Telefone</dt><dd className="mt-0.5 text-sm">{detailData.phone || "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Status</dt><dd className="mt-0.5">{statusBadge(detailData.status)}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Headcount</dt><dd className="mt-0.5 text-sm">{detailData.headcount}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Data de Admissão</dt><dd className="mt-0.5 text-sm">{detailData.dataAdmissao ? new Date(detailData.dataAdmissao + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Data de Nascimento</dt><dd className="mt-0.5 text-sm">{detailData.dataNascimento ? new Date(detailData.dataNascimento + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Sexo</dt><dd className="mt-0.5 text-sm">{detailData.sexo === "M" ? "Masculino" : detailData.sexo === "F" ? "Feminino" : "—"}</dd></div>
                                 </dl>
                             </div>
 
                             <hr className="border-border/40" />
 
-                            {/* Seção 2 — Organização Interna */}
+                            {/* Organização */}
                             <div>
-                                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Organização Interna</p>
+                                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Organização</p>
                                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Cargo</dt>
-                                        <dd className="mt-0.5 text-sm">{detailData.jobPositionName ? (detailData.jobPositionCode ? `${detailData.jobPositionCode} - ${detailData.jobPositionName}` : detailData.jobPositionName) : "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Gestor Direto</dt>
-                                        <dd className="mt-0.5 text-sm">{detailData.gestorDiretoNome || "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Nível do Cargo</dt>
-                                        <dd className="mt-0.5 text-sm">{detailData.nivelHierarquicoNome || "—"}</dd>
-                                    </div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Unidade</dt><dd className="mt-0.5 text-sm">{detailData.unitName || "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Área</dt><dd className="mt-0.5 text-sm">{detailData.areaName || "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Cargo</dt><dd className="mt-0.5 text-sm">{detailData.jobPositionName ? (detailData.jobPositionCode ? `${detailData.jobPositionCode} - ${detailData.jobPositionName}` : detailData.jobPositionName) : "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Função</dt><dd className="mt-0.5 text-sm">{detailData.requisitoCategoriaName || "—"}</dd></div>
                                 </dl>
                             </div>
 
                             <hr className="border-border/40" />
 
-                            {/* Seção 3 — Lotação + Integração TOTVS */}
+                            {/* Hierarquia */}
                             <div>
-                                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Integração TOTVS Datasul</p>
+                                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Hierarquia</p>
                                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-                                    <div className="col-span-2 sm:col-span-3">
-                                        <dt className="text-xs font-medium text-muted-foreground">Unidade de Lotação</dt>
-                                        <dd className="mt-0.5 text-sm">{detailData.unidadeLotacaoDescricao ? (detailData.unidadeLotacaoCode ? `${detailData.unidadeLotacaoCode} - ${detailData.unidadeLotacaoDescricao}` : detailData.unidadeLotacaoDescricao) : "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Matrícula</dt>
-                                        <dd className="mt-0.5 font-mono text-sm">{detailData.cdnFuncionario || "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Empresa</dt>
-                                        <dd className="mt-0.5 font-mono text-sm">{detailData.cdnEmpresa || "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Estabelecimento</dt>
-                                        <dd className="mt-0.5 font-mono text-sm">{detailData.cdnEstab || "—"}</dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-xs font-medium text-muted-foreground">Centro de Custo</dt>
-                                        <dd className="mt-0.5 text-sm">{detailData.centroCustoDescricao ? (detailData.centroCustoCode ? `${detailData.centroCustoCode} - ${detailData.centroCustoDescricao}` : detailData.centroCustoDescricao) : "—"}</dd>
-                                    </div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Gestor Direto</dt><dd className="mt-0.5 text-sm">{detailData.gestorDiretoNome || "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Nível Hierárquico</dt><dd className="mt-0.5 text-sm">{detailData.nivelHierarquicoNome || "—"}</dd></div>
+                                </dl>
+                            </div>
+
+                            <hr className="border-border/40" />
+
+                            {/* Lotação TOTVS */}
+                            <div>
+                                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lotação TOTVS Datasul</p>
+                                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                                    <div className="col-span-2 sm:col-span-3"><dt className="text-xs font-medium text-muted-foreground">Unidade de Lotação</dt><dd className="mt-0.5 text-sm">{detailData.unidadeLotacaoDescricao ? (detailData.unidadeLotacaoCode ? `${detailData.unidadeLotacaoCode} - ${detailData.unidadeLotacaoDescricao}` : detailData.unidadeLotacaoDescricao) : "—"}</dd></div>
+                                    <div className="col-span-2 sm:col-span-3"><dt className="text-xs font-medium text-muted-foreground">Centro de Custo</dt><dd className="mt-0.5 text-sm">{detailData.centroCustoDescricao ? (detailData.centroCustoCode ? `${detailData.centroCustoCode} - ${detailData.centroCustoDescricao}` : detailData.centroCustoDescricao) : "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Matrícula</dt><dd className="mt-0.5 font-mono text-sm">{detailData.cdnFuncionario || "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Empresa</dt><dd className="mt-0.5 font-mono text-sm">{detailData.cdnEmpresa || "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Estabelecimento</dt><dd className="mt-0.5 font-mono text-sm">{detailData.cdnEstab || "—"}</dd></div>
                                 </dl>
                             </div>
 
                             {(detailData.notes || detailData.createdAtUtc) && (
                                 <>
                                     <hr className="border-border/40" />
-                                    {/* Seção 4 — Observações e Auditoria */}
                                     <div>
                                         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações e Auditoria</p>
                                         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
@@ -868,19 +1083,160 @@ export default function FuncionariosScreen() {
                                                     <dd className="mt-0.5 text-sm whitespace-pre-line">{detailData.notes}</dd>
                                                 </div>
                                             )}
-                                            <div>
-                                                <dt className="text-xs font-medium text-muted-foreground">Criado em</dt>
-                                                <dd className="mt-0.5 text-sm">{fmt(detailData.createdAtUtc)}</dd>
-                                            </div>
-                                            <div>
-                                                <dt className="text-xs font-medium text-muted-foreground">Atualizado em</dt>
-                                                <dd className="mt-0.5 text-sm">{fmt(detailData.updatedAtUtc)}</dd>
-                                            </div>
+                                            <div><dt className="text-xs font-medium text-muted-foreground">Criado em</dt><dd className="mt-0.5 text-sm">{fmt(detailData.createdAtUtc)}</dd></div>
+                                            <div><dt className="text-xs font-medium text-muted-foreground">Atualizado em</dt><dd className="mt-0.5 text-sm">{fmt(detailData.updatedAtUtc)}</dd></div>
                                         </dl>
                                     </div>
                                 </>
                             )}
                         </div>
+                    ) : null}
+
+                    {detailTab === "editar" ? (
+                        editOptionsLoading ? (
+                            <div className="py-10 text-center text-sm text-muted-foreground">Carregando opções…</div>
+                        ) : (
+                            <div className="space-y-5">
+                                {/* Identificação */}
+                                <div>
+                                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</p>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Nome <span className="text-destructive">*</span></label>
+                                            <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nome completo" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">E-mail</label>
+                                            <Input type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} placeholder="email@empresa.com" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Telefone</label>
+                                            <Input value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} placeholder="(00) 00000-0000" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Status</label>
+                                            <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={editForm.status} onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}>
+                                                <option value="Active">Ativo</option>
+                                                <option value="Inactive">Inativo</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Headcount</label>
+                                            <Input type="number" min={0} value={editForm.headcount} onChange={(e) => setEditForm((f) => ({ ...f, headcount: parseInt(e.target.value, 10) || 0 }))} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Data de Admissão</label>
+                                            <Input type="date" value={editForm.dataAdmissao} onChange={(e) => setEditForm((f) => ({ ...f, dataAdmissao: e.target.value }))} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Data de Nascimento</label>
+                                            <Input type="date" value={editForm.dataNascimento} onChange={(e) => setEditForm((f) => ({ ...f, dataNascimento: e.target.value }))} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Sexo</label>
+                                            <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={editForm.sexo} onChange={(e) => setEditForm((f) => ({ ...f, sexo: e.target.value }))}>
+                                                <option value="">— Não informado —</option>
+                                                <option value="M">Masculino</option>
+                                                <option value="F">Feminino</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr className="border-border/40" />
+
+                                {/* Organização */}
+                                <div>
+                                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Organização</p>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Unidade</label>
+                                            <FilterAutocomplete fetchOptions={fetchEditUnits} value={editForm.unitId} initialLabel={editForm.unitLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, unitId: id, unitLabel: label }))} placeholder="Buscar unidade…" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Área</label>
+                                            <FilterAutocomplete fetchOptions={fetchEditAreas} value={editForm.areaId} initialLabel={editForm.areaLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, areaId: id, areaLabel: label }))} placeholder="Buscar área…" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Cargo</label>
+                                            <FilterAutocomplete fetchOptions={fetchEditJobPositions} value={editForm.jobPositionId} initialLabel={editForm.jobPositionLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, jobPositionId: id, jobPositionLabel: label }))} placeholder="Buscar cargo…" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Função</label>
+                                            <FilterAutocomplete fetchOptions={fetchEditRequisitoCategorias} value={editForm.requisitoCategoriaId} initialLabel={editForm.requisitoCategoriaLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, requisitoCategoriaId: id, requisitoCategoriaLabel: label }))} placeholder="Buscar função…" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr className="border-border/40" />
+
+                                {/* Hierarquia */}
+                                <div>
+                                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Hierarquia</p>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Gestor Direto</label>
+                                            <FilterAutocomplete fetchOptions={fetchEditGestorDireto} value={editForm.gestorDiretoId} initialLabel={editForm.gestorDiretoLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, gestorDiretoId: id, gestorDiretoLabel: label }))} placeholder="Buscar funcionário…" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Nível Hierárquico</label>
+                                            <FilterAutocomplete fetchOptions={fetchEditNivelHierarquico} value={editForm.nivelHierarquicoId} initialLabel={editForm.nivelHierarquicoLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, nivelHierarquicoId: id, nivelHierarquicoLabel: label }))} placeholder="Buscar nível…" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr className="border-border/40" />
+
+                                {/* Lotação TOTVS */}
+                                <div>
+                                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lotação TOTVS</p>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Unidade de Lotação</label>
+                                            <FilterAutocomplete fetchOptions={fetchEditUnidadeLotacao} value={editForm.unidadeLotacaoId} initialLabel={editForm.unidadeLotacaoLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, unidadeLotacaoId: id, unidadeLotacaoLabel: label }))} placeholder="Buscar unidade de lotação…" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Centro de Custo</label>
+                                            <FilterAutocomplete fetchOptions={fetchEditCentroCusto} value={editForm.centroCustoId} initialLabel={editForm.centroCustoLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, centroCustoId: id, centroCustoLabel: label }))} placeholder="Buscar centro de custo…" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr className="border-border/40" />
+
+                                {/* Chaves TOTVS */}
+                                <div>
+                                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Chaves TOTVS Datasul</p>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Matrícula</label>
+                                            <Input className="font-mono" value={editForm.cdnFuncionario} onChange={(e) => setEditForm((f) => ({ ...f, cdnFuncionario: e.target.value }))} placeholder="cdn_funcionario" maxLength={12} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Empresa</label>
+                                            <Input className="font-mono" value={editForm.cdnEmpresa} onChange={(e) => setEditForm((f) => ({ ...f, cdnEmpresa: e.target.value }))} placeholder="cdn_empresa" maxLength={3} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Estabelecimento</label>
+                                            <Input className="font-mono" value={editForm.cdnEstab} onChange={(e) => setEditForm((f) => ({ ...f, cdnEstab: e.target.value }))} placeholder="cdn_estab" maxLength={5} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr className="border-border/40" />
+
+                                {/* Observações */}
+                                <div>
+                                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações</p>
+                                    <textarea
+                                        className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+                                        placeholder="Observações sobre o funcionário…"
+                                        value={editForm.notes}
+                                        onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                        )
                     ) : null}
 
                     {detailTab === "historico" ? (
@@ -911,7 +1267,16 @@ export default function FuncionariosScreen() {
                     ) : null}
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={closeDetail}>Fechar</Button>
+                        {detailTab === "editar" ? (
+                            <>
+                                <Button variant="outline" onClick={() => setDetailTab("dados")} disabled={editSaving}>Cancelar</Button>
+                                <Button onClick={() => void saveEdit()} disabled={editSaving || !editForm.name.trim()}>
+                                    {editSaving ? "Salvando…" : "Salvar"}
+                                </Button>
+                            </>
+                        ) : (
+                            <Button variant="outline" onClick={closeDetail}>Fechar</Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

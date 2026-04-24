@@ -82,7 +82,16 @@
       "Bash(python3 -c \"import socket; [\\(s:=socket.socket\\(\\), s.connect\\(\\('localhost',p\\)\\), print\\(p\\), s.close\\(\\)\\) for p in [3000,3001,3002,4000] if not __import__\\('contextlib'\\).suppress\\(Exception\\)]\")",
       "Bash(curl -sv http://localhost:3000)",
       "Bash(curl -s http://localhost:3000/painel-rh)",
-      "Bash(curl -s \"http://localhost:3000/painel-rh?tab=todos\" -o /tmp/painel.html)"
+      "Bash(curl -s \"http://localhost:3000/painel-rh?tab=todos\" -o /tmp/painel.html)",
+      "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_master -c \"SELECT \\\\\"TenantId\\\\\", \\\\\"Name\\\\\", \\\\\"IsActive\\\\\", \\\\\"CreatedAtUtc\\\\\" FROM \\\\\"Tenants\\\\\" ORDER BY \\\\\"CreatedAtUtc\\\\\" DESC LIMIT 10;\")",
+      "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_teste -c \"SELECT \\\\\"MigrationId\\\\\" FROM \\\\\"__EFMigrationsHistory\\\\\" ORDER BY \\\\\"MigrationId\\\\\" DESC LIMIT 20;\")",
+      "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_teste -c ' *)",
+      "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_teste -c \"SELECT count\\(*\\) FROM \\\\\"Funcionarios\\\\\";\")",
+      "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_teste -c \"SELECT count\\(*\\) FROM \\\\\"JobPositions\\\\\";\")",
+      "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_teste -c \"SELECT count\\(*\\), \\\\\"Status\\\\\" FROM \\\\\"Funcionarios\\\\\" GROUP BY \\\\\"Status\\\\\";\")",
+      "Bash(psql -h localhost -p 5432 -U postgres -d dev_render_teste -c \"SELECT count\\(*\\) FROM \\\\\"OcupacoesHistorico\\\\\";\")",
+      "Bash(find /Users/victoralves/Projects/Voltage.RenderRH/LioTecnica.Web.Next/src -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"import.*pdf\\\\|upload.*cv\\\\|import-pdf\\\\|curriculo\" {} \\\\;)",
+      "Bash(grep -E \"\\\\.\\(cs|tsx|ts\\)$\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Lucas Algarve\\OneDrive - qualiit.com.br\\Documentos\\GitHub\\Voltage.RenderRH\\RHPortal.Api\\RHPortal.Api\\Migrations",

@@ -203,4 +203,29 @@ public sealed class IntegracaoTotvsController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Volta uma integração para o estado pendente (sem resultado), reiniciando o fluxo do zero.
+    /// Para desligamentos em <c>Concluida</c>, reverte o status para <c>EmIntegracao</c>.
+    /// Registra no histórico de status quem realizou a operação.
+    /// </summary>
+    [HttpPost("{tipo:int}/{id:guid}/voltar-pendente")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> VoltarPendente(int tipo, Guid id, CancellationToken ct)
+    {
+        if (!Enum.IsDefined(typeof(TipoIntegracao), (short)tipo))
+            return BadRequest(new { message = "Tipo de integração inválido." });
+
+        try
+        {
+            await _service.VoltarPendenteAsync((TipoIntegracao)tipo, id, _userContext, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
 }

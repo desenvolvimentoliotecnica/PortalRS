@@ -9,6 +9,7 @@ import {
     Loader2,
     Download,
     ShieldAlert,
+    RotateCcw,
 } from "lucide-react";
 import {
     Dialog,
@@ -145,6 +146,10 @@ export default function IntegracaoDetalhesDrawer({
     const [forcando, setForcando] = useState(false);
     const [forcarError, setForcarError] = useState<string | null>(null);
 
+    const [voltarOpen, setVoltarOpen] = useState(false);
+    const [voltando, setVoltando] = useState(false);
+    const [voltarError, setVoltarError] = useState<string | null>(null);
+
     useEffect(() => {
         if (!item || !open) { setDetalhe(null); return; }
         let cancelled = false;
@@ -180,6 +185,28 @@ export default function IntegracaoDetalhesDrawer({
             setRetryError(e instanceof Error ? e.message : "Erro ao reenviar.");
         } finally {
             setRetrying(false);
+        }
+    };
+
+    const handleVoltarPendente = async () => {
+        if (!item) return;
+        setVoltando(true);
+        setVoltarError(null);
+        try {
+            const res = await apiFetch(
+                `/api/integracao-totvs/${item.tipoIntegracao}/${item.id}/voltar-pendente`,
+                { method: "POST" }
+            );
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({ message: `Erro HTTP ${res.status}` }));
+                throw new Error((body as { message?: string })?.message || `Erro HTTP ${res.status}`);
+            }
+            setVoltarOpen(false);
+            onRetrySuccess();
+        } catch (e) {
+            setVoltarError(e instanceof Error ? e.message : "Erro ao voltar para pendente.");
+        } finally {
+            setVoltando(false);
         }
     };
 
@@ -319,6 +346,16 @@ export default function IntegracaoDetalhesDrawer({
                             <Download className="size-4 mr-2" />
                             Baixar JSON
                         </Button>
+                        {resultado !== null && (
+                            <Button
+                                variant="outline"
+                                onClick={() => { setVoltarError(null); setVoltarOpen(true); }}
+                                disabled={voltando}
+                            >
+                                <RotateCcw className="size-4 mr-2" />
+                                Voltar para Pendente
+                            </Button>
+                        )}
                         {!jaSucesso && (
                             <Button
                                 variant="destructive"
@@ -339,6 +376,35 @@ export default function IntegracaoDetalhesDrawer({
                                 Reenviar
                             </Button>
                         )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog de confirmação — Voltar para Pendente */}
+            <Dialog open={voltarOpen} onOpenChange={(v) => !v && setVoltarOpen(false)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Voltar para Pendente</DialogTitle>
+                        <DialogDescription>
+                            Esta ação reinicia o fluxo de integração do zero: limpa o resultado atual
+                            e recoloca o registro na fila de envio ao TOTVS.
+                            {jaSucesso && " Como esta integração já foi concluída com sucesso, o status será revertido para Em Integração."}
+                            {" "}A operação ficará registrada no histórico com seu nome.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {voltarError && (
+                        <p className="text-xs text-red-600 mt-1">{voltarError}</p>
+                    )}
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setVoltarOpen(false)} disabled={voltando}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleVoltarPendente} disabled={voltando}>
+                            {voltando
+                                ? <Loader2 className="size-4 mr-2 animate-spin" />
+                                : <RotateCcw className="size-4 mr-2" />}
+                            Confirmar
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

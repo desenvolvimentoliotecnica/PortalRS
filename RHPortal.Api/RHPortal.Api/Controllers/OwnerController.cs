@@ -163,6 +163,38 @@ public sealed class OwnerController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("tenants/{tenantId}")]
+    [ProducesResponseType(typeof(TenantDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TenantDetailResponse>> UpdateTenant(string tenantId, [FromBody] UpdateTenantNameRequest request, CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        if (string.IsNullOrWhiteSpace(request?.Name))
+            return BadRequest(new ProblemDetails { Title = "Invalid request", Detail = "Name é obrigatório." });
+
+        var tenant = await _masterDb.Tenants
+            .Include(t => t.CreatedByOwner)
+            .FirstOrDefaultAsync(t => t.TenantId == id, ct);
+        if (tenant is null)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        tenant.Name = request.Name.Trim();
+        tenant.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _masterDb.SaveChangesAsync(ct);
+
+        return Ok(new TenantDetailResponse(
+            tenant.TenantId,
+            tenant.Name,
+            tenant.IsActive,
+            tenant.CreatedAtUtc,
+            tenant.UpdatedAtUtc,
+            tenant.CreatedByOwnerId,
+            tenant.CreatedByOwner?.Email));
+    }
+
     [HttpPost("tenants/{tenantId}/reactivate")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
