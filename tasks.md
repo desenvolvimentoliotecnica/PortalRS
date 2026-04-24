@@ -12,7 +12,7 @@ Status:
 
 ## Em andamento
 
-- _(nenhum item — Recrutamento & Seleção 100% completo na sessão de 2026-04-23)_
+- _(nenhum item — Recrutamento & Seleção 100% completo na sessão de 2026-04-24, com stack RAG + Ollama + pgvector)_
 
 ## Próximas
 
@@ -58,8 +58,42 @@ Objetivo: o match candidato × vaga hoje só usa `Vaga.Requisitos` (lista). Vai 
 ## Pendências infra (pré-requisitos para matching por IA)
 
 - [ ] Rodar `fix-broken-migrations.sh` caso apareça erro "relação X já existe" ao subir o app (migration `20260411055438_AddUnidadeLotacaoHierarchyV2` é conhecidamente corrompida)
-- [ ] Instalar extensão `pgvector` no Postgres local e executar `AddEmbeddingSupport.sql` para habilitar matching por IA vetorial
-- [ ] Configurar Python 3.11+ e subir o serviço `RHPortal.Ai` (porta 8000) para validar matching por IA híbrido (BM25 + embeddings)
+- [x] **pgvector instalado** (via `scripts/setup-pgvector.sh` — 2026-04-24)
+- [x] **Ollama + Qwen 2.5 7B + bge-m3** — stack completo operando localmente
+- [~] Serviço Python `RHPortal.Ai` (porta 8000) — mantido como opcional (legado 80/20); stack principal migrou para Ollama local
+
+## FASE 4 — Stack RAG (Ollama + pgvector) — CONCLUÍDA 2026-04-24
+
+Objetivo: matching híbrido (léxico + semântico + localidade) + chatbot RAG + geradores IA.
+Tudo rodando 100% local, zero custo por inferência, zero dado saindo da infra do tenant.
+
+- [x] **4.A** — pgvector instalado e habilitado em `dev_render_liotecnica` + script idempotente `scripts/setup-pgvector.sh` para replicar em novos hosts
+- [x] **4.B** — Entidades `DescricaoCargoItemEmbedding` + `CandidatoEmbedding` com tipo `Vector(1024)` + migration idempotente (`AddEmbeddingsPgvector`)
+- [x] **4.C** — `IOllamaClient` (HTTP tipado): `/api/embeddings`, `/api/chat` (buffered + streaming SSE), `/api/tags` (health)
+- [x] **4.D** — `IEmbeddingService` com upsert idempotente por hash SHA256 + `IVectorSearchService` (kNN cosine distance) + HostedService de re-indexação
+- [x] **4.E** — `HybridMatchingService` — blend 30% léxico + 50% semântico + 20% localidade, com fallback automático para léxico puro quando Ollama indisponível
+- [x] **4.F** — `ILlmAssistantService` (chatbot RAG) + streaming SSE no controller + retrieval de itens DNALIO + vagas abertas
+- [x] **4.G** — `IDescricaoCargoGeneratorService` — gera template DNALIO completo a partir de brief (título + contexto) com JSON estruturado
+- [x] **4.H** — `ICvResumoService` — resume CV em 250 chars para card do kanban, idempotente
+- [x] **4.I** — `ISalarioSuggesterService` — sugere faixa salarial baseada em vagas similares + categoria salarial internas do tenant (não inventa dados de mercado)
+- [x] **4.J** — Tela `/assistente-ia` com chat streaming token-a-token + sidebar de health Ollama + reindexação + sugestões
+- [x] **4.K** — Componentes plugáveis: `GerarDescricaoCargoDialog`, `SugerirSalarioButton`, `ResumirCvButton`
+- [x] **4.L** — `MatchingBreakdownDialog` estendido com toggle Híbrido/Léxico + seção "evidências semânticas" (top-3 itens mais similares)
+- [x] **4.M** — Controller único `/api/assistente-ia/*` com 7 endpoints (health, chat, chat/stream, descricao-cargo/gerar, cv/resumir, vagas/sugerir-salario, embeddings/reindexar)
+- [x] **4.N** — Item de navegação "Assistente IA" registrado em `NavegacaoManifest` (sidebar)
+- [x] **4.O** — **Reindexação automática** via `EmbeddingReindexInterceptor` (SaveChangesInterceptor) + `EmbeddingIndexQueue` (Channel singleton) + `EmbeddingIndexerHostedService` (BackgroundService). Quando item DNALIO ou CV/resumo do candidato muda via EF Core, o worker reembeda em background sem bloquear UI. Fix `AuditWriter.CreateDbContext` faltando `UseVector()`.
+- [x] **4.P** — **Nomenclatura dos 3 modos** padronizada: <c>"ai"</c> (Ollama disponível, híbrido completo — default sempre priorizado), <c>"semantic"</c> (Ollama indisponível, usa TF-IDF + stems + sinônimos + localidade), <c>"lexical"</c> (endpoint legacy sem localidade). UI mostra badge colorido por modo em todas as telas de matching.
+- [x] **4.Q** — **Aba "Matching IA" na tela de Vaga** (`VagaHubScreen`) — tabela com score híbrido, semântico, léxico, distância, modo, passou/abaixo, ordenável + botão "Ver breakdown" por linha + reindexar embeddings
+- [x] **FASE 5 — Agent RAG com Function Calling** (implementada 2026-04-24):
+  - **IAgentTool + AgentToolRegistry** — catálogo de ferramentas com schema JSON
+  - **16 tools** iniciais: `vagas_listar/contar/info/candidatos`, `candidatos_listar/info/contar`, `candidaturas_por_etapa/sla_atrasadas/por_fonte`, `propostas_listar/estatisticas`, `centros_custo_listar`, `descricoes_cargo_listar/info`, `empresas_listar`
+  - **OllamaClient.ChatWithToolsAsync** — Function Calling OpenAI-compatible (tools + tool_calls + tool results)
+  - **LlmAssistantService refatorado** com loop ReAct (MaxAgentIterations=6), intent detection (perguntas estruturadas zeram RAG pra incentivar tools), synthesis fallback (se Qwen responde vazio após tools, força sintetizar)
+  - **Frontend**: ChatBubble mostra chips violeta das ferramentas invocadas (hover mostra args + resultado preview)
+  - Validado: "quantas vagas abertas?" → tool `vagas_contar` → "2 vagas abertas" em 28ms ✓
+  - Validado: "distribuição por etapa" → tool `candidaturas_por_etapa` → breakdown completo ✓
+  - Validado: "vaga VAG-FIN-001 detalhes" → tool `vagas_info` → dados completos ✓
+- [x] **4.R** — **LLM-as-a-Judge** (`ILlmMatchingService`): Qwen 2.5 raciocina sobre CV + DescCargo estruturada + pesos da vaga e retorna score 0-100 + justificativa PT-BR + breakdown por critério (pontos fortes e gaps). Cache persistente em `CandidatoVagaLlmScores` invalidado por SHA256 de (CV + DescCargo itens + pesos + MatchMinimo). 1ª chamada ~46s CPU / ~10s GPU; 2ª instantânea (30ms). Endpoint `GET /api/vagas/{id}/matching-llm/{candId}` + `LlmMatchingDialog` + botão "Análise IA" na aba Matching IA. Score muito mais fiel — Rafael saltou de 46 (híbrido) para **85 (LLM)** pois Qwen detecta semântica profunda ("SAP FI" ≡ "ERP financeiro", "3 anos" ≡ "experiência relevante"), identifica gaps sutis ("falta atendimento a fornecedores") e explica em linguagem natural.
 
 ---
 

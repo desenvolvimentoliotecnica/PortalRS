@@ -29,6 +29,13 @@ interface Criterio {
   itensFaltando: string[];
 }
 
+interface SemanticEvidence {
+  categoria: string;
+  subcategoria: string | null;
+  texto: string;
+  similaridade: number;
+}
+
 interface Breakdown {
   candidatoId: string;
   vagaId: string;
@@ -38,6 +45,12 @@ interface Breakdown {
   criterios: Criterio[];
   temRequisitoObrigatorioFaltando: boolean;
   requisitosObrigatoriosFaltando: string[];
+  // Campos híbridos (Fase 4 — matching com Ollama + pgvector)
+  modo?: "lexical" | "ai" | "semantic";
+  scoreSemantico?: number | null;
+  scoreLexico?: number | null;
+  evidenciasSemanticas?: SemanticEvidence[] | null;
+  explicacaoIa?: string | null;
 }
 
 interface Props {
@@ -64,6 +77,8 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
   const [data, setData] = useState<Breakdown | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Modo de cálculo: "auto" prefere híbrido (Ollama); "lexical" força apenas TF-IDF.
+  const [mode, setMode] = useState<"auto" | "lexical">("auto");
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +88,11 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
       setError(null);
       setData(null);
       try {
-        const res = await apiFetch(`/api/vagas/${vagaId}/matching-breakdown/${candidatoId}`, { cache: "no-store" });
+        // Fase 4 — tenta híbrido por default; fallback já é tratado pelo backend.
+        const endpoint = mode === "lexical"
+          ? `/api/vagas/${vagaId}/matching-breakdown/${candidatoId}`
+          : `/api/vagas/${vagaId}/matching-breakdown-hybrid/${candidatoId}`;
+        const res = await apiFetch(endpoint, { cache: "no-store" });
         if (!res.ok) {
           if (res.status === 404) {
             const body = await res.json().catch(() => ({ message: "Sem breakdown disponível" }));
@@ -90,7 +109,7 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
       }
     })();
     return () => { cancelled = true; };
-  }, [open, vagaId, candidatoId]);
+  }, [open, vagaId, candidatoId, mode]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -120,6 +139,48 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
 
         {data && !loading && (
           <div className="space-y-4">
+            {/* Toggle modo cálculo */}
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Cálculo:</span>
+                <button
+                  type="button"
+                  className={`rounded px-2 py-1 border ${mode === "auto" ? "bg-primary text-primary-foreground border-primary" : "bg-transparent"}`}
+                  onClick={() => setMode("auto")}
+                  title="Prioriza IA (Ollama) — cai em Semântico automaticamente se indisponível"
+                >
+                  🧠 Auto (IA priorizado)
+                </button>
+                <button
+                  type="button"
+                  className={`rounded px-2 py-1 border ${mode === "lexical" ? "bg-primary text-primary-foreground border-primary" : "bg-transparent"}`}
+                  onClick={() => setMode("lexical")}
+                  title="Força modo léxico puro sem IA (para auditoria)"
+                >
+                  📏 Léxico (debug)
+                </button>
+              </div>
+              {data.modo && (
+                <span className="text-muted-foreground">
+                  {data.modo === "ai" && (
+                    <span className="text-violet-700 dark:text-violet-400" title="Blend: léxico + embeddings (bge-m3) + localidade">
+                      🧠 <strong>IA (híbrido)</strong> — léxico {data.scoreLexico} + semântico {data.scoreSemantico}
+                    </span>
+                  )}
+                  {data.modo === "semantic" && (
+                    <span className="text-amber-700 dark:text-amber-400" title="Ollama indisponível — fallback com TF-IDF + stems + sinônimos + Haversine">
+                      📊 <strong>Semântico</strong> (fallback) — sem embeddings, TF-IDF + stems + sinônimos + localidade
+                    </span>
+                  )}
+                  {data.modo === "lexical" && (
+                    <span title="Mesmo algoritmo do 'Semântico', mas chamado via endpoint direto sem tentar IA">
+                      📏 <strong>Léxico</strong> — TF-IDF + stems + sinônimos + localidade
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+
             {/* Score final + status */}
             <div className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/30 p-4">
               <div>
@@ -137,6 +198,26 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
                 )}
               </div>
             </div>
+
+            {/* Evidências semânticas (Fase 4) */}
+            {data.evidenciasSemanticas && data.evidenciasSemanticas.length > 0 && (
+              <div className="rounded-md border border-violet-500/40 bg-violet-500/5 p-3">
+                <div className="text-xs font-semibold text-violet-700 dark:text-violet-400 uppercase tracking-wider mb-2">
+                  🧠 Por que a IA acha que bate (top-3 similaridade semântica)
+                </div>
+                <ul className="space-y-1.5">
+                  {data.evidenciasSemanticas.map((ev, i) => (
+                    <li key={i} className="text-xs">
+                      <span className="inline-flex items-center rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 font-mono mr-2">
+                        {(ev.similaridade * 100).toFixed(0)}%
+                      </span>
+                      <span className="text-muted-foreground">[{ev.categoria}{ev.subcategoria ? ` / ${ev.subcategoria}` : ""}]</span>{" "}
+                      <span>{ev.texto}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Penalidade por requisitos obrigatórios faltando */}
             {data.temRequisitoObrigatorioFaltando && (

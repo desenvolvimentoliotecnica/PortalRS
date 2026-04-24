@@ -10,7 +10,37 @@ Tarefas pendentes, em andamento e conhecidas. Status:
 
 ## Em andamento
 
-_(nenhum item)_
+_(nenhum item — R&S 100% finalizado com stack IA completo em 2026-04-24)_
+
+## Sessão 2026-04-24 — FASE 4 + FASE 5 — Stack IA RAG + Agent
+
+- [x] **pgvector 0.8.2 instalado no EDB Postgres 18** via `scripts/setup-pgvector.sh` (idempotente)
+- [x] **Ollama + Qwen 2.5 7B + bge-m3** — stack 100% local, zero custo por inferência, LGPD-compliant
+- [x] **Matching híbrido** (`HybridMatchingService`): 30% léxico + 50% embeddings semânticos + 20% localidade
+- [x] **Stemmer pt-br conservador** (`PtBrStemmer`): `trabalhar`≡`trabalho`, `configuração`≡`configurar`
+- [x] **Sinônimos técnicos** (`TechSynonyms`): 60+ entradas (AD↔Active Directory, HD↔Help Desk, etc)
+- [x] **TF-IDF** (`TfIdfWeightCalculator`): tokens raros pesam 3-4× mais que genéricos
+- [x] **Heurística requisito processual**: filtra "perfil alinhado com gestor" da penalidade
+- [x] **Reindexação automática** (`EmbeddingReindexInterceptor` + `EmbeddingIndexQueue` + `EmbeddingIndexerHostedService`): mudou CV/DNALIO → reembeda em <5s sem intervenção
+- [x] **Chatbot RAG** `/app/assistente-ia` com streaming SSE + chips de tools
+- [x] **Geradores IA**: Descrição de Cargo (`IDescricaoCargoGeneratorService`), Resumo CV (`ICvResumoService`), Sugestão Salarial (`ISalarioSuggesterService`)
+- [x] **Aba "Matching IA"** na tela de Vaga (`MatchingIaTab`): tabela com score híbrido/léxico/semântico + breakdown + análise LLM por candidato
+- [x] **LLM-as-a-Judge** (`ILlmMatchingService`): Qwen raciocina sobre CV + DescCargo + pesos e retorna score + justificativa + gaps em PT-BR. Cache SHA256 com 2ª chamada em 30ms
+- [x] **Agent RAG com Function Calling** (FASE 5): 16 tools (`vagas_*`, `candidatos_*`, `candidaturas_*`, `propostas_*`, `centros_custo_*`, `descricoes_cargo_*`, `empresas_*`) + loop ReAct + intent detection
+- [x] **FAB flutuante** do assistente IA no canto inferior direito de todas as telas
+- [x] **Seed completo R&S** (`scripts/seed-rs-completo.sql`): 790 linhas idempotentes, 2 empresas, 5 CCs, 4 descrições DNALIO (120 itens), 6 vagas em 5 status, 13 candidatos/candidaturas cobrindo 8 etapas macro, 3 propostas
+- [x] **Docs**: `GUIA_IA_RAG.md`, `COMO_USAR_MATCHING_IA.md`, `TRILHA_TESTES_RS.md` (trilha M), `scripts/setup-pgvector.sh`
+- [x] Bugs consertados: DbContext sem UseVector no AuditWriter; `dynamic="force-dynamic"` incompatível com `output:"export"`; aba Matching IA desabilitada; chat RAG não retrievava candidatos; concurrency DbContext no `Task.WhenAll`; timeout cold-start Qwen; legenda dos modos confusa; FK RESTRICT no seed idempotent
+
+### Futuro IA (não-bloqueante)
+
+- [ ] Streaming com tool calling — hoje o chat buffered suporta tools mas stream não (requer parse incremental)
+- [ ] Rerank LLM opcional do top-K do matching híbrido — melhora NDCG@10 ~15% mas lentifica
+- [ ] Mais tools do agente: `funcionarios_buscar`, `auditoria_por_vaga`, `onboarding_status`, `solicitacoes_pendentes_aprovacao`
+- [ ] Fine-tuning do Qwen com pares (CV, vaga, decisão) coletados dos 6 primeiros meses de uso
+- [ ] HNSW em vez de IVFFlat quando passar de 100k embeddings
+
+---
 
 ## Sessão 31.2 (2026-04-23) — Consolidação Area + Department → CentroCusto
 

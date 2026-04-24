@@ -10,6 +10,7 @@ import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/C
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
 import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
+import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
 import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
@@ -1417,7 +1418,16 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {/* ── Remuneração ──────────────────────────────────────── */}
           {tab === "remuneracao" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
-              <SectionHeader title="Salário" />
+              <div className="col-span-12 flex items-center justify-between">
+                <SectionHeader title="Salário" />
+                <SugerirSalarioButton
+                  vagaId={vagaId}
+                  onAplicar={(min, max) => {
+                    set("salarioMinimo", min.toFixed(2).replace(".", ","));
+                    set("salarioMaximo", max.toFixed(2).replace(".", ","));
+                  }}
+                />
+              </div>
               <Field label="Moeda" span="col-span-6 md:col-span-2"><EnumSelect value={draft.moeda} onChange={(v) => set("moeda", v)} options={enumOpts(enums, "vagaMoeda", "Selecionar")} /></Field>
               <Field label="Salário mínimo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0,00" value={draft.salarioMinimo} onChange={(e) => set("salarioMinimo", e.target.value)} /></Field>
               <Field label="Salário máximo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0,00" value={draft.salarioMaximo} onChange={(e) => set("salarioMaximo", e.target.value)} /></Field>

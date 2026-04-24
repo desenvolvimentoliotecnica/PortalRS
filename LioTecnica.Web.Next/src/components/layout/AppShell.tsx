@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
+import AssistenteIaFab from "@/components/layout/AssistenteIaFab";
 import { RouteAllowlistGuard } from "@/features/auth/RouteAllowlistGuard";
 import {
   NavegacaoSidebarProvider,
@@ -79,6 +80,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
         <div className="p-4 lg:p-6 flex-1">
           <RouteAllowlistGuard>{children}</RouteAllowlistGuard>
         </div>
+        <AssistenteIaFab />
         <footer className="border-t border-[var(--lt-border)] px-4 py-3 text-center text-[11px] text-muted-foreground/50 select-none tracking-wide">
           © {new Date().getFullYear()} · Portal de RH
         </footer>

@@ -107,7 +107,7 @@ public sealed class AuditWriter
         var dbName = GetDatabaseNameFromConnectionString(conn);
         _logger.LogDebug("AuditWriter.CreateDbContext: TenantId={TenantId}, useDefault={UseDefault}, Database={Database}", tenantId ?? "(null)", useDefault, dbName);
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(conn)
+            .UseNpgsql(conn, npgsql => npgsql.UseVector())  // pgvector — evita "Vector property could not be mapped"
             .Options;
         var tenantContext = new TenantContext(_localizer);
         if (tenantId is not null) tenantContext.SetTenantId(tenantId);

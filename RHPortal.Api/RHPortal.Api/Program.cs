@@ -293,8 +293,14 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     {
         npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
         npgsql.CommandTimeout(30);
+        // Habilita tipo vector do pgvector (usado em DescricaoCargoItemEmbedding,
+        // CandidatoEmbedding). Em bancos sem a extensão, o EF não gera DDL para
+        // embeddings — migration é idempotente (CREATE EXTENSION IF NOT EXISTS).
+        npgsql.UseVector();
     });
     options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+    // Fase 4.O — interceptor de reindexação automática de embeddings
+    options.AddInterceptors(sp.GetRequiredService<RhPortal.Api.Application.Ai.EmbeddingReindexInterceptor>());
 });
 
 // Identity
@@ -315,6 +321,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SlaVagaOptions>(builder.Configuration.GetSection(SlaVagaOptions.SectionName));
 builder.Services.Configure<RhAiOptions>(builder.Configuration.GetSection(RhAiOptions.SectionName));
+// Ollama/RAG (Fase 4): configuração local do stack IA aberto
+builder.Services.Configure<RhPortal.Api.Application.Ai.AiOptions>(builder.Configuration.GetSection(RhPortal.Api.Application.Ai.AiOptions.SectionName));
 
 // Cliente RHPortal.Ai (matching vetorial + LLM 80/20): só registra se RhAi:BaseUrl estiver configurado
 var rhAiBaseUrl = builder.Configuration[$"{RhAiOptions.SectionName}:BaseUrl"]?.Trim();
@@ -517,6 +525,45 @@ builder.Services.AddScoped<IBloqueioPessoaService, BloqueioPessoaService>();
 builder.Services.AddScoped<IMatchingService, MatchingService>();
 // Sessão 31.8 — matching baseado em DescricaoCargo (template DNALIO) + pesos calibrados + distância
 builder.Services.AddScoped<RhPortal.Api.Application.Matching.DescricaoCargoMatchingService>();
+// Fase 4 — pipeline Ollama/RAG: cliente HTTP tipado + embedding + vector search + matching híbrido
+builder.Services.AddHttpClient<RhPortal.Api.Application.Ai.IOllamaClient, RhPortal.Api.Application.Ai.OllamaClient>((sp, http) =>
+{
+    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RhPortal.Api.Application.Ai.AiOptions>>().Value.Ollama;
+    if (!string.IsNullOrWhiteSpace(opts.Endpoint))
+        http.BaseAddress = new Uri(opts.Endpoint);
+    http.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+});
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IEmbeddingService, RhPortal.Api.Application.Ai.EmbeddingService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IVectorSearchService, RhPortal.Api.Application.Ai.VectorSearchService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Matching.HybridMatchingService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ILlmAssistantService, RhPortal.Api.Application.Ai.LlmAssistantService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IDescricaoCargoGeneratorService, RhPortal.Api.Application.Ai.DescricaoCargoGeneratorService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ICvResumoService, RhPortal.Api.Application.Ai.CvResumoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ISalarioSuggesterService, RhPortal.Api.Application.Ai.SalarioSuggesterService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ILlmMatchingService, RhPortal.Api.Application.Ai.LlmMatchingService>();
+// Fase 5 — Agent Tools (Function Calling do Qwen)
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentToolRegistry, RhPortal.Api.Application.Ai.Agent.AgentToolRegistry>();
+// Registra cada tool concreta como IAgentTool scoped — o registry consome via IEnumerable<IAgentTool>
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.VagasListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.VagasContarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.VagasInfoTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.VagasCandidatosTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidatosListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidatosInfoTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidatosContarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidaturasPorEtapaTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidaturasSlaAtrasadasTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CandidaturasPorFonteTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.PropostasListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.PropostasEstatisticasTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.CentrosCustoListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.DescricoesCargoListarTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.DescricaoCargoInfoTool>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.Agent.IAgentTool, RhPortal.Api.Application.Ai.Agent.Tools.EmpresasListarTool>();
+// Reindexação automática (Fase 4.O): fila singleton + interceptor no SaveChanges + worker background
+builder.Services.AddSingleton<RhPortal.Api.Application.Ai.IEmbeddingIndexQueue, RhPortal.Api.Application.Ai.EmbeddingIndexQueue>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.EmbeddingReindexInterceptor>();
+builder.Services.AddHostedService<RhPortal.Api.Application.Ai.EmbeddingIndexerHostedService>();
 builder.Services.AddScoped<IVagaUnifiedMatchingCacheService, VagaUnifiedMatchingCacheService>();
 builder.Services.AddScoped<AgendaService>();
 builder.Services.AddScoped<CelebrationService>();

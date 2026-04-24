@@ -57,8 +57,19 @@ public static class DocxDescricaoCargoParser
         ["vivencias"] = ["vivencias", "experiencias vivencias especificas", "vivencias especificas", "experiencia vivencia especifica"],
         ["comp_dnalio"] = ["competencias comportamentais dnalio", "comportamentais dnalio", "dnalio"],
         ["comp_lideranca"] = ["competencias de lideranca", "competencias de lideranca e relacionamento", "lideranca e relacionamento"],
-        ["comp_funcionais"] = ["competencias comportamentais funcionais", "habilidades e atitudes funcionais", "comportamentais funcionais"],
-        ["comp_tecnicas"] = ["competencias tecnicas", "conhecimentos tecnicos", "habilidades tecnicas"],
+        ["comp_funcionais"] = [
+            "competencias comportamentais funcionais",
+            "competencias comportamentais habilidades e atitudes funcionais", // variante DNALIO completa (com "Habilidades e Atitudes")
+            "habilidades e atitudes funcionais",
+            "comportamentais funcionais"
+        ],
+        ["comp_tecnicas"] = [
+            "competencias tecnicas",
+            "competencias tecnicas conhecimentos e habilidades tecnicas", // variante DNALIO completa
+            "conhecimentos tecnicos",
+            "habilidades tecnicas",
+            "conhecimentos e habilidades tecnicas"
+        ],
         ["requisitos"] = ["requisitos obrigatorios", "perfil da vaga", "requisitos obrigatorios perfil da vaga"],
         ["revisao"] = ["revisao e aprovacao", "revisao"],
     };
@@ -299,13 +310,35 @@ public static class DocxDescricaoCargoParser
         {
             if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark) continue;
             if (char.IsLetterOrDigit(c) || c == ' ') sb.Append(char.ToLowerInvariant(c));
-            else if (c == '–' || c == '-') sb.Append(' ');
+            // Separadores tipográficos viram espaço — evita "Experiências/Vivências" virar
+            // "experienciasvivencias" (seção DNALIO real do template).
+            else if (c == '–' || c == '-' || c == '/' || c == '|' || c == ';' || c == ',') sb.Append(' ');
         }
         return string.Join(' ', sb.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
+    /// <summary>
+    /// Casa o título normalizado da célula/parágrafo contra os aliases de seções.
+    ///
+    /// <para><b>Estratégia em 2 passes</b>: (1) equality exata (comportamento antigo,
+    /// mais conservador); (2) se ninguém bater, tenta match por <i>contains</i> —
+    /// aceita "Competências Técnicas – Conhecimentos e Habilidades Técnicas" casando
+    /// o alias "competencias tecnicas" porque ele aparece como prefix/substring.
+    /// Aliases ordenados do mais específico ao mais genérico para evitar que
+    /// "competencias" sozinho case com DNALIO (que tem alias "dnalio" próprio).</para>
+    ///
+    /// <para>Descarta matches curtos (&lt; 3 palavras no normalized) para não confundir
+    /// com conteúdo de item que acidentalmente contém palavra-chave de seção.</para>
+    /// </summary>
     private static bool TryMatchSecao(string normalized, out string key)
     {
+        if (string.IsNullOrEmpty(normalized))
+        {
+            key = string.Empty;
+            return false;
+        }
+
+        // Pass 1: equality exata (prioritária — resolve casos canônicos direto).
         foreach (var kv in SecaoAliases)
         {
             foreach (var alias in kv.Value)
@@ -317,8 +350,49 @@ public static class DocxDescricaoCargoParser
                 }
             }
         }
+
+        // Pass 2: contains fuzzy — títulos longos com sufixo descritivo
+        // ("Competências Técnicas – Conhecimentos e Habilidades Técnicas") casam
+        // com alias "competencias tecnicas".
+        // Limita a normalized curtos (≤ 15 palavras) para não consumir itens de lista.
+        var wordCount = 0;
+        for (int i = 0; i < normalized.Length; i++) if (normalized[i] == ' ') wordCount++;
+        wordCount++;
+        if (wordCount > 15)
+        {
+            key = string.Empty;
+            return false;
+        }
+
+        foreach (var kv in SecaoAliases)
+        {
+            foreach (var alias in kv.Value)
+            {
+                // Ignora aliases muito curtos no fuzzy (evita falso positivo).
+                // 1 palavra sozinha ("experiencia", "formacao") nunca faz fuzzy — senão
+                // case em qualquer item de lista que contenha essa palavra ("Experiência
+                // anterior em suporte técnico" viraria seção "experiencia").
+                if (alias.Length < 10) continue;
+                if (CountWords(alias) < 2) continue;
+                if (normalized.Contains(alias, StringComparison.Ordinal))
+                {
+                    key = kv.Key;
+                    return true;
+                }
+            }
+        }
+
         key = string.Empty;
         return false;
+    }
+
+    /// <summary>Conta palavras separadas por espaço num texto já normalizado.</summary>
+    private static int CountWords(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return 0;
+        int count = 1;
+        for (int i = 0; i < s.Length; i++) if (s[i] == ' ') count++;
+        return count;
     }
 
     private static bool TryMatchCampo(string normalized, out string key)

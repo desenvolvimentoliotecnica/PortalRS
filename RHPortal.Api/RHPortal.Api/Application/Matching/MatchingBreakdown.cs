@@ -31,4 +31,29 @@ public sealed record MatchingBreakdown(
     IReadOnlyList<MatchingCriterio> Criterios,
     /// <summary>True se algum requisito obrigatório do template não foi atendido — score é capado em 60.</summary>
     bool TemRequisitoObrigatorioFaltando,
-    IReadOnlyList<string> RequisitosObrigatoriosFaltando);
+    IReadOnlyList<string> RequisitosObrigatoriosFaltando,
+    /// <summary>
+    /// Modo do cálculo:
+    /// <c>"ai"</c> — Híbrido completo (TF-IDF + embeddings Ollama + localidade). Preferido sempre que disponível.
+    /// <c>"semantic"</c> — Léxico semântico (TF-IDF + stems + sinônimos + localidade) quando Ollama indisponível.
+    /// <c>"lexical"</c> — Endpoint legado sem localidade (raramente usado).
+    /// </summary>
+    string Modo = "lexical",
+    /// <summary>Score semântico agregado 0-100 (null se modo = "lexical"). Baseado em kNN pgvector × candidato × itens DNALIO.</summary>
+    int? ScoreSemantico = null,
+    /// <summary>Score léxico agregado 0-100 (null se modo = "lexical"). Equivale ao ScoreFinal em modo puramente léxico.</summary>
+    int? ScoreLexico = null,
+    /// <summary>Top-3 itens DNALIO semanticamente mais próximos do CV — útil pra UI explicar similaridades não óbvias.</summary>
+    IReadOnlyList<SemanticEvidence>? EvidenciasSemanticas = null,
+    /// <summary>Explicação textual gerada por LLM (opcional — presente quando rerank habilitado).</summary>
+    string? ExplicacaoIa = null);
+
+/// <summary>
+/// Evidência de similaridade semântica: item DNALIO que mais se aproxima do
+/// perfil do candidato, com score cosseno (0..1).
+/// </summary>
+public sealed record SemanticEvidence(
+    string Categoria,
+    string? Subcategoria,
+    string Texto,
+    double Similaridade);

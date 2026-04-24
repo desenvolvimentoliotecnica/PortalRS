@@ -138,6 +138,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<NivelCargo> NiveisCargo => Set<NivelCargo>();
     public DbSet<DescricaoCargo> DescricoesCargo => Set<DescricaoCargo>();
     public DbSet<DescricaoCargoItem> DescricaoCargoItens => Set<DescricaoCargoItem>();
+    public DbSet<DescricaoCargoItemEmbedding> DescricaoCargoItemEmbeddings => Set<DescricaoCargoItemEmbedding>();
+    public DbSet<CandidatoEmbedding> CandidatoEmbeddings => Set<CandidatoEmbedding>();
+    public DbSet<CandidatoVagaLlmScore> CandidatoVagaLlmScores => Set<CandidatoVagaLlmScore>();
     public DbSet<EixoVaga> EixosVaga => Set<EixoVaga>();
     public DbSet<PropostaVaga> PropostasVaga => Set<PropostaVaga>();
     public DbSet<Candidatura> Candidaturas => Set<Candidatura>();
@@ -538,6 +541,80 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => new { x.TenantId, x.DescricaoCargoId });
             b.HasIndex(x => new { x.TenantId, x.DescricaoCargoId, x.Categoria });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        // ── Embeddings (pgvector) ───────────────────────────────────────────
+        // Vetor armazenado como float[] no .NET e mapeado para vector(N) no Postgres
+        // via Npgsql Vector type (conversão feita pelo driver com EnableDynamicJson).
+        // OBS: a coluna "Embedding" é criada como texto na migration e convertida
+        // manualmente via raw SQL em "AddEmbeddingVectorType" — vide migration.
+        modelBuilder.Entity<DescricaoCargoItemEmbedding>(b =>
+        {
+            b.ToTable("DescricaoCargoItemEmbeddings");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ModelVersion).HasMaxLength(60).IsRequired();
+            b.Property(x => x.TextoSource).HasMaxLength(4000);
+            b.Property(x => x.Embedding).HasColumnType("vector(1024)");
+
+            b.HasOne(x => x.DescricaoCargoItem)
+                .WithMany()
+                .HasForeignKey(x => x.DescricaoCargoItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.DescricaoCargoItemId }).IsUnique();
+            b.HasIndex(x => x.TenantId);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoEmbedding>(b =>
+        {
+            b.ToTable("CandidatoEmbeddings");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ModelVersion).HasMaxLength(60).IsRequired();
+            b.Property(x => x.ConteudoHash).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TextoSource).HasMaxLength(8000);
+            b.Property(x => x.Embedding).HasColumnType("vector(1024)");
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasIndex(x => x.TenantId);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoVagaLlmScore>(b =>
+        {
+            b.ToTable("CandidatoVagaLlmScores");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ModelVersion).HasMaxLength(60).IsRequired();
+            b.Property(x => x.InputHash).HasMaxLength(64).IsRequired();
+            b.Property(x => x.JustificativaTexto).HasMaxLength(4000);
+            b.Property(x => x.CriteriosJson).HasColumnType("jsonb");
+            b.Property(x => x.PontosFortes).HasMaxLength(2000);
+            b.Property(x => x.Gaps).HasMaxLength(2000);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.VagaId, x.CandidatoId }).IsUnique();
+            b.HasIndex(x => x.TenantId);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

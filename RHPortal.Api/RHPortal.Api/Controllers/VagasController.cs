@@ -717,6 +717,67 @@ public sealed class VagasController : ControllerBase
         }
         return Ok(breakdown);
     }
+
+    /// <summary>
+    /// Fase 4.R — Matching por LLM (Qwen 2.5). "LLM-as-a-Judge" — raciocínio profundo
+    /// sobre CV × DescCargo estruturada + pesos calibrados. Retorna score 0-100 +
+    /// justificativa em PT-BR + breakdown por critério com pontos fortes e gaps.
+    ///
+    /// <para>Cache automático: se CV + DescCargo + pesos não mudaram, retorna instantâneo.
+    /// Caso contrário, chama Qwen (10-15s). Idempotente por hash SHA256.</para>
+    ///
+    /// <para>Use <c>?force=true</c> para forçar regeração.</para>
+    /// </summary>
+    [HttpGet("{id:guid}/matching-llm/{candidatoId:guid}")]
+    [ProducesResponseType(typeof(RhPortal.Api.Application.Ai.LlmMatchingResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> GetMatchingLlm(
+        [FromRoute] Guid id,
+        [FromRoute] Guid candidatoId,
+        [FromQuery] bool force,
+        [FromServices] RhPortal.Api.Application.Ai.ILlmMatchingService llmMatching,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await llmMatching.ScoreAsync(candidatoId, id, force, ct);
+            if (result is null)
+            {
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    message = "Não foi possível gerar score por LLM. Verifique: (1) vaga tem DescricaoCargo vinculada, (2) Ollama rodando com qwen2.5:7b carregado, (3) candidato válido."
+                });
+            }
+            return Ok(result);
+        }
+        catch (RhPortal.Api.Application.Ai.LlmTimeoutException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Fase 4 — Matching HÍBRIDO (léxico 30% + semântico 50% + localidade 20%).
+    /// Requer Ollama rodando + embeddings indexados. Se indisponíveis, retorna
+    /// automaticamente o matching léxico com <c>Modo="fallback"</c>.
+    /// </summary>
+    [HttpGet("{id:guid}/matching-breakdown-hybrid/{candidatoId:guid}")]
+    [ProducesResponseType(typeof(RhPortal.Api.Application.Matching.MatchingBreakdown), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMatchingBreakdownHybrid(
+        [FromRoute] Guid id,
+        [FromRoute] Guid candidatoId,
+        [FromServices] RhPortal.Api.Application.Matching.HybridMatchingService hybrid,
+        CancellationToken ct)
+    {
+        var breakdown = await hybrid.CalcularHybridAsync(candidatoId, id, ct);
+        if (breakdown is null)
+        {
+            return NotFound(new { message = "Não foi possível calcular breakdown híbrido — verifique vaga, DescricaoCargo e candidato." });
+        }
+        return Ok(breakdown);
+    }
 }
 
 public record UpdateHeadcountRequest(int HeadcountAutorizado);

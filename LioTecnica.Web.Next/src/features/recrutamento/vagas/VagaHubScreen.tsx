@@ -19,6 +19,7 @@ import {
   PenSquare,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Target,
   UserPlus,
   Users,
@@ -41,6 +42,7 @@ import NextStepBanner from "@/components/feedback/NextStepBanner";
 import StepperProgress from "@/components/feedback/StepperProgress";
 import type { StepperStep } from "@/components/feedback/StepperProgress";
 import VagaFormModal from "./VagaFormModal";
+import MatchingIaTab from "./MatchingIaTab";
 
 const BASE = "/app";
 
@@ -457,7 +459,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       )}
 
       {/* ── Tabs ── */}
-      <Tabs value={activeTab} onValueChange={(v) => { if (v === "matching") { toast("Matching IA estará disponível em breve"); return; } setActiveTab(v); }}>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="w-full justify-start">
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
           <TabsTrigger value="candidatos">
@@ -469,8 +471,9 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           <TabsTrigger value="posicao">
             Posição {isEstrutural && headcountOcupado > 0 && <span className="ml-1 text-[10px] bg-blue-500/15 text-blue-700 rounded-full px-1.5">{headcountOcupado}</span>}
           </TabsTrigger>
-          <TabsTrigger value="matching" className="opacity-40">
-            Matching IA
+          <TabsTrigger value="matching" className="gap-1">
+            <Sparkles className="size-3.5" /> Matching IA
+            {candidateCount > 0 && <span className="ml-0.5 text-[10px] bg-violet-500/15 text-violet-700 rounded-full px-1.5">{candidateCount}</span>}
           </TabsTrigger>
         </TabsList>
 
@@ -669,7 +672,14 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           )}
         </TabsContent>
 
-        {/* Matching IA desabilitado temporariamente */}
+        {/* ── Tab: Matching IA (Fase 4 — Ollama + pgvector) ── */}
+        <TabsContent value="matching" className="mt-4">
+          <MatchingIaTab
+            vagaId={vagaId}
+            candidates={candidates.map((c) => ({ id: c.id, nome: c.nome, email: c.email, status: c.status }))}
+            temDescricaoCargo={Boolean(pick(vaga, "descricaoCargoId", "")) || Boolean(pick(vaga, "descricaoCargo", ""))}
+          />
+        </TabsContent>
 
         {/* ── Tab: Configuração ── */}
         <TabsContent value="config" className="space-y-4 mt-4 rounded-xl border border-border/40 bg-card p-4 shadow-sm">

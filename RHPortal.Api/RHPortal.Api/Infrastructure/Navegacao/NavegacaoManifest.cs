@@ -110,6 +110,8 @@ public static class NavegacaoManifest
         new("nav-funil",                    "Funil de Conversão",     "/recrutamento/funil",             "barchart",          "candidatos.view",          Ordem: 36),
         new("nav-admissao",                 "Admissão",               "/admissao",                       "usercheck",         "admissao.view",            Ordem: 40),
         new("nav-matching",                 "Matching IA",            "/matching",                       "sparkles",          "matching.view",            Ordem: 50),
+        // Fase 4 — Chatbot RAG + geração de conteúdo via Ollama (Qwen 2.5 + bge-m3)
+        new("nav-assistente-ia",            "Assistente IA",          "/assistente-ia",                  "bot",               "matching.view",            Ordem: 52),
         new("nav-triagem",                  "Pipeline",               "/triagem",                        "filter",            "triagem.view",             Ordem: 60),
         new("nav-processo-seletivo",        "Processo Seletivo",      "/gestao/processo-seletivo",       "listchecks",        "processo-seletivo.view",   Ordem: 70),
         new("nav-agendas",                  "Agenda",                 "/agendas",                        "calendar",          "agenda.view",              Ordem: 80),

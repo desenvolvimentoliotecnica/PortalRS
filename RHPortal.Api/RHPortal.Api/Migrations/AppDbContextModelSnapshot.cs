@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 using RhPortal.Api.Infrastructure.Data;
 
 #nullable disable
@@ -2480,6 +2481,59 @@ namespace RhPortal.Api.Migrations
                     b.ToTable("CandidatoEducacaoResumos", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.CandidatoEmbedding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CandidatoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ConteudoHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Dimensions")
+                        .HasColumnType("integer");
+
+                    b.Property<Vector>("Embedding")
+                        .HasColumnType("vector(1024)");
+
+                    b.Property<string>("ModelVersion")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TextoSource")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidatoId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "CandidatoId")
+                        .IsUnique();
+
+                    b.ToTable("CandidatoEmbeddings", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.CandidatoExperiencia", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3038,6 +3092,79 @@ namespace RhPortal.Api.Migrations
                     b.HasIndex("TenantId", "CandidatoId", "CreatedAtUtc");
 
                     b.ToTable("CandidatoStatusHistories", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.CandidatoVagaLlmScore", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CandidatoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CriteriosJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("DurationMs")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Gaps")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("InputHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("JustificativaTexto")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("ModelVersion")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<bool>("PassouMatchMinimo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PontosFortes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("ScoreFinal")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VagaId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidatoId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("VagaId");
+
+                    b.HasIndex("TenantId", "VagaId", "CandidatoId")
+                        .IsUnique();
+
+                    b.ToTable("CandidatoVagaLlmScores", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.CandidatoVagaMatchingScore", b =>
@@ -3787,6 +3914,54 @@ namespace RhPortal.Api.Migrations
                     b.HasIndex("TenantId", "DescricaoCargoId", "Categoria");
 
                     b.ToTable("DescricaoCargoItens", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.DescricaoCargoItemEmbedding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DescricaoCargoItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Dimensions")
+                        .HasColumnType("integer");
+
+                    b.Property<Vector>("Embedding")
+                        .HasColumnType("vector(1024)");
+
+                    b.Property<string>("ModelVersion")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TextoSource")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DescricaoCargoItemId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "DescricaoCargoItemId")
+                        .IsUnique();
+
+                    b.ToTable("DescricaoCargoItemEmbeddings", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.DevelopmentPlan", b =>
@@ -10183,6 +10358,17 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Candidato");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.CandidatoEmbedding", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Candidato", "Candidato")
+                        .WithMany()
+                        .HasForeignKey("CandidatoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Candidato");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.CandidatoExperiencia", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.Candidato", "Candidato")
@@ -10269,6 +10455,25 @@ namespace RhPortal.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Candidato");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.CandidatoVagaLlmScore", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Candidato", "Candidato")
+                        .WithMany()
+                        .HasForeignKey("CandidatoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RHPortal.Api.Domain.Entities.Vaga", "Vaga")
+                        .WithMany()
+                        .HasForeignKey("VagaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Candidato");
+
+                    b.Navigation("Vaga");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.CandidatoVagaMatchingScore", b =>
@@ -10489,6 +10694,17 @@ namespace RhPortal.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("DescricaoCargo");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.DescricaoCargoItemEmbedding", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.DescricaoCargoItem", "DescricaoCargoItem")
+                        .WithMany()
+                        .HasForeignKey("DescricaoCargoItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DescricaoCargoItem");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.DevelopmentPlan", b =>

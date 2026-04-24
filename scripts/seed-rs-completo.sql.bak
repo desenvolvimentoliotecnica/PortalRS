@@ -1,0 +1,798 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- SEED COMPLETO — Recrutamento & Seleção + Matching por IA
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Popula tudo necessário para testar 100% das features do módulo R&S:
+--   • 2 Empresas geocodificadas (Embu + Alphaville)
+--   • 4 Centros de Custo (TI/Financeiro/Produção/RH)
+--   • 3 Turnos (Comercial + 2 turnos de produção)
+--   • 4 Categorias Salariais com grade percentual (Steps 80-120%)
+--   • 4 Descrições de Cargo DNALIO completas (36+ itens cada)
+--   • 5 Templates de Notificação (uma por etapa macro)
+--   • 5 Vagas em estados diferentes (Aberta/Triagem/Entrevistas/Rascunho/Preenchida)
+--   • 12 Pessoas/Candidatos com CVs diversificados (4 perfis por vaga)
+--   • 15 Candidaturas cobrindo TODAS as etapas macro do funil
+--   • 3 Propostas de Vaga (Pendente/Aceita/Recusada)
+--
+-- CENÁRIOS COBERTOS:
+--   ✓ Matching léxico + híbrido IA (bge-m3 + Qwen 2.5)
+--   ✓ Kanban com SLA semáforo (verde/amarelo/vermelho)
+--   ✓ Funil de conversão (todas as etapas populadas)
+--   ✓ Bulk actions (múltiplos cards em cada coluna)
+--   ✓ Sugestão salarial via IA (vagas similares + categorias internas)
+--   ✓ Gerador de DescCargo (contexto-rico com histórico)
+--   ✓ Chatbot RAG (4 descrições indexáveis)
+--
+-- IDEMPOTENTE: DELETE + INSERT por IDs determinísticos. Pode rodar N vezes.
+--
+-- CONVENÇÃO DE IDs:
+--   aaaaaaaa-*  → Vaga Assistente Suporte Técnico (já existia)
+--   bbbbbbbb-*  → Vaga Analista Financeiro
+--   cccccccc-*  → Vaga Analista RH
+--   dddddddd-*  → Vaga Operador Produção
+--   eeeeeeee-*  → Vaga Analista Suporte Sênior (Rascunho)
+--   ffffffff-*  → Vaga 5 encerrada (pra funil histórico)
+--
+-- Pré-requisito: seed-vaga-simulacao.sql já rodado (cria Vaga Assistente + 4 cands)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+BEGIN;
+
+SET client_min_messages TO WARNING;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 1. LIMPEZA IDEMPOTENTE (ordem reversa de FK)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Candidaturas primeiro (FK Candidatos + Vagas)
+DELETE FROM "CandidaturaEtapaHistoricos" WHERE "CandidaturaId" IN (
+  SELECT "Id" FROM "Candidaturas" WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%' OR "Id"::text LIKE 'dddddddd-%');
+DELETE FROM "PropostasVaga"     WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%' OR "Id"::text LIKE 'dddddddd-%';
+DELETE FROM "Candidaturas"      WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%' OR "Id"::text LIKE 'dddddddd-%';
+DELETE FROM "CandidatoCompetencias" WHERE "CandidatoId" IN (
+  SELECT "Id" FROM "Candidatos" WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%' OR "Id"::text LIKE 'dddddddd-%');
+DELETE FROM "Candidatos"        WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%' OR "Id"::text LIKE 'dddddddd-%';
+DELETE FROM "Talentos"          WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%' OR "Id"::text LIKE 'dddddddd-%';
+DELETE FROM "Pessoas"           WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%' OR "Id"::text LIKE 'dddddddd-%';
+
+-- Vagas
+DELETE FROM "Vagas" WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%'
+                       OR "Id"::text LIKE 'dddddddd-%' OR "Id"::text LIKE 'eeeeeeee-%'
+                       OR "Id"::text LIKE 'ffffffff-%';
+
+-- Descrições de Cargo (+ itens cascade)
+DELETE FROM "DescricoesCargo" WHERE "Id"::text LIKE 'bbbbbbbb-%' OR "Id"::text LIKE 'cccccccc-%' OR "Id"::text LIKE 'dddddddd-%';
+
+-- Infra (só adiciona o que não existe)
+DELETE FROM "CategoriaSalarialSteps" WHERE "CategoriaSalarialId" IN (
+  SELECT "Id" FROM "CategoriasSalariais" WHERE "Id"::text LIKE 'aaaaaaaa-cs%');
+DELETE FROM "CategoriasSalariais"   WHERE "Id"::text LIKE 'aaaaaaaa-cs%';
+DELETE FROM "Turnos"                WHERE "Id"::text LIKE 'aaaaaaaa-tu%';
+DELETE FROM "CentrosCusto"          WHERE "Id"::text LIKE 'aaaaaaaa-cc%' AND "Id" != 'aaaaaaaa-cc01-4000-8000-000000000001';
+DELETE FROM "Empresas"              WHERE "Code" = 'LIO-002';
+DELETE FROM "NotificacoesTemplates" WHERE "Id"::text LIKE 'aaaaaaaa-nt%';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 2. EMPRESAS
+-- ═══════════════════════════════════════════════════════════════════════════
+-- LIO-001 já existe (bc3e6435... — Embu das Artes/SP). Adiciona LIO-002:
+INSERT INTO "Empresas" ("Id","TenantId","Code","Description","IsActive",
+                        "Cep","Logradouro","Numero","Bairro","Cidade","Uf",
+                        "Latitude","Longitude","GeocodificadoEmUtc",
+                        "CreatedAtUtc","UpdatedAtUtc")
+VALUES ('aaaaaaaa-emp2-4000-8000-000000000001','liotecnica','LIO-002',
+        'Liotecnica Comercial SP', true,
+        '04551-065','Av. Juscelino Kubitschek','1909','Vila Nova Conceição','São Paulo','SP',
+        -23.5896, -46.6848, now(),
+        now(), now())
+ON CONFLICT DO NOTHING;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 3. CENTROS DE CUSTO
+-- ═══════════════════════════════════════════════════════════════════════════
+INSERT INTO "CentrosCusto" ("Id","TenantId","Code","Description","Manager","IsActive",
+                            "CreatedAtUtc","UpdatedAtUtc","EmpresaId","Headcount","BranchOrLocation")
+VALUES
+ ('aaaaaaaa-cc02-4000-8000-000000000001','liotecnica','FIN-001',
+  'Financeiro','Mariana Costa',true,now(),now(),
+  'bc3e6435-86b8-4bfb-80dc-b8e6583d6825'::uuid, 8, 'Matriz Embu'),
+ ('aaaaaaaa-cc03-4000-8000-000000000001','liotecnica','PROD-001',
+  'Produção','Roberto Alves',true,now(),now(),
+  'bc3e6435-86b8-4bfb-80dc-b8e6583d6825'::uuid, 45, 'Matriz Embu'),
+ ('aaaaaaaa-cc04-4000-8000-000000000001','liotecnica','RH-001',
+  'Recursos Humanos','Juliana Santos',true,now(),now(),
+  'bc3e6435-86b8-4bfb-80dc-b8e6583d6825'::uuid, 5, 'Matriz Embu'),
+ ('aaaaaaaa-cc05-4000-8000-000000000001','liotecnica','COM-001',
+  'Comercial','Pedro Oliveira',true,now(),now(),
+  'aaaaaaaa-emp2-4000-8000-000000000001'::uuid, 12, 'SP Capital');
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 4. TURNOS
+-- ═══════════════════════════════════════════════════════════════════════════
+INSERT INTO "Turnos" ("Id","TenantId","Code","Description","StartTime","EndTime","IsActive","CreatedAtUtc","UpdatedAtUtc")
+VALUES
+ ('aaaaaaaa-tu01-4000-8000-000000000001','liotecnica','ADM',
+  'Comercial 8h-18h (seg-sex)','08:00','18:00',true,now(),now()),
+ ('aaaaaaaa-tu02-4000-8000-000000000001','liotecnica','PROD-1T',
+  'Produção 1º turno','06:00','14:00',true,now(),now()),
+ ('aaaaaaaa-tu03-4000-8000-000000000001','liotecnica','PROD-2T',
+  'Produção 2º turno','14:00','22:00',true,now(),now());
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 5. CATEGORIAS SALARIAIS (com grade percentual)
+-- ═══════════════════════════════════════════════════════════════════════════
+INSERT INTO "CategoriasSalariais" ("Id","TenantId","Code","Description","IsActive",
+                                    "EmpresaId","ValorBase","CreatedAtUtc","UpdatedAtUtc")
+VALUES
+ ('aaaaaaaa-cs01-4000-8000-000000000001','liotecnica','TEC-JR',
+  'Técnico Júnior',true,'bc3e6435-86b8-4bfb-80dc-b8e6583d6825'::uuid, 3800.00, now(), now()),
+ ('aaaaaaaa-cs02-4000-8000-000000000001','liotecnica','FIN-JR',
+  'Analista Financeiro Jr',true,'bc3e6435-86b8-4bfb-80dc-b8e6583d6825'::uuid, 4200.00, now(), now()),
+ ('aaaaaaaa-cs03-4000-8000-000000000001','liotecnica','RH-PL',
+  'Analista RH Pleno',true,'bc3e6435-86b8-4bfb-80dc-b8e6583d6825'::uuid, 6500.00, now(), now()),
+ ('aaaaaaaa-cs04-4000-8000-000000000001','liotecnica','PROD-OP',
+  'Operador de Produção',true,'bc3e6435-86b8-4bfb-80dc-b8e6583d6825'::uuid, 2450.00, now(), now());
+
+-- Steps (grade percentual 80-120% em incrementos de 10)
+INSERT INTO "CategoriaSalarialSteps" ("Id","TenantId","CategoriaSalarialId","Percentual","Ordem","CreatedAtUtc","UpdatedAtUtc")
+SELECT gen_random_uuid(),'liotecnica', cs."Id", p::numeric, ROW_NUMBER() OVER (PARTITION BY cs."Id" ORDER BY p), now(), now()
+FROM "CategoriasSalariais" cs
+CROSS JOIN (VALUES (80),(90),(100),(110),(120)) AS steps(p)
+WHERE cs."Id"::text LIKE 'aaaaaaaa-cs%';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 6. NOTIFICAÇÕES — TEMPLATES (um por etapa macro)
+--    Etapa: 0=Aplicada, 1=Triagem, 2=Entrevista, 4=Proposta, 6=Recusado
+--    Canal: 0=Email, 1=WhatsApp
+-- ═══════════════════════════════════════════════════════════════════════════
+INSERT INTO "NotificacoesTemplates" ("Id","TenantId","Etapa","Canal","Assunto","Corpo","Idioma","CreatedAtUtc","UpdatedAtUtc")
+VALUES
+ ('aaaaaaaa-nt01-4000-8000-000000000001','liotecnica', 0, 0,
+  'Recebemos sua candidatura — {{vaga.titulo}}',
+  E'Olá, {{candidato.nome}}!\n\nRecebemos sua candidatura para a vaga "{{vaga.titulo}}" na {{empresa.nome}}.\nEm até 5 dias úteis retornaremos com o status da sua triagem.\n\nAbraços,\nEquipe de RH\n{{empresa.nome}}', 'pt-BR', now(), now()),
+
+ ('aaaaaaaa-nt02-4000-8000-000000000001','liotecnica', 2, 0,
+  'Convite para entrevista — {{vaga.titulo}}',
+  E'Olá, {{candidato.nome}}!\n\nGostaríamos de te convidar para uma entrevista referente à vaga "{{vaga.titulo}}".\n\nData: a combinar\nModalidade: presencial / online\n\nPor favor, confirme sua disponibilidade.\n\n{{empresa.nome}} — RH', 'pt-BR', now(), now()),
+
+ ('aaaaaaaa-nt03-4000-8000-000000000001','liotecnica', 4, 0,
+  'Proposta de contratação — {{vaga.titulo}}',
+  E'Olá, {{candidato.nome}}!\n\nFicamos felizes em te enviar uma proposta para o cargo de "{{vaga.titulo}}".\nVocê pode visualizar e aceitar pelo link abaixo:\n\n{{proposta.link}}\n\nPrazo: {{proposta.expiraEm}}\n\n{{empresa.nome}} — RH', 'pt-BR', now(), now()),
+
+ ('aaaaaaaa-nt04-4000-8000-000000000001','liotecnica', 6, 0,
+  'Atualização sobre a vaga {{vaga.titulo}}',
+  E'Olá, {{candidato.nome}},\n\nAgradecemos sua participação no processo seletivo da vaga "{{vaga.titulo}}".\nNeste momento optamos por seguir com outros perfis, mas seu currículo ficará em nosso banco de talentos.\n\nDesejamos sucesso!\n{{empresa.nome}} — RH', 'pt-BR', now(), now()),
+
+ ('aaaaaaaa-nt05-4000-8000-000000000001','liotecnica', 2, 1,
+  NULL,
+  E'Oi {{candidato.nome}}! Aqui é a {{empresa.nome}}. Avançamos seu perfil para a etapa de entrevistas da vaga {{vaga.titulo}}. Podemos conversar em que horário?', 'pt-BR', now(), now());
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 7. DESCRIÇÕES DE CARGO DNALIO (3 novas — a Assistente Suporte Técnico já existe)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ── 7.1 ANALISTA FINANCEIRO JR ────────────────────────────────────────────
+INSERT INTO "DescricoesCargo" ("Id","TenantId","Code","Title","Summary",
+  "IsTemplate","IsActive","AreaTemplate",
+  "FormacaoMinima","FormacaoDesejavel","FormacaoAreaEstudo",
+  "ExperienciaTempoMinimo","ExperienciaTempoDesejavel","ExperienciaEspecificacao",
+  "RevisaoNumero","RevisaoData","RevisaoNatureza",
+  "GestorNome","GestorEmail",
+  "CreatedAtUtc","UpdatedAtUtc")
+VALUES
+ ('bbbbbbbb-dc01-4000-8000-000000000001','liotecnica','ANALISTA-FINANCEIRO-JR',
+  'Analista Financeiro Jr',
+  'Apoiar a gestão financeira, executar contas a pagar e receber, conciliar bancos, gerar relatórios gerenciais.',
+  true, true, 'Financeiro',
+  'Ensino superior completo','Pós-graduação em andamento','Ciências Contábeis / Administração',
+  '1 ano','2 anos','Experiência em rotinas de contas a pagar, receber, conciliação bancária',
+  '00', CURRENT_DATE, 'Descrição Inicial',
+  'Mariana Costa','mariana.costa@liotecnica.com.br',
+  now(), now());
+
+INSERT INTO "DescricaoCargoItens" ("Id","TenantId","DescricaoCargoId","Categoria","Texto","IsObrigatoria","Subcategoria","Ordem")
+VALUES
+ -- AtividadeEspecifica (1)
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',1,'Executar lançamentos de contas a pagar e receber no sistema ERP (SAP)',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',1,'Realizar conciliações bancárias diárias e investigar divergências',true,NULL,1),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',1,'Emitir boletos, notas fiscais de serviço e gerenciar recebimentos',true,NULL,2),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',1,'Apoiar fechamento mensal e produção de relatórios gerenciais em Excel',true,NULL,3),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',1,'Atender fornecedores e clientes internos sobre pagamentos e recebimentos',true,NULL,4),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',1,'Manter arquivo de documentos fiscais e comprovantes',true,NULL,5),
+ -- AtividadeComum (2)
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',2,'Atuar conforme missão, valores e políticas da empresa',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',2,'Buscar melhoria contínua nos processos da área',false,NULL,1),
+ -- VivenciaEspecifica (3)
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',3,'Experiência prévia em área financeira',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',3,'Conhecimento em SAP FI ou outro ERP equivalente',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',3,'Rotinas de fechamento contábil',false,NULL,2),
+ -- CompetenciaDnalio (10)
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',10,'Prioridade ao Cliente',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',10,'Alta Performance',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',10,'Foco em Resultados',false,NULL,2),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',10,'Responsabilidade Social e Ambiental',false,NULL,3),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',10,'Senso de Justiça com Respeito e Ética',false,NULL,4),
+ -- CompetenciaLideranca (11)
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',11,'Trabalho em Equipe',false,NULL,0),
+ -- CompetenciaFuncional (12)
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',12,'Atenção a Detalhes',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',12,'Organização',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',12,'Capacidade Analítica',false,NULL,2),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',12,'Administração do Tempo',false,NULL,3),
+ -- CompetenciaTecnica (13)
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',13,'SAP FI (contas a pagar e receber)',false,'Software',0),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',13,'Microsoft Excel avançado (fórmulas, tabelas dinâmicas)',true,'Software',1),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',13,'Contabilidade básica e fechamento contábil',false,'Conhecimento',2),
+ -- RequisitoObrigatorio (20)
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',20,'Ensino superior completo em Ciências Contábeis, Administração ou afim',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',20,'Experiência anterior em área financeira',true,NULL,1),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',20,'Excel avançado',true,NULL,2),
+ (gen_random_uuid(),'liotecnica','bbbbbbbb-dc01-4000-8000-000000000001',20,'Comunicação clara com fornecedores',true,NULL,3);
+
+-- ── 7.2 ANALISTA RH PLENO ─────────────────────────────────────────────────
+INSERT INTO "DescricoesCargo" ("Id","TenantId","Code","Title","Summary",
+  "IsTemplate","IsActive","AreaTemplate",
+  "FormacaoMinima","FormacaoDesejavel","FormacaoAreaEstudo",
+  "ExperienciaTempoMinimo","ExperienciaTempoDesejavel","ExperienciaEspecificacao",
+  "RevisaoNumero","RevisaoData","RevisaoNatureza","GestorNome","GestorEmail",
+  "CreatedAtUtc","UpdatedAtUtc")
+VALUES
+ ('cccccccc-dc01-4000-8000-000000000001','liotecnica','ANALISTA-RH-PLENO',
+  'Analista de Recursos Humanos Pleno',
+  'Conduzir processos de R&S, DP e cultura, atuando como parceiro estratégico das áreas de negócio.',
+  true, true, 'Recursos Humanos',
+  'Ensino superior completo','Pós em Gestão de Pessoas ou RH','Psicologia, Administração, RH',
+  '3 anos','5 anos','Experiência em recrutamento, admissão, DP e LGPD',
+  '00', CURRENT_DATE, 'Descrição Inicial',
+  'Juliana Santos','juliana.santos@liotecnica.com.br',
+  now(), now());
+
+INSERT INTO "DescricaoCargoItens" ("Id","TenantId","DescricaoCargoId","Categoria","Texto","IsObrigatoria","Subcategoria","Ordem") VALUES
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',1,'Conduzir processos de recrutamento e seleção end-to-end (divulgação, triagem, entrevistas, fechamento)',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',1,'Gerenciar rotinas de Departamento Pessoal: admissão, rescisão, férias, benefícios',true,NULL,1),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',1,'Aplicar e interpretar testes comportamentais e técnicos (DISC, Quartzo)',false,NULL,2),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',1,'Executar ações de endomarketing e eventos culturais',false,NULL,3),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',1,'Manter compliance com LGPD nos processos de RH',true,NULL,4),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',1,'Apoiar gestores em avaliação de desempenho e feedback',false,NULL,5),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',2,'Atuar conforme missão e valores da organização',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',2,'Manter-se atualizado sobre legislação trabalhista e tendências de RH',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',3,'Experiência em recrutamento em volume (alta demanda)',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',3,'Atuação em DP operacional',true,NULL,1),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',3,'Consultoria interna para áreas de negócio',false,NULL,2),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',10,'Prioridade ao Cliente',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',10,'Alta Performance',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',10,'Foco em Resultados',false,NULL,2),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',10,'Responsabilidade Social e Ambiental',false,NULL,3),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',10,'Senso de Justiça com Respeito e Ética',false,NULL,4),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',11,'Comunicação e Relacionamento Interpessoal',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',12,'Escuta Ativa',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',12,'Discrição e Confidencialidade',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',12,'Visão Sistêmica',false,NULL,2),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',12,'Planejamento e Organização',false,NULL,3),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',13,'ATS (Gupy, SAP SuccessFactors, Senior)',false,'Software',0),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',13,'LGPD aplicada a dados pessoais sensíveis',true,'Legislacao',1),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',13,'CLT e legislação trabalhista',true,'Legislacao',2),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',13,'Microsoft Excel intermediário',false,'Software',3),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',20,'Ensino superior completo em Psicologia, Administração ou RH',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',20,'Experiência de 3+ anos em RH generalista',true,NULL,1),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',20,'Conhecimento profundo de LGPD',true,NULL,2),
+ (gen_random_uuid(),'liotecnica','cccccccc-dc01-4000-8000-000000000001',20,'Excelente comunicação verbal e escrita',true,NULL,3);
+
+-- ── 7.3 OPERADOR DE PRODUÇÃO ─────────────────────────────────────────────
+INSERT INTO "DescricoesCargo" ("Id","TenantId","Code","Title","Summary",
+  "IsTemplate","IsActive","AreaTemplate",
+  "FormacaoMinima","FormacaoDesejavel","FormacaoAreaEstudo",
+  "ExperienciaTempoMinimo","ExperienciaTempoDesejavel","ExperienciaEspecificacao",
+  "RevisaoNumero","RevisaoData","RevisaoNatureza","GestorNome","GestorEmail",
+  "CreatedAtUtc","UpdatedAtUtc")
+VALUES
+ ('dddddddd-dc01-4000-8000-000000000001','liotecnica','OPERADOR-PRODUCAO-JR',
+  'Operador de Produção',
+  'Operar máquinas e linhas de produção de alimentos seguindo normas de qualidade e segurança.',
+  true, true, 'Produção',
+  'Ensino médio completo','Curso técnico em Alimentos','Alimentos / Produção Industrial',
+  '6 meses','1 ano','Experiência em produção de alimentos ou indústria farmacêutica',
+  '00', CURRENT_DATE, 'Descrição Inicial',
+  'Roberto Alves','roberto.alves@liotecnica.com.br',
+  now(), now());
+
+INSERT INTO "DescricaoCargoItens" ("Id","TenantId","DescricaoCargoId","Categoria","Texto","IsObrigatoria","Subcategoria","Ordem") VALUES
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',1,'Operar máquinas envasadoras, misturadoras e embaladoras da linha de produção',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',1,'Realizar inspeção visual de produtos para controle de qualidade',true,NULL,1),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',1,'Preencher planilhas de produção, perdas e refugos',true,NULL,2),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',1,'Seguir procedimentos de BPF (Boas Práticas de Fabricação) e HACCP',true,NULL,3),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',1,'Realizar higienização de máquinas e área de trabalho a cada turno',true,NULL,4),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',1,'Comunicar supervisão sobre falhas, manutenção e incidentes',true,NULL,5),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',2,'Utilizar EPIs obrigatórios durante toda a jornada',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',2,'Participar de DDS (Diálogo Diário de Segurança)',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',3,'Experiência em indústria alimentícia ou farmacêutica',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',3,'Trabalho em ambientes frios ou quentes',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',10,'Prioridade ao Cliente',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',10,'Alta Performance',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',10,'Foco em Resultados',false,NULL,2),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',10,'Responsabilidade Social e Ambiental',false,NULL,3),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',10,'Senso de Justiça com Respeito e Ética',false,NULL,4),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',11,'Trabalho em Equipe',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',12,'Atenção e Concentração',false,NULL,0),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',12,'Disciplina Operacional',false,NULL,1),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',12,'Disponibilidade para Turnos',false,NULL,2),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',13,'Operação de máquinas envasadoras e embaladoras',true,'Equipamento',0),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',13,'BPF e HACCP — boas práticas de fabricação',true,'Seguranca',1),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',13,'Leitura de ordens de produção',false,'Conhecimento',2),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',20,'Ensino médio completo',true,NULL,0),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',20,'Experiência prévia em produção industrial',true,NULL,1),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',20,'Disponibilidade para turnos (6-14h / 14-22h)',true,NULL,2),
+ (gen_random_uuid(),'liotecnica','dddddddd-dc01-4000-8000-000000000001',20,'NR-11 (movimentação de cargas) ou NR-33 (espaços confinados)',true,NULL,3);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 8. VAGAS (5 novas — VAG-AST-001 já existe)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Macro para INSERT de vaga (colunas idênticas — simplifica)
+-- Status: 1=Rascunho, 2=Aberta, 4=EmTriagem, 5=EmEntrevistas, 7=Encerrada, 9=Preenchida
+
+-- ── 8.1 VAG-FIN-001 ABERTA — Analista Financeiro Jr ──────────────────
+INSERT INTO "Vagas" (
+  "Id","TenantId","Codigo","Titulo",
+  "Status","QuantidadeVagas","MatchMinimoPercentual",
+  "Modalidade","Senioridade","TipoContratacao","Prioridade",
+  "Confidencial","AceitaPcd","Urgente","VagaAfirmativa","LinguagemInclusiva",
+  "Regime","CargaSemanalHoras",
+  "Cep","Logradouro","Numero","Bairro","Cidade","Uf",
+  "SalarioMinimo","SalarioMaximo","Moeda","Periodicidade",
+  "GestorRequisitante","RecrutadorResponsavel","ResumoPitch",
+  "CanalLinkedIn","CanalSiteCarreiras","CanalIndicacao","CanalPortaisEmprego",
+  "LgpdSolicitarConsentimentoExplicito","LgpdCompartilharCurriculoInternamente","LgpdRetencaoAtiva","LgpdRetencaoMeses",
+  "ExigeCnh","DisponibilidadeParaViagens","ChecagemAntecedentes",
+  "CreatedAtUtc","UpdatedAtUtc",
+  "PesoCompetencia","PesoExperiencia","PesoFormacao","PesoLocalidade",
+  "PesoIdioma","PesoConhecimentoTecnico","PesoVivenciaEspecifica",
+  "LocalidadeMaxDistanciaKm",
+  "DescricaoCargoId","CentroCustoId","CategoriaSalarialId",
+  "DataAbertura","SlaDiasMetaFechamento",
+  "HeadcountAutorizado","IsEstrutural","HeadcountProvisorio","TravarFaixaSalarial"
+) VALUES (
+  'bbbbbbbb-aaaa-4000-8000-000000000001','liotecnica','VAG-FIN-001','Analista Financeiro Jr — Embu',
+  2 /* Aberta */, 1, 30,
+  2 /* Hibrido */, 3 /* Junior */, 1 /* CLT */, 3 /* Alta */,
+  false, true, false, false, true,
+  1, 40,
+  '06803-000','Av. Brasil','1000','Centro','Embu das Artes','SP',
+  3800, 4600, 1, 2,
+  'Mariana Costa','RH Liotécnica','Oportunidade para iniciar carreira financeira em multinacional de alimentos.',
+  true, true, true, false,
+  true, true, true, 12,
+  false, false, false,
+  now(), now(),
+  30, 20, 10, 15, 0, 20, 5,
+  30,
+  'bbbbbbbb-dc01-4000-8000-000000000001','aaaaaaaa-cc02-4000-8000-000000000001','aaaaaaaa-cs02-4000-8000-000000000001',
+  now() - interval '7 days', 30,
+  1, false, 0, false
+);
+
+-- ── 8.2 VAG-RH-001 EM TRIAGEM — Analista RH Pleno ─────────────────────
+INSERT INTO "Vagas" (
+  "Id","TenantId","Codigo","Titulo",
+  "Status","QuantidadeVagas","MatchMinimoPercentual",
+  "Modalidade","Senioridade","TipoContratacao","Prioridade",
+  "Confidencial","AceitaPcd","Urgente","VagaAfirmativa","LinguagemInclusiva",
+  "Regime","CargaSemanalHoras",
+  "Cep","Logradouro","Numero","Bairro","Cidade","Uf",
+  "SalarioMinimo","SalarioMaximo","Moeda","Periodicidade",
+  "GestorRequisitante","RecrutadorResponsavel",
+  "CanalLinkedIn","CanalSiteCarreiras","CanalIndicacao","CanalPortaisEmprego",
+  "LgpdSolicitarConsentimentoExplicito","LgpdCompartilharCurriculoInternamente","LgpdRetencaoAtiva","LgpdRetencaoMeses",
+  "ExigeCnh","DisponibilidadeParaViagens","ChecagemAntecedentes",
+  "CreatedAtUtc","UpdatedAtUtc",
+  "PesoCompetencia","PesoExperiencia","PesoFormacao","PesoLocalidade",
+  "PesoIdioma","PesoConhecimentoTecnico","PesoVivenciaEspecifica",
+  "LocalidadeMaxDistanciaKm","DescricaoCargoId","CentroCustoId","CategoriaSalarialId",
+  "DataAbertura","SlaDiasMetaFechamento",
+  "HeadcountAutorizado","IsEstrutural","HeadcountProvisorio","TravarFaixaSalarial"
+) VALUES (
+  'cccccccc-aaaa-4000-8000-000000000001','liotecnica','VAG-RH-001','Analista de RH Pleno — Embu',
+  4 /* EmTriagem */, 1, 35,
+  1, 4 /* Pleno */, 1, 3,
+  false, true, false, false, true,
+  1, 40,
+  '06803-000','Av. Brasil','1000','Centro','Embu das Artes','SP',
+  6000, 7500, 1, 2,
+  'Juliana Santos','Pedro Oliveira',
+  true, true, true, false,
+  true, true, true, 18,
+  false, false, true,
+  now(), now(),
+  30, 25, 10, 10, 0, 15, 10,
+  40,
+  'cccccccc-dc01-4000-8000-000000000001','aaaaaaaa-cc04-4000-8000-000000000001','aaaaaaaa-cs03-4000-8000-000000000001',
+  now() - interval '12 days', 45,
+  1, false, 0, false
+);
+
+-- ── 8.3 VAG-PROD-001 EM ENTREVISTAS — Operador de Produção ──────────────
+INSERT INTO "Vagas" (
+  "Id","TenantId","Codigo","Titulo",
+  "Status","QuantidadeVagas","MatchMinimoPercentual",
+  "Modalidade","Senioridade","TipoContratacao","Prioridade",
+  "Confidencial","AceitaPcd","Urgente","VagaAfirmativa","LinguagemInclusiva",
+  "Regime","CargaSemanalHoras","TurnoId",
+  "Cep","Logradouro","Numero","Bairro","Cidade","Uf",
+  "SalarioMinimo","SalarioMaximo","Moeda","Periodicidade",
+  "GestorRequisitante","RecrutadorResponsavel",
+  "CanalLinkedIn","CanalSiteCarreiras","CanalIndicacao","CanalPortaisEmprego",
+  "LgpdSolicitarConsentimentoExplicito","LgpdCompartilharCurriculoInternamente","LgpdRetencaoAtiva","LgpdRetencaoMeses",
+  "ExigeCnh","DisponibilidadeParaViagens","ChecagemAntecedentes",
+  "CreatedAtUtc","UpdatedAtUtc",
+  "PesoCompetencia","PesoExperiencia","PesoFormacao","PesoLocalidade",
+  "PesoIdioma","PesoConhecimentoTecnico","PesoVivenciaEspecifica",
+  "LocalidadeMaxDistanciaKm","DescricaoCargoId","CentroCustoId","CategoriaSalarialId",
+  "DataAbertura","SlaDiasMetaFechamento",
+  "HeadcountAutorizado","IsEstrutural","HeadcountProvisorio","TravarFaixaSalarial"
+) VALUES (
+  'dddddddd-aaaa-4000-8000-000000000001','liotecnica','VAG-PROD-001','Operador de Produção — 1º Turno',
+  5 /* EmEntrevistas */, 3, 25,
+  1, 3, 1, 4 /* Critica */,
+  false, true, true, false, true,
+  4 /* Turnos */, 44,
+  'aaaaaaaa-tu02-4000-8000-000000000001',
+  '06803-000','Av. Brasil','1000','Centro','Embu das Artes','SP',
+  2200, 2800, 1, 2,
+  'Roberto Alves','Pedro Oliveira',
+  false, true, true, false,
+  true, false, true, 6,
+  false, false, true,
+  now(), now(),
+  25, 20, 5, 25, 0, 15, 10,
+  25,
+  'dddddddd-dc01-4000-8000-000000000001','aaaaaaaa-cc03-4000-8000-000000000001','aaaaaaaa-cs04-4000-8000-000000000001',
+  now() - interval '20 days', 25,
+  3, false, 0, true
+);
+
+-- ── 8.4 VAG-AST-002 RASCUNHO — Analista Suporte Sr (testa filtros/edição) ─
+INSERT INTO "Vagas" (
+  "Id","TenantId","Codigo","Titulo",
+  "Status","QuantidadeVagas","MatchMinimoPercentual",
+  "Modalidade","Senioridade","TipoContratacao","Prioridade",
+  "Confidencial","AceitaPcd","Urgente","VagaAfirmativa","LinguagemInclusiva",
+  "Regime","CargaSemanalHoras",
+  "Cep","Cidade","Uf",
+  "SalarioMinimo","SalarioMaximo","Moeda","Periodicidade",
+  "GestorRequisitante","RecrutadorResponsavel",
+  "CanalLinkedIn","CanalSiteCarreiras","CanalIndicacao","CanalPortaisEmprego",
+  "LgpdSolicitarConsentimentoExplicito","LgpdCompartilharCurriculoInternamente","LgpdRetencaoAtiva","LgpdRetencaoMeses",
+  "ExigeCnh","DisponibilidadeParaViagens","ChecagemAntecedentes",
+  "CreatedAtUtc","UpdatedAtUtc",
+  "PesoCompetencia","PesoExperiencia","PesoFormacao","PesoLocalidade",
+  "PesoIdioma","PesoConhecimentoTecnico","PesoVivenciaEspecifica",
+  "LocalidadeMaxDistanciaKm","DescricaoCargoId","CentroCustoId",
+  "HeadcountAutorizado","IsEstrutural","HeadcountProvisorio","TravarFaixaSalarial"
+) VALUES (
+  'eeeeeeee-aaaa-4000-8000-000000000001','liotecnica','VAG-AST-002','Analista de Suporte Técnico Sr',
+  1 /* Rascunho */, 1, 40,
+  2, 5 /* Senior */, 1, 2,
+  false, true, false, false, true,
+  1, 40,
+  '06803-000','Embu das Artes','SP',
+  7000, 9000, 1, 2,
+  'Carlos Silva','Juliana Santos',
+  true, true, true, false,
+  true, true, true, 12,
+  false, false, false,
+  now(), now(),
+  35, 20, 5, 15, 0, 20, 5,
+  30,
+  '073c48db-2521-4a9a-87b4-b2f616ebd8b5','aaaaaaaa-cc01-4000-8000-000000000001',
+  1, false, 0, false
+);
+
+-- ── 8.5 VAG-AST-003 PREENCHIDA (histórico funil) ─────────────────────
+INSERT INTO "Vagas" (
+  "Id","TenantId","Codigo","Titulo",
+  "Status","QuantidadeVagas","MatchMinimoPercentual",
+  "Modalidade","Senioridade","TipoContratacao","Prioridade",
+  "Confidencial","AceitaPcd","Urgente","VagaAfirmativa","LinguagemInclusiva",
+  "Regime","CargaSemanalHoras",
+  "Cep","Cidade","Uf",
+  "SalarioMinimo","SalarioMaximo","Moeda","Periodicidade",
+  "GestorRequisitante","RecrutadorResponsavel",
+  "CanalLinkedIn","CanalSiteCarreiras","CanalIndicacao","CanalPortaisEmprego",
+  "LgpdSolicitarConsentimentoExplicito","LgpdCompartilharCurriculoInternamente","LgpdRetencaoAtiva","LgpdRetencaoMeses",
+  "ExigeCnh","DisponibilidadeParaViagens","ChecagemAntecedentes",
+  "CreatedAtUtc","UpdatedAtUtc",
+  "PesoCompetencia","PesoExperiencia","PesoFormacao","PesoLocalidade",
+  "PesoIdioma","PesoConhecimentoTecnico","PesoVivenciaEspecifica",
+  "LocalidadeMaxDistanciaKm","DescricaoCargoId","CentroCustoId",
+  "DataAbertura","DataEncerramento",
+  "HeadcountAutorizado","IsEstrutural","HeadcountProvisorio","TravarFaixaSalarial"
+) VALUES (
+  'ffffffff-aaaa-4000-8000-000000000001','liotecnica','VAG-AST-003','Técnico de Suporte Jr (encerrada)',
+  9 /* Preenchida */, 1, 30,
+  1, 3, 1, 2,
+  false, true, false, false, true,
+  1, 40,
+  '06803-000','Embu das Artes','SP',
+  3500, 4200, 1, 2,
+  'Carlos Silva','Juliana Santos',
+  true, true, true, false,
+  true, true, true, 12,
+  false, false, false,
+  now() - interval '60 days', now() - interval '10 days',
+  35, 20, 0, 15, 0, 25, 5,
+  30,
+  '073c48db-2521-4a9a-87b4-b2f616ebd8b5','aaaaaaaa-cc01-4000-8000-000000000001',
+  now() - interval '60 days', now() - interval '10 days',
+  1, false, 0, false
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 9. PESSOAS (9 novas — 3 por vaga-nova, todas geocodificadas em SP)
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Coords de referência:
+--   Embu (empresa)       : -23.6436, -46.8085
+--   Taboão da Serra      : -23.6300, -46.7800   (5 km)
+--   Cotia                : -23.6000, -46.9200   (12 km)
+--   Osasco               : -23.5329, -46.7919   (15 km)
+--   São Paulo Vila Olímpia: -23.5950, -46.6850   (17 km)
+--   Barueri              : -23.5105, -46.8760   (22 km)
+--   Guarulhos            : -23.4543, -46.5339   (35 km)
+
+INSERT INTO "Pessoas" ("Id","TenantId","Nome","Email","Fone","Cidade","Uf","ResumoProfissional",
+                       "Cep","Logradouro","Numero","Bairro",
+                       "Latitude","Longitude","GeocodificadoEmUtc",
+                       "CreatedAtUtc","UpdatedAtUtc","Origem")
+VALUES
+ -- Financeiro PERFEITO: Rafael Souza — SAP, 3 anos, contador CRC
+ ('bbbbbbbb-1001-4000-8000-000000000001','liotecnica',
+  'Rafael Souza Lima','rafael.souza.fin@example.com','11 98777-1001',
+  'Taboão da Serra','SP',
+  'Analista Financeiro Jr com 3 anos de experiência. Atuou com SAP FI (contas a pagar, receber, ativo fixo), conciliação bancária e fechamento mensal. Formado em Ciências Contábeis pela FECAP, CRC ativo. Excel avançado (PROCV, tabelas dinâmicas, macros). Elaborou relatórios gerenciais para diretoria. Conhecimento em rotinas de DRE, balanço e fluxo de caixa.',
+  '06700-000','R. dos Lírios','150','Centro',
+  -23.6300, -46.7800, now(), now(), now(), 5),
+
+ -- Financeiro BOM: Amanda Lima — ERP TOTVS, graduação, Excel int
+ ('bbbbbbbb-1002-4000-8000-000000000001','liotecnica',
+  'Amanda Lima Pereira','amanda.lima.fin@example.com','11 98777-1002',
+  'Osasco','SP',
+  'Recém-formada em Administração com estágio de 1 ano e meio em financeiro. Utilizou TOTVS RM para lançamentos, emissão de boletos e conciliação. Excel intermediário. Buscando primeira oportunidade efetiva.',
+  '06020-000','Av. dos Autonomistas','500','Km 18',
+  -23.5329, -46.7919, now(), now(), now(), 5),
+
+ -- Financeiro MÉDIO: Gabriel Mendes — recém formado, sem SAP
+ ('bbbbbbbb-1003-4000-8000-000000000001','liotecnica',
+  'Gabriel Mendes Araújo','gabriel.mendes.cc@example.com','11 98777-1003',
+  'Cotia','SP',
+  'Formado em Ciências Contábeis 2024. Estágio de 6 meses em escritório contábil (lançamentos fiscais, notas). Sem experiência em ERP de grande porte. Excel básico. Ansioso por primeira oportunidade.',
+  '06700-000','R. do Comércio','10','Centro',
+  -23.6000, -46.9200, now(), now(), now(), 5),
+
+ -- RH PERFEITO: Paula Fernandes — 5 anos, LGPD, DP, R&S
+ ('cccccccc-1001-4000-8000-000000000001','liotecnica',
+  'Paula Fernandes Ribeiro','paula.fernandes.rh@example.com','11 98777-2001',
+  'Embu das Artes','SP',
+  'Analista de RH Pleno com 5 anos de experiência. Atuou em recrutamento e seleção em volume (até 30 processos simultâneos), admissão/rescisão pela CLT, benefícios, férias e DP operacional. Certificada em LGPD aplicada ao RH. Usou ATS Gupy + Senior Sistemas. Pós-graduação em Gestão de Pessoas pela FIA cursando.',
+  '06803-000','R. das Palmeiras','200','Centro',
+  -23.6500, -46.8400, now(), now(), now(), 5),
+
+ -- RH BOM: Luís Almeida — R&S e admissão, sem LGPD
+ ('cccccccc-1002-4000-8000-000000000001','liotecnica',
+  'Luís Augusto Almeida','luis.almeida.rh@example.com','11 98777-2002',
+  'Barueri','SP',
+  'Analista de RH Jr com 2 anos em R&S e admissão, atua com CLT e eSocial. Formação em Administração. Excel intermediário. Quer migrar pra pleno.',
+  '06401-000','Al. Mamoré','600','Alphaville',
+  -23.5105, -46.8760, now(), now(), now(), 5),
+
+ -- RH MÉDIO: Beatriz Santos — psicologia, pouca experiência
+ ('cccccccc-1003-4000-8000-000000000001','liotecnica',
+  'Beatriz Santos Oliveira','beatriz.santos.psico@example.com','11 98777-2003',
+  'Cotia','SP',
+  'Formada em Psicologia (2023) com estágio de 10 meses em consultoria de RH — aplicou entrevistas comportamentais e testes DISC. Busca primeira efetivação. Comunicação forte.',
+  '06700-000','Av. Brasil','55','Granja Vianna',
+  -23.6000, -46.9200, now(), now(), now(), 5),
+
+ -- PRODUÇÃO PERFEITO: José Santana — 4 anos, NR-11, alimentícia
+ ('dddddddd-1001-4000-8000-000000000001','liotecnica',
+  'José Santana Ferreira','jose.santana.prod@example.com','11 98777-3001',
+  'Embu das Artes','SP',
+  'Operador de produção com 4 anos em indústria alimentícia (biscoitos e massas). Operou máquinas envasadoras, embaladoras e misturadoras. Certificado em BPF e HACCP. NR-11 (movimentação de cargas) e NR-33 válidas. Disponibilidade para turnos alternados.',
+  '06803-000','R. dos Operários','80','Jardim Silveira',
+  -23.6450, -46.8100, now(), now(), now(), 5),
+
+ -- PRODUÇÃO BOM: Antônio Pereira — 2 anos, indústria farmacêutica
+ ('dddddddd-1002-4000-8000-000000000001','liotecnica',
+  'Antônio Pereira da Costa','antonio.pereira.prod@example.com','11 98777-3002',
+  'Taboão da Serra','SP',
+  'Operador de produção 2 anos em indústria farmacêutica. Experiência com boas práticas de fabricação e ordens de produção. NR-11. Disposto a trabalhar em turnos.',
+  '06700-000','R. das Violetas','22','Jardim Record',
+  -23.6300, -46.7800, now(), now(), now(), 5),
+
+ -- PRODUÇÃO MÉDIO: Carlos Eduardo — auxiliar sem NR
+ ('dddddddd-1003-4000-8000-000000000001','liotecnica',
+  'Carlos Eduardo da Silva','carlos.eduardo.aux@example.com','11 98777-3003',
+  'Cotia','SP',
+  'Auxiliar de produção com 8 meses em indústria de plásticos. Ensino médio completo. Sem certificações NR ainda. Gosta do trabalho operacional e quer crescer.',
+  '06700-000','R. Nova','5','Jardim Isis',
+  -23.6000, -46.9200, now(), now(), now(), 5);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 10. TALENTOS (1:1 com Pessoa)
+-- ═══════════════════════════════════════════════════════════════════════════
+INSERT INTO "Talentos" ("Id","TenantId","PessoaId","Origem","Versao","CreatedAtUtc","UpdatedAtUtc")
+SELECT REPLACE(p."Id"::text, '-1', '-2')::uuid, p."TenantId", p."Id", 2, 1, now(), now()
+FROM "Pessoas" p
+WHERE p."Id"::text LIKE 'bbbbbbbb-1%' OR p."Id"::text LIKE 'cccccccc-1%' OR p."Id"::text LIKE 'dddddddd-1%';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 11. CANDIDATOS (vinculados a vagas específicas)
+-- ═══════════════════════════════════════════════════════════════════════════
+INSERT INTO "Candidatos" ("Id","TenantId","Nome","Email","Fone","Cidade","Uf",
+                          "Fonte","Status","VagaId","TalentoId",
+                          "CvText","ResumoProfissional",
+                          "PretensaoSalarial","TrabalhandoAtualmente",
+                          "CreatedAtUtc","UpdatedAtUtc")
+SELECT REPLACE(p."Id"::text, '-1', '-3')::uuid, p."TenantId", p."Nome", p."Email", p."Fone", p."Cidade", p."Uf",
+       4 /* Site */,
+       CASE
+         WHEN p."Id"::text LIKE '%-1001-%' THEN 2 /* Aprovado */
+         WHEN p."Id"::text LIKE '%-1002-%' THEN 1 /* Triagem */
+         ELSE 0 /* Novo */
+       END,
+       CASE
+         WHEN p."Id"::text LIKE 'bbbbbbbb-%' THEN 'bbbbbbbb-aaaa-4000-8000-000000000001'::uuid
+         WHEN p."Id"::text LIKE 'cccccccc-%' THEN 'cccccccc-aaaa-4000-8000-000000000001'::uuid
+         WHEN p."Id"::text LIKE 'dddddddd-%' THEN 'dddddddd-aaaa-4000-8000-000000000001'::uuid
+       END AS vagaId,
+       REPLACE(p."Id"::text, '-1', '-2')::uuid AS talentoId,
+       p."ResumoProfissional" AS cvText,
+       LEFT(p."ResumoProfissional", 150) AS resumo,
+       CASE
+         WHEN p."Id"::text LIKE 'bbbbbbbb-%' THEN 4400
+         WHEN p."Id"::text LIKE 'cccccccc-%' THEN 7000
+         ELSE 2600
+       END,
+       false,
+       now(), now()
+FROM "Pessoas" p
+WHERE p."Id"::text LIKE 'bbbbbbbb-1%' OR p."Id"::text LIKE 'cccccccc-1%' OR p."Id"::text LIKE 'dddddddd-1%';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 12. CANDIDATURAS COBRINDO TODAS ETAPAS DO FUNIL
+--    0=Aplicada, 1=EmTriagem, 2=Entrevista, 3=Teste, 4=Proposta, 5=Contratado, 6=Recusado, 7=Desistiu
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Para Vaga Financeiro (bbbbbbbb-aaaa): Rafael=Entrevista, Amanda=Triagem, Gabriel=Aplicada
+INSERT INTO "Candidaturas" ("Id","TenantId","CandidatoId","VagaId","Status","EtapaMacro",
+                            "Fonte","Observacoes","AplicadaEmUtc","EtapaAtualDesdeUtc","CreatedAtUtc","UpdatedAtUtc") VALUES
+ ('bbbbbbbb-4001-4000-8000-000000000001','liotecnica',
+  'bbbbbbbb-3001-4000-8000-000000000001','bbbbbbbb-aaaa-4000-8000-000000000001',
+  0 /* Ativa */, 2 /* Entrevista */, 'LinkedIn',
+  'Perfil SAP muito aderente — marcada entrevista técnica',
+  now() - interval '9 days', now() - interval '2 days',
+  now() - interval '9 days', now()),
+
+ ('bbbbbbbb-4002-4000-8000-000000000001','liotecnica',
+  'bbbbbbbb-3002-4000-8000-000000000001','bbbbbbbb-aaaa-4000-8000-000000000001',
+  0, 1 /* EmTriagem */, 'Site',
+  'Perfil promissor; pendente análise de portfólio',
+  now() - interval '6 days', now() - interval '6 days',
+  now() - interval '6 days', now()),
+
+ ('bbbbbbbb-4003-4000-8000-000000000001','liotecnica',
+  'bbbbbbbb-3003-4000-8000-000000000001','bbbbbbbb-aaaa-4000-8000-000000000001',
+  0, 0 /* Aplicada */, 'Indicacao',
+  'Recém-formado — aguardando análise inicial',
+  now() - interval '2 days', now() - interval '2 days',
+  now() - interval '2 days', now());
+
+-- Para Vaga RH (cccccccc-aaaa): Paula=Proposta, Luís=Teste, Beatriz=Recusado
+INSERT INTO "Candidaturas" ("Id","TenantId","CandidatoId","VagaId","Status","EtapaMacro",
+                            "Fonte","Observacoes","AplicadaEmUtc","EtapaAtualDesdeUtc","CreatedAtUtc","UpdatedAtUtc") VALUES
+ ('cccccccc-4001-4000-8000-000000000001','liotecnica',
+  'cccccccc-3001-4000-8000-000000000001','cccccccc-aaaa-4000-8000-000000000001',
+  0, 4 /* Proposta */, 'LinkedIn',
+  'Perfil sênior — enviada proposta; aguardando retorno',
+  now() - interval '25 days', now() - interval '3 days',
+  now() - interval '25 days', now()),
+
+ ('cccccccc-4002-4000-8000-000000000001','liotecnica',
+  'cccccccc-3002-4000-8000-000000000001','cccccccc-aaaa-4000-8000-000000000001',
+  0, 3 /* Teste */, 'Site',
+  'Aplicando teste de cases de R&S',
+  now() - interval '14 days', now() - interval '1 day',
+  now() - interval '14 days', now()),
+
+ ('cccccccc-4003-4000-8000-000000000001','liotecnica',
+  'cccccccc-3003-4000-8000-000000000001','cccccccc-aaaa-4000-8000-000000000001',
+  2 /* Reprovado */, 6 /* Recusado */, 'Site',
+  'Perfil jr demais para pleno',
+  now() - interval '10 days', now() - interval '5 days',
+  now() - interval '10 days', now());
+
+-- Para Vaga Produção (dddddddd-aaaa): José=Contratado, Antônio=Entrevista, Carlos=Desistiu
+INSERT INTO "Candidaturas" ("Id","TenantId","CandidatoId","VagaId","Status","EtapaMacro",
+                            "Fonte","Observacoes","AplicadaEmUtc","EtapaAtualDesdeUtc","CreatedAtUtc","UpdatedAtUtc") VALUES
+ ('dddddddd-4001-4000-8000-000000000001','liotecnica',
+  'dddddddd-3001-4000-8000-000000000001','dddddddd-aaaa-4000-8000-000000000001',
+  1 /* Contratado */, 5 /* Contratado */, 'Indicacao',
+  'Admitido — início em 10 dias',
+  now() - interval '22 days', now() - interval '1 day',
+  now() - interval '22 days', now()),
+
+ ('dddddddd-4002-4000-8000-000000000001','liotecnica',
+  'dddddddd-3002-4000-8000-000000000001','dddddddd-aaaa-4000-8000-000000000001',
+  0, 2 /* Entrevista */, 'Site',
+  'Segunda entrevista com RH agendada',
+  now() - interval '18 days', now() - interval '4 days',
+  now() - interval '18 days', now()),
+
+ ('dddddddd-4003-4000-8000-000000000001','liotecnica',
+  'dddddddd-3003-4000-8000-000000000001','dddddddd-aaaa-4000-8000-000000000001',
+  3 /* Desistiu */, 7 /* Desistiu */, 'Indicacao',
+  'Candidato desistiu — aceitou outra proposta',
+  now() - interval '15 days', now() - interval '7 days',
+  now() - interval '15 days', now());
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 13. PROPOSTAS DE VAGA (3 — Pendente, Aceita, Recusada)
+--    Status: 0=Rascunho, 1=Enviada/Pendente, 2=Aceita, 3=Recusada, 4=Expirada
+-- ═══════════════════════════════════════════════════════════════════════════
+INSERT INTO "PropostasVaga" ("Id","TenantId","VagaId","CandidatoId","Status",
+                             "Moeda","SalarioOferecido","DescricaoBeneficios",
+                             "DataPrevistaInicio","MensagemPersonalizada",
+                             "AccessToken","EnviadaEmUtc","ExpiraEmUtc",
+                             "CreatedAtUtc","UpdatedAtUtc") VALUES
+ -- Paula (RH): PROPOSTA PENDENTE (candidato ainda não respondeu)
+ ('cccccccc-5001-4000-8000-000000000001','liotecnica',
+  'cccccccc-aaaa-4000-8000-000000000001','cccccccc-3001-4000-8000-000000000001',
+  1 /* Pendente */, 'BRL', 7200.00,
+  'Plano de saúde Bradesco Saúde Top + Odontológico; VR R$ 35/dia; Gympass; Home office 2x semana; Participação nos lucros semestral',
+  (CURRENT_DATE + 15), 'Paula, ficamos encantados com seu perfil. Seguem os detalhes da proposta. Prazo de resposta: 5 dias corridos.',
+  encode(gen_random_bytes(24), 'hex'), now() - interval '3 days', now() + interval '2 days',
+  now() - interval '3 days', now()),
+
+ -- José (Produção): PROPOSTA ACEITA (virou contratação)
+ ('dddddddd-5001-4000-8000-000000000001','liotecnica',
+  'dddddddd-aaaa-4000-8000-000000000001','dddddddd-3001-4000-8000-000000000001',
+  2 /* Aceita */, 'BRL', 2650.00,
+  'VA R$ 400/mês; VT; Convênio médico Amil; Seguro de vida; Adicional de turno 20%',
+  (CURRENT_DATE - 5), 'José, bem-vindo à Liotécnica!',
+  encode(gen_random_bytes(24), 'hex'), now() - interval '7 days', now() - interval '2 days',
+  now() - interval '7 days', now() - interval '6 days'),
+
+ -- Candidato fictício pra Recusada (usa Bruno que já existe)
+ ('ffffffff-5001-4000-8000-000000000001','liotecnica',
+  'ffffffff-aaaa-4000-8000-000000000001','aaaaaaaa-3002-4000-8000-000000000001',
+  3 /* Recusada */, 'BRL', 3800.00,
+  'Padrão técnico Jr',
+  (CURRENT_DATE - 20), 'Proposta inicial — ajustamos depois do retorno',
+  encode(gen_random_bytes(24), 'hex'), now() - interval '30 days', now() - interval '25 days',
+  now() - interval '30 days', now() - interval '28 days');
+
+-- Atualiza PropostaVaga recusada com motivo
+UPDATE "PropostasVaga"
+SET "MotivoRecusa" = 'Proposta abaixo das expectativas salariais',
+    "RespondidaEmUtc" = now() - interval '28 days',
+    "NomeConfirmadoCandidato" = 'Bruno Henrique Costa'
+WHERE "Id" = 'ffffffff-5001-4000-8000-000000000001';
+
+-- ═══════════════════════════════════════════════════════════════════════════
+COMMIT;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- RESUMO DO QUE FOI CRIADO
+-- ═══════════════════════════════════════════════════════════════════════════
+SELECT 'Empresas (total)'     AS entidade, COUNT(*) FROM "Empresas"
+UNION ALL SELECT 'CentrosCusto', COUNT(*) FROM "CentrosCusto"
+UNION ALL SELECT 'Turnos', COUNT(*) FROM "Turnos"
+UNION ALL SELECT 'CategoriasSalariais', COUNT(*) FROM "CategoriasSalariais"
+UNION ALL SELECT 'CategoriaSalarialSteps', COUNT(*) FROM "CategoriaSalarialSteps"
+UNION ALL SELECT 'DescricoesCargo', COUNT(*) FROM "DescricoesCargo"
+UNION ALL SELECT 'DescricaoCargoItens', COUNT(*) FROM "DescricaoCargoItens"
+UNION ALL SELECT 'NotificacoesTemplates', COUNT(*) FROM "NotificacoesTemplates"
+UNION ALL SELECT 'Vagas', COUNT(*) FROM "Vagas"
+UNION ALL SELECT 'Pessoas', COUNT(*) FROM "Pessoas"
+UNION ALL SELECT 'Talentos', COUNT(*) FROM "Talentos"
+UNION ALL SELECT 'Candidatos', COUNT(*) FROM "Candidatos"
+UNION ALL SELECT 'Candidaturas', COUNT(*) FROM "Candidaturas"
+UNION ALL SELECT 'PropostasVaga', COUNT(*) FROM "PropostasVaga";

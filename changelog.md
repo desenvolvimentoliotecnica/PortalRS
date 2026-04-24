@@ -6,6 +6,106 @@ Datas em ISO `YYYY-MM-DD`. Tipos: `Added` / `Changed` / `Fixed` / `Removed` / `S
 
 ---
 
+## [Unreleased] — 2026-04-24 (tarde) — FASE 5 — Agent RAG com Function Calling
+
+### Added — Agente de IA com ferramentas estruturadas
+
+- **Arquitetura Agent + Tool Registry** (`IAgentTool`, `AgentToolRegistry`) — contrato genérico para ferramentas do agente com schema JSON (padrão OpenAI function calling).
+- **16 tools registradas** cobrindo todo o domínio R&S:
+  - Vagas: `vagas_listar`, `vagas_contar`, `vagas_info`, `vagas_candidatos`
+  - Candidatos: `candidatos_listar`, `candidatos_info`, `candidatos_contar`
+  - Candidaturas: `candidaturas_por_etapa`, `candidaturas_sla_atrasadas`, `candidaturas_por_fonte`
+  - Propostas: `propostas_listar`, `propostas_estatisticas`
+  - Infra: `centros_custo_listar`, `descricoes_cargo_listar`, `descricao_cargo_info`, `empresas_listar`
+- **`OllamaClient.ChatWithToolsAsync`** — suporte a Function Calling OpenAI-compatible (tools + tool_calls + resultados como `role:"tool"`).
+- **`LlmAssistantService` refatorado** com loop ReAct (MaxAgentIterations=6). Detecção de intenção: perguntas estruturadas ("quantas", "liste", "por etapa") zeram RAG semântico pra incentivar uso de tools; perguntas conceituais mantêm RAG.
+- **Synthesis fallback**: se Qwen responde content vazio após executar tools (bug intermitente do modelo), sistema pede síntese explícita em iteração extra.
+- **Frontend**: `ChatBubble` agora mostra **chips violeta** das tools invocadas com hover interativo (args JSON + preview do resultado, duração ms). Transparência total pro usuário saber de onde veio cada fato.
+
+### Added — LLM-as-a-Judge (botão "Análise IA" no kanban)
+
+- **Entidade** `CandidatoVagaLlmScore` (jsonb, hash SHA256 pra cache, model version tracking).
+- **Migration idempotente** `AddCandidatoVagaLlmScore` (CREATE TABLE IF NOT EXISTS + FKs via DO $$ pg_constraint).
+- **`ILlmMatchingService`** — Qwen 2.5 avalia candidato × vaga com CV + DescCargo estruturada + pesos calibrados. Retorna score 0-100 + justificativa PT-BR + breakdown por critério (pontos fortes + gaps).
+- **Cache automático**: SHA256 de (CV + DescCargo itens + pesos + MatchMinimo) invalida quando qualquer fonte muda. 2ª chamada: 30ms. 1ª: 10-60s (CPU) ou 3-5s (GPU).
+- **`LlmMatchingDialog`** com `LoadingWithElapsed` (contador visual, mensagens dinâmicas por estágio: "Carregando modelo", "Analisando perfil", "Aplicando pesos"). Botão "Regenerar análise".
+- **Endpoint** `GET /api/vagas/{id}/matching-llm/{candId}?force=bool` — retorna 503 com `LlmTimeoutException` em vez de 500 genérico quando Qwen demora.
+- **Timeout Ollama** 120s → 300s + `keep_alive: "30m"` — mantém modelo na RAM entre chamadas.
+- Score do Rafael (perfeito) em Analista Financeiro: **85/100** via LLM vs 46 via híbrido. Qwen identifica skills-fit semanticamente ("SAP FI" ≡ "ERP financeiro") e gaps sutis ("falta atendimento a fornecedores").
+
+### Fixed — Bugs da FASE 4/5
+
+- **Concurrency DbContext** no `LlmAssistantService.BuildContextAsync` — paralelizava 3 retrievals com `Task.WhenAll` no mesmo DbContext. Refatorado para sequencial (DbContext não é thread-safe).
+- **`Vector` property could not be mapped** — `AuditWriter.CreateDbContext` criava `AppDbContext` sem `UseVector()`, quebrando todo SaveChanges em tenants com embeddings.
+- **`dynamic = "force-dynamic"` incompatível com `output: "export"`** — removido da rota `/app/assistente-ia`.
+- **Aba "Matching IA" desabilitada** (`opacity-40` + toast "em breve") — habilitada com componente `MatchingIaTab` completo (tabela de score por candidato + breakdown + LLM analysis + reindex).
+- **Legenda confusa** em MatchingIaTab — corrigida pra ser 100% fiel ao código (léxico inclui localidade; semantic e lexical são o mesmo algoritmo com rotas diferentes).
+- **Reindexação manual necessária** — implementado trigger automático via `EmbeddingReindexInterceptor` (SaveChangesInterceptor) + `EmbeddingIndexQueue` (Channel singleton) + `EmbeddingIndexerHostedService` (BackgroundService). Mudou CV ou item DNALIO → reembeda automático em <5s.
+- **Escape `\"` em C# interpolação normal** — substituído por variáveis intermediárias.
+
+### Changed — Nomes de modos de matching
+
+- `"hybrid"` → `"ai"` — quando Ollama ativo e embeddings usados.
+- `"fallback"` → `"semantic"` — quando Ollama offline, fallback léxico com stems + sinônimos.
+- `"lexical"` — endpoint alternativo `/matching-breakdown` (mesmo algoritmo de semantic).
+
+### Docs atualizadas
+
+- `GUIA_IA_RAG.md` — seção Agent Tools adicionada com diagrama ReAct e lista das 16 tools.
+- `COMO_USAR_MATCHING_IA.md` — seção LLM-as-Judge (análise profunda) + seção Chatbot Agent (como perguntar ao sistema).
+- `TRILHA_TESTES_RS.md` — trilha N (Agent Tools) com 12 cenários de perguntas.
+
+---
+
+## [Unreleased] — 2026-04-24 (manhã) — FASE 4 — Stack IA RAG (Ollama + pgvector) completo
+
+### Added — Matching híbrido com IA
+
+- **pgvector 0.8.2** habilitado em `dev_render_liotecnica` via `scripts/setup-pgvector.sh` (idempotente, pode rodar em qualquer host com EDB Postgres 18).
+- **Ollama local** como stack IA default: `qwen2.5:7b` (chat, Apache 2.0) + `bge-m3` (embeddings multilingual 1024 dims). Zero custo por inferência, dados não saem do host do tenant.
+- Entidades `DescricaoCargoItemEmbedding` + `CandidatoEmbedding` com tipo `Vector(1024)` nativo via pacote `Pgvector.EntityFrameworkCore` 0.2.0.
+- Migration idempotente `AddEmbeddingsPgvector`: `CREATE EXTENSION IF NOT EXISTS vector` + `CREATE TABLE IF NOT EXISTS` + FKs via `DO $$ pg_constraint $$` + IVFFlat index para kNN.
+- `IOllamaClient` — cliente HTTP tipado com health check, embed single/batch, chat buffered, chat streaming (NDJSON). Robusto a Ollama down (retorna null sem lançar).
+- `IEmbeddingService` — upsert idempotente por SHA256 do texto-fonte. Re-indexação incremental.
+- `IVectorSearchService` — kNN por cosine distance com `Pgvector.EntityFrameworkCore`.
+- `HybridMatchingService` — blend 30% léxico + 50% semântico + 20% localidade. Fallback automático para léxico puro quando Ollama indisponível.
+- `ILlmAssistantService` — chatbot RAG com streaming SSE. Retrieval: top-8 itens DNALIO + top-3 vagas abertas. Prompt instrui LLM a citar `[Fonte N]`.
+- `IDescricaoCargoGeneratorService` — gera template DNALIO completo a partir de brief.
+- `ICvResumoService` — resume CV em 250 chars para card do kanban.
+- `ISalarioSuggesterService` — sugere faixa salarial baseada em vagas similares internas + categoria salarial do tenant.
+- Controller `/api/assistente-ia/*` com 7 endpoints: health, chat, chat/stream (SSE), descricao-cargo/gerar, cv/resumir/{id}, vagas/sugerir-salario/{id}, embeddings/reindexar.
+- Endpoint novo `/api/vagas/{id}/matching-breakdown-hybrid/{candidatoId}` coexistindo com o léxico.
+
+### Added — Frontend: Assistente IA + integrações
+
+- Tela `/app/assistente-ia` com chat streaming via SSE, sidebar de health, sugestões, botão reindexar.
+- Componente `Textarea` em `src/components/ui/textarea.tsx`.
+- `GerarDescricaoCargoDialog` — gera template via IA.
+- `SugerirSalarioButton` — integrado ao VagaFormModal (aba Remuneração).
+- `ResumirCvButton` — card do kanban gera/regera resumo de CV.
+- `MatchingBreakdownDialog` estendido: toggle Híbrido/Léxico + top-3 evidências semânticas.
+- Item "Assistente IA" em `NavegacaoManifest` (ordem 52).
+
+### Changed — Matching léxico (base do híbrido)
+
+- `PtBrStemmer` — stemmer conservador pt-br (trabalhar↔trabalho, configuração↔configurar).
+- `TechSynonyms` — dicionário AD↔Active Directory, HD↔Help Desk, MS Office↔Microsoft Office, etc.
+- `TfIdfWeightCalculator` — IDF pondera tokens raros (`"ManageEngine"` vale 3-4× mais que `"através"`).
+- `DescricaoCargoMatchingService.IsRequisitoProcessual` — heurística ignora "perfil alinhado com gestor" e similares na penalidade.
+- `DocxDescricaoCargoParser.TryMatchSecao` — match fuzzy em 2 passes para títulos DNALIO customizados.
+
+### Fixed — Scores do matching (evolução da Ana, candidato perfeito)
+
+**0 → 40 → 48 → 49 → 58 (híbrido)**. Ranking Ana > Bruno > Carla > Diego preservado.
+
+### Docs
+
+- `GUIA_IA_RAG.md` — guia completo de setup + arquitetura + troubleshooting + performance.
+- `TRILHA_TESTES_RS.md` estendida com trilha M (10 verificações da stack IA).
+- `scripts/setup-pgvector.sh` — script idempotente para habilitar extensão.
+
+---
+
 ## [Unreleased] — 2026-04-23 — Sessão 31.2 — Consolidação Area + Department → CentroCusto
 
 ### Changed — Domínio unificado: `CentroCusto` absorve `Area` + `Department`

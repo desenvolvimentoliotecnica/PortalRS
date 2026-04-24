@@ -4,6 +4,69 @@ Registro cronológico das interações e intervenções no projeto.
 
 ---
 
+## 2026-04-24 — FASE 4 + FASE 5 — Stack IA RAG completo + Agent com Function Calling
+
+**Contexto.** Após fechar R&S lexical (FASE 1-3 em 23/04), o usuário decidiu o salto qualitativo: integrar LLM local (Ollama + Qwen 2.5 7B) + pgvector + RAG para matching e chatbot. Premissa: "nada de MVP — entrega completa". Durante a execução surgiram 2 perguntas arquiteturais do usuário que reorientaram o escopo: *"por que o matching não usa a LLM entendendo o RAG da vaga + CV + pesos para dar um score?"* → levou ao LLM-as-a-Judge. *"como faço o banco todo virar RAG do agente?"* → levou à FASE 5 com Function Calling.
+
+### FASE 4 — Stack IA base (manhã/início tarde)
+
+**Infraestrutura**: pgvector 0.8.2 habilitado no EDB Postgres 18 via `scripts/setup-pgvector.sh` (idempotente, copia .dylib + .sql do Homebrew pra EDB). Ollama 0.20.5 com `qwen2.5:7b` (4.7GB) e `bge-m3` (1.2GB, 1024 dims multilingual).
+
+**Matching híbrido**: `HybridMatchingService` combina 30% léxico (TF-IDF + stems pt-br + sinônimos + IDF) + 50% semântico (embeddings bge-m3 + pgvector kNN cosine) + 20% localidade (Haversine). Fallback automático para léxico puro quando Ollama down.
+
+**Stemmer pt-br** (`PtBrStemmer.cs`): sufixos plurais/derivacionais + vogal final. `trabalhar` e `trabalho` batem. **Sinônimos técnicos** (`TechSynonyms.cs`): 60+ entradas (AD↔Active Directory, HD↔Help Desk, MS Office↔Microsoft Office). **TF-IDF** pondera tokens raros. **Heurística processual**: filtra "perfil alinhado com gestor" da penalidade.
+
+**Chatbot RAG** `/app/assistente-ia`: tela com streaming SSE, sidebar Ollama health, prompts sugeridos. **Geradores plugados**: `IDescricaoCargoGeneratorService` (template DNALIO from brief), `ICvResumoService` (resumo CV cacheado), `ISalarioSuggesterService` (histórico interno).
+
+**Reindexação automática**: `EmbeddingReindexInterceptor` (SaveChangesInterceptor) + `EmbeddingIndexQueue` (Channel singleton) + `EmbeddingIndexerHostedService` (BackgroundService). Validado com hash mudando automaticamente em <5s após edição.
+
+**Bug descoberto**: `AuditWriter.CreateDbContext` criava `AppDbContext` sem `UseVector()` — todo SaveChanges em tenants com embeddings falhava. Fix aplicado.
+
+### FASE 5 — Agent RAG com Function Calling (tarde)
+
+**Motivação**: chat RAG responde bem conceitual ("resume responsabilidades do X") mas erra em perguntas estruturadas ("quantas vagas abertas?", "funil por etapa"). Pergunta do usuário: como fazer o banco inteiro virar RAG do agente? Resposta: **Function Calling**.
+
+**Entregue**:
+- `IAgentTool` + `AgentToolRegistry` (schema JSON OpenAI-compatible)
+- **16 tools**: vagas, candidatos, candidaturas, propostas, centros, descrições, empresas
+- `OllamaClient.ChatWithToolsAsync` — Function Calling (tools + tool_calls + role:"tool")
+- `LlmAssistantService` com loop ReAct (MaxAgentIterations=6). Intent detection: "quantas/funil/liste" zeram RAG semântico
+- Synthesis fallback: se Qwen retorna content vazio após tool, força síntese explícita
+- Frontend: chips violeta com hover (args + preview do resultado)
+
+**Validações**: "quantas vagas abertas?" → vagas_contar(Aberta) → "2 vagas" ✓; "distribuição funil" → candidaturas_por_etapa → breakdown completo ✓; multi-tool ("total por status + funil") em 1 resposta ✓.
+
+### LLM-as-a-Judge (paralelo à FASE 5)
+
+**Motivação**: matching híbrido mede similaridade numérica. LLM RACIOCINA ("SAP FI ≡ ERP financeiro; 3 anos cobre requisito 2; mas falta atendimento a fornecedores"). Score mais fiel.
+
+**Entregue**:
+- Entidade `CandidatoVagaLlmScore` (jsonb, SHA256 do input, model version) + migration
+- `ILlmMatchingService` com pipeline: load → hash → cache → prompt Markdown estruturado → Qwen temp 0.1 → parse JSON → persist
+- `LlmMatchingDialog` com `LoadingWithElapsed` (mensagens dinâmicas por estágio)
+- `LlmTimeoutException` + retorno 503 amigável
+- Timeout 120→300s + `keep_alive: "30m"`
+
+**Resultado Rafael em vaga Financeiro**: score 85/100 (LLM) vs 46 (híbrido). Cache 2ª chamada: 30ms.
+
+### Seed completo R&S + docs
+
+`scripts/seed-rs-completo.sql` (790 linhas idempotente): 2 empresas, 5 CCs, 4 descrições DNALIO (120 itens), 6 vagas em 5 status, 13 candidatos, 13 candidaturas cobrindo 8 etapas, 3 propostas. Reindexação automática em 37s.
+
+Docs: `COMO_USAR_MATCHING_IA.md`, `GUIA_IA_RAG.md`, `TRILHA_TESTES_RS.md` (trilha M), `scripts/setup-pgvector.sh`.
+
+### Bugs consertados na mesma sessão
+
+- Optimistic concurrency no DescCargo (por CASCADE do pgvector itens)
+- `dynamic="force-dynamic"` incompatível com `output:"export"` na rota do assistente
+- Aba "Matching IA" que estava desabilitada (opacity-40 + toast "em breve") — habilitada com tabela de scores + dialog breakdown + dialog LLM analysis
+- Chat RAG que não encontrava candidatos — `BuildContextAsync` estendido pra 3 retrievers
+- `Task.WhenAll` no mesmo DbContext (não thread-safe) — serializado
+- Timeout cold-start Qwen — keep_alive + UI com estágios visuais
+- Legenda dos modos confusa — corrigida pra refletir código real
+
+---
+
 ## 2026-04-23 — Sessão 31.2 — Consolidação Area + Department → CentroCusto
 
 **Contexto.** Na Sessão 31.1 a tela de Departamentos tinha rota quebrada. Ao olhar o modelo de dados ficou evidente que `Area` (alto nível) + `Department` (com `Department.AreaId?`) + `CentroCusto` (outro eixo com `Code` + `Description` + FKs espalhadas) representavam **três entidades diferentes para o mesmo conceito de negócio** — o usuário realmente pensa só em "centro de custo"/"área" (intercambiavelmente). Manter as três significa: 3 telas, 3 CRUDs, 3 migrations em cada feature nova, 3 seeders, 3 lookups, e principalmente risco de dessincronização (um `Department` apontando para `Area` que não existe mais, ou um `CentroCusto` sem contrapartida em `Area` quando o gestor quer ver "minha área"). Objetivo da 31.2: **colapsar tudo em `CentroCusto`** — a entidade mais rica (tem `Code`/`Description`/`IsActive`/`BranchOrLocation`/`OwnerFuncionarioId`) e que já era a fonte de verdade no Datasul/TOTVS.
