@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { lookupCep } from "@/lib/cepLookup";
 import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
 import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
@@ -1381,7 +1382,28 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {tab === "local" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
               <SectionHeader title="Localização" />
-              <Field label="CEP" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="00000-000" value={draft.cep} onChange={(e) => set("cep", e.target.value)} /></Field>
+              <Field label="CEP" span="col-span-6 md:col-span-2">
+                <input
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  placeholder="00000-000"
+                  value={draft.cep}
+                  onChange={(e) => set("cep", e.target.value)}
+                  onBlur={async () => {
+                    // Sessão 31.8 — auto-preenche endereço via ViaCEP
+                    const res = await lookupCep(draft.cep);
+                    if (!res) return;
+                    setDraft((d) => ({
+                      ...d,
+                      logradouro: d.logradouro.trim() || res.logradouro,
+                      bairro: d.bairro.trim() || res.bairro,
+                      cidade: d.cidade.trim() || res.cidade,
+                      uf: d.uf.trim() || res.uf,
+                    }));
+                    toast.success("Endereço preenchido a partir do CEP");
+                  }}
+                  title="Sair do campo (Tab) busca o endereço automaticamente"
+                />
+              </Field>
               <Field label="Logradouro" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Rua / Av." value={draft.logradouro} onChange={(e) => set("logradouro", e.target.value)} /></Field>
               <Field label="Número" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="123" value={draft.numero} onChange={(e) => set("numero", e.target.value)} /></Field>
               <Field label="Bairro" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Centro" value={draft.bairro} onChange={(e) => set("bairro", e.target.value)} /></Field>

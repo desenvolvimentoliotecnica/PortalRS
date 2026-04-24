@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Search, Plus, RefreshCw, Pencil, Trash2, Upload, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
+import { lookupCep } from "@/lib/cepLookup";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -373,7 +374,27 @@ export default function EmpresaCadastroScreen() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">CEP</label>
-                <Input placeholder="01310-100" value={draft.cep} onChange={(e) => setDraft((d) => ({ ...d, cep: e.target.value }))} maxLength={20} />
+                <Input
+                  placeholder="01310-100"
+                  value={draft.cep}
+                  onChange={(e) => setDraft((d) => ({ ...d, cep: e.target.value }))}
+                  onBlur={async () => {
+                    // Sessão 31.8 — auto-preenche endereço via ViaCEP
+                    const res = await lookupCep(draft.cep);
+                    if (!res) return;
+                    setDraft((d) => ({
+                      ...d,
+                      // Só preenche se o campo estiver vazio (não sobrescreve edição manual)
+                      logradouro: d.logradouro.trim() || res.logradouro,
+                      bairro: d.bairro.trim() || res.bairro,
+                      cidade: d.cidade.trim() || res.cidade,
+                      uf: d.uf.trim() || res.uf,
+                    }));
+                    toast.success(`Endereço preenchido a partir do CEP`);
+                  }}
+                  maxLength={20}
+                  title="Sair do campo (Tab) busca o endereço automaticamente"
+                />
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Logradouro</label>
