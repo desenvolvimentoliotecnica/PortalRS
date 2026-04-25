@@ -193,7 +193,6 @@ const ICONS: Record<string, LucideIcon> = {
   "user-x": UserX,
   // Colaborador
   "credit-card": CreditCard,
-  "file-text":   FileText,
   "palmtree":    Palmtree,
   "receipt":     Receipt,
   "lock":        LockKeyhole,

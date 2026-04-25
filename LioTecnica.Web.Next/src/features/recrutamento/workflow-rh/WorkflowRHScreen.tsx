@@ -109,6 +109,7 @@ interface WorkflowGridRow {
 interface FilaRhItem {
   id: string;
   titulo: string;
+  areaName: string | null;
   centroCustoName: string | null;
   urgencia?: number;
   createdAtUtc: string;

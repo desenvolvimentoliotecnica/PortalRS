@@ -10,8 +10,8 @@ ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 ENV NEXT_PUBLIC_PORTAL_ORIGIN=$NEXT_PUBLIC_PORTAL_ORIGIN
 
 # Instala dependências (cache layer)
-COPY LioTecnica.Web.Next/package.json LioTecnica.Web.Next/package-lock.json* ./
-RUN npm ci --ignore-scripts
+COPY LioTecnica.Web.Next/package.json LioTecnica.Web.Next/pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
 # Copia source e faz o build estático
 COPY LioTecnica.Web.Next/ ./
