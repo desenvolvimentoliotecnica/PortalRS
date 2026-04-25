@@ -13,7 +13,8 @@
 | TOTVS Datasul (movimentações) | API Portal → ERP | ⚠️ API pronta, worker manual | `RHPortal.Api/...IntegracaoTotvsController` |
 | Microsoft Entra ID (SSO) | OAuth2 | ✅ Em produção, por tenant | `RHPortal.Api/Application/Authentication/` |
 | OpenAI (LLM + embeddings) | API | ✅ Em produção | `RHPortal.Api/Application/Ai/` + `RHPortal.Ai/app/` |
-| Gemini Embedding 002 | API | 🔄 Em teste (Fase 4.5) | `RHPortal.Ai/app/gemini_*` |
+| **Gemini (chat + embeddings)** | API | ✅ **Em produção via factory** (Fase 1+2 LLM-agnóstico) | `RHPortal.Ai/app/llm_factory.py`, `RHPortal.Api/Application/Ai/GeminiProvider.cs` |
+| **Anthropic (Claude)** | API | ✅ **Implementado** (sem chave configurada) | `RHPortal.Api/Application/Ai/AnthropicProvider.cs` |
 | Ollama (LLMs locais) | LLM local | ✅ Suportado opcional | `RHPortal.Ai/` |
 | AWS S3 | Storage | ✅ Em produção | `RHPortal.Api/Infrastructure/Storage/` |
 | AWS ECR | Container registry | ✅ Em produção | `docker-compose.yml` |
@@ -200,7 +201,9 @@ Tabela: `EntraIdConfigs` no banco do tenant.
 
 ---
 
-## 4. OpenAI (LLM + Embeddings)
+## 4. LLMs externos (OpenAI / Gemini / Anthropic) — provider-agnóstico
+
+> **Atualização Fase 1+2 (2026-04-25):** o projeto agora aceita **OpenAI, Gemini ou Anthropic** via factory tanto no Python (`llm_factory.py`) quanto na API .NET (`AiProviderFactory`). Ollama continua disponível para uso local. A escolha do provider é por env (Python) ou por config + DB (.NET). Detalhes em `lucasIA_RAG.md` §16-17.
 
 ### 4.1 Onde é usado
 

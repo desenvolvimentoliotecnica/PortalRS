@@ -160,20 +160,30 @@ Cada item tem: id, prioridade, status, tipo, título, contexto, critério de ace
 
 ## 🟡 Prioridade média — épico LLM-agnóstico (continua após Fase 1)
 
-### LUC-110 — Fase 2: API .NET provider-agnóstica
-- **Status:** 📋 backlog · **Tipo:** feature
-- **Contexto:** Python já faz factory. Falta a API .NET:
-  - `UnifiedAiService` escolhe provider via config
-  - Adicionar ChatGemini via `Microsoft.SemanticKernel.Connectors.Google` ou client HTTP direto
-  - Adicionar Anthropic via SDK ou client HTTP direto
-  - `appsettings.Ai` ganha seções `Gemini` e `Anthropic`
-  - Features afetadas: gerar descrição de cargo, sugestão salarial, resumir CV, assistente IA, extração de dados de CV
+### ~~LUC-110 — Fase 2: API .NET provider-agnóstica~~ ✅ CONCLUÍDO (2026-04-25)
+> Movido para `lucaschangelog.md`. **Escopo entregue:** `UnifiedAiService` aceita
+> OpenAI, Gemini e Anthropic via `IAiProviderFactory`. Smoke test com Gemini
+> validado. **Escopo deferido para Fase 3:** os 7 serviços que hoje chamam
+> `IOllamaClient` direto (LlmAssistantService, EmbeddingService, etc.) — esses
+> ficam Ollama-only até a escolha por tenant.
+
+### LUC-110b — Trocar `IOllamaClient` direto pelo factory nos 7 serviços
+- **Status:** 📋 backlog · **Tipo:** refactor · **Relacionado:** Fase 3
+- **Contexto:** A Fase 2 cobriu `UnifiedAiService` (caminho OpenAI já com factory). Mas os 7 serviços abaixo ainda chamam `IOllamaClient.ChatAsync(...)` direto, então **só rodam com Ollama local**:
+  - `LlmAssistantService` (chat RAG do assistente RH)
+  - `EmbeddingService` (gera embeddings em `CandidatoEmbeddings` / `DescricaoCargoItemEmbeddings`)
+  - `VectorSearchService` (gera embedding da query para busca kNN)
+  - `DescricaoCargoGeneratorService` (gera template DNALIO)
+  - `SalarioSuggesterService` (sugere faixa salarial)
+  - `CvResumoService` (resume CV em uma linha)
+  - `LlmMatchingService` (LLM-as-judge para scoring final)
+- **Solução:** criar `ILlmClient` (chat) e `IEmbeddingClient` (embeddings) como abstrações genéricas; `OllamaLlmClient` implementa via `IOllamaClient`; `OpenAiLlmClient`, `GeminiLlmClient` etc. implementam via HTTP direto. `Program.cs` registra a implementação ativa via factory.
 - **Aceite:**
-  - [ ] `appsettings.Ai.Gemini.{ApiKey,ChatModel,EmbeddingModel}`
-  - [ ] `appsettings.Ai.Anthropic.{ApiKey,ChatModel}`
-  - [ ] `UnifiedAiService` decide provider via `config.Ai.DefaultProvider`
-  - [ ] Todas as 5+ features IA da API .NET passam a aceitar qualquer provider
-  - [ ] Testes de integração com cada provider
+  - [ ] `ILlmClient` + N implementações
+  - [ ] `IEmbeddingClient` + N implementações
+  - [ ] Os 7 serviços usam `ILlmClient`/`IEmbeddingClient` em vez de `IOllamaClient`
+  - [ ] Streaming/tool-calls preservados onde existem (LlmAssistantService)
+  - [ ] Smoke tests para cada provider em cada um dos 7 serviços
 
 ### LUC-111 — Fase 3: Seleção por tenant
 - **Status:** 📋 backlog · **Tipo:** feature
@@ -209,17 +219,30 @@ Cada item tem: id, prioridade, status, tipo, título, contexto, critério de ace
   - [ ] `RHPortalAiHealthCheck` lê `/health/ready` do Python
   - [ ] Reporta no `/health` da API .NET: `rh_portal_ai: { status, llm_provider, embedding_provider }`
 
-### LUC-115 — Reconciliar `EMBEDDING_PROVIDER=gemini` com schema de coluna `embedding`
-- **Status:** 📋 backlog · **Tipo:** bugfix · **Urgente para prod**
-- **Contexto:** A Fase 1 fez o factory de embeddings via LangChain (`get_embeddings_client`) gerar vetores Gemini (3072 dims) mas gravar na coluna padrão `embedding`, que hoje é `vector(1536)` (criada para OpenAI). Isso quebra a persistência — o INSERT falha.
-- **Opções:**
-  1. Mudar `EMBEDDING_PROVIDER=gemini` para sempre usar `gemini_embeddings.py` (coluna separada `gemini_embedding vector(768)` com modelo `gemini-embedding-2-preview`)
-  2. Detectar dims do provider e usar coluna apropriada
-  3. Re-criar coluna `embedding` como `vector(3072)` (migration)
+### LUC-115 — Reconciliar `RHPortal.Ai/app/embeddings.py` com schema real (.NET)
+- **Status:** 📋 backlog · **Tipo:** bugfix · **Prioridade:** alta (bloqueia uso real do matching v1 Python em qualquer tenant)
+- **Descoberta (2026-04-25):** a investigação para a Fase 1 revelou que **o schema real não é o que o Python espera**:
+  - **Python (`embeddings.py`)** faz `UPDATE "Vagas" SET embedding = %s::vector` — espera **colunas inline** `Vagas.embedding` e `Candidatos.embedding` (`vector(1536)` para OpenAI na imaginação antiga). Também há `Talentos."Embedding"`.
+  - **Schema .NET atual** (migration EF `20260424125643_AddEmbeddingsPgvector`) criou **tabelas dedicadas**:
+    - `CandidatoEmbeddings` (Id, TenantId, CandidatoId, ModelVersion, Dimensions, **Embedding vector(1024)**, TextoSource, ConteudoHash, ...)
+    - `DescricaoCargoItemEmbeddings` (análogo, com DescricaoCargoItemId)
+  - **As colunas inline que o Python escreve simplesmente NÃO EXISTEM.** Se rodar `/matching/run` com embedding a gerar, quebra em "coluna embedding não encontrada".
+  - **Origem do dessync:** há um arquivo SQL solto `RHPortal.Api/Migrations/AddEmbeddingSupport.sql` (com `ALTER TABLE Vagas ADD COLUMN embedding vector(1536)`) que PRECISA ser rodado **manualmente** segundo `COMO_RODAR_MIGRATION.md`, mas não está no `ApplyOrphanMigrationsAsync` e não é automático.
+  - **1024 dims no schema atual:** foi pensado para Ollama **bge-m3** (1024d exatos), usado pela **API .NET via `EmbeddingService`** (caminho ativo em prod).
+- **Duas arquiteturas de embeddings coexistem no repo hoje:**
+  - **Caminho A — .NET `EmbeddingService`** (em prod): Ollama bge-m3 → 1024d → tabelas dedicadas. Usado pelo assistente IA, matching híbrido, sugestão salarial.
+  - **Caminho B — Python `embeddings.py`**: tenta gravar em colunas inline que não existem. **Efetivamente morto.**
+  - **Caminho C — Python `gemini_embeddings.py`** (v2, experimental): usa SDK google-genai direto, grava em coluna `gemini_embedding` — que **também não existe** no schema atual.
+- **Opções de resolução (decisão em aberto):**
+  1. **Refatorar Python para gravar/ler nas tabelas dedicadas** do .NET. Alinha as duas stacks; reaproveita schema ativo; a coluna ficaria `vector(1024)` para todos os providers com MRL quando possível. *(Maior alinhamento; mais trabalho.)*
+  2. **Rodar `AddEmbeddingSupport.sql` manualmente + criar mais migrations para colunas por provider** (embedding_openai_1536, embedding_gemini_768, etc.). *(Preserva o Python sem mexer, mas polui schema.)*
+  3. **Descontinuar Python `embeddings.py`** e fazer Python chamar a API .NET para persistência. *(Elegante mas alto acoplamento cross-service.)*
 - **Aceite:**
-  - [ ] Decisão documentada
-  - [ ] Implementação
-  - [ ] Teste de persistência em ambiente local
+  - [ ] Decisão arquitetural registrada em `lucasIA_RAG.md` §17
+  - [ ] Caminho escolhido implementado e testado
+  - [ ] Migration / script idempotente adicionado ao `ApplyOrphanMigrationsAsync` ou documentado
+  - [ ] Teste de persistência local com Gemini E Ollama
+  - [ ] `lucasIA_RAG.md` atualizado refletindo a verdade
 
 ---
 

@@ -71,7 +71,7 @@
 | Biblioteca | Para quê |
 |---|---|
 | `Npgsql.EntityFrameworkCore.PostgreSQL` | EF Core sobre PostgreSQL |
-| `Pgvector` (Npgsql plugin) | Embeddings vetoriais nas tabelas Candidatos / Vagas / DescricaoCargoItem |
+| `Pgvector` (Npgsql plugin) | Embeddings vetoriais nas tabelas `CandidatoEmbeddings` / `DescricaoCargoItemEmbeddings` |
 | `Microsoft.AspNetCore.Identity.EntityFrameworkCore` | Identity tradicional |
 | `Microsoft.AspNetCore.Authentication.JwtBearer` | JWT |
 | `Microsoft.Identity.Web` (provavelmente) | Validação Entra ID |
@@ -80,6 +80,21 @@
 | `MailKit` ou `System.Net.Mail` | Envio SMTP |
 | `Serilog` ou `Microsoft.Extensions.Logging` + DbLogWriterService | Logs no DB |
 | `Polly` | Retry/circuit breaker (HttpClient para RHPortal.Ai) |
+
+### 3.2.bis Providers de IA na API .NET (Fase 2 LLM-agnóstico — 2026-04-25)
+
+A API .NET ganhou um sistema de **factory** que escolhe o provider em runtime entre OpenAI, Gemini, Anthropic e (futuro) outros via HTTP. Implementação em `Application/Ai/`:
+
+| Arquivo | Função |
+|---|---|
+| `IAiProvider.cs` | Interface comum: `InvokeAsync(decryptedKey, providerName, modelId, payload, ct) → (Content, Cost)` |
+| `OpenAiProvider.cs` | Cliente HTTP para `api.openai.com/v1/chat/completions` |
+| `GeminiProvider.cs` | **novo** — Cliente HTTP para `generativelanguage.googleapis.com/v1beta/models/{m}:generateContent` |
+| `AnthropicProvider.cs` | **novo** — Cliente HTTP para `api.anthropic.com/v1/messages` |
+| `AiProviderFactory.cs` | **novo** — `IAiProviderFactory.Resolve(name)` → retorna o provider concreto |
+| `UnifiedAiService.cs` | Orquestrador: resolve via DB (`AiProviderKey`) ou config (`Ai.{OpenAI\|Gemini\|Anthropic}`), respeitando `Ai.DefaultProvider` |
+
+Detalhes em `lucasIA_RAG.md` §17. **Ollama** continua como cliente HTTP separado (`IOllamaClient`) para os serviços de chat/embeddings locais — Fase 3 unifica essa decisão por tenant.
 
 ### 3.3 Multi-tenancy
 

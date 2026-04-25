@@ -520,9 +520,77 @@ Consequência: com `EMBEDDING_PROVIDER=gemini`, os embeddings vão para a **colu
 | Fase | Escopo | Status |
 |---|---|---|
 | **1** | Python: factory (OpenAI/Gemini/Ollama) | ✅ concluído (2026-04-25) |
-| 2 | API .NET provider-agnóstica (`UnifiedAiService` ganha Gemini+Anthropic) | 📋 backlog |
+| **2** | API .NET provider-agnóstica (`UnifiedAiService` aceita OpenAI/Gemini/Anthropic via factory) | ✅ concluído (2026-04-25) |
 | 3 | Seleção por tenant (TenantConfiguracao + UI admin) | 📋 backlog |
 | 4 | Cadastro de chaves no Owner (`/Owner/IA` funcional) | 📋 backlog |
 | 5 | Observabilidade + docs operacionais | 📋 backlog |
 
 Ver `lucasbacklog.md` (LUC-110..LUC-115 e derivados) para detalhes.
+
+---
+
+## 17. Provider-agnóstico — Fase 2 (API .NET, 2026-04-25)
+
+### 17.1 O que mudou
+
+A API .NET (`RHPortal.Api`) ganhou suporte real a **OpenAI / Gemini / Anthropic** via uma camada de factory. Antes só `OpenAiProvider` estava registrado; agora o `IAiProviderFactory` resolve qual `IAiProvider` usar baseado no nome do provider.
+
+**Pontos cobertos pela Fase 2:** o caminho `UnifiedAiService.InvokeAsync(...)` — usado por:
+- `POST /api/ai/invoke` (endpoint genérico de IA)
+- `CvGptExtractor` (extração de dados de CV)
+- `DocumentAiExtractor` (extração de dados de RG/CNH/comprovante via vision)
+- Qualquer feature nova que injete `IUnifiedAiService`
+
+**Fora do escopo (intencional):** os 7 serviços que hoje chamam `IOllamaClient` direto (`LlmAssistantService`, `EmbeddingService`, `VectorSearchService`, `DescricaoCargoGeneratorService`, `SalarioSuggesterService`, `CvResumoService`, `LlmMatchingService`). Esses ficam Ollama-only por enquanto — Fase 3 leva a escolha desses para o tenant.
+
+### 17.2 Arquivos novos / modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `Application/Ai/AiOptions.cs` | **+** `GeminiOptions`, `AnthropicOptions`, `DefaultProvider` |
+| `Application/Ai/GeminiProvider.cs` | **novo** — implementa `IAiProvider` para Google Generative Language API (`models/{model}:generateContent`) |
+| `Application/Ai/AnthropicProvider.cs` | **novo** — implementa `IAiProvider` para Anthropic Messages API (`/v1/messages` + headers `x-api-key`, `anthropic-version`) |
+| `Application/Ai/AiProviderFactory.cs` | **novo** — `IAiProviderFactory.Resolve(name)` → escolhe entre os providers registrados |
+| `Application/Ai/UnifiedAiService.cs` | refatorado: usa o factory, e tenta resolver via `Master.AiProviderKey` primeiro, com fallback para `appsettings.Ai.{OpenAI|Gemini|Anthropic}` respeitando `Ai.DefaultProvider` |
+| `Program.cs` | registra `OpenAiProvider`, `GeminiProvider`, `AnthropicProvider`, `AiProviderFactory` no DI |
+| `appsettings.Development.json` | seções novas `Ai.Gemini` e `Ai.Anthropic` + `Ai.DefaultProvider` |
+
+### 17.3 Ordem de resolução (lógica em `UnifiedAiService`)
+
+```
+1. Master.AiProviderKey (IsActive=true, IsDefault primeiro) →
+   se existir, decripta + busca AiModel default do provider
+2. Se DB vazio → fallback por config (Ai:DefaultProvider):
+   2a. ordered1 = "OpenAI" | "Gemini" | "Anthropic" (conforme DefaultProvider)
+   2b. para cada [ordered1, "OpenAI", "Gemini", "Anthropic"]:
+       se ApiKey daquela seção != "" → usa
+3. Se nada está configurado → retorna null (caller não chama IA)
+```
+
+### 17.4 Smoke test (validado localmente)
+
+```bash
+# Ambiente: AiProviderKey=0 (DB vazio), DefaultProvider="gemini",
+# Ai.Gemini.ApiKey preenchida, Ai.OpenAI.ApiKey="".
+
+curl -X POST http://localhost:5056/api/ai/invoke \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: liotecnica" \
+  -H "Authorization: Bearer <jwt>" \
+  -d '{"module":"smoke","payload":{"prompt":"...","cvText":"..."}}'
+
+# → 200 OK
+# → { "content": "{\"result\":\"pong\"}", "cost": 1.68e-05 }
+```
+
+A resposta veio do `gemini-2.5-flash` via factory. Nenhuma chave OpenAI envolvida.
+
+### 17.5 Como adicionar um quarto provider (ex.: Mistral, Cohere)
+
+1. Implemente `IAiProvider` em uma nova classe `MistralProvider`
+2. Adicione `MistralOptions` em `AiOptions`
+3. Registre no `Program.cs`: `builder.Services.AddScoped<IAiProvider, MistralProvider>()`
+4. Adicione um caso no `AiProviderFactory.cs` mapeando o nome
+5. Adicione seção `Ai.Mistral` no `appsettings.json`
+
+Sem mexer em `UnifiedAiService` nem em nenhum caller existente.

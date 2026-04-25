@@ -265,7 +265,13 @@ builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AprovadoresAlternativos.IAprovadorAlternativoService, RhPortal.Api.Application.AprovadoresAlternativos.AprovadorAlternativoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.DocumentacaoPadrao.IDocumentacaoPadraoService, RhPortal.Api.Application.DocumentacaoPadrao.DocumentacaoPadraoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal.Api.Application.Ai.OwnerAiService>();
+// ── Providers de IA (Fase 2 LLM-agnóstico) ────────────────────────────────
+// Cada provider concreto é registrado como IAiProvider — o IAiProviderFactory
+// recebe a coleção e escolhe por nome em runtime (ver AiProviderFactory.cs).
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.OpenAiProvider>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.GeminiProvider>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.AnthropicProvider>();
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProviderFactory, RhPortal.Api.Application.Ai.AiProviderFactory>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();

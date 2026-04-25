@@ -9,6 +9,31 @@
 
 ## 2026-04-25
 
+### ✨ feature · Fase 2 do épico LLM-agnóstico — API .NET aceita OpenAI / Gemini / Anthropic via factory
+- **Item backlog:** LUC-110 (encerrado)
+- **Contexto:** Pós Fase 1 (Python provider-agnóstico), faltava a API .NET. O `UnifiedAiService` injetava `IAiProvider` único (OpenAI). Todos os fluxos OpenAI da API .NET (CV extract, doc validation via vision, `POST /api/ai/invoke`) ficavam refém desse provider.
+- **O que mudou:**
+  - **Novos:**
+    - `Application/Ai/GeminiProvider.cs` — implementa `IAiProvider` via HTTP para Google Generative Language API (`generativelanguage.googleapis.com/v1beta/models/{m}:generateContent`). Suporta texto + vision (inline_data com `mime_type` e `data`). Estima custo simples por modelo (flash $0.30/1M, pro $3/1M).
+    - `Application/Ai/AnthropicProvider.cs` — implementa `IAiProvider` para Anthropic Messages API (`api.anthropic.com/v1/messages`). Headers obrigatórios `x-api-key` + `anthropic-version: 2023-06-01`. Multimodal via `image` block. Custo por modelo (haiku/sonnet/opus, in/out separados).
+    - `Application/Ai/AiProviderFactory.cs` — `IAiProviderFactory.Resolve(name)` enumera `IEnumerable<IAiProvider>` registrados e mapeia por nome canônico + aliases (OpenAI/Gpt/Azure, Gemini/Google, Anthropic/Claude, Stub).
+  - **Refatorados:**
+    - `Application/Ai/AiOptions.cs` — adiciona `GeminiOptions`, `AnthropicOptions`, `DefaultProvider`. Cada uma com `ApiKey`, `DefaultModel`, `ApiBase`.
+    - `Application/Ai/UnifiedAiService.cs` — substitui injeção direta de `IAiProvider` por `IAiProviderFactory`. Resolução: (1) `Master.AiProviderKey` ativo se existe → usa; (2) senão, fallback por config respeitando `Ai.DefaultProvider`. Modela "ProviderResolution" interna para deixar o caminho explícito.
+    - `Program.cs` — registra `OpenAiProvider`, `GeminiProvider`, `AnthropicProvider`, `AiProviderFactory` no DI.
+    - `appsettings.Development.json` — seções novas `Ai.Gemini`, `Ai.Anthropic`, e `Ai.DefaultProvider="gemini"` para teste local.
+- **Validação (smoke test):**
+  - DB sem `AiProviderKey`, `Ai.OpenAI.ApiKey=""`, `Ai.Gemini.ApiKey="AIza..."`, `Ai.DefaultProvider="gemini"`.
+  - `POST /api/ai/invoke` com prompt simples → resposta `{"result":"pong"}` do `gemini-2.5-flash` com cost `$1.68e-05`.
+  - Build do `RHPortal.Api.csproj`: ✅ "Compilação com êxito".
+  - API rodando no ar em `:5056`, login admin OK, endpoint `/api/ai/invoke` 200.
+- **Pendência (intencionalmente fora):** os 7 serviços hoje amarrados em `IOllamaClient` direto (LlmAssistantService, EmbeddingService, VectorSearchService, DescricaoCargoGeneratorService, SalarioSuggesterService, CvResumoService, LlmMatchingService) **continuam Ollama-only** — registrado como **LUC-110b** no backlog. A migração desses serviços para um `ILlmClient`/`IEmbeddingClient` abstrato será feita junto com a Fase 3 (escolha por tenant), quando passa a fazer sentido cada tenant escolher seu provider.
+- **LUC-115 ajustado:** descobri durante a investigação que o Python `embeddings.py` espera colunas inline `Vagas.embedding` que **não existem no schema atual** (.NET usa tabelas dedicadas `CandidatoEmbeddings`/`DescricaoCargoItemEmbeddings` `vector(1024)`). Atualizei o item no backlog com essa realidade e 3 opções de resolução.
+- **Arquivos:** 3 novos + 5 modificados em `RHPortal.Api/`. Zero mudança em Python.
+- **Commit:** *(pendente)*
+- **Impacto:** qualquer tenant com chave Gemini ou Anthropic agora consegue rodar CV extract, doc validation e o endpoint genérico `/api/ai/invoke` sem nenhuma chave OpenAI.
+- **Docs atualizadas:** `lucasIA_RAG.md` (§17 nova), `lucasSTACK_TECNOLOGICA.md` (§3.2.bis), `lucasINTEGRACOES.md` (seção 4 reescrita), `lucasbacklog.md` (LUC-110 fechado, LUC-110b adicionado, LUC-115 expandido).
+
 ### ✨ feature · Fase 1 do épico LLM-agnóstico — RHPortal.Ai suporta OpenAI / Gemini / Ollama
 - **Item backlog:** LUC-100 (encerrado — desdobrado em LUC-110..LUC-115 para as demais fases)
 - **Contexto:** Usuário precisava rodar a IA com chave Gemini sem ter chave OpenAI. O código exigia `OPENAI_API_KEY` hardcoded no startup e `ChatOpenAI` era direto em 3 pipelines. A Fase 1 torna o serviço Python **provider-agnóstico**.
