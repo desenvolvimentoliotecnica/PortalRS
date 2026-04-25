@@ -13,7 +13,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.config import DATABASE_URL, OPENAI_API_KEY, DEFAULT_RANKING_SIZE
+from app.config import (
+    DATABASE_URL,
+    DEFAULT_RANKING_SIZE,
+    EMBEDDING_PROVIDER,
+    GEMINI_API_KEY,
+    LLM_PROVIDER,
+    OPENAI_API_KEY,
+)
 from app.database_pool import close_all as _close_pools, db_conn as _health_db_conn
 from app.log import requests as req_log, matching as match_log
 from app.db import (
@@ -246,9 +253,18 @@ def health_ready() -> JSONResponse:
     except Exception as e:
         checks["db"] = f"error: {e}"
 
-    checks["openai_key"] = "ok" if bool(OPENAI_API_KEY) else "missing"
+    # Valida a chave do provider ATIVO (não mais hardcode de OpenAI).
+    checks["llm_provider"] = LLM_PROVIDER
+    checks["embedding_provider"] = EMBEDDING_PROVIDER
+    providers_in_use = {LLM_PROVIDER, EMBEDDING_PROVIDER}
+    if "openai" in providers_in_use:
+        checks["openai_key"] = "ok" if bool(OPENAI_API_KEY) else "missing"
+    if "gemini" in providers_in_use:
+        checks["gemini_key"] = "ok" if bool(GEMINI_API_KEY) else "missing"
+    # Ollama não exige chave — se estiver em uso, o health check de runtime
+    # acontecerá naturalmente na primeira chamada LLM.
 
-    ok = all(v == "ok" for v in checks.values())
+    ok = all(v == "ok" for k, v in checks.items() if k.endswith("_key") or k == "db")
     return JSONResponse(content={"status": "ok" if ok else "degraded", **checks}, status_code=200 if ok else 503)
 
 
@@ -261,7 +277,12 @@ def _backfill_embeddings_for_tenant(tenant_id: str, vaga_id: str, limit: int = 1
     para que na próxima vez que o operador abrir Matching já haja resultados.
     Não levanta exceção (evita quebrar o worker).
     """
-    if not tenant_id or not OPENAI_API_KEY:
+    # Backfill só faz sentido se tiver a chave do embedding provider ativo.
+    if not tenant_id:
+        return
+    if EMBEDDING_PROVIDER == "openai" and not OPENAI_API_KEY:
+        return
+    if EMBEDDING_PROVIDER == "gemini" and not GEMINI_API_KEY:
         return
     # mark running status handled externally
     try:
@@ -606,8 +627,17 @@ def match_candidatos_hybrid_legacy(req: LegacyMatchRequest) -> LegacyMatchRespon
 def _check_dependencies():
     if not DATABASE_URL:
         raise HTTPException(status_code=503, detail="DATABASE_URL não configurada")
-    if not OPENAI_API_KEY:
-        raise HTTPException(status_code=503, detail="OPENAI_API_KEY não configurada")
+    providers_in_use = {LLM_PROVIDER, EMBEDDING_PROVIDER}
+    if "openai" in providers_in_use and not OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail=f"OPENAI_API_KEY não configurada (requerida por LLM_PROVIDER={LLM_PROVIDER}, EMBEDDING_PROVIDER={EMBEDDING_PROVIDER})",
+        )
+    if "gemini" in providers_in_use and not GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail=f"GEMINI_API_KEY não configurada (requerida por LLM_PROVIDER={LLM_PROVIDER}, EMBEDDING_PROVIDER={EMBEDDING_PROVIDER})",
+        )
 
 
 # ─── Gemini v2: Models ─────────────────────────────────────────────────────

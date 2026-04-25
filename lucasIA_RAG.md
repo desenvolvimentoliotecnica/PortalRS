@@ -1,7 +1,9 @@
 # lucas — IA, RAG e Matching (Fase 4.5)
 
-> **Autor:** Lucas Machado · **Branch:** `feature/ia-rag-fase-4-5_v2` · **Data inicial:** 2026-04-24
+> **Autor:** Lucas Machado · **Branch:** `feature/ia-rag-fase-4-5_v2` / `devops_Lucas` · **Data inicial:** 2026-04-24
 > Documento focado no que é **mais novo e crítico** do projeto agora: o pipeline de matching com IA + RAG. Aqui eu sintetizo o que está pronto, o que está em rollout (regra v2 65/35) e o que ainda falta, para eu não me perder enquanto continuo a fase.
+>
+> **Atualização 2026-04-25 — Fase 1 do LLM-agnóstico concluída.** O serviço `RHPortal.Ai` agora aceita OpenAI, Gemini ou Ollama via env vars (`LLM_PROVIDER`, `EMBEDDING_PROVIDER`). Veja §16.
 
 ---
 
@@ -431,3 +433,96 @@ curl -X POST http://localhost:5056/api/assistente-ia/embeddings/reindexar?force=
 ---
 
 **Próximo passo (meu):** abrir `lucasbacklog.md` e listar o que vou efetivamente atacar nesta branch.
+
+---
+
+## 16. Provider-agnóstico — Fase 1 (LUC-100, 2026-04-25)
+
+### 16.1 O que mudou
+
+O serviço Python passou a ter uma **factory** que escolhe o provider de LLM e embeddings em runtime, com base em env vars. **Zero dependência hardcoded de OpenAI** no caminho do pipeline.
+
+```python
+# app/llm_factory.py
+from app.llm_factory import get_chat_llm, get_embeddings_client
+
+llm = get_chat_llm(temperature=0)      # respeita LLM_PROVIDER
+emb = get_embeddings_client()          # respeita EMBEDDING_PROVIDER
+```
+
+### 16.2 Env vars
+
+| Var | Valores | Default | Observação |
+|---|---|---|---|
+| `LLM_PROVIDER` | `openai` \| `gemini` \| `ollama` | `openai` | escolhe o LLM de scoring |
+| `EMBEDDING_PROVIDER` | `openai` \| `gemini` \| `ollama` | `openai` | escolhe o embedder |
+| `OPENAI_API_KEY` | string | — | **só exigida** se algum provider = openai |
+| `GEMINI_API_KEY` | string | — | **só exigida** se algum provider = gemini |
+| `OPENAI_CHAT_MODEL` | string | `gpt-4o-mini` | — |
+| `GEMINI_CHAT_MODEL` | string | `gemini-2.5-flash` | — |
+| `GEMINI_LANGCHAIN_EMBEDDING_MODEL` | string | `models/gemini-embedding-001` | embeddings via LangChain |
+| `OLLAMA_BASE_URL` | URL | `http://localhost:11434` | — |
+| `OLLAMA_CHAT_MODEL` | string | `qwen2.5:7b` | — |
+| `OLLAMA_EMBEDDING_MODEL` | string | `bge-m3` | — |
+
+### 16.3 Fail-fast condicional
+
+Antes: `OPENAI_API_KEY` era obrigatória sempre.
+Agora: só a chave do **provider selecionado** é obrigatória. Bateria de validação (`config.py`):
+
+```text
+[FATAL] Variáveis de ambiente obrigatórias ausentes: ['GEMINI_API_KEY (requerida porque LLM_PROVIDER ou EMBEDDING_PROVIDER = gemini)']
+```
+
+### 16.4 Arquivos tocados
+
+| Arquivo | Mudança |
+|---|---|
+| `app/llm_factory.py` | **novo** — `get_chat_llm()` + `get_embeddings_client()` + `active_providers()` |
+| `app/config.py` | Novas vars Gemini/Ollama, fail-fast condicional, `LLM_PROVIDER` adicionado |
+| `app/unified_matching.py` | Todas as chamadas `ChatOpenAI(...)` → `get_chat_llm(...)` |
+| `app/gemini_matching.py` | Idem; guards `OPENAI_API_KEY` removidos |
+| `app/matching.py` (legado) | Idem; `OpenAIEmbeddings` → `get_embeddings_client()` |
+| `app/embeddings.py` | `get_embeddings_model()` é agora um wrapper do factory (retrocompat) |
+| `app/main.py` | `/health/ready` reporta `llm_provider`, `embedding_provider`, valida chave do provider ativo |
+| `requirements.txt` | `+ langchain-google-genai>=2.0.0`, `+ langchain-ollama>=0.2.0` |
+
+### 16.5 Smoke test (validado localmente)
+
+```bash
+curl http://localhost:8000/health/ready
+# {
+#   "status": "ok",
+#   "db": "ok",
+#   "llm_provider": "gemini",
+#   "embedding_provider": "gemini",
+#   "gemini_key": "ok"
+# }
+```
+
+```python
+from app.llm_factory import get_chat_llm, get_embeddings_client
+llm = get_chat_llm()            # → ChatGoogleGenerativeAI
+llm.invoke([...]).content       # → "pong"
+get_embeddings_client().embed_query("...")  # → vetor 3072-dim
+```
+
+### 16.6 Observação importante — pipeline v2 Gemini (embeddings.py vs gemini_embeddings.py)
+
+O código **já tinha** um caminho específico `gemini_embeddings.py` que usa o SDK `google-genai` direto para persistir numa coluna separada (`gemini_embedding vector(768)` nas tabelas `Vagas`/`Candidatos`/`Talentos`). Esse caminho **não passa pelo factory** — foi mantido intocado para não quebrar o schema existente.
+
+O factory cobre o **caminho LangChain padrão** (`embeddings.py`, que é onde o pipeline v1 grava na coluna `embedding` 1536-dim/3072-dim).
+
+Consequência: com `EMBEDDING_PROVIDER=gemini`, os embeddings vão para a **coluna padrão `embedding`** em formato Gemini (3072 dims) — **não** para `gemini_embedding`. Isso pode impactar busca vetorial se a coluna foi criada como `vector(1536)`. Item novo no backlog (LUC-115).
+
+### 16.7 Próximas fases (roadmap LLM-agnóstico)
+
+| Fase | Escopo | Status |
+|---|---|---|
+| **1** | Python: factory (OpenAI/Gemini/Ollama) | ✅ concluído (2026-04-25) |
+| 2 | API .NET provider-agnóstica (`UnifiedAiService` ganha Gemini+Anthropic) | 📋 backlog |
+| 3 | Seleção por tenant (TenantConfiguracao + UI admin) | 📋 backlog |
+| 4 | Cadastro de chaves no Owner (`/Owner/IA` funcional) | 📋 backlog |
+| 5 | Observabilidade + docs operacionais | 📋 backlog |
+
+Ver `lucasbacklog.md` (LUC-110..LUC-115 e derivados) para detalhes.

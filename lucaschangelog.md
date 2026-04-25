@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-04-25
+
+### ✨ feature · Fase 1 do épico LLM-agnóstico — RHPortal.Ai suporta OpenAI / Gemini / Ollama
+- **Item backlog:** LUC-100 (encerrado — desdobrado em LUC-110..LUC-115 para as demais fases)
+- **Contexto:** Usuário precisava rodar a IA com chave Gemini sem ter chave OpenAI. O código exigia `OPENAI_API_KEY` hardcoded no startup e `ChatOpenAI` era direto em 3 pipelines. A Fase 1 torna o serviço Python **provider-agnóstico**.
+- **O que mudou:**
+  - **Novo:** `RHPortal.Ai/app/llm_factory.py` — expõe `get_chat_llm()`, `get_embeddings_client()`, `active_providers()`. Imports lazy por provider.
+  - `config.py` — adiciona `LLM_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_CHAT_MODEL`, `GEMINI_LANGCHAIN_EMBEDDING_MODEL`, `OLLAMA_*`. Fail-fast agora é **condicional** ao provider escolhido.
+  - `unified_matching.py`, `gemini_matching.py`, `matching.py` — todas as chamadas `ChatOpenAI(...)` e `OpenAIEmbeddings(...)` substituídas pelo factory. Type hints `llm: ChatOpenAI` → `llm: Any`. Guards redundantes de `if not OPENAI_API_KEY` removidos (o factory já valida).
+  - `embeddings.py` — `get_embeddings_model()` virou wrapper retrocompat do factory.
+  - `main.py` — `/health/ready` reporta `llm_provider`, `embedding_provider`, e valida a chave do provider **ativo** (não mais OpenAI hardcoded).
+  - `requirements.txt` — `+ langchain-google-genai>=2.0.0`, `+ langchain-ollama>=0.2.0`.
+  - `.env` — `LLM_PROVIDER=gemini`, `EMBEDDING_PROVIDER=gemini`, `GEMINI_API_KEY=...` (gitignored).
+- **Validação:**
+  - `python -m app.main` sobe sem `OPENAI_API_KEY`.
+  - `GET /health/ready` → `{"status":"ok", "llm_provider":"gemini", "embedding_provider":"gemini", "gemini_key":"ok"}`.
+  - Chat test via factory: Gemini 2.5 Flash respondeu `pong`.
+  - Embedding test: `gemini-embedding-001` retornou vetor 3072-dim.
+- **Arquivos:** 7 modificados + 1 novo (`llm_factory.py`). Zero `.NET` alterado.
+- **Commit:** *(pendente)*
+- **Impacto:** qualquer tenant pode rodar o matching IA com Gemini ou Ollama sem nenhuma conta OpenAI.
+- **Pendência descoberta:** LUC-115 — Gemini gera 3072 dims mas a coluna `embedding` é `vector(1536)`. Persistência pode quebrar. Priorizar antes de migrar tenants para `EMBEDDING_PROVIDER=gemini` em produção.
+- **Docs atualizadas:** `lucasIA_RAG.md` (§16 nova), `lucasSTACK_TECNOLOGICA.md` (§4.2, §4.3, §4.4.bis, §4.5), `lucasbacklog.md` (novos LUC-110..LUC-115).
+
+### 🏗️ infra · Ambiente local up + push inicial no GitHub
+- PostgreSQL 18.3 limpo (só `shieldops` preservado) + `dev_render`, `dev_render_master`, `dev_render_liotecnica`, `dev_render_dev` provisionados.
+- RHPortal.Api (.NET :5056), LioTecnica.Web.Next (:3001), RHPortal.Ai (:8000) no ar.
+- Login owner `owner@dev.local` e admin `admin@dev.local` validados.
+- Branch `devops_Lucas` criada e pushada para https://github.com/munizlmachado-jpg/RH (remote `github`).
+- **Importante:** push agora vai apenas para `github`. `origin` (Azure DevOps) fica intocado.
+
+---
+
 ## 2026-04-24
 
 ### 📝 docs · Onboarding inicial — leitura completa do projeto + documentação derivada

@@ -4,13 +4,13 @@ Matching por IA: (1) por filtros da vaga - LLM avalia cada critério, score 0-10
 """
 from typing import Any
 
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage
 
-from app.config import OPENAI_API_KEY, EMBEDDING_MODEL, OPENAI_CHAT_MODEL, MATCH_TOP_K
+from app.config import MATCH_TOP_K
 from app.filtros import parse_matching_filtros_raw, criteria_to_prompt_text
+from app.llm_factory import get_chat_llm, get_embeddings_client
 
 
 def _build_vaga_text(vaga: dict[str, Any]) -> str:
@@ -85,8 +85,6 @@ def run_matching_by_filters(
     o LLM avalia atendimento a cada critério; score = (atendidos/total)*100.
     Candidatos com score 0 são excluídos. Ordenado por score decrescente.
     """
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY não configurada")
     if not candidatos:
         return []
 
@@ -97,11 +95,7 @@ def run_matching_by_filters(
         return []
 
     criteria_block = criteria_to_prompt_text(criteria)
-    llm = ChatOpenAI(
-        model=OPENAI_CHAT_MODEL,
-        openai_api_key=OPENAI_API_KEY,
-        temperature=0,
-    )
+    llm = get_chat_llm(temperature=0)
 
     results: list[dict[str, Any]] = []
     for c in candidatos:
@@ -147,8 +141,6 @@ def run_matching_vector(vaga: dict[str, Any], candidatos: list[dict[str, Any]]) 
     """
     Busca vetorial por similaridade (comportamento legado). Retorna ranking 0-100.
     """
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY não configurada")
     if not candidatos:
         return []
 
@@ -156,10 +148,8 @@ def run_matching_vector(vaga: dict[str, Any], candidatos: list[dict[str, Any]]) 
     if not vaga_text.strip():
         vaga_text = vaga.get("Titulo") or "Vaga"
 
-    embeddings = OpenAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        openai_api_key=OPENAI_API_KEY,
-    )
+    # embeddings do provider configurado (openai|gemini|ollama)
+    embeddings = get_embeddings_client()
     docs = []
     for c in candidatos:
         content = _build_candidato_text(c)

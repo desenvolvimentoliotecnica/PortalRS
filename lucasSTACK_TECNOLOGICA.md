@@ -141,24 +141,34 @@
 |---|---|---|
 | `fastapi` | ≥0.109.0 | Servidor REST |
 | `uvicorn` | ≥0.27.0 | ASGI host |
-| `langchain-openai` | ≥0.0.5 | Integração OpenAI (chat + embeddings) |
+| `langchain` | ≥0.1.0 | Framework base |
+| `langchain-openai` | ≥0.0.5 | Provider OpenAI (chat + embeddings) |
+| `langchain-google-genai` | ≥2.0.0 | Provider Gemini (chat + embeddings) — **Fase 1 LLM-agnóstico** |
+| `langchain-ollama` | ≥0.2.0 | Provider Ollama local (chat + embeddings) — **Fase 1 LLM-agnóstico** |
+| `langchain-community` | ≥0.0.20 | Integrações diversas (Chroma) |
 | `openai` | 1.12.0 | Cliente OpenAI direto |
+| `google-genai` | ≥1.0.0 | Cliente Gemini direto (usado em `gemini_embeddings.py` para coluna 768-dim) |
 | `pgvector` | 0.8.2 | Cliente Python para pgvector |
 | `psycopg2-binary` | ≥2.9.9 | Driver PostgreSQL |
 | `tenacity` | ≥8.2.0 | Retry com backoff exponencial |
-| `google-genai` | ≥1.0.0 | Embeddings Gemini 002 (v2, em teste) |
-| `ollama` | 0.20.5 | Cliente Ollama (LLMs locais — opcional) |
 | `python-dotenv` | — | Lê `.env` |
 
-### 4.3 Modelos de IA usados
+**Factory provider-agnóstica:** `app/llm_factory.py` seleciona o client LangChain (OpenAI/Gemini/Ollama) com base em `LLM_PROVIDER` e `EMBEDDING_PROVIDER` no `.env`. Detalhes em `lucasIA_RAG.md` §16.
 
-| Modelo | Provider | Para quê |
-|---|---|---|
-| `text-embedding-3-small` | OpenAI | Embeddings 1536-dim de vagas/candidatos/talentos (v1, produção) |
-| `gpt-4o-mini` | OpenAI | LLM scoring em batch (avalia competência/experiência/formação/localidade) |
-| `gemini-embedding-002` | Google | Embeddings 768-dim (v2, em teste) |
-| `qwen2.5:7b` | Ollama (local) | Chat e rerank locais (LGPD-compliant, opcional) |
-| `bge-m3` | Ollama (local) | Embeddings locais (opcional) |
+### 4.3 Modelos de IA disponíveis (selecionáveis via `.env`)
+
+| Modelo | Provider | Para quê | Status |
+|---|---|---|---|
+| `text-embedding-3-small` | OpenAI | Embeddings 1536-dim | ✅ disponível |
+| `gpt-4o-mini` | OpenAI | LLM scoring | ✅ disponível |
+| `gemini-embedding-001` | Google | Embeddings 3072-dim (via LangChain) | ✅ disponível (**Fase 1**) |
+| `gemini-embedding-002` | Google | Embeddings 768-dim (via SDK direto, coluna separada) | ✅ pipeline v2 (já existia) |
+| `gemini-2.5-flash` | Google | LLM scoring (rápido, barato) | ✅ disponível (**Fase 1**) |
+| `gemini-2.5-pro` | Google | LLM de alta qualidade | ✅ disponível (override) |
+| `qwen2.5:7b` | Ollama (local) | Chat e rerank (LGPD-compliant) | ✅ disponível (**Fase 1**) |
+| `bge-m3` | Ollama (local) | Embeddings locais | ✅ disponível (**Fase 1**) |
+
+> O **provider ativo** por chamada é controlado por `LLM_PROVIDER` e `EMBEDDING_PROVIDER` no `.env`. Fase 3 do roadmap LLM-agnóstico faz isso ser configurável **por tenant** no DB.
 
 ### 4.4 Pipeline RAG
 
@@ -177,13 +187,31 @@
 
 Latência típica: **25-40 s** para top 20 candidatos.
 
+### 4.4.bis Factory provider-agnóstica (Fase 1 — 2026-04-25)
+
+`app/llm_factory.py` expõe:
+
+```python
+from app.llm_factory import get_chat_llm, get_embeddings_client
+
+llm = get_chat_llm(temperature=0)   # ChatOpenAI | ChatGoogleGenerativeAI | ChatOllama
+emb = get_embeddings_client()       # OpenAIEmbeddings | GoogleGenerativeAIEmbeddings | OllamaEmbeddings
+```
+
+A escolha é dirigida por `LLM_PROVIDER` e `EMBEDDING_PROVIDER` no `.env`. Todos os pipelines (`unified_matching.py`, `gemini_matching.py`, `matching.py`) passam pelo factory. Detalhes completos em `lucasIA_RAG.md` §16.
+
 ### 4.5 Configuração
 
 - `.env` no diretório `RHPortal.Ai/`:
-  - `OPENAI_API_KEY` (obrigatória)
   - `DATABASE_URL` (obrigatória)
   - `TENANT_DATABASE_TEMPLATE` (`dev_render_{0}`)
-  - `EMBEDDING_MODEL`, `OPENAI_CHAT_MODEL`, `EMBEDDING_PROVIDER`
+  - `LLM_PROVIDER` (`openai` | `gemini` | `ollama`) — **Fase 1 LLM-agnóstico**
+  - `EMBEDDING_PROVIDER` (`openai` | `gemini` | `ollama`)
+  - `OPENAI_API_KEY` (obrigatória se algum provider = `openai`)
+  - `GEMINI_API_KEY` (obrigatória se algum provider = `gemini`)
+  - `OPENAI_CHAT_MODEL`, `EMBEDDING_MODEL` (defaults OpenAI)
+  - `GEMINI_CHAT_MODEL`, `GEMINI_LANGCHAIN_EMBEDDING_MODEL` (defaults Gemini)
+  - `OLLAMA_BASE_URL`, `OLLAMA_CHAT_MODEL`, `OLLAMA_EMBEDDING_MODEL` (defaults Ollama)
   - `MATCHING_RULE_VERSION` (`v1_80_20` | `v2_65_35_strict`)
   - `HOST`, `PORT` (default 0.0.0.0:8000)
   - `DEFAULT_RANKING_SIZE` (default 20)

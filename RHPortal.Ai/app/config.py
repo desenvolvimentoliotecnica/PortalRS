@@ -110,25 +110,61 @@ def get_db_connect_kwargs() -> dict | None:
     return {k: v for k, v in DATABASE_PARAMS.items() if v is not None}
 
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 TENANT_ID = os.getenv("TENANT_ID", "").strip()
 
-# --- Validação de startup (fail-fast) ---
-_REQUIRED_VARS = {"OPENAI_API_KEY": OPENAI_API_KEY, "DATABASE_URL": DATABASE_URL}
-_missing = [k for k, v in _REQUIRED_VARS.items() if not v]
+# ──────────────────── Provider selection (Fase 1 — LUC-100) ────────────────
+#
+# O serviço é provider-agnóstico. Cada feature (chat LLM e embeddings)
+# pode escolher independentemente entre OpenAI, Gemini ou Ollama local.
+#
+# Env vars de controle:
+#   LLM_PROVIDER         = openai | gemini | ollama    (chat)
+#   EMBEDDING_PROVIDER   = openai | gemini | ollama    (embeddings)
+
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai").strip().lower()
+
+# ── OpenAI ──
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+
+# ── Gemini ──
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_CHAT_MODEL = os.getenv("GEMINI_CHAT_MODEL", "gemini-2.5-flash")
+# Usado pelo factory (LangChain). O pipeline v2 em `gemini_embeddings.py`
+# tem seu próprio nome via GEMINI_EMBEDDING_MODEL (coluna separada no DB).
+GEMINI_LANGCHAIN_EMBEDDING_MODEL = os.getenv(
+    "GEMINI_LANGCHAIN_EMBEDDING_MODEL", "models/gemini-embedding-001"
+)
+
+# ── Ollama (local) ──
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").strip()
+OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "qwen2.5:7b")
+OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "bge-m3")
+
+# ── Fail-fast condicional ──
+# Só exige a chave do provider que ESTÁ selecionado.
+# DATABASE_URL sempre obrigatório.
+_missing: list[str] = []
+if not DATABASE_URL:
+    _missing.append("DATABASE_URL")
+
+_providers_in_use = {LLM_PROVIDER, EMBEDDING_PROVIDER}
+if "openai" in _providers_in_use and not OPENAI_API_KEY:
+    _missing.append("OPENAI_API_KEY (requerida porque LLM_PROVIDER ou EMBEDDING_PROVIDER = openai)")
+if "gemini" in _providers_in_use and not GEMINI_API_KEY:
+    _missing.append("GEMINI_API_KEY (requerida porque LLM_PROVIDER ou EMBEDDING_PROVIDER = gemini)")
+# Ollama: não há chave; se selecionado, apenas checamos URL (já tem default).
+
 if _missing:
     print(
         f"[FATAL] Variáveis de ambiente obrigatórias ausentes: {_missing}. "
+        f"(LLM_PROVIDER={LLM_PROVIDER!r}, EMBEDDING_PROVIDER={EMBEDDING_PROVIDER!r}). "
         "Configure o arquivo .env ou injete via variáveis de ambiente.",
         file=sys.stderr,
     )
     sys.exit(1)
-
-# Modelo para embeddings (bom custo/qualidade)
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-
-# Modelo para avaliação de critérios (LLM)
-OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 
 # Máximo de candidatos a retornar no matching
 MATCH_TOP_K = int(os.getenv("MATCH_TOP_K", "100"))
@@ -138,9 +174,6 @@ DEFAULT_RANKING_SIZE = max(10, min(100, int(os.getenv("DEFAULT_RANKING_SIZE", "2
 
 # Habilitar pgvector (busca vetorial)
 ENABLE_PGVECTOR = os.getenv("ENABLE_PGVECTOR", "true").strip().lower() in ("true", "1", "yes")
-
-# Embedding provider: "openai" (default) or "gemini"
-EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai").strip().lower()
 
 
 # Host e porta do servidor (podem vir do .env ou do appsettings da Integration.RM)

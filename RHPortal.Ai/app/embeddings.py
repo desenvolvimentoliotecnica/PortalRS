@@ -7,21 +7,23 @@ para maximizar a densidade semântica dos embeddings.
 """
 from typing import Any, Optional
 
-from langchain_openai import OpenAIEmbeddings
-
-from app.config import DATABASE_URL, OPENAI_API_KEY, EMBEDDING_MODEL, get_database_url
+from app.config import DATABASE_URL, EMBEDDING_PROVIDER, get_database_url
 from app.database_pool import pgvector_conn
+from app.llm_factory import get_embeddings_client
 from app.log import embeddings as log
 from app.retry import openai_retry
 from app.vector_search import ensure_pgvector_extension
 
 
-def get_embeddings_model() -> OpenAIEmbeddings:
-    """Retorna modelo de embeddings configurado."""
-    return OpenAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        openai_api_key=OPENAI_API_KEY,
-    )
+def get_embeddings_model() -> Any:
+    """Retorna modelo de embeddings do provider ativo (openai|gemini|ollama).
+
+    O provider é controlado por `EMBEDDING_PROVIDER` (.env).
+    Mantida esta função como wrapper para compat retroativa com chamadores
+    externos que já a usavam. Novos usos devem chamar `get_embeddings_client()`
+    diretamente.
+    """
+    return get_embeddings_client()
 
 
 # ─── Texto Canônico: Vaga ──────────────────────────────────────────────────
@@ -305,25 +307,19 @@ def _embed_text(text: str) -> list[float]:
 
 
 def generate_vaga_embedding(vaga: dict[str, Any]) -> list[float]:
-    """Gera embedding para uma vaga. Retorna vetor de 1536 dimensões."""
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY não configurada")
+    """Gera embedding para uma vaga via provider configurado."""
     text = _build_vaga_text_for_embedding(vaga)
     return _embed_text(text)
 
 
 def generate_candidato_embedding(candidato: dict[str, Any]) -> list[float]:
-    """Gera embedding para um candidato. Retorna vetor de 1536 dimensões."""
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY não configurada")
+    """Gera embedding para um candidato via provider configurado."""
     text = _build_candidato_text_for_embedding(candidato)
     return _embed_text(text)
 
 
 def generate_talento_embedding(talento: dict[str, Any]) -> list[float]:
-    """Gera embedding para um talento. Retorna vetor de 1536 dimensões."""
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY não configurada")
+    """Gera embedding para um talento via provider configurado."""
     text = _build_talento_text_for_embedding(talento)
     return _embed_text(text)
 

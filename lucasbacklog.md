@@ -158,12 +158,72 @@ Cada item tem: id, prioridade, status, tipo, título, contexto, critério de ace
 
 ---
 
-## 🔬 Pesquisa / spikes futuros (sem prioridade ainda)
+## 🟡 Prioridade média — épico LLM-agnóstico (continua após Fase 1)
 
-### LUC-100 — Avaliar substituir gpt-4o-mini por modelo open via Ollama
-- **Tipo:** spike
-- **Razão:** custo + LGPD para tenants com requisitos rígidos
-- **Comparar:** qwen2.5:7b, llama3.1:8b vs gpt-4o-mini em qualidade de scoring
+### LUC-110 — Fase 2: API .NET provider-agnóstica
+- **Status:** 📋 backlog · **Tipo:** feature
+- **Contexto:** Python já faz factory. Falta a API .NET:
+  - `UnifiedAiService` escolhe provider via config
+  - Adicionar ChatGemini via `Microsoft.SemanticKernel.Connectors.Google` ou client HTTP direto
+  - Adicionar Anthropic via SDK ou client HTTP direto
+  - `appsettings.Ai` ganha seções `Gemini` e `Anthropic`
+  - Features afetadas: gerar descrição de cargo, sugestão salarial, resumir CV, assistente IA, extração de dados de CV
+- **Aceite:**
+  - [ ] `appsettings.Ai.Gemini.{ApiKey,ChatModel,EmbeddingModel}`
+  - [ ] `appsettings.Ai.Anthropic.{ApiKey,ChatModel}`
+  - [ ] `UnifiedAiService` decide provider via `config.Ai.DefaultProvider`
+  - [ ] Todas as 5+ features IA da API .NET passam a aceitar qualquer provider
+  - [ ] Testes de integração com cada provider
+
+### LUC-111 — Fase 3: Seleção por tenant
+- **Status:** 📋 backlog · **Tipo:** feature
+- **Contexto:** Hoje o provider é global (env). Queremos por tenant.
+- **Aceite:**
+  - [ ] Campos novos em `TenantConfiguracao`: `LlmProvider`, `ChatModel`, `EmbeddingProvider`, `EmbeddingModel`
+  - [ ] Migration EF (ver `CLAUDE.md`)
+  - [ ] API `UnifiedAiService.GetChatLlm(tenantId)` lê do banco
+  - [ ] Python: `POST /matching/run` aceita opcional `provider_override` no body OU a API .NET injeta header `X-Ai-Provider`
+  - [ ] UI `/app/admin/ia` (tenant escolhe provider + modelo, testa conectividade)
+
+### LUC-112 — Fase 4: Cadastro de chaves no Owner UI
+- **Status:** 📋 backlog · **Tipo:** feature
+- **Contexto:** `AiProviderKey` já existe no Master DB — a UI `/Owner/IA` é esqueleto.
+- **Aceite:**
+  - [ ] `/Owner/IA` lista chaves por provider
+  - [ ] Adicionar chave: escolhe provider + cola chave + testa (chama endpoint de teste que bate no provider)
+  - [ ] Editar/rotacionar chave (criptografado via `ISecretProtector`)
+  - [ ] Deletar (com confirmação)
+  - [ ] Catálogo de modelos (`AiModel`) — cadastrar modelos disponíveis por provider
+
+### LUC-113 — Fase 5: Observabilidade + docs operacionais
+- **Status:** 📋 backlog · **Tipo:** infra + docs
+- **Contexto:** Fechar o épico com métricas e runbook.
+- **Aceite:**
+  - [ ] Log estruturado: cada chamada IA loga `{provider, model, tenant, module, latency_ms, tokens, cost_usd}`
+  - [ ] Métricas Prometheus/CloudWatch: qual provider está sendo mais usado, taxa de erro por provider
+  - [ ] `lucasRUNBOOK_IA.md` — troubleshooting, rotação de chave, mudar de provider em prod
+
+### LUC-114 — .NET: Healthcheck do serviço Python reportando provider ativo
+- **Status:** 📋 backlog · **Tipo:** infra · **Relacionado:** LUC-014
+- **Aceite:**
+  - [ ] `RHPortalAiHealthCheck` lê `/health/ready` do Python
+  - [ ] Reporta no `/health` da API .NET: `rh_portal_ai: { status, llm_provider, embedding_provider }`
+
+### LUC-115 — Reconciliar `EMBEDDING_PROVIDER=gemini` com schema de coluna `embedding`
+- **Status:** 📋 backlog · **Tipo:** bugfix · **Urgente para prod**
+- **Contexto:** A Fase 1 fez o factory de embeddings via LangChain (`get_embeddings_client`) gerar vetores Gemini (3072 dims) mas gravar na coluna padrão `embedding`, que hoje é `vector(1536)` (criada para OpenAI). Isso quebra a persistência — o INSERT falha.
+- **Opções:**
+  1. Mudar `EMBEDDING_PROVIDER=gemini` para sempre usar `gemini_embeddings.py` (coluna separada `gemini_embedding vector(768)` com modelo `gemini-embedding-2-preview`)
+  2. Detectar dims do provider e usar coluna apropriada
+  3. Re-criar coluna `embedding` como `vector(3072)` (migration)
+- **Aceite:**
+  - [ ] Decisão documentada
+  - [ ] Implementação
+  - [ ] Teste de persistência em ambiente local
+
+---
+
+## 🔬 Pesquisa / spikes futuros (sem prioridade ainda)
 
 ### LUC-101 — Fine-tuning com histórico de feedback do recrutador
 - **Tipo:** spike

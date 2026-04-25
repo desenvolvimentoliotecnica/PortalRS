@@ -19,10 +19,10 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Optional
 
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
-from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL
+from app.config import LLM_PROVIDER
+from app.llm_factory import get_chat_llm
 from app.gemini_config import (
     GEMINI_API_KEY,
     GEMINI_RANKING_SIZE,
@@ -75,9 +75,9 @@ def run_gemini_matching(
         score_filtros, score_requisitos, score_final, justificativa
     """
     if not GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY não configurada")
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY não configurada (necessária para LLM)")
+        raise ValueError("GEMINI_API_KEY não configurada (necessária para embedding v2)")
+    # LLM: validação da chave é feita dentro do factory conforme LLM_PROVIDER.
+    _ = LLM_PROVIDER
 
     ranking_size = top_n or GEMINI_RANKING_SIZE
     ranking_size = max(5, min(100, ranking_size))
@@ -114,11 +114,7 @@ def run_gemini_matching(
         if not profile_text:
             return None
 
-        thread_llm = ChatOpenAI(
-            model=OPENAI_CHAT_MODEL,
-            openai_api_key=OPENAI_API_KEY,
-            temperature=0,
-        )
+        thread_llm = get_chat_llm(temperature=0)
 
         scores = _evaluate_with_llm_v2(thread_llm, vaga_context, profile_text)
         if scores is None:
@@ -206,8 +202,9 @@ def evaluate_new_person(
     Returns:
         Dict com scores ou None se não for possível avaliar
     """
-    if not GEMINI_API_KEY or not OPENAI_API_KEY:
-        raise ValueError("GEMINI_API_KEY e OPENAI_API_KEY necessárias")
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY necessária para embedding v2")
+    # LLM: chave é validada pelo factory conforme LLM_PROVIDER.
 
     # 1. Garantir embedding da pessoa
     _ensure_person_gemini_embedding(person_id, source, tenant_id, pdf_bytes)
@@ -228,11 +225,7 @@ def evaluate_new_person(
 
     weights = _extract_weights(vaga)
 
-    llm = ChatOpenAI(
-        model=OPENAI_CHAT_MODEL,
-        openai_api_key=OPENAI_API_KEY,
-        temperature=0,
-    )
+    llm = get_chat_llm(temperature=0)
     vaga_context = _build_vaga_context_v2(vaga, weights)
     scores = _evaluate_with_llm_v2(llm, vaga_context, profile_text)
     if scores is None:
@@ -493,7 +486,7 @@ LOCALIDADE E LOGÍSTICA (peso {wl}%):
 
 
 def _evaluate_with_llm_v2(
-    llm: ChatOpenAI,
+    llm: Any,
     vaga_context: str,
     profile_text: str,
 ) -> dict[str, Any] | None:

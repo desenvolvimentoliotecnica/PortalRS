@@ -16,10 +16,10 @@ import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Optional
 
-from langchain_openai import ChatOpenAI
+from app.llm_factory import get_chat_llm
 from langchain_core.messages import HumanMessage
 
-from app.config import OPENAI_API_KEY, OPENAI_CHAT_MODEL, DEFAULT_RANKING_SIZE, EMBEDDING_PROVIDER
+from app.config import DEFAULT_RANKING_SIZE, EMBEDDING_PROVIDER, LLM_PROVIDER
 from app.log import matching as log
 from app.db import (
     get_vaga_perfil,
@@ -105,8 +105,9 @@ def run_unified_matching(
     Returns:
         Lista ordenada de dicts com person_id, nome, email, source, scores, justificativa
     """
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY não configurada")
+    # A validação de chave do provider (openai/gemini) é feita no factory.
+    # Aqui apenas registramos qual está em uso para debug.
+    _ = LLM_PROVIDER
 
     ranking_size = top_n or DEFAULT_RANKING_SIZE
     ranking_size = max(10, min(100, ranking_size))
@@ -217,13 +218,7 @@ def run_unified_matching(
     def _process_batch(batch_items: list[dict]) -> list[dict]:
         """Avalia um batch de candidatos numa única chamada LLM."""
         # Cada thread cria seu próprio client (thread-safe)
-        thread_llm = ChatOpenAI(
-            model=OPENAI_CHAT_MODEL,
-            openai_api_key=OPENAI_API_KEY,
-            temperature=0,
-            request_timeout=60,
-            max_retries=1,
-        )
+        thread_llm = get_chat_llm(temperature=0, request_timeout=60, max_retries=1)
         indexed = [(i + 1, item["profile_text"]) for i, item in enumerate(batch_items)]
         scores_map = _evaluate_batch_with_llm(thread_llm, vaga_context, indexed)
         results = []
@@ -316,8 +311,9 @@ def evaluate_single_person(
     Returns:
         Dict com scores ou None se não for possível avaliar
     """
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY não configurada")
+    # A validação de chave do provider (openai/gemini) é feita no factory.
+    # Aqui apenas registramos qual está em uso para debug.
+    _ = LLM_PROVIDER
 
     vaga = get_vaga_perfil(vaga_id, tenant_id)
     if not vaga:
@@ -328,11 +324,7 @@ def evaluate_single_person(
         return None
     profile_text, pretensao_salarial, _p_cidade, _p_uf = profile_result
 
-    llm = ChatOpenAI(
-        model=OPENAI_CHAT_MODEL,
-        openai_api_key=OPENAI_API_KEY,
-        temperature=0,
-    )
+    llm = get_chat_llm(temperature=0)
 
     weights = _extract_weights(vaga)
 
@@ -773,7 +765,7 @@ LOCALIDADE E LOGÍSTICA (peso {wl}%):
 
 
 def _evaluate_with_llm(
-    llm: ChatOpenAI,
+    llm: Any,
     vaga_context: str,
     profile_text: str,
 ) -> dict[str, Any] | None:
@@ -859,7 +851,7 @@ Responda APENAS com um JSON válido (sem markdown, sem comentários):
 
 
 def _evaluate_batch_with_llm(
-    llm: ChatOpenAI,
+    llm: Any,
     vaga_context: str,
     batch_profiles: list[tuple[int, str]],
 ) -> dict[int, dict[str, Any]]:

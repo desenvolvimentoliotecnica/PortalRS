@@ -4,10 +4,12 @@ uvicorn[standard]>=0.27.0
 python-dotenv>=1.0.0
 psycopg2-binary>=2.9.9
 
-# LangChain e RAG
+# LangChain e RAG (provider-agnóstico — ver app/llm_factory.py)
 langchain>=0.1.0
 langchain-openai>=0.0.5
 langchain-community>=0.0.20
+langchain-google-genai>=2.0.0
+langchain-ollama>=0.2.0
 
 # Embeddings e busca vetorial (pgvector + Chroma)
 chromadb>=0.4.22
