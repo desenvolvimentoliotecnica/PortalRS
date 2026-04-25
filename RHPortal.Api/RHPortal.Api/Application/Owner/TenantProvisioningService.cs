@@ -53,6 +53,9 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
 
         var moduleService = tenantScope.ServiceProvider.GetRequiredService<TenantModuleService>();
         await moduleService.EnsureDefaultsAsync(tenantId, ct);
+
+        var screenService = tenantScope.ServiceProvider.GetRequiredService<TenantScreenService>();
+        await screenService.EnsureDefaultsAsync(tenantId, ct);
     }
 
     /// <summary>

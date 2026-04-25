@@ -1,4 +1,5 @@
 using RhPortal.Api.Contracts.Modules;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Modules;
 using RhPortal.Api.Infrastructure.Navegacao;
 
@@ -31,13 +32,19 @@ public static class ModuleScreensResolver
     /// <summary>
     /// Retorna as telas associadas ao módulo informado, já ordenadas.
     /// Se o módulo não existe ou não tem telas no manifesto, retorna lista vazia.
+    /// Quando <paramref name="screenEstados"/> é fornecido, preenche o campo <c>Estado</c> de cada tela.
     /// </summary>
-    public static IReadOnlyList<ModuleScreenResponse> GetScreensForModule(string moduleKey)
+    public static IReadOnlyList<ModuleScreenResponse> GetScreensForModule(
+        string moduleKey,
+        IReadOnlyDictionary<string, string>? screenEstados = null)
     {
         if (string.IsNullOrWhiteSpace(moduleKey)) return Array.Empty<ModuleScreenResponse>();
-        return _byModuleKey.TryGetValue(moduleKey, out var list)
-            ? list
-            : Array.Empty<ModuleScreenResponse>();
+        if (!_byModuleKey.TryGetValue(moduleKey, out var list)) return Array.Empty<ModuleScreenResponse>();
+        if (screenEstados is null) return list;
+
+        return list
+            .Select(s => s with { Estado = screenEstados.TryGetValue(s.Id, out var e) ? e : EstadoTela.Ativo })
+            .ToList();
     }
 
     /// <summary>

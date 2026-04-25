@@ -11,11 +11,13 @@ public sealed class TenantModuleService
 {
     private readonly MasterDbContext _masterDb;
     private readonly TenantPackageService _packageService;
+    private readonly TenantScreenService _screenService;
 
-    public TenantModuleService(MasterDbContext masterDb, TenantPackageService packageService)
+    public TenantModuleService(MasterDbContext masterDb, TenantPackageService packageService, TenantScreenService screenService)
     {
         _masterDb = masterDb;
         _packageService = packageService;
+        _screenService = screenService;
     }
 
     /// <summary>
@@ -62,6 +64,7 @@ public sealed class TenantModuleService
             .ToListAsync(ct);
 
         var byKey = rows.ToDictionary(r => r.ModuleKey, StringComparer.OrdinalIgnoreCase);
+        var screenEstados = await _screenService.GetEstadoMapAsync(tenantId, ct);
 
         return ModuleCatalog.All
             .Select(m =>
@@ -76,7 +79,7 @@ public sealed class TenantModuleService
                     UpdatedAtUtc: row?.UpdatedAtUtc,
                     UpdatedByOwnerId: row?.UpdatedByOwnerId,
                     PackageKey: m.PackageKey,
-                    Telas: ModuleScreensResolver.GetScreensForModule(m.Key));
+                    Telas: ModuleScreensResolver.GetScreensForModule(m.Key, screenEstados));
             })
             .ToList();
     }

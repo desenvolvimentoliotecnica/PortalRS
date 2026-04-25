@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.Cartas;
 using RhPortal.Api.Application.IntegracaoTotvs;
@@ -318,6 +319,12 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    [HttpGet("integracao/pendentes")]
+    [Authorize(Roles = "ApiKey")]
+    [ProducesResponseType(typeof(IReadOnlyList<SolicitacaoDesligamentoPendenteIntegracaoRow>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListPendentesIntegracao(CancellationToken ct)
+        => Ok(await _service.ListPendentesIntegracaoAsync(ct));
 
     /// <summary>Exporta lista de desligamentos em CSV.</summary>
     [HttpGet("export")]

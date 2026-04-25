@@ -18,6 +18,7 @@ public sealed class MasterDbContext : DbContext
     public DbSet<OwnerAwsSettings> OwnerAwsSettings => Set<OwnerAwsSettings>();
     public DbSet<TenantModule> TenantModules => Set<TenantModule>();
     public DbSet<TenantPackage> TenantPackages => Set<TenantPackage>();
+    public DbSet<TenantScreen> TenantScreens => Set<TenantScreen>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -159,6 +160,30 @@ public sealed class MasterDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
 
             b.HasIndex(x => new { x.TenantId, x.PackageKey }).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantScreen>(b =>
+        {
+            b.ToTable("TenantScreens");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.NavItemId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Estado).HasMaxLength(16).IsRequired();
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+            b.Property(x => x.UpdatedByOwnerId);
+
+            b.HasOne(x => x.Tenant)
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.UpdatedByOwner)
+                .WithMany()
+                .HasForeignKey(x => x.UpdatedByOwnerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.NavItemId }).IsUnique();
         });
     }
 }

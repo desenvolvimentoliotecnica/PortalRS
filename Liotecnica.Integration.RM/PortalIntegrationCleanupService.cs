@@ -154,21 +154,21 @@ public sealed class PortalIntegrationCleanupService
 
     private async Task DeleteAllAreasAsync(CancellationToken ct)
     {
-        // Áreas têm hierarquia (ParentId): a API retorna 409 se a área tiver filhos. Deletar filhos antes dos pais.
-        var areas = await ListAllAreasWithParentAsync(ct);
-        var ids = OrderAreaIdsChildrenBeforeParents(areas);
-        _logWriter.WriteLine($"Listadas {ids.Count} Áreas para remoção (ordem: filhos → pais).");
-        await DeleteByIdsAsync("api/areas", ids, "Áreas", ct);
+        // Centros de Custo têm hierarquia (ParentId): a API retorna 409 se o CC tiver filhos. Deletar filhos antes dos pais.
+        var ccs = await ListAllCentrosCustoWithParentAsync(ct);
+        var ids = OrderCcIdsChildrenBeforeParents(ccs);
+        _logWriter.WriteLine($"Listados {ids.Count} Centros de Custo para remoção (ordem: filhos → pais).");
+        await DeleteByIdsAsync("api/centros-custo", ids, "Centros de Custo", ct);
     }
 
-    private async Task<List<AreaItemWithParent>> ListAllAreasWithParentAsync(CancellationToken ct)
+    private async Task<List<AreaItemWithParent>> ListAllCentrosCustoWithParentAsync(CancellationToken ct)
     {
-        var list = await _portalClient.Http.GetFromJsonAsync<List<AreaItemWithParent>>("api/areas", JsonOptions, ct);
+        var list = await _portalClient.Http.GetFromJsonAsync<List<AreaItemWithParent>>("api/centros-custo?take=5000", JsonOptions, ct);
         return list ?? new List<AreaItemWithParent>();
     }
 
-    /// <summary>Ordena IDs de áreas para que filhos sejam deletados antes dos pais (evita 409 AreaHasChildren).</summary>
-    private static List<Guid> OrderAreaIdsChildrenBeforeParents(List<AreaItemWithParent> areas)
+    /// <summary>Ordena IDs de centros de custo para que filhos sejam deletados antes dos pais (evita 409 HasChildren).</summary>
+    private static List<Guid> OrderCcIdsChildrenBeforeParents(List<AreaItemWithParent> areas)
     {
         if (areas.Count == 0) return new List<Guid>();
         var idToParent = areas.Where(a => a.ParentId.HasValue).ToDictionary(a => a.Id, a => a.ParentId!.Value);

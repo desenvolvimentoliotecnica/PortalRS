@@ -591,6 +591,7 @@ builder.Services.AddScoped<UserAdministrationService>();
 builder.Services.AddScoped<RoleAdministrationService>();
 builder.Services.AddScoped<MenuAdministrationService>();
 builder.Services.AddScoped<TenantPackageService>();
+builder.Services.AddScoped<TenantScreenService>();
 builder.Services.AddScoped<TenantModuleService>();
 builder.Services.AddScoped<NavegacaoSidebarService>();
 

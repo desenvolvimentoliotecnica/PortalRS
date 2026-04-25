@@ -130,3 +130,10 @@ public sealed record SolicitacaoDesligamentoGridRow(
     bool EtapaPendenteCanAssume,
     bool EtapaPendenteCanApprove
 );
+
+public sealed record SolicitacaoDesligamentoPendenteIntegracaoRow(
+    Guid Id,
+    string? FuncionarioNome,
+    DateOnly DataDesligamento,
+    SolicitacaoStatus Status
+);

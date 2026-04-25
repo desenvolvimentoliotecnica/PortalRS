@@ -43,4 +43,5 @@ public static class MotivoBloqueioNav
     public const string ModuloDesativado = "modulo-desativado";
     public const string PacoteInativo = "pacote-inativo";
     public const string PacoteNaoContratado = "pacote-nao-contratado";
+    public const string TelaBloqueada = "tela-bloqueada";
 }

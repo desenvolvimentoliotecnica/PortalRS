@@ -44,6 +44,8 @@ public interface ISolicitacaoDesligamentoService
     /// Idempotente: ignora se o desligamento já está em estado terminal.
     /// </summary>
     Task CancelarEmCascataAsync(Guid id, CancellationToken ct);
+
+    Task<IReadOnlyList<SolicitacaoDesligamentoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct);
 }
 
 public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoService
@@ -140,6 +142,23 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                 ep?.CanAssume ?? false,
                 ep?.CanApprove ?? false);
         }).ToList();
+    }
+
+    public async Task<IReadOnlyList<SolicitacaoDesligamentoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct)
+    {
+        return await _db.SolicitacoesDesligamento
+            .AsNoTracking()
+            .Include(x => x.Funcionario)
+            .Where(x => x.TenantId == _tenantContext.TenantId
+                     && x.Status == SolicitacaoStatus.EmIntegracao
+                     && x.IntegracaoResultado == null)
+            .OrderBy(x => x.ApprovedAtUtc)
+            .Select(x => new SolicitacaoDesligamentoPendenteIntegracaoRow(
+                x.Id,
+                x.Funcionario != null ? x.Funcionario.Name : null,
+                x.DataDesligamento,
+                x.Status))
+            .ToListAsync(ct);
     }
 
     public async Task<SolicitacaoDesligamentoResponse?> GetByIdAsync(Guid id, CancellationToken ct)

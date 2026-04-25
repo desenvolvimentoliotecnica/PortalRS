@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { Bot, Sparkles } from "lucide-react";
+import { useNavegacaoSidebar } from "@/features/navigation/NavegacaoSidebarProvider";
 
 /**
  * Floating Action Button (FAB) do Assistente IA. Aparece fixo no canto inferior
@@ -13,15 +14,18 @@ import { Bot, Sparkles } from "lucide-react";
 export default function AssistenteIaFab() {
     const pathname = usePathname();
     const router = useRouter();
+    const { contextoEspecial } = useNavegacaoSidebar();
 
-    // Não mostrar na própria tela do assistente, login, portal externo ou owner
+    // Não mostrar na própria tela do assistente, login, portal externo,
+    // área do owner ou quando o owner está impersonando um tenant.
     if (
         !pathname ||
         pathname.startsWith("/app/assistente-ia") ||
         pathname.startsWith("/app/login") ||
         pathname.startsWith("/app/Owner") ||
         pathname.startsWith("/portal") ||
-        pathname.startsWith("/PortalVagas")
+        pathname.startsWith("/PortalVagas") ||
+        contextoEspecial !== null
     ) {
         return null;
     }

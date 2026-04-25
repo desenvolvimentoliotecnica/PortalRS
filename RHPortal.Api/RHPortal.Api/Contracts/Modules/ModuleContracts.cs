@@ -26,6 +26,7 @@ public sealed record TenantPackageUpdateRequest(bool IsEnabled);
 /// <summary>
 /// Tela/funcionalidade individual entregue por um módulo. Derivada do
 /// <c>NavegacaoManifest</c>, com resolução do bucket de UI já aplicada.
+/// Estado: "ativo" | "oculto" | "bloqueado" (ver <c>EstadoTela</c>).
 /// </summary>
 public sealed record ModuleScreenResponse(
     string Id,
@@ -35,7 +36,15 @@ public sealed record ModuleScreenResponse(
     string PermissionKey,
     int Ordem,
     string GrupoUiKey,
-    string GrupoUiLabel);
+    string GrupoUiLabel,
+    string Estado = "ativo");
+
+public sealed record TenantScreenUpdateRequest(string Estado);
+
+public sealed record TenantScreenStateResponse(
+    string NavItemId,
+    string Estado,
+    DateTimeOffset? UpdatedAtUtc);
 
 /// <summary>
 /// Resposta detalhada de um módulo do tenant — inclui a lista de telas

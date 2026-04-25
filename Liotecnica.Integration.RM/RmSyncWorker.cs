@@ -146,8 +146,8 @@ public sealed class RmSyncWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha no envio de departamento (área) para a API; continuando.");
-            _logWriter.WriteLine($"Sync Áreas (departamento -> api/areas): ERRO - {ex.Message}");
+            _logger.LogWarning(ex, "Falha no envio de departamento (centro de custo) para a API; continuando.");
+            _logWriter.WriteLine($"Sync Centros de Custo (departamento -> api/centros-custo): ERRO - {ex.Message}");
         }
 
         try
