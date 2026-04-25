@@ -72,11 +72,14 @@ public static class PreAdmissaoSeeder
                 .AsNoTracking()
                 .CountAsync(p => p.TenantId == tenantId && p.Status == PreAdmissaoStatus.Aprovada, ct);
 
-            if (existing >= TargetCount)
-                return;
-
             var now = DateTimeOffset.UtcNow;
             var records = new List<PreAdmissao>();
+
+            if (existing >= TargetCount)
+            {
+                await EnsureFuncionarioCompletoQaAsync(db, tenantId, now, ct);
+                return;
+            }
 
             for (var i = existing; i < TargetCount; i++)
             {
@@ -135,6 +138,15 @@ public static class PreAdmissaoSeeder
                     CtpsSerie           = p.CtpsSerie,
                     CtpsUf              = p.CtpsUf,
 
+                    // ── TOTVS: Jornada, Ponto e Sindicato (mocks para teste) ──
+                    CodTurma                    = 100 + i,
+                    IndFuncVinculado            = 1,
+                    TipoMaoDeObra               = (i % 4) switch { 0 => "ADM", 1 => "COM", 2 => "GER", _ => "OPE" },
+                    CodSindicato                = 10 + i,
+                    CodLocalMarcacao            = 200 + i,
+                    CodClassFuncPontoEletronico = 300 + i,
+                    CodLocalidade               = 400 + i,
+
                     ValidacaoCpfOk     = true,
                     ValidacaoCepOk     = true,
                     ValidacaoBancoOk   = p.Contrato != TipoContratacaoAdmissao.Estagio,
@@ -149,6 +161,8 @@ public static class PreAdmissaoSeeder
 
             db.PreAdmissoes.AddRange(records);
             await db.SaveChangesAsync(ct);
+
+            await EnsureFuncionarioCompletoQaAsync(db, tenantId, now, ct);
         }
         catch (Exception ex)
         {
@@ -157,5 +171,125 @@ public static class PreAdmissaoSeeder
             if (ex.InnerException is not null)
                 Console.Error.WriteLine($"[PreAdmissaoSeeder:{tenantId}] Inner: {ex.InnerException.Message}");
         }
+    }
+
+    /// <summary>
+    /// Mock QA: pré-admissão com TODOS os campos preenchidos (dados pessoais, bancários,
+    /// trabalhistas e TOTVS completos) usando documentos com DVs válidos. Idempotente
+    /// por CPF — não duplica se já existir.
+    /// </summary>
+    private static async Task EnsureFuncionarioCompletoQaAsync(
+        AppDbContext db,
+        string tenantId,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        // CPF 458.271.630-07 — dígitos verificadores calculados (DV1=0, DV2=7).
+        const string cpfQa = "45827163007";
+
+        var ja = await db.PreAdmissoes
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(p => p.TenantId == tenantId && p.Cpf == cpfQa, ct);
+
+        if (ja) return;
+
+        var admissao = DateOnly.FromDateTime(DateTime.Today.AddDays(45));
+
+        db.PreAdmissoes.Add(new PreAdmissao
+        {
+            Id            = Guid.NewGuid(),
+            TenantId      = tenantId,
+            Status        = PreAdmissaoStatus.Aprovada,
+            PreenchidoPor = PreenchidoPor.RH,
+
+            // ── Dados pessoais (RG-SP 45.678.901-4 com DV válido) ──
+            Nome             = "Felipe Moreira Andrade",
+            Cpf              = cpfQa,
+            Rg               = "456789014",
+            RgOrgaoExpedidor = "SSP/SP",
+            RgDataExpedicao  = new DateOnly(2015, 6, 10),
+            DataNascimento   = new DateOnly(1988, 5, 22),
+            Sexo             = Sexo.Masculino,
+            EstadoCivil      = EstadoCivil.Casado,
+            Nacionalidade    = "Brasileira",
+            NomeMae          = "Patrícia Moreira Andrade",
+            NomePai          = "Roberto Henrique Andrade",
+            NaturalCidade    = "São Paulo",
+            NaturalUf        = "SP",
+
+            // ── Endereço (CEP real — Pinheiros/SP) ──
+            Cep        = "05409022",
+            Logradouro = "Rua Cardeal Arcoverde",
+            Numero     = "1345",
+            Complemento = "Apto 72",
+            Bairro     = "Pinheiros",
+            Cidade     = "São Paulo",
+            Uf         = "SP",
+
+            // ── Contato ──
+            Email                 = "felipe.moreira.andrade@testmail.com",
+            Telefone              = "(11) 3030-4040",
+            Celular               = "(11) 99906-6006",
+            ContatoEmergenciaNome = "Patrícia Moreira Andrade",
+            ContatoEmergenciaFone = "(11) 99903-3003",
+
+            // ── Bancário ──
+            BancoCodigo   = "341",
+            BancoNome     = "Itaú Unibanco",
+            Agencia       = "1234",
+            AgenciaDigito = "0",
+            Conta         = "567890",
+            ContaDigito   = "0",
+            TipoConta     = TipoContaBancaria.ContaCorrente,
+
+            // ── Trabalhista (PIS 120.12345.67-2, Título 1234.5678.0191 — DVs válidos) ──
+            EstabelecimentoCodigo = "001",
+            DataAdmissao          = admissao,
+            Salario               = 8500m,
+            TipoContratacao       = TipoContratacaoAdmissao.CLT,
+            CargaHorariaSemanal   = 40,
+            PisPasep              = "12012345672",
+            Ctps                  = "1234567",
+            CtpsSerie             = "0015",
+            CtpsUf                = "SP",
+            TituloEleitorNumero   = "123456780191",
+            TituloEleitorZona     = "123",
+            TituloEleitorSecao    = "0245",
+            TituloEleitorCidade   = "São Paulo",
+            TituloEleitorUf       = "SP",
+
+            // ── TOTVS: Integração base ──
+            CodCargoTotvs          = 105,
+            CodVinculoEmpregaticio = 10,  // CLT Prazo Indeterminado
+            TipoFuncionario        = 1,   // Mensalista
+            TipoEstatistica        = 1,   // Normal
+            CategoriaSalarial      = 1,   // A
+            GrauInstrucao          = 7,   // Superior Completo
+            CodTurno               = 1,
+            CentroCustoTotvs       = "001.01",
+            UnidadeLotacao         = "001.001",
+
+            // ── TOTVS: Jornada, Ponto e Sindicato (7 campos novos) ──
+            CodTurma                    = 105,
+            IndFuncVinculado            = 1,
+            TipoMaoDeObra               = "ADM",  // Administrativo
+            CodSindicato                = 15,
+            CodLocalMarcacao            = 205,
+            CodClassFuncPontoEletronico = 305,
+            CodLocalidade               = 405,
+
+            ValidacaoCpfOk     = true,
+            ValidacaoCepOk     = true,
+            ValidacaoBancoOk   = true,
+            ValidacaoSalarioOk = true,
+
+            CreatedAtUtc   = now.AddDays(-5),
+            UpdatedAtUtc   = now.AddDays(-1),
+            SubmittedAtUtc = now.AddDays(-3),
+            ApprovedAtUtc  = now.AddDays(-2),
+        });
+
+        await db.SaveChangesAsync(ct);
     }
 }

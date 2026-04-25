@@ -14,5 +14,8 @@ public sealed record FuncionarioListQuery(
     bool? HasMissingData = null,
     Guid? UnidadeLotacaoId = null,
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
-    Guid? CentroCustoId = null
+    Guid? CentroCustoId = null,
+    Guid? GestorDiretoId = null,
+    Guid? OnlyFuncionarioId = null,
+    IReadOnlyList<Guid>? GestorUnidadeIds = null
 );

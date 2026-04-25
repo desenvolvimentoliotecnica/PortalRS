@@ -49,6 +49,7 @@ interface Props {
     onSaved: () => void;
     viewOnly?: boolean;
     resubmitAfterSave?: boolean;
+    initialFuncionarioId?: string | null;
 }
 
 /* ──────────────────────────── helpers ──────────────────────────── */
@@ -239,7 +240,7 @@ function AutocompleteSelect({
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-export default function DesligamentoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave }: Props) {
+export default function DesligamentoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave, initialFuncionarioId }: Props) {
     const [draft, setDraft] = useState<DesligamentoDraft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(false);
@@ -382,9 +383,9 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
                 .catch(() => toast.error("Falha ao carregar solicitação."))
                 .finally(() => setLoadingEdit(false));
         } else {
-            setDraft({ ...emptyDraft });
+            setDraft({ ...emptyDraft, funcionarioId: initialFuncionarioId ?? null });
         }
-    }, [open, editId, loadLookups]);
+    }, [open, editId, loadLookups, initialFuncionarioId]);
 
     async function save() {
         if (viewOnly) return;

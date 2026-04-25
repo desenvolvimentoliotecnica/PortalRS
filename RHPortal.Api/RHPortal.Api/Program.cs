@@ -273,6 +273,8 @@ builder.Services.AddScoped<IEmailQueueService, EmailQueueService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<EmailDispatchWorker>();
 builder.Services.AddHostedService<CvImportWorker>();
+builder.Services.AddHostedService<RhPortal.Api.Infrastructure.Scheduling.ApprovalReminderService>();
+builder.Services.AddHostedService<RhPortal.Api.Infrastructure.Scheduling.IntegracaoRetryService>();
 
 // PostgreSQL + EF Core
 builder.Services.AddDbContextPool<MasterDbContext>(options =>
@@ -425,8 +427,11 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
 builder.Services.AddScoped<ISolicitacaoVagaService, SolicitacaoVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.PublicApproval.IMagicLinkService, RhPortal.Api.Application.PublicApproval.MagicLinkService>();
+builder.Services.AddScoped<RhPortal.Api.Application.EntrevistasSaida.IEntrevistaSaidaService, RhPortal.Api.Application.EntrevistasSaida.EntrevistaSaidaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.WorkflowRH.IWorkflowRHService, RhPortal.Api.Application.WorkflowRH.WorkflowRHService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Common.ApprovalWorkflowHelper>();
+builder.Services.AddScoped<RhPortal.Api.Application.Common.StatusHistoricoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.EtapasConfigAprovacao.IEtapaConfigAprovacaoService, RhPortal.Api.Application.EtapasConfigAprovacao.EtapaConfigAprovacaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.OcupacaoHistorico.IOcupacaoHistoricoService, RhPortal.Api.Application.OcupacaoHistorico.OcupacaoHistoricoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.SolicitacoesDesligamento.ISolicitacaoDesligamentoService, RhPortal.Api.Application.SolicitacoesDesligamento.SolicitacaoDesligamentoService>();
@@ -458,6 +463,8 @@ builder.Services.AddScoped<RhPortal.Api.Infrastructure.Storage.IS3StorageService
 builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IIntegracaoTotvsService, RhPortal.Api.Application.IntegracaoTotvs.IntegracaoTotvsService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.DocumentAiExtractor>();
+builder.Services.AddScoped<RhPortal.Api.Application.Blip.BlipDocumentoValidator>();
+builder.Services.AddScoped<RhPortal.Api.Application.Blip.BlipMessagingService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.IAdmissaoPortalService, RhPortal.Api.Application.AdmissaoPortal.AdmissaoPortalService>();
 builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService>(client =>
 {
@@ -584,6 +591,7 @@ builder.Services.AddScoped<UserAdministrationService>();
 builder.Services.AddScoped<RoleAdministrationService>();
 builder.Services.AddScoped<MenuAdministrationService>();
 builder.Services.AddScoped<TenantPackageService>();
+builder.Services.AddScoped<TenantScreenService>();
 builder.Services.AddScoped<TenantModuleService>();
 builder.Services.AddScoped<NavegacaoSidebarService>();
 

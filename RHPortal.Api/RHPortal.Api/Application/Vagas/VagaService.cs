@@ -11,6 +11,9 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.WorkflowRH;
+using RhPortal.Api.Application.Common;
+using RhPortal.Api.Application.ProjetosVaga;
 
 namespace RhPortal.Api.Application.Vagas;
 
@@ -35,14 +38,20 @@ public sealed class VagaService : IVagaService
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly IRHPortalAiMatchClient? _aiMatchClient;
     private readonly IVagaUnifiedMatchingCacheService? _unifiedMatchingCache;
-    private readonly ICurrentUserContext _currentUser; // Added
+    private readonly ICurrentUserContext _currentUser;
+    private readonly IWorkflowRHService _workflowRH;
+    private readonly StatusHistoricoService _statusHistorico;
+    private readonly IProjetoVagaService _projetoVaga;
 
     public VagaService(
         AppDbContext db,
         ITenantContext tenantContext,
         ILogger<VagaService> logger,
         IStringLocalizer<ServiceMessages> localizer,
-        ICurrentUserContext currentUser, // Added
+        ICurrentUserContext currentUser,
+        IWorkflowRHService workflowRH,
+        StatusHistoricoService statusHistorico,
+        IProjetoVagaService projetoVaga,
         IRHPortalAiMatchClient? aiMatchClient = null,
         IVagaUnifiedMatchingCacheService? unifiedMatchingCache = null)
     {
@@ -50,7 +59,10 @@ public sealed class VagaService : IVagaService
         _tenantContext = tenantContext;
         _logger = logger;
         _localizer = localizer;
-        _currentUser = currentUser; // Added
+        _currentUser = currentUser;
+        _workflowRH = workflowRH;
+        _statusHistorico = statusHistorico;
+        _projetoVaga = projetoVaga;
         _aiMatchClient = aiMatchClient;
         _unifiedMatchingCache = unifiedMatchingCache;
     }
@@ -117,8 +129,28 @@ public sealed class VagaService : IVagaService
                 v.HeadcountProvisorio,
                 v.HeadcountProvisorioExpiresAtUtc,
                 v.AlertaVagaSemFillSnoozeAteUtc,
+                v.HeadcountPendente,
+                v.UnidadeLotacaoId,
+                UnidadeLotacaoCode = v.UnidadeLotacao != null ? v.UnidadeLotacao.Code : null,
+                UnidadeLotacaoName = v.UnidadeLotacao != null ? v.UnidadeLotacao.Description : null,
             })
             .ToListAsync(ct);
+
+        // Rodadas ativas: busca separada para evitar subqueries complexas no EF
+        var vagaIds = items.Select(v => v.Id).ToList();
+        var rodadasAtivas = await _db.Set<ProjetoVaga>()
+            .AsNoTracking()
+            .Where(p => vagaIds.Contains(p.VagaId) && p.Status == StatusProjeto.Ativo)
+            .Select(p => new
+            {
+                p.VagaId, p.Numero,
+                TotalCandidatos = _db.Set<ProjetoCandidato>().Count(pc => pc.ProjetoId == p.Id),
+            })
+            .ToListAsync(ct);
+
+        var rodadaByVaga = rodadasAtivas
+            .GroupBy(r => r.VagaId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Numero).First());
 
         return items
             .OrderByDescending(x => x.UpdatedAtUtc)
@@ -136,6 +168,10 @@ public sealed class VagaService : IVagaService
                     alertaAtivo = diasSemFill >= diasAlerta && !snoozeAtivo;
                 }
 
+                var alertaHCProvVencido = v.HeadcountProvisorio > 0
+                    && v.HeadcountProvisorioExpiresAtUtc.HasValue
+                    && v.HeadcountProvisorioExpiresAtUtc.Value < agora;
+
                 return new VagaListItemResponse(
                     v.Id, v.Codigo, v.Titulo, v.Status,
                     v.CentroCustoId, v.CentroCustoCode, v.CentroCustoNome,
@@ -147,7 +183,14 @@ public sealed class VagaService : IVagaService
                     v.CreatedAtUtc, v.UpdatedAtUtc,
                     v.HeadcountAutorizado, v.HeadcountOcupado, v.IsEstrutural,
                     v.HeadcountProvisorio, v.HeadcountProvisorioExpiresAtUtc,
-                    alertaAtivo, alertaAtivo ? diasSemFill : null, v.AlertaVagaSemFillSnoozeAteUtc
+                    alertaAtivo, alertaAtivo ? diasSemFill : null, v.AlertaVagaSemFillSnoozeAteUtc,
+                    v.HeadcountPendente,
+                    alertaHCProvVencido,
+                    v.UnidadeLotacaoId,
+                    v.UnidadeLotacaoCode,
+                    v.UnidadeLotacaoName,
+                    rodadaByVaga.TryGetValue(v.Id, out var rodada) ? (int?)rodada.Numero : null,
+                    rodadaByVaga.TryGetValue(v.Id, out var rodada2) ? (int?)rodada2.TotalCandidatos : null
                 );
             })
             .ToList();
@@ -168,6 +211,7 @@ public sealed class VagaService : IVagaService
             .Include(x => x.Requisitos)
             .Include(x => x.Etapas)
             .Include(x => x.PerguntasTriagem)
+            .Include(x => x.Ocupacoes)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (entity is null) return null;
@@ -179,7 +223,9 @@ public sealed class VagaService : IVagaService
             .AsNoTracking()
             .Include(s => s.Solicitante)
             .Include(s => s.Aprovador)
+            .Include(s => s.DecisaoRHRevisadoPor)
             .Where(s => s.VagaId == id)
+            .OrderByDescending(s => s.CreatedAtUtc)
             .FirstOrDefaultAsync(ct);
 
         if (solic != null)
@@ -189,6 +235,13 @@ public sealed class VagaService : IVagaService
                 SolicitanteNome = solic.Solicitante?.Name,
                 AprovadorNome = solic.Aprovador?.Name,
                 DataAprovacao = solic.ApprovedAtUtc,
+                // SolicitacaoPendenteDecisaoId — campo legado do fluxo antigo (RH decidia HC pós-aprovação).
+                // A decisão agora vem do gestor na criação, então não há mais "pendência" pós-aprovação.
+                SolicitacaoPendenteDecisaoId = null,
+                DecisaoRH = solic.DecisaoRH,
+                DecisaoRHRevisadoPorNome = solic.DecisaoRHRevisadoPor?.Name,
+                DecisaoRHEmUtc = solic.DecisaoRHEmUtc,
+                DecisaoRHPrazoMeses = solic.DecisaoRHPrazoMeses,
             };
         }
 
@@ -229,7 +282,7 @@ public sealed class VagaService : IVagaService
         var entity = new Vaga
         {
             Id = Guid.NewGuid(),
-            Codigo = TrimOrNull(request.Codigo),
+            Codigo = TrimOrNull(request.Codigo) ?? await GerarCodigoAsync(ct),
             Titulo = (request.Titulo ?? string.Empty).Trim(),
             AreaTime = request.AreaTime,
             Modalidade = request.Modalidade,
@@ -398,7 +451,14 @@ public sealed class VagaService : IVagaService
             await EnsureCentroCustoAsync(request.CentroCustoId.Value, ct);
 
         var oldFiltros = entity.MatchingFiltrosRaw;
+        var oldStatus = entity.Status.ToString();
         ApplyUpdate(entity, request);
+        if (entity.Status.ToString() != oldStatus)
+        {
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.Vaga, entity.Id,
+                oldStatus, entity.Status.ToString(), _currentUser, null, ct);
+        }
         ReplaceChildren(entity, request);
         await ValidateFaixaSalarialAsync(entity, ct);
 
@@ -488,22 +548,34 @@ public sealed class VagaService : IVagaService
         if (entity is null) return null;
         EnsureTenantOwnership(entity);
 
-        // Rascunho → Aberta: exigir campos obrigatórios
-        if (entity.Status == VagaStatus.Rascunho && newStatus == VagaStatus.Aberta)
+        // Rascunho/Preenchida → Aberta: exigir campos obrigatórios e decisão de headcount
+        if (newStatus == VagaStatus.Aberta)
         {
-            var missing = new List<string>();
-            if (string.IsNullOrWhiteSpace(entity.Titulo)) missing.Add("Título");
-            if (entity.QuantidadeVagas < 1) missing.Add("Quantidade de vagas");
-            if (missing.Count > 0)
-                throw new InvalidOperationException($"Preencha os campos obrigatórios antes de abrir a vaga: {string.Join(", ", missing)}");
+            if (entity.HeadcountPendente > 0)
+                throw new InvalidOperationException(
+                    "Existe headcount pendente de decisão do RH para esta vaga. Defina a decisão antes de publicar.");
+
+            if (entity.Status == VagaStatus.Rascunho)
+            {
+                var missing = new List<string>();
+                if (string.IsNullOrWhiteSpace(entity.Titulo)) missing.Add("Título");
+                if (entity.QuantidadeVagas < 1) missing.Add("Quantidade de vagas");
+                if (missing.Count > 0)
+                    throw new InvalidOperationException($"Preencha os campos obrigatórios antes de abrir a vaga: {string.Join(", ", missing)}");
+            }
         }
 
+        var statusAnteriorVaga = entity.Status.ToString();
         entity.Status = newStatus;
         if (newStatus == VagaStatus.Aberta && entity.DataAbertura == null)
             entity.DataAbertura = DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        // Ao cancelar a vaga, cancelar automaticamente os workflows ativos associados
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.Vaga, entity.Id,
+            statusAnteriorVaga, entity.Status.ToString(), _currentUser, null, ct);
+
+        // Ao cancelar a vaga, cancelar automaticamente os workflows ativos e SolicitacoesVaga pendentes
         if (newStatus == VagaStatus.Cancelada)
         {
             var workflows = await _db.WorkflowsRH
@@ -517,9 +589,32 @@ public sealed class VagaService : IVagaService
                 wf.Status = WorkflowRHStatus.Cancelado;
                 wf.UpdatedAtUtc = DateTimeOffset.UtcNow;
             }
+
+            await CancelarSolicitacoesVinculadasAsync(entity, ct);
         }
 
         await _db.SaveChangesAsync(ct);
+
+        if (newStatus == VagaStatus.Aberta)
+        {
+            // Cria rodada automaticamente ao publicar a vaga
+            await _projetoVaga.EnsureActiveRodadaAsync(id, ct);
+
+            var jaExiste = await _db.WorkflowsRH
+                .AnyAsync(w => w.VagaId == id
+                            && w.TipoWorkflow == TipoWorkflowRH.TriagemVaga
+                            && w.Status != WorkflowRHStatus.Cancelado, ct);
+            if (!jaExiste)
+                await _workflowRH.CreateFromTemplateAsync(
+                    TipoWorkflowRH.TriagemVaga, vagaId: id, preAdmissaoId: null, ct);
+        }
+
+        // Finaliza rodada ativa ao encerrar/pausar/cancelar a vaga
+        if (newStatus is VagaStatus.Encerrada or VagaStatus.Pausada or VagaStatus.Cancelada or VagaStatus.Preenchida)
+        {
+            await _projetoVaga.FinalizeActiveRodadaAsync(id, ct);
+        }
+
         return await GetByIdAsync(id, ct);
     }
 
@@ -542,9 +637,53 @@ public sealed class VagaService : IVagaService
                 throw new InvalidOperationException("Apenas vagas em rascunho podem ser excluídas. Utilize 'Cancelar' para vagas que já foram movimentadas.");
         }
 
+        await CancelarSolicitacoesVinculadasAsync(entity, ct);
         _db.Vagas.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;
+    }
+
+    /// <summary>
+    /// Cancela (ou marca como Reprovada) todas as SolicitacaoVaga vinculadas à vaga
+    /// que ainda estejam em estados ativos (pendente de aprovação, aumento HC pendente).
+    /// Também zera HeadcountPendente da vaga antes de removê-la/cancelá-la.
+    /// </summary>
+    private async Task CancelarSolicitacoesVinculadasAsync(Vaga vaga, CancellationToken ct)
+    {
+        var statusAtivos = new[]
+        {
+            SolicitacaoStatus.PendenteAprovacao,
+            SolicitacaoStatus.PendenteAprovacaoAumentoHC,
+        };
+
+        var solicsPendentes = await _db.SolicitacoesVaga
+            .Where(s => s.VagaId == vaga.Id && statusAtivos.Contains(s.Status))
+            .ToListAsync(ct);
+
+        if (solicsPendentes.Count == 0) return;
+
+        // Cancelar as etapas de aprovação pendentes
+        var solicIds = solicsPendentes.Select(s => s.Id).ToList();
+        var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => solicIds.Contains(e.SolicitacaoId) && e.Status == StatusAprovacao.Pendente)
+            .ToListAsync(ct);
+
+        foreach (var etapa in etapasPendentes)
+        {
+            etapa.Status = StatusAprovacao.Cancelado;
+            etapa.DataUtc = DateTimeOffset.UtcNow;
+        }
+
+        // Cancelar as solicitações e zerar headcount pendente
+        foreach (var solic in solicsPendentes)
+        {
+            solic.Status = SolicitacaoStatus.Cancelada;
+            solic.ObservacaoAprovador = "Cancelada automaticamente: vaga associada foi encerrada.";
+            solic.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        vaga.HeadcountPendente = 0;
+        vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
     private static VagaResponse MapToResponse(Vaga v)
@@ -682,7 +821,19 @@ public sealed class VagaService : IVagaService
             v.UpdatedAtUtc,
             null, // SolicitanteNome - preenchido em GetByIdAsync
             null, // AprovadorNome
-            null  // DataAprovacao
+            null, // DataAprovacao
+            v.HeadcountAutorizado,
+            v.Ocupacoes?.Count(o => o.DataSaida == null) ?? 0,
+            v.IsEstrutural,
+            v.HeadcountProvisorio,
+            v.HeadcountProvisorio > 0 && v.HeadcountProvisorioExpiresAtUtc.HasValue && v.HeadcountProvisorioExpiresAtUtc.Value < DateTimeOffset.UtcNow,
+            v.HeadcountPendente,
+            null, // SolicitacaoPendenteDecisaoId - preenchido em GetByIdAsync
+            null, // DecisaoRH
+            null, // DecisaoRHRevisadoPorNome
+            null, // DecisaoRHEmUtc
+            null, // DecisaoRHPrazoMeses
+            v.HeadcountProvisorioExpiresAtUtc
         );
     }
 
@@ -900,6 +1051,21 @@ public sealed class VagaService : IVagaService
 
     private static int NormalizeOrder(int ordem, int fallback)
         => ordem >= 0 ? ordem : fallback;
+
+    private async Task<string> GerarCodigoAsync(CancellationToken ct)
+    {
+        var ultimo = await _db.Vagas
+            .Where(v => v.Codigo != null && v.Codigo.StartsWith("VAG-"))
+            .Select(v => v.Codigo!)
+            .OrderByDescending(c => c)
+            .FirstOrDefaultAsync(ct);
+
+        int proximo = 1;
+        if (ultimo != null && int.TryParse(ultimo.AsSpan(4), out var n))
+            proximo = n + 1;
+
+        return $"VAG-{proximo:D4}";
+    }
 
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

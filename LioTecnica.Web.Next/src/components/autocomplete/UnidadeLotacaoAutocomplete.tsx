@@ -53,11 +53,18 @@ export function UnidadeLotacaoAutocomplete({
       .then((res) => res.ok ? res.json() : [])
       .then((data) => {
         const raw = Array.isArray(data) ? data : [];
-        setFetchedItems(raw.map((x: Record<string, unknown>) => ({
+        const mapped = raw.map((x: Record<string, unknown>) => ({
           id: String(x.id ?? x.Id ?? ""),
           code: String(x.code ?? x.Code ?? ""),
           description: String(x.description ?? x.Description ?? ""),
-        })));
+        }));
+        const seen = new Set<string>();
+        setFetchedItems(mapped.filter((x) => {
+          const key = x.code.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }));
       })
       .catch(() => setFetchedItems([]))
       .finally(() => setLoading(false));

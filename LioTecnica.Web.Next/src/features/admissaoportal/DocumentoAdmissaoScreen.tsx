@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import {
     FileText, CheckCircle2, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
+import { validatePortalForm } from "./portalValidation";
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
@@ -40,6 +41,8 @@ interface PortalData {
     wizardCurrentStep: number | null;
     wizardCompletionPercent: number | null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function DocumentoAdmissaoScreen() {
     const params = useSearchParams();
@@ -140,6 +143,14 @@ export default function DocumentoAdmissaoScreen() {
 
     async function handleSubmit() {
         if (!session) return;
+
+        // Fallback de segurança — ReviewStep já bloqueia e exibe painel inline
+        const missing = validatePortalForm(store.formData as Record<string, unknown>);
+        if (missing.length > 0) {
+            store.setStep(2);
+            return;
+        }
+
         // Save form data one final time
         await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/dados`, session.cpf, {
             method: "PUT",

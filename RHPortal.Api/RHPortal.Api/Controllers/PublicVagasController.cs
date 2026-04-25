@@ -74,6 +74,7 @@ public sealed class PublicVagasController : ControllerBase
         IQueryable<Vaga> query = _db.Vagas
             .AsNoTracking()
             .Include(v => v.CentroCusto)
+            .Include(v => v.Etapas)
             .Where(v => v.Status == VagaStatus.Aberta)
             .Where(v => !v.Confidencial)
             .Where(v => v.Visibilidade == VagaPublicacaoVisibilidade.Externa
@@ -166,7 +167,12 @@ public sealed class PublicVagasController : ControllerBase
                 v.SalarioMinimo,
                 v.SalarioMaximo,
                 v.CreatedAtUtc,
-                tenantName))
+                tenantName,
+                v.DescricaoPublica,
+                v.Urgente,
+                v.AceitaPcd,
+                v.QuantidadeVagas,
+                v.Etapas.OrderBy(e => e.Ordem).Select(e => e.Nome).ToList()))
             .ToListAsync(ct);
 
         return Ok(new PagedResult<PortalVagaCardResponse>(items, page, pageSize, totalItems, totalPages));
@@ -194,6 +200,7 @@ public sealed class PublicVagasController : ControllerBase
         var item = await _db.Vagas
             .AsNoTracking()
             .Include(v => v.CentroCusto)
+            .Include(v => v.Etapas)
             .Where(v => v.Id == id)
             .Where(v => v.Status == VagaStatus.Aberta)
             .Where(v => !v.Confidencial)
@@ -216,7 +223,12 @@ public sealed class PublicVagasController : ControllerBase
                 v.SalarioMinimo,
                 v.SalarioMaximo,
                 v.CreatedAtUtc,
-                tenantName))
+                tenantName,
+                v.DescricaoPublica,
+                v.Urgente,
+                v.AceitaPcd,
+                v.QuantidadeVagas,
+                v.Etapas.OrderBy(e => e.Ordem).Select(e => e.Nome).ToList()))
             .FirstOrDefaultAsync(ct);
 
         if (item is null)

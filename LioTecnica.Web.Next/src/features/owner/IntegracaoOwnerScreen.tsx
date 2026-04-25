@@ -33,15 +33,20 @@ interface OwnerPainelRow {
     cpf: string | null;
     dataAdmissao: string | null;
     status: number;
-    integracaoResultado: number | null; // 1=Sucesso, 2=Falha
+    // API serializa enum como string via JsonStringEnumConverter.
+    integracaoResultado: number | string | null;
     integracaoMensagem: string | null;
     approvedAtUtc: string | null;
     integradaEmUtc: string | null;
 }
 
-const RESULTADO_MAP: Record<number, { label: string; color: string; icon: React.ElementType }> = {
-    1: { label: "Sucesso", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    2: { label: "Falha", color: "bg-red-500/15 text-red-700", icon: XCircle },
+const RESULTADO_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    "1": { label: "Sucesso", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    "2": { label: "Falha", color: "bg-red-500/15 text-red-700", icon: XCircle },
+    "3": { label: "Falha Definitiva", color: "bg-red-700/20 text-red-800", icon: XCircle },
+    Sucesso: { label: "Sucesso", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    Falha: { label: "Falha", color: "bg-red-500/15 text-red-700", icon: XCircle },
+    FalhaDefinitiva: { label: "Falha Definitiva", color: "bg-red-700/20 text-red-800", icon: XCircle },
 };
 
 type Filtro = "all" | "pendente" | "1" | "2";
@@ -159,7 +164,7 @@ export default function IntegracaoOwnerScreen() {
                             </TableRow>
                         )}
                         {rows.map((r) => {
-                            const res = r.integracaoResultado != null ? RESULTADO_MAP[r.integracaoResultado] : null;
+                            const res = r.integracaoResultado != null ? RESULTADO_MAP[String(r.integracaoResultado)] : null;
                             const ResIcon = res?.icon;
                             const tenantName = tenants.find((t) => t.tenantId === r.tenantId)?.name;
                             return (

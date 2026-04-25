@@ -81,11 +81,11 @@ public sealed class PortalVagaSyncService
             return;
         }
 
-        var (areaId, departmentId) = await GetDefaultAreaAndDepartmentAsync(ct);
-        if (areaId == Guid.Empty)
+        var centroCustoId = await GetDefaultCentroCustoAsync(ct);
+        if (centroCustoId == Guid.Empty)
         {
-            _logWriter.WriteLine("Sync Vagas: é necessário uma Área já cadastrada no Portal (sincronize áreas antes ou configure RmSync.VagaDefaultAreaCode); pulando.");
-            _logger.LogWarning("Sync Vagas: Área não encontrada no Portal; pulando.");
+            _logWriter.WriteLine("Sync Vagas: é necessário um Centro de Custo já cadastrado no Portal (sincronize centros de custo antes ou configure RmSync.VagaDefaultAreaCode); pulando.");
+            _logger.LogWarning("Sync Vagas: Centro de Custo não encontrado no Portal; pulando.");
             return;
         }
 
@@ -117,7 +117,7 @@ public sealed class PortalVagaSyncService
                 if (string.IsNullOrWhiteSpace(codigo)) codigo = titulo.Length > 40 ? titulo.Substring(0, 40) : titulo;
                 if (codigo.Length > 40) codigo = codigo.Substring(0, 40);
 
-                var payload = BuildVagaPayload(titulo, codigo, areaId, departmentId == Guid.Empty ? null : (Guid?)departmentId, row);
+                var payload = BuildVagaPayload(titulo, codigo, centroCustoId, row);
 
                 if (codigoToId.TryGetValue(codigo, out var existingId))
                 {
@@ -164,7 +164,7 @@ public sealed class PortalVagaSyncService
         _logger.LogInformation("Sync Vagas: criadas={Created}, atualizadas={Updated}, ignoradas={Skipped}", created, updated, skipped);
     }
 
-    private static object BuildVagaPayload(string titulo, string codigo, Guid areaId, Guid? departmentId, JsonElement row)
+    private static object BuildVagaPayload(string titulo, string codigo, Guid centroCustoId, JsonElement row)
     {
         var complemento = GetString(row, "COMPLEMENTO");
         var dataAbertura = GetDateTime(row, "DATAABERTURA");
@@ -185,8 +185,7 @@ public sealed class PortalVagaSyncService
         return new
         {
             titulo,
-            departmentId,
-            areaId,
+            centroCustoId,
             status = StatusAberta,
             codigo = codigo.Length > 40 ? codigo.Substring(0, 40) : codigo,
             areaTime = (short?)null,
@@ -361,72 +360,42 @@ public sealed class PortalVagaSyncService
     }
 
     /// <summary>
-    /// Obtém a Área e o Departamento já cadastrados no Portal (sincronizados do RM).
-    /// Usa VagaDefaultAreaCode e VagaDefaultDepartmentCode para localizar exatamente a Área e o Departamento.
-    /// Departamento é buscado entre os que pertencem à Área selecionada (integração exata). Não cria área/departamento.
+    /// Obtém o Centro de Custo já cadastrado no Portal (sincronizado do RM via PSECAO).
+    /// Usa VagaDefaultAreaCode para localizar o CC por código. Não cria o CC.
     /// </summary>
-    private async Task<(Guid AreaId, Guid DepartmentId)> GetDefaultAreaAndDepartmentAsync(CancellationToken ct)
+    private async Task<Guid> GetDefaultCentroCustoAsync(CancellationToken ct)
     {
-        var areaId = Guid.Empty;
-        var departmentId = Guid.Empty;
         try
         {
-            // 1) Áreas = as que vieram do RM (PSECAO → api/areas). Code = CODIGO da seção no RM.
-            var areas = await _portalClient.Http.GetFromJsonAsync<List<AreaItem>>("api/areas", JsonOptions, ct);
-            if (areas == null || areas.Count == 0)
+            var ccs = await _portalClient.Http.GetFromJsonAsync<List<CentroCustoItem>>("api/centros-custo?take=5000", JsonOptions, ct);
+            if (ccs == null || ccs.Count == 0)
             {
-                _logWriter.WriteLine("Sync Vagas: nenhuma Área encontrada no Portal. Sincronize antes as áreas (departamento/PSECAO).");
-                _logger.LogWarning("Sync Vagas: nenhuma Área no Portal; sincronize áreas antes.");
-                return (Guid.Empty, Guid.Empty);
+                _logWriter.WriteLine("Sync Vagas: nenhum Centro de Custo encontrado no Portal. Sincronize antes os centros de custo (departamento/PSECAO).");
+                _logger.LogWarning("Sync Vagas: nenhum Centro de Custo no Portal; sincronize antes.");
+                return Guid.Empty;
             }
 
-            var areaCode = _syncOptions.VagaDefaultAreaCode?.Trim();
-            var area = !string.IsNullOrEmpty(areaCode)
-                ? areas.Find(a => string.Equals((a.Code ?? "").Trim(), areaCode, StringComparison.OrdinalIgnoreCase))
-                : areas.FirstOrDefault();
-            if (area == null)
-            {
-                _logWriter.WriteLine($"Sync Vagas: Área com Code='{areaCode}' não encontrada. Configure RmSync.VagaDefaultAreaCode com o código da área cadastrada (ex.: do PSECAO).");
-                _logger.LogWarning("Sync Vagas: Área Code={Code} não encontrada.", areaCode ?? "(vazio)");
-                return (Guid.Empty, Guid.Empty);
-            }
-            areaId = area.Id;
-            _logWriter.WriteLine($"Sync Vagas: usando Área cadastrada Code={area.Code} (Id={areaId}).");
+            var ccCode = _syncOptions.VagaDefaultAreaCode?.Trim();
+            var cc = !string.IsNullOrEmpty(ccCode)
+                ? ccs.Find(x => string.Equals((x.Code ?? "").Trim(), ccCode, StringComparison.OrdinalIgnoreCase))
+                : ccs.FirstOrDefault();
 
-            // 2) Departamentos da Área selecionada (integração exata: só departamentos dessa área)
-            var deptResponse = await _portalClient.Http.GetFromJsonAsync<PagedDepartmentsResponse>(
-                $"api/departments?areaId={areaId}&page=1&pageSize=500", JsonOptions, ct);
-            var deptList = deptResponse?.Items ?? new List<DepartmentItem>();
-            if (deptList.Count == 0)
+            if (cc == null)
             {
-                // Fallback: listar todos e pegar o que pertence à área ou o primeiro (compatibilidade)
-                deptResponse = await _portalClient.Http.GetFromJsonAsync<PagedDepartmentsResponse>("api/departments?page=1&pageSize=500", JsonOptions, ct);
-                deptList = deptResponse?.Items ?? new List<DepartmentItem>();
+                _logWriter.WriteLine($"Sync Vagas: Centro de Custo com Code='{ccCode}' não encontrado. Configure RmSync.VagaDefaultAreaCode com o código do CC cadastrado (ex.: do PSECAO).");
+                _logger.LogWarning("Sync Vagas: Centro de Custo Code={Code} não encontrado.", ccCode ?? "(vazio)");
+                return Guid.Empty;
             }
 
-            if (deptList.Count == 0)
-            {
-                _logWriter.WriteLine("Sync Vagas: nenhum Departamento encontrado no Portal para a Área selecionada. Cadastre um departamento vinculado a essa área.");
-                _logger.LogWarning("Sync Vagas: nenhum Departamento no Portal para a área {AreaId}.", areaId);
-                return (areaId, Guid.Empty);
-            }
-
-            var deptCode = _syncOptions.VagaDefaultDepartmentCode?.Trim();
-            var dept = !string.IsNullOrEmpty(deptCode)
-                ? deptList.Find(d => string.Equals((d.Code ?? "").Trim(), deptCode, StringComparison.OrdinalIgnoreCase)) ?? deptList.FirstOrDefault()
-                : deptList.FirstOrDefault();
-            if (dept != null)
-            {
-                departmentId = dept.Id;
-                _logWriter.WriteLine($"Sync Vagas: usando Departamento cadastrado Code={dept.Code} (Id={departmentId}).");
-            }
+            _logWriter.WriteLine($"Sync Vagas: usando Centro de Custo Code={cc.Code} (Id={cc.Id}).");
+            return cc.Id;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao obter área/departamento do portal.");
-            _logWriter.WriteLine($"Sync Vagas: falha ao obter área/departamento - {ex.Message}");
+            _logger.LogWarning(ex, "Falha ao obter centro de custo do portal.");
+            _logWriter.WriteLine($"Sync Vagas: falha ao obter centro de custo - {ex.Message}");
+            return Guid.Empty;
         }
-        return (areaId, departmentId);
     }
 
     private async Task<Dictionary<string, Guid>> LoadExistingVagasByCodigoAsync(CancellationToken ct)
@@ -460,9 +429,7 @@ public sealed class PortalVagaSyncService
         return Path.GetFullPath(Path.Combine(contentRoot, "..", "Liotecnica.Integration.RM.Schema.Tables"));
     }
 
-    private sealed record AreaItem(Guid Id, string Code, string Name);
-    private sealed record PagedDepartmentsResponse(List<DepartmentItem>? Items);
-    private sealed record DepartmentItem(Guid Id, string Code, string Name);
+    private sealed record CentroCustoItem(Guid Id, string Code, string Description);
     private sealed record VagaListItem(Guid Id, string? Codigo, string Titulo);
     private sealed record VagaCreateResponse(Guid Id);
 }

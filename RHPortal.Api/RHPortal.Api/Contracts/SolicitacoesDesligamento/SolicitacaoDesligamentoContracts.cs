@@ -102,6 +102,7 @@ public sealed record SolicitacaoDesligamentoResponse(
     bool ElegivelRecontratacao,
     bool SubstituirPosicao,
     Guid? SolicitacaoVagaGeradaId,
+    Guid? SolicitacaoVagaOrigemId,
     string? ObservacaoAprovador,
     string? Observacoes,
     DateTimeOffset CreatedAtUtc,
@@ -126,5 +127,13 @@ public sealed record SolicitacaoDesligamentoGridRow(
     bool EtapaPendenteIsQueue,
     Guid? EtapaPendenteAprovadorId,
     Guid? EtapaPendenteAssumedByUserId,
-    bool EtapaPendenteCanAssume
+    bool EtapaPendenteCanAssume,
+    bool EtapaPendenteCanApprove
+);
+
+public sealed record SolicitacaoDesligamentoPendenteIntegracaoRow(
+    Guid Id,
+    string? FuncionarioNome,
+    DateOnly DataDesligamento,
+    SolicitacaoStatus Status
 );

@@ -239,6 +239,113 @@ namespace RhPortal.Api.Migrations.Master
                     b.ToTable("Tenants", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantModule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ModuleKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedByOwnerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByOwnerId");
+
+                    b.HasIndex("TenantId", "ModuleKey")
+                        .IsUnique();
+
+                    b.ToTable("TenantModules", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantPackage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PackageKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedByOwnerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByOwnerId");
+
+                    b.HasIndex("TenantId", "PackageKey")
+                        .IsUnique();
+
+                    b.ToTable("TenantPackages", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantScreen", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("NavItemId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedByOwnerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedByOwnerId");
+
+                    b.HasIndex("TenantId", "NavItemId")
+                        .IsUnique();
+
+                    b.ToTable("TenantScreens", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.AiModel", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.AiProviderKey", "AiProviderKey")
@@ -269,6 +376,60 @@ namespace RhPortal.Api.Migrations.Master
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("CreatedByOwner");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantModule", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Owner", "UpdatedByOwner")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByOwnerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("UpdatedByOwner");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantPackage", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Owner", "UpdatedByOwner")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByOwnerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("UpdatedByOwner");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantScreen", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Owner", "UpdatedByOwner")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByOwnerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Tenant");
+
+                    b.Navigation("UpdatedByOwner");
                 });
 #pragma warning restore 612, 618
         }

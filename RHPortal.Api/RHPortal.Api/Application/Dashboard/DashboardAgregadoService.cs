@@ -209,9 +209,9 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
                 .Select(s => s.Status)
                 .ToListAsync(ct);
             solicitacoesEquipePendentes += vagas.Count(s =>
-                s == SolicitacaoVagaStatus.PendenteAprovacao
-                || s == SolicitacaoVagaStatus.AjustesNecessarios
-                || s == SolicitacaoVagaStatus.PendenteAprovacaoRh);
+                s == SolicitacaoStatus.PendenteAprovacao
+                || s == SolicitacaoStatus.AjustesNecessarios
+                || s == SolicitacaoStatus.PendenteAprovacaoRh);
         }
 
         // 6. Avaliações de diretos pendentes (eu sou avaliador dos meus subordinados).
@@ -428,8 +428,8 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
             .CountAsync(a => a.Status == StatusAprovacaoFaixa.Pendente, ct);
 
         var solicitacoesVagaPendentes = await _db.SolicitacoesVaga.AsNoTracking()
-            .CountAsync(s => s.Status == SolicitacaoVagaStatus.PendenteAprovacao
-                             || s.Status == SolicitacaoVagaStatus.PendenteAprovacaoRh, ct);
+            .CountAsync(s => s.Status == SolicitacaoStatus.PendenteAprovacao
+                             || s.Status == SolicitacaoStatus.PendenteAprovacaoRh, ct);
 
         return new DashboardRhSection(
             VagasAbertas: vagasAbertas,
@@ -477,11 +477,11 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
             .CountAsync(s => s.Status == SolicitacaoStatus.EmIntegracao, ct);
 
         var vagasAprovadasMes = await _db.SolicitacoesVaga.AsNoTracking()
-            .CountAsync(s => s.Status == SolicitacaoVagaStatus.Aprovada
+            .CountAsync(s => s.Status == SolicitacaoStatus.Aprovada
                              && s.ApprovedAtUtc.HasValue && s.ApprovedAtUtc >= inicioMes, ct);
         var solicitacoesVagaPendentes = await _db.SolicitacoesVaga.AsNoTracking()
-            .CountAsync(s => s.Status == SolicitacaoVagaStatus.PendenteAprovacao
-                             || s.Status == SolicitacaoVagaStatus.PendenteAprovacaoRh, ct);
+            .CountAsync(s => s.Status == SolicitacaoStatus.PendenteAprovacao
+                             || s.Status == SolicitacaoStatus.PendenteAprovacaoRh, ct);
 
         var alcadaAprovadaMes = await _db.Vagas.AsNoTracking()
             .CountAsync(v => v.AlcadaSalarialAprovadaEmUtc.HasValue

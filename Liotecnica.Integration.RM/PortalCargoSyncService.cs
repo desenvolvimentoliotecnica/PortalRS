@@ -8,7 +8,7 @@ namespace Liotecnica.Integration.RM;
 
 /// <summary>
 /// Envia Cargos do RM (PCARGO / cargo.json) para o portal (api/job-positions).
-/// Mesmo nome do RM. Usa a primeira área do portal como AreaId padrão.
+/// Usa o primeiro Centro de Custo do portal como CentroCustoId padrão.
 /// </summary>
 public sealed class PortalCargoSyncService
 {
@@ -65,11 +65,11 @@ public sealed class PortalCargoSyncService
             return;
         }
 
-        var defaultAreaId = await GetFirstAreaIdAsync(ct);
-        if (defaultAreaId == Guid.Empty)
+        var defaultCentroCustoId = await GetFirstCentroCustoIdAsync(ct);
+        if (defaultCentroCustoId == Guid.Empty)
         {
-            _logWriter.WriteLine("Sync Cargos: nenhuma área no portal; é necessário ter ao menos uma área para criar cargos.");
-            _logger.LogWarning("Nenhuma área no portal; pulando sync de cargos.");
+            _logWriter.WriteLine("Sync Cargos: nenhum centro de custo no portal; é necessário ter ao menos um CC para criar cargos.");
+            _logger.LogWarning("Nenhum centro de custo no portal; pulando sync de cargos.");
             return;
         }
 
@@ -110,7 +110,7 @@ public sealed class PortalCargoSyncService
                     code = code.Length > 40 ? code.Substring(0, 40) : code,
                     name,
                     status,
-                    areaId = defaultAreaId,
+                    centroCustoId = defaultCentroCustoId,
                     seniority = 2,
                     type = (string?)null,
                     description
@@ -158,18 +158,18 @@ public sealed class PortalCargoSyncService
         _logger.LogInformation("Sync Cargos: criados={Created}, atualizados: {Updated}, já existentes: {Skipped}", created, updated, skipped);
     }
 
-    private async Task<Guid> GetFirstAreaIdAsync(CancellationToken ct)
+    private async Task<Guid> GetFirstCentroCustoIdAsync(CancellationToken ct)
     {
         try
         {
-            var list = await _portalClient.Http.GetFromJsonAsync<List<AreaResponse>>("api/areas", JsonOptions, ct);
+            var list = await _portalClient.Http.GetFromJsonAsync<List<CentroCustoItem>>("api/centros-custo?take=1", JsonOptions, ct);
             var first = list?.FirstOrDefault();
             return first?.Id ?? Guid.Empty;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao obter primeira área do portal.");
-            _logWriter.WriteLine($"Sync Cargos: falha ao obter áreas - {ex.Message}");
+            _logger.LogWarning(ex, "Falha ao obter primeiro centro de custo do portal.");
+            _logWriter.WriteLine($"Sync Cargos: falha ao obter centros de custo - {ex.Message}");
             return Guid.Empty;
         }
     }
@@ -228,7 +228,7 @@ public sealed class PortalCargoSyncService
         public int Inativo { get; set; }
     }
 
-    private sealed record AreaResponse(Guid Id, string Code, string Name);
+    private sealed record CentroCustoItem(Guid Id, string Code, string Description);
 
     private sealed record JobPositionResponse(Guid Id, string Code, string Name);
 

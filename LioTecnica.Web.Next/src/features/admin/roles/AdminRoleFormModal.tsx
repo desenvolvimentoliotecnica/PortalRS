@@ -155,14 +155,6 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
     const L = "block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1";
     const S = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
-    const TIPO_OPTIONS = [
-        { value: 0, label: "RH - Recrutamento e Seleção" },
-        { value: 5, label: "RH - Admissão" },
-        { value: 1, label: "Colaborador" },
-        { value: 2, label: "Gestor" },
-        { value: 3, label: "Compliance" },
-        { value: 4, label: "Admin" },
-    ];
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -205,7 +197,8 @@ export default function AdminRoleFormModal({ open, editId, onClose, onSaved }: P
                                 value={draft.tipo}
                                 onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))}
                             >
-                                <option value="RH">RH</option>
+                                <option value="RhRecrutamentoSelecao">RH - Recrutamento e Seleção</option>
+                                <option value="RhAdmissao">RH - Admissão</option>
                                 <option value="Colaborador">Colaborador</option>
                                 <option value="Gestor">Gestor</option>
                                 <option value="Compliance">Compliance</option>

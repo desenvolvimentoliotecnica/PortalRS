@@ -63,9 +63,12 @@ public sealed class JobPositionsController : ControllerBase
                 x.Id,
                 x.Code,
                 x.Name,
+                null,
+                null,
                 x.CentroCustoId,
                 x.CentroCusto != null ? x.CentroCusto.Description : null,
-                x.Seniority.ToString()))
+                x.Seniority.ToString(),
+                x.TotvsCargoBasicId))
             .ToListAsync(ct);
 
         return Ok(items);
@@ -305,14 +308,13 @@ public sealed class JobPositionsController : ControllerBase
     [ProducesResponseType(typeof(CriarEstruturasResultDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CriarEstruturasResultDto>> CriarVagasEstruturaisBulk(
         [FromServices] AppDbContext db,
-        [FromServices] IOcupacaoHistoricoService ocupacaoService,
         CancellationToken ct)
     {
         // Busca todos os funcionários ativos que possuem cargo definido
         var funcionarios = await db.Funcionarios
             .AsNoTracking()
             .Where(f => f.Status == FuncionarioStatus.Active && f.JobPositionId != null)
-            .Select(f => new { f.Id, f.Name, f.JobPositionId, f.UnidadeLotacaoId, f.CentroCustoId, f.TenantId })
+            .Select(f => new { f.Id, f.JobPositionId, f.UnidadeLotacaoId, f.CentroCustoId, f.TenantId })
             .ToListAsync(ct);
 
         if (funcionarios.Count == 0)
@@ -325,7 +327,7 @@ public sealed class JobPositionsController : ControllerBase
             .Where(c => cargoIds.Contains(c.Id))
             .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
 
-        int vagasCriadas = 0, vagasExistentes = 0, ocupacoesCriadas = 0;
+        var tenantId = funcionarios[0].TenantId;
         var now = DateTime.UtcNow;
 
         // Agrupa por (Cargo, UnidadeLotacao, CentroCusto) — mesma lógica do endpoint individual
@@ -334,24 +336,34 @@ public sealed class JobPositionsController : ControllerBase
             CargoId = f.JobPositionId!.Value,
             f.UnidadeLotacaoId,
             f.CentroCustoId,
-        });
+        }).ToList();
+
+        // Carrega todas as vagas estruturais existentes para os cargos relevantes (batch único)
+        var vagasExistentes = await db.Vagas
+            .Where(v => v.IsEstrutural && cargoIds.Contains(v.JobPositionId!.Value))
+            .ToListAsync(ct);
+
+        // Indexa as vagas existentes para lookup O(1)
+        var vagasIndex = vagasExistentes.ToDictionary(
+            v => (v.JobPositionId!.Value, v.UnidadeLotacaoId, v.CentroCustoId));
+
+        // Resolve ou cria vaga para cada grupo
+        var vagaPorGrupo = new Dictionary<(Guid, Guid?, Guid?), Vaga>();
+        var novasVagas = new List<Vaga>();
 
         foreach (var grupo in grupos)
         {
-            if (!cargos.TryGetValue(grupo.Key.CargoId, out var cargoNome))
-                cargoNome = "—";
-
-            var tenantId = grupo.First().TenantId;
-
-            var vaga = await db.Vagas.FirstOrDefaultAsync(v =>
-                v.JobPositionId == grupo.Key.CargoId &&
-                v.UnidadeLotacaoId == grupo.Key.UnidadeLotacaoId &&
-                v.CentroCustoId == grupo.Key.CentroCustoId &&
-                v.IsEstrutural, ct);
-
-            if (vaga is null)
+            var key = (grupo.Key.CargoId, grupo.Key.UnidadeLotacaoId, grupo.Key.CentroCustoId);
+            if (vagasIndex.TryGetValue(key, out var vagaExistente))
             {
-                vaga = new Vaga
+                vagaPorGrupo[key] = vagaExistente;
+            }
+            else
+            {
+                if (!cargos.TryGetValue(grupo.Key.CargoId, out var cargoNome))
+                    cargoNome = "—";
+
+                var nova = new Vaga
                 {
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
@@ -366,31 +378,57 @@ public sealed class JobPositionsController : ControllerBase
                     CreatedAtUtc = DateTimeOffset.UtcNow,
                     UpdatedAtUtc = DateTimeOffset.UtcNow,
                 };
-                db.Vagas.Add(vaga);
-                await db.SaveChangesAsync(ct);
-                vagasCriadas++;
+                novasVagas.Add(nova);
+                vagaPorGrupo[key] = nova;
             }
-            else
-            {
-                vagasExistentes++;
-            }
+        }
 
+        // Persiste todas as novas vagas em um único SaveChanges
+        if (novasVagas.Count > 0)
+        {
+            db.Vagas.AddRange(novasVagas);
+            await db.SaveChangesAsync(ct);
+        }
+
+        // Carrega todos os OcupacoesHistorico ativos para as vagas relevantes (batch único)
+        var vagaIds = vagaPorGrupo.Values.Select(v => v.Id).ToList();
+        var ocupacoesAtivas = await db.OcupacoesHistorico
+            .Where(o => vagaIds.Contains(o.VagaId!.Value) && o.DataSaida == null)
+            .Select(o => new { o.VagaId, o.FuncionarioId })
+            .ToListAsync(ct);
+
+        var ocupacoesIndex = ocupacoesAtivas
+            .Select(o => (o.VagaId, o.FuncionarioId))
+            .ToHashSet();
+
+        // Cria OcupacoesHistorico faltantes em batch
+        var novasOcupacoes = new List<OcupacaoHistorico>();
+        foreach (var grupo in grupos)
+        {
+            var key = (grupo.Key.CargoId, grupo.Key.UnidadeLotacaoId, grupo.Key.CentroCustoId);
+            var vaga = vagaPorGrupo[key];
             foreach (var func in grupo)
             {
-                var jaExiste = await db.OcupacoesHistorico.AnyAsync(o =>
-                    o.VagaId == vaga.Id &&
-                    o.FuncionarioId == func.Id &&
-                    o.DataSaida == null, ct);
-
-                if (!jaExiste)
+                if (!ocupacoesIndex.Contains((vaga.Id, func.Id)))
                 {
-                    await ocupacaoService.AbrirOcupacaoAsync(func.Id, vaga.Id, now, null, ct);
-                    ocupacoesCriadas++;
+                    novasOcupacoes.Add(new OcupacaoHistorico
+                    {
+                        Id = Guid.NewGuid(),
+                        VagaId = vaga.Id,
+                        FuncionarioId = func.Id,
+                        DataEntrada = now,
+                    });
                 }
             }
         }
 
-        return Ok(new CriarEstruturasResultDto(vagasCriadas, vagasExistentes, ocupacoesCriadas));
+        if (novasOcupacoes.Count > 0)
+        {
+            db.OcupacoesHistorico.AddRange(novasOcupacoes);
+            await db.SaveChangesAsync(ct);
+        }
+
+        return Ok(new CriarEstruturasResultDto(novasVagas.Count, vagasExistentes.Count, novasOcupacoes.Count));
     }
 
     /// <summary>

@@ -19,6 +19,7 @@ export const RECRUITMENT_ROUTE_KEYS = {
   integracao: "/admissao/integracao",
   desligamentos: "/gestao/desligamentos",
   painelSolicitacoes: "/gestao/painel-solicitacoes",
+  meuTime: "/gestao/meu-time",
 } as const;
 
 /** Ordem linear do fluxo de recrutamento no sidebar (pipeline R&S).
@@ -34,6 +35,7 @@ export const PRINCIPAIS_ORDER = [
   RECRUITMENT_ROUTE_KEYS.aprovacoes,          // Minhas Pendências
   RECRUITMENT_ROUTE_KEYS.solicitacoes,        // Solicitações
   RECRUITMENT_ROUTE_KEYS.painelSolicitacoes,  // Painel de Solicitações (visão consolidada RH/gestor)
+  RECRUITMENT_ROUTE_KEYS.meuTime,             // Meu Time
 ] as const;
 
 /** Abas MVP do grupo "Recrutamento" — entregáveis prioritários */
@@ -72,6 +74,7 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.admissao]: "Admissão",
   [RECRUITMENT_ROUTE_KEYS.integracao]: "Integração TOTVS",
   [RECRUITMENT_ROUTE_KEYS.painelSolicitacoes]: "Painel de Solicitações",
+  [RECRUITMENT_ROUTE_KEYS.meuTime]: "Meu Time",
 };
 
 export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [

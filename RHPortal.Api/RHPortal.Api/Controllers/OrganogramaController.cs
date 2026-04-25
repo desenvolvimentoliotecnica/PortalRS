@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Organograma;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Security;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
 
@@ -13,10 +15,12 @@ namespace RhPortal.Api.Controllers;
 public sealed class OrganogramaController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ICurrentUserContext _userContext;
 
-    public OrganogramaController(AppDbContext db)
+    public OrganogramaController(AppDbContext db, ICurrentUserContext userContext)
     {
         _db = db;
+        _userContext = userContext;
     }
 
     /// <summary>
@@ -72,6 +76,40 @@ public sealed class OrganogramaController : ControllerBase
             .Select(f => new OrganogramaFuncionarioDto(f.Id, f.Nome, f.Cargo, f.NivelHierarquicoNome, f.NivelHierarquicoOrdem))
             .ToList();
 
+        // 4. Headcount por lotação (autorizado e provisório via Vagas; ocupado via OcupacoesHistorico)
+        var vagasByLotacao = await _db.Vagas.AsNoTracking()
+            .Where(v => v.UnidadeLotacaoId != null)
+            .GroupBy(v => v.UnidadeLotacaoId!.Value)
+            .Select(g => new
+            {
+                LotacaoId = g.Key,
+                Autorizado = g.Sum(v => v.HeadcountAutorizado),
+                Provisorio = g.Sum(v => v.HeadcountProvisorio),
+            })
+            .ToListAsync(ct);
+
+        var vagaIdsByLotacao = await _db.Vagas.AsNoTracking()
+            .Where(v => v.UnidadeLotacaoId != null)
+            .Select(v => new { v.Id, LotacaoId = v.UnidadeLotacaoId!.Value })
+            .ToListAsync(ct);
+
+        var ocupacaosByVaga = await _db.OcupacoesHistorico.AsNoTracking()
+            .Where(h => h.DataSaida == null)
+            .Select(h => h.VagaId)
+            .ToListAsync(ct);
+
+        var ocupadoSet = ocupacaosByVaga.ToHashSet();
+        var vagaLotacaoMap = vagaIdsByLotacao.ToDictionary(v => v.Id, v => v.LotacaoId);
+
+        var ocupadoByLotacao = ocupadoSet
+            .Where(id => id.HasValue && vagaLotacaoMap.ContainsKey(id.Value))
+            .GroupBy(id => vagaLotacaoMap[id!.Value])
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var headcountMap = vagasByLotacao.ToDictionary(
+            v => v.LotacaoId,
+            v => (Autorizado: v.Autorizado, Provisorio: v.Provisorio));
+
         var lotacoesDto = lotacoes.Select(u =>
         {
             var funcs = byLotacao.TryGetValue(u.Id, out var list) ? list : [];
@@ -88,7 +126,13 @@ public sealed class OrganogramaController : ControllerBase
                 .Select(f => new OrganogramaFuncionarioDto(f.Id, f.Nome, f.Cargo, f.NivelHierarquicoNome, f.NivelHierarquicoOrdem))
                 .ToList();
 
-            return new OrganogramaLotacaoDto(u.Id, u.Codigo, u.Descricao, u.Level, u.ParentId, responsavel, funcionariosDto);
+            var hc = headcountMap.TryGetValue(u.Id, out var hcVal) ? hcVal : (Autorizado: 0, Provisorio: 0);
+            var ocupado = ocupadoByLotacao.TryGetValue(u.Id, out var oc) ? oc : 0;
+
+            return new OrganogramaLotacaoDto(
+                u.Id, u.Codigo, u.Descricao, u.Level, u.ParentId,
+                responsavel, funcionariosDto,
+                hc.Autorizado, ocupado, hc.Provisorio);
         }).ToList();
 
         return Ok(new OrganogramaEstruturaResponse(lotacoesDto, semLotacao));
@@ -96,12 +140,13 @@ public sealed class OrganogramaController : ControllerBase
 
     /// <summary>
     /// Move um funcionário para um novo gestor direto.
-    /// Apenas Admin ou Owner podem alterar a hierarquia.
+    /// Admin/Owner: qualquer movimentação.
+    /// Gestor: pode mover apenas funcionários dentro de sua subárvore (subordinados diretos/indiretos).
     /// </summary>
     [HttpPatch("mover")]
-    [Authorize(Roles = "Admin,Owner")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Mover([FromBody] MoverFuncionarioRequest request, CancellationToken ct)
     {
@@ -121,10 +166,60 @@ public sealed class OrganogramaController : ControllerBase
                 return BadRequest(new { message = "Gestor não encontrado." });
         }
 
+        // Autorização: Admin/Owner passam; Gestores só podem mover dentro de sua subárvore
+        var isAdminOrOwner = _userContext.IsAdmin || User.IsInRole("Owner");
+        if (!isAdminOrOwner)
+        {
+            var gestorId = _userContext.FuncionarioId;
+            if (!gestorId.HasValue)
+                return Forbid();
+
+            // Coleta todos os subordinados diretos e indiretos do gestor logado
+            var subtree = await BuildSubtreeAsync(gestorId.Value, ct);
+
+            var funcionarioInSubtree = subtree.Contains(request.FuncionarioId);
+            var novoGestorInSubtreeOrSelf = request.NovoGestorId == gestorId ||
+                (request.NovoGestorId.HasValue && subtree.Contains(request.NovoGestorId.Value));
+
+            if (!funcionarioInSubtree || !novoGestorInSubtreeOrSelf)
+                return Forbid();
+        }
+
         funcionario.GestorDiretoId = request.NovoGestorId;
         funcionario.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
 
         return NoContent();
+    }
+
+    /// <summary>Retorna os IDs de todos os subordinados diretos e indiretos de um gestor.</summary>
+    private async Task<HashSet<Guid>> BuildSubtreeAsync(Guid gestorId, CancellationToken ct)
+    {
+        // Carrega todos os funcionários ativos com seu gestor direto em uma única query
+        var allFuncs = await _db.Funcionarios.AsNoTracking()
+            .Where(f => f.Status == FuncionarioStatus.Active && f.GestorDiretoId.HasValue)
+            .Select(f => new { f.Id, f.GestorDiretoId })
+            .ToListAsync(ct);
+
+        var byGestor = allFuncs
+            .GroupBy(f => f.GestorDiretoId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(f => f.Id).ToList());
+
+        var result = new HashSet<Guid>();
+        var queue = new Queue<Guid>();
+        queue.Enqueue(gestorId);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (!byGestor.TryGetValue(current, out var children)) continue;
+            foreach (var child in children)
+            {
+                if (result.Add(child))
+                    queue.Enqueue(child);
+            }
+        }
+
+        return result;
     }
 }

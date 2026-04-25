@@ -54,6 +54,12 @@ namespace RHPortal.Api.Domain.Entities
         /// </summary>
         public DateTimeOffset? HeadcountProvisorioExpiresAtUtc { get; set; }
 
+        /// <summary>
+        /// Headcount aprovado pelo fluxo de gestores (VagaNova), mas aguardando decisão do RH
+        /// (substituição provisória vs. aumento definitivo). Zera após a decisão ser tomada.
+        /// </summary>
+        public int HeadcountPendente { get; set; } = 0;
+
         // --------------------
         // Alerta de Vaga Sem Preenchimento
         // --------------------

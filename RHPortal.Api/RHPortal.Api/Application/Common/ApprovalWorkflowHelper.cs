@@ -118,32 +118,50 @@ public sealed class ApprovalWorkflowHelper
     }
 
     /// <summary>
-    /// Valida que a solicitação pode ser aprovada (PendenteAprovacao ou PendenteAprovacaoRh).
+    /// Valida que a solicitação pode ser aprovada (PendenteAprovacao, PendenteAprovacaoRh ou PendenteAprovacaoAumentoHC).
     /// </summary>
     public static void ValidateCanApproveAny(SolicitacaoStatus status)
     {
-        if (status != SolicitacaoStatus.PendenteAprovacao && status != SolicitacaoStatus.PendenteAprovacaoRh)
+        if (status != SolicitacaoStatus.PendenteAprovacao
+            && status != SolicitacaoStatus.PendenteAprovacaoRh
+            && status != SolicitacaoStatus.PendenteAprovacaoAumentoHC)
             throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
     }
 
-    // ── Overloads para SolicitacaoVagaStatus (enum separado com mesmos valores) ──
-
-    public static void ValidateCanEdit(SolicitacaoVagaStatus status)
+    private async Task<Guid?> ResolveAdminRoleIdAsync(CancellationToken ct)
     {
-        if (status != SolicitacaoVagaStatus.Rascunho && status != SolicitacaoVagaStatus.AjustesNecessarios)
-            throw new InvalidOperationException("Solicitação não pode ser editada no status atual.");
+        var byTipo = await _db.Set<ApplicationRole>()
+            .AsNoTracking()
+            .Where(r => r.IsActive && r.Tipo == RHPortal.Api.Domain.Enums.RoleTipo.Admin)
+            .OrderBy(r => r.Name)
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(ct);
+        if (byTipo.HasValue) return byTipo;
+
+        return await _db.Set<ApplicationRole>()
+            .AsNoTracking()
+            .Where(r => r.IsActive && (
+                r.Name == "Admin" ||
+                r.Name == "Administrador" ||
+                r.Name == "Owner"))
+            .OrderBy(r => r.Name)
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(ct);
     }
 
-    public static void ValidateCanApproveAny(SolicitacaoVagaStatus status)
+    /// <summary>
+    /// Resolve o RoleFilaId para etapas de RevisaoRH no fluxo indicado.
+    /// Usa o role configurado em EtapaConfigAprovacao; fallback para role Admin.
+    /// </summary>
+    public async Task<Guid?> ResolveRhRoleIdAsync(TipoFluxoAprovacao tipoFluxo, CancellationToken ct)
     {
-        if (status != SolicitacaoVagaStatus.PendenteAprovacao && status != SolicitacaoVagaStatus.PendenteAprovacaoRh)
-            throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
-    }
+        var roleId = await _db.Set<EtapaConfigAprovacao>()
+            .AsNoTracking()
+            .Where(e => e.Ativo && e.TipoFluxo == tipoFluxo && e.TipoAprovador == TipoAprovador.RevisaoRH)
+            .Select(e => (Guid?)e.RoleFilaId)
+            .FirstOrDefaultAsync(ct);
 
-    public static void ValidateCanDelete(SolicitacaoVagaStatus status)
-    {
-        if (status != SolicitacaoVagaStatus.Rascunho)
-            throw new InvalidOperationException("Só é possível excluir solicitações em rascunho.");
+        return roleId ?? await ResolveAdminRoleIdAsync(ct);
     }
 
     /// <summary>
@@ -159,28 +177,7 @@ public sealed class ApprovalWorkflowHelper
             CancellationToken ct,
             Guid? targetUnidadeLotacaoId = null)
     {
-        async Task<Guid?> ResolveConsensoRoleIdAsync()
-        {
-            // Prefer explicit Admin profile type (tenant-level admin queue).
-            var byTipo = await _db.Set<ApplicationRole>()
-                .AsNoTracking()
-                .Where(r => r.IsActive && r.Tipo == RHPortal.Api.Domain.Enums.RoleTipo.Admin)
-                .OrderBy(r => r.Name)
-                .Select(r => (Guid?)r.Id)
-                .FirstOrDefaultAsync(ct);
-            if (byTipo.HasValue) return byTipo;
-
-            // Backward compatibility for legacy seeds/tenants.
-            return await _db.Set<ApplicationRole>()
-                .AsNoTracking()
-                .Where(r => r.IsActive && (
-                    r.Name == "Admin" ||
-                    r.Name == "Administrador" ||
-                    r.Name == "Owner"))
-                .OrderBy(r => r.Name)
-                .Select(r => (Guid?)r.Id)
-                .FirstOrDefaultAsync(ct);
-        }
+        async Task<Guid?> ResolveConsensoRoleIdAsync() => await ResolveAdminRoleIdAsync(ct);
 
         // 1. Load config
         var configEtapas = await _db.Set<EtapaConfigAprovacao>()
@@ -510,6 +507,17 @@ public sealed class ApprovalWorkflowHelper
     {
         if (userContext.IsAdmin) return true;
 
+        // Etapa foi atribuída explicitamente a este funcionário (diretamente ou via assunção de fila).
+        // AprovadorId é a prova de assignment — tem prioridade sobre qualquer outra verificação.
+        if (etapa.AprovadorId.HasValue && userContext.FuncionarioId.HasValue
+            && etapa.AprovadorId == userContext.FuncionarioId)
+            return true;
+
+        // Assumida por usuário sem FuncionarioId (ex: admin sem cadastro de funcionário)
+        if (etapa.AssumedByUserId.HasValue)
+            return etapa.AssumedByUserId == userContext.UserId;
+
+        // Fila de role ainda não assumida — qualquer membro do role pode aprovar
         if (etapa.RoleFilaId.HasValue)
         {
             var userId = userContext.UserId;
@@ -518,11 +526,7 @@ public sealed class ApprovalWorkflowHelper
                 .AnyAsync(ur => ur.RoleId == etapa.RoleFilaId.Value && ur.UserId == userId.Value, ct);
         }
 
-        // Claimed via consenso without Funcionario link
-        if (etapa.AssumedByUserId.HasValue)
-            return etapa.AssumedByUserId == userContext.UserId;
-
-        return etapa.AprovadorId.HasValue && etapa.AprovadorId == userContext.FuncionarioId;
+        return false;
     }
 
     /// <summary>
@@ -562,8 +566,9 @@ public sealed class ApprovalWorkflowHelper
     /// Snapshot da etapa pendente de uma solicitação, usado para exibição em listas.
     /// PendenteCom = nome do aprovador individual, ou nome da fila/role, conforme o caso.
     /// CanAssume = true quando a etapa é uma fila de role E o usuário atual pertence a esse role.
+    /// CanApprove = true quando o usuário atual pode aprovar (inclui: assumido por ele, aprovador fixo, fila com seu role, ou admin).
     /// </summary>
-    public sealed record EtapaPendenteInfo(string? Label, string? PendenteCom, bool IsQueue, Guid? AprovadorId, Guid? AssumedByUserId = null, bool CanAssume = false);
+    public sealed record EtapaPendenteInfo(string? Label, string? PendenteCom, bool IsQueue, Guid? AprovadorId, Guid? AssumedByUserId = null, bool CanAssume = false, bool CanApprove = false);
 
     /// <summary>
     /// Busca em uma única query a etapa pendente (menor Ordem com Status=Pendente)
@@ -638,9 +643,10 @@ public sealed class ApprovalWorkflowHelper
                 aprovadorUserMap[row.FuncId] = (row.Name, row.IsActive);
         }
 
-        // Roles do usuário atual — usados para calcular CanAssume
+        // Roles do usuário atual — usados para calcular CanAssume e CanApprove
         var userRoleIds = new HashSet<Guid>();
         bool currentUserIsAdmin = false;
+        Guid? currentUserFuncionarioId = null;
         if (currentUserId.HasValue)
         {
             var userRoles = await _db.Set<ApplicationUserRole>()
@@ -657,6 +663,12 @@ public sealed class ApprovalWorkflowHelper
                     x.ur.UserId == currentUserId.Value &&
                     x.r.IsActive &&
                     x.r.Tipo == RHPortal.Api.Domain.Enums.RoleTipo.Admin, ct);
+
+            currentUserFuncionarioId = await _db.Set<ApplicationUser>()
+                .AsNoTracking()
+                .Where(u => u.Id == currentUserId.Value)
+                .Select(u => u.FuncionarioId)
+                .FirstOrDefaultAsync(ct);
         }
 
         var result = new Dictionary<Guid, EtapaPendenteInfo>();
@@ -747,7 +759,15 @@ public sealed class ApprovalWorkflowHelper
                     || (!etapa.RoleFilaId.HasValue && currentUserIsAdmin)
                 );
 
-            result[group.Key] = new EtapaPendenteInfo(etapa.Label, pendenteCom, isQueue, etapa.AprovadorId, etapa.AssumedByUserId, canAssume);
+            // CanApprove: usuário pode aprovar a etapa (admin, aprovador fixo, assumiu via fila, ou membro do role não-assumido)
+            var canApprove = currentUserId.HasValue && (
+                currentUserIsAdmin
+                || (etapa.AprovadorId.HasValue && currentUserFuncionarioId.HasValue && etapa.AprovadorId == currentUserFuncionarioId)
+                || (etapa.AssumedByUserId.HasValue && etapa.AssumedByUserId == currentUserId)
+                || canAssume
+            );
+
+            result[group.Key] = new EtapaPendenteInfo(etapa.Label, pendenteCom, isQueue, etapa.AprovadorId, etapa.AssumedByUserId, canAssume, canApprove);
         }
 
         return result;

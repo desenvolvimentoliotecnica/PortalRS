@@ -47,5 +47,19 @@ public sealed record VagaListItemResponse(
     // Alerta de vaga sem preenchimento
     bool AlertaVagaSemFill,
     int? AlertaDiasSemFill,
-    DateTimeOffset? AlertaSnoozeAteUtc
+    DateTimeOffset? AlertaSnoozeAteUtc,
+
+    // Headcount pendente de decisão do RH (VagaNova aprovada, RH ainda não decidiu)
+    int HeadcountPendente,
+
+    // Alerta: headcount provisório (substituição) com prazo vencido
+    bool AlertaHCProvVencido,
+
+    Guid? UnidadeLotacaoId,
+    string? UnidadeLotacaoCode,
+    string? UnidadeLotacaoName,
+
+    // Rodada (publicação) ativa — null se vaga não tiver rodada ativa
+    int? RodadaAtivaNumero,
+    int? RodadaAtivaCandidatos
 );

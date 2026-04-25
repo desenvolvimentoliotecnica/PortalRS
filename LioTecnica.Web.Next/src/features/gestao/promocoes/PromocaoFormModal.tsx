@@ -53,6 +53,7 @@ interface Props {
     onClose: () => void;
     onSaved: () => void;
     viewOnly?: boolean;
+    initialFuncionarioId?: string | null;
 }
 
 /* ──────────────────────────── helpers ──────────────────────────── */
@@ -252,7 +253,7 @@ function ReadonlyField({ value }: { value?: string }) {
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-export default function PromocaoFormModal({ open, editId, onClose, onSaved, viewOnly }: Props) {
+export default function PromocaoFormModal({ open, editId, onClose, onSaved, viewOnly, initialFuncionarioId }: Props) {
     const [draft, setDraft] = useState<PromocaoDraft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(false);
@@ -406,9 +407,9 @@ export default function PromocaoFormModal({ open, editId, onClose, onSaved, view
                 .catch(() => toast.error("Falha ao carregar solicitação."))
                 .finally(() => setLoadingEdit(false));
         } else {
-            setDraft({ ...emptyDraft });
+            setDraft({ ...emptyDraft, funcionarioId: initialFuncionarioId ?? null });
         }
-    }, [open, editId, loadLookups]);
+    }, [open, editId, loadLookups, initialFuncionarioId]);
 
     async function save() {
         const errors: string[] = [];

@@ -25,6 +25,7 @@ import {
   Clock,
   CloudUpload,
   Coins,
+  CreditCard,
   FileText,
   FileUp,
   Filter,
@@ -49,6 +50,7 @@ import {
   Network,
   NotebookPen,
   Palette,
+  Palmtree,
   PartyPopper,
   PieChart,
   Receipt,
@@ -189,6 +191,12 @@ const ICONS: Record<string, LucideIcon> = {
   "user-plus": UserPlus,
   users: Users,
   "user-x": UserX,
+  // Colaborador
+  "credit-card": CreditCard,
+  "file-text":   FileText,
+  "palmtree":    Palmtree,
+  "receipt":     Receipt,
+  "lock":        LockKeyhole,
 };
 
 function resolveIconName(name: string | null | undefined): string {

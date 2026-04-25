@@ -1,8 +1,5 @@
 namespace RhPortal.Api.Domain.Enums;
 
-/// <summary>
-/// Status compartilhado para todas as solicitações RH (desligamento, promoção, férias, benefício, dependente, endereço).
-/// </summary>
 public enum SolicitacaoStatus : short
 {
     Rascunho = 0,
@@ -10,10 +7,15 @@ public enum SolicitacaoStatus : short
     Aprovada = 2,
     Reprovada = 3,
     AjustesNecessarios = 4,
-    Cancelada = 5,
-    PendenteAprovacaoRh = 6,
-    /// <summary>Desligamento efetivado pelo RH — pendente confirmação no TOTVS.</summary>
+    PendenteAprovacaoRh = 5,
+    Cancelada = 6,
     EmIntegracao = 7,
-    /// <summary>Desligamento concluído: integração TOTVS confirmada + headcount liberado.</summary>
-    Concluida = 8
+    Concluida = 8,
+
+    // 9 = AguardandoDecisaoRH foi removido: a decisão de headcount agora é feita pelo gestor na criação.
+    // O valor numérico 9 fica reservado/desativado; registros antigos foram migrados pra Aprovada (2)
+    // na migration 20260423_RemoveAguardandoDecisaoRH. Não reutilizar 9.
+
+    /// <summary>Aprovação de aumento definitivo de headcount; aguarda aprovador configurável (Diretoria).</summary>
+    PendenteAprovacaoAumentoHC = 10,
 }

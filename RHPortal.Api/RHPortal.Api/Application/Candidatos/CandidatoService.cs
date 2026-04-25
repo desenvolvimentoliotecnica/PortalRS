@@ -175,6 +175,7 @@ public sealed class CandidatoService : ICandidatoService
                 c.Nome,
                 c.Email,
                 c.Fone,
+                c.Celular,
                 c.Cidade,
                 c.Uf,
                 c.LinkedinUrl,
@@ -239,6 +240,7 @@ public sealed class CandidatoService : ICandidatoService
             entity.Nome,
             entity.Email,
             entity.Fone,
+            entity.Celular,
             entity.Cidade,
             entity.Uf,
             entity.LinkedinUrl,
@@ -287,6 +289,7 @@ public sealed class CandidatoService : ICandidatoService
             // Update fields with incoming data
             existing.Nome = (request.Nome ?? string.Empty).Trim();
             existing.Fone = TrimToMax(request.Fone, 40);
+            existing.Celular = TrimToMax(request.Celular, 40);
             existing.Cidade = TrimToMax(request.Cidade, 120);
             existing.Uf = NormalizeUf(request.Uf);
             existing.LinkedinUrl = TrimToMax(request.LinkedinUrl, 260);
@@ -335,6 +338,7 @@ public sealed class CandidatoService : ICandidatoService
             Nome = (request.Nome ?? string.Empty).Trim(),
             Email = normalizedEmail,
             Fone = TrimToMax(request.Fone, 40),
+            Celular = TrimToMax(request.Celular, 40),
             Cidade = TrimToMax(request.Cidade, 120),
             Uf = NormalizeUf(request.Uf),
             LinkedinUrl = TrimToMax(request.LinkedinUrl, 260),
@@ -487,6 +491,7 @@ public sealed class CandidatoService : ICandidatoService
         entity.Nome = (request.Nome ?? string.Empty).Trim();
         entity.Email = NormalizeEmail(request.Email);
         entity.Fone = TrimToMax(request.Fone, 40);
+        entity.Celular = TrimToMax(request.Celular, 40);
         entity.Cidade = TrimToMax(request.Cidade, 120);
         entity.Uf = NormalizeUf(request.Uf);
         entity.LinkedinUrl = TrimToMax(request.LinkedinUrl, 260);
@@ -833,6 +838,7 @@ public sealed class CandidatoService : ICandidatoService
             c.Nome,
             c.Email,
             c.Fone,
+            c.Celular,
             c.Cidade,
             c.Uf,
             c.LinkedinUrl,

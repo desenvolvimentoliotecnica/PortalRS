@@ -37,14 +37,15 @@ public sealed class SolicitacoesVagaController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<SolicitacaoVagaGridRow>), StatusCodes.Status200OK)]
     public async Task<IActionResult> List(
         [FromQuery] string? q,
-        [FromQuery] SolicitacaoVagaStatus? status,
-        [FromQuery(Name = "statuses")] SolicitacaoVagaStatus[]? statuses,
+        [FromQuery] SolicitacaoStatus? status,
+        [FromQuery(Name = "statuses")] SolicitacaoStatus[]? statuses,
         [FromQuery] bool? apenasMeus,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
+        [FromQuery] Guid? vagaId,
         CancellationToken ct)
     {
-        var query = new SolicitacaoVagaListQuery(q, status, statuses, apenasMeus, page, pageSize);
+        var query = new SolicitacaoVagaListQuery(q, status, statuses, apenasMeus, page, pageSize, vagaId);
         return Ok(await _service.ListAsync(query, _userContext.FuncionarioId, ct));
     }
 
@@ -153,6 +154,24 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>RH/Admin efetiva a requisição aprovada, enviando ao TOTVS ERP (status EmIntegracao).</summary>
+    [HttpPost("{id:guid}/efetivar")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Efetivar(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.EfetivarAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Reprova a solicitação com observação (somente aprovador designado ou Admin).</summary>
     [HttpPost("{id:guid}/reject")]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
@@ -189,6 +208,24 @@ public sealed class SolicitacoesVagaController : ControllerBase
         try
         {
             var result = await _service.RequestChangesAsync(id, request?.Observacao, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Amarra manualmente um candidato contratado a esta solicitação de vaga (fora do fluxo automático de pré-admissão).</summary>
+    [HttpPut("{id:guid}/vincular-candidato")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> VincularCandidato(Guid id, [FromBody] VincularCandidatoRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.VincularCandidatoContratadoAsync(id, request.CandidatoId, ct);
             return result is null ? NotFound() : Ok(result);
         }
         catch (InvalidOperationException ex)

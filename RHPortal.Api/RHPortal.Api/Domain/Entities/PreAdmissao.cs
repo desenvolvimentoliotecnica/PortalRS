@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Entities;
 
 namespace RhPortal.Api.Domain.Entities;
 
@@ -91,6 +92,21 @@ public sealed class PreAdmissao : ITenantEntity
     [StringLength(60)]
     public string? TipoVisto { get; set; }
 
+    // ── RIC (Registro Identidade Civil — novo documento que substitui o RG) ──
+    [StringLength(20)]
+    public string? RegIdentidCivilNumero { get; set; }
+
+    [StringLength(2)]
+    public string? RegIdentidCivilUf { get; set; }
+
+    [StringLength(120)]
+    public string? RegIdentidCivilCidade { get; set; }
+
+    [StringLength(20)]
+    public string? RegIdentidCivilOrgEmiss { get; set; }
+
+    public DateOnly? RegIdentidCivilDataExped { get; set; }
+
     // ── Endereço ──
 
     [StringLength(10)]
@@ -170,6 +186,12 @@ public sealed class PreAdmissao : ITenantEntity
 
     public Guid? JobPositionId { get; set; }
     public JobPosition? JobPosition { get; set; }
+
+    public Guid? RequisitoCategoriaId { get; set; }
+
+    /// <summary>Vaga de recrutamento que originou esta admissão. Usado na materialização para criar OcupacaoHistorico.</summary>
+    public Guid? VagaId { get; set; }
+    public Vaga? Vaga { get; set; }
 
     public DateOnly? DataAdmissao { get; set; }
 
@@ -370,8 +392,8 @@ public sealed class PreAdmissao : ITenantEntity
     public string? CnhUf { get; set; }
     [StringLength(20)]
     public string? CnhOrgaoEmissor { get; set; }
-    public int? CnhDataExpedicao { get; set; }
-    public int? CnhPrimeiraHabilitacao { get; set; }
+    public DateOnly? CnhDataExpedicao { get; set; }
+    public DateOnly? CnhPrimeiraHabilitacao { get; set; }
 
     // ── TOTVS: Nome Abreviado / Contrato ──
     [StringLength(20)]
@@ -463,6 +485,12 @@ public sealed class PreAdmissao : ITenantEntity
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
 
+    public Guid? EfetivadoManualmentePorId { get; set; }
+    public DateTimeOffset? EfetivadoManualmenteEmUtc { get; set; }
+
+    public int TentativasIntegracao { get; set; }
+    public DateTimeOffset? UltimaTentativaUtc { get; set; }
+
     // ── Portal candidato ──
 
     /// <summary>Token de acesso para o candidato preencher dados externamente (gerado pelo RH).</summary>
@@ -474,6 +502,13 @@ public sealed class PreAdmissao : ITenantEntity
     public int? WizardCurrentStep { get; set; }
     public int? WizardCompletionPercent { get; set; }
     public DateTimeOffset? LastActivityUtc { get; set; }
+
+    /// <summary>
+    /// Preenchido após TOTVS confirmar a admissão (webhook Sucesso).
+    /// Aponta para o Funcionario materializado a partir desta pré-admissão.
+    /// Idempotência: se já preenchido, MaterializarFuncionarioAsync é no-op.
+    /// </summary>
+    public Guid? FuncionarioIdMaterializado { get; set; }
 
     // ── Navigation ──
     public List<PreAdmissaoDocumento> Documentos { get; set; } = new();

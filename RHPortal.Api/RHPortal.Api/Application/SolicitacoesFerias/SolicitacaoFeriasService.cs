@@ -29,17 +29,20 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoFeriasService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IReadOnlyList<SolicitacaoFeriasGridRow>> ListAsync(
@@ -48,9 +51,6 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
         var q = _db.SolicitacoesFerias.AsNoTracking()
             .Include(s => s.Solicitante)
             .AsQueryable();
-
-        if (!_currentUser.IsAdmin && !_currentUser.IsRH && currentFuncionarioId.HasValue)
-            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
@@ -193,8 +193,13 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
+        var statusAnteriorSubmit = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoFerias, entity.Id,
+            statusAnteriorSubmit, entity.Status.ToString(), _currentUser, ct: ct);
 
         // Remove etapas anteriores
         var existingEtapas = _db.SolicitacoesAprovacaoEtapa
@@ -215,12 +220,22 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             Label = r.Label,
             AprovadorId = r.AprovadorId,
             RoleFilaId = r.RoleFilaId,
+            AcaoEtapa = r.AcaoEtapa,
+            MomentoAcao = r.MomentoAcao,
             Status = StatusAprovacao.Pendente,
         }).ToList();
 
         _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
 
+        // Auto-avança etapas de processo no início do fluxo
         var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
+        while (primeiraEtapa is not null && IsProcessoStep(primeiraEtapa))
+        {
+            ExecutarAcaoEtapa(primeiraEtapa.AcaoEtapa, entity);
+            primeiraEtapa.Status = StatusAprovacao.Aprovado;
+            primeiraEtapa.DataUtc = DateTimeOffset.UtcNow;
+            primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault(e => e.Ordem > primeiraEtapa.Ordem);
+        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -272,12 +287,24 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             .ToListAsync(ct);
 
         var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
+        while (proximaEtapa is not null && IsProcessoStep(proximaEtapa))
+        {
+            ExecutarAcaoEtapa(proximaEtapa.AcaoEtapa, entity);
+            proximaEtapa.Status = StatusAprovacao.Aprovado;
+            proximaEtapa.DataUtc = DateTimeOffset.UtcNow;
+            proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
+        }
 
+        var statusAnteriorApprove = entity.Status.ToString();
         if (proximaEtapa is not null)
         {
             entity.Status = proximaEtapa.Label.Contains("RH") ? SolicitacaoStatus.PendenteAprovacaoRh : SolicitacaoStatus.PendenteAprovacao;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
             entity.ObservacaoAprovador = observacao;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoFerias, entity.Id,
+                statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -297,6 +324,10 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             entity.ObservacaoAprovador = observacao;
             entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
             entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoFerias, entity.Id,
+                statusAnteriorApprove, entity.Status.ToString(), _currentUser, observacao, ct);
 
             await _db.SaveChangesAsync(ct);
 
@@ -334,9 +365,14 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
 
         }
 
+        var statusAnteriorReject = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoFerias, entity.Id,
+            statusAnteriorReject, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -358,9 +394,14 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
 
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        var statusAnteriorChanges = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoFerias, entity.Id,
+            statusAnteriorChanges, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -409,10 +450,26 @@ public sealed class SolicitacaoFeriasService : ISolicitacaoFeriasService
             throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
 
         etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
+    }
+
+    private static bool IsProcessoStep(SolicitacaoAprovacaoEtapa e) =>
+        e.AprovadorId == null && e.RoleFilaId == null && e.AcaoEtapa != AcaoEtapa.Nenhuma;
+
+    private static void ExecutarAcaoEtapa(AcaoEtapa acao, SolicitacaoFerias entity)
+    {
+        if (acao == AcaoEtapa.EnviarIntegracao)
+        {
+            entity.Status = SolicitacaoStatus.Aprovada;
+            entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+        }
     }
 
     private static SolicitacaoFeriasResponse MapToResponse(

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Clock, CheckCircle2, XCircle, Ban, AlertTriangle, GitBranch } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, Ban, AlertTriangle, GitBranch, MessageCircleX } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -25,6 +25,8 @@ export interface AprovacaoStep {
 
 // Cancelled status values: SolicitacaoVagaStatus.Cancelada=6, SolicitacaoStatus.Cancelada=5
 const CANCELLED_STATUSES = new Set([5, 6, "cancelada", "Cancelada"]);
+// Rejected status values: SolicitacaoVagaStatus.Reprovada=3, SolicitacaoStatus.Reprovada=3
+const REJECTED_STATUSES = new Set([3, "reprovada", "Reprovada"]);
 
 interface Props {
     open: boolean;
@@ -78,7 +80,10 @@ export default function AcompanhamentoModal({ open, loading, steps, solicitacaoS
     const isCancelled = solicitacaoStatus != null && CANCELLED_STATUSES.has(
         typeof solicitacaoStatus === "string" ? solicitacaoStatus.toLowerCase() : solicitacaoStatus
     );
-    const pendingStep = isCancelled ? undefined : visibleSteps.find((s) => s.status === null);
+    const isRejected = solicitacaoStatus != null && REJECTED_STATUSES.has(
+        typeof solicitacaoStatus === "string" ? solicitacaoStatus.toLowerCase() : solicitacaoStatus
+    );
+    const pendingStep = (isCancelled || isRejected) ? undefined : visibleSteps.find((s) => s.status === null);
 
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -108,6 +113,32 @@ export default function AcompanhamentoModal({ open, loading, steps, solicitacaoS
                                 </span>
                             </div>
                         )}
+
+                        {/* Rejected banner */}
+                        {isRejected && (() => {
+                            const rejectedStep = visibleSteps.find((s) => s.status === 2);
+                            return (
+                                <div className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-700 px-4 py-3 space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <MessageCircleX className="size-4 text-red-600 shrink-0" />
+                                        <span className="text-sm font-semibold text-red-700 dark:text-red-400">
+                                            Solicitação Reprovada
+                                            {rejectedStep?.nome ? ` por ${rejectedStep.nome}` : ""}
+                                        </span>
+                                    </div>
+                                    {rejectedStep?.observacao && (
+                                        <p className="text-sm text-red-800 dark:text-red-300 pl-6">
+                                            <span className="font-medium">Motivo: </span>{rejectedStep.observacao}
+                                        </p>
+                                    )}
+                                    {!rejectedStep?.observacao && (
+                                        <p className="text-xs text-red-600/70 dark:text-red-400/70 pl-6 italic">
+                                            Nenhum motivo informado pelo aprovador.
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {/* Pending step banner */}
                         {pendingStep && (
@@ -187,9 +218,16 @@ export default function AcompanhamentoModal({ open, loading, steps, solicitacaoS
 
                                             {/* Observation */}
                                             {step.observacao && (
-                                                <div className="mt-1.5 rounded-md bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground italic border border-border/40">
-                                                    &ldquo;{step.observacao}&rdquo;
-                                                </div>
+                                                step.status === 2 ? (
+                                                    <div className="mt-1.5 rounded-md bg-red-50 dark:bg-red-950/30 px-2.5 py-1.5 text-xs border border-red-200 dark:border-red-800">
+                                                        <span className="font-semibold text-red-700 dark:text-red-400">Motivo da recusa: </span>
+                                                        <span className="text-red-800 dark:text-red-300">{step.observacao}</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="mt-1.5 rounded-md bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground italic border border-border/40">
+                                                        &ldquo;{step.observacao}&rdquo;
+                                                    </div>
+                                                )
                                             )}
 
                                             {/* Consenso / warning */}

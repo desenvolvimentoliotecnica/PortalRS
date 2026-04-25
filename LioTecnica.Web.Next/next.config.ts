@@ -1,7 +1,13 @@
 import path from "path";
 import type { NextConfig } from "next";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { version } = require("./package.json") as { version: string };
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+  },
   // StrictMode em dev causa double-render de todos os componentes (consumo extra de RAM/CPU).
   // Reabilite antes de build de produção para pegar efeitos colaterais.
   reactStrictMode: process.env.NODE_ENV === "production",

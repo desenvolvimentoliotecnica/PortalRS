@@ -221,8 +221,11 @@ public sealed class IntegracaoTotvsServiceTests
     }
 
     [Fact]
-    public async Task RegistrarResultado_Falha_VoltaParaFila()
+    public async Task RegistrarResultado_Falha_SaiDaFilaAteRetryManual()
     {
+        // Comportamento documentado em PreAdmissaoService.ListPendentesIntegracaoAsync:
+        // após Falha/FalhaDefinitiva, o registro sai da fila (IntegracaoResultado != null)
+        // e só volta via POST /api/integracao-totvs/{tipo}/{id}/retry (que zera o resultado).
         var (db, service) = CreateService(TenantA);
         var aprovada = SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Aprovada);
 
@@ -232,8 +235,7 @@ public sealed class IntegracaoTotvsServiceTests
             CancellationToken.None);
 
         var pendentes = await service.ListPendentesIntegracaoAsync(CancellationToken.None);
-        Assert.Single(pendentes);
-        Assert.Equal(aprovada.Id, pendentes[0].Id);
+        Assert.Empty(pendentes);
     }
 
     [Fact]
@@ -466,6 +468,11 @@ public sealed class IntegracaoTotvsServiceTests
     [Fact]
     public async Task FluxoCompleto_Falha_EntaoSucesso_ComRetry()
     {
+        // Comportamento real (documentado em ListPendentesIntegracaoAsync):
+        // - Falha: IntegracaoResultado=Falha, sai da fila
+        // - Fica no painel com resultado Falha
+        // - Para tentar de novo, registra outro resultado (sucesso) — não precisa retry
+        //   porque RegistrarResultado aceita nova tentativa enquanto status=Aprovada.
         var (db, service) = CreateService(TenantA);
         var aprovada = SeedPreAdmissao(db, TenantA, PreAdmissaoStatus.Aprovada);
         var ct = CancellationToken.None;
@@ -473,15 +480,15 @@ public sealed class IntegracaoTotvsServiceTests
         // 1ª tentativa: falha
         await service.RegistrarResultadoIntegracaoAsync(aprovada.Id, new("falha", "Timeout"), ct);
 
-        // Ainda na fila
+        // Falha tira da fila até retry manual
         var filaAposFalha = await service.ListPendentesIntegracaoAsync(ct);
-        Assert.Single(filaAposFalha);
+        Assert.Empty(filaAposFalha);
 
         // No painel com resultado Falha
         var painelFalha = await service.ListPainelIntegracaoAsync(IntegracaoResultado.Falha, ct);
         Assert.Single(painelFalha);
 
-        // 2ª tentativa: sucesso
+        // 2ª tentativa: sucesso — RegistrarResultado aceita enquanto status=Aprovada
         var (result, error) = await service.RegistrarResultadoIntegracaoAsync(
             aprovada.Id, new("sucesso", "OK no retry"), ct);
         Assert.Null(error);

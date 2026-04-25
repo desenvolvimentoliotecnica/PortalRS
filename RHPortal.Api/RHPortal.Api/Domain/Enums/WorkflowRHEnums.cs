@@ -3,7 +3,8 @@ namespace RhPortal.Api.Domain.Enums;
 public enum TipoWorkflowRH : short
 {
     TriagemVaga = 1,
-    RevisaoPosEfetivacao = 2
+    RevisaoPosEfetivacao = 2,
+    OffboardingDesligamento = 3
 }
 
 public enum WorkflowRHStatus : short

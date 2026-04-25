@@ -1,8 +1,11 @@
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.Cartas;
+using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Application.SolicitacoesDesligamento;
 using RhPortal.Api.Contracts.SolicitacoesDesligamento;
+using RhPortal.Api.Contracts.SolicitacoesPromocao;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -16,20 +19,27 @@ namespace RhPortal.Api.Controllers;
 public sealed class SolicitacoesDesligamentoController : ControllerBase
 {
     private readonly ISolicitacaoDesligamentoService _service;
+    private readonly IIntegracaoTotvsService _integracaoService;
     private readonly ICurrentUserContext _userContext;
     private readonly ICartaService _cartaService;
 
     public SolicitacoesDesligamentoController(
         ISolicitacaoDesligamentoService service,
+        IIntegracaoTotvsService integracaoService,
         ICurrentUserContext userContext,
         ICartaService cartaService)
     {
         _service = service;
+        _integracaoService = integracaoService;
         _userContext = userContext;
         _cartaService = cartaService;
     }
 
     /// <summary>Lista solicitações de desligamento com filtro por perfil.</summary>
+    /// <remarks>
+    /// Quando <c>statuses</c> contém apenas <c>EmIntegracao</c> (7) e/ou <c>Concluida</c> (8),
+    /// retorna o payload completo de integração TOTVS em vez do grid simplificado.
+    /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<SolicitacaoDesligamentoGridRow>), StatusCodes.Status200OK)]
     public async Task<IActionResult> List(
@@ -42,6 +52,12 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         [FromQuery] int? pageSize,
         CancellationToken ct)
     {
+        var integrationStatuses = new[] { SolicitacaoStatus.EmIntegracao, SolicitacaoStatus.Concluida };
+        var requestedStatuses = statuses ?? (status.HasValue ? [status.Value] : []);
+
+        if (requestedStatuses.Length > 0 && requestedStatuses.All(s => integrationStatuses.Contains(s)))
+            return Ok(await _integracaoService.ListDesligamentosPayloadAsync(requestedStatuses, ct));
+
         var canViewAll = _userContext.IsAdmin || _userContext.IsRH;
         var effectiveApenasMeus = canViewAll ? (apenasMeus ?? false) : true;
 
@@ -251,6 +267,25 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         }
     }
 
+    /// <summary>Datasul confirma o resultado da integração do desligamento (sucesso ou erro).</summary>
+    [HttpPost("{id:guid}/confirmar-integracao")]
+    [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ConfirmarIntegracao(
+        Guid id, [FromBody] ConfirmarIntegracaoMovimentacaoRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.ConfirmarIntegracaoAsync(id, request.Resultado, request.Mensagem, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     [HttpPost("{id:guid}/copy")]
     [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -284,6 +319,12 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
             return NotFound(new { message = ex.Message });
         }
     }
+
+    [HttpGet("integracao/pendentes")]
+    [Authorize(Roles = "ApiKey")]
+    [ProducesResponseType(typeof(IReadOnlyList<SolicitacaoDesligamentoPendenteIntegracaoRow>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListPendentesIntegracao(CancellationToken ct)
+        => Ok(await _service.ListPendentesIntegracaoAsync(ct));
 
     /// <summary>Exporta lista de desligamentos em CSV.</summary>
     [HttpGet("export")]

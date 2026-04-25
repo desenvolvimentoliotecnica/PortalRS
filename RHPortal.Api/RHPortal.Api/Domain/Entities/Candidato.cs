@@ -17,6 +17,9 @@ public sealed class Candidato : ITenantEntity
     [StringLength(40)]
     public string? Fone { get; set; }
 
+    [StringLength(40)]
+    public string? Celular { get; set; }
+
     [StringLength(120)]
     public string? Cidade { get; set; }
 

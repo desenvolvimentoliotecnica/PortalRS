@@ -7,10 +7,10 @@ public sealed class OcupacaoHistorico : ITenantEntity
     public Guid Id { get; set; }
     public string TenantId { get; set; } = default!;
 
-    public Guid VagaId { get; set; }
+    public Guid? VagaId { get; set; }
     public Vaga? Vaga { get; set; }
 
-    public Guid FuncionarioId { get; set; }
+    public Guid? FuncionarioId { get; set; }
     public Funcionario? Funcionario { get; set; }
 
     public DateTime DataEntrada { get; set; }

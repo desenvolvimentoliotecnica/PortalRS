@@ -49,4 +49,18 @@ public sealed class SolicitacaoAprovacaoEtapa : ITenantEntity
     /// Permite que admins sem Funcionario vinculado assumam tarefas de consenso.
     /// </summary>
     public Guid? AssumedByUserId { get; set; }
+
+    // ----- SLA / Lembretes -----
+
+    /// <summary>Timestamp de quando a etapa foi criada (chegou ao aprovador).</summary>
+    public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>Contagem de lembretes já enviados ao aprovador (evita spam).</summary>
+    public int LembretesEnviados { get; set; } = 0;
+
+    /// <summary>Timestamp do último lembrete enviado ao aprovador.</summary>
+    public DateTimeOffset? UltimoLembreteUtc { get; set; }
+
+    /// <summary>Timestamp em que a etapa foi escalada para o gestor do aprovador (null = não escalada).</summary>
+    public DateTimeOffset? EscaladoEmUtc { get; set; }
 }

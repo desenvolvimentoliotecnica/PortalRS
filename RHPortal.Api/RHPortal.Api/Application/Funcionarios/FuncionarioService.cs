@@ -85,6 +85,15 @@ public sealed class FuncionarioService : IFuncionarioService
         if (query.CentroCustoId.HasValue)
             q = q.Where(x => x.CentroCustoId == query.CentroCustoId.Value);
 
+        if (query.GestorDiretoId.HasValue)
+            q = q.Where(x => x.GestorDiretoId == query.GestorDiretoId.Value);
+
+        if (query.GestorUnidadeIds is { Count: > 0 } gestorUids)
+            q = q.Where(x => x.UnidadeLotacaoId != null && gestorUids.Contains(x.UnidadeLotacaoId.Value));
+
+        if (query.OnlyFuncionarioId.HasValue)
+            q = q.Where(x => x.Id == query.OnlyFuncionarioId.Value);
+
         var totalItems = await q.CountAsync(ct);
 
         var asc = !string.Equals(query.Dir, "desc", StringComparison.OrdinalIgnoreCase);
@@ -227,7 +236,10 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.CentroCustoId,
                 x.CentroCusto != null ? x.CentroCusto.Description : null,
                 x.UnidadeLotacao != null ? x.UnidadeLotacao.Code : null,
-                x.CentroCusto != null ? x.CentroCusto.Code : null
+                x.CentroCusto != null ? x.CentroCusto.Code : null,
+                x.DataAdmissao,
+                x.DataNascimento,
+                x.Sexo
             ))
             .FirstOrDefaultAsync(ct);
     }
@@ -326,6 +338,17 @@ public sealed class FuncionarioService : IFuncionarioService
         entity.CentroCustoId = request.CentroCustoId;
         entity.JobPositionId = request.JobPositionId;
         entity.Notes = TrimOrNull(request.Notes);
+        entity.GestorDiretoId = request.GestorDiretoId;
+        entity.NivelHierarquicoId = request.NivelHierarquicoId;
+        entity.UnidadeLotacaoId = request.UnidadeLotacaoId;
+        entity.CentroCustoId = request.CentroCustoId;
+        entity.CdnFuncionario = TrimOrNull(request.CdnFuncionario);
+        entity.CdnEmpresa = TrimOrNull(request.CdnEmpresa);
+        entity.CdnEstab = TrimOrNull(request.CdnEstab);
+        entity.DataAdmissao = request.DataAdmissao;
+        entity.DataNascimento = request.DataNascimento;
+        entity.Sexo = TrimOrNull(request.Sexo)?.ToUpperInvariant();
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
         entity.RefreshIncompleteData();
 
         await _db.SaveChangesAsync(ct);

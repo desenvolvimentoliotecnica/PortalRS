@@ -53,6 +53,9 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
 
         var moduleService = tenantScope.ServiceProvider.GetRequiredService<TenantModuleService>();
         await moduleService.EnsureDefaultsAsync(tenantId, ct);
+
+        var screenService = tenantScope.ServiceProvider.GetRequiredService<TenantScreenService>();
+        await screenService.EnsureDefaultsAsync(tenantId, ct);
     }
 
     /// <summary>
@@ -362,7 +365,22 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
             ALTER TABLE "Units" ADD COLUMN IF NOT EXISTS "NomAbrevPessoaFisic" character varying(60) NULL;
             """, ct);
 
-        // ── Register all 17 orphan migrations in __EFMigrationsHistory ─────────
+        // ── 18. AddDocumentacaoPadraoConfig ──────────────────────────────────────
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "DocumentacaoPadraoConfigs" (
+                "Id"             uuid                        NOT NULL,
+                "TenantId"       character varying(64)       NOT NULL,
+                "TipoDocumento"  smallint                    NOT NULL,
+                "Configuracao"   smallint                    NOT NULL,
+                "CreatedAtUtc"   timestamp with time zone    NOT NULL,
+                "UpdatedAtUtc"   timestamp with time zone    NOT NULL,
+                CONSTRAINT "PK_DocumentacaoPadraoConfigs" PRIMARY KEY ("Id")
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_DocumentacaoPadraoConfigs_TenantId_TipoDocumento"
+                ON "DocumentacaoPadraoConfigs" ("TenantId", "TipoDocumento");
+            """, ct);
+
+        // ── Register all 18 orphan migrations in __EFMigrationsHistory ─────────
         // product version matches the EF Core version used in this project.
         await db.Database.ExecuteSqlRawAsync("""
             INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
@@ -384,7 +402,8 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
                 ('20260411120000_AddCentroCustoEmpresaFK'),
                 ('20260411130000_AddCentroCustoValidade'),
                 ('20260411140000_AddCategoriaSalarialEmpresaEstabelecimento'),
-                ('20260411150000_AddUnitNomAbrevPessoaFisic')
+                ('20260411150000_AddUnitNomAbrevPessoaFisic'),
+                ('20260414100000_AddDocumentacaoPadraoConfig')
             ) AS m("MigrationId")
             WHERE NOT EXISTS (
                 SELECT 1 FROM "__EFMigrationsHistory" h
@@ -411,6 +430,7 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await CentroCustoSeeder.EnsureAsync(db, ct);
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
+        await MotivoRequisicaoVagaSeeder.EnsureAsync(db, tenantId, ct);
     }
 
     private async Task RunSeedAsync(string tenantId, IServiceProvider scopedProvider, CancellationToken ct)
@@ -428,5 +448,6 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await CentroCustoSeeder.EnsureAsync(db, ct);
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
+        await MotivoRequisicaoVagaSeeder.EnsureAsync(db, tenantId, ct);
     }
 }

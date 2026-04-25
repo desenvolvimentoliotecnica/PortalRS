@@ -7,11 +7,12 @@ namespace RhPortal.Api.Contracts.SolicitacoesVaga;
 
 public sealed record SolicitacaoVagaListQuery(
     string? Q,
-    SolicitacaoVagaStatus? Status,
-    SolicitacaoVagaStatus[]? Statuses,
+    SolicitacaoStatus? Status,
+    SolicitacaoStatus[]? Statuses,
     bool? ApenasMeus,
     int? Page,
-    int? PageSize
+    int? PageSize,
+    Guid? VagaId = null
 );
 
 // ── Create / Update ──
@@ -32,6 +33,9 @@ public sealed class SolicitacaoVagaCreateRequest
     public Guid? UnitId { get; set; }
     public Guid? AprovadorId { get; set; }
 
+    // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
+    public Guid? VagaId { get; set; }
+
     // Sprint 1
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
@@ -40,7 +44,13 @@ public sealed class SolicitacaoVagaCreateRequest
     // A.RH.013
     public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
     public int? PrazoDias { get; set; }
+
+    /// <summary>Motivo legado (enum). Mantido para compatibilidade — prefira <see cref="MotivoRequisicaoId"/>.</summary>
     public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+
+    /// <summary>FK da tabela parametrizável de motivos (MotivosRequisicaoVagaConfig).</summary>
+    public Guid? MotivoRequisicaoId { get; set; }
+
     public bool CnhObrigatoria { get; set; }
     public bool DisponibilidadeViagens { get; set; }
     public string? EscalaTrabalho { get; set; }
@@ -48,6 +58,21 @@ public sealed class SolicitacaoVagaCreateRequest
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     public Guid? CentroCustoId { get; set; }
     public Guid? UnidadeLotacaoId { get; set; }
+
+    // Dados do desligamento (quando MotivoRequisicao = PedidoDemissao ou DesligamentoSemJustaCausa)
+    public DateOnly? DataDesligamento { get; set; }
+    public TipoAvisoPrevio? TipoAvisoPrevioDesligamento { get; set; }
+    public int? DiasAvisoPrevioDesligamento { get; set; }
+    public bool? PossuiEstabilidadeDesligamento { get; set; }
+
+    [MaxLength(2000)]
+    public string? MotivoDesligamentoTexto { get; set; }
+
+    // Decisão de headcount — preenchida pelo gestor na criação.
+    // Obrigatória ao submeter (SubmitAsync valida).
+    public TipoDecisaoHeadcount? DecisaoRH { get; set; }
+    public int? DecisaoRHPrazoMeses { get; set; }
+    public DateTimeOffset? DecisaoRHPrazoDataAlvo { get; set; }
 }
 
 public sealed class SolicitacaoVagaUpdateRequest
@@ -66,6 +91,9 @@ public sealed class SolicitacaoVagaUpdateRequest
     public Guid? UnitId { get; set; }
     public Guid? AprovadorId { get; set; }
 
+    // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
+    public Guid? VagaId { get; set; }
+
     // Sprint 1
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
@@ -74,7 +102,13 @@ public sealed class SolicitacaoVagaUpdateRequest
     // A.RH.013
     public TipoContratoVaga TipoContrato { get; set; } = TipoContratoVaga.CLT;
     public int? PrazoDias { get; set; }
+
+    /// <summary>Motivo legado (enum). Mantido para compatibilidade — prefira <see cref="MotivoRequisicaoId"/>.</summary>
     public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+
+    /// <summary>FK da tabela parametrizável de motivos (MotivosRequisicaoVagaConfig).</summary>
+    public Guid? MotivoRequisicaoId { get; set; }
+
     public bool CnhObrigatoria { get; set; }
     public bool DisponibilidadeViagens { get; set; }
     public string? EscalaTrabalho { get; set; }
@@ -82,6 +116,20 @@ public sealed class SolicitacaoVagaUpdateRequest
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     public Guid? CentroCustoId { get; set; }
     public Guid? UnidadeLotacaoId { get; set; }
+
+    // Dados do desligamento (quando MotivoRequisicao = PedidoDemissao ou DesligamentoSemJustaCausa)
+    public DateOnly? DataDesligamento { get; set; }
+    public TipoAvisoPrevio? TipoAvisoPrevioDesligamento { get; set; }
+    public int? DiasAvisoPrevioDesligamento { get; set; }
+    public bool? PossuiEstabilidadeDesligamento { get; set; }
+
+    [MaxLength(2000)]
+    public string? MotivoDesligamentoTexto { get; set; }
+
+    // Decisão de headcount — pode ser editada no rascunho
+    public TipoDecisaoHeadcount? DecisaoRH { get; set; }
+    public int? DecisaoRHPrazoMeses { get; set; }
+    public DateTimeOffset? DecisaoRHPrazoDataAlvo { get; set; }
 }
 
 // ── Approval actions ──
@@ -91,6 +139,10 @@ public sealed class SolicitacaoVagaApprovalRequest
     [MaxLength(2000)]
     public string? Observacao { get; set; }
 }
+
+// ── Vincular candidato contratado ──
+
+public sealed record VincularCandidatoRequest(Guid CandidatoId);
 
 // ── Workflow etapa snapshot ──
 
@@ -112,7 +164,7 @@ public sealed record SolicitacaoVagaResponse(
     string? Justificativa,
     int QtdPosicoes,
     SolicitacaoVagaUrgencia Urgencia,
-    SolicitacaoVagaStatus Status,
+    SolicitacaoStatus Status,
     Guid SolicitanteId,
     string? SolicitanteNome,
     Guid? AprovadorId,
@@ -131,7 +183,13 @@ public sealed record SolicitacaoVagaResponse(
     // A.RH.013
     TipoContratoVaga TipoContrato,
     int? PrazoDias,
+    /// <summary>Motivo legado (enum) — mantido para compatibilidade com clientes antigos.</summary>
     MotivoRequisicaoVaga? MotivoRequisicao,
+    /// <summary>FK do motivo parametrizável. Preferir este campo.</summary>
+    Guid? MotivoRequisicaoId,
+    string? MotivoRequisicaoCodigo,
+    string? MotivoRequisicaoNome,
+    EfeitoHeadcount? MotivoRequisicaoEfeito,
     bool CnhObrigatoria,
     bool DisponibilidadeViagens,
     string? EscalaTrabalho,
@@ -145,14 +203,29 @@ public sealed record SolicitacaoVagaResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     DateTimeOffset? ApprovedAtUtc,
-    IReadOnlyList<EtapaFluxoInfo> EtapasFluxo
+    IReadOnlyList<EtapaFluxoInfo> EtapasFluxo,
+    // Decisão RH pós-aprovação (VagaNova)
+    TipoDecisaoHeadcount? DecisaoRH,
+    string? DecisaoRHRevisadoPorNome,
+    DateTimeOffset? DecisaoRHEmUtc,
+    int? DecisaoRHPrazoMeses,
+    // Dados do desligamento (quando MotivoRequisicao ∈ {PedidoDemissao, DesligamentoSemJustaCausa})
+    DateOnly? DataDesligamento,
+    TipoAvisoPrevio? TipoAvisoPrevioDesligamento,
+    int? DiasAvisoPrevioDesligamento,
+    bool? PossuiEstabilidadeDesligamento,
+    string? MotivoDesligamentoTexto,
+    Guid? DesligamentoVinculadoId,
+    // Amarração com candidato contratado (preenchido quando a pré-admissão vinculada à vaga é efetivada)
+    Guid? CandidatoContratadoId,
+    string? CandidatoContratadoNome
 );
 
 public sealed record SolicitacaoVagaGridRow(
     Guid Id,
     string Titulo,
     SolicitacaoVagaUrgencia Urgencia,
-    SolicitacaoVagaStatus Status,
+    SolicitacaoStatus Status,
     Guid? SolicitanteId,
     string? SolicitanteNome,
     Guid? AprovadorId,

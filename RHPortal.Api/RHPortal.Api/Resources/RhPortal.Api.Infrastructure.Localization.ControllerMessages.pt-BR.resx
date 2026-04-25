@@ -159,6 +159,48 @@
   <data name="ControllerLabels.ReportCatalogSlaVagaDescription" xml:space="preserve">
     <value>Medições de SLA por recrutador e por área.</value>
   </data>
+  <data name="ControllerLabels.ReportCatalogMovimentacaoHeadcountTitle" xml:space="preserve">
+    <value>Movimentação de Headcount</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogMovimentacaoHeadcountDescription" xml:space="preserve">
+    <value>Entradas, saídas, transferências e promoções no período.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogTurnoverRetencaoTitle" xml:space="preserve">
+    <value>Turnover e Retenção</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogTurnoverRetencaoDescription" xml:space="preserve">
+    <value>Desligamentos voluntários vs. involuntários por área.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogTthContratacaoTitle" xml:space="preserve">
+    <value>Tempo Médio de Contratação (TTH)</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogTthContratacaoDescription" xml:space="preserve">
+    <value>TTH por área, recrutador e tipo de contrato.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogHeadcountPlanRealTitle" xml:space="preserve">
+    <value>Headcount Plan vs. Real</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogHeadcountPlanRealDescription" xml:space="preserve">
+    <value>Posições orçadas vs. headcount ativo por área.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPiramideEtariaTitle" xml:space="preserve">
+    <value>Pirâmide Etária e Diversidade</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPiramideEtariaDescription" xml:space="preserve">
+    <value>Distribuição por faixa etária e gênero.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPromocoesTitle" xml:space="preserve">
+    <value>Promoções e Movimentações Salariais</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPromocoesDescription" xml:space="preserve">
+    <value>Histórico de promoções aprovadas com novo cargo e salário.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFeriasTitle" xml:space="preserve">
+    <value>Relatório de Férias</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFeriasDescription" xml:space="preserve">
+    <value>Férias solicitadas, aprovadas e gozadas por área.</value>
+  </data>
   <data name="ControllerLabels.RecebidoEm" xml:space="preserve">
     <value>Recebido em</value>
   </data>

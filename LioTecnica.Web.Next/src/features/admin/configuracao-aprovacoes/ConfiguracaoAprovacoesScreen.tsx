@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, Fragment, type CSSProperties 
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Save, Plus, ChevronUp, ChevronDown, Trash2, Settings2, Info, Zap, CheckCircle2, XCircle } from "lucide-react";
+import { Save, Plus, ChevronUp, ChevronDown, Trash2, Settings2, Info, Zap, CheckCircle2, XCircle, Eye } from "lucide-react";
 
 /* ──────────────────────────── constants ──────────────────────────── */
 
@@ -89,6 +89,13 @@ const PROCESS_SEQUENCE_BY_FLOW: Record<number, ProcessStepDef[]> = {
         { tipoAprovador: 9, label: "Revisão RH", optional: true },
         { tipoAprovador: 8, label: "Enviar para Integração" },
     ],
+    2: [{ tipoAprovador: 8, label: "Enviar para Integração" }], // Promoção
+    3: [{ tipoAprovador: 8, label: "Enviar para Integração" }], // Desligamento
+    4: [{ tipoAprovador: 8, label: "Enviar para Integração" }], // Férias
+    5: [{ tipoAprovador: 8, label: "Enviar para Integração" }], // Benefícios
+    6: [{ tipoAprovador: 8, label: "Enviar para Integração" }], // Dependentes
+    7: [{ tipoAprovador: 8, label: "Enviar para Integração" }], // Endereço
+    8: [], // Aumento de Headcount — etapas definidas livremente pelo admin (ex.: Diretoria)
 };
 
 const TABS = [
@@ -99,6 +106,7 @@ const TABS = [
     { value: 5, label: "Benefícios" },
     { value: 6, label: "Dependentes" },
     { value: 7, label: "Endereço" },
+    { value: 8, label: "Aumento de Headcount" },
 ];
 
 
@@ -578,6 +586,83 @@ function EtapaRow({
     );
 }
 
+/* ──────────────────────────── FlowPreview ──────────────────────────── */
+
+function FlowPreview({ etapas }: { etapas: EtapaConfigDto[] }) {
+    if (etapas.length === 0) return null;
+
+    return (
+        <div className="rounded-lg border border-border/40 bg-muted/20 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2.5">
+                <Eye className="size-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Preview do Fluxo
+                </span>
+            </div>
+            <div className="flex items-center gap-1 flex-wrap">
+                {/* Início */}
+                <div className="flex-shrink-0 flex items-center justify-center h-8 px-3 rounded-full bg-slate-100 border border-slate-300 text-xs font-semibold text-slate-600">
+                    Início
+                </div>
+
+                {etapas.map((etapa, idx) => {
+                    const opt = TIPO_APROVADOR_OPTIONS.find((o) => o.value === etapa.tipoAprovador);
+                    const badge = opt?.badge ?? "";
+                    const isAuto = etapa.tipoAprovador === 7 || etapa.tipoAprovador === 8;
+
+                    const colorMap: Record<string, { bg: string; border: string; text: string }> = {
+                        Hierarquia: { bg: "bg-blue-50", border: "border-blue-300", text: "text-blue-700" },
+                        Fixo:       { bg: "bg-orange-50", border: "border-orange-300", text: "text-orange-700" },
+                        Fila:       { bg: "bg-violet-50", border: "border-violet-300", text: "text-violet-700" },
+                        Processo:   { bg: "bg-emerald-50", border: "border-emerald-300", text: "text-emerald-700" },
+                    };
+                    const colors = colorMap[badge] ?? { bg: "bg-muted", border: "border-border", text: "text-foreground" };
+
+                    return (
+                        <div key={idx} className="flex items-center gap-1 flex-shrink-0">
+                            {/* Arrow */}
+                            <svg width="14" height="10" viewBox="0 0 14 10" className="text-muted-foreground/50 flex-shrink-0">
+                                <path d="M0 5h12M9 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            {/* Node */}
+                            <div
+                                className={`flex-shrink-0 flex flex-col items-center justify-center h-auto min-h-8 px-2.5 py-1.5 rounded-lg border ${colors.bg} ${colors.border} ${colors.text} max-w-36`}
+                                title={opt?.desc ?? ""}
+                            >
+                                <span className="text-[10px] font-bold opacity-60 uppercase tracking-wide">{idx + 1}</span>
+                                <span className="text-xs font-medium text-center leading-tight truncate max-w-full">
+                                    {etapa.label || opt?.label || "—"}
+                                </span>
+                                {isAuto && (
+                                    <span className="flex items-center gap-0.5 text-[9px] opacity-70 mt-0.5">
+                                        <Zap className="size-2.5" /> automático
+                                    </span>
+                                )}
+                                {etapa.funcionarioFixoNome && (
+                                    <span className="text-[9px] opacity-70 truncate max-w-full">{etapa.funcionarioFixoNome}</span>
+                                )}
+                                {etapa.roleFilaNome && (
+                                    <span className="text-[9px] opacity-70 truncate max-w-full">{etapa.roleFilaNome}</span>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+
+                {/* Fim */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <svg width="14" height="10" viewBox="0 0 14 10" className="text-muted-foreground/50 flex-shrink-0">
+                        <path d="M0 5h12M9 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 px-3 rounded-full bg-slate-100 border border-slate-300 text-xs font-semibold text-slate-600">
+                        Fim
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ──────────────────────────── FluxoTab ──────────────────────────── */
 
 function FluxoTab({
@@ -802,6 +887,9 @@ function FluxoTab({
                     <span className="w-20 flex-shrink-0" />
                 </div>
             )}
+
+            {/* Live flow preview */}
+            <FlowPreview etapas={etapas} />
 
             {etapas.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border/60 py-12 text-center text-muted-foreground text-sm">

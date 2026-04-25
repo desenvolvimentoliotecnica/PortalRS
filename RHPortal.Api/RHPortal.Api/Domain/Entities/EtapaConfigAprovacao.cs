@@ -40,5 +40,12 @@ public sealed class EtapaConfigAprovacao : ITenantEntity
     public MomentoAcao MomentoAcao { get; set; } = MomentoAcao.AoChegar;
 
     public bool Ativo { get; set; } = true;
+
+    /// <summary>
+    /// SLA específico desta etapa em horas (override da configuração global do tenant).
+    /// Null = usa TenantConfiguracao.SlaAprovacaoHoras.
+    /// </summary>
+    public int? SlaHoras { get; set; }
+
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

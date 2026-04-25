@@ -22,6 +22,10 @@ public sealed class WorkflowRH : ITenantEntity
     public Guid? PreAdmissaoId { get; set; }
     public PreAdmissao? PreAdmissao { get; set; }
 
+    /// <summary>FK para SolicitacaoDesligamento (usado quando TipoWorkflow = OffboardingDesligamento).</summary>
+    public Guid? DesligamentoId { get; set; }
+    public SolicitacaoDesligamento? Desligamento { get; set; }
+
     public WorkflowRHStatus Status { get; set; } = WorkflowRHStatus.NaoIniciado;
 
     /// <summary>Funcionário RH responsável/líder deste workflow.</summary>

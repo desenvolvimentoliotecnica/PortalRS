@@ -1,5 +1,6 @@
 using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Contracts.Navegacao;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Modules;
 using RhPortal.Api.Infrastructure.Navegacao;
 
@@ -23,10 +24,12 @@ namespace RhPortal.Api.Application.Navegacao;
 public sealed class NavegacaoSidebarService
 {
     private readonly TenantModuleService _tenantModuleService;
+    private readonly TenantScreenService _screenService;
 
-    public NavegacaoSidebarService(TenantModuleService tenantModuleService)
+    public NavegacaoSidebarService(TenantModuleService tenantModuleService, TenantScreenService screenService)
     {
         _tenantModuleService = tenantModuleService;
+        _screenService = screenService;
     }
 
     /// <summary>
@@ -38,7 +41,8 @@ public sealed class NavegacaoSidebarService
         CancellationToken ct)
     {
         var enabledModuleKeys = await _tenantModuleService.GetEnabledModuleKeysAsync(tenantId, ct);
-        return Build(permissions, enabledModuleKeys, contextoEspecial: null);
+        var screenEstados = await _screenService.GetEstadoMapAsync(tenantId, ct);
+        return Build(permissions, enabledModuleKeys, contextoEspecial: null, screenEstados);
     }
 
     /// <summary>
@@ -49,7 +53,8 @@ public sealed class NavegacaoSidebarService
         CancellationToken ct)
     {
         var enabledModuleKeys = await _tenantModuleService.GetEnabledModuleKeysAsync(tenantId, ct);
-        return Build(new[] { "*" }, enabledModuleKeys, contextoEspecial: "owner-em-tenant");
+        var screenEstados = await _screenService.GetEstadoMapAsync(tenantId, ct);
+        return Build(new[] { "*" }, enabledModuleKeys, contextoEspecial: "owner-em-tenant", screenEstados);
     }
 
     /// <summary>
@@ -58,9 +63,11 @@ public sealed class NavegacaoSidebarService
     public static NavegacaoSidebarResponse Build(
         IReadOnlyCollection<string> permissions,
         ISet<string> enabledModuleKeys,
-        string? contextoEspecial)
+        string? contextoEspecial,
+        IReadOnlyDictionary<string, string>? screenEstados = null)
     {
         var hasWildcard = permissions.Contains("*");
+        var isOwnerContext = contextoEspecial is not null;
         var permSet = new HashSet<string>(permissions, StringComparer.OrdinalIgnoreCase);
 
         // Baldes iniciados a partir do catálogo (preservam ordem)
@@ -69,7 +76,8 @@ public sealed class NavegacaoSidebarService
 
         foreach (var item in NavegacaoManifest.Items)
         {
-            // 1) Permissão
+            // 1) Permissão + filtro de contexto owner
+            if (isOwnerContext && item.OcultarDoOwner) continue;
             var temPermissao = hasWildcard || permSet.Contains(item.PermissionKey);
             if (!temPermissao) continue; // não emite sem permissão (matches UX atual)
 
@@ -102,12 +110,23 @@ public sealed class NavegacaoSidebarService
                 }
                 else if (!enabledModuleKeys.Contains(modulo.Key))
                 {
-                    acessivel = false;
-                    motivo = MotivoBloqueioNav.ModuloDesativado;
+                    // Módulo desativado pelo Owner → item some do sidebar (não aparece nem bloqueado).
+                    continue;
                 }
             }
 
-            // 4) Resolver bucket de UI
+            // 4) Gate por tela (override individual do Owner)
+            if (screenEstados is not null && screenEstados.TryGetValue(item.Id, out var estadoTela))
+            {
+                if (estadoTela == EstadoTela.Oculto) continue;
+                if (estadoTela == EstadoTela.Bloqueado && acessivel)
+                {
+                    acessivel = false;
+                    motivo = MotivoBloqueioNav.TelaBloqueada;
+                }
+            }
+
+            // 5) Resolver bucket de UI
             var grupoKey = NavegacaoManifest.ResolveGrupoUi(item, modulo);
             if (!grupos.ContainsKey(grupoKey))
             {

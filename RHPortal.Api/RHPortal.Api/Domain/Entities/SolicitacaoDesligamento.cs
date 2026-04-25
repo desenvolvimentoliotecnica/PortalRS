@@ -58,6 +58,9 @@ public sealed class SolicitacaoDesligamento : ITenantEntity
     /// <summary>SolicitacaoVaga gerada automaticamente na aprovação (quando SubstituirPosicao = true).</summary>
     public Guid? SolicitacaoVagaGeradaId { get; set; }
 
+    /// <summary>SolicitacaoVaga que originou este desligamento (fluxo inverso: vaga de substituição que dispara desligamento na 1ª aprovação).</summary>
+    public Guid? SolicitacaoVagaOrigemId { get; set; }
+
     // ── Status e Aprovação ──
 
     public SolicitacaoStatus Status { get; set; } = SolicitacaoStatus.Rascunho;
@@ -77,4 +80,10 @@ public sealed class SolicitacaoDesligamento : ITenantEntity
     public string? IntegracaoMensagem { get; set; }
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
+
+    public Guid? EfetivadoManualmentePorId { get; set; }
+    public DateTimeOffset? EfetivadoManualmenteEmUtc { get; set; }
+
+    public int TentativasIntegracao { get; set; }
+    public DateTimeOffset? UltimaTentativaUtc { get; set; }
 }

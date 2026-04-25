@@ -21,7 +21,8 @@ import "@xyflow/react/dist/style.css";
 import dagre from "@dagrejs/dagre";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { RefreshCw, Building2, Users, ChevronRight, ChevronLeft, ChevronDown, Star, UserX, Search, X } from "lucide-react";
+import { RefreshCw, Building2, Users, ChevronRight, ChevronLeft, ChevronDown, Star, UserX, Search, X, TrendingUp, UserMinus, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { Tooltip } from "radix-ui";
 
 // ──────────────────────────────────────────────
@@ -44,6 +45,9 @@ interface LotacaoDto {
     parentId: string | null;
     responsavel: FuncionarioDto | null;
     funcionarios: FuncionarioDto[];
+    headcountAutorizado: number;
+    headcountOcupado: number;
+    headcountProvisorio: number;
 }
 
 interface EstruturaResponse {
@@ -139,6 +143,9 @@ interface LotacaoNodeData {
     totalFuncionarios: number;
     expanded: boolean;
     onToggle: () => void;
+    headcountAutorizado: number;
+    headcountOcupado: number;
+    headcountProvisorio: number;
 }
 
 function LotacaoNodeCard({ data }: { data: LotacaoNodeData }) {
@@ -196,6 +203,32 @@ function LotacaoNodeCard({ data }: { data: LotacaoNodeData }) {
                 {/* Divider */}
                 <div className="border-t border-gray-100" />
 
+                {/* Headcount */}
+                {data.headcountAutorizado > 0 && (() => {
+                    const ratio = data.headcountOcupado / data.headcountAutorizado;
+                    const hcColor = ratio > 1 ? "#dc2626" : ratio >= 0.9 ? "#d97706" : "#059669";
+                    return (
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full transition-all"
+                                        style={{ width: `${Math.min(ratio * 100, 100)}%`, backgroundColor: hcColor }}
+                                    />
+                                </div>
+                                <span className="text-[10px] font-bold flex-shrink-0" style={{ color: hcColor }}>
+                                    {data.headcountOcupado}/{data.headcountAutorizado}
+                                </span>
+                            </div>
+                            {data.headcountProvisorio > 0 && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-amber-100 text-amber-700 flex-shrink-0">
+                                    +{data.headcountProvisorio} prov.
+                                </span>
+                            )}
+                        </div>
+                    );
+                })()}
+
                 {/* Responsável */}
                 {data.responsavel ? (
                     <div className="flex items-center gap-2">
@@ -241,10 +274,11 @@ interface FuncionarioNodeData extends FuncionarioDto {
 
 function FuncionarioNodeCard({ data }: { data: FuncionarioNodeData }) {
     const color = getNivelColor(data.nivelHierarquicoOrdem);
+    const [showMenu, setShowMenu] = React.useState(false);
 
     return (
         <div
-            className="rounded-lg shadow overflow-hidden select-none"
+            className="rounded-lg shadow overflow-visible select-none relative"
             style={{
                 width: FUNC_W,
                 minHeight: FUNC_H,
@@ -256,6 +290,8 @@ function FuncionarioNodeCard({ data }: { data: FuncionarioNodeData }) {
                     : data.highlighted ? `0 0 0 3px ${color}22` : undefined,
                 backgroundColor: data.isCurrent ? "rgba(37,99,235,0.07)" : data.highlighted ? `${color}09` : "#ffffff",
             }}
+            onMouseEnter={() => setShowMenu(true)}
+            onMouseLeave={() => setShowMenu(false)}
         >
             <Handle type="target" position={Position.Top} style={{ opacity: 0, width: 0, height: 0, border: 0, minWidth: 0, minHeight: 0 }} />
             <Handle type="source" position={Position.Bottom} style={{ opacity: 0, width: 0, height: 0, border: 0, minWidth: 0, minHeight: 0 }} />
@@ -293,6 +329,43 @@ function FuncionarioNodeCard({ data }: { data: FuncionarioNodeData }) {
                     )}
                 </div>
             </div>
+
+            {/* Hover action menu */}
+            {showMenu && (
+                <div
+                    className="absolute left-0 right-0 bottom-0 translate-y-full z-50 bg-white border border-gray-200 rounded-b-lg shadow-lg flex"
+                    onMouseEnter={() => setShowMenu(true)}
+                    onMouseLeave={() => setShowMenu(false)}
+                >
+                    <Link
+                        href={`/funcionarios/${data.id}/perfil`}
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] text-violet-600 hover:bg-violet-50 transition-colors border-r border-gray-100"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        title="Ver Perfil 360°"
+                    >
+                        <ExternalLink size={10} />
+                        Perfil
+                    </Link>
+                    <OrgTooltip content="Solicitar Promoção">
+                        <button
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50 transition-colors border-r border-gray-100"
+                            onPointerDown={(e) => e.stopPropagation()}
+                        >
+                            <TrendingUp size={10} />
+                            Promoção
+                        </button>
+                    </OrgTooltip>
+                    <OrgTooltip content="Solicitar Desligamento">
+                        <button
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] text-red-500 hover:bg-red-50 transition-colors"
+                            onPointerDown={(e) => e.stopPropagation()}
+                        >
+                            <UserMinus size={10} />
+                            Desligar
+                        </button>
+                    </OrgTooltip>
+                </div>
+            )}
         </div>
     );
 }
@@ -373,6 +446,9 @@ function buildGraph(
                 totalFuncionarios: lot.funcionarios.length,
                 expanded: isExpanded,
                 onToggle: () => onToggle(lot.id),
+                headcountAutorizado: lot.headcountAutorizado ?? 0,
+                headcountOcupado: lot.headcountOcupado ?? 0,
+                headcountProvisorio: lot.headcountProvisorio ?? 0,
             } satisfies LotacaoNodeData,
         });
 

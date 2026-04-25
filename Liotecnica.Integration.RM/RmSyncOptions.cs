@@ -22,11 +22,8 @@ public sealed class RmSyncOptions
     /// <summary>Se true, executa APENAS extração de vagas em aberto + envio de vagas para api/vagas (não extrai nem envia áreas, cargos, unidades, pessoas, funcionários). Use para não duplicar os outros dados. Padrão: false.</summary>
     public bool SyncVagasOnly { get; set; }
 
-    /// <summary>Código da Área já cadastrada no Portal (synced de PSECAO). Se informado, as vagas usarão essa área em vez da primeira da lista. Ex.: "01".</summary>
+    /// <summary>Código do Centro de Custo já cadastrado no Portal (synced de PSECAO). Se informado, as vagas usarão esse CC em vez do primeiro da lista. Ex.: "01".</summary>
     public string? VagaDefaultAreaCode { get; set; }
-
-    /// <summary>Código do Departamento já cadastrado no Portal. Se informado, as vagas usarão esse departamento em vez do primeiro da lista. Ex.: "DEP-01".</summary>
-    public string? VagaDefaultDepartmentCode { get; set; }
 
     /// <summary>Se true, após o sync de vagas extrai candidatos por vaga (VRS) para candidato_vaga.json e registra no log. Use para diagnosticar se há candidatos para sincronizar. Só aplica quando VagaTable é VRSVAGAS.</summary>
     public bool SyncCandidatosVagaDiagnostic { get; set; }

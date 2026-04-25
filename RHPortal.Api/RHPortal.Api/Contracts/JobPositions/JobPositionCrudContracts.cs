@@ -70,10 +70,13 @@ public sealed record JobPositionLookupItem(
     Guid Id,
     string Code,
     string Name,
+    Guid? AreaId,
+    string? AreaName,
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     Guid? CentroCustoId,
     string? CentroCustoNome,
-    string? Seniority
+    string? Seniority,
+    int? TotvsCargoBasicId
 );
 
 public sealed record JobPositionResponse(

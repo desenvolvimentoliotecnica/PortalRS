@@ -6,8 +6,8 @@ using Microsoft.Extensions.Options;
 namespace Liotecnica.Integration.RM;
 
 /// <summary>
-/// Envia o departamento do RM (PSECAO / departamento.json) para a nossa API como Área.
-/// No nosso projeto, departamento (RM) = área (portal). Respeita a hierarquia pai/filho (CODIGO/CODIGOPAI).
+/// Envia o departamento do RM (PSECAO / departamento.json) para a nossa API como Centro de Custo.
+/// No nosso projeto, departamento (RM) = centro de custo (portal). Respeita a hierarquia pai/filho (CODIGO/CODIGOPAI).
 /// </summary>
 public sealed class PortalAreaSyncService
 {
@@ -38,8 +38,8 @@ public sealed class PortalAreaSyncService
     }
 
     /// <summary>
-    /// Lê departamento.json (PSECAO), ordena por hierarquia (pai antes de filho) e envia para api/areas.
-    /// Departamento (RM) = Área no nosso portal. Não propaga exceções para o worker continuar rodando.
+    /// Lê departamento.json (PSECAO), ordena por hierarquia (pai antes de filho) e envia para api/centros-custo.
+    /// Departamento (RM) = Centro de Custo no nosso portal. Não propaga exceções para o worker continuar rodando.
     /// </summary>
     public async Task SyncAreasFromDepartamentoJsonAsync(CancellationToken ct = default)
     {
@@ -49,8 +49,8 @@ public sealed class PortalAreaSyncService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Sync Áreas: falha geral.");
-            _logWriter.WriteLine($"Sync Áreas: falha geral - {ex.Message}");
+            _logger.LogError(ex, "Sync Centros de Custo: falha geral.");
+            _logWriter.WriteLine($"Sync Centros de Custo: falha geral - {ex.Message}");
         }
     }
 
@@ -60,7 +60,7 @@ public sealed class PortalAreaSyncService
         var file = Path.Combine(path, "departamento.json");
         if (!File.Exists(file))
         {
-            _logWriter.WriteLine("Sync Áreas: arquivo departamento.json não encontrado; pulando envio.");
+            _logWriter.WriteLine("Sync Centros de Custo: arquivo departamento.json não encontrado; pulando envio.");
             _logger.LogWarning("Arquivo {File} não encontrado; pulando sync de áreas.", file);
             return;
         }
@@ -69,14 +69,14 @@ public sealed class PortalAreaSyncService
         var items = JsonSerializer.Deserialize<List<DepartamentoRow>>(json, JsonOptions);
         if (items is null || items.Count == 0)
         {
-            _logWriter.WriteLine("Sync Áreas: nenhum registro em departamento.json.");
+            _logWriter.WriteLine("Sync Centros de Custo: nenhum registro em departamento.json.");
             return;
         }
 
         var ordered = OrderByHierarchy(items);
-        _logWriter.WriteLine($"Sync Áreas: enviando {ordered.Count} itens (pai -> filho) para api/areas");
+        _logWriter.WriteLine($"Sync Centros de Custo: enviando {ordered.Count} itens (pai -> filho) para api/centros-custo");
 
-        var codeToId = await LoadExistingAreasAsync(ct);
+        var codeToId = await LoadExistingCentrosCustoAsync(ct);
 
         var created = 0;
         var updated = 0;
@@ -96,75 +96,100 @@ public sealed class PortalAreaSyncService
                 var name = (row.Descricao ?? code).Trim();
                 if (name.Length > 120) name = name.Substring(0, 120);
 
-                var body = new AreaCreateRequest(
-                    Code: code.Length > 40 ? code.Substring(0, 40) : code,
-                    Name: name,
-                    Description: null,
+                var codeClipped = code.Length > 30 ? code.Substring(0, 30) : code;
+                var body = new CentroCustoCreateRequest(
+                    Code: codeClipped,
+                    Description: name,
+                    Manager: null,
+                    Notes: null,
                     IsActive: true,
+                    EmpresaId: null,
+                    ValidFrom: null,
+                    ValidUntil: null,
                     ParentId: parentId,
-                    OwnerFuncionarioId: null
+                    Headcount: 0,
+                    Phone: null,
+                    BranchOrLocation: null,
+                    OwnerFuncionarioId: null,
+                    Description2: null
                 );
 
                 if (codeToId.TryGetValue(code, out var existingId))
                 {
-                    var response = await _portalClient.Http.PutAsJsonAsync($"api/areas/{existingId}", body, JsonOptions, ct);
+                    var updateBody = new CentroCustoUpdateRequest(
+                        Code: codeClipped,
+                        Description: name,
+                        Manager: null,
+                        Notes: null,
+                        IsActive: true,
+                        EmpresaId: null,
+                        ValidFrom: null,
+                        ValidUntil: null,
+                        ParentId: parentId,
+                        Headcount: 0,
+                        Phone: null,
+                        BranchOrLocation: null,
+                        OwnerFuncionarioId: null,
+                        Description2: null
+                    );
+                    var response = await _portalClient.Http.PutAsJsonAsync($"api/centros-custo/{existingId}", updateBody, JsonOptions, ct);
                     if (response.IsSuccessStatusCode)
                         updated++;
                     else
                     {
                         var msg = await response.Content.ReadAsStringAsync(ct);
-                        _logWriter.WriteLine($"Sync Áreas: ERRO PUT {response.StatusCode} para Code={code}: {msg}");
-                        _logger.LogWarning("PUT api/areas/{Id} falhou para Code={Code}: {Status} {Msg}", existingId, code, response.StatusCode, msg);
+                        _logWriter.WriteLine($"Sync Centros de Custo: ERRO PUT {response.StatusCode} para Code={code}: {msg}");
+                        _logger.LogWarning("PUT api/centros-custo/{Id} falhou para Code={Code}: {Status} {Msg}", existingId, code, response.StatusCode, msg);
                     }
                     continue;
                 }
 
-                var postResponse = await _portalClient.Http.PostAsJsonAsync("api/areas", body, JsonOptions, ct);
+                var postResponse = await _portalClient.Http.PostAsJsonAsync("api/centros-custo", body, JsonOptions, ct);
                 if (postResponse.IsSuccessStatusCode)
                 {
-                    var area = await postResponse.Content.ReadFromJsonAsync<AreaResponse>(JsonOptions, ct);
-                    if (area != null && !string.IsNullOrEmpty(code))
+                    var cc = await postResponse.Content.ReadFromJsonAsync<CentroCustoResponse>(JsonOptions, ct);
+                    if (cc != null && !string.IsNullOrEmpty(code))
                     {
-                        codeToId[code] = area.Id;
+                        codeToId[code] = cc.Id;
                         created++;
                     }
                 }
                 else
                 {
                     var msg = await postResponse.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Áreas: ERRO {postResponse.StatusCode} para Code={code}: {msg}");
-                    _logger.LogWarning("POST api/areas falhou para Code={Code}: {Status} {Msg}", code, postResponse.StatusCode, msg);
+                    _logWriter.WriteLine($"Sync Centros de Custo: ERRO {postResponse.StatusCode} para Code={code}: {msg}");
+                    _logger.LogWarning("POST api/centros-custo falhou para Code={Code}: {Status} {Msg}", code, postResponse.StatusCode, msg);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Falha ao enviar área Code={Code}; continuando.", row.Codigo);
-                _logWriter.WriteLine($"Sync Áreas: exceção para Code={row.Codigo}: {ex.Message}");
+                _logWriter.WriteLine($"Sync Centros de Custo: exceção para Code={row.Codigo}: {ex.Message}");
             }
         }
 
-        _logWriter.WriteLine($"Sync Áreas: concluído. Criadas: {created}, atualizadas: {updated}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Áreas: criadas={Created}, atualizadas={Updated}, já existentes={Skipped}", created, updated, skipped);
+        _logWriter.WriteLine($"Sync Centros de Custo: concluído. Criados: {created}, atualizados: {updated}, já existentes: {skipped}");
+        _logger.LogInformation("Sync Centros de Custo: criados={Created}, atualizados={Updated}, já existentes={Skipped}", created, updated, skipped);
     }
 
-    private async Task<Dictionary<string, Guid>> LoadExistingAreasAsync(CancellationToken ct)
+    private async Task<Dictionary<string, Guid>> LoadExistingCentrosCustoAsync(CancellationToken ct)
     {
         var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            var list = await _portalClient.Http.GetFromJsonAsync<List<AreaResponse>>("api/areas", JsonOptions, ct);
+            var list = await _portalClient.Http.GetFromJsonAsync<List<CentroCustoResponse>>("api/centros-custo?take=5000", JsonOptions, ct);
             if (list != null)
-                foreach (var a in list)
+                foreach (var cc in list)
                 {
-                    var key = NormalizeCode(a.Code);
+                    var key = NormalizeCode(cc.Code);
                     if (!string.IsNullOrEmpty(key))
-                        map[key] = a.Id;
+                        map[key] = cc.Id;
                 }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Falha ao carregar áreas existentes do portal; assumindo nenhuma.");
-            _logWriter.WriteLine($"Sync Áreas: falha ao carregar áreas existentes - {ex.Message}");
+            _logger.LogWarning(ex, "Falha ao carregar centros de custo existentes do portal; assumindo nenhuma.");
+            _logWriter.WriteLine($"Sync Centros de Custo: falha ao carregar existentes - {ex.Message}");
         }
         return map;
     }
@@ -195,22 +220,43 @@ public sealed class PortalAreaSyncService
         public string? Descricao { get; set; }
     }
 
-    private sealed record AreaCreateRequest(
+    private sealed record CentroCustoCreateRequest(
         string Code,
-        string Name,
-        string? Description,
+        string Description,
+        string? Manager,
+        string? Notes,
         bool IsActive,
+        Guid? EmpresaId,
+        DateOnly? ValidFrom,
+        DateOnly? ValidUntil,
         Guid? ParentId,
-        Guid? OwnerFuncionarioId
+        int Headcount,
+        string? Phone,
+        string? BranchOrLocation,
+        Guid? OwnerFuncionarioId,
+        string? Description2
     );
 
-    private sealed record AreaResponse(
+    private sealed record CentroCustoUpdateRequest(
+        string Code,
+        string Description,
+        string? Manager,
+        string? Notes,
+        bool IsActive,
+        Guid? EmpresaId,
+        DateOnly? ValidFrom,
+        DateOnly? ValidUntil,
+        Guid? ParentId,
+        int Headcount,
+        string? Phone,
+        string? BranchOrLocation,
+        Guid? OwnerFuncionarioId,
+        string? Description2
+    );
+
+    private sealed record CentroCustoResponse(
         Guid Id,
         string Code,
-        string Name,
-        string? Description,
-        bool IsActive,
-        Guid? ParentId,
-        Guid? OwnerFuncionarioId
+        string Description
     );
 }

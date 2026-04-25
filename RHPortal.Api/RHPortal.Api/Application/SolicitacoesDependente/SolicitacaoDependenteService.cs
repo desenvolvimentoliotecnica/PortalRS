@@ -28,17 +28,20 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly ApprovalWorkflowHelper _workflow;
+    private readonly StatusHistoricoService _statusHistorico;
 
     public SolicitacaoDependenteService(
         AppDbContext db,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
-        ApprovalWorkflowHelper workflow)
+        ApprovalWorkflowHelper workflow,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _workflow = workflow;
+        _statusHistorico = statusHistorico;
     }
 
     public async Task<IReadOnlyList<SolicitacaoDependenteGridRow>> ListAsync(
@@ -70,12 +73,26 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         var pageSize = Math.Clamp(query.PageSize ?? 20, 1, 100);
         q = q.Skip((page - 1) * pageSize).Take(pageSize);
 
-        return await q.Select(s => new SolicitacaoDependenteGridRow(
+        var rawRows = await q.Select(s => new
+        {
             s.Id, s.Status,
-            s.Solicitante != null ? s.Solicitante.Name : null,
-            s.TipoSolicitacao, s.NomeCompleto,
-            s.Parentesco, s.CreatedAtUtc
-        )).ToListAsync(ct);
+            SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
+            s.TipoSolicitacao, s.NomeCompleto, s.Parentesco, s.CreatedAtUtc,
+        }).ToListAsync(ct);
+
+        var ids = rawRows.Select(r => r.Id).ToList();
+        var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
+            ids, TipoFluxoAprovacao.Dependente, ct, currentUserId: _currentUser.UserId);
+
+        return rawRows.Select(r =>
+        {
+            etapasPendentes.TryGetValue(r.Id, out var ep);
+            return new SolicitacaoDependenteGridRow(
+                r.Id, r.Status, r.SolicitanteNome,
+                r.TipoSolicitacao, r.NomeCompleto, r.Parentesco, r.CreatedAtUtc,
+                ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
+                ep?.CanAssume ?? false);
+        }).ToList();
     }
 
     public async Task<SolicitacaoDependenteResponse?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -151,8 +168,13 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
+        var statusAnteriorSubmitDep = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoDependente, entity.Id,
+            statusAnteriorSubmitDep, entity.Status.ToString(), _currentUser, ct: ct);
 
         var existingEtapas = _db.SolicitacoesAprovacaoEtapa
             .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Dependente);
@@ -171,12 +193,21 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
             Label = r.Label,
             AprovadorId = r.AprovadorId,
             RoleFilaId = r.RoleFilaId,
+            AcaoEtapa = r.AcaoEtapa,
+            MomentoAcao = r.MomentoAcao,
             Status = StatusAprovacao.Pendente,
         }).ToList();
 
         _db.SolicitacoesAprovacaoEtapa.AddRange(novasEtapas);
 
         var primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault();
+        while (primeiraEtapa is not null && IsProcessoStep(primeiraEtapa))
+        {
+            ExecutarAcaoEtapa(primeiraEtapa.AcaoEtapa, entity);
+            primeiraEtapa.Status = StatusAprovacao.Aprovado;
+            primeiraEtapa.DataUtc = DateTimeOffset.UtcNow;
+            primeiraEtapa = novasEtapas.OrderBy(e => e.Ordem).FirstOrDefault(e => e.Ordem > primeiraEtapa.Ordem);
+        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -201,24 +232,86 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
-        entity.Status = SolicitacaoStatus.Aprovada;
-        entity.ObservacaoAprovador = observacao;
-        entity.ApprovedAtUtc = DateTimeOffset.UtcNow;
-        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Dependente && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
 
-        // ── Executar CRUD real na tabela Dependente ──
-        await ExecuteDependenteCrudAsync(entity, ct);
+        if (etapaAtual is null)
+            throw new InvalidOperationException("Nenhuma etapa de aprovação pendente encontrada.");
 
-        await _db.SaveChangesAsync(ct);
+        if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+            throw new InvalidOperationException("Você não tem permissão para aprovar esta etapa.");
 
-        await _workflow.NotifyByFuncionarioIdAsync(
-            entity.SolicitanteId,
-            "Solicitação de dependente aprovada",
-            $"Sua solicitação de {entity.TipoSolicitacao.ToString().ToLower()} de dependente ({entity.NomeCompleto}) foi aprovada.",
-            $"/colaborador/solicitacoes-dependente/{entity.Id}",
-            ct);
+        if (etapaAtual.RoleFilaId.HasValue && _currentUser.FuncionarioId.HasValue)
+            etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+
+        etapaAtual.Status = StatusAprovacao.Aprovado;
+        etapaAtual.DataUtc = DateTimeOffset.UtcNow;
+        etapaAtual.Observacao = observacao;
+
+        var todasEtapas = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Dependente)
+            .OrderBy(e => e.Ordem)
+            .ToListAsync(ct);
+
+        var proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > etapaAtual.Ordem);
+        while (proximaEtapa is not null && IsProcessoStep(proximaEtapa))
+        {
+            ExecutarAcaoEtapa(proximaEtapa.AcaoEtapa, entity);
+            proximaEtapa.Status = StatusAprovacao.Aprovado;
+            proximaEtapa.DataUtc = DateTimeOffset.UtcNow;
+            proximaEtapa = todasEtapas.FirstOrDefault(e => e.Ordem > proximaEtapa.Ordem);
+        }
+
+        var statusAnteriorApproveDep = entity.Status.ToString();
+        if (proximaEtapa is not null)
+        {
+            entity.Status = proximaEtapa.RoleFilaId.HasValue
+                ? SolicitacaoStatus.PendenteAprovacaoRh
+                : SolicitacaoStatus.PendenteAprovacao;
+            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            entity.ObservacaoAprovador = observacao;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoDependente, entity.Id,
+                statusAnteriorApproveDep, entity.Status.ToString(), _currentUser, observacao, ct);
+
+            await _db.SaveChangesAsync(ct);
+
+            if (proximaEtapa.AprovadorId.HasValue)
+            {
+                await _workflow.NotifyByFuncionarioIdAsync(
+                    proximaEtapa.AprovadorId.Value,
+                    "Solicitação de dependente aguarda sua aprovação",
+                    "Uma etapa anterior foi aprovada. Agora é a sua vez de aprovar.",
+                    $"/colaborador/solicitacoes-dependente/{entity.Id}",
+                    ct);
+            }
+        }
+        else
+        {
+            await ExecuteDependenteCrudAsync(entity, ct);
+            entity.Status = SolicitacaoStatus.Aprovada;
+            entity.ObservacaoAprovador = observacao;
+            entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+            await _statusHistorico.RegistrarAsync(
+                TipoEntidadeStatus.SolicitacaoDependente, entity.Id,
+                statusAnteriorApproveDep, entity.Status.ToString(), _currentUser, observacao, ct);
+
+            await _db.SaveChangesAsync(ct);
+
+            await _workflow.NotifyByFuncionarioIdAsync(
+                entity.SolicitanteId,
+                "Solicitação de dependente aprovada",
+                $"Sua solicitação de {entity.TipoSolicitacao.ToString().ToLower()} de dependente ({entity.NomeCompleto}) foi aprovada.",
+                $"/colaborador/solicitacoes-dependente/{entity.Id}",
+                ct);
+        }
 
         return await GetByIdAsync(id, ct);
     }
@@ -228,11 +321,30 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        var etapaReject = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.Dependente && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
+
+        if (etapaReject is not null)
+        {
+            if (!await _workflow.CanApproveStepAsync(etapaReject, _currentUser, ct))
+                throw new InvalidOperationException("Você não tem permissão para reprovar esta etapa.");
+            etapaReject.Status = StatusAprovacao.Rejeitado;
+            etapaReject.DataUtc = DateTimeOffset.UtcNow;
+            etapaReject.Observacao = observacao;
+        }
+
+        var statusAnteriorRejectDep = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.Reprovada;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoDependente, entity.Id,
+            statusAnteriorRejectDep, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -252,11 +364,16 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         var entity = await _db.SolicitacoesDependente.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        ApprovalWorkflowHelper.ValidateCanApprove(entity.Status);
+        ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        var statusAnteriorChangesDep = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoDependente, entity.Id,
+            statusAnteriorChangesDep, entity.Status.ToString(), _currentUser, observacao, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -283,9 +400,18 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
         return true;
     }
 
-    /// <summary>
-    /// Executa o CRUD real na tabela Dependente conforme o TipoSolicitacao.
-    /// </summary>
+    private static bool IsProcessoStep(SolicitacaoAprovacaoEtapa e) =>
+        e.AprovadorId == null && e.RoleFilaId == null && e.AcaoEtapa != AcaoEtapa.Nenhuma;
+
+    private static void ExecutarAcaoEtapa(AcaoEtapa acao, SolicitacaoDependente entity)
+    {
+        if (acao == AcaoEtapa.EnviarIntegracao)
+        {
+            entity.Status = SolicitacaoStatus.Aprovada;
+            entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+        }
+    }
+
     private async Task ExecuteDependenteCrudAsync(SolicitacaoDependente sol, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
@@ -360,6 +486,10 @@ public sealed class SolicitacaoDependenteService : ISolicitacaoDependenteService
             throw new InvalidOperationException("Você não pertence ao perfil designado para assumir esta etapa.");
 
         etapaAtual.AprovadorId = _currentUser.FuncionarioId;
+
+        if (entity.Status == SolicitacaoStatus.PendenteAprovacaoRh)
+            entity.Status = SolicitacaoStatus.PendenteAprovacao;
+
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);

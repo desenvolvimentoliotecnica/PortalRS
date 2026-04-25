@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RhPortal.Api.Contracts.Colaborador;
 using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.Funcionarios;
@@ -64,7 +65,21 @@ public sealed record FuncionarioUpdateRequest(
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     Guid? CentroCustoId,
     Guid? JobPositionId,
-    [MaxLength(1000)] string? Notes
+    Guid? RequisitoCategoriaId,
+    [MaxLength(1000)] string? Notes,
+    // Hierarquia
+    Guid? GestorDiretoId,
+    Guid? NivelHierarquicoId,
+    // Lotação / Centro de Custo
+    Guid? UnidadeLotacaoId,
+    // Chaves TOTVS
+    [MaxLength(12)] string? CdnFuncionario,
+    [MaxLength(3)] string? CdnEmpresa,
+    [MaxLength(5)] string? CdnEstab,
+    // Dados pessoais
+    DateOnly? DataAdmissao,
+    DateOnly? DataNascimento,
+    [MaxLength(1)] string? Sexo
 );
 
 /// <summary>Request para atualizar apenas o gestor direto e nível hierárquico de um funcionário.</summary>
@@ -174,6 +189,45 @@ public sealed record FuncionarioImportResult(
     List<string> Warnings
 );
 
+/// <summary>Visão unificada 360° de um funcionário. Agrega todos os dados relevantes em um único objeto.</summary>
+public sealed record FuncionarioPerfil360Response(
+    // ── Dados cadastrais ──
+    Guid Id,
+    string Nome,
+    string? Email,
+    string? Telefone,
+    FuncionarioStatus Status,
+    string? AvatarUrl,
+    DateOnly? DataAdmissao,
+    DateOnly? DataNascimento,
+    string? Sexo,
+    bool EmExperiencia,
+    int? DiasRestantesExperiencia,
+    int? ProgressoExperiencia,
+    // ── Cargo e estrutura ──
+    string? CargoNome,
+    string? AreaNome,
+    string? UnidadeNome,
+    string? UnidadeLotacaoNome,
+    string? NivelHierarquicoNome,
+    string? NivelCargoNome,
+    string? CentroCustoNome,
+    // ── Hierarquia ──
+    Guid? GestorDiretoId,
+    string? GestorDiretoNome,
+    string? GestorDiretoAvatarUrl,
+    // ── Chaves TOTVS ──
+    string? CdnFuncionario,
+    string? CdnEmpresa,
+    string? CdnEstab,
+    // ── Sublistas ──
+    IReadOnlyList<HistoricoCarreiraItemResponse> HistoricoCarreira,
+    IReadOnlyList<DependenteResponse> Dependentes,
+    IReadOnlyList<DocumentoResponse> Documentos,
+    IReadOnlyList<HoleriteResponse> Holerites,
+    DadosBancariosResponse? DadosBancarios
+);
+
 public sealed record FuncionarioResponse(
     Guid Id,
     string Name,
@@ -207,5 +261,9 @@ public sealed record FuncionarioResponse(
     string? CentroCustoDescricao,
     // Códigos para exibição
     string? UnidadeLotacaoCode,
-    string? CentroCustoCode
+    string? CentroCustoCode,
+    // Dados pessoais
+    DateOnly? DataAdmissao,
+    DateOnly? DataNascimento,
+    string? Sexo
 );

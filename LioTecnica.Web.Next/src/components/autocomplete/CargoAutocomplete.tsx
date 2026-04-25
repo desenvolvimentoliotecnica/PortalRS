@@ -16,6 +16,7 @@ export interface CargoLookup {
   /** @deprecated use centroCustoName */
   areaName?: string;
   seniority?: string;
+  totvsCargoBasicId?: number | null;
 }
 
 interface CargoAutocompleteProps {
@@ -59,7 +60,11 @@ export function CargoAutocomplete({
   useEffect(() => {
     if (!value || selectedCargo) return;
     const strValue = String(value);
-    const found = allItems.find((c) => c.code === strValue || c.id === strValue);
+    const found = allItems.find((c) =>
+      c.code === strValue ||
+      c.id === strValue ||
+      (c.totvsCargoBasicId != null && String(c.totvsCargoBasicId) === strValue)
+    );
     if (found) {
       setSelectedCargo(found);
     } else if (defaultCargoLabel) {

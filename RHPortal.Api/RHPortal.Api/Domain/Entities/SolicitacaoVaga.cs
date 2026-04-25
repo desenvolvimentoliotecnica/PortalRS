@@ -49,7 +49,7 @@ public sealed class SolicitacaoVaga : ITenantEntity
 
     public SolicitacaoVagaUrgencia Urgencia { get; set; } = SolicitacaoVagaUrgencia.Media;
 
-    public SolicitacaoVagaStatus Status { get; set; } = SolicitacaoVagaStatus.Rascunho;
+    public SolicitacaoStatus Status { get; set; } = SolicitacaoStatus.Rascunho;
 
     /// <summary>Vaga criada automaticamente após aprovação.</summary>
     public Guid? VagaId { get; set; }
@@ -80,8 +80,16 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Prazo em dias (para Estágio e Temporário).</summary>
     public int? PrazoDias { get; set; }
 
-    /// <summary>Motivo estruturado da requisição.</summary>
+    /// <summary>Motivo estruturado da requisição (legado — mantido para compatibilidade com dados existentes).</summary>
+    /// <remarks>
+    /// Substituído por <see cref="MotivoRequisicaoId"/> que referencia a tabela parametrizável MotivosRequisicaoVagaConfig.
+    /// Após a migração completa dos dados, este campo deve ser removido.
+    /// </remarks>
     public MotivoRequisicaoVaga? MotivoRequisicao { get; set; }
+
+    /// <summary>Motivo parametrizável da requisição (FK para MotivosRequisicaoVagaConfig).</summary>
+    public Guid? MotivoRequisicaoId { get; set; }
+    public MotivoRequisicaoVagaConfig? Motivo { get; set; }
 
     /// <summary>CNH obrigatória para a vaga.</summary>
     public bool CnhObrigatoria { get; set; }
@@ -92,7 +100,63 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Escala de trabalho (ex: Comercial, Turno A/B, 12x36).</summary>
     public string? EscalaTrabalho { get; set; }
 
+    // ── Decisão de headcount (escolhida pelo gestor na criação) ──
+
+    /// <summary>Decisão de headcount: consumir existente, provisório por prazo, ou aumento definitivo (escala à Diretoria).</summary>
+    public TipoDecisaoHeadcount? DecisaoRH { get; set; }
+
+    /// <summary>Funcionário que registrou a decisão (snapshot do solicitante ao submeter).</summary>
+    public Guid? DecisaoRHRevisadoPorId { get; set; }
+    public Funcionario? DecisaoRHRevisadoPor { get; set; }
+
+    /// <summary>Data/hora em que a decisão foi consolidada (normalmente = UpdatedAtUtc do submit).</summary>
+    public DateTimeOffset? DecisaoRHEmUtc { get; set; }
+
+    /// <summary>Prazo em meses para a substituição provisória (quando DecisaoRH = SubstituicaoProvisoria).</summary>
+    public int? DecisaoRHPrazoMeses { get; set; }
+
+    /// <summary>Data/hora alvo de expiração do provisório (preenchida pelo front em qualquer unidade). Fallback pra PrazoMeses.</summary>
+    public DateTimeOffset? DecisaoRHPrazoDataAlvo { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public DateTimeOffset? ApprovedAtUtc { get; set; }
+
+    // ── Dados de desligamento (quando MotivoRequisicao = PedidoDemissao ou DesligamentoSemJustaCausa) ──
+
+    /// <summary>Funcionário que será desligado — igual a SubstituidoFuncionarioId; campo semântico para o fluxo de desligamento.</summary>
+    public DateOnly? DataDesligamento { get; set; }
+
+    public TipoAvisoPrevio? TipoAvisoPrevioDesligamento { get; set; }
+
+    public int? DiasAvisoPrevioDesligamento { get; set; }
+
+    public bool? PossuiEstabilidadeDesligamento { get; set; }
+
+    [System.ComponentModel.DataAnnotations.MaxLength(2000)]
+    public string? MotivoDesligamentoTexto { get; set; }
+
+    /// <summary>Solicitação de desligamento gerada automaticamente na primeira aprovação desta vaga.</summary>
+    public Guid? DesligamentoVinculadoId { get; set; }
+
+    // ── Amarração com candidato contratado ──
+
+    /// <summary>Candidato contratado para esta vaga (amarrado quando a pré-admissão é efetivada).</summary>
+    public Guid? CandidatoContratadoId { get; set; }
+    public Candidato? CandidatoContratado { get; set; }
+
+    // ── Integração TOTVS ──
+
+    public IntegracaoResultado? IntegracaoResultado { get; set; }
+
+    [System.ComponentModel.DataAnnotations.StringLength(2000)]
+    public string? IntegracaoMensagem { get; set; }
+
+    public DateTimeOffset? IntegradaEmUtc { get; set; }
+
+    public Guid? EfetivadoManualmentePorId { get; set; }
+    public DateTimeOffset? EfetivadoManualmenteEmUtc { get; set; }
+
+    public int TentativasIntegracao { get; set; }
+    public DateTimeOffset? UltimaTentativaUtc { get; set; }
 }

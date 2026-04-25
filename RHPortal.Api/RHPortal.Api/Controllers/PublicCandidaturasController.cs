@@ -6,6 +6,7 @@ using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidaturas;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.ProjetosVaga;
 using RhPortal.Api.Application.Talentos;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -68,6 +69,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         [FromServices] NotificationPublisher notificationPublisher,
         [FromServices] ITenantContext tenantContext,
         [FromServices] IEmailQueueService emailQueue,
+        [FromServices] IProjetoVagaService projetoVagaService,
         [FromServices] ICandidaturaService candidaturaService,
         CancellationToken ct)
     {
@@ -120,6 +122,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         var shouldNotify = false;
         var notifyCandidateId = Guid.Empty;
         var notifyTenantId = tenantContext.TenantId;
+        var talentoId = Guid.Empty;
 
         try
         {
@@ -137,6 +140,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     obs ?? existing.Obs,
                     OrigemTalento.Candidatura,
                     ct);
+                talentoId = talentoExisting.Id;
                 existing.TalentoId = talentoExisting.Id;
 
                 existing.VagaId = request.VagaId;
@@ -157,6 +161,7 @@ public sealed class PublicCandidaturasController : ControllerBase
                     existing.Nome,
                     existing.Email,
                     existing.Fone,
+                    existing.Celular,
                     existing.Cidade,
                     existing.Uf,
                     existing.LinkedinUrl,
@@ -207,11 +212,13 @@ public sealed class PublicCandidaturasController : ControllerBase
                     obs,
                     OrigemTalento.Candidatura,
                     ct);
+                talentoId = talentoNew.Id;
 
                 var create = new CandidateCreateRequest(
                     request.Nome,
                     email,
                     request.Fone,
+                    request.Fone ?? string.Empty,  // Celular — campo obrigatório; portal público usa o mesmo número
                     cidade,
                     uf,
                     null,                   // LinkedinUrl
@@ -243,6 +250,19 @@ public sealed class PublicCandidaturasController : ControllerBase
                         request.Arquivo,
                         ct);
                 }
+            }
+
+            // Enfileira extração GPT do currículo no talento (best-effort, apenas PDF)
+            if (talentoId != Guid.Empty &&
+                request.Arquivo is { Length: > 0 } &&
+                request.Arquivo.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    await using var cvStream = request.Arquivo.OpenReadStream();
+                    await talentoService.StartImportPdfAsync(talentoId, cvStream, request.Arquivo.FileName, enviarParaGpt: true, ct);
+                }
+                catch { /* best-effort: não falha a candidatura */ }
             }
 
             // ── Registrar/atualizar Candidatura (junction Candidato↔Vaga com histórico) ──
@@ -296,6 +316,33 @@ public sealed class PublicCandidaturasController : ControllerBase
                 }
                 catch { /* best-effort: não falha a candidatura */ }
             }
+
+            // Auto-assign à rodada ativa da vaga (best-effort — não falha a candidatura)
+            try
+            {
+                var rodada = await projetoVagaService.GetActiveAsync(request.VagaId, ct);
+                if (rodada is not null)
+                {
+                    var jaNoRodada = await db.Set<ProjetoCandidato>()
+                        .AnyAsync(pc => pc.ProjetoId == rodada.Id && pc.CandidatoId == result.Id, ct);
+                    if (!jaNoRodada)
+                    {
+                        db.Set<ProjetoCandidato>().Add(new ProjetoCandidato
+                        {
+                            Id = Guid.NewGuid(),
+                            TenantId = tenantContext.TenantId,
+                            ProjetoId = rodada.Id,
+                            CandidatoId = result.Id,
+                            Status = StatusCandidatoProjeto.Ativo,
+                            Observacoes = "Inscrito via Portal de Vagas.",
+                            CreatedAtUtc = DateTimeOffset.UtcNow,
+                            UpdatedAtUtc = DateTimeOffset.UtcNow,
+                        });
+                        await db.SaveChangesAsync(ct);
+                    }
+                }
+            }
+            catch { /* best-effort: não bloqueia a candidatura */ }
 
             // 4) Email (best effort) — pode manter como está
             try

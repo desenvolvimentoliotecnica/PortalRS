@@ -159,6 +159,48 @@
   <data name="ControllerLabels.ReportCatalogSlaVagaDescription" xml:space="preserve">
     <value>SLA metrics by recruiter and area.</value>
   </data>
+  <data name="ControllerLabels.ReportCatalogMovimentacaoHeadcountTitle" xml:space="preserve">
+    <value>Headcount Movement</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogMovimentacaoHeadcountDescription" xml:space="preserve">
+    <value>Hires, terminations, transfers and promotions in the period.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogTurnoverRetencaoTitle" xml:space="preserve">
+    <value>Turnover &amp; Retention</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogTurnoverRetencaoDescription" xml:space="preserve">
+    <value>Voluntary vs. involuntary terminations by area.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogTthContratacaoTitle" xml:space="preserve">
+    <value>Time to Hire (TTH)</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogTthContratacaoDescription" xml:space="preserve">
+    <value>TTH by area, recruiter and contract type.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogHeadcountPlanRealTitle" xml:space="preserve">
+    <value>Headcount Plan vs. Actual</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogHeadcountPlanRealDescription" xml:space="preserve">
+    <value>Budgeted positions vs. active headcount by area.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPiramideEtariaTitle" xml:space="preserve">
+    <value>Age Pyramid &amp; Diversity</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPiramideEtariaDescription" xml:space="preserve">
+    <value>Distribution by age group and gender.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPromocoesTitle" xml:space="preserve">
+    <value>Promotions &amp; Salary Movements</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogPromocoesDescription" xml:space="preserve">
+    <value>Approved promotions history with new position and salary.</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFeriasTitle" xml:space="preserve">
+    <value>Vacation Report</value>
+  </data>
+  <data name="ControllerLabels.ReportCatalogFeriasDescription" xml:space="preserve">
+    <value>Vacation requests, approved and taken by area.</value>
+  </data>
   <data name="ControllerLabels.RecebidoEm" xml:space="preserve">
     <value>Received At</value>
   </data>

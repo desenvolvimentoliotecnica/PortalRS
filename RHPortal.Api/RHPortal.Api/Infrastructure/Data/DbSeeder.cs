@@ -136,6 +136,10 @@ public static class DbSeeder
                     await tenantDb.Database.MigrateAsync(ct);
                     await TenantProvisioningService.ApplyOrphanMigrationsAsync(tenantDb, tenantId, ct);
 
+                    // Seeds idempotentes de tabelas parametrizáveis (rodam a cada startup — no-op se já populadas).
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.MotivoRequisicaoVagaSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+
                     // Garante defaults do catálogo de módulos para tenants provisionados antes da
                     // introdução do TenantModules (idempotente).
                     var tenantModuleService = tenantScope.ServiceProvider.GetRequiredService<TenantModuleService>();

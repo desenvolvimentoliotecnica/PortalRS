@@ -1,12 +1,10 @@
-"use client";
-
-import { AuthGuard } from "@/hooks/useAuth";
-import FuncionariosScreen from "@/features/cadastros/funcionarios/FuncionariosScreen";
+import { Suspense } from "react";
+import FuncionariosClient from "./FuncionariosClient";
 
 export default function FuncionariosPage() {
     return (
-        <AuthGuard>
-            <FuncionariosScreen />
-        </AuthGuard>
+        <Suspense fallback={null}>
+            <FuncionariosClient />
+        </Suspense>
     );
 }

@@ -32,7 +32,37 @@ public sealed record IntegracaoTotvsPainelResponse(
     int Falha
 );
 
+public sealed record IntegracaoReconciliacaoItemResponse(
+    Guid Id,
+    short TipoIntegracao,
+    string TipoIntegracaoLabel,
+    string Nome,
+    IntegracaoResultado? IntegracaoResultado,
+    string? IntegracaoMensagem,
+    int TentativasIntegracao,
+    DateTimeOffset? UltimaTentativaUtc,
+    DateTimeOffset? IntegradaEmUtc,
+    DateTimeOffset? ApprovedAtUtc
+);
+
+public sealed record IntegracaoReconciliacaoResponse(
+    IReadOnlyList<IntegracaoReconciliacaoItemResponse> Pendentes,
+    IReadOnlyList<IntegracaoReconciliacaoItemResponse> EmFalha,
+    IReadOnlyList<IntegracaoReconciliacaoItemResponse> FalhaDefinitiva,
+    int Total
+);
+
 public sealed record IntegracaoTotvsResultadoRequest(
     [Required] IntegracaoResultado Resultado,
-    [MaxLength(2000)] string? Mensagem
+    [MaxLength(2000)] string? Mensagem,
+    /// <summary>
+    /// Código do funcionário retornado pelo TOTVS (cdn_funcionario).
+    /// Apenas para TipoIntegracao.Admissao — usado para materializar o Funcionario.
+    /// </summary>
+    [MaxLength(30)] string? CdnFuncionario = null
+);
+
+public sealed record EfetivarManualResponse(
+    DateTimeOffset EfetivadoManualmenteEmUtc,
+    string? ResponsavelNome
 );

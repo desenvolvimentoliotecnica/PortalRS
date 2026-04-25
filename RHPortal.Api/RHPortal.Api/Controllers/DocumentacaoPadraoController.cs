@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.DocumentacaoPadrao;
 using RhPortal.Api.Contracts.DocumentacaoPadrao;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Domain.Entities;
 
 namespace RhPortal.Api.Controllers;
@@ -11,7 +11,7 @@ namespace RhPortal.Api.Controllers;
 /// O admin define, por tipo de documento, se é Obrigatório, Opcional ou Não será pedido.
 /// </summary>
 [ApiController]
-[Authorize(Roles = "Admin,Administrador,Owner")]
+[RequirePermission("access.manage")]
 [Route("api/admin/documentacao-padrao")]
 public sealed class DocumentacaoPadraoController : ControllerBase
 {

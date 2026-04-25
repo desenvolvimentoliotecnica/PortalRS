@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Funcionarios;
 using RhPortal.Api.Application.Funcionarios.Handlers;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Contracts.Colaborador;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Funcionarios;
 using RhPortal.Api.Domain.Entities;
@@ -35,8 +36,50 @@ public sealed class FuncionariosController : ControllerBase
     public async Task<ActionResult<PagedResult<FuncionarioGridRowResponse>>> List(
         [FromQuery] FuncionarioListQuery query,
         [FromServices] IListFuncionariosHandler handler,
+        [FromServices] ICurrentUserContext userContext,
+        [FromServices] AppDbContext db,
         CancellationToken ct)
-        => Ok(await handler.HandleAsync(query, ct));
+    {
+        if (!userContext.IsAdmin && !userContext.IsRH)
+        {
+            if (userContext.IsInRole("Gestor"))
+            {
+                var gestorId = userContext.FuncionarioId;
+                if (!gestorId.HasValue)
+                    return Ok(new PagedResult<FuncionarioGridRowResponse>([], 1, query.PageSize, 0, 0));
+
+                // Resolve unidades de lotação do gestor (mesma lógica do GestaoController.MeuTime)
+                var todasUnidades = await db.UnidadesLotacao.AsNoTracking()
+                    .Where(u => u.IsActive)
+                    .Select(u => new { u.Id, u.ParentId, u.OwnerFuncionarioId })
+                    .ToListAsync(ct);
+
+                var unidadesDoGestor = new HashSet<Guid>();
+                var fila = new Queue<Guid>(
+                    todasUnidades.Where(u => u.OwnerFuncionarioId == gestorId).Select(u => u.Id));
+                while (fila.Count > 0)
+                {
+                    var unitId = fila.Dequeue();
+                    if (!unidadesDoGestor.Add(unitId)) continue;
+                    foreach (var child in todasUnidades.Where(u => u.ParentId == unitId))
+                        fila.Enqueue(child.Id);
+                }
+
+                query = query with
+                {
+                    GestorUnidadeIds = unidadesDoGestor.Count > 0 ? unidadesDoGestor.ToList() : null,
+                };
+            }
+            else if (userContext.IsInRole("Colaborador"))
+            {
+                if (!userContext.FuncionarioId.HasValue)
+                    return Ok(new PagedResult<FuncionarioGridRowResponse>([], 1, query.PageSize, 0, 0));
+                query = query with { OnlyFuncionarioId = userContext.FuncionarioId.Value };
+            }
+        }
+
+        return Ok(await handler.HandleAsync(query, ct));
+    }
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(FuncionarioResponse), StatusCodes.Status200OK)]
@@ -433,5 +476,168 @@ public sealed class FuncionariosController : ControllerBase
     {
         var deleted = await handler.HandleAsync(id, ct);
         return deleted ? NoContent() : NotFound();
+    }
+
+    /// <summary>
+    /// Visão 360° de um funcionário: dados cadastrais + histórico de carreira + dependentes +
+    /// documentos + holerites + dados bancários (mascarados para não-RH).
+    /// Autorização: funcionário vê apenas o próprio perfil; gestor vê subordinados diretos; RH/Admin veem qualquer um.
+    /// </summary>
+    [HttpGet("{id:guid}/perfil-360")]
+    [ProducesResponseType(typeof(FuncionarioPerfil360Response), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPerfil360(
+        [FromRoute] Guid id,
+        [FromServices] AppDbContext db,
+        [FromServices] ICurrentUserContext userContext,
+        CancellationToken ct)
+    {
+        var f = await db.Funcionarios.AsNoTracking()
+            .Include(x => x.JobPosition)
+            .Include(x => x.CentroCusto)
+            .Include(x => x.Unit)
+            .Include(x => x.UnidadeLotacao)
+            .Include(x => x.NivelHierarquico)
+            .Include(x => x.NivelCargo)
+            .Include(x => x.CentroCusto)
+            .Include(x => x.GestorDireto)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (f is null) return NotFound();
+
+        // ── Autorização ──
+        var callerFuncionarioId = userContext.FuncionarioId;
+        var isRhOrAdmin = userContext.IsAdmin || userContext.IsRH;
+
+        if (!isRhOrAdmin)
+        {
+            var isOwnProfile = callerFuncionarioId == id;
+            var isSubordinate = callerFuncionarioId.HasValue && f.GestorDiretoId == callerFuncionarioId;
+            if (!isOwnProfile && !isSubordinate)
+                return Forbid();
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        // ── Indicadores de experiência ──
+        var emExperiencia = f.DataAdmissao.HasValue &&
+            f.DataAdmissao.Value.AddDays(f.PeriodoExperienciaDias) > today;
+
+        var diasRestantesExperiencia = emExperiencia
+            ? (int)(f.DataAdmissao!.Value.AddDays(f.PeriodoExperienciaDias).ToDateTime(TimeOnly.MinValue) - DateTime.Today).TotalDays
+            : (int?)null;
+
+        var progressoExperiencia = emExperiencia && f.DataAdmissao.HasValue
+            ? (int)Math.Round(
+                (DateTime.Today - f.DataAdmissao.Value.ToDateTime(TimeOnly.MinValue)).TotalDays
+                / f.PeriodoExperienciaDias * 100)
+            : (int?)null;
+
+        // ── Histórico de carreira ──
+        var historico = await db.OcupacoesHistorico.AsNoTracking()
+            .Include(h => h.Vaga).ThenInclude(v => v!.JobPosition)
+            .Include(h => h.Vaga).ThenInclude(v => v!.CentroCusto)
+            .Where(h => h.FuncionarioId == id)
+            .OrderByDescending(h => h.DataEntrada)
+            .ToListAsync(ct);
+
+        var historicoItems = historico.Select(h => new HistoricoCarreiraItemResponse(
+            h.Id,
+            h.Vaga?.Titulo,
+            h.Vaga?.JobPosition?.Description,
+            h.Vaga?.CentroCusto?.Description,
+            h.DataEntrada,
+            h.DataSaida,
+            h.MotivoSaida?.ToString(),
+            h.IsProvisorio
+        )).ToList();
+
+        // ── Dependentes ──
+        var dependentes = await db.Dependentes.AsNoTracking()
+            .Where(d => d.FuncionarioId == id)
+            .OrderBy(d => d.NomeCompleto)
+            .ToListAsync(ct);
+
+        var dependentesItems = dependentes.Select(d => new DependenteResponse(
+            d.Id, d.NomeCompleto, d.Parentesco, d.Cpf, d.DataNascimento, d.IsPcd, d.CreatedAtUtc
+        )).ToList();
+
+        // ── Documentos ──
+        var docs = await db.DocumentosColaborador.AsNoTracking()
+            .Where(d => d.FuncionarioId == id)
+            .OrderByDescending(d => d.CreatedAtUtc)
+            .ToListAsync(ct);
+
+        var docItems = docs.Select(d => new DocumentoResponse(
+            d.Id, d.Tipo, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh, d.CreatedAtUtc
+        )).ToList();
+
+        // ── Holerites ──
+        var holerites = await db.Holerites.AsNoTracking()
+            .Include(h => h.EnviadoPor)
+            .Where(h => h.FuncionarioId == id)
+            .OrderByDescending(h => h.AnoReferencia).ThenByDescending(h => h.MesReferencia)
+            .ToListAsync(ct);
+
+        var holeriteItems = holerites.Select(h => new HoleriteResponse(
+            h.Id, h.MesReferencia, h.AnoReferencia, h.ArquivoNome, h.TamanhoBytes,
+            h.EnviadoPorId, h.EnviadoPor?.Name, h.EnviadoEmUtc
+        )).ToList();
+
+        // ── Dados bancários (conta mascarada para não-RH) ──
+        var dadosBancarios = await db.DadosBancarios.AsNoTracking()
+            .FirstOrDefaultAsync(d => d.FuncionarioId == id, ct);
+
+        DadosBancariosResponse? dadosBancariosDto = null;
+        if (dadosBancarios is not null)
+        {
+            var contaExibida = isRhOrAdmin
+                ? dadosBancarios.Conta
+                : "****" + (dadosBancarios.Conta.Length >= 4 ? dadosBancarios.Conta[^4..] : dadosBancarios.Conta);
+            dadosBancariosDto = new DadosBancariosResponse(
+                dadosBancarios.Id, dadosBancarios.Banco, dadosBancarios.Agencia,
+                contaExibida, dadosBancarios.TipoConta, dadosBancarios.Pix, dadosBancarios.UpdatedAtUtc
+            );
+        }
+
+        var gestorAvatarUrl = f.GestorDireto is not null && !string.IsNullOrWhiteSpace(f.GestorDireto.AvatarFileName)
+            ? $"/api/funcionarios/{f.GestorDiretoId}/avatar"
+            : null;
+
+        var result = new FuncionarioPerfil360Response(
+            f.Id,
+            f.Name,
+            f.Email,
+            f.Phone,
+            f.Status,
+            !string.IsNullOrWhiteSpace(f.AvatarFileName) ? $"/api/funcionarios/{f.Id}/avatar" : null,
+            f.DataAdmissao,
+            f.DataNascimento,
+            f.Sexo,
+            emExperiencia,
+            diasRestantesExperiencia,
+            progressoExperiencia,
+            f.JobPosition?.Description,
+            null, // AreaNome — Area absorvida pelo CentroCusto em 31.2
+            f.Unit?.Name,
+            f.UnidadeLotacao?.Description,
+            f.NivelHierarquico?.Nome,
+            f.NivelCargo?.NomComplet,
+            f.CentroCusto?.Description,
+            f.GestorDiretoId,
+            f.GestorDireto?.Name,
+            gestorAvatarUrl,
+            f.CdnFuncionario,
+            f.CdnEmpresa,
+            f.CdnEstab,
+            historicoItems,
+            dependentesItems,
+            docItems,
+            holeriteItems,
+            dadosBancariosDto
+        );
+
+        return Ok(result);
     }
 }

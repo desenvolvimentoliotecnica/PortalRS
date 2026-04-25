@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, Lock, Monitor, Package } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Bot, ChevronDown, ChevronRight, EyeOff, Loader2, Lock, Monitor, Package } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -16,6 +16,8 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return res.status === 204 ? (null as T) : res.json();
 }
 
+type EstadoTela = "ativo" | "oculto" | "bloqueado";
+
 interface ModuleScreen {
     id: string;
     label: string;
@@ -25,6 +27,7 @@ interface ModuleScreen {
     ordem: number;
     grupoUiKey: string;
     grupoUiLabel: string;
+    estado: EstadoTela;
 }
 
 interface TenantModule {
@@ -47,6 +50,97 @@ interface TenantPackage {
     updatedAtUtc: string | null;
 }
 
+// Telas que ganham controle individual de visibilidade no entitlement do tenant.
+const FEATURED_SCREENS: { navItemId: string; label: string; description: string; icon: React.ReactNode }[] = [
+    {
+        navItemId: "nav-assistente-ia",
+        label: "Assistente IA",
+        description: "Chatbot inteligente disponível no sidebar para os usuários do tenant.",
+        icon: <Bot className="size-4 text-violet-500" />,
+    },
+];
+
+function FuncionalidadesDestaqueSection({
+    modules,
+    onSetEstado,
+    savingScreenId,
+}: {
+    modules: TenantModule[];
+    onSetEstado: (screen: ModuleScreen, estado: EstadoTela) => Promise<void>;
+    savingScreenId: string | null;
+}) {
+    // Encontra cada tela destacada nos módulos já carregados
+    const allTelas = modules.flatMap((m) => m.telas);
+    const entries = FEATURED_SCREENS.map((f) => ({
+        ...f,
+        tela: allTelas.find((t) => t.id === f.navItemId),
+    })).filter((e) => e.tela !== undefined) as Array<typeof FEATURED_SCREENS[number] & { tela: ModuleScreen }>;
+
+    if (entries.length === 0) return null;
+
+    return (
+        <section>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Funcionalidades com controle individual</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {entries.map(({ navItemId, label, description, icon, tela }) => {
+                    const estado = tela.estado ?? "ativo";
+                    const isSaving = savingScreenId === navItemId;
+                    return (
+                        <Card key={navItemId} className="p-3 shadow-lt">
+                            <div className="flex items-start gap-3">
+                                <div className="mt-0.5 shrink-0">{icon}</div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                        <span className="font-medium text-sm">{label}</span>
+                                        {isSaving && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+                                        <span className={`text-[9px] font-bold uppercase rounded px-1 py-0.5 ${
+                                            estado === "ativo" ? "bg-emerald-100 text-emerald-700" :
+                                            estado === "bloqueado" ? "bg-amber-100 text-amber-700" :
+                                            "bg-gray-100 text-gray-500"
+                                        }`}>
+                                            {estado === "ativo" ? "Visível" : estado === "bloqueado" ? "Bloqueado" : "Oculto"}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground">{description}</p>
+                                </div>
+                                <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+                                    <button
+                                        type="button"
+                                        title="Visível — aparece normalmente"
+                                        disabled={isSaving}
+                                        onClick={() => void onSetEstado(tela, "ativo")}
+                                        className={`rounded p-1 transition-colors ${estado === "ativo" ? "bg-emerald-100 text-emerald-600" : "text-gray-300 hover:text-emerald-400"}`}
+                                    >
+                                        <Monitor className="size-3.5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        title="Oculto — não aparece no menu"
+                                        disabled={isSaving}
+                                        onClick={() => void onSetEstado(tela, "oculto")}
+                                        className={`rounded p-1 transition-colors ${estado === "oculto" ? "bg-gray-200 text-gray-600" : "text-gray-300 hover:text-gray-500"}`}
+                                    >
+                                        <EyeOff className="size-3.5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        title="Bloqueado — aparece com cadeado"
+                                        disabled={isSaving}
+                                        onClick={() => void onSetEstado(tela, "bloqueado")}
+                                        className={`rounded p-1 transition-colors ${estado === "bloqueado" ? "bg-amber-100 text-amber-600" : "text-gray-300 hover:text-amber-400"}`}
+                                    >
+                                        <Lock className="size-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </Card>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
 export default function TabModulos({ tenantId }: { tenantId: string }) {
     const modulesBase = `/api/owner/tenants/${encodeURIComponent(tenantId)}/modules`;
     const modulesDetailedUrl = `${modulesBase}/detailed`;
@@ -58,6 +152,7 @@ export default function TabModulos({ tenantId }: { tenantId: string }) {
     const [savingModuleKey, setSavingModuleKey] = useState<string | null>(null);
     const [savingPackageKey, setSavingPackageKey] = useState<string | null>(null);
     const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+    const [savingScreenId, setSavingScreenId] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -115,6 +210,28 @@ export default function TabModulos({ tenantId }: { tenantId: string }) {
         }
     };
 
+    const setScreenEstado = async (screen: ModuleScreen, estado: EstadoTela) => {
+        if (savingScreenId === screen.id) return;
+        setSavingScreenId(screen.id);
+        try {
+            await fetchJson<void>(`/api/owner/tenants/${encodeURIComponent(tenantId)}/screens/${encodeURIComponent(screen.id)}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ estado }),
+            });
+            setModules((prev) =>
+                prev.map((m) => ({
+                    ...m,
+                    telas: m.telas.map((t) => t.id === screen.id ? { ...t, estado } : t),
+                }))
+            );
+        } catch (e) {
+            toast.error((e as Error).message || "Falha ao atualizar tela.");
+        } finally {
+            setSavingScreenId(null);
+        }
+    };
+
     const toggleExpand = (moduleKey: string) => {
         setExpandedModules((prev) => {
             const next = new Set(prev);
@@ -150,20 +267,53 @@ export default function TabModulos({ tenantId }: { tenantId: string }) {
         }
         return (
             <ul className="mt-2 space-y-1 rounded border border-gray-100 bg-gray-50 p-2">
-                {mod.telas.map((t) => (
-                    <li key={t.id} className="flex items-start gap-2 text-[11px]">
-                        <Monitor className="size-3 mt-0.5 shrink-0 text-muted-foreground" />
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-slate-700">{t.label}</span>
-                                <code className="text-[10px] text-muted-foreground">{t.href}</code>
+                {mod.telas.map((t) => {
+                    const isSaving = savingScreenId === t.id;
+                    const estado = t.estado ?? "ativo";
+                    return (
+                        <li key={t.id} className="flex items-center gap-2 text-[11px]">
+                            <div className="flex items-center gap-0.5 shrink-0">
+                                <button
+                                    type="button"
+                                    title="Ativo — visível e acessível"
+                                    disabled={isSaving}
+                                    onClick={() => void setScreenEstado(t, "ativo")}
+                                    className={`rounded p-0.5 transition-colors ${estado === "ativo" ? "bg-emerald-100 text-emerald-600" : "text-gray-300 hover:text-emerald-400"}`}
+                                >
+                                    <Monitor className="size-3" />
+                                </button>
+                                <button
+                                    type="button"
+                                    title="Oculto — não aparece no menu"
+                                    disabled={isSaving}
+                                    onClick={() => void setScreenEstado(t, "oculto")}
+                                    className={`rounded p-0.5 transition-colors ${estado === "oculto" ? "bg-gray-200 text-gray-600" : "text-gray-300 hover:text-gray-500"}`}
+                                >
+                                    <EyeOff className="size-3" />
+                                </button>
+                                <button
+                                    type="button"
+                                    title="Bloqueado — aparece com cadeado"
+                                    disabled={isSaving}
+                                    onClick={() => void setScreenEstado(t, "bloqueado")}
+                                    className={`rounded p-0.5 transition-colors ${estado === "bloqueado" ? "bg-amber-100 text-amber-600" : "text-gray-300 hover:text-amber-400"}`}
+                                >
+                                    <Lock className="size-3" />
+                                </button>
+                                {isSaving && <Loader2 className="size-3 animate-spin text-muted-foreground ml-0.5" />}
                             </div>
-                            <div className="text-[10px] text-muted-foreground">
-                                Permissão: <code>{t.permissionKey}</code> · Bucket: {t.grupoUiLabel}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`font-medium ${estado === "oculto" ? "text-gray-400 line-through" : "text-slate-700"}`}>{t.label}</span>
+                                    <code className="text-[10px] text-muted-foreground">{t.href}</code>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                    Permissão: <code>{t.permissionKey}</code> · Bucket: {t.grupoUiLabel}
+                                </div>
                             </div>
-                        </div>
-                    </li>
-                ))}
+                        </li>
+                    );
+                })}
             </ul>
         );
     };
@@ -310,6 +460,8 @@ export default function TabModulos({ tenantId }: { tenantId: string }) {
                     ))}
                 </div>
             </section>
+
+            <FuncionalidadesDestaqueSection modules={modules} onSetEstado={setScreenEstado} savingScreenId={savingScreenId} />
         </div>
     );
 }

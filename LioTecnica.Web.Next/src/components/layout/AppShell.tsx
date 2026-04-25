@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
@@ -15,6 +15,7 @@ import type { BffNavItem } from "@/lib/schemas/bff";
 import type { NavGrupoResponse } from "@/lib/schemas/navegacao";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
 import { PendenciasProvider } from "@/contexts/PendenciasContext";
+import FuncionarioDetailDialog from "@/features/cadastros/funcionarios/FuncionarioDetailDialog";
 
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -54,6 +55,7 @@ function AppShellInner({ children }: { children: ReactNode }) {
   const { me } = useAuth();
   const { isCollapsed } = useSidebar();
   const { grupos, isOwnerRoot } = useNavegacaoSidebar();
+  const [globalFuncionarioId, setGlobalFuncionarioId] = useState<string | null>(null);
 
   // Owner-root: backend devolve grupos vazios + contextoEspecial="owner-root";
   // frontend injeta o menu sintético OWNER_NAV_ITEMS (não persiste em DB).
@@ -63,6 +65,15 @@ function AppShellInner({ children }: { children: ReactNode }) {
     }
     return grupos;
   }, [grupos, isOwnerRoot, me]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<{ id: string }>).detail?.id;
+      if (id) setGlobalFuncionarioId(id);
+    };
+    window.addEventListener("renderrh:openFuncionario", handler);
+    return () => window.removeEventListener("renderrh:openFuncionario", handler);
+  }, []);
 
   return (
     <div className="flex min-h-dvh">
@@ -80,6 +91,10 @@ function AppShellInner({ children }: { children: ReactNode }) {
         <div className="p-4 lg:p-6 flex-1">
           <RouteAllowlistGuard>{children}</RouteAllowlistGuard>
         </div>
+        <FuncionarioDetailDialog
+          funcionarioId={globalFuncionarioId}
+          onClose={() => setGlobalFuncionarioId(null)}
+        />
         <AssistenteIaFab />
         <footer className="border-t border-[var(--lt-border)] px-4 py-3 text-center text-[11px] text-muted-foreground/50 select-none tracking-wide">
           © {new Date().getFullYear()} · Portal de RH

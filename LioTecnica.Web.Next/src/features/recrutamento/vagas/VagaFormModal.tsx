@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { getTenantId } from "@/lib/session";
 import { lookupCep } from "@/lib/cepLookup";
 import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
@@ -851,6 +852,13 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [wizardMode, setWizardMode] = useState(false);
   const loaded = useRef(false);
 
+  // Histórico da decisão de headcount registrada na solicitação de vaga (read-only).
+  // Decisão agora é feita pelo GESTOR na criação da solicitação — RH não decide mais aqui.
+  const [decisaoRHFeita, setDecisaoRHFeita] = useState<{
+    tipo: number; revisadoPorNome: string | null; emUtc: string | null; prazoMeses: number | null;
+    expiresAtUtc: string | null;
+  } | null>(null);
+
   const stepCompletion = useMemo(() => {
     const s = new Map<TabKey, boolean>();
     s.set("dados", !!(draft.titulo.trim() && draft.centroCustoId && draft.status));
@@ -872,7 +880,11 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   }, []);
 
   useEffect(() => {
-    if (!open) { loaded.current = false; return; }
+    if (!open) {
+      loaded.current = false;
+      setDecisaoRHFeita(null);
+      return;
+    }
     if (loaded.current) return;
     loaded.current = true;
     setTab(defaultTab ?? "identificacao");
@@ -996,6 +1008,19 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         checagemAntecedentes: pickBool(v.checagemAntecedentes),
         nomeEngessado: pick(v.nomeEngessado),
       });
+
+      // Histórico da decisão de headcount (read-only — decisão é feita na criação da solicitação pelo gestor)
+      if (v.decisaoRH != null) {
+        setDecisaoRHFeita({
+          tipo: Number(v.decisaoRH),
+          revisadoPorNome: v.decisaoRHRevisadoPorNome ? String(v.decisaoRHRevisadoPorNome) : null,
+          emUtc: v.decisaoRHEmUtc ? String(v.decisaoRHEmUtc) : null,
+          prazoMeses: v.decisaoRHPrazoMeses != null ? Number(v.decisaoRHPrazoMeses) : null,
+          expiresAtUtc: v.headcountProvisorioExpiresAtUtc ? String(v.headcountProvisorioExpiresAtUtc) : null,
+        });
+      } else {
+        setDecisaoRHFeita(null);
+      }
     } catch { toast.error("Falha ao carregar dados da vaga."); }
   }
 
@@ -1143,6 +1168,26 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
             ))}
           </div>
         </div>
+
+        {/* Histórico de decisão de headcount — quando já registrada (read-only) */}
+        {decisaoRHFeita && (
+          <div className="mx-4 mb-1 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 px-4 py-3 shrink-0">
+            <p className="text-xs text-emerald-700 dark:text-emerald-400">
+              <strong>Decisão de HC:</strong>{" "}
+              {decisaoRHFeita.tipo === 1
+                ? `Substituição provisória${decisaoRHFeita.expiresAtUtc
+                    ? ` — revisão em ${new Date(decisaoRHFeita.expiresAtUtc).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
+                    : decisaoRHFeita.prazoMeses
+                      ? ` (${decisaoRHFeita.prazoMeses} meses)`
+                      : ""}`
+                : decisaoRHFeita.tipo === 3
+                  ? "Headcount existente consumido — posição em aberto utilizada"
+                  : "Aumento definitivo (encaminhado para aprovação)"}
+              {decisaoRHFeita.revisadoPorNome && ` — por ${decisaoRHFeita.revisadoPorNome}`}
+              {decisaoRHFeita.emUtc && ` em ${new Date(decisaoRHFeita.emUtc).toLocaleDateString("pt-BR")}`}
+            </p>
+          </div>
+        )}
 
         {/* Tab content (scrollable) */}
         <div className="flex-1 overflow-y-auto px-4 pb-4">
@@ -1630,11 +1675,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                     <div>
                       <div className="text-sm font-semibold">Link do Portal de Candidatura</div>
                       <div className="text-xs text-muted-foreground mt-0.5 font-mono truncate max-w-xs">
-                        {typeof window !== "undefined" ? `${window.location.origin}/portalvagas?vagaId=${draft.id}` : `/portalvagas?vagaId=${draft.id}`}
+                        {typeof window !== "undefined" ? `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(getTenantId() ?? "")}&vagaId=${encodeURIComponent(draft.id)}` : `/app/PortalVagas?vagaId=${draft.id}`}
                       </div>
                     </div>
                     <Button size="sm" variant="outline" type="button" onClick={() => {
-                      const url = `${window.location.origin}/portalvagas?vagaId=${draft.id}`;
+                      const tenantId = getTenantId() ?? "";
+                      const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(draft.id ?? "")}`;
                       void navigator.clipboard.writeText(url).then(() => toast.success("Link copiado!"));
                     }}>
                       Copiar link

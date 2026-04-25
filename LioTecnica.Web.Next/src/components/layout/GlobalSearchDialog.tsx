@@ -3,9 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-    Briefcase,
-    Users,
-    UserCircle,
     BadgeCheck,
     Building2,
     Search,
@@ -39,9 +36,6 @@ interface CategoryMeta {
 }
 
 const CATEGORIES: Record<Category, CategoryMeta> = {
-    vagas: { label: "Quadro de Vagas", icon: Briefcase, color: "text-blue-600", bg: "bg-blue-100" },
-    candidatos: { label: "Candidatos", icon: Users, color: "text-violet-600", bg: "bg-violet-100" },
-    pessoas: { label: "Pessoas", icon: UserCircle, color: "text-emerald-600", bg: "bg-emerald-100" },
     funcionarios: { label: "Funcionários", icon: BadgeCheck, color: "text-amber-600", bg: "bg-amber-100" },
     centrosCusto: { label: "Centros de Custo", icon: Building2, color: "text-rose-600", bg: "bg-rose-100" },
 };
@@ -70,68 +64,18 @@ function str(v: unknown): string {
 
 /* ── Search providers ── */
 
-async function searchVagas(q: string): Promise<SearchResult[]> {
-    const data = await fetchJson<unknown>(`/Vagas/_api/vagas`);
-    const items = extractItems(data);
-    const lower = q.toLowerCase();
-    return items
-        .filter((v) => {
-            const title = str(v.title ?? v.titulo ?? v.nome);
-            const code = str(v.code ?? v.codigo);
-            return title.toLowerCase().includes(lower) || code.toLowerCase().includes(lower);
-        })
-        .slice(0, 5)
-        .map((v) => ({
-            id: str(v.id),
-            label: str(v.title ?? v.titulo ?? v.nome) || "Vaga sem título",
-            sublabel: str(v.status) || str(v.code ?? v.codigo) || undefined,
-            category: "vagas" as const,
-            href: "/vagas",
-        }));
-}
-
-async function searchCandidatos(q: string): Promise<SearchResult[]> {
-    const data = await fetchJson<unknown>(`/Candidatos/_api/candidatos?q=${encodeURIComponent(q)}&pageSize=5`);
-    const items = extractItems(data);
-    return items.slice(0, 5).map((c) => ({
-        id: str(c.id),
-        label: str(c.fullName ?? c.nome ?? c.name) || "Candidato",
-        sublabel: str(c.email) || undefined,
-        category: "candidatos" as const,
-        href: "/candidatos",
-    }));
-}
-
-async function searchPessoas(q: string): Promise<SearchResult[]> {
-    const data = await fetchJson<unknown>(`/api/pessoas?q=${encodeURIComponent(q)}&pageSize=5`);
-    const items = extractItems(data);
-    return items.slice(0, 5).map((p) => ({
-        id: str(p.id),
-        label: str(p.fullName ?? p.name ?? p.nome) || "Pessoa",
-        sublabel: str(p.email) || str(p.cpf) || undefined,
-        category: "pessoas" as const,
-        href: "/app/cadastros/pessoas",
-    }));
-}
-
 async function searchFuncionarios(q: string): Promise<SearchResult[]> {
-    const data = await fetchJson<unknown>(`/api/funcionarios`);
+    const data = await fetchJson<unknown>(
+        `/api/funcionarios?search=${encodeURIComponent(q)}&pageSize=20`
+    );
     const items = extractItems(data);
-    const lower = q.toLowerCase();
-    return items
-        .filter((f) => {
-            const name = str(f.fullName ?? f.name ?? f.nome);
-            const mat = str(f.matricula ?? f.registration);
-            return name.toLowerCase().includes(lower) || mat.toLowerCase().includes(lower);
-        })
-        .slice(0, 5)
-        .map((f) => ({
-            id: str(f.id),
-            label: str(f.fullName ?? f.name ?? f.nome) || "Funcionário",
-            sublabel: str(f.cargo ?? f.position ?? f.department) || undefined,
-            category: "funcionarios" as const,
-            href: "/app/cadastros/funcionarios",
-        }));
+    return items.slice(0, 5).map((f) => ({
+        id: str(f.id),
+        label: str(f.name ?? f.nome) || "Funcionário",
+        sublabel: str(f.jobPositionName ?? f.cargo) || undefined,
+        category: "funcionarios" as const,
+        href: `/funcionarios`,
+    }));
 }
 
 async function searchCentrosCusto(q: string): Promise<SearchResult[]> {
@@ -194,9 +138,6 @@ export default function GlobalSearchDialog({
         const timer = setTimeout(async () => {
             try {
                 const settled = await Promise.allSettled([
-                    searchVagas(query),
-                    searchCandidatos(query),
-                    searchPessoas(query),
                     searchFuncionarios(query),
                     searchCentrosCusto(query),
                 ]);
@@ -220,7 +161,13 @@ export default function GlobalSearchDialog({
     const navigate = useCallback(
         (result: SearchResult) => {
             onOpenChange(false);
-            router.push(result.href);
+            if (result.category === "funcionarios" && result.id) {
+                window.dispatchEvent(
+                    new CustomEvent("renderrh:openFuncionario", { detail: { id: result.id } })
+                );
+            } else {
+                router.push(result.href);
+            }
         },
         [onOpenChange, router],
     );

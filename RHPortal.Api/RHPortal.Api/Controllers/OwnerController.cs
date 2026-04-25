@@ -22,8 +22,10 @@ using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Contracts.Roles;
 using RhPortal.Api.Contracts.Units;
 using RhPortal.Api.Contracts.Users;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Navegacao;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -164,6 +166,38 @@ public sealed class OwnerController : ControllerBase
         tenant.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _masterDb.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    [HttpPut("tenants/{tenantId}")]
+    [ProducesResponseType(typeof(TenantDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TenantDetailResponse>> UpdateTenant(string tenantId, [FromBody] UpdateTenantNameRequest request, CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        if (string.IsNullOrWhiteSpace(request?.Name))
+            return BadRequest(new ProblemDetails { Title = "Invalid request", Detail = "Name é obrigatório." });
+
+        var tenant = await _masterDb.Tenants
+            .Include(t => t.CreatedByOwner)
+            .FirstOrDefaultAsync(t => t.TenantId == id, ct);
+        if (tenant is null)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        tenant.Name = request.Name.Trim();
+        tenant.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _masterDb.SaveChangesAsync(ct);
+
+        return Ok(new TenantDetailResponse(
+            tenant.TenantId,
+            tenant.Name,
+            tenant.IsActive,
+            tenant.CreatedAtUtc,
+            tenant.UpdatedAtUtc,
+            tenant.CreatedByOwnerId,
+            tenant.CreatedByOwner?.Email));
     }
 
     [HttpPost("tenants/{tenantId}/reactivate")]
@@ -1132,6 +1166,71 @@ public sealed class OwnerController : ControllerBase
         {
             return Conflict(new ProblemDetails { Title = "Conflict", Detail = ex.Message, Status = StatusCodes.Status409Conflict });
         }
+    }
+
+    // ── Telas individuais do tenant (screen-level override) ──
+
+    /// <summary>
+    /// Lista os estados de todas as telas para o tenant.
+    /// Telas sem registro retornam como "ativo" (padrão).
+    /// </summary>
+    [HttpGet("tenants/{tenantId}/screens")]
+    [ProducesResponseType(typeof(IReadOnlyList<TenantScreenStateResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TenantScreenStateResponse>>> ListTenantScreens(string tenantId, CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        var service = _scope.GetRequiredService<TenantScreenService>();
+        var map = await service.GetEstadoMapAsync(id, ct);
+
+        var result = NavegacaoManifest.Items
+            .Select(item => new TenantScreenStateResponse(
+                NavItemId: item.Id,
+                Estado: map.TryGetValue(item.Id, out var e) ? e : EstadoTela.Ativo,
+                UpdatedAtUtc: null))
+            .ToList();
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Define o estado de uma tela específica para o tenant: "ativo", "oculto" ou "bloqueado".
+    /// </summary>
+    [HttpPut("tenants/{tenantId}/screens/{navItemId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetTenantScreen(
+        string tenantId,
+        string navItemId,
+        [FromBody] TenantScreenUpdateRequest request,
+        CancellationToken ct)
+    {
+        var id = tenantId?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(id) || !TenantIdPattern.IsMatch(id))
+            return BadRequest(new ProblemDetails { Title = "Invalid TenantId", Detail = "TenantId inválido." });
+        var exists = await _masterDb.Tenants.AnyAsync(t => t.TenantId == id, ct);
+        if (!exists)
+            return NotFound(new ProblemDetails { Title = "Tenant not found", Detail = $"Tenant {id} não encontrado." });
+
+        if (!EstadoTela.IsValid(request.Estado))
+            return BadRequest(new ProblemDetails { Title = "Invalid estado", Detail = "Estado deve ser 'ativo', 'oculto' ou 'bloqueado'." });
+
+        var ownerIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid? ownerId = Guid.TryParse(ownerIdClaim, out var g) ? g : null;
+
+        var service = _scope.GetRequiredService<TenantScreenService>();
+        var ok = await service.SetEstadoAsync(id, navItemId, request.Estado, ownerId, ct);
+
+        return ok
+            ? NoContent()
+            : NotFound(new ProblemDetails { Title = "NavItem not found", Detail = $"Item '{navItemId}' não existe no manifesto de navegação." });
     }
 
     // ── Painel Integração TOTVS (cross-tenant) ──

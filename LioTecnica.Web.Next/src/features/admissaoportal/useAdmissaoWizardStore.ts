@@ -9,15 +9,23 @@ export interface DadosPessoais {
     nome?: string | null; nomeSocial?: string | null; nomeAbreviado?: string | null;
     cpf?: string | null; rg?: string | null; rgOrgaoExpedidor?: string | null;
     rgUfExpedidor?: string | null; rgDataExpedicao?: string | null;
+    // RIC (Registro Identidade Civil)
+    regIdentidCivilNumero?: string | null; regIdentidCivilUf?: string | null;
+    regIdentidCivilCidade?: string | null; regIdentidCivilOrgEmiss?: string | null;
+    regIdentidCivilDataExped?: string | null;
     dataNascimento?: string | null; sexo?: number | null; estadoCivil?: number | null;
     nacionalidade?: string | null; paisNacionalidade?: string | null;
     nomeMae?: string | null; nomePai?: string | null;
     paisNascimento?: string | null; naturalCidade?: string | null; naturalUf?: string | null;
     grauInstrucao?: number | null; funcDoador?: string | null;
+    origemFuncionario?: number | null;
     // Endereco
     cep?: string | null; logradouro?: string | null; numero?: string | null;
     complemento?: string | null; bairro?: string | null; cidade?: string | null; uf?: string | null;
     pontoReferencia?: string | null; resideExterior?: string | null;
+    // Códigos IBGE — preenchidos automaticamente via ViaCEP/lookup, obrigatórios TOTVS/eSocial
+    municipioEnderecoIbge?: number | null;
+    municipioNascimentoIbge?: number | null;
     // Contato
     email?: string | null; emailAlternativo?: string | null;
     telefone?: string | null; celular?: string | null;
@@ -41,6 +49,9 @@ export interface DadosPessoais {
     docMilitarRegiao?: number | null; docMilitarCircunscricao?: number | null;
     // Estrangeiro
     passaporte?: string | null; rnmRne?: string | null; validadeVisto?: string | null; tipoVisto?: string | null;
+    tipoVistoEstrangeiro?: number | null;
+    // CAGED (TOTVS)
+    ocorrenciaCAGED?: number | null;
     // Saude e caracteristicas fisicas
     grupoSanguineo?: number | null; fatorRh?: number | null; possuiDeficiencia?: string | null;
     cartaoSus?: string | null; altura?: number | null; peso?: number | null;

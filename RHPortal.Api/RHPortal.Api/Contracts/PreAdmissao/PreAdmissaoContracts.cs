@@ -24,7 +24,9 @@ public sealed record PreAdmissaoGridRow(
     int DocumentosRejeitados,
     int? WizardCurrentStep,
     int? WizardCompletionPercent,
-    DateTimeOffset? LastActivityUtc
+    DateTimeOffset? LastActivityUtc,
+    IntegracaoResultado? IntegracaoResultado,
+    string? IntegracaoMensagem
 );
 
 public sealed record PreAdmissaoListQuery(
@@ -63,6 +65,11 @@ public sealed record PreAdmissaoDetailResponse(
     // Estrangeiro
     string? Passaporte, string? RnmRne, DateOnly? ValidadeVisto, string? TipoVisto,
     string? ResideExterior, int? TipoVistoEstrangeiro,
+
+    // RIC (Registro Identidade Civil)
+    string? RegIdentidCivilNumero, string? RegIdentidCivilUf,
+    string? RegIdentidCivilCidade, string? RegIdentidCivilOrgEmiss,
+    DateOnly? RegIdentidCivilDataExped,
 
     // Endereço
     string? Cep, string? Logradouro, string? Numero, string? Complemento,
@@ -127,7 +134,7 @@ public sealed record PreAdmissaoDetailResponse(
 
     // CNH completo
     string? CnhNumero, string? CnhUf, string? CnhOrgaoEmissor,
-    int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+    DateOnly? CnhDataExpedicao, DateOnly? CnhPrimeiraHabilitacao,
 
     // Doc Militar
     int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie,
@@ -223,6 +230,11 @@ public sealed record PreAdmissaoUpdateRequest(
     string? Passaporte, string? RnmRne, DateOnly? ValidadeVisto, string? TipoVisto,
     string? ResideExterior, int? TipoVistoEstrangeiro,
 
+    // RIC (Registro Identidade Civil)
+    string? RegIdentidCivilNumero, string? RegIdentidCivilUf,
+    string? RegIdentidCivilCidade, string? RegIdentidCivilOrgEmiss,
+    DateOnly? RegIdentidCivilDataExped,
+
     // Endereço
     string? Cep, string? Logradouro, string? Numero, string? Complemento,
     string? Bairro, string? Cidade, string? Uf,
@@ -284,7 +296,7 @@ public sealed record PreAdmissaoUpdateRequest(
 
     // CNH completo
     string? CnhNumero, string? CnhUf, string? CnhOrgaoEmissor,
-    int? CnhDataExpedicao, int? CnhPrimeiraHabilitacao,
+    DateOnly? CnhDataExpedicao, DateOnly? CnhPrimeiraHabilitacao,
 
     // Doc Militar
     int? DocMilitarTipo, string? DocMilitarNumero, string? DocMilitarSerie,
@@ -312,6 +324,9 @@ public sealed record PreAdmissaoUpdateRequest(
 
     // TOTVS: Registro exterior
     string? CodRegistroExterior,
+
+    // TOTVS: Estatística (obrigatório pelo validator; faltava no contract)
+    int? TipoEstatistica,
 
     // Salário justificativa
     string? ValidacaoSalarioJustificativa
@@ -527,9 +542,9 @@ public sealed record DocumentoSolicitadoResponse(
 
 // ── Gerar link de acesso do candidato ──
 
-public sealed record GerarLinkRequest(string? Cpf);
+public sealed record GerarLinkRequest(string? Cpf, bool EnviarEmail = true, bool EnviarWhatsapp = true);
 
-public sealed record GerarLinkResponse(string AccessToken, string PublicUrl, bool EmailEnviado);
+public sealed record GerarLinkResponse(string AccessToken, string PublicUrl, bool EmailEnviado, bool WhatsappEnviado);
 
 // ── Validação de documento individual pelo RH ──
 

@@ -7,6 +7,7 @@ public sealed record SolicitacaoDependenteListQuery(string? Q, SolicitacaoStatus
 
 public sealed class SolicitacaoDependenteCreateRequest
 {
+    public Guid? FuncionarioId { get; set; }
     public TipoSolicitacaoDependente TipoSolicitacao { get; set; }
     public Guid? DependenteId { get; set; }
     [Required, MaxLength(200)] public string NomeCompleto { get; set; } = string.Empty;
@@ -51,5 +52,8 @@ public sealed class SolicitacaoDependenteApprovalRequest
 public sealed record SolicitacaoDependenteGridRow(
     Guid Id, SolicitacaoStatus Status, string? SolicitanteNome,
     TipoSolicitacaoDependente TipoSolicitacao, string NomeCompleto,
-    Parentesco Parentesco, DateTimeOffset CreatedAtUtc
+    Parentesco Parentesco, DateTimeOffset CreatedAtUtc,
+    string? EtapaPendenteLabel, string? EtapaPendenteCom,
+    bool EtapaPendenteIsQueue, Guid? EtapaPendenteAprovadorId,
+    bool EtapaPendenteCanAssume
 );

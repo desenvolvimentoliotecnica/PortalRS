@@ -26,12 +26,18 @@ public sealed class ConfiguracaoHeadcountDto
 {
     public int DiasProvisaoSubstituicao { get; set; } = 30;
     public int DiasAlertaVagaSemFill { get; set; } = 60;
+    public string? BlipNumeroHospedeiro { get; set; }
+    public string? BlipApiUrl { get; set; }
+    public string? BlipApiKey { get; set; }
 }
 
 public sealed class ConfiguracaoHeadcountRequest
 {
     public int DiasProvisaoSubstituicao { get; set; } = 30;
     public int DiasAlertaVagaSemFill { get; set; } = 60;
+    public string? BlipNumeroHospedeiro { get; set; }
+    public string? BlipApiUrl { get; set; }
+    public string? BlipApiKey { get; set; }
 }
 
 // ── Service ──
@@ -104,6 +110,9 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         {
             DiasProvisaoSubstituicao = config.DiasProvisaoSubstituicao,
             DiasAlertaVagaSemFill = config.DiasAlertaVagaSemFill,
+            BlipNumeroHospedeiro = config.BlipNumeroHospedeiro,
+            BlipApiUrl = config.BlipApiUrl,
+            BlipApiKey = config.BlipApiKey,
         };
     }
 
@@ -122,6 +131,9 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 
         config.DiasProvisaoSubstituicao = Math.Max(1, request.DiasProvisaoSubstituicao);
         config.DiasAlertaVagaSemFill = Math.Max(1, request.DiasAlertaVagaSemFill);
+        config.BlipNumeroHospedeiro = string.IsNullOrWhiteSpace(request.BlipNumeroHospedeiro) ? null : request.BlipNumeroHospedeiro.Trim();
+        config.BlipApiUrl = string.IsNullOrWhiteSpace(request.BlipApiUrl) ? null : request.BlipApiUrl.Trim();
+        config.BlipApiKey = string.IsNullOrWhiteSpace(request.BlipApiKey) ? null : request.BlipApiKey.Trim();
         config.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -130,6 +142,9 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         {
             DiasProvisaoSubstituicao = config.DiasProvisaoSubstituicao,
             DiasAlertaVagaSemFill = config.DiasAlertaVagaSemFill,
+            BlipNumeroHospedeiro = config.BlipNumeroHospedeiro,
+            BlipApiUrl = config.BlipApiUrl,
+            BlipApiKey = config.BlipApiKey,
         };
     }
 

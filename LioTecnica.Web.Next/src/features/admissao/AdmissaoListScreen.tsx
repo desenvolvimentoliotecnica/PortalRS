@@ -15,6 +15,9 @@ import {
     Loader2,
     Pencil,
     AlertTriangle,
+    ArrowRightLeft,
+    Bell,
+    ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +62,7 @@ interface PreAdmissaoRow {
     cargoNome: string | null;
     areaNome: string | null;
     unitNome: string | null;
-    status: number;
+    status: number | string;
     dataAdmissao: string | null;
     salario: number | null;
     preenchidoPor: number;
@@ -68,6 +71,8 @@ interface PreAdmissaoRow {
     documentosPendentes: number;
     documentosValidados: number;
     documentosRejeitados: number;
+    integracaoResultado: number | string | null;
+    integracaoMensagem: string | null;
 }
 
 const STATUS_MAP: Record<number | string, { label: string; color: string; icon: React.ElementType }> = {
@@ -89,6 +94,34 @@ const STATUS_MAP: Record<number | string, { label: string; color: string; icon: 
     Acessado: { label: "Acessado", color: "bg-violet-500/15 text-violet-700", icon: Eye },
     PreenchidoParcial: { label: "Preenchido Parcial", color: "bg-orange-500/15 text-orange-700", icon: Clock },
 };
+
+const PENDENTE_TOTVS = { label: "Pendente TOTVS", color: "bg-amber-500/15 text-amber-700", icon: ArrowRightLeft };
+const FALHA_TOTVS = { label: "Falha TOTVS", color: "bg-red-500/15 text-red-700", icon: XCircle };
+/** Candidato submeteu dados pelo portal — RH precisa completar e enviar ao TOTVS */
+const AGUARDANDO_RH = { label: "Aguardando conclusão RH", color: "bg-orange-500/15 text-orange-700 font-medium", icon: Bell };
+
+function isStatusAprovada(status: number | string): boolean {
+    return status === 3 || status === "Aprovada";
+}
+
+function isStatusPreenchido(status: number | string): boolean {
+    return status === 2 || status === "Preenchido";
+}
+
+function isFalhaIntegracao(v: number | string | null | undefined): boolean {
+    if (v === null || v === undefined) return false;
+    return v === 2 || v === 3 || v === "Falha" || v === "FalhaDefinitiva";
+}
+
+function resolveStatusDisplay(row: PreAdmissaoRow): { label: string; color: string; icon: React.ElementType } {
+    if (isStatusAprovada(row.status)) {
+        if (isFalhaIntegracao(row.integracaoResultado)) return FALHA_TOTVS;
+        if (row.integracaoResultado === null || row.integracaoResultado === undefined) return PENDENTE_TOTVS;
+    }
+    // Candidato submeteu pelo portal (PreenchidoPor.Candidato = 0) — precisa de ação do RH
+    if (isStatusPreenchido(row.status) && row.preenchidoPor === 0) return AGUARDANDO_RH;
+    return STATUS_MAP[row.status] ?? STATUS_MAP[0];
+}
 
 /* ── component ── */
 
@@ -195,7 +228,9 @@ export default function AdmissaoListScreen() {
     }
 
     const filtered = data.filter((r) => {
-        if (statusFilter !== "all" && r.status !== Number(statusFilter)) return false;
+        if (statusFilter === "aguardando-rh") {
+            if (!(isStatusPreenchido(r.status) && r.preenchidoPor === 0)) return false;
+        } else if (statusFilter !== "all" && r.status !== Number(statusFilter)) return false;
         if (q.trim()) {
             const blob = [r.nome, r.cpf, r.email, r.cargoNome, r.areaNome].filter(Boolean).join(" ").toLowerCase();
             if (!blob.includes(q.trim().toLowerCase())) return false;
@@ -205,10 +240,11 @@ export default function AdmissaoListScreen() {
 
     const kpis = {
         total: data.length,
-        rascunhos: data.filter(r => r.status <= 1).length,
-        emRevisao: data.filter(r => r.status === 2).length,
-        aprovadas: data.filter(r => r.status === 3 || r.status === 5).length,
-        rejeitadas: data.filter(r => r.status === 4).length,
+        rascunhos: data.filter(r => r.status === 0 || r.status === 1 || r.status === "Rascunho" || r.status === "Enviado").length,
+        aguardandoRH: data.filter(r => isStatusPreenchido(r.status) && r.preenchidoPor === 0).length,
+        emRevisao: data.filter(r => isStatusPreenchido(r.status) && r.preenchidoPor !== 0).length,
+        aprovadas: data.filter(r => r.status === 3 || r.status === 5 || r.status === "Aprovada" || r.status === "Integrada").length,
+        rejeitadas: data.filter(r => r.status === 4 || r.status === "Rejeitada").length,
     };
 
     return (
@@ -243,9 +279,10 @@ export default function AdmissaoListScreen() {
             )}
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <KpiCard icon={Users} label="Total" value={kpis.total} color="bg-slate-500/15 text-slate-600" />
                 <KpiCard icon={FileSpreadsheet} label="Rascunhos" value={kpis.rascunhos} color="bg-zinc-400/15 text-zinc-600" />
+                <KpiCard icon={Bell} label="Aguardando RH" value={kpis.aguardandoRH} color="bg-orange-500/15 text-orange-600" highlight={kpis.aguardandoRH > 0} />
                 <KpiCard icon={Eye} label="Em Revisão" value={kpis.emRevisao} color="bg-amber-500/15 text-amber-600" />
                 <KpiCard icon={CheckCircle2} label="Aprovadas" value={kpis.aprovadas} color="bg-emerald-500/15 text-emerald-600" />
                 <KpiCard icon={XCircle} label="Rejeitadas" value={kpis.rejeitadas} color="bg-red-500/15 text-red-600" />
@@ -254,10 +291,11 @@ export default function AdmissaoListScreen() {
             {/* filters + table */}
             <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4">
                 <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
                         {[
                             { key: "all", label: "Todos" },
                             { key: "0", label: "Rascunho" },
+                            { key: "aguardando-rh", label: "Aguardando RH" },
                             { key: "2", label: "Em Revisão" },
                             { key: "3", label: "Aprovada" },
                             { key: "4", label: "Rejeitada" },
@@ -291,7 +329,7 @@ export default function AdmissaoListScreen() {
                             <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-center">Docs</TableHead>
                             <TableHead className="text-right">Criado em</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
+                            <TableHead className="text-center w-[90px]">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -310,13 +348,15 @@ export default function AdmissaoListScreen() {
                             </TableRow>
                         )}
                         {filtered.map((r) => {
-                            const s = STATUS_MAP[r.status] ?? STATUS_MAP[0];
+                            const s = resolveStatusDisplay(r);
                             const Icon = s.icon;
+                            const isDraft = r.status === 0 || r.status === 1 || r.status === "Rascunho" || r.status === "Enviado";
                             return (
                                 <TableRow
                                     key={r.id}
                                     className="cursor-pointer hover:bg-muted/40"
-                                    onClick={() => r.status <= 1 ? router.push(`/admissao/nova?id=${r.id}`) : router.push(`/admissao/revisao?id=${r.id}`)}
+                                    onClick={() => isDraft ? router.push(`/admissao/nova?id=${r.id}`) : router.push(`/admissao/revisao?id=${r.id}`)}
+                                    title={s.label === "Falha TOTVS" && r.integracaoMensagem ? r.integracaoMensagem : undefined}
                                 >
                                     <TableCell className="font-semibold text-sm">{r.nome}</TableCell>
                                     <TableCell className="text-sm font-mono">{r.cpf || "—"}</TableCell>
@@ -346,26 +386,14 @@ export default function AdmissaoListScreen() {
                                     <TableCell className="text-right text-xs text-muted-foreground">
                                         {new Date(r.createdAtUtc).toLocaleDateString("pt-BR")}
                                     </TableCell>
-                                    <TableCell className="text-right flex items-center justify-end gap-1">
-                                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/admissao/nova?id=${r.id}`); }} title="Editar dados">
-                                            <Pencil className="size-3.5" />
-                                        </Button>
-                                        {(r.status === 2 || String(r.status) === "Preenchido") && (
-                                            <Button
-                                                size="sm"
-                                                className="btn-approve"
-                                                disabled={concluindoId === r.id}
-                                                onClick={(e) => { e.stopPropagation(); void handleConcluir(r.id); }}
-                                            >
-                                                {concluindoId === r.id
-                                                    ? <Loader2 className="size-3.5 mr-1 animate-spin" />
-                                                    : <CheckCircle2 className="size-3.5 mr-1" />}
-                                                Concluir
-                                            </Button>
-                                        )}
-                                        {(r.status === 3 || String(r.status) === "Aprovada") && (
-                                            <span className="text-xs text-emerald-600 font-medium">Pendente TOTVS</span>
-                                        )}
+                                    <TableCell className="text-center" onClick={e => e.stopPropagation()}>
+                                        <button
+                                            title="Abrir revisão"
+                                            onClick={() => router.push(`/admissao/revisao?id=${r.id}`)}
+                                            className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-background px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                        >
+                                            <ClipboardList className="size-3.5" /> Revisar
+                                        </button>
                                     </TableCell>
                                 </TableRow>
                             );
@@ -483,13 +511,13 @@ function ValidacaoErrosList({ erros }: { erros: TotvsValidationIssue[] }) {
     );
 }
 
-function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
+function KpiCard({ icon: Icon, label, value, color, highlight }: { icon: React.ElementType; label: string; value: number; color: string; highlight?: boolean }) {
     return (
-        <div className="rounded-xl border border-border/40 bg-card shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
+        <div className={`rounded-xl border bg-card shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition-shadow ${highlight ? "border-orange-400 ring-1 ring-orange-400/40" : "border-border/40"}`}>
             <div className={`rounded-lg p-2.5 shrink-0 ${color}`}><Icon className="size-4" /></div>
             <div>
                 <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest leading-none mb-1">{label}</div>
-                <div className="text-2xl font-bold leading-none tabular-nums">{value}</div>
+                <div className={`text-2xl font-bold leading-none tabular-nums ${highlight ? "text-orange-600" : ""}`}>{value}</div>
             </div>
         </div>
     );
