@@ -185,15 +185,20 @@ Cada item tem: id, prioridade, status, tipo, título, contexto, critério de ace
   - [ ] Streaming/tool-calls preservados onde existem (LlmAssistantService)
   - [ ] Smoke tests para cada provider em cada um dos 7 serviços
 
-### LUC-111 — Fase 3: Seleção por tenant
-- **Status:** 📋 backlog · **Tipo:** feature
-- **Contexto:** Hoje o provider é global (env). Queremos por tenant.
+### ~~LUC-111 — Fase 3: Seleção por tenant~~ ✅ CONCLUÍDO (2026-04-25)
+> Movido para `lucaschangelog.md`. Entregue: 4 colunas em `TenantConfiguracao`,
+> migration idempotente, `ITenantAiSettingsResolver`, `UnifiedAiService` tenant-aware,
+> Python aceita override no body via `request_context.ContextVar`, UI `/app/admin/ia`.
+> Smoke test ponta-a-ponta passou em 6/6 cenários.
+
+### LUC-116 — Resolver "estrito" quando tenant escolhe provider sem chave
+- **Status:** 📋 backlog · **Tipo:** bugfix · **Prioridade:** média
+- **Contexto:** Descoberto durante o smoke test da Fase 3. Quando `TenantConfiguracao.LlmProvider="anthropic"` mas nenhuma chave Anthropic está configurada (nem `Master.AiProviderKey`, nem `Ai.Anthropic.ApiKey`), o `UnifiedAiService.ResolveProviderAsync` cai silenciosamente no próximo provider da fila (ex: Gemini, se tiver chave). Isso mascara erros de configuração — admin pensa que está usando Anthropic quando na verdade está usando Gemini.
+- **Solução:** introduzir uma flag (default `true`) "modo estrito" — se tenant escolheu provider X e X não tem chave, retornar `null` (= 503) explícito em vez de fallback. Logar warning claro.
 - **Aceite:**
-  - [ ] Campos novos em `TenantConfiguracao`: `LlmProvider`, `ChatModel`, `EmbeddingProvider`, `EmbeddingModel`
-  - [ ] Migration EF (ver `CLAUDE.md`)
-  - [ ] API `UnifiedAiService.GetChatLlm(tenantId)` lê do banco
-  - [ ] Python: `POST /matching/run` aceita opcional `provider_override` no body OU a API .NET injeta header `X-Ai-Provider`
-  - [ ] UI `/app/admin/ia` (tenant escolhe provider + modelo, testa conectividade)
+  - [ ] Em `UnifiedAiService.ResolveProviderAsync`: se `tenantProviderOverride` definido E não há chave (DB nem config) para esse provider → retornar null com log warning
+  - [ ] `_check_dependencies` no Python idem para overrides de request
+  - [ ] UI `/app/admin/ia` mostra um "warning" no painel "effective" quando o effective ≠ provider escolhido
 
 ### LUC-112 — Fase 4: Cadastro de chaves no Owner UI
 - **Status:** 📋 backlog · **Tipo:** feature

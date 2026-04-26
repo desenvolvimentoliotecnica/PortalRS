@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-04-26
+
+### ✨ feature · Fase 3 do épico LLM-agnóstico — Seleção de provider POR TENANT
+- **Item backlog:** LUC-111 (encerrado). LUC-116 adicionado como melhoria.
+- **Contexto:** Fases 1 e 2 deixaram o sistema multi-provider (OpenAI/Gemini/Anthropic/Ollama), mas a escolha era global (env var no Python, `appsettings.Ai.DefaultProvider` no .NET). Tenants diferentes não podiam ter providers diferentes. Esta fase muda isso: cada tenant escolhe seu provider/modelo na própria sidebar admin, persistido no banco do tenant, com fallback para o default global quando vazio.
+- **O que mudou — backend .NET:**
+  - **Novo:** `Application/Ai/TenantAiSettingsResolver.cs` — `ITenantAiSettingsResolver.GetCurrentAsync()` lê o `AppDbContext` do tenant atual via `IServiceProvider` lazy (não falha em endpoints owner-level sem tenant).
+  - `Domain/Entities/TenantConfiguracao.cs` — 4 campos novos nullable: `LlmProvider`, `LlmModel`, `EmbeddingProvider`, `EmbeddingModel`. `null` = herda global.
+  - **Migration EF** `20260425135252_AddLlmProviderFieldsToTenantConfiguracao` totalmente idempotente (`ADD COLUMN IF NOT EXISTS`), conforme `CLAUDE.md`. O scaffold gerou drift antigo do snapshot junto — também ficou idempotente para não quebrar tenants existentes.
+  - `Application/Ai/UnifiedAiService.cs` — resolução ganha **passo 0**: se o tenant tem `LlmProvider` preenchido, força esse provider (filtra `Master.AiProviderKey` por nome; cai para `Ai.{Provider}` config quando sem chave).
+  - `Application/TenantConfiguracao/TenantConfiguracaoService.cs` — DTOs `TenantAiConfigDto`/`TenantAiConfigRequest`, métodos `GetAiConfigAsync` / `UpsertAiConfigAsync`. Whitelist de providers (`openai|gemini|anthropic|ollama`); valores desconhecidos viram `null`. Calcula "effective" pós-fallback.
+  - `Controllers/TenantConfiguracaoController.cs` — endpoints `GET /api/tenant-configuracao/ai` e `PUT /api/tenant-configuracao/ai` (admin only).
+  - `Infrastructure/Ai/RHPortalAiMatchClient.cs` — cada payload para o Python carrega `llm_provider`, `llm_model`, `embedding_provider`, `embedding_model` do tenant atual.
+  - `Program.cs` — registra `ITenantAiSettingsResolver` no DI.
+- **O que mudou — Python:**
+  - **Novo:** `app/request_context.py` — `RequestOverrides` + `use_request_overrides()` ContextManager via `contextvars` (thread/async-safe).
+  - `app/main.py` — `MatchRequest` + `EvaluateOneRequest` ganham 4 campos opcionais; endpoints envolvem chamadas em `with use_request_overrides(...)`.
+  - `app/llm_factory.py` — `get_chat_llm()` e `get_embeddings_client()` consultam `request_context.get_overrides()` antes do default.
+- **O que mudou — frontend:**
+  - **Novo:** `src/app/(app)/admin/ia/page.tsx` (rota `/app/admin/ia`).
+  - **Novo:** `src/features/admin/ia/IaConfigScreen.tsx` — selects de provider, inputs de modelo, painel "effective", botão Salvar.
+- **Validação (smoke test ponta-a-ponta com 2 tenants):**
+  - Estado inicial sem override → `effective: gemini/2.5-flash` (global) ✅
+  - PUT liotecnica → `anthropic/claude-3-5-haiku` → persistido + effective trocou ✅
+  - dev (sem override) continua `gemini` (isolado por tenant) ✅
+  - `/api/ai/invoke` em ambos retornou conteúdo real, cost contabilizado ✅
+  - Revert liotecnica → null → effective volta a `gemini` global ✅
+  - Migration aplicou nos 3 bancos (master + liotecnica + dev) automaticamente no startup ✅
+- **Pendência descoberta (LUC-116):** quando tenant escolhe provider X mas X não tem chave, o resolver atual cai silenciosamente no próximo provider com chave. Mascara erro de configuração. Próxima sprint.
+- **Arquivos:** 5 novos (`TenantAiSettingsResolver.cs`, `request_context.py`, migration .cs/.Designer.cs, `IaConfigScreen.tsx` + `page.tsx`) + 8 modificados.
+- **Commit:** *(pendente)*
+- **Impacto:** primeira feature multi-tenant de IA real — cada cliente escolhe seu próprio LLM dentro do que está disponível. Próxima fase amplia: Owner cadastra chaves e liga/desliga IA por tenant.
+- **Docs atualizadas:** `lucasIA_RAG.md` (§17 ampliada com tabela de fases + §18 nova), `lucasMODULOS_FUNCIONALIDADES.md` (nova rota `/app/admin/ia`), `lucasbacklog.md` (LUC-111 encerrado, LUC-116 adicionado).
+
+---
+
 ## 2026-04-25
 
 ### ✨ feature · Fase 2 do épico LLM-agnóstico — API .NET aceita OpenAI / Gemini / Anthropic via factory

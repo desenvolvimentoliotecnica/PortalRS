@@ -521,7 +521,7 @@ Consequência: com `EMBEDDING_PROVIDER=gemini`, os embeddings vão para a **colu
 |---|---|---|
 | **1** | Python: factory (OpenAI/Gemini/Ollama) | ✅ concluído (2026-04-25) |
 | **2** | API .NET provider-agnóstica (`UnifiedAiService` aceita OpenAI/Gemini/Anthropic via factory) | ✅ concluído (2026-04-25) |
-| 3 | Seleção por tenant (TenantConfiguracao + UI admin) | 📋 backlog |
+| **3** | Seleção por tenant (TenantConfiguracao + UI admin) | ✅ concluído (2026-04-25) |
 | 4 | Cadastro de chaves no Owner (`/Owner/IA` funcional) | 📋 backlog |
 | 5 | Observabilidade + docs operacionais | 📋 backlog |
 
@@ -594,3 +594,93 @@ A resposta veio do `gemini-2.5-flash` via factory. Nenhuma chave OpenAI envolvid
 5. Adicione seção `Ai.Mistral` no `appsettings.json`
 
 Sem mexer em `UnifiedAiService` nem em nenhum caller existente.
+
+---
+
+## 18. Provider-agnóstico — Fase 3 (Seleção por tenant, 2026-04-25)
+
+### 18.1 O que mudou
+
+Cada tenant agora pode escolher **seu próprio provider** de LLM e embeddings — sem afetar outros tenants. A escolha é persistida no banco do tenant e tem prioridade sobre o default global do `appsettings.Ai`.
+
+### 18.2 Arquivos novos / modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `Domain/Entities/TenantConfiguracao.cs` | **+** 4 campos nullable: `LlmProvider`, `LlmModel`, `EmbeddingProvider`, `EmbeddingModel` |
+| `Migrations/20260425135252_AddLlmProviderFieldsToTenantConfiguracao.cs` | **nova** — migration EF totalmente idempotente (`ADD COLUMN IF NOT EXISTS`) cobrindo as 4 colunas + drift histórico do snapshot |
+| `Application/Ai/TenantAiSettingsResolver.cs` | **novo** — `ITenantAiSettingsResolver.GetCurrentAsync()` lê o `AppDbContext` do tenant atual (lazy via `IServiceProvider`); falhas degradam para `null` (cai no global) |
+| `Application/Ai/UnifiedAiService.cs` | resolução ganha **passo 0**: se `TenantConfiguracao.LlmProvider` preenchido, força esse provider (filtra `AiProviderKey` por nome e/ou usa fallback config do mesmo provider) |
+| `Application/TenantConfiguracao/TenantConfiguracaoService.cs` | **+** DTOs `TenantAiConfigDto`/`TenantAiConfigRequest`, métodos `GetAiConfigAsync` / `UpsertAiConfigAsync`. Whitelist de providers (`openai\|gemini\|anthropic\|ollama`); valores desconhecidos viram `null`. Calcula "effective" pós-fallback |
+| `Controllers/TenantConfiguracaoController.cs` | **+** endpoints `GET /api/tenant-configuracao/ai` e `PUT /api/tenant-configuracao/ai` (admin only) |
+| `Infrastructure/Ai/RHPortalAiMatchClient.cs` | injeta `ITenantAiSettingsResolver`; cada payload para o Python carrega `llm_provider`, `llm_model`, `embedding_provider`, `embedding_model` do tenant |
+| `RHPortal.Ai/app/request_context.py` | **novo** — `contextvars` com `RequestOverrides` + `use_request_overrides()` ContextManager |
+| `RHPortal.Ai/app/main.py` | `MatchRequest` + `EvaluateOneRequest` ganham 4 campos opcionais; endpoints envolvem chamadas em `with use_request_overrides(...)` |
+| `RHPortal.Ai/app/llm_factory.py` | `get_chat_llm()` e `get_embeddings_client()` consultam `request_context.get_overrides()` antes do default |
+| `LioTecnica.Web.Next/src/app/(app)/admin/ia/page.tsx` | **nova rota** `/app/admin/ia` (AuthGuard) |
+| `LioTecnica.Web.Next/src/features/admin/ia/IaConfigScreen.tsx` | **nova UI** — selects de provider, inputs de modelo, painel "effective", botão Salvar |
+| `Program.cs` | registra `ITenantAiSettingsResolver` no DI |
+
+### 18.3 Ordem de resolução final (Fase 1+2+3)
+
+```
+0. (Fase 3) Tenant escolheu provider em TenantConfiguracao.LlmProvider?
+   └─ SIM: força esse provider; filtra Master.AiProviderKey por nome,
+      cai em config Ai.{Provider} se sem chave em DB.
+1. (Fase 2) Senão, pega primeiro AiProviderKey ativo no Master DB.
+2. (Fase 2) Senão, fallback Ai.{OpenAI|Gemini|Anthropic} respeitando
+   Ai.DefaultProvider.
+3. Nada configurado → null.
+```
+
+### 18.4 Pipeline tenant-aware ponta-a-ponta
+
+```
+Browser
+  └─ POST /api/tenant-configuracao/ai  { llmProvider:"gemini", llmModel:"gemini-2.5-pro" }
+     ├─ TenantConfiguracaoService.UpsertAiConfigAsync
+     │  └─ persiste em TenantConfiguracoes
+     └─ retorna effective + knownProviders
+
+Browser
+  └─ GET /api/vagas/{id}/matching-candidates  (lê cache)
+
+API .NET (background recompute)
+  └─ RHPortalAiMatchClient.RunUnifiedMatchingAsync(vagaId, "liotecnica")
+     ├─ ITenantAiSettingsResolver.GetCurrentAsync()
+     │  └─ AppDbContext lazy → SELECT LlmProvider, LlmModel,...
+     └─ POST http://localhost:8000/matching/run  body com llm_provider/embedding_provider...
+
+RHPortal.Ai (Python)
+  └─ run_matching_endpoint
+     └─ with use_request_overrides(llm_provider="gemini", llm_model="gemini-2.5-pro"):
+        └─ run_unified_matching(...)
+           ├─ get_chat_llm()  → reads request_context → ChatGoogleGenerativeAI(model=2.5-pro)
+           └─ get_embeddings_client()  → reads request_context → ...
+```
+
+### 18.5 Smoke test executado (2026-04-25)
+
+```text
+=== Estado inicial: nenhum override ===
+effective = gemini / gemini-2.5-flash  (global, vindo de Ai.DefaultProvider)
+
+=== PUT liotecnica { provider:"anthropic", model:"claude-3-5-haiku" } ===
+persistido OK; effective = anthropic / claude-3-5-haiku-20241022
+
+=== dev (sem override) ===
+effective = gemini / gemini-2.5-flash  (cada tenant é isolado)
+
+=== /api/ai/invoke em ambos os tenants ===
+→ liotecnica: HTTP 200, content="Oi liotecnica!", cost=$5.97e-05
+→ dev:        HTTP 200, content="oi dev",          cost=$1.50e-05
+
+=== Revert liotecnica → null ===
+effective volta para gemini global
+```
+
+### 18.6 Observação operacional
+
+Quando o tenant escolhe um provider mas a **chave correspondente não está configurada** (nem em `Master.AiProviderKey`, nem em `appsettings.Ai.{Provider}.ApiKey`), o resolver atual cai silenciosamente no próximo provider com chave válida. Isso pode mascarar erros de configuração.
+
+Item **LUC-116** no backlog: tornar o comportamento "estrito" — se tenant escolheu provider X e não há chave para X, retornar 503 explícito em vez de fallback silencioso.

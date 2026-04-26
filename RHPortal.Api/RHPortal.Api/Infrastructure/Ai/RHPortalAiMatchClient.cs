@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using RhPortal.Api.Application.Ai;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Contracts.Matching;
 using RhPortal.Api.Infrastructure.Configuration;
@@ -12,22 +13,43 @@ namespace RhPortal.Api.Infrastructure.Ai;
 /// <summary>
 /// Cliente HTTP para RHPortal.Ai. Suporta matching unificado (v2) e endpoints legados.
 /// BaseAddress configurado no registro do HttpClient (Program.cs).
+///
+/// <para>
+/// Fase 3 LLM-agnóstico (2026-04-25): cada payload enviado ao Python carrega
+/// também os overrides de provider/modelo do tenant atual (lidos de
+/// <c>TenantConfiguracoes</c>). O Python aplica via <c>request_context</c>.
+/// </para>
 /// </summary>
 public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
 {
     private readonly HttpClient _http;
     private readonly ILogger<RHPortalAiMatchClient> _logger;
     private readonly RhAiOptions _rhAiOptions;
+    private readonly ITenantAiSettingsResolver _tenantAi;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public RHPortalAiMatchClient(
         HttpClient http,
         ILogger<RHPortalAiMatchClient> logger,
-        IOptions<RhAiOptions> rhAiOptions)
+        IOptions<RhAiOptions> rhAiOptions,
+        ITenantAiSettingsResolver tenantAi)
     {
         _http = http;
         _logger = logger;
         _rhAiOptions = rhAiOptions.Value;
+        _tenantAi = tenantAi;
+    }
+
+    /// <summary>
+    /// Lê os overrides do tenant atual (se houver) para anexar no payload do Python.
+    /// Retorna <c>(null, null, null, null)</c> quando não há config — o Python
+    /// usa as env vars <c>LLM_PROVIDER</c> / <c>EMBEDDING_PROVIDER</c>.
+    /// </summary>
+    private async Task<(string? llmProvider, string? llmModel, string? embeddingProvider, string? embeddingModel)>
+        GetTenantOverridesAsync(CancellationToken ct)
+    {
+        var settings = await _tenantAi.GetCurrentAsync(ct).ConfigureAwait(false);
+        return (settings?.LlmProvider, settings?.LlmModel, settings?.EmbeddingProvider, settings?.EmbeddingModel);
     }
 
     // ─── Matching Unificado (v2) ─────────────────────────────────────────
@@ -39,12 +61,17 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
         int take = 20,
         CancellationToken ct = default)
     {
+        var (llmP, llmM, embP, embM) = await GetTenantOverridesAsync(ct).ConfigureAwait(false);
         var payload = new
         {
             vaga_id = vagaId.ToString(),
             tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim(),
             limit = Math.Clamp(take, 10, 100),
             rule_version = _rhAiOptions.ResolveRuleVersion(tenantId),
+            llm_provider = llmP,
+            llm_model = llmM,
+            embedding_provider = embP,
+            embedding_model = embM,
         };
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -143,6 +170,7 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
         string tenantId,
         CancellationToken ct = default)
     {
+        var (llmP, llmM, embP, embM) = await GetTenantOverridesAsync(ct).ConfigureAwait(false);
         var payload = new
         {
             vaga_id = vagaId.ToString(),
@@ -150,6 +178,10 @@ public sealed class RHPortalAiMatchClient : IRHPortalAiMatchClient
             source = string.IsNullOrWhiteSpace(source) ? "candidato" : source.Trim().ToLowerInvariant(),
             tenant_id = string.IsNullOrWhiteSpace(tenantId) ? null : tenantId.Trim(),
             rule_version = _rhAiOptions.ResolveRuleVersion(tenantId),
+            llm_provider = llmP,
+            llm_model = llmM,
+            embedding_provider = embP,
+            embedding_model = embM,
         };
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");

@@ -465,6 +465,19 @@ Toda a árvore `/app/admin/*` requer permissão `admin.*`.
 ### `/app/admin/configuracoes`
 - **Para quê:** Configurações gerais do tenant (moeda, timezone, idioma) — `TenantConfiguracaoController`, `LocalizationConfigController`.
 
+### `/app/admin/ia` *(novo na Fase 3 LLM-agnóstico, 2026-04-25)*
+- **Para quê:** Cada tenant escolhe seu provider de LLM (chat) e embeddings.
+- **Quem usa:** Admin do tenant.
+- **Campos:**
+  - **LLM Provider** (dropdown: OpenAI / Gemini / Anthropic / Ollama / "padrão global")
+  - **LLM Model** (input de texto, com placeholder do default do provider escolhido)
+  - **Embedding Provider** (dropdown idem)
+  - **Embedding Model** (input)
+- **Painel "Effective":** mostra qual provider/modelo está sendo realmente usado agora (após resolução de fallbacks).
+- **Endpoints:**
+  - `GET /api/tenant-configuracao/ai`
+  - `PUT /api/tenant-configuracao/ai` (admin only)
+
 ### `/app/admin/entra-id`
 - **Para quê:** Configurar SSO Microsoft do tenant (ClientId, ClientSecret, Tenant Microsoft, RedirectUri).
 - **Endpoint:** `EntraIdConfigController`.

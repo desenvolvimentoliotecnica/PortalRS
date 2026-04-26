@@ -32,6 +32,7 @@ from __future__ import annotations
 from typing import Any
 
 from app import config
+from app.request_context import get_overrides
 
 
 # ─────────────────────────── Chat LLM ──────────────────────────────────────
@@ -47,12 +48,17 @@ def get_chat_llm(
 ) -> Any:
     """Retorna um client LangChain de chat para o provider escolhido.
 
-    A escolha do provider segue (nesta ordem):
-      1. argumento `provider` (se passado explicitamente)
-      2. `config.LLM_PROVIDER` (lido de env var `LLM_PROVIDER`)
-      3. fallback "openai"
+    A escolha segue (nesta ordem):
+      1. argumento `provider` (override explícito do caller)
+      2. **request override** — `request_context.use_request_overrides(llm_provider=...)`
+         (Fase 3: API .NET injeta a config do tenant no body do `/matching/run`)
+      3. `config.LLM_PROVIDER` (env var, default global)
+      4. fallback "openai"
     """
-    p = (provider or config.LLM_PROVIDER or "openai").strip().lower()
+    overrides = get_overrides()
+    p = (provider or overrides.llm_provider or config.LLM_PROVIDER or "openai").strip().lower()
+    # Modelo: override explícito > overrides do request > default do provider
+    model = model or overrides.llm_model
 
     if p == "openai":
         from langchain_openai import ChatOpenAI
@@ -118,10 +124,11 @@ def get_embeddings_client(
 ) -> Any:
     """Retorna um client LangChain de embeddings para o provider escolhido.
 
-    A escolha do provider segue:
-      1. argumento `provider` (se passado)
-      2. `config.EMBEDDING_PROVIDER` (env var `EMBEDDING_PROVIDER`)
-      3. fallback "openai"
+    A escolha segue:
+      1. argumento `provider` (override explícito do caller)
+      2. **request override** — `request_context.use_request_overrides(embedding_provider=...)`
+      3. `config.EMBEDDING_PROVIDER` (env var, default global)
+      4. fallback "openai"
 
     Obs: o pipeline Gemini v2 (`app/gemini_embeddings.py`) usa o SDK
     `google-genai` diretamente para persistir numa coluna separada
@@ -129,7 +136,9 @@ def get_embeddings_client(
     e NÃO passa por este factory — aqui é apenas o caminho "padrão"
     (coluna `embedding` 1536-dim) que respeita LangChain.
     """
-    p = (provider or config.EMBEDDING_PROVIDER or "openai").strip().lower()
+    overrides = get_overrides()
+    p = (provider or overrides.embedding_provider or config.EMBEDDING_PROVIDER or "openai").strip().lower()
+    model = model or overrides.embedding_model
 
     if p == "openai":
         from langchain_openai import OpenAIEmbeddings

@@ -95,5 +95,37 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// <summary>Client Secret do App Registration (armazenar criptografado em produção).</summary>
     public string? AzureAdClientSecret { get; set; }
 
+    // --------------------
+    // IA — Seleção de provider por tenant (Fase 3 LLM-agnóstico, 2026-04-25)
+    // --------------------
+
+    /// <summary>
+    /// Provider de LLM (chat) ativo para este tenant. Valores aceitos:
+    /// <c>"openai"</c>, <c>"gemini"</c>, <c>"anthropic"</c>, <c>"ollama"</c>.
+    /// <c>null</c> → herda <c>Ai.DefaultProvider</c> do appsettings.
+    /// </summary>
+    public string? LlmProvider { get; set; }
+
+    /// <summary>
+    /// Modelo de chat específico (override). Quando <c>null</c>, usa o
+    /// <c>DefaultModel</c> da seção <c>Ai.{Provider}</c> do appsettings.
+    /// Exemplos: <c>"gpt-4o-mini"</c>, <c>"gemini-2.5-flash"</c>,
+    /// <c>"claude-3-5-sonnet-20241022"</c>, <c>"qwen2.5:7b"</c>.
+    /// </summary>
+    public string? LlmModel { get; set; }
+
+    /// <summary>
+    /// Provider de embeddings ativo para este tenant.
+    /// Mesmas opções do <c>LlmProvider</c>. <c>null</c> = herda do global.
+    /// </summary>
+    public string? EmbeddingProvider { get; set; }
+
+    /// <summary>
+    /// Modelo de embeddings específico (override). Exemplos:
+    /// <c>"text-embedding-3-small"</c>, <c>"models/gemini-embedding-001"</c>,
+    /// <c>"bge-m3"</c>.
+    /// </summary>
+    public string? EmbeddingModel { get; set; }
+
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

@@ -272,6 +272,8 @@ builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.GeminiProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.AnthropicProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProviderFactory, RhPortal.Api.Application.Ai.AiProviderFactory>();
+// Fase 3 LLM-agnóstico — leitura de provider/modelo do tenant atual
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ITenantAiSettingsResolver, RhPortal.Api.Application.Ai.TenantAiSettingsResolver>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();

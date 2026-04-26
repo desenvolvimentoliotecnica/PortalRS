@@ -15,18 +15,14 @@ public interface IUnifiedAiService
 
 /// <summary>
 /// Orquestra a invocação de provedores de IA (OpenAI / Gemini / Anthropic / ...)
-/// a partir de config (appsettings.Ai.*) OU do Master DB (AiProviderKey + AiModel).
-///
-/// <para><b>Ordem de resolução</b> (Fase 2 LLM-agnóstico):</para>
+/// a partir de:
 /// <list type="number">
-///   <item>Se há <c>AiProviderKey</c> ativo no Master DB → usa (prioridade máxima).</item>
-///   <item>Senão, tenta fallback por config: <c>Ai:OpenAI</c>, <c>Ai:Gemini</c>, <c>Ai:Anthropic</c>,
-///   respeitando <c>Ai:DefaultProvider</c> quando múltiplas seções têm chave preenchida.</item>
-///   <item>Se nada está configurado, retorna <c>null</c>.</item>
+///   <item><b>(Fase 3)</b> <c>TenantConfiguracao.LlmProvider</c> do tenant atual — se preenchido, vence.</item>
+///   <item><b>(Fase 2)</b> <c>AiProviderKey</c> ativo no Master DB.</item>
+///   <item><b>(Fase 2)</b> Fallback por <c>appsettings.Ai.*</c>, respeitando <c>Ai.DefaultProvider</c>.</item>
 /// </list>
-///
-/// O provider concreto é resolvido pelo <see cref="IAiProviderFactory"/>, o que
-/// permite adicionar novos providers sem mexer aqui.
+/// Sem nada configurado, retorna <c>null</c>. O provider concreto é resolvido
+/// pelo <see cref="IAiProviderFactory"/>.
 /// </summary>
 public sealed class UnifiedAiService : IUnifiedAiService
 {
@@ -34,6 +30,7 @@ public sealed class UnifiedAiService : IUnifiedAiService
     private readonly ISecretProtector _protector;
     private readonly IAiProviderFactory _factory;
     private readonly AiOptions _aiOptions;
+    private readonly ITenantAiSettingsResolver _tenantSettings;
     private readonly ILogger<UnifiedAiService> _logger;
 
     public UnifiedAiService(
@@ -41,12 +38,14 @@ public sealed class UnifiedAiService : IUnifiedAiService
         ISecretProtector protector,
         IAiProviderFactory factory,
         IOptions<AiOptions> aiOptions,
+        ITenantAiSettingsResolver tenantSettings,
         ILogger<UnifiedAiService> logger)
     {
         _db = db;
         _protector = protector;
         _factory = factory;
         _aiOptions = aiOptions?.Value ?? new AiOptions();
+        _tenantSettings = tenantSettings;
         _logger = logger;
     }
 
@@ -102,10 +101,20 @@ public sealed class UnifiedAiService : IUnifiedAiService
 
     private async Task<ProviderResolution?> ResolveProviderAsync(AiInvokeRequest request, CancellationToken ct)
     {
-        // 1. Prioridade máxima: chave ativa no Master DB
-        var dbKey = await _db.AiProviderKeys
-            .AsNoTracking()
-            .Where(x => x.IsActive)
+        // 0. Override do TENANT (Fase 3): se TenantConfiguracao.LlmProvider preenchido,
+        //    força o provider escolhido pelo admin do tenant.
+        var tenantOverride = await _tenantSettings.GetCurrentAsync(ct);
+        var tenantProviderOverride = tenantOverride?.LlmProvider;
+        var tenantModelOverride = tenantOverride?.LlmModel;
+
+        // 1. Prioridade máxima: chave ativa no Master DB.
+        //    Se tenant escolheu um provider específico, filtra por ele; senão pega "primeiro ativo".
+        var dbKeyQuery = _db.AiProviderKeys.AsNoTracking().Where(x => x.IsActive);
+        if (!string.IsNullOrWhiteSpace(tenantProviderOverride))
+        {
+            dbKeyQuery = dbKeyQuery.Where(x => x.Provider != null && x.Provider.ToLower() == tenantProviderOverride);
+        }
+        var dbKey = await dbKeyQuery
             .OrderByDescending(x => x.IsDefault)
             .ThenBy(x => x.CreatedAtUtc)
             .FirstOrDefaultAsync(ct);
@@ -140,7 +149,10 @@ public sealed class UnifiedAiService : IUnifiedAiService
             }
 
             var decryptedKey = _protector.Decrypt(dbKey.EncryptedKey);
-            var modelId = model?.ModelId ?? DefaultModelFor(providerName);
+            // Modelo: tenant override > AiModel.IsDefault > DefaultModelFor
+            var modelId = !string.IsNullOrWhiteSpace(tenantModelOverride)
+                ? tenantModelOverride!
+                : (model?.ModelId ?? DefaultModelFor(providerName));
 
             return new ProviderResolution(
                 ProviderName: providerName,
@@ -151,7 +163,8 @@ public sealed class UnifiedAiService : IUnifiedAiService
         }
 
         // 2. Fallback: appsettings.Ai.*
-        var preferred = (_aiOptions.DefaultProvider ?? "openai").Trim().ToLowerInvariant();
+        //    Tenant override (se houver) ganha prioridade sobre Ai.DefaultProvider.
+        var preferred = (tenantProviderOverride ?? _aiOptions.DefaultProvider ?? "openai").Trim().ToLowerInvariant();
         var openAiKey = _aiOptions.OpenAI?.ApiKey?.Trim();
         var geminiKey = _aiOptions.Gemini?.ApiKey?.Trim();
         var anthropicKey = _aiOptions.Anthropic?.ApiKey?.Trim();
@@ -187,10 +200,17 @@ public sealed class UnifiedAiService : IUnifiedAiService
 
             if (!string.IsNullOrEmpty(key))
             {
+                // Se tenant tem override de modelo E o provider que estamos prestes a usar
+                // bate com o que o tenant pediu, respeita o LlmModel do tenant.
+                var effectiveModel = (!string.IsNullOrWhiteSpace(tenantModelOverride)
+                                      && string.Equals(providerName, tenantProviderOverride, StringComparison.OrdinalIgnoreCase))
+                    ? tenantModelOverride!
+                    : modelId;
+
                 return new ProviderResolution(
                     ProviderName: providerName!,
                     DecryptedKey: key,
-                    ModelId: modelId,
+                    ModelId: effectiveModel,
                     FromConfig: true,
                     AiModelIdForUsage: null);
             }
