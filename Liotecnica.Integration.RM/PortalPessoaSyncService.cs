@@ -99,17 +99,21 @@ public sealed class PortalPessoaSyncService
                 var nome = (row.Nome ?? "").Trim();
                 if (string.IsNullOrEmpty(nome)) continue;
 
+                // Bloco 10 (refactor 2026-04-26): NÃO criamos mais email fake "codigo<X>@rm.sync".
+                // PPESSOA real tem ~41% sem email — esses ficam Email=NULL no Portal.
+                // Chave de dedup vira CPF + Nome (CPF é mais estável que email pra pessoas legadas).
                 var email = (row.Email ?? "").Trim();
-                if (string.IsNullOrEmpty(email))
-                    email = $"codigo{row.Codigo}@rm.sync";
-                var key = email.Trim().ToLowerInvariant();
+                var hasRealEmail = !string.IsNullOrEmpty(email);
+                var key = hasRealEmail
+                    ? email.ToLowerInvariant()
+                    : $"cpf:{(row.Cpf ?? "").Trim()}|codigo:{row.Codigo}"; // chave interna pro dedup
                 if (string.IsNullOrEmpty(key)) continue;
 
                 // API usa JsonStringEnumConverter: enviar origem como string "Funcionario"
                 var body = new
                 {
                     nome = nome.Length > 160 ? nome.Substring(0, 160) : nome,
-                    email = email.Length > 180 ? email.Substring(0, 180) : email,
+                    email = hasRealEmail ? (email.Length > 180 ? email.Substring(0, 180) : email) : null,
                     fone = Trunc(row.Telefone1, 40),
                     cidade = Trunc(row.Cidade, 120),
                     uf = Trunc(row.Estado, 2),
