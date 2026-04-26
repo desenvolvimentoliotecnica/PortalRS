@@ -1231,11 +1231,35 @@ export default function VagasScreen() {
                                                     <TableCell>
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div>
-                                                                <div className="text-sm font-medium">{vaga.titulo ?? "—"}</div>
+                                                                <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                                                    {vaga.titulo ?? "—"}
+                                                                    {/* Origem TOTVS RM (refactor 2026-04-26) */}
+                                                                    {(() => {
+                                                                        const origem = vagaRaw.origemTipo as number | string | undefined;
+                                                                        const substNome = vagaRaw.substituindoNome as string | undefined;
+                                                                        if (origem == null || origem === 0 || origem === "Manual") return null;
+                                                                        const origemNum = typeof origem === "number" ? origem : ({ Manual: 0, AumentoQuadro: 1, SubstituicaoDesligamento: 2, SubstituicaoPromocao: 3, Direta: 4 } as Record<string, number>)[origem] ?? 0;
+                                                                        const cfg = {
+                                                                            1: { label: "Aumento de quadro", cls: "bg-blue-100 text-blue-700 border-blue-200", title: "Vaga nova (VREQAUMENTOQUADRO)" },
+                                                                            2: { label: substNome ? `Subst. ${substNome}` : "Substituição (deslig.)", cls: "bg-orange-100 text-orange-700 border-orange-200", title: substNome ? `Substituindo ${substNome} (desligamento)` : "Substituição por desligamento" },
+                                                                            3: { label: "Subst. (promoção)", cls: "bg-violet-100 text-violet-700 border-violet-200", title: "Substituição por promoção/transferência" },
+                                                                            4: { label: "Direta", cls: "bg-slate-100 text-slate-600 border-slate-200", title: "Vaga direta no TOTVS RM (sem requisição-pai identificada)" },
+                                                                        }[origemNum];
+                                                                        if (!cfg) return null;
+                                                                        return (
+                                                                            <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded border ${cfg.cls}`} title={cfg.title}>
+                                                                                {cfg.label}
+                                                                            </span>
+                                                                        );
+                                                                    })()}
+                                                                </div>
                                                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                                                                     {(vagaRaw.unidadeLotacaoCode as string | undefined) && <><span className="font-mono">{vagaRaw.unidadeLotacaoCode as string}</span><span>·</span></>}
                                                                     <span>{vagaRaw.unidadeLotacaoName as string | undefined ?? "—"}</span>
                                                                     {location && <><span>·</span><span>{location}</span></>}
+                                                                    {(vagaRaw.hierarquiaDescricao as string | undefined) && (
+                                                                        <><span>·</span><span title="Hierarquia TOTVS">{vagaRaw.hierarquiaDescricao as string}</span></>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                             {typeof vaga.hasDetail === "boolean" && vaga.hasDetail && (

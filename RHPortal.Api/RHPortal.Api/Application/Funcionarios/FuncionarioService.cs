@@ -169,7 +169,11 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.PessoaId,
                 x.HasIncompleteData,
                 x.UnidadeLotacao != null ? x.UnidadeLotacao.Code : null,
-                x.CentroCusto != null ? x.CentroCusto.Code : null
+                x.CentroCusto != null ? x.CentroCusto.Code : null,
+                // Integração TOTVS RM
+                x.MatriculaRm,
+                x.HierarquiaId,
+                x.Hierarquia != null ? x.Hierarquia.Descricao : null
             ))
             .ToListAsync(ct);
 

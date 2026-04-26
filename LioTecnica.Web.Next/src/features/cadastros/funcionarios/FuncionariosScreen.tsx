@@ -50,10 +50,14 @@ interface FuncItem {
     hasIncompleteData: boolean;
     unidadeLotacaoCode?: string;
     centroCustoCode?: string;
-    // TOTVS
+    // TOTVS Datasul
     cdnFuncionario?: string;
     cdnEmpresa?: string;
     cdnEstab?: string;
+    // TOTVS RM (refactor 2026-04-26)
+    matriculaRm?: string;
+    hierarquiaId?: string;
+    hierarquiaDescricao?: string;
 }
 
 interface FuncDetail {
@@ -407,6 +411,10 @@ export default function FuncionariosScreen() {
             cdnFuncionario: i.cdnFuncionario ? String(i.cdnFuncionario) : undefined,
             cdnEmpresa: i.cdnEmpresa ? String(i.cdnEmpresa) : undefined,
             cdnEstab: i.cdnEstab ? String(i.cdnEstab) : undefined,
+            // TOTVS RM
+            matriculaRm: i.matriculaRm ? String(i.matriculaRm) : undefined,
+            hierarquiaId: i.hierarquiaId ? String(i.hierarquiaId) : undefined,
+            hierarquiaDescricao: i.hierarquiaDescricao ? String(i.hierarquiaDescricao) : undefined,
         }));
         setRows(mapped);
         setScreenCache("/funcionarios", mapped);
@@ -877,6 +885,7 @@ export default function FuncionariosScreen() {
                             <TableHead>Empresa</TableHead>
                             <TableHead>Estab</TableHead>
                             <TableHead>Matrícula</TableHead>
+                            <TableHead title="CHAPA do TOTVS RM">RM</TableHead>
                             {(() => {
                                 const sortHead = (col: string, label: string) => {
                                     const active = sort === col;
@@ -909,6 +918,9 @@ export default function FuncionariosScreen() {
                                 <TableCell className="font-mono text-sm text-muted-foreground">{f.cdnEmpresa || "—"}</TableCell>
                                 <TableCell className="font-mono text-sm text-muted-foreground">{f.cdnEstab || "—"}</TableCell>
                                 <TableCell className="font-mono text-sm">{f.cdnFuncionario || "—"}</TableCell>
+                                <TableCell className="font-mono text-xs text-muted-foreground" title={f.hierarquiaDescricao ? `Hierarquia: ${f.hierarquiaDescricao}` : undefined}>
+                                    {f.matriculaRm || "—"}
+                                </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-1.5">
                                         <span className="font-semibold">{f.nome}</span>

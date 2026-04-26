@@ -140,6 +140,14 @@ public sealed class VagaService : IVagaService
                 v.UnidadeLotacaoId,
                 UnidadeLotacaoCode = v.UnidadeLotacao != null ? v.UnidadeLotacao.Code : null,
                 UnidadeLotacaoName = v.UnidadeLotacao != null ? v.UnidadeLotacao.Description : null,
+                // Origem TOTVS RM (refactor 2026-04-26)
+                v.OrigemTipo,
+                SubstituindoNome = v.OrigemDesligamento != null && v.OrigemDesligamento.Funcionario != null
+                    ? v.OrigemDesligamento.Funcionario.Name
+                    : null,
+                v.HierarquiaId,
+                HierarquiaDescricao = v.Hierarquia != null ? v.Hierarquia.Descricao : null,
+                v.IdReqRmOrigem,
             })
             .ToListAsync(ct);
 
@@ -197,7 +205,12 @@ public sealed class VagaService : IVagaService
                     v.UnidadeLotacaoCode,
                     v.UnidadeLotacaoName,
                     rodadaByVaga.TryGetValue(v.Id, out var rodada) ? (int?)rodada.Numero : null,
-                    rodadaByVaga.TryGetValue(v.Id, out var rodada2) ? (int?)rodada2.TotalCandidatos : null
+                    rodadaByVaga.TryGetValue(v.Id, out var rodada2) ? (int?)rodada2.TotalCandidatos : null,
+                    v.OrigemTipo,
+                    v.SubstituindoNome,
+                    v.HierarquiaId,
+                    v.HierarquiaDescricao,
+                    v.IdReqRmOrigem
                 );
             })
             .ToList();

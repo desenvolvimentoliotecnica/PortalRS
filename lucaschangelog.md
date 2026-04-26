@@ -9,6 +9,51 @@
 
 ## 2026-04-26
 
+### 🏗️ infra · TOTVS RM — Refactor completo do sync (5 fases) — entrega-ônibus do dia
+
+Auditoria de qualidade descobriu que dados sincronizados pra o tenant `liotecnica` estavam catastróficos (todas as 72 vagas no mesmo CC, 7924 "funcionários" fakes da PPESSOA, hierarquia inexistente). Refactor completo com plano em `lucas/.claude/plans/refactor-completo-sync-totvs-liotecnica.md` aprovado pelo gestor (eu) entrega 5 fases num único dia:
+
+- **FASE 1 (commit `715d044`)**: Hierarquia (VHIERARQUIA → 176 nós), Desligamento (VREQDESLIGAMENTO → 728 com flag `GerouSubstituicao`), Empresa (GFILIAL → 4 ativas), `Funcionario.MatriculaRm`. 4 controllers/services novos + 3 migrations idempotentes.
+- **FASE 2 (commit `715d044`)**: refactor `PortalFuncionarioSyncService` pra usar `dbo.PFUNC` (637 ativos) JOIN PPESSOA + última `VREQTRANSFPROMOCAO` por CHAPA pra hierarquia. Refactor `PortalVagaSyncService` com `OrigemTipo` (enum: AumentoQuadro / SubstituicaoDesligamento / SubstituicaoPromocao / Direta) — vagas resolvem CC + hierarquia via `VREQAUMENTOQUADRO` ou `VREQSUBSTITUICAO`. Bloco 9 (filtrar `PFUNCAO.INATIVA != 1`). 2 endpoints `*/sync-rm/bulk` novos. Vaga ganha `HierarquiaId, OrigemDesligamentoId, IdReqRmOrigem`.
+- **FASE 3 (commit `1ec3f3e`)**: PortalPessoaSyncService não cria mais email fake `codigo<X>@rm.sync` — pessoa sem email vira `Email=NULL`. Bug B7 (cargos com prefixo `CAR-XX`) confirmado como padrão correto da API.
+- **FASE 4**: UI completa.
+  - Tela `/admin/organograma` ganhou toggle **"TOTVS RM"** vs **"Datasul"** — modo TOTVS renderiza árvore navegável simples consumindo `/api/hierarquias/tree` com 167 nós ativos.
+  - Tela `/gestao/desligamentos` ganhou mesmo toggle — modo TOTVS lista pipeline com filtros (status, gerou substituição, busca por chapa/nome/IDREQ) consumindo `/api/desligamentos`.
+  - `VagasScreen` ganhou chip de **Origem** ao lado do título da vaga (4 cores diferentes pra AumentoQuadro / SubstDesligamento / SubstPromocao / Direta). Quando vaga é substituição de desligamento, chip mostra "Subst. [Nome do desligado]". Linha de meta-info da vaga agora inclui `hierarquiaDescricao` quando presente.
+  - `FuncionariosScreen` ganhou coluna **"RM"** entre Matrícula (Datasul) e Nome — exibe `MatriculaRm` (PFUNC.CHAPA) com tooltip da Hierarquia.
+  - Backend: `VagaListItemResponse` ganhou 5 campos novos (`OrigemTipo`, `SubstituindoNome`, `HierarquiaId`, `HierarquiaDescricao`, `IdReqRmOrigem`). `FuncionarioGridRowResponse` ganhou 3 novos (`MatriculaRm`, `HierarquiaId`, `HierarquiaDescricao`). Atualizado em `VagaService` + `ListVagasPendenciasRhHandler` + `FuncionarioService`.
+- **FASE 5**: smoke test ponta-a-ponta + docs.
+
+**Validação ponta-a-ponta com PROD CORPORERM (login read-only `rm_readonly_voltage` criado pelo DBA):**
+
+| Métrica | Antes | Depois |
+|---|---|---|
+| Funcionários | 7924 fakes da PPESSOA, todos com CC/cargo/gestor NULL | **637 reais** (CODSITUACAO ativos), 100% com CC + cargo, 81% com email real, 10% com hierarquia (limite real do RM) |
+| Vagas | 72 todas no CC `01-LIOLOG` (chute) | **72 com CC variado real**, 51 AumentoQuadro + 14 SubstDesligamento + 3 SubstPromocao + 4 Direta |
+| Hierarquia organograma | inexistente | 176 nós sincronizados, árvore navegável |
+| Desligamentos | inexistente | 728 (650 concluídos), 609 com flag de substituição |
+| Empresas | vazia | 4 (uma por GFILIAL ativa) |
+| Centros de Custo | já tinha 419 mas com sync errado | 419 com sync via `PSECAO.CODIGO` correto |
+| Pessoas com email fake `@rm.sync` | ~41% | **0%** |
+
+**Caso Lucas Muniz Machado (CHAPA 00000581) na tela:**
+- Antes: aparecia como vinda da PPESSOA, sem CC nem cargo nem gestor (espelho fake).
+- Depois: CC `01.11.023.002 GESTAO SISTEMAS`, Cargo `CAR-03 (Coordenação)`, Email `lucas.machado@liotecnica.com.br`, MatriculaRm `00000581`, Status Active.
+
+**Decisões arquiteturais documentadas:**
+- **Toggles em vez de telas paralelas**: tela existente `/admin/organograma` (React Flow / Datasul) e `/gestao/desligamentos` (Solicitações Datasul) ganharam toggle pra alternar pra fonte TOTVS RM. Não criamos rotas duplicadas. Multi-tenant: cliente sem TOTVS RM continua vendo o canvas Datasul; tenant Liotécnica vê TOTVS por default.
+- **Endpoints `*/sync-rm/bulk` dedicados**: backend tem endpoints `/api/funcionarios/sync-rm/bulk` e `/api/vagas/sync-rm/bulk` que recebem códigos crus do RM (CHAPA, CODSECAO, CODCARGO, CODFILIAL, IDHIERARQUIADESTINO) e resolvem FKs internamente. Não conflita com endpoints `/api/funcionarios` POST tradicionais.
+- **Login read-only no PROD**: DBA criou `rm_readonly_voltage` com role `db_datareader` único. Worker conecta com `ApplicationIntent=ReadOnly`. Audit do código mostra zero queries de escrita no RM. Senha sai de `appsettings.Development.json` (LUC-121 cobre move pra Master DB encriptado).
+
+**Backlog herdado (LUC-120, LUC-121):** worker multi-tenant + secrets em Master DB.
+
+**Arquivos novos (12) + alterados (~15):**
+- `Domain/Entities`: Hierarquia.cs, Desligamento.cs, VagaOrigemTipo.cs (enum). Funcionario/Vaga ganharam campos.
+- `Migrations` (5 idempotentes): AddHierarquias, AddDesligamentos, AddMatriculaRm, AddHierarquiaIdToFuncionario, AddOrigemHierarquiaToVagas.
+- `Controllers`: HierarquiasController, DesligamentosController, FuncionariosSyncRmController, VagasSyncRmController.
+- `Worker`: PortalHierarquiaSyncService, PortalDesligamentoSyncService, PortalEmpresaSyncService novos. PortalFuncionarioSyncService + PortalVagaSyncService refatorados.
+- `Frontend`: HierarquiaTotvsTree.tsx, DesligamentosTotvsList.tsx novos. /admin/organograma/page.tsx + /gestao/desligamentos/page.tsx com toggle. VagasScreen + FuncionariosScreen extendidos.
+
 ### ✨ feature · TOTVS RM — Gating comercial por tenant (Opção C) + sync direto do banco RM via VPN
 - **Contexto:** O `Liotecnica.Integration.RM` era worker standalone com tenant + ApiKey + paths hardcoded em `appsettings.Development.json` (resíduo do dev anterior). Não tinha controle comercial — rodava enquanto o processo estivesse vivo, independente do tenant `liotecnica` estar pagando o módulo. E quando outros clientes entrassem, o Owner não tinha como visualizar/desligar a integração por cliente. Dependência adicional: o `appsettings` apontava `Output.SchemaTablesPath` para path do dev anterior — não funcionava local.
 - **O que foi entregue (5 arquivos backend, 4 worker, +1 controller novo):**
