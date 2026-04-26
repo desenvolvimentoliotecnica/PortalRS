@@ -196,8 +196,9 @@ export async function apiFetch(
 export async function apiJson<T>(
     path: string,
     init: RequestInit = {},
+    timeoutMs?: number,
 ): Promise<T> {
-    const res = await apiFetch(path, init);
+    const res = await apiFetch(path, init, timeoutMs);
 
     if (res.status === 401) throw new Error("UNAUTHORIZED");
     // 3xx redirects are not auth errors — removed erroneous throw

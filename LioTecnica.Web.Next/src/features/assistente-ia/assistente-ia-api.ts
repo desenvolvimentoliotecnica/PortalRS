@@ -78,7 +78,7 @@ export const AssistenteIaApi = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message, history }),
-        }),
+        }, 360_000),
 
     /**
      * Chat streaming via SSE. Retorna um iterable assíncrono de chunks de texto —
