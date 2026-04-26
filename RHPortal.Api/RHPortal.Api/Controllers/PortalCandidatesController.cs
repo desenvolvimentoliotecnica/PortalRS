@@ -1953,6 +1953,223 @@ public sealed class PortalCandidatesController : ControllerBase
     }
 
     /// <summary>
+    /// Calcula o percentual de preenchimento do workspace do candidato.
+    /// </summary>
+    [HttpGet("{id:guid}/profile-completion")]
+    [ProducesResponseType(typeof(PortalCandidateCompletionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateCompletionResponse>> GetProfileCompletion(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var candidate = await db.Candidatos
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new
+            {
+                c.Id,
+                c.Nome,
+                c.Email,
+                c.Fone,
+                c.Cidade,
+                c.Uf,
+                c.LinkedinUrl,
+                c.ResumoProfissional,
+                c.AvatarFileName,
+                c.TrabalhandoAtualmente
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (candidate is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        static int Percent(int done, int total) => total <= 0 ? 0 : (int)Math.Round(done * 100m / total);
+        static bool Filled(string? value) => !string.IsNullOrWhiteSpace(value);
+
+        var hasCurriculo = await db.CandidatoDocumentos.AsNoTracking()
+            .AnyAsync(d => d.CandidatoId == id && d.Tipo == CandidateDocumentType.Curriculo, ct);
+        var skillsCount = await db.CandidatoCompetencias.AsNoTracking().CountAsync(x => x.CandidatoId == id, ct);
+        var certsCount = await db.CandidatoCertificacoes.AsNoTracking().CountAsync(x => x.CandidatoId == id, ct);
+        var portfolio = await db.CandidatoPortfolios.AsNoTracking().FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+        var educationSummary = await db.CandidatoEducacaoResumos.AsNoTracking().FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+        var educationItems = await db.CandidatoEducacaoItens.AsNoTracking().CountAsync(x => x.CandidatoId == id, ct);
+        var experiences = await db.CandidatoExperiencias.AsNoTracking().CountAsync(x => x.CandidatoId == id, ct);
+        var projects = await db.CandidatoProjetos.AsNoTracking().CountAsync(x => x.CandidatoId == id, ct);
+        var preferences = await db.CandidatoPreferenciasVaga.AsNoTracking().FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+        var accessibility = await db.CandidatoAcessibilidades.AsNoTracking().AnyAsync(x => x.CandidatoId == id, ct);
+        var agenda = await db.CandidatoAgendaPreferencias.AsNoTracking().AnyAsync(x => x.CandidatoId == id, ct);
+        var agendaBlocks = await db.CandidatoAgendaBloqueios.AsNoTracking().AnyAsync(x => x.CandidatoId == id, ct);
+        var notifications = await db.CandidatoNotificacaoPreferencias.AsNoTracking().AnyAsync(x => x.CandidatoId == id, ct);
+        var documents = await db.CandidatoDocumentos.AsNoTracking().CountAsync(x => x.CandidatoId == id, ct);
+        var references = await db.CandidatoReferencias.AsNoTracking().CountAsync(x => x.CandidatoId == id, ct);
+        var lgpd = await db.CandidatoLgpdConsents.AsNoTracking().FirstOrDefaultAsync(x => x.CandidatoId == id, ct);
+        var history = await db.Candidaturas.AsNoTracking().CountAsync(x => x.CandidatoId == id, ct);
+        var matches = await db.CandidatoVagaMatchingScores.AsNoTracking().CountAsync(x => x.CandidatoId == id && x.Score > 0, ct);
+
+        var sections = new Dictionary<string, int>
+        {
+            ["perfil"] = Percent(new[]
+            {
+                Filled(candidate.Nome), Filled(candidate.Email), Filled(candidate.Fone), Filled(candidate.Cidade),
+                Filled(candidate.Uf), Filled(candidate.LinkedinUrl), Filled(candidate.ResumoProfissional),
+                Filled(candidate.AvatarFileName), hasCurriculo, candidate.TrabalhandoAtualmente.HasValue
+            }.Count(x => x), 10),
+            ["testes"] = 0,
+            ["comp"] = Percent((skillsCount > 0 ? 1 : 0) + (certsCount > 0 ? 1 : 0) + (portfolio is not null ? 1 : 0), 3),
+            ["formacao"] = Percent((educationSummary is not null ? 1 : 0) + (educationItems > 0 ? 1 : 0), 2),
+            ["exp"] = Percent((experiences > 0 ? 1 : 0) + (projects > 0 ? 1 : 0), 2),
+            ["lgpd"] = lgpd?.ConsentidoEmUtc is not null && lgpd.RevogadoEmUtc is null ? 100 : 0,
+            ["pref"] = preferences is not null ? 100 : 0,
+            ["acess"] = accessibility ? 100 : 0,
+            ["agenda"] = Percent((agenda ? 1 : 0) + (agendaBlocks ? 1 : 0), 2),
+            ["hist"] = history > 0 ? 100 : 0,
+            ["notif"] = notifications ? 100 : 0,
+            ["docs"] = documents > 0 ? 100 : 0,
+            ["refs"] = references > 0 ? 100 : 0
+        };
+
+        var overall = (int)Math.Round(sections.Values.DefaultIfEmpty(0).Average());
+        var warnings = new List<string>();
+        var suggestions = new List<PortalCandidateCompletionSuggestion>();
+        var evidence = new Dictionary<string, string>
+        {
+            ["perfil"] = hasCurriculo ? "Curriculo anexado ao perfil." : "Curriculo ainda nao anexado.",
+            ["comp"] = $"{skillsCount} competencia(s), {certsCount} certificacao(oes).",
+            ["formacao"] = $"{educationItems} formacao(oes) cadastrada(s).",
+            ["exp"] = $"{experiences} experiencia(s), {projects} projeto(s).",
+            ["matches"] = $"{matches} score(s) de vaga disponivel(is)."
+        };
+
+        if (!hasCurriculo)
+        {
+            warnings.Add("Inclua um curriculo para melhorar o ranqueamento.");
+            suggestions.Add(new PortalCandidateCompletionSuggestion("perfil", "Envie seu curriculo em PDF.", "alto"));
+        }
+        if (skillsCount == 0)
+            suggestions.Add(new PortalCandidateCompletionSuggestion("comp", "Cadastre competencias tecnicas e comportamentais.", "medio"));
+        if (preferences is null)
+            suggestions.Add(new PortalCandidateCompletionSuggestion("pref", "Informe cargo alvo, modelo de trabalho e pretensao.", "medio"));
+        if (lgpd?.ConsentidoEmUtc is null || lgpd.RevogadoEmUtc is not null)
+            suggestions.Add(new PortalCandidateCompletionSuggestion("lgpd", "Revise e aceite os consentimentos LGPD.", "alto"));
+
+        return Ok(new PortalCandidateCompletionResponse(sections, overall, warnings, evidence, suggestions));
+    }
+
+    [HttpGet("{id:guid}/job-matches")]
+    [ProducesResponseType(typeof(PortalCandidateJobMatchesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateJobMatchesResponse>> GetJobMatches(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var matches = await (
+            from v in db.Vagas.AsNoTracking()
+            join score in db.CandidatoVagaMatchingScores.AsNoTracking().Where(s => s.CandidatoId == id)
+                on v.Id equals score.VagaId into scoreJoin
+            from score in scoreJoin.DefaultIfEmpty()
+            where v.Status == RHPortal.Api.Domain.Enums.VagaStatus.Aberta
+                && !v.Confidencial
+                && (v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.Externa
+                    || v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.InternaEExterna)
+                && (!v.DataInicio.HasValue || v.DataInicio.Value <= today)
+                && (!v.DataEncerramento.HasValue || v.DataEncerramento.Value >= today)
+            orderby (score != null ? score.Score : 0) descending, v.CreatedAtUtc descending
+            select new PortalCandidateJobMatchItem(
+                v.Id,
+                score != null ? score.Score : 0,
+                v.Titulo,
+                v.CentroCusto != null ? v.CentroCusto.Description : null,
+                v.Cidade,
+                v.Uf,
+                v.Modalidade != null ? v.Modalidade.ToString() : null,
+                v.Senioridade != null ? v.Senioridade.ToString() : null,
+                score != null && !string.IsNullOrWhiteSpace(score.Justificativa)
+                    ? score.Justificativa
+                    : "Vaga aberta no portal de carreiras."))
+            .Take(12)
+            .ToListAsync(ct);
+
+        return Ok(new PortalCandidateJobMatchesResponse(matches));
+    }
+
+    /// <summary>
+    /// Faz upload e tenta extrair dados estruturados de um curriculo em PDF.
+    /// </summary>
+    [HttpPost("{id:guid}/parse-resume")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [RequestSizeLimit(52_428_800)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<object>> ParseResume(
+        Guid id,
+        [FromForm] PortalCandidateUploadFileInput input,
+        [FromServices] ICandidatoService service,
+        CancellationToken ct)
+    {
+        var arquivo = input?.Arquivo;
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoFileInvalid"] });
+
+        try
+        {
+            var result = await service.UploadCurriculoEExtrairAsync(id, arquivo, enviarParaGpt: true, ct);
+            if (result is null)
+                return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Gera uma versao HTML simples do curriculo a partir dos dados do perfil.
+    /// </summary>
+    [HttpGet("{id:guid}/resume-html")]
+    [ProducesResponseType(typeof(PortalCandidateResumeHtmlResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateResumeHtmlResponse>> GetResumeHtml(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var html = await BuildResumeHtmlAsync(db, id, ct);
+        if (html is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        return Ok(new PortalCandidateResumeHtmlResponse($"curriculo-{id:N}.html", html));
+    }
+
+    /// <summary>
+    /// Gera um PDF simples do curriculo a partir dos dados do perfil.
+    /// </summary>
+    [HttpGet("{id:guid}/resume-pdf")]
+    [ProducesResponseType(typeof(PortalCandidateResumePdfResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateResumePdfResponse>> GetResumePdf(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var html = await BuildResumeHtmlAsync(db, id, ct);
+        if (html is null)
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var pdfBytes = BuildSimplePdf(StripHtmlForPdf(html));
+        return Ok(new PortalCandidateResumePdfResponse($"curriculo-{id:N}.pdf", "application/pdf", Convert.ToBase64String(pdfBytes)));
+    }
+
+    /// <summary>
     /// Faz upload da foto de perfil do candidato.
     /// </summary>
     [HttpPost("{id:guid}/avatar")]
@@ -2098,6 +2315,189 @@ public sealed class PortalCandidatesController : ControllerBase
             : file.ContentType;
 
         return PhysicalFile(file.FilePath, contentType, file.FileName);
+    }
+
+    private static async Task<string?> BuildResumeHtmlAsync(AppDbContext db, Guid id, CancellationToken ct)
+    {
+        var candidate = await db.Candidatos
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new
+            {
+                c.Nome,
+                c.Email,
+                c.Fone,
+                c.Cidade,
+                c.Uf,
+                c.LinkedinUrl,
+                c.ResumoProfissional,
+                c.TrabalhandoAtualmente
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (candidate is null) return null;
+
+        var skills = await db.CandidatoCompetencias.AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderBy(x => x.Tipo)
+            .ThenBy(x => x.Nome)
+            .Select(x => new { x.Nome, x.Tipo, x.Nivel, x.Evidencia })
+            .ToListAsync(ct);
+
+        var education = await db.CandidatoEducacaoItens.AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderByDescending(x => x.Fim)
+            .ThenByDescending(x => x.Inicio)
+            .Select(x => new { x.Curso, x.Instituicao, x.Tipo, x.Status, x.Inicio, x.Fim })
+            .ToListAsync(ct);
+
+        var experiences = await db.CandidatoExperiencias.AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderByDescending(x => x.Fim)
+            .ThenByDescending(x => x.Inicio)
+            .Select(x => new { x.Empresa, x.Cargo, x.Inicio, x.Fim, x.Local, x.Atividades })
+            .ToListAsync(ct);
+
+        var projects = await db.CandidatoProjetos.AsNoTracking()
+            .Where(x => x.CandidatoId == id)
+            .OrderByDescending(x => x.Periodo)
+            .Select(x => new { x.Nome, x.Periodo, x.Descricao, x.Link, x.Stack })
+            .ToListAsync(ct);
+
+        static string E(string? value) => System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
+        static string Period(string? start, string? end) => string.Join(" - ", new[] { start, end }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+        var sb = new StringBuilder();
+        sb.Append("""
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Curriculo do candidato</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #172033; margin: 32px; line-height: 1.5; }
+    h1 { color: #105290; margin-bottom: 4px; }
+    h2 { border-bottom: 1px solid #d7e1ef; color: #105290; margin-top: 28px; padding-bottom: 6px; }
+    .muted { color: #5d6b82; }
+    .item { margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+""");
+        sb.Append($"<h1>{E(candidate.Nome)}</h1>");
+        sb.Append($"<p class=\"muted\">{E(candidate.Email)}");
+        if (!string.IsNullOrWhiteSpace(candidate.Fone)) sb.Append($" | {E(candidate.Fone)}");
+        if (!string.IsNullOrWhiteSpace(candidate.Cidade) || !string.IsNullOrWhiteSpace(candidate.Uf)) sb.Append($" | {E(candidate.Cidade)} {E(candidate.Uf)}");
+        sb.Append("</p>");
+        if (!string.IsNullOrWhiteSpace(candidate.LinkedinUrl)) sb.Append($"<p><strong>LinkedIn:</strong> {E(candidate.LinkedinUrl)}</p>");
+        if (!string.IsNullOrWhiteSpace(candidate.ResumoProfissional)) sb.Append($"<h2>Resumo</h2><p>{E(candidate.ResumoProfissional)}</p>");
+
+        if (skills.Count > 0)
+        {
+            sb.Append("<h2>Competencias</h2><ul>");
+            foreach (var skill in skills)
+                sb.Append($"<li><strong>{E(skill.Nome)}</strong> ({E(skill.Tipo)} / {E(skill.Nivel)}) {E(skill.Evidencia)}</li>");
+            sb.Append("</ul>");
+        }
+
+        if (experiences.Count > 0)
+        {
+            sb.Append("<h2>Experiencia</h2>");
+            foreach (var exp in experiences)
+            {
+                sb.Append("<div class=\"item\">");
+                sb.Append($"<strong>{E(exp.Cargo)}</strong> - {E(exp.Empresa)}<br />");
+                sb.Append($"<span class=\"muted\">{E(Period(exp.Inicio, exp.Fim))} {E(exp.Local)}</span>");
+                if (!string.IsNullOrWhiteSpace(exp.Atividades)) sb.Append($"<p>{E(exp.Atividades)}</p>");
+                sb.Append("</div>");
+            }
+        }
+
+        if (education.Count > 0)
+        {
+            sb.Append("<h2>Formacao</h2>");
+            foreach (var item in education)
+                sb.Append($"<div class=\"item\"><strong>{E(item.Curso)}</strong> - {E(item.Instituicao)}<br /><span class=\"muted\">{E(item.Tipo)} {E(item.Status)} {E(Period(item.Inicio, item.Fim))}</span></div>");
+        }
+
+        if (projects.Count > 0)
+        {
+            sb.Append("<h2>Projetos</h2>");
+            foreach (var project in projects)
+                sb.Append($"<div class=\"item\"><strong>{E(project.Nome)}</strong> <span class=\"muted\">{E(project.Periodo)}</span><p>{E(project.Descricao)}</p><p>{E(project.Stack)} {E(project.Link)}</p></div>");
+        }
+
+        sb.Append("</body></html>");
+        return sb.ToString();
+    }
+
+    private static string StripHtmlForPdf(string html)
+    {
+        var text = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", "\n");
+        text = System.Net.WebUtility.HtmlDecode(text);
+        return System.Text.RegularExpressions.Regex.Replace(text, @"\n{3,}", "\n\n").Trim();
+    }
+
+    private static byte[] BuildSimplePdf(string text)
+    {
+        static string Escape(string value) => value.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
+
+        var lines = text.Split('\n')
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0)
+            .Take(48)
+            .ToList();
+
+        var content = new StringBuilder();
+        content.AppendLine("BT");
+        content.AppendLine("/F1 11 Tf");
+        content.AppendLine("50 790 Td");
+        foreach (var line in lines)
+        {
+            var chunks = Enumerable.Range(0, Math.Max(1, (int)Math.Ceiling(line.Length / 92m)))
+                .Select(i => line.Substring(i * 92, Math.Min(92, line.Length - i * 92)));
+            foreach (var chunk in chunks)
+            {
+                content.AppendLine($"({Escape(chunk)}) Tj");
+                content.AppendLine("0 -15 Td");
+            }
+        }
+        content.AppendLine("ET");
+
+        var stream = Encoding.ASCII.GetBytes(content.ToString());
+        var objects = new List<string>
+        {
+            "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+            "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+            $"5 0 obj\n<< /Length {stream.Length} >>\nstream\n{content}endstream\nendobj\n"
+        };
+
+        using var ms = new MemoryStream();
+        using var writer = new StreamWriter(ms, Encoding.ASCII, leaveOpen: true);
+        writer.Write("%PDF-1.4\n");
+        var offsets = new List<long> { 0 };
+        foreach (var obj in objects)
+        {
+            writer.Flush();
+            offsets.Add(ms.Position);
+            writer.Write(obj);
+        }
+        writer.Flush();
+        var xref = ms.Position;
+        writer.WriteLine("xref");
+        writer.WriteLine($"0 {objects.Count + 1}");
+        writer.WriteLine("0000000000 65535 f ");
+        foreach (var offset in offsets.Skip(1))
+            writer.WriteLine($"{offset:0000000000} 00000 n ");
+        writer.WriteLine("trailer");
+        writer.WriteLine($"<< /Size {objects.Count + 1} /Root 1 0 R >>");
+        writer.WriteLine("startxref");
+        writer.WriteLine(xref);
+        writer.WriteLine("%%EOF");
+        writer.Flush();
+        return ms.ToArray();
     }
 
     private static string NormalizeUfRequired(string? uf)

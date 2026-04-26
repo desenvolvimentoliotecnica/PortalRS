@@ -487,6 +487,14 @@ export default function PortalVagasScreen() {
 
           {/* Right actions */}
           <div className="ml-auto flex items-center gap-2">
+            {candidateSession?.id && (
+              <a
+                href={`/app/PortalVagas/Candidato?tenantId=${encodeURIComponent(tenantId)}`}
+                className="hidden items-center gap-1.5 rounded-lg bg-[#105290] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0d3f72] sm:flex"
+              >
+                Workspace
+              </a>
+            )}
             <button
               type="button"
               onClick={() => void openProfile()}
