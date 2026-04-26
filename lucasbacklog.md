@@ -116,6 +116,28 @@ Cada item tem: id, prioridade, status, tipo, título, contexto, critério de ace
 
 ## 🟢 Prioridade baixa
 
+### LUC-120 — Refactor multi-tenant do worker `Liotecnica.Integration.RM`
+- **Status:** ⏸ **AGUARDANDO 2º cliente TOTVS** — não vale fazer com cliente único.
+- **Tipo:** refactor / infra
+- **Contexto:** Hoje o worker é deploy físico **um por cliente** — cada tenant que contrata TOTVS RM ganha sua própria instância com `appsettings` próprio (TenantId + RmCredentials + ApiKey). Funciona pra Liotécnica, mas duplica deploys quando cliente B chegar.
+- **Quando atacar:** assim que aparecer 2º cliente TOTVS RM no roadmap comercial.
+- **Aceite:**
+  - [ ] Worker lê tenants ativos via `GET /api/owner/tenants?moduleEnabled=totvs-rm` (ou similar)
+  - [ ] Loop de ciclo itera por tenant ativo, switching credentials RM
+  - [ ] Master DB armazena `RmConnectionConfig` por tenant (encriptado — junto com LUC-121)
+  - [ ] Healthcheck por tenant (último ciclo, contagem importada)
+  - [ ] Single binary em vez de N deploys
+
+### LUC-121 — Migrar `Portal.ApiKey` e `Rm.UserId/Password` do worker para Master DB encriptado
+- **Status:** 📋 ABERTO — junta com onda da Fase 4 secrets (LUC-021).
+- **Tipo:** infra / segurança
+- **Contexto:** O `appsettings.Development.json` do `Liotecnica.Integration.RM/` hoje carrega `Portal.ApiKey` + `Rm.UserId/Password` em texto plano. Em dev local é OK; em prod é risco (mesmo padrão da OpenAI key, já listado em LUC-021).
+- **Aceite:**
+  - [ ] `RmConnectionConfig` por tenant encriptado em Master DB (col `EncryptedPasswordCipher` + KMS)
+  - [ ] Worker lê via `IRmCredentialsResolver` (mesma API que o `IAiCredentialsResolver` da Fase 4)
+  - [ ] Fallback `appsettings` em dev preservado
+  - [ ] Plano de rotação documentado (junto com LUC-021)
+
 ### LUC-020 — Inbox watcher: parser de .eml
 - **Status:** 🛑 **BLOQUEADO** — sem mailbox/dataset real para testar parsing + ataques (.eml malformado, encoding latin-1, anexos grandes)
 - **Tipo:** feature

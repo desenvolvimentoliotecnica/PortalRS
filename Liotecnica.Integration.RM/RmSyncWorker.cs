@@ -100,6 +100,17 @@ public sealed class RmSyncWorker : BackgroundService
 
     private async Task SyncAsync(CancellationToken ct)
     {
+        // Gating comercial (Opção C): antes de qualquer trabalho, confirma que o módulo
+        // 'totvs-rm' continua habilitado para este tenant no Portal. Quando OFF, o ciclo
+        // é pulado limpamente — sem queries SQL no RM, sem chamadas POST. Owner controla
+        // o switch via /Owner/Tenants/{id}/modules. Fail-open: se o endpoint cair, assume ON.
+        if (!await _portalClient.IsModuleEnabledAsync("totvs-rm", ct))
+        {
+            _logger.LogInformation("Módulo 'totvs-rm' desabilitado para o tenant — ciclo pulado.");
+            _logWriter.WriteLine("Módulo 'totvs-rm' desabilitado para o tenant — ciclo pulado.");
+            return;
+        }
+
         if (_syncOptions.SyncVagasOnly)
         {
             await SyncVagasOnlyAsync(ct);

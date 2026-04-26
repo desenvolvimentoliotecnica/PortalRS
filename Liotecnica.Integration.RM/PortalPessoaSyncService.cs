@@ -16,6 +16,7 @@ public sealed class PortalPessoaSyncService
     private readonly OutputOptions _outputOptions;
     private readonly IHostEnvironment _env;
     private readonly ExtractionLogWriter _logWriter;
+    private readonly RmSyncOptions _syncOptions;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,12 +28,14 @@ public sealed class PortalPessoaSyncService
         ILogger<PortalPessoaSyncService> logger,
         PortalApiClient portalClient,
         IOptions<OutputOptions> outputOptions,
+        IOptions<RmSyncOptions> syncOptions,
         IHostEnvironment env,
         ExtractionLogWriter logWriter)
     {
         _logger = logger;
         _portalClient = portalClient;
         _outputOptions = outputOptions.Value;
+        _syncOptions = syncOptions.Value;
         _env = env;
         _logWriter = logWriter;
     }
@@ -70,6 +73,15 @@ public sealed class PortalPessoaSyncService
         {
             _logWriter.WriteLine("Sync Pessoas: nenhum registro em pessoa.json.");
             return;
+        }
+
+        // Cap opcional via RmSync:MaxPessoasToSync — usado no modo sync-one pra validar
+        // o pipeline rapidamente (sem isso são ~7938 POSTs a 1-3s cada na Liotécnica).
+        if (_syncOptions.MaxPessoasToSync is int cap && cap > 0 && items.Count > cap)
+        {
+            _logWriter.WriteLine($"Sync Pessoas: limitando envio a {cap} (de {items.Count}) via RmSync:MaxPessoasToSync.");
+            _logger.LogInformation("Sync Pessoas: aplicando cap MaxPessoasToSync={Cap} (total disponível={Total}).", cap, items.Count);
+            items = items.Take(cap).ToList();
         }
 
         _logWriter.WriteLine($"Sync Pessoas: enviando {items.Count} itens (PPESSOA -> api/pessoas)");

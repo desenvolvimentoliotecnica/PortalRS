@@ -103,9 +103,66 @@ dotnet run -- import-cv-by-talento <id>  # Importa PDF de currículo de um talen
 - **`Liotecnica.Integration.RM.Schema/`** — define `RmSchemaOptions` e nomes de tabelas como classe.
 - **`Liotecnica.Integration.RM.Schema.Tables/`** — JSONs com extrações offline do schema (área, cargo, departamento, funcionário, etc.) para desenvolvimento sem precisar do RM.
 
-### 1.7 Status
+### 1.7 Gating comercial por tenant (Opção C — 2026-04-26)
 
-✅ **Em produção** — sincronização contínua, logs com histórico completo.
+A integração TOTVS RM agora é **um módulo do `ModuleCatalog`** (`totvs-rm`, standalone, sem `PackageKey`). Owner controla o switch via `/Owner/Tenants/{id}/modules` exatamente como qualquer outro módulo (matching, ai, etc.).
+
+**Como o worker respeita o switch:**
+
+1. No início de cada ciclo, `RmSyncWorker.SyncAsync` chama `PortalApiClient.IsModuleEnabledAsync("totvs-rm")`.
+2. O método consulta `GET /api/tenant-modules/totvs-rm/status` autenticando com a `X-Api-Key` que já existia.
+3. Se `isEnabled = false` → ciclo é pulado, log emitido (`"Módulo 'totvs-rm' desabilitado para o tenant — ciclo pulado"`), **zero queries SQL no RM, zero POSTs na API**.
+4. Se a API estiver indisponível ou der erro de rede → **fail-open**: assume `true` para não bloquear sync por health da API.
+
+**Endpoint criado:** `GET /api/tenant-modules/{moduleKey}/status` em `Controllers/TenantModulesController.cs`. Aceita `JwtBearer` **ou** `X-Api-Key` (cobertura via `FallbackPolicy` do `Program.cs`). Reusa `TenantModuleService.GetEnabledModuleKeysAsync` para a regra efetiva (módulos core sempre on, módulos com `PackageKey` só on se pacote-pai ativo).
+
+**Permission acompanhante:** `integracao-totvs.view` em `RolePermissionManifest.cs` (Admin/RH/Owner ganham; Colaborador/Gestor não).
+
+**Uso esperado:**
+- Tenant que NÃO tem TOTVS RM contratado → Owner mantém módulo OFF (default em tenants novos onde nenhum worker está deployado). Worker físico nem precisa rodar.
+- Tenant que CANCELA contrato → Owner desliga toggle. Worker para de empurrar dados sem precisar mexer no servidor; dados existentes ficam intactos.
+- Tenant que VOLTA → toggle ON, worker retoma no próximo ciclo.
+
+**Não escopo (futuro — backlog LUC-120):** Refactor multi-tenant do worker. Hoje o worker físico é uma instância por cliente (deploy por tenant). Quando o 2º cliente TOTVS aparecer, o worker passa a ler tenants ativos do master e iterar.
+
+### 1.8 Smoke test local (`liotecnica`)
+
+Comandos validados em **2026-04-26** com VPN ativa para `172.19.30.7`:
+
+```bash
+# 1. Extract real (queries direto no RM via VPN — sem JSONs de outros devs)
+cd Liotecnica.Integration.RM
+dotnet run -- extract
+# Saída esperada: 8557 tabelas, 140k colunas, 763 vagas, 7938 pessoas, 413 deptos, 1556 funções, 20 cargos, 5 filiais
+
+# 2. Sync mínimo (cap MaxPessoasToSync=1)
+dotnet run -- sync-one
+# Saída esperada (~75s): 1 talento criado, log com "aplicando cap MaxPessoasToSync=1 (total disponível=7938)"
+
+# 3. Validar gating: desligar módulo via Owner, rodar worker → ciclo pulado
+TOKEN=$(curl ... /api/owner/auth/login ...)
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+  http://localhost:5056/api/owner/tenants/liotecnica/modules/totvs-rm \
+  -d '{"isEnabled":false}'
+dotnet run -- sync-one
+# Esperado: "Módulo 'totvs-rm' desabilitado — ciclo pulado", sem queries SQL.
+```
+
+### 1.9 Caps de teste (`RmSync:Max*ToSync`)
+
+Para smoke test sem aguardar 4h+ de POSTs na API:
+
+| Opção | Função |
+|---|---|
+| `MaxPessoasToSync` | Cap em `PortalPessoaSyncService` (foreach do PPESSOA). 1 = mínimo viável. **Novo em 2026-04-26.** |
+| `MaxTalentosToSync` | Cap em `PortalTalentoSyncService` (já existia). |
+| `MaxCandidatosToSync` | Cap em `PortalCandidatoVagaSyncService` (já existia). |
+
+Quando rodando `dotnet run -- sync-one`, o `Program.cs` injeta os 3 caps em `1` automaticamente.
+
+### 1.10 Status
+
+✅ **Em produção (Liotécnica)** — sincronização contínua, logs com histórico completo, gating comercial via Owner UI.
 
 ---
 

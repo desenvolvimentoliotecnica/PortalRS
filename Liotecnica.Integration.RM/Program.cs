@@ -23,7 +23,9 @@ if (runSyncOne)
     builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
     {
         ["RmSync:MaxTalentosToSync"] = "1",
-        ["RmSync:MaxCandidatosToSync"] = "1"
+        ["RmSync:MaxCandidatosToSync"] = "1",
+        // sync-one é smoke test — sem este cap, a API recebe 7938 POSTs em pessoa (~4h).
+        ["RmSync:MaxPessoasToSync"] = "1"
     });
 }
 if (runSyncClayton)

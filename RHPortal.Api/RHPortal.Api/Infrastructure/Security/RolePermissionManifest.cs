@@ -70,6 +70,10 @@ public static class RolePermissionManifest
         // em /app/admin/ia. Owner controla se o módulo "ai" está ligado;
         // esta permission só dá acesso à TELA de configuração.
         "ai.config",
+        // Integração TOTVS RM (2026-04-26) — admin/RH visualiza status do sync
+        // (último ciclo, contagem de registros importados). Owner controla
+        // o switch comercial via TenantModule "totvs-rm".
+        "integracao-totvs.view",
         // Pacote Folha de Pagamento (hoje inativo — itens aparecem com cadeado
         // até o pacote ser ativado no ModuleCatalog/PackageCatalog).
         "folha.batida-ponto.view",

@@ -9,6 +9,38 @@
 
 ## 2026-04-26
 
+### ✨ feature · TOTVS RM — Gating comercial por tenant (Opção C) + sync direto do banco RM via VPN
+- **Contexto:** O `Liotecnica.Integration.RM` era worker standalone com tenant + ApiKey + paths hardcoded em `appsettings.Development.json` (resíduo do dev anterior). Não tinha controle comercial — rodava enquanto o processo estivesse vivo, independente do tenant `liotecnica` estar pagando o módulo. E quando outros clientes entrassem, o Owner não tinha como visualizar/desligar a integração por cliente. Dependência adicional: o `appsettings` apontava `Output.SchemaTablesPath` para path do dev anterior — não funcionava local.
+- **O que foi entregue (5 arquivos backend, 4 worker, +1 controller novo):**
+  - **Backend (.NET) — gating:**
+    - `Infrastructure/Modules/ModuleCatalog.cs`: + módulo standalone `"totvs-rm"` (`PackageKey: null`, `IsCore: false`, `PermissionKeyPrefixes: ["integracao-totvs."]`). Comentário inline explicando o switch comercial.
+    - `Infrastructure/Security/RolePermissionManifest.cs`: + permission `"integracao-totvs.view"` em `TenantPermissions` (Admin/RH/Owner ganham; Colaborador/Gestor não).
+    - `Controllers/TenantModulesController.cs` (novo): endpoint `GET /api/tenant-modules/{moduleKey}/status` retornando `{ key, isEnabled }`. Aceita `JwtBearer` **ou** `X-Api-Key` via `FallbackPolicy` do `Program.cs` — não precisa declarar `AuthenticationSchemes` explicitamente. 404 quando `moduleKey` não existe no catálogo. Reusa `TenantModuleService.GetEnabledModuleKeysAsync` (regra efetiva: módulos core sempre on, módulos com `PackageKey` só on se pacote-pai ativo).
+  - **Worker (Liotecnica.Integration.RM):**
+    - `PortalApiClient.cs`: + `IsModuleEnabledAsync(moduleKey, ct)`. GET `api/tenant-modules/{key}/status`. Defensivo: HTTP 5xx ou rede caída → **fail-open** (assume `true`, loga warning). HTTP 404 → tratado como OFF.
+    - `RmSyncWorker.cs`: + early-return no início de `SyncAsync` antes de `ExtractSchemaAsync`. Quando OFF → log `"Módulo 'totvs-rm' desabilitado para o tenant — ciclo pulado"`, **zero queries SQL no RM, zero POSTs na API**.
+    - `RmSyncOptions.cs` + `Program.cs`: + opção `MaxPessoasToSync` (existia `MaxTalentosToSync` e `MaxCandidatosToSync`). `runSyncOne` agora injeta `MaxPessoasToSync=1` para o smoke test não tomar 4h batendo POST 1-a-1 nos 7938 PPESSOA.
+    - `PortalPessoaSyncService.cs`: respeita o cap (`items.Take(cap)` antes do foreach que faz POST/PUT em `api/pessoas`).
+    - `appsettings.Development.json`: `Portal.BaseUrl` → `http://localhost:5056/`, `ApiKey` → chave nova gerada via `POST /api/admin/api-keys` no tenant `liotecnica`, `Output.SchemaTablesPath` → path do meu Mac.
+- **Validação ponta-a-ponta (com VPN ativa, ping 12ms para 172.19.30.7):**
+  - **Caso 1 — Owner UI mostra módulo:** `GET /api/owner/tenants/liotecnica/modules/detailed` retorna `{ key: "totvs-rm", name: "TOTVS RM", isEnabled: true (default), telas: [] }`.
+  - **Caso 2 — endpoint público funciona com X-Api-Key:** `GET /api/tenant-modules/totvs-rm/status` (header `X-Api-Key + X-Tenant-Id`) → 200, `{ key: "totvs-rm", isEnabled: true }`.
+  - **Caso 3 — gating OFF:** Owner desliga via `PUT /api/owner/.../modules/totvs-rm {isEnabled:false}`. `dotnet run -- sync-one` emite log `"Módulo 'totvs-rm' desabilitado para o tenant — ciclo pulado"`, sai sem queries SQL.
+  - **Caso 4 — gating ON:** Owner liga de volta. `dotnet run -- sync-one` (~75s vs ~4h estimadas antes) executa pipeline inteiro: extract real do RM (8557 tabelas, 140k colunas, 763 vagas, 7938 pessoas, 413 deptos), respeita cap `MaxPessoasToSync=1`, cria 1 talento. 4 talentos extras falharam com 500 (optimistic concurrency exception — bug pré-existente de `TalentoController`, não desta mudança).
+  - **Caso 5 — Postgres:** `dev_render_liotecnica` confirma 419 `CentrosCusto`, 8181 `Pessoas`, 7924 `Funcionarios`, 5 `Talentos` (1 desta rodada, 4 anteriores).
+- **Comportamento esperado por cenário:**
+  - Tenant SEM TOTVS contratado → módulo OFF (default em provisioning de tenant novo, worker não é deployado).
+  - Tenant que CANCELA → Owner desliga toggle, worker para de empurrar dados sem mexer em servidor; dados existentes ficam intactos.
+  - Tenant que VOLTA → Owner liga, worker retoma no próximo ciclo.
+- **Decisão arquitetural:** Mantemos worker físico **um por cliente** (deploy por tenant). Refactor multi-tenant do worker fica no backlog (LUC-120) para quando o 2º cliente TOTVS aparecer — não vale a complexidade hoje com cliente único.
+- **Backlog herdado:**
+  - `LUC-121` — Mover `Portal.ApiKey` e `Rm.UserId/Password` do `appsettings` para Master DB encriptado (mesma onda dos secrets de IA da Fase 4 final).
+  - Bug pré-existente em `TalentoController`: `optimistic concurrency exception` ao criar 4+ talentos com mesmo email/CPF colidindo. Não bloqueia esta entrega.
+- **Arquivos:**
+  - Backend: `RHPortal.Api/RHPortal.Api/Infrastructure/Modules/ModuleCatalog.cs`, `Infrastructure/Security/RolePermissionManifest.cs`, **+** `Controllers/TenantModulesController.cs`.
+  - Worker: `Liotecnica.Integration.RM/PortalApiClient.cs`, `RmSyncWorker.cs`, `RmSyncOptions.cs`, `PortalPessoaSyncService.cs`, `Program.cs`, `appsettings.Development.json`.
+  - Docs: `lucasINTEGRACOES.md` (seção 1.7 nova "Gating comercial por tenant", 1.8 "Smoke test local", 1.9 "Caps de teste").
+
 ### ✨ feature · R&S — Atribuição manual de vaga a recrutador + sincronia com relatório r6
 - **Contexto:** O usuário levantou que existia o conceito de "Recrutador responsável" no sistema mas o gerente de RH **não conseguia atribuir** uma vaga a um analista — a única forma do `RecrutadorResponsavelUserId` (FK) ser populado era o próprio recrutador editar a vaga (auto-atribuição). Vagas criadas via aprovação de `SolicitacaoVaga` ficavam órfãs (`UserId = NULL`). Além disso, a UI mostrava só um input texto-livre que ficava desacoplado do `UserId` — o relatório `r6 SLA por recrutador` agrupa por string mas filtra por Guid, podendo dessincronizar.
 - **O que foi entregue (10 arquivos modificados, 3 novos):**
