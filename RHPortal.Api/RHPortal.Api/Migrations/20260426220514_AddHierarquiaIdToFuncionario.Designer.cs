@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using RhPortal.Api.Infrastructure.Data;
 namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426220514_AddHierarquiaIdToFuncionario")]
+    partial class AddHierarquiaIdToFuncionario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -264,18 +267,11 @@ namespace RhPortal.Api.Migrations
                     b.Property<DateTimeOffset?>("HeadcountProvisorioExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("HierarquiaId")
-                        .HasColumnType("uuid");
-
                     b.Property<TimeOnly?>("HoraEntrada")
                         .HasColumnType("time without time zone");
 
                     b.Property<TimeOnly?>("HoraSaida")
                         .HasColumnType("time without time zone");
-
-                    b.Property<string>("IdReqRmOrigem")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
 
                     b.Property<TimeSpan?>("Intervalo")
                         .HasColumnType("interval");
@@ -349,12 +345,6 @@ namespace RhPortal.Api.Migrations
                         .HasColumnType("character varying(240)");
 
                     b.Property<short?>("OrcamentoAprovado")
-                        .HasColumnType("smallint");
-
-                    b.Property<Guid?>("OrigemDesligamentoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<short>("OrigemTipo")
                         .HasColumnType("smallint");
 
                     b.Property<short?>("Periodicidade")
@@ -500,15 +490,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("EixoVagaId");
 
-                    b.HasIndex("HierarquiaId");
-
-                    b.HasIndex("IdReqRmOrigem");
-
                     b.HasIndex("JobPositionId");
-
-                    b.HasIndex("OrigemDesligamentoId");
-
-                    b.HasIndex("OrigemTipo");
 
                     b.HasIndex("RecrutadorResponsavelUserId");
 
@@ -10834,19 +10816,9 @@ namespace RhPortal.Api.Migrations
                         .HasForeignKey("EixoVagaId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("RhPortal.Api.Domain.Entities.Hierarquia", "Hierarquia")
-                        .WithMany()
-                        .HasForeignKey("HierarquiaId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("RhPortal.Api.Domain.Entities.JobPosition", "JobPosition")
                         .WithMany()
                         .HasForeignKey("JobPositionId");
-
-                    b.HasOne("RhPortal.Api.Domain.Entities.Desligamento", "OrigemDesligamento")
-                        .WithMany()
-                        .HasForeignKey("OrigemDesligamentoId")
-                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("RhPortal.Api.Domain.Entities.ApplicationUser", "RecrutadorResponsavelUser")
                         .WithMany()
@@ -10869,11 +10841,7 @@ namespace RhPortal.Api.Migrations
 
                     b.Navigation("EixoVaga");
 
-                    b.Navigation("Hierarquia");
-
                     b.Navigation("JobPosition");
-
-                    b.Navigation("OrigemDesligamento");
 
                     b.Navigation("RecrutadorResponsavelUser");
 

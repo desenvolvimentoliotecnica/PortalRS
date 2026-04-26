@@ -60,6 +60,15 @@ public sealed class Funcionario : ITenantEntity
     [System.ComponentModel.DataAnnotations.MaxLength(20)]
     public string? MatriculaRm { get; set; }
 
+    /// <summary>
+    /// Hierarquia atual do funcionário no organograma TOTVS RM.
+    /// Derivada do último <c>VREQTRANSFPROMOCAO.IDHIERARQUIADESTINO</c> aprovado para a CHAPA.
+    /// Para os ~38% sem registro em VREQTRANSFPROMOCAO, fica NULL e pode ser
+    /// preenchido manualmente pelo Admin no Portal.
+    /// </summary>
+    public Guid? HierarquiaId { get; set; }
+    public Hierarquia? Hierarquia { get; set; }
+
     /// <summary>Código da empresa no TOTVS Datasul (cdn_empresa).</summary>
     [System.ComponentModel.DataAnnotations.MaxLength(3)]
     public string? CdnEmpresa { get; set; }

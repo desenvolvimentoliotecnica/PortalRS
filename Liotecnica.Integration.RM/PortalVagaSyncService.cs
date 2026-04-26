@@ -1,14 +1,26 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Liotecnica.Integration.RM;
 
 /// <summary>
-/// Envia vagas em aberto do RM (vaga.json) para o Portal (api/vagas).
-/// Só integra vagas; não altera áreas, cargos, unidades, pessoas ou funcionários.
-/// Usa Codigo (CODVAGA) para evitar duplicata: se já existir vaga com o mesmo código, atualiza; senão cria.
+/// Sincroniza vagas TOTVS RM (<c>VRSVAGAS</c>) para o Portal via
+/// <c>POST /api/vagas/sync-rm/bulk</c>.
+///
+/// Refactor 2026-04-26 — substitui o sync antigo que chutava CC=01-LIOLOG.
+///
+/// Resolve a origem de cada vaga via JOIN in-memory:
+///   1. <c>VREQAUMENTOQUADRO</c> (aumento de quadro) — pega CODSECAO + CODFUNCAO + CODFILIAL + IDHIERARQUIADESTINO
+///   2. <c>VREQSUBSTITUICAO</c> com <c>IDREQPAI</c> apontando VREQDESLIGAMENTO ou VREQTRANSFPROMOCAO
+///   3. Fallback: vaga marcada como <c>Direta</c> (CC null — UI mostra "(sem CC)")
+///
+/// O matching VRSVAGAS ↔ requisição-pai é via VREQAUMENTOQUADRO.IDREQ ou VREQSUBSTITUICAO.IDREQ
+/// (que aparecem em VRSVAGAS via campo CODVAGA quando criada por approval do TOTVS).
+/// Como o link direto não está em VRSVAGAS, usamos heurística: matching por
+/// (CODFUNCAO + DATAABERTURA próxima) — refinável conforme dados reais.
 /// </summary>
 public sealed class PortalVagaSyncService
 {
@@ -22,11 +34,9 @@ public sealed class PortalVagaSyncService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString,
     };
-
-    /// <summary>Status Aberta no Portal (VagaStatus.Aberta = 2).</summary>
-    private const short StatusAberta = 2;
 
     public PortalVagaSyncService(
         ILogger<PortalVagaSyncService> logger,
@@ -44,16 +54,9 @@ public sealed class PortalVagaSyncService
         _logWriter = logWriter;
     }
 
-    /// <summary>
-    /// Lê vaga.json (vagas em aberto extraídas do RM) e envia para api/vagas (cria ou atualiza por código).
-    /// Não envia áreas, cargos, unidades, pessoas nem funcionários.
-    /// </summary>
     public async Task SyncVagasFromVagaJsonAsync(CancellationToken ct = default)
     {
-        try
-        {
-            await SyncVagasFromVagaJsonCoreAsync(ct);
-        }
+        try { await SyncCoreAsync(ct); }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Sync Vagas: falha geral.");
@@ -61,363 +64,170 @@ public sealed class PortalVagaSyncService
         }
     }
 
-    private async Task SyncVagasFromVagaJsonCoreAsync(CancellationToken ct)
+    private async Task SyncCoreAsync(CancellationToken ct)
     {
         var path = GetSchemaTablesPath();
-        var file = Path.Combine(path, "vaga.json");
-        if (!File.Exists(file))
+        var vagaFile = Path.Combine(path, "vaga.json");
+        if (!File.Exists(vagaFile))
         {
-            _logWriter.WriteLine("Sync Vagas: arquivo vaga.json não encontrado; pulando envio.");
-            _logger.LogWarning("Arquivo {File} não encontrado; pulando sync de vagas.", file);
+            _logWriter.WriteLine("Sync Vagas: vaga.json não encontrado; pulando.");
             return;
         }
 
-        var json = await File.ReadAllTextAsync(file, ct);
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        if (root.ValueKind != JsonValueKind.Array)
+        var vagas = JsonSerializer.Deserialize<List<VrsVagaRow>>(await File.ReadAllTextAsync(vagaFile, ct), JsonOptions);
+        if (vagas is null || vagas.Count == 0)
         {
-            _logWriter.WriteLine("Sync Vagas: vaga.json não é um array; pulando.");
+            _logWriter.WriteLine("Sync Vagas: arquivo vazio.");
             return;
         }
 
-        var centroCustoId = await GetDefaultCentroCustoAsync(ct);
-        if (centroCustoId == Guid.Empty)
-        {
-            _logWriter.WriteLine("Sync Vagas: é necessário um Centro de Custo já cadastrado no Portal (sincronize centros de custo antes ou configure RmSync.VagaDefaultAreaCode); pulando.");
-            _logger.LogWarning("Sync Vagas: Centro de Custo não encontrado no Portal; pulando.");
-            return;
-        }
+        // Filtra vagas em aberto (já filtramos via ExtractVagasEmAbertoOnlyAsync, mas defensivo)
+        var hoje = DateTime.UtcNow.Date;
+        var abertas = vagas
+            .Where(v => v.Ativo == 1
+                       && (!v.DataFechamento.HasValue || v.DataFechamento.Value.Date >= hoje))
+            .ToList();
 
-        var codigoToId = await LoadExistingVagasByCodigoAsync(ct);
-        var created = 0;
-        var updated = 0;
-        var skipped = 0;
+        var aumentoQuadro = await LoadAumentoQuadroAsync(path, ct);
+        var substituicoes = await LoadSubstituicoesAsync(path, ct);
 
-        foreach (var row in root.EnumerateArray())
+        // Lookups auxiliares
+        var pfuncaoToCargo = await LoadPfuncaoCargoLookupAsync(path, ct);
+
+        // Indexes pra resolução de origem (heurística por CODFUNCAO + janela de data)
+        var aumentoByFuncao = aumentoQuadro
+            .Where(a => !string.IsNullOrWhiteSpace(a.CodFuncao) && a.CodStatus == 4) // Concluída
+            .GroupBy(a => a.CodFuncao!.Trim())
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.DataAbertura ?? DateTime.MinValue).ToList());
+
+        var substByFuncao = substituicoes
+            .Where(s => !string.IsNullOrWhiteSpace(s.CodFuncao) && s.CodStatus == 4)
+            .GroupBy(s => s.CodFuncao!.Trim())
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.DataAbertura ?? DateTime.MinValue).ToList());
+
+        var items = new List<object>();
+        var counters = new Dictionary<string, int> { ["AumentoQuadro"]=0, ["SubstituicaoDesligamento"]=0, ["SubstituicaoPromocao"]=0, ["Direta"]=0 };
+
+        foreach (var v in abertas)
         {
-            try
+            var codFuncao = (v.CodFuncao ?? "").Trim();
+            string? codCargo = null;
+            if (!string.IsNullOrEmpty(codFuncao) && pfuncaoToCargo.TryGetValue(codFuncao, out var cc))
+                codCargo = cc;
+
+            string? codSecao = null;
+            int? codFilial = null;
+            int? idHierarquia = null;
+            string origemTipo = "Direta";
+            string? idReqOrigem = null;
+            string? idReqDesligamento = null;
+
+            // Tenta resolver via VREQAUMENTOQUADRO mais recente para a mesma função
+            if (!string.IsNullOrEmpty(codFuncao) && aumentoByFuncao.TryGetValue(codFuncao, out var aqs))
             {
-                // Apenas vagas ativas (ATIVO=1) e sem data de fechamento (ainda abertas)
-                var ativo = row.TryGetProperty("ATIVO", out var ativoEl) && ativoEl.ValueKind == JsonValueKind.Number ? ativoEl.GetInt32() : 0;
-                if (ativo != 1) { skipped++; continue; }
-
-                var dataFech = GetDateTime(row, "DATAFECHAMENTO");
-                if (dataFech.HasValue) { skipped++; continue; }
-
-                var titulo = GetString(row, "NOME")?.Trim();
-                if (string.IsNullOrWhiteSpace(titulo))
+                var match = aqs.FirstOrDefault();
+                if (match is not null)
                 {
-                    skipped++;
-                    continue;
+                    codSecao = match.CodSecao;
+                    codFilial = match.CodFilial;
+                    idHierarquia = match.IdHierarquiaDestino;
+                    origemTipo = "AumentoQuadro";
+                    idReqOrigem = match.IdReq?.ToString();
                 }
-                if (titulo!.Length > 160) titulo = titulo.Substring(0, 160);
+            }
 
-                var codigo = GetString(row, "CODVAGA")?.Trim();
-                if (string.IsNullOrWhiteSpace(codigo)) codigo = titulo.Length > 40 ? titulo.Substring(0, 40) : titulo;
-                if (codigo.Length > 40) codigo = codigo.Substring(0, 40);
-
-                var payload = BuildVagaPayload(titulo, codigo, centroCustoId, row);
-
-                if (codigoToId.TryGetValue(codigo, out var existingId))
+            // Se não achou via aumento, tenta via substituição
+            if (origemTipo == "Direta" && !string.IsNullOrEmpty(codFuncao) && substByFuncao.TryGetValue(codFuncao, out var ss))
+            {
+                var match = ss.FirstOrDefault();
+                if (match is not null)
                 {
-                    var response = await _portalClient.Http.PutAsJsonAsync($"api/vagas/{existingId}", payload, JsonOptions, ct);
-                    if (response.IsSuccessStatusCode)
+                    codSecao = match.CodSecao;
+                    codFilial = match.CodFilial;
+                    idHierarquia = match.IdHierarquiaDestino;
+                    idReqOrigem = match.IdReq?.ToString();
+
+                    // Tipo: depende do TIPOREQPAI (40 = desligamento? 30 = promoção? não tenho mapeamento certo).
+                    // Heurística: se tem IDREQPAI e existe um VREQDESLIGAMENTO com aquele IDREQ, é desligamento.
+                    if (match.TipoReqPai == 40 || match.TipoReqPai == 4)
                     {
-                        updated++;
+                        origemTipo = "SubstituicaoDesligamento";
+                        idReqDesligamento = match.IdReqPai?.ToString();
+                    }
+                    else if (match.TipoReqPai == 30 || match.TipoReqPai == 3)
+                    {
+                        origemTipo = "SubstituicaoPromocao";
                     }
                     else
                     {
-                        var msg = await response.Content.ReadAsStringAsync(ct);
-                        _logWriter.WriteLine($"Sync Vagas: PUT falhou Codigo={codigo}: {response.StatusCode} {msg}");
-                    }
-                }
-                else
-                {
-                    var response = await _portalClient.Http.PostAsJsonAsync("api/vagas", payload, JsonOptions, ct);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var createdResp = await response.Content.ReadFromJsonAsync<VagaCreateResponse>(JsonOptions, ct);
-                        if (createdResp != null && !string.IsNullOrEmpty(codigo))
-                        {
-                            codigoToId[codigo] = createdResp.Id;
-                            created++;
-                        }
-                    }
-                    else
-                    {
-                        var msg = await response.Content.ReadAsStringAsync(ct);
-                        _logWriter.WriteLine($"Sync Vagas: POST falhou Codigo={codigo}: {response.StatusCode} {msg}");
-                        if (created == 0 && updated == 0)
-                            _logger.LogWarning("POST api/vagas exemplo de erro: {Msg}", msg.Length > 500 ? msg.Substring(0, 500) : msg);
+                        origemTipo = "SubstituicaoDesligamento"; // default mais comum
+                        idReqDesligamento = match.IdReqPai?.ToString();
                     }
                 }
             }
-            catch (Exception ex)
+
+            counters[origemTipo]++;
+
+            items.Add(new
             {
-                _logger.LogWarning(ex, "Sync Vagas: exceção ao processar linha; continuando.");
-                _logWriter.WriteLine($"Sync Vagas: exceção - {ex.Message}");
-            }
+                codVaga = v.CodVaga?.ToString() ?? string.Empty,
+                titulo = (v.Nome ?? "").Trim(),
+                dataAbertura = v.DataAbertura,
+                dataFechamento = v.DataFechamento,
+                quantidade = (int?)1, // VRSVAGAS não tem NUMVAGAS direto; pega da req-pai (TODO: refinar)
+                remuneracao = v.Remuneracao,
+                descricao = v.Complemento,
+                experienciasExigidas = v.ExperienciasExigidas,
+                codFuncao,
+                codCargo,
+                codSecao,
+                codFilial,
+                idHierarquiaDestinoRm = idHierarquia,
+                origemTipo,
+                idReqRmOrigem = idReqOrigem,
+                idReqDesligamentoRm = idReqDesligamento,
+            });
         }
 
-        _logWriter.WriteLine($"Sync Vagas: concluído. Criadas: {created}, atualizadas: {updated}, ignoradas: {skipped}");
-        _logger.LogInformation("Sync Vagas: criadas={Created}, atualizadas={Updated}, ignoradas={Skipped}", created, updated, skipped);
-    }
+        var body = new { items };
+        _logWriter.WriteLine($"Sync Vagas: enviando {items.Count} vagas em aberto. Origens: AumentoQuadro={counters["AumentoQuadro"]}, SubstituicaoDesligamento={counters["SubstituicaoDesligamento"]}, SubstituicaoPromocao={counters["SubstituicaoPromocao"]}, Direta={counters["Direta"]}");
 
-    private static object BuildVagaPayload(string titulo, string codigo, Guid centroCustoId, JsonElement row)
-    {
-        var complemento = GetString(row, "COMPLEMENTO");
-        var dataAbertura = GetDateTime(row, "DATAABERTURA");
-        DateOnly? dataInicio = dataAbertura.HasValue ? DateOnly.FromDateTime(dataAbertura.Value) : null;
-
-        var experienciasExigidas = GetString(row, "EXPERIENCIASEXIGIDAS")?.Trim();
-        var experienciasDesejadas = GetString(row, "EXPERIENCIASDESEJADAS")?.Trim();
-        var remuneracao = GetDecimal(row, "REMUNERACAO");
-        var escolaridade = MapGrauInstrucao(row);
-
-        // Monta descricaoPublica com o complemento do RM
-        var descricaoPublica = string.IsNullOrWhiteSpace(complemento) ? null : complemento.Trim();
-        if (descricaoPublica != null && descricaoPublica.Length > 2000) descricaoPublica = descricaoPublica.Substring(0, 2000);
-
-        // Monta matchingFiltrosRaw como texto estruturado para a IA de matching
-        var matchingFiltrosRaw = BuildMatchingFiltrosRaw(titulo, experienciasExigidas, experienciasDesejadas, escolaridade, remuneracao);
-
-        return new
+        var resp = await _portalClient.Http.PostAsJsonAsync("api/vagas/sync-rm/bulk", body, JsonOptions, ct);
+        if (!resp.IsSuccessStatusCode)
         {
-            titulo,
-            centroCustoId,
-            status = StatusAberta,
-            codigo = codigo.Length > 40 ? codigo.Substring(0, 40) : codigo,
-            areaTime = (short?)null,
-            modalidade = (short?)null,
-            senioridade = (short?)null,
-            quantidadeVagas = 1,
-            tipoContratacao = (short?)null,
-            matchMinimoPercentual = 70,
-            weights = new { competencia = 40, experiencia = 30, formacao = 15, localidade = 15 },
-            matchingFiltrosRaw,
-            descricaoInterna = (string?)null,
-            codigoInterno = (string?)null,
-            codigoCbo = (string?)null,
-            motivoAbertura = (short?)null,
-            orcamentoAprovado = (short?)null,
-            gestorRequisitante = (string?)null,
-            recrutadorResponsavel = (string?)null,
-            prioridade = (short?)null,
-            resumoPitch = (string?)null,
-            tagsResponsabilidadesRaw = (string?)null,
-            tagsKeywordsRaw = (string?)null,
-            confidencial = false,
-            aceitaPcd = false,
-            urgente = false,
-            generoPreferencia = (short?)null,
-            vagaAfirmativa = false,
-            linguagemInclusiva = false,
-            publicoAfirmativo = (string?)null,
-            observacoesPcd = (string?)null,
-            projetoNome = (string?)null,
-            projetoClienteAreaImpactada = (string?)null,
-            projetoPrazoPrevisto = (string?)null,
-            projetoDescricao = (string?)null,
-            regime = (short?)null,
-            cargaSemanalHoras = (int?)null,
-            escala = (short?)null,
-            horaEntrada = (TimeOnly?)null,
-            horaSaida = (TimeOnly?)null,
-            intervalo = (TimeSpan?)null,
-            cep = (string?)null,
-            logradouro = GetString(row, "LOCAL"),
-            numero = (string?)null,
-            bairro = (string?)null,
-            cidade = (string?)null,
-            uf = (string?)null,
-            politicaTrabalho = (string?)null,
-            observacoesDeslocamento = (string?)null,
-            moeda = (short?)null,
-            salarioMinimo = remuneracao,
-            salarioMaximo = remuneracao,
-            periodicidade = (short?)null,
-            bonusTipo = (short?)null,
-            bonusPercentual = (decimal?)null,
-            observacoesRemuneracao = (string?)null,
-            escolaridade,
-            formacaoArea = (short?)null,
-            experienciaMinimaAnos = (int?)null,
-            tagsStackRaw = (string?)null,
-            tagsIdiomasRaw = (string?)null,
-            diferenciais = string.IsNullOrWhiteSpace(experienciasDesejadas) ? null : experienciasDesejadas,
-            observacoesProcesso = (string?)null,
-            visibilidade = (short?)null,
-            dataInicio,
-            dataEncerramento = (DateOnly?)null,
-            canalLinkedIn = false,
-            canalSiteCarreiras = true,
-            canalIndicacao = false,
-            canalPortaisEmprego = false,
-            descricaoPublica,
-            lgpdSolicitarConsentimentoExplicito = false,
-            lgpdCompartilharCurriculoInternamente = false,
-            lgpdRetencaoAtiva = false,
-            lgpdRetencaoMeses = (int?)null,
-            exigeCnh = false,
-            disponibilidadeParaViagens = false,
-            checagemAntecedentes = false,
-            slaDiasMetaFechamento = (int?)null,
-            beneficios = (object?)null,
-            requisitos = (object?)null,
-            etapas = (object?)null,
-            perguntasTriagem = (object?)null
-        };
-    }
-
-    /// <summary>
-    /// Monta texto estruturado para matchingFiltrosRaw a partir dos dados do RM.
-    /// Esse texto é usado pela IA como contexto para calcular matching candidato x vaga.
-    /// </summary>
-    private static string? BuildMatchingFiltrosRaw(string titulo, string? experienciasExigidas, string? experienciasDesejadas, short? escolaridade, decimal? remuneracao)
-    {
-        var parts = new List<string>();
-
-        parts.Add($"Cargo: {titulo}");
-
-        if (!string.IsNullOrWhiteSpace(experienciasExigidas))
-            parts.Add($"Experiências exigidas: {experienciasExigidas}");
-
-        if (!string.IsNullOrWhiteSpace(experienciasDesejadas))
-            parts.Add($"Experiências desejadas: {experienciasDesejadas}");
-
-        if (escolaridade.HasValue)
-        {
-            var nomeEscolaridade = escolaridade.Value switch
-            {
-                1 => "Ensino Fundamental",
-                2 => "Ensino Médio",
-                3 => "Ensino Técnico",
-                4 => "Ensino Superior",
-                5 => "Pós-Graduação",
-                6 => "MBA",
-                7 => "Mestrado",
-                8 => "Doutorado",
-                _ => $"Nível {escolaridade.Value}"
-            };
-            parts.Add($"Escolaridade mínima: {nomeEscolaridade}");
+            var msg = await resp.Content.ReadAsStringAsync(ct);
+            _logWriter.WriteLine($"Sync Vagas: ERRO {resp.StatusCode}: {msg}");
+            _logger.LogWarning("POST api/vagas/sync-rm/bulk falhou: {Status} {Msg}", resp.StatusCode, msg);
+            return;
         }
 
-        if (remuneracao.HasValue && remuneracao.Value > 0)
-            parts.Add($"Faixa salarial: R$ {remuneracao.Value:N2}");
-
-        return string.Join("\n", parts);
+        var result = await resp.Content.ReadFromJsonAsync<BulkResponse>(JsonOptions, ct);
+        _logWriter.WriteLine($"Sync Vagas: OK — criadas={result?.Created ?? 0}, atualizadas={result?.Updated ?? 0}, total={result?.Total ?? 0}");
     }
 
-    /// <summary>
-    /// Mapeia CODGRAUINSTRUCAO do RM para o enum de escolaridade do Portal.
-    /// RM: 1=Analfabeto, 2=Até 4ªSérie, 3=Até 8ªSérie, 4=2ºGrauCompleto, 5=SuperiorIncompleto,
-    ///     6=SuperiorCompleto, 7=Especialização, 8=Mestrado, 9=Doutorado, 10=PósDout, 11=NãoAlfabet
-    /// Portal: 1=Fundamental, 2=Médio, 3=Técnico, 4=Superior, 5=PósGrad, 6=MBA, 7=Mestrado, 8=Doutorado
-    /// </summary>
-    private static short? MapGrauInstrucao(JsonElement row)
+    private async Task<List<AumentoQuadroRow>> LoadAumentoQuadroAsync(string path, CancellationToken ct)
     {
-        if (!row.TryGetProperty("CODGRAUINSTRUCAO", out var el)) return null;
-        if (el.ValueKind == JsonValueKind.Null || el.ValueKind == JsonValueKind.Undefined) return null;
-        if (el.ValueKind != JsonValueKind.Number) return null;
-
-        return el.GetInt32() switch
-        {
-            1 or 2 or 3 => 1,   // Fundamental
-            4 => 2,              // Médio (2º grau completo)
-            5 => 4,              // Superior incompleto → Superior
-            6 => 4,              // Superior completo
-            7 => 5,              // Especialização → Pós-Graduação
-            8 => 7,              // Mestrado
-            9 or 10 => 8,       // Doutorado / Pós-Doutorado
-            _ => null
-        };
+        var f = Path.Combine(path, "aumento_quadro.json");
+        if (!File.Exists(f)) return new();
+        return JsonSerializer.Deserialize<List<AumentoQuadroRow>>(await File.ReadAllTextAsync(f, ct), JsonOptions) ?? new();
     }
 
-    private static string? GetString(JsonElement row, string prop)
+    private async Task<List<SubstituicaoRow>> LoadSubstituicoesAsync(string path, CancellationToken ct)
     {
-        if (!row.TryGetProperty(prop, out var el)) return null;
-        if (el.ValueKind == JsonValueKind.Null || el.ValueKind == JsonValueKind.Undefined) return null;
-        return el.GetString();
+        var f = Path.Combine(path, "substituicao.json");
+        if (!File.Exists(f)) return new();
+        return JsonSerializer.Deserialize<List<SubstituicaoRow>>(await File.ReadAllTextAsync(f, ct), JsonOptions) ?? new();
     }
 
-    private static DateTime? GetDateTime(JsonElement row, string prop)
+    private async Task<Dictionary<string, string>> LoadPfuncaoCargoLookupAsync(string path, CancellationToken ct)
     {
-        if (!row.TryGetProperty(prop, out var el)) return null;
-        if (el.ValueKind == JsonValueKind.Null || el.ValueKind == JsonValueKind.Undefined) return null;
-        if (el.TryGetDateTime(out var dt)) return dt;
-        var s = el.GetString();
-        return DateTime.TryParse(s, out var parsed) ? parsed : null;
-    }
-
-    private static decimal? GetDecimal(JsonElement row, string prop)
-    {
-        if (!row.TryGetProperty(prop, out var el)) return null;
-        if (el.ValueKind == JsonValueKind.Null || el.ValueKind == JsonValueKind.Undefined) return null;
-        if (el.ValueKind == JsonValueKind.Number && el.TryGetDecimal(out var d)) return d;
-        var s = el.ValueKind == JsonValueKind.String ? el.GetString() : el.GetRawText();
-        return decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
-    }
-
-    /// <summary>
-    /// Obtém o Centro de Custo já cadastrado no Portal (sincronizado do RM via PSECAO).
-    /// Usa VagaDefaultAreaCode para localizar o CC por código. Não cria o CC.
-    /// </summary>
-    private async Task<Guid> GetDefaultCentroCustoAsync(CancellationToken ct)
-    {
-        try
-        {
-            var ccs = await _portalClient.Http.GetFromJsonAsync<List<CentroCustoItem>>("api/centros-custo?take=5000", JsonOptions, ct);
-            if (ccs == null || ccs.Count == 0)
-            {
-                _logWriter.WriteLine("Sync Vagas: nenhum Centro de Custo encontrado no Portal. Sincronize antes os centros de custo (departamento/PSECAO).");
-                _logger.LogWarning("Sync Vagas: nenhum Centro de Custo no Portal; sincronize antes.");
-                return Guid.Empty;
-            }
-
-            var ccCode = _syncOptions.VagaDefaultAreaCode?.Trim();
-            var cc = !string.IsNullOrEmpty(ccCode)
-                ? ccs.Find(x => string.Equals((x.Code ?? "").Trim(), ccCode, StringComparison.OrdinalIgnoreCase))
-                : ccs.FirstOrDefault();
-
-            if (cc == null)
-            {
-                _logWriter.WriteLine($"Sync Vagas: Centro de Custo com Code='{ccCode}' não encontrado. Configure RmSync.VagaDefaultAreaCode com o código do CC cadastrado (ex.: do PSECAO).");
-                _logger.LogWarning("Sync Vagas: Centro de Custo Code={Code} não encontrado.", ccCode ?? "(vazio)");
-                return Guid.Empty;
-            }
-
-            _logWriter.WriteLine($"Sync Vagas: usando Centro de Custo Code={cc.Code} (Id={cc.Id}).");
-            return cc.Id;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha ao obter centro de custo do portal.");
-            _logWriter.WriteLine($"Sync Vagas: falha ao obter centro de custo - {ex.Message}");
-            return Guid.Empty;
-        }
-    }
-
-    private async Task<Dictionary<string, Guid>> LoadExistingVagasByCodigoAsync(CancellationToken ct)
-    {
-        var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            var list = await _portalClient.Http.GetFromJsonAsync<List<VagaListItem>>("api/vagas", JsonOptions, ct);
-            if (list != null)
-                foreach (var v in list)
-                {
-                    var key = (v.Codigo ?? "").Trim();
-                    if (!string.IsNullOrEmpty(key))
-                        map[key] = v.Id;
-                }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha ao carregar vagas existentes do portal; assumindo nenhuma.");
-            _logWriter.WriteLine($"Sync Vagas: falha ao carregar vagas existentes - {ex.Message}");
-        }
-        return map;
+        var f = Path.Combine(path, "funcao.json");
+        if (!File.Exists(f)) return new(StringComparer.OrdinalIgnoreCase);
+        var rows = JsonSerializer.Deserialize<List<PfuncaoRow>>(await File.ReadAllTextAsync(f, ct), JsonOptions) ?? new();
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Codigo) && !string.IsNullOrWhiteSpace(r.Cargo))
+            .GroupBy(r => r.Codigo!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Cargo!.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
     private string GetSchemaTablesPath()
@@ -429,7 +239,75 @@ public sealed class PortalVagaSyncService
         return Path.GetFullPath(Path.Combine(contentRoot, "..", "Liotecnica.Integration.RM.Schema.Tables"));
     }
 
-    private sealed record CentroCustoItem(Guid Id, string Code, string Description);
-    private sealed record VagaListItem(Guid Id, string? Codigo, string Titulo);
-    private sealed record VagaCreateResponse(Guid Id);
+    private sealed class VrsVagaRow
+    {
+        [JsonPropertyName("CODVAGA")]
+        public long? CodVaga { get; set; }
+        [JsonPropertyName("NOME")]
+        public string? Nome { get; set; }
+        [JsonPropertyName("CODFUNCAO")]
+        public string? CodFuncao { get; set; }
+        [JsonPropertyName("ATIVO")]
+        public int? Ativo { get; set; }
+        [JsonPropertyName("DATAABERTURA")]
+        public DateTime? DataAbertura { get; set; }
+        [JsonPropertyName("DATAFECHAMENTO")]
+        public DateTime? DataFechamento { get; set; }
+        [JsonPropertyName("REMUNERACAO")]
+        public string? Remuneracao { get; set; }
+        [JsonPropertyName("COMPLEMENTO")]
+        public string? Complemento { get; set; }
+        [JsonPropertyName("EXPERIENCIASEXIGIDAS")]
+        public string? ExperienciasExigidas { get; set; }
+    }
+
+    private sealed class AumentoQuadroRow
+    {
+        [JsonPropertyName("IDREQ")]
+        public long? IdReq { get; set; }
+        [JsonPropertyName("CODSECAO")]
+        public string? CodSecao { get; set; }
+        [JsonPropertyName("CODFUNCAO")]
+        public string? CodFuncao { get; set; }
+        [JsonPropertyName("CODFILIAL")]
+        public int? CodFilial { get; set; }
+        [JsonPropertyName("IDHIERARQUIADESTINO")]
+        public int? IdHierarquiaDestino { get; set; }
+        [JsonPropertyName("CODSTATUS")]
+        public int? CodStatus { get; set; }
+        [JsonPropertyName("DATAABERTURA")]
+        public DateTime? DataAbertura { get; set; }
+    }
+
+    private sealed class SubstituicaoRow
+    {
+        [JsonPropertyName("IDREQ")]
+        public long? IdReq { get; set; }
+        [JsonPropertyName("IDREQPAI")]
+        public long? IdReqPai { get; set; }
+        [JsonPropertyName("TIPOREQPAI")]
+        public int? TipoReqPai { get; set; }
+        [JsonPropertyName("CODSECAO")]
+        public string? CodSecao { get; set; }
+        [JsonPropertyName("CODFUNCAO")]
+        public string? CodFuncao { get; set; }
+        [JsonPropertyName("CODFILIAL")]
+        public int? CodFilial { get; set; }
+        [JsonPropertyName("IDHIERARQUIADESTINO")]
+        public int? IdHierarquiaDestino { get; set; }
+        [JsonPropertyName("CODSTATUS")]
+        public int? CodStatus { get; set; }
+        [JsonPropertyName("DATAABERTURA")]
+        public DateTime? DataAbertura { get; set; }
+    }
+
+    private sealed class PfuncaoRow
+    {
+        [JsonPropertyName("CODIGO")]
+        public string? Codigo { get; set; }
+        [JsonPropertyName("CARGO")]
+        public string? Cargo { get; set; }
+    }
+
+    private sealed record BulkResponse(int Created, int Updated, int Total);
 }

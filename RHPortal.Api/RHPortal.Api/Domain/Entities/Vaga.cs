@@ -134,6 +134,22 @@ namespace RHPortal.Api.Domain.Entities
         public Guid? CentroCustoId { get; set; }
         public CentroCusto? CentroCusto { get; set; }
 
+        // ── Integração TOTVS RM (refactor 2026-04-26) ──────────────────────
+        /// <summary>FK para Hierarquia (organograma TOTVS) — derivada de VREQAUMENTOQUADRO.IDHIERARQUIADESTINO ou VREQSUBSTITUICAO.IDHIERARQUIADESTINO.</summary>
+        public Guid? HierarquiaId { get; set; }
+        public Hierarquia? Hierarquia { get; set; }
+
+        /// <summary>Origem da vaga (AumentoQuadro / SubstituicaoDesligamento / SubstituicaoPromocao / Direta / Manual).</summary>
+        public VagaOrigemTipo OrigemTipo { get; set; } = VagaOrigemTipo.Manual;
+
+        /// <summary>Quando OrigemTipo=SubstituicaoDesligamento, FK para o desligamento que originou.</summary>
+        public Guid? OrigemDesligamentoId { get; set; }
+        public Desligamento? OrigemDesligamento { get; set; }
+
+        /// <summary>Código da requisição-mãe no RM (VREQAUMENTOQUADRO.IDREQ ou VREQSUBSTITUICAO.IDREQ). Informativo, pra rastrear no TOTVS.</summary>
+        [System.ComponentModel.DataAnnotations.MaxLength(40)]
+        public string? IdReqRmOrigem { get; set; }
+
         public Guid? TurnoId { get; set; }
         public Turno? Turno { get; set; }
 

@@ -198,10 +198,15 @@ public sealed class PortalCargoSyncService
 
     private static string? NormalizeCode(string? code) => string.IsNullOrWhiteSpace(code) ? null : code.Trim();
 
-    /// <summary>Código no portal: prefixo CAR- e mínimo 6 caracteres (ex: 1 → CAR-01).</summary>
-    private static string ToPortalJobCode(string rawCode)
+    /// <summary>
+    /// Código no portal = "CAR-" + código cru do PCARGO com pad 2 chars (ex.: "1" → "CAR-01", "10" → "CAR-10").
+    /// API exige prefixo "CAR-" e min length 6 (validação em <c>JobPositionService</c>).
+    /// O <c>PortalFuncionarioSyncService</c> usa o mesmo formato em <c>codCargo</c>.
+    /// </summary>
+    public static string ToPortalJobCode(string rawCode)
     {
-        var part = rawCode.Length >= 2 ? rawCode : rawCode.PadLeft(2, '0');
+        var trimmed = rawCode.Trim();
+        var part = trimmed.Length >= 2 ? trimmed : trimmed.PadLeft(2, '0');
         var full = "CAR-" + part;
         return full.Length > 40 ? full.Substring(0, 40) : full;
     }

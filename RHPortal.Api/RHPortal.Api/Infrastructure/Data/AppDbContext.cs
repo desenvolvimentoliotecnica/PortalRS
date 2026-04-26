@@ -1043,6 +1043,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.MatriculaRm).HasMaxLength(20);
             b.HasIndex(x => new { x.TenantId, x.MatriculaRm });
 
+            b.HasOne(x => x.Hierarquia)
+                .WithMany()
+                .HasForeignKey(x => x.HierarquiaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             b.HasOne(x => x.Pessoa)
                 .WithMany()
                 .HasForeignKey(x => x.PessoaId)
@@ -1393,6 +1398,20 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.GestorRequisitante).HasMaxLength(120);
             b.Property(x => x.RecrutadorResponsavel).HasMaxLength(120);
             b.Property(x => x.PublicoAfirmativo).HasMaxLength(120);
+
+            // Integração TOTVS RM (refactor 2026-04-26)
+            b.Property(x => x.IdReqRmOrigem).HasMaxLength(40);
+            b.Property(x => x.OrigemTipo).HasConversion<short>();
+            b.HasIndex(x => x.OrigemTipo);
+            b.HasIndex(x => x.IdReqRmOrigem);
+            b.HasOne(x => x.Hierarquia)
+                .WithMany()
+                .HasForeignKey(x => x.HierarquiaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.OrigemDesligamento)
+                .WithMany()
+                .HasForeignKey(x => x.OrigemDesligamentoId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             b.Property(x => x.ProjetoNome).HasMaxLength(160);
             b.Property(x => x.ProjetoClienteAreaImpactada).HasMaxLength(160);
