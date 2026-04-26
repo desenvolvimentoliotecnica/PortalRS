@@ -781,13 +781,31 @@ img {
   background: rgba(7, 13, 9, 0.5);
   display: grid;
   place-items: center;
-  padding: 1rem;
+  padding: 5vh 1rem;
+  z-index: 2000;
+  overflow: hidden;
 }
 
 .modal-card {
   width: min(100%, 48rem);
-  max-height: calc(100vh - 2rem);
-  overflow: auto;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 2001;
+}
+
+.modal-card .modal-header {
+  flex: 0 0 auto;
+}
+
+.modal-card .stack-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  overscroll-behavior: contain;
 }
 
 .profile-modal-backdrop {
@@ -2244,5 +2262,14 @@ body {
 
   .display-hero {
     font-size: 2rem;
+  }
+
+  .modal-backdrop {
+    padding: 1rem;
+  }
+
+  .modal-card {
+    width: min(100%, calc(100vw - 1rem));
+    max-height: 90vh;
   }
 }
