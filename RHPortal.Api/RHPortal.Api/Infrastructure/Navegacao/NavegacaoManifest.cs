@@ -191,6 +191,9 @@ public static class NavegacaoManifest
         new("nav-admin-api-keys",           "API Keys",               "/admin/api-keys",                 "bi-key",            "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 50),
         new("nav-admin-localization",       "Localização",            "/admin/localization",             "bi-translate",      "localization-config.manage", Ordem: 60),
         new("nav-admin-tenant-config",      "Configurações do Tenant","/admin/tenant-configuracao",      "bi-gear",           "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 70),
+        // Fase 4 LLM-agnóstico — tela única do módulo "ai". Quando módulo OFF,
+        // o item ainda aparece para o admin, mas a UI mostra banner "IA não habilitada".
+        new("nav-admin-ia",                 "Configuração de IA",     "/admin/ia",                       "brain",             "ai.config",                GrupoUiOverride: "configuracoes", Ordem: 75),
         new("nav-admin-tenant-branding",    "Branding / White-Label", "/admin/tenant-branding",          "palette",           "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 80),
 
         // ── Relatórios (standalone) ──────────────────────────────────────────

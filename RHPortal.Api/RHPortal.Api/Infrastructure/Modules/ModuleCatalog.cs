@@ -60,7 +60,13 @@ public static class ModuleCatalog
         // descrição de cargo, sugestão salarial, assistente RH) ficam indisponíveis.
         // Os módulos "matching" (acima) e este são complementares: matching controla
         // só a tela; "ai" controla a infraestrutura inteira.
-        new("ai",              "IA (LLM)",            "Provider OpenAI/Gemini/Anthropic — ativa CV extract, descrição de cargo, sugestão salarial, assistente RH, LLM scoring no matching", IsCore: false, PermissionKeyPrefixes: ["ai."]),
+        //
+        // Tela própria deste módulo: 1 (apenas "Configuração de IA" em /app/admin/ia,
+        // permission ai.config). As demais features de IA estão em telas de OUTROS
+        // módulos (matching, candidatos, cargos, assistente RH) — quando o owner
+        // desativa "ai", essas features bloqueiam (503) mesmo as telas continuando
+        // visíveis. Vide lucasIA_RAG.md §19.3.
+        new("ai",              "IA (LLM)",            "Switch transversal de IA. Tela: Configuração de IA. Quando OFF, bloqueia features IA em outras telas: CV extract, descrição de cargo, sugestão salarial, assistente RH, LLM scoring no matching.", IsCore: false, PermissionKeyPrefixes: ["ai."]),
     };
 
     private static readonly Dictionary<string, ModuleDefinition> _byKey =

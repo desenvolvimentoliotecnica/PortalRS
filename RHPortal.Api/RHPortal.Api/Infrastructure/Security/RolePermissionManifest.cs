@@ -66,6 +66,10 @@ public static class RolePermissionManifest
         "email-config.manage",
         "entra-config.manage",
         "localization-config.manage",
+        // Fase 4 LLM-agnóstico — admin do tenant configura provider/modelo de IA
+        // em /app/admin/ia. Owner controla se o módulo "ai" está ligado;
+        // esta permission só dá acesso à TELA de configuração.
+        "ai.config",
         // Pacote Folha de Pagamento (hoje inativo — itens aparecem com cadeado
         // até o pacote ser ativado no ModuleCatalog/PackageCatalog).
         "folha.batida-ponto.view",
