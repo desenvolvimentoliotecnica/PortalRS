@@ -1042,6 +1042,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Headcount);
             b.Property(x => x.MatriculaRm).HasMaxLength(20);
             b.HasIndex(x => new { x.TenantId, x.MatriculaRm });
+            b.Property(x => x.CodSituacaoRm).HasMaxLength(5);
+            b.Property(x => x.SituacaoRmDescricao).HasMaxLength(60);
+            b.HasIndex(x => new { x.TenantId, x.CodSituacaoRm });
 
             b.HasOne(x => x.Hierarquia)
                 .WithMany()

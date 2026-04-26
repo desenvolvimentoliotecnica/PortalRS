@@ -85,14 +85,23 @@ public sealed class PortalFuncionarioSyncService
         var pfuncaoCargoByCodigo = await LoadPfuncaoCargoLookupAsync(path, ct);
         var ultimaHierarquiaByChapa = await LoadUltimaHierarquiaPorChapaAsync(path, ct);
 
-        var ativos = pfuncRows
-            .Where(r => !string.IsNullOrWhiteSpace(r.Chapa) &&
-                        new[] { "A", "F", "P" }.Contains((r.CodSituacao ?? "").Trim().ToUpperInvariant()))
+        // 2026-04-26: trazemos TODOS os PFUNC (ativos + desligados/inativos) pra:
+        //   - Vincular Desligamento.FuncionarioId mesmo de quem saiu (CODSITUACAO=D)
+        //   - Permitir histórico/auditoria
+        // O endpoint sync-rm/bulk recebe codSituacao e mapeia pra Funcionario.Status:
+        //   A,F,P → Active(1)  |  D,I,outros → Inactive(2)
+        // Tela de Funcionários filtra Active por default; toggle pra mostrar inativos.
+        // Dedup por CHAPA — TOTVS pode ter PFUNC duplicado em schemas TOTVSAUDIT.
+        // Quando há mais de 1, preferimos o registro ativo (CODSITUACAO IN A,F,P).
+        var todos = pfuncRows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Chapa))
+            .GroupBy(r => r.Chapa!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(r => new[] { "A", "F", "P" }.Contains((r.CodSituacao ?? "").Trim().ToUpperInvariant())).First())
             .ToList();
+        var ativosCount = todos.Count(r => new[] { "A", "F", "P" }.Contains((r.CodSituacao ?? "").Trim().ToUpperInvariant()));
+        _logWriter.WriteLine($"Sync Funcionários: PFUNC total={pfuncRows.Count}, com chapa={todos.Count}, ativos={ativosCount}, inativos={todos.Count - ativosCount}");
 
-        _logWriter.WriteLine($"Sync Funcionários: PFUNC total={pfuncRows.Count}, ativos={ativos.Count} (filtro CODSITUACAO IN A,F,P)");
-
-        var items = ativos.Select(r =>
+        var items = todos.Select(r =>
         {
             var pessoa = r.CodPessoa.HasValue && pessoaByCodigo.TryGetValue(r.CodPessoa.Value, out var p) ? p : null;
 

@@ -70,6 +70,9 @@ public sealed class FuncionarioService : IFuncionarioService
         if (query.Status.HasValue)
             q = q.Where(x => x.Status == query.Status.Value);
 
+        if (!string.IsNullOrWhiteSpace(query.CodSituacaoRm))
+            q = q.Where(x => x.CodSituacaoRm == query.CodSituacaoRm);
+
         if (query.UnitId.HasValue)
             q = q.Where(x => x.UnitId == query.UnitId.Value);
 
@@ -173,7 +176,9 @@ public sealed class FuncionarioService : IFuncionarioService
                 // Integração TOTVS RM
                 x.MatriculaRm,
                 x.HierarquiaId,
-                x.Hierarquia != null ? x.Hierarquia.Descricao : null
+                x.Hierarquia != null ? x.Hierarquia.Descricao : null,
+                x.CodSituacaoRm,
+                x.SituacaoRmDescricao
             ))
             .ToListAsync(ct);
 

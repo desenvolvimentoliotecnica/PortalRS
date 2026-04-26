@@ -38,5 +38,9 @@ public sealed record FuncionarioGridRowResponse(
     string? MatriculaRm,
     /// <summary>FK Hierarquia (organograma TOTVS) — derivada da última promoção do funcionário.</summary>
     Guid? HierarquiaId,
-    string? HierarquiaDescricao
+    string? HierarquiaDescricao,
+    /// <summary>PFUNC.CODSITUACAO original ("A","F","P","D","I","T",...).</summary>
+    string? CodSituacaoRm,
+    /// <summary>Descrição amigável ("Ativo", "Férias", "Demitido", etc.).</summary>
+    string? SituacaoRmDescricao
 );

@@ -63,26 +63,20 @@ import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
 import DesligamentosTotvsList from "@/features/gestao/desligamentos/DesligamentosTotvsList";
 import FeriasScreen from "@/features/gestao/ferias/FeriasScreen";
-import DependentesScreen from "@/features/gestao/dependentes/DependentesScreen";
-import BeneficiosScreen from "@/features/gestao/beneficios/BeneficiosScreen";
-import EnderecosScreen from "@/features/gestao/enderecos/EnderecosScreen";
-import PagamentoExtraScreen from "@/features/gestao/pagamento-extra/PagamentoExtraScreen";
 
 /* ─── Tab config ─────────────────────────────────────────── */
 
-type PainelTab = "todos" | "recrutamento" | "movimentacoes" | "desligamentos" | "ferias"
-  | "dependentes" | "beneficios" | "enderecos" | "pagamento-extra";
+type PainelTab = "todos" | "recrutamento" | "movimentacoes" | "desligamentos" | "ferias";
 
+// 2026-04-26: removidas abas Dependentes/Benefícios/Endereço/Pagamento Extra do
+// Painel RH — não fazem sentido nesse painel pra Liotécnica (são dados pessoais
+// do colaborador, não fluxo de RH).
 const PAINEL_TABS: { id: PainelTab; label: string; icon: React.ElementType }[] = [
   { id: "todos",          label: "Todos",           icon: LayoutList  },
   { id: "recrutamento",   label: "Recrutamento",    icon: Briefcase   },
   { id: "movimentacoes",  label: "Movimentação",    icon: TrendingUp  },
   { id: "desligamentos",  label: "Desligamento",    icon: UserMinus   },
   { id: "ferias",         label: "Férias",          icon: Palmtree    },
-  { id: "dependentes",    label: "Dependentes",     icon: Users       },
-  { id: "beneficios",     label: "Benefícios",      icon: Heart       },
-  { id: "enderecos",      label: "Endereço",        icon: MapPin      },
-  { id: "pagamento-extra", label: "Pagamento Extra", icon: DollarSign },
 ];
 
 /* ─── Types ─────────────────────────────────────────────── */
@@ -622,10 +616,6 @@ export default function WorkflowRHScreen() {
       {activeTab === "movimentacoes"   && <PromocoesScreen />}
       {activeTab === "desligamentos"   && <DesligamentosTabWithToggle />}
       {activeTab === "ferias"          && <FeriasScreen />}
-      {activeTab === "dependentes"     && <DependentesScreen />}
-      {activeTab === "beneficios"      && <BeneficiosScreen />}
-      {activeTab === "enderecos"       && <EnderecosScreen />}
-      {activeTab === "pagamento-extra" && <PagamentoExtraScreen />}
     </div>
   );
 }

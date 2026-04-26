@@ -45,13 +45,40 @@ public sealed class FuncionariosSyncRmController : ControllerBase
         var tenantId = _tenantContext.TenantId;
         var total = request.Items.Count;
 
-        // Filtra ativos (A=Ativo, F=Férias, P=Pré-Admissão). Outros são desligados/legados.
+        // 2026-04-26: aceita TODOS funcionários (ativos + desligados/inativos).
+        // Status é mapeado: A,F,P → Active(1); demais (D=Desligado, I=Inativo, etc.) → Inactive(2).
+        // Permite vincular Desligamento.FuncionarioId mesmo dos que já saíram, e
+        // viabiliza histórico/auditoria. Tela de Funcionários filtra Active por default.
         var ativos = request.Items
-            .Where(i => !string.IsNullOrWhiteSpace(i.Chapa) &&
-                        !string.IsNullOrWhiteSpace(i.Nome) &&
-                        new[] { "A", "F", "P" }.Contains((i.CodSituacao ?? "").Trim().ToUpperInvariant()))
+            .Where(i => !string.IsNullOrWhiteSpace(i.Chapa) && !string.IsNullOrWhiteSpace(i.Nome))
             .ToList();
         var skippedInactive = total - ativos.Count;
+
+        FuncionarioStatus MapStatus(string? codSit)
+        {
+            var s = (codSit ?? "").Trim().ToUpperInvariant();
+            return new[] { "A", "F", "P" }.Contains(s) ? FuncionarioStatus.Active : FuncionarioStatus.Inactive;
+        }
+
+        // Mapa de descrições TOTVS RM (Liotécnica usa A,D,F,P,I,Z,W,M).
+        string? MapSituacaoDescricao(string? codSit) => (codSit ?? "").Trim().ToUpperInvariant() switch
+        {
+            "A" => "Ativo",
+            "F" => "Férias",
+            "P" => "Pré-admissão",
+            "D" => "Demitido",
+            "I" => "Inativo",
+            "T" => "Transferido",
+            "R" => "Aposentado",
+            "B" => "Beneficiário",
+            "S" => "Substituição",
+            "Z" => "Outros (Z)",
+            "W" => "Outros (W)",
+            "M" => "Outros (M)",
+            "" => null,
+            null => null,
+            _ => $"Código {codSit?.Trim()}",
+        };
 
         // ─── Lookups carregados uma vez por sync ─────────────────────────────
         var ccByCode = await _db.CentrosCusto.AsNoTracking()
@@ -75,11 +102,14 @@ public sealed class FuncionariosSyncRmController : ControllerBase
             .Where(x => x.TenantId == tenantId && x.Cpf != null)
             .ToDictionaryAsync(x => x.Cpf!, x => x.Id, ct);
 
-        // Funcionários existentes por MatriculaRm
+        // Funcionários existentes por MatriculaRm — usa GroupBy safe pra ignorar duplicatas históricas.
         var chapas = ativos.Select(i => i.Chapa.Trim()).Distinct().ToList();
-        var funcByMatricula = await _db.Funcionarios
+        var funcByMatriculaRaw = await _db.Funcionarios
             .Where(f => f.TenantId == tenantId && f.MatriculaRm != null && chapas.Contains(f.MatriculaRm))
-            .ToDictionaryAsync(f => f.MatriculaRm!, f => f, ct);
+            .ToListAsync(ct);
+        var funcByMatricula = funcByMatriculaRaw
+            .GroupBy(f => f.MatriculaRm!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First());
 
         var now = DateTimeOffset.UtcNow;
         var created = 0;
@@ -120,7 +150,9 @@ public sealed class FuncionariosSyncRmController : ControllerBase
                     : (item.Email.Length > 180 ? item.Email.Substring(0, 180) : item.Email);
                 existing.Phone = string.IsNullOrWhiteSpace(item.Telefone) ? null
                     : (item.Telefone.Length > 40 ? item.Telefone.Substring(0, 40) : item.Telefone);
-                existing.Status = FuncionarioStatus.Active;
+                existing.Status = MapStatus(item.CodSituacao);
+                existing.CodSituacaoRm = item.CodSituacao?.Trim().ToUpperInvariant();
+                existing.SituacaoRmDescricao = MapSituacaoDescricao(item.CodSituacao);
                 existing.PessoaId = pessoaId ?? existing.PessoaId;
                 existing.CentroCustoId = centroCustoId ?? existing.CentroCustoId;
                 existing.JobPositionId = jobPositionId ?? existing.JobPositionId;
@@ -141,7 +173,9 @@ public sealed class FuncionariosSyncRmController : ControllerBase
                         : (item.Email.Length > 180 ? item.Email.Substring(0, 180) : item.Email),
                     Phone = string.IsNullOrWhiteSpace(item.Telefone) ? null
                         : (item.Telefone.Length > 40 ? item.Telefone.Substring(0, 40) : item.Telefone),
-                    Status = FuncionarioStatus.Active,
+                    Status = MapStatus(item.CodSituacao),
+                    CodSituacaoRm = item.CodSituacao?.Trim().ToUpperInvariant(),
+                    SituacaoRmDescricao = MapSituacaoDescricao(item.CodSituacao),
                     PessoaId = pessoaId,
                     CentroCustoId = centroCustoId,
                     JobPositionId = jobPositionId,
