@@ -2075,7 +2075,9 @@ public sealed class PortalCandidatesController : ControllerBase
             from score in scoreJoin.DefaultIfEmpty()
             where v.Status == RHPortal.Api.Domain.Enums.VagaStatus.Aberta
                 && !v.Confidencial
-                && (v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.Externa
+                && (!v.Visibilidade.HasValue
+                    || v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.NaoInformado
+                    || v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.Externa
                     || v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.InternaEExterna)
                 && (!v.DataInicio.HasValue || v.DataInicio.Value <= today)
                 && (!v.DataEncerramento.HasValue || v.DataEncerramento.Value >= today)
