@@ -513,7 +513,13 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
             (_schemaOptions.FullTableName(_schemaOptions.VagaTable), "vaga"),
             (_schemaOptions.FullTableName(_schemaOptions.UnidadeTable), "unidade"),
             (_schemaOptions.FullTableName(_schemaOptions.FuncionarioTable), "funcionario"),
-            (_schemaOptions.FullTableName(_schemaOptions.PessoaTable), "pessoa")
+            (_schemaOptions.FullTableName(_schemaOptions.PessoaTable), "pessoa"),
+            // Modelo TOTVS Liotécnica (descoberto 2026-04-26 — refactor do sync):
+            (_schemaOptions.FullTableName(_schemaOptions.HierarquiaTable), "hierarquia"),
+            (_schemaOptions.FullTableName(_schemaOptions.DesligamentoTable), "desligamento"),
+            (_schemaOptions.FullTableName(_schemaOptions.AumentoQuadroTable), "aumento_quadro"),
+            (_schemaOptions.FullTableName(_schemaOptions.SubstituicaoTable), "substituicao"),
+            (_schemaOptions.FullTableName(_schemaOptions.TransferenciaPromocaoTable), "transf_promocao"),
         };
 
         var connectionString = _rmOptions.GetConnectionString();

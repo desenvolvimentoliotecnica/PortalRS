@@ -15,6 +15,9 @@ public sealed class RmSyncWorker : BackgroundService
     private readonly RmSchemaOptions _schemaOptions;
     private readonly PortalApiClient _portalClient;
     private readonly RmDataExtractor _extractor;
+    private readonly PortalHierarquiaSyncService _hierarquiaSync;
+    private readonly PortalDesligamentoSyncService _desligamentoSync;
+    private readonly PortalEmpresaSyncService _empresaSync;
     private readonly PortalAreaSyncService _areaSync;
     private readonly PortalCategoriaSyncService _categoriaSync;
     private readonly PortalCargoSyncService _cargoSync;
@@ -34,6 +37,9 @@ public sealed class RmSyncWorker : BackgroundService
         IOptions<RmSyncOptions> syncOptions,
         PortalApiClient portalClient,
         RmDataExtractor extractor,
+        PortalHierarquiaSyncService hierarquiaSync,
+        PortalDesligamentoSyncService desligamentoSync,
+        PortalEmpresaSyncService empresaSync,
         PortalAreaSyncService areaSync,
         PortalCategoriaSyncService categoriaSync,
         PortalCargoSyncService cargoSync,
@@ -51,6 +57,9 @@ public sealed class RmSyncWorker : BackgroundService
         _syncOptions = syncOptions.Value;
         _portalClient = portalClient;
         _extractor = extractor;
+        _hierarquiaSync = hierarquiaSync;
+        _desligamentoSync = desligamentoSync;
+        _empresaSync = empresaSync;
         _areaSync = areaSync;
         _categoriaSync = categoriaSync;
         _cargoSync = cargoSync;
@@ -151,6 +160,30 @@ public sealed class RmSyncWorker : BackgroundService
             _logWriter.WriteLine($"Extração de dados: ERRO - {ex.Message}");
         }
 
+        // Hierarquia (organograma TOTVS) — Fase 1 do refactor 2026-04-26.
+        // Sobe ANTES dos demais syncs porque Funcionario.HierarquiaId / Vaga.HierarquiaId
+        // dependem das hierarquias estarem cadastradas.
+        try
+        {
+            await _hierarquiaSync.SyncHierarquiasFromJsonAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha no sync de hierarquias; continuando.");
+            _logWriter.WriteLine($"Sync Hierarquias (VHIERARQUIA -> api/hierarquias): ERRO - {ex.Message}");
+        }
+
+        // Empresas (GFILIAL → api/empresas) — Fase 1 do refactor 2026-04-26.
+        try
+        {
+            await _empresaSync.SyncEmpresasFromUnidadeJsonAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha no sync de empresas; continuando.");
+            _logWriter.WriteLine($"Sync Empresas (GFILIAL -> api/empresas): ERRO - {ex.Message}");
+        }
+
         try
         {
             await _areaSync.SyncAreasFromDepartamentoJsonAsync(ct);
@@ -216,6 +249,18 @@ public sealed class RmSyncWorker : BackgroundService
         {
             _logger.LogWarning(ex, "Falha no envio de funcionário para a API; continuando.");
             _logWriter.WriteLine($"Sync Funcionários (funcionario -> api/funcionarios): ERRO - {ex.Message}");
+        }
+
+        // Desligamento sync (Fase 1 do refactor 2026-04-26).
+        // Roda DEPOIS dos funcionários porque resolve FuncionarioId via MatriculaRm.
+        try
+        {
+            await _desligamentoSync.SyncDesligamentosFromJsonAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha no sync de desligamentos; continuando.");
+            _logWriter.WriteLine($"Sync Desligamentos (VREQDESLIGAMENTO -> api/desligamentos): ERRO - {ex.Message}");
         }
 
         if (_syncOptions.SyncVagas)

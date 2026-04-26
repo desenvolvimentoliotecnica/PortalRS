@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using RhPortal.Api.Infrastructure.Data;
 namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426213012_AddHierarquiasTable")]
+    partial class AddHierarquiasTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4075,92 +4078,6 @@ namespace RhPortal.Api.Migrations
                     b.ToTable("DescricaoCargoItemEmbeddings", (string)null);
                 });
 
-            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Desligamento", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ChapaRm")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("CodMotivoRescisao")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<int>("CodStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("CodTipoRescisao")
-                        .HasMaxLength(5)
-                        .HasColumnType("character varying(5)");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("DataAbertura")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DataCancelamento")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DataConclusao")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DataPrevista")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("FuncionarioId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("GerouSubstituicao")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("IdReqRm")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("Justificativa")
-                        .HasColumnType("text");
-
-                    b.Property<string>("MotivoRescisaoDescricao")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<int?>("NumDiasAviso")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("TipoRescisaoDescricao")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ChapaRm");
-
-                    b.HasIndex("CodStatus");
-
-                    b.HasIndex("FuncionarioId");
-
-                    b.HasIndex("GerouSubstituicao");
-
-                    b.HasIndex("TenantId", "IdReqRm")
-                        .IsUnique();
-
-                    b.ToTable("Desligamentos", (string)null);
-                });
-
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.DevelopmentPlan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5368,10 +5285,6 @@ namespace RhPortal.Api.Migrations
                     b.Property<Guid?>("JobPositionId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("MatriculaRm")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -5443,8 +5356,6 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("TenantId", "Email")
                         .HasFilter("\"Email\" IS NOT NULL");
-
-                    b.HasIndex("TenantId", "MatriculaRm");
 
                     b.HasIndex("TenantId", "CdnEmpresa", "CdnEstab", "CdnFuncionario")
                         .IsUnique()
@@ -11593,16 +11504,6 @@ namespace RhPortal.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("DescricaoCargoItem");
-                });
-
-            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Desligamento", b =>
-                {
-                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Funcionario")
-                        .WithMany()
-                        .HasForeignKey("FuncionarioId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Funcionario");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.DevelopmentPlan", b =>

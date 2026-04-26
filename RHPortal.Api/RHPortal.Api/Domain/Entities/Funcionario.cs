@@ -52,6 +52,14 @@ public sealed class Funcionario : ITenantEntity
     [System.ComponentModel.DataAnnotations.MaxLength(12)]
     public string? CdnFuncionario { get; set; }
 
+    /// <summary>
+    /// CHAPA do funcionário no TOTVS RM (PFUNC.CHAPA — ex.: "00000581").
+    /// Chave de integração com a Liotécnica. Populada pelo <c>PortalFuncionarioSyncService</c>.
+    /// Usada por <c>Desligamento.ChapaRm</c> para resolver <c>FuncionarioId</c>.
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(20)]
+    public string? MatriculaRm { get; set; }
+
     /// <summary>Código da empresa no TOTVS Datasul (cdn_empresa).</summary>
     [System.ComponentModel.DataAnnotations.MaxLength(3)]
     public string? CdnEmpresa { get; set; }

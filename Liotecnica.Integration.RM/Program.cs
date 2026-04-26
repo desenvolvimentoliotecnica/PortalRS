@@ -47,6 +47,9 @@ builder.Services.Configure<RmSyncOptions>(builder.Configuration.GetSection(RmSyn
 
 builder.Services.AddSingleton<ExtractionLogWriter>();
 builder.Services.AddSingleton<RmDataExtractor>();
+builder.Services.AddSingleton<PortalHierarquiaSyncService>();
+builder.Services.AddSingleton<PortalDesligamentoSyncService>();
+builder.Services.AddSingleton<PortalEmpresaSyncService>();
 builder.Services.AddSingleton<PortalAreaSyncService>();
 builder.Services.AddSingleton<PortalCategoriaSyncService>();
 builder.Services.AddSingleton<PortalCargoSyncService>();

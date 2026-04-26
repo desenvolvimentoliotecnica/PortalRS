@@ -33,6 +33,21 @@ public sealed class RmSchemaOptions
     /// <summary>Nome da tabela de pessoas.</summary>
     public string PessoaTable { get; set; } = RmTableNames.Pessoa;
 
+    /// <summary>Hierarquia/organograma TOTVS RM. Padrão: VHIERARQUIA.</summary>
+    public string HierarquiaTable { get; set; } = RmTableNames.Hierarquia;
+
+    /// <summary>Solicitação de desligamento. Padrão: VREQDESLIGAMENTO.</summary>
+    public string DesligamentoTable { get; set; } = RmTableNames.Desligamento;
+
+    /// <summary>Solicitação de aumento de quadro (vaga nova). Padrão: VREQAUMENTOQUADRO.</summary>
+    public string AumentoQuadroTable { get; set; } = RmTableNames.AumentoQuadro;
+
+    /// <summary>Solicitação de substituição (gerada quando desligamento/promoção pede). Padrão: VREQSUBSTITUICAO.</summary>
+    public string SubstituicaoTable { get; set; } = RmTableNames.Substituicao;
+
+    /// <summary>Solicitação de transferência ou promoção do funcionário. Padrão: VREQTRANSFPROMOCAO.</summary>
+    public string TransferenciaPromocaoTable { get; set; } = RmTableNames.TransferenciaPromocao;
+
     /// <summary>Schema do banco (ex.: "dbo"). Opcional.</summary>
     public string? Schema { get; set; }
 

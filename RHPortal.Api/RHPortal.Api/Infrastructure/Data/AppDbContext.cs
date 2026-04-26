@@ -154,6 +154,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<UnidadeLotacao> UnidadesLotacao => Set<UnidadeLotacao>();
     public DbSet<MotivoRequisicaoVagaConfig> MotivosRequisicaoVagaConfig => Set<MotivoRequisicaoVagaConfig>();
     public DbSet<Empresa> Empresas => Set<Empresa>();
+    public DbSet<Hierarquia> Hierarquias => Set<Hierarquia>();
+    public DbSet<Desligamento> Desligamentos => Set<Desligamento>();
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
@@ -328,6 +330,44 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Code).HasMaxLength(30).IsRequired();
             b.Property(x => x.Description).HasMaxLength(120).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Hierarquia>(b =>
+        {
+            b.ToTable("Hierarquias");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Estrutura).HasMaxLength(200);
+            b.HasIndex(x => new { x.TenantId, x.IdHierarquiaRm }).IsUnique();
+            b.HasIndex(x => x.IdHierarquiaSuperiorRm);
+            b.HasIndex(x => x.Estrutura);
+            b.HasOne(x => x.HierarquiaSuperior)
+                .WithMany()
+                .HasForeignKey(x => x.HierarquiaSuperiorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Desligamento>(b =>
+        {
+            b.ToTable("Desligamentos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.IdReqRm).HasMaxLength(40).IsRequired();
+            b.Property(x => x.ChapaRm).HasMaxLength(20).IsRequired();
+            b.Property(x => x.CodMotivoRescisao).HasMaxLength(10);
+            b.Property(x => x.MotivoRescisaoDescricao).HasMaxLength(120);
+            b.Property(x => x.TipoRescisaoDescricao).HasMaxLength(120);
+            b.HasIndex(x => new { x.TenantId, x.IdReqRm }).IsUnique();
+            b.HasIndex(x => x.ChapaRm);
+            b.HasIndex(x => x.CodStatus);
+            b.HasIndex(x => x.GerouSubstituicao);
+            b.HasOne(x => x.Funcionario)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioId)
+                .OnDelete(DeleteBehavior.SetNull);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1000,6 +1040,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Phone).HasMaxLength(40);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.Property(x => x.Headcount);
+            b.Property(x => x.MatriculaRm).HasMaxLength(20);
+            b.HasIndex(x => new { x.TenantId, x.MatriculaRm });
 
             b.HasOne(x => x.Pessoa)
                 .WithMany()

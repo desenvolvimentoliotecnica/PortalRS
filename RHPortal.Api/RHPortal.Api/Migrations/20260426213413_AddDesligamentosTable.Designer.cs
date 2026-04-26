@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using RhPortal.Api.Infrastructure.Data;
 namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426213413_AddDesligamentosTable")]
+    partial class AddDesligamentosTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -5368,10 +5371,6 @@ namespace RhPortal.Api.Migrations
                     b.Property<Guid?>("JobPositionId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("MatriculaRm")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -5443,8 +5442,6 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("TenantId", "Email")
                         .HasFilter("\"Email\" IS NOT NULL");
-
-                    b.HasIndex("TenantId", "MatriculaRm");
 
                     b.HasIndex("TenantId", "CdnEmpresa", "CdnEstab", "CdnFuncionario")
                         .IsUnique()
