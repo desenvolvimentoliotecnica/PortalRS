@@ -9,6 +9,30 @@
 
 ## 2026-04-26
 
+### 🧹 chore · A+B — Limpeza pós-épico LLM-agnóstico (LUC-014, LUC-022, AssistenteIa 503)
+- **Itens backlog:** LUC-014 e LUC-022 encerrados; LUC-012 marcado como parcial (60% coberto pela Fase 5); LUC-001/002/010/013/020/021 documentados como "🛑 BLOQUEADO" com nota explicando o que destrava cada um; LUC-023 marcado como coberto pelo `lucasRUNBOOK_IA.md`. LUC-003 e LUC-004 ficam "📋 PRONTO PARA TOCAR" (sem bloqueador).
+- **Contexto:** Após fechar o épico LLM-agnóstico (5 fases), faxinada de "ranchos abertos" — 3 entregas pequenas + reorganização do backlog para deixar claro o que pode ser tocado solo vs o que precisa de input externo (Leonardo, dados reais, AWS).
+- **O que foi entregue:**
+  - **LUC-014** — `RHPortalAiHealthCheck : IHealthCheck` em `Infrastructure/HealthChecks/`. Bate em `{RhAi.BaseUrl}/health/ready` com timeout 3s. Reporta `Healthy` (200), `Degraded` (non-2xx — Python responde mas não pronto), `Unhealthy` (timeout/rede). Quando `RhAi.BaseUrl` vazio, retorna `Healthy/skipped` para evitar falso negativo. Registrado em `AddHealthChecks()` com `failureStatus: Degraded` (Python down não tira API do ar). `appsettings.Development.json` ganhou `"RhAi.BaseUrl": "http://localhost:8000"` para o check virar real em dev.
+  - **AssistenteIaController + 503** — pendência da Fase 5. Criei `RequireAiModuleAttribute` em `Infrastructure/Filters/` (action filter `IAsyncActionFilter`); aplicado em 5 endpoints (`/chat`, `/chat/stream`, `/descricao-cargo/gerar`, `/cv/resumir/{id}`, `/vagas/sugerir-salario/{id}`, `/embeddings/reindexar`). `/health` do assistente NÃO recebe (é status do Ollama, faz sentido ficar sempre disponível). Resposta 503 com mesmo `ProblemDetails` do `AiController` (`reason: ModuleDisabled`, `tenantId`, `detail` amigável).
+  - **LUC-022** — 8 HTMLs (`EntradaEmailPasta`, `Matching`, `candidatos`, `dashboardv1`, `relatorios`, `triagem`, `usuarios_perfis`, `vagas`) movidos via `git mv` para `__analise__/mockups-mvc/`. Verificado antes que **só docs `lucas*`** referenciavam — zero código produtivo afetado. `lucasVISAO_GERAL.md` atualizado para apontar nova localização.
+  - **LUC-012 doc** — atualizado no backlog dizendo que ~60% já foi entregue na Fase 5 (logs estruturados + endpoint `/api/admin/ai/metrics` + healthcheck). Pendente: exporter Prometheus formal, métricas P50/P90/P95 (precisa dados reais), dashboard Grafana.
+  - **Bloqueadores documentados** no backlog: LUC-001 (DB zerado), LUC-002 (depende de LUC-001 + decisão arquitetural), LUC-010 (precisa ground-truth), LUC-013 (sem Datasul de teste), LUC-020 (sem mailbox de teste), LUC-021 (sem AWS prod). Cada item tem nota "Para destravar: ..." explicando o que falta.
+- **Validação:**
+  - `GET /health` → `rhportal_ai: Healthy "RHPortal.Ai OK"` ✅
+  - `POST /api/assistente-ia/chat` com IA ON → `200 — "pong"` ✅
+  - `POST /api/assistente-ia/chat` com IA OFF → `503 ProblemDetails` ✅
+  - `POST /api/assistente-ia/descricao-cargo/gerar` com IA OFF → `503 ProblemDetails` ✅
+  - Raiz limpo de HTMLs ✅
+  - Build "Compilação com êxito" ✅
+- **Arquivos:** 2 novos (`RHPortalAiHealthCheck.cs`, `RequireAiModuleAttribute.cs`) + 4 modificados (`Program.cs`, `AssistenteIaController.cs`, `appsettings.Development.json`, `lucasVISAO_GERAL.md`) + 8 movidos (HTMLs raiz → `__analise__/mockups-mvc/`).
+- **Commit:** *(pendente)*
+- **Estado do backlog após esta limpeza:**
+  - ✅ Concluídos: LUC-014, LUC-022, LUC-023 (coberto), Fase 5 (LUC-113), LUC-117
+  - 🟡 Parcial: LUC-012 (60%)
+  - 📋 Pronto pra tocar solo: LUC-003 (~2h), LUC-004 (~2.5h), LUC-115 (5-8h, com risco), LUC-110b (12-16h, refactor grande), LUC-116 (~1.5h)
+  - 🛑 Bloqueado por input externo: LUC-001, LUC-002, LUC-010, LUC-013, LUC-020, LUC-021, LUC-101, LUC-102
+
 ### ✨ feature · Fase 5 (ÚLTIMA) do épico LLM-agnóstico — Observabilidade + 503 estruturado + runbook · 🎯 ÉPICO FECHADO
 - **Itens backlog:** LUC-113 e LUC-117 encerrados.
 - **Contexto:** Fechamento do épico iniciado em 2026-04-25. Fases 1-4 entregaram a infraestrutura (factories Python+.NET, escolha por tenant, on/off por tenant). Faltava observabilidade decente e runbook operacional para que o time consiga **operar** o sistema em prod sem precisar abrir o código toda vez. LUC-117 (refinement de 404→503) foi puxado pra Fase 5 já que mexia nos mesmos arquivos.

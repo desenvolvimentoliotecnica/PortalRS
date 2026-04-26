@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.Ai;
 using RhPortal.Api.Contracts.DescricaoCargo;
+using RhPortal.Api.Infrastructure.Filters;
 
 namespace RhPortal.Api.Controllers;
 
@@ -47,7 +48,9 @@ public sealed class AssistenteIaController : ControllerBase
     }
 
     [HttpPost("chat")]
+    [RequireAiModule]
     [ProducesResponseType(typeof(AssistantReply), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Chat(
         [FromBody] ChatRequest request,
         [FromServices] ILlmAssistantService assistant,
@@ -65,7 +68,9 @@ public sealed class AssistenteIaController : ControllerBase
     /// <c>data: {json}</c>, terminando com <c>data: [DONE]</c>.
     /// </summary>
     [HttpPost("chat/stream")]
+    [RequireAiModule]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task ChatStream(
         [FromBody] ChatRequest request,
         [FromServices] ILlmAssistantService assistant,
@@ -118,7 +123,9 @@ public sealed class AssistenteIaController : ControllerBase
     }
 
     [HttpPost("descricao-cargo/gerar")]
+    [RequireAiModule]
     [ProducesResponseType(typeof(DescricaoCargoGenerationResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> GerarDescricaoCargo(
         [FromBody] GenerateDescricaoCargoRequest request,
         [FromServices] IDescricaoCargoGeneratorService gen,
@@ -132,7 +139,9 @@ public sealed class AssistenteIaController : ControllerBase
     }
 
     [HttpPost("cv/resumir/{candidatoId:guid}")]
+    [RequireAiModule]
     [ProducesResponseType(typeof(CvResumoResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> ResumirCv(
         [FromRoute] Guid candidatoId,
         [FromQuery] bool force,
@@ -145,7 +154,9 @@ public sealed class AssistenteIaController : ControllerBase
     }
 
     [HttpPost("vagas/sugerir-salario/{vagaId:guid}")]
+    [RequireAiModule]
     [ProducesResponseType(typeof(SalarioSuggestionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> SugerirSalario(
         [FromRoute] Guid vagaId,
         [FromServices] ISalarioSuggesterService salario,
@@ -157,7 +168,9 @@ public sealed class AssistenteIaController : ControllerBase
     }
 
     [HttpPost("embeddings/reindexar")]
+    [RequireAiModule]
     [ProducesResponseType(typeof(IndexingStats), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Reindexar(
         [FromQuery] bool force,
         [FromServices] IEmbeddingService embedding,

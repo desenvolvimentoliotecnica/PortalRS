@@ -8,6 +8,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
@@ -218,7 +219,12 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<MasterDbContext>("database_master")
-    .AddDbContextCheck<AppDbContext>("database");
+    .AddDbContextCheck<AppDbContext>("database")
+    // Fase 5 LLM-agnóstico — LUC-014: reporta status do serviço Python RHPortal.Ai.
+    // Usa Degraded quando Python responde mas não está pronto (não tira o app do ar).
+    .AddCheck<RhPortal.Api.Infrastructure.HealthChecks.RHPortalAiHealthCheck>(
+        "rhportal_ai",
+        failureStatus: HealthStatus.Degraded);
 
 // Tenancy
 builder.Services.AddScoped<ITenantContext, TenantContext>();
