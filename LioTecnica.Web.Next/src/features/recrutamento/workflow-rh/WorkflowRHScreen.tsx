@@ -61,6 +61,7 @@ import {
 import TodosScreen from "@/features/gestao/todos/TodosScreen";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
+import DesligamentosTotvsList from "@/features/gestao/desligamentos/DesligamentosTotvsList";
 import FeriasScreen from "@/features/gestao/ferias/FeriasScreen";
 import DependentesScreen from "@/features/gestao/dependentes/DependentesScreen";
 import BeneficiosScreen from "@/features/gestao/beneficios/BeneficiosScreen";
@@ -619,12 +620,54 @@ export default function WorkflowRHScreen() {
       {activeTab === "todos"           && <TodosScreen />}
       {activeTab === "recrutamento"    && <RecrutamentoContent />}
       {activeTab === "movimentacoes"   && <PromocoesScreen />}
-      {activeTab === "desligamentos"   && <DesligamentosScreen />}
+      {activeTab === "desligamentos"   && <DesligamentosTabWithToggle />}
       {activeTab === "ferias"          && <FeriasScreen />}
       {activeTab === "dependentes"     && <DependentesScreen />}
       {activeTab === "beneficios"      && <BeneficiosScreen />}
       {activeTab === "enderecos"       && <EnderecosScreen />}
       {activeTab === "pagamento-extra" && <PagamentoExtraScreen />}
+    </div>
+  );
+}
+
+/**
+ * Componente interno: aba "Desligamento" do Painel RH com toggle entre fonte
+ * TOTVS RM (default — VREQDESLIGAMENTO sincronizado pelo worker) e Datasul
+ * (SolicitacoesDesligamento — fluxo interno).
+ *
+ * Liotécnica usa TOTVS RM, então TOTVS é o default.
+ */
+function DesligamentosTabWithToggle() {
+  const [fonte, setFonte] = useState<"totvs" | "datasul">("totvs");
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shrink-0">
+          <button
+            onClick={() => setFonte("totvs")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              fonte === "totvs"
+                ? "bg-blue-600 text-white"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+            title="Desligamentos sincronizados do TOTVS RM (VREQDESLIGAMENTO)"
+          >
+            TOTVS RM
+          </button>
+          <button
+            onClick={() => setFonte("datasul")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+              fonte === "datasul"
+                ? "bg-blue-600 text-white"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+            title="Solicitações internas (SolicitacoesDesligamento — Datasul)"
+          >
+            Datasul
+          </button>
+        </div>
+      </div>
+      {fonte === "totvs" ? <DesligamentosTotvsList /> : <DesligamentosScreen />}
     </div>
   );
 }
