@@ -9,6 +9,33 @@
 
 ## 2026-04-26
 
+### ✨ feature · Fase 4 do épico LLM-agnóstico — Owner liga/desliga IA por tenant + UI tenant respeita disponibilidade real
+- **Item backlog:** LUC-112 (encerrado). LUC-117 adicionado como melhoria.
+- **Contexto:** Após Fases 1-3 (multi-provider + escolha por tenant), faltava o "switch master" — owner controlando se cada cliente tem direito a IA, e a UI tenant honrando essa decisão. Investigação revelou que `/Owner/IA` **já era funcional** (CRUD chaves dos 3 providers + modelos + dashboard usage); minha doc inicial chamou de "esqueleto" erroneamente. Escopo real da Fase 4 ficou no gating + UX.
+- **O que mudou:**
+  - **`Infrastructure/Modules/ModuleCatalog.cs`** — novo módulo standalone `"ai"` (transversal, sem PackageKey). Default ON em tenants novos via `EnsureDefaultsAsync`. Para tenants existentes, o `DbSeeder.MigrateAndSeedAsync` chama `EnsureDefaults` no startup → módulo aparece automaticamente sem migration.
+  - **`Application/Ai/TenantAiSettingsResolver.cs`** — `IsAiEnabledAsync()` consulta `TenantModuleService.GetEnabledModuleKeysAsync` via `IServiceProvider` lazy (não falha em endpoints owner-level). Owner/system sempre retorna `true` (não há "tenant" para gating).
+  - **`Application/Ai/UnifiedAiService.cs`** — early-return no início de `InvokeAsync`: se módulo `ai` off, loga info e devolve `null`. AiController traduz para 404 (ver LUC-117 para refinar para 503).
+  - **`Application/TenantConfiguracao/TenantConfiguracaoService.cs`** — `TenantAiConfigDto` ganha `AvailableProviders` (intersecção: Master.AiProviderKey ativos + appsettings.Ai.{Provider}.ApiKey preenchidos + Ollama enabled) e `AiEnabled`. `BuildAiConfigDto` virou async. Injeta `MasterDbContext` e `ITenantAiSettingsResolver`.
+  - **`LioTecnica.Web.Next/src/features/admin/ia/IaConfigScreen.tsx`** — banner amarelo "IA não habilitada" quando `aiEnabled=false`; banner separado "nenhum provider com chave"; dropdowns filtrados via `buildProviderOptions(availableProviders)`. Imports `AlertTriangle`.
+- **Validação (smoke test 7/7):**
+  - Estado inicial liotecnica: `aiEnabled=true`, `availableProviders=['gemini','ollama']`
+  - Invoke com IA ON → `200 — "AI is on."` ($9.3e-06)
+  - `PUT /api/owner/tenants/liotecnica/modules/ai {isEnabled:false}` → `200`
+  - `GET /api/tenant-configuracao/ai` → `aiEnabled=false`
+  - Invoke com IA OFF → `404` (esperado — UnifiedAiService devolveu null)
+  - Religa → `200`
+  - Invoke novamente → `200 — "voltei"` ($6.6e-06)
+- **Hierarquia de gating documentada em `lucasIA_RAG.md` §19.3:**
+  - Tenant tem IA? → Owner decide (TenantModule)
+  - Quais providers? → Owner cadastra chaves (`/Owner/IA`)
+  - Qual provider/modelo? → Admin do tenant escolhe (`/app/admin/ia`, Fase 3)
+- **Arquivos:** 5 modificados (1 entidade catalog + 3 services .NET + 1 UI). Zero migration EF (módulo é code-first via `ModuleCatalog`, persistência via `EnsureDefaults`).
+- **Commit:** *(pendente)*
+- **Impacto:** modelo de licenciamento de IA fica viável — cliente "básico" sem IA, "pro" com Ollama local (zero custo + LGPD), "premium" com OpenAI/Gemini/Anthropic. Owner controla margem; admin do tenant tem autonomia dentro do que foi liberado.
+- **LUC-117 adicionado:** AiController/AssistenteIaController devem retornar 503 (não 404) quando IA desabilitada — semanticamente mais correto, ajuda debug e UX no frontend.
+- **Docs atualizadas:** `lucasIA_RAG.md` (§16.7 + §19 nova), `lucasMODULOS_FUNCIONALIDADES.md` (toggle no Owner), `lucasbacklog.md` (LUC-112 fechado, LUC-117 adicionado).
+
 ### ✨ feature · Fase 3 do épico LLM-agnóstico — Seleção de provider POR TENANT
 - **Item backlog:** LUC-111 (encerrado). LUC-116 adicionado como melhoria.
 - **Contexto:** Fases 1 e 2 deixaram o sistema multi-provider (OpenAI/Gemini/Anthropic/Ollama), mas a escolha era global (env var no Python, `appsettings.Ai.DefaultProvider` no .NET). Tenants diferentes não podiam ter providers diferentes. Esta fase muda isso: cada tenant escolhe seu provider/modelo na própria sidebar admin, persistido no banco do tenant, com fallback para o default global quando vazio.

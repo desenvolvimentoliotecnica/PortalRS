@@ -543,6 +543,13 @@ Toda a árvore `/Owner/*` requer JWT de Owner.
 ### `/Owner/IA`
 - **Para quê:** Gerenciar chaves de IA (`AiProviderKey` — OpenAI, Anthropic, Gemini) e modelos (`AiModel`).
 - **Endpoints:** `OwnerAiController` (`GET/POST/PUT/DELETE /api/owner/ai/keys`).
+- **Já está funcional** (CRUD de chaves dos 3 providers + catálogo de modelos + dashboard de uso/custo por tenant e por usuário).
+
+### `/Owner/Tenants/[id]/modules` — toggle "IA habilitada"
+- **Para quê (Fase 4 LLM-agnóstico, 2026-04-26):** Owner liga/desliga o módulo `ai` para cada tenant (transversal — afeta TODAS as features que dependem de LLM/embedding via API).
+- **Endpoint:** `PUT /api/owner/tenants/{tenantId}/modules/ai { "isEnabled": true/false }`
+- **Quando OFF:** `UnifiedAiService.InvokeAsync` retorna `null` cedo; UI tenant `/app/admin/ia` mostra banner "IA não habilitada".
+- **Default:** todo tenant novo provisionado nasce com `ai=true` (via `EnsureDefaultsAsync`).
 
 ---
 

@@ -51,6 +51,16 @@ public sealed class UnifiedAiService : IUnifiedAiService
 
     public async Task<AiInvokeResponse?> InvokeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct)
     {
+        // Fase 4: gating por TenantModule. Se o owner desligou o módulo "ai" para
+        // este tenant, a IA não está disponível — mesmo havendo chave configurada.
+        if (!await _tenantSettings.IsAiEnabledAsync(ct))
+        {
+            _logger.LogInformation(
+                "UnifiedAiService: tenant '{Tenant}' tem o módulo 'ai' desabilitado — invocação ignorada.",
+                tenantId);
+            return null;
+        }
+
         var resolution = await ResolveProviderAsync(request, ct);
         if (resolution is null)
         {

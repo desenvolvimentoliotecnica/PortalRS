@@ -54,6 +54,13 @@ public static class ModuleCatalog
 
         // ── Standalone opcional (sem pacote-pai) ──────────────────────────────
         new("relatorios",      "Relatórios",          "Relatórios gerenciais",                                        IsCore: false, PermissionKeyPrefixes: ["relatorios."]),
+        // Fase 4 LLM-agnóstico (2026-04-26): "ai" é o switch master de IA do tenant.
+        // Quando desligado, UnifiedAiService retorna null (early-return) — todas as
+        // features que dependem de LLM/embedding via API (CV extract, doc validation,
+        // descrição de cargo, sugestão salarial, assistente RH) ficam indisponíveis.
+        // Os módulos "matching" (acima) e este são complementares: matching controla
+        // só a tela; "ai" controla a infraestrutura inteira.
+        new("ai",              "IA (LLM)",            "Provider OpenAI/Gemini/Anthropic — ativa CV extract, descrição de cargo, sugestão salarial, assistente RH, LLM scoring no matching", IsCore: false, PermissionKeyPrefixes: ["ai."]),
     };
 
     private static readonly Dictionary<string, ModuleDefinition> _byKey =

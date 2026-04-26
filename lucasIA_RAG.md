@@ -522,7 +522,7 @@ Consequência: com `EMBEDDING_PROVIDER=gemini`, os embeddings vão para a **colu
 | **1** | Python: factory (OpenAI/Gemini/Ollama) | ✅ concluído (2026-04-25) |
 | **2** | API .NET provider-agnóstica (`UnifiedAiService` aceita OpenAI/Gemini/Anthropic via factory) | ✅ concluído (2026-04-25) |
 | **3** | Seleção por tenant (TenantConfiguracao + UI admin) | ✅ concluído (2026-04-25) |
-| 4 | Cadastro de chaves no Owner (`/Owner/IA` funcional) | 📋 backlog |
+| **4** | Owner liga/desliga IA por tenant + UI tenant respeita disponibilidade real | ✅ concluído (2026-04-26) |
 | 5 | Observabilidade + docs operacionais | 📋 backlog |
 
 Ver `lucasbacklog.md` (LUC-110..LUC-115 e derivados) para detalhes.
@@ -684,3 +684,61 @@ effective volta para gemini global
 Quando o tenant escolhe um provider mas a **chave correspondente não está configurada** (nem em `Master.AiProviderKey`, nem em `appsettings.Ai.{Provider}.ApiKey`), o resolver atual cai silenciosamente no próximo provider com chave válida. Isso pode mascarar erros de configuração.
 
 Item **LUC-116** no backlog: tornar o comportamento "estrito" — se tenant escolheu provider X e não há chave para X, retornar 503 explícito em vez de fallback silencioso.
+
+---
+
+## 19. Provider-agnóstico — Fase 4 (Owner liga/desliga IA por tenant, 2026-04-26)
+
+### 19.1 O que mudou
+
+Owner ganhou o **switch master de IA por tenant** via o sistema de `TenantModule` que já existia. Agora a separação fica clara:
+
+- **Owner** controla **se** o tenant tem IA (módulo `ai` on/off) e **quais providers** estão disponíveis (chaves cadastradas em `/Owner/IA`)
+- **Admin do tenant** controla **qual** provider/modelo usar (entre os disponíveis), via `/app/admin/ia` (Fase 3)
+
+### 19.2 Arquivos novos / modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `Infrastructure/Modules/ModuleCatalog.cs` | **+** módulo standalone `"ai"` (transversal, sem `PackageKey`) |
+| `Application/Ai/TenantAiSettingsResolver.cs` | **+** `IsAiEnabledAsync()` consulta `TenantModuleService.GetEnabledModuleKeysAsync` |
+| `Application/Ai/UnifiedAiService.cs` | early-return no início do `InvokeAsync` se módulo `ai` desligado para o tenant atual |
+| `Application/TenantConfiguracao/TenantConfiguracaoService.cs` | `GetAiConfigAsync` agora popula `AvailableProviders` (intersecção entre Master DB + appsettings + Ollama enabled) e `AiEnabled`; `BuildAiConfigDto` virou async |
+| `LioTecnica.Web.Next/src/features/admin/ia/IaConfigScreen.tsx` | **+** banner amarelo "IA não habilitada" quando `aiEnabled=false`; **+** banner "nenhum provider com chave"; dropdowns filtrados via `buildProviderOptions(availableProviders)` |
+| `lucaschangelog.md`, `lucasbacklog.md`, `lucasMODULOS_FUNCIONALIDADES.md` | atualizados |
+
+> **UI `/Owner/IA` já existia funcional** (CRUD chaves OpenAI/Gemini/Anthropic + modelos + usage) — não precisei criar do zero. A doc anterior estava errada chamando-a de "esqueleto".
+
+### 19.3 Hierarquia de gating
+
+```
+Pergunta              Onde decide                      Onde grava
+────────────────────  ───────────────────────────────  ─────────────────────────
+Tenant tem IA?        Owner (toggle TenantModule)      Master.TenantModules
+Quais providers?      Owner (cadastra chave)           Master.AiProviderKeys
+                                                        + appsettings.Ai.*
+Qual provider usar?   Admin do tenant (/app/admin/ia)  AppDb.TenantConfiguracoes
+Qual modelo?          Admin do tenant                  AppDb.TenantConfiguracoes
+```
+
+### 19.4 Smoke test ponta-a-ponta (2026-04-26)
+
+| # | Cenário | Resultado |
+|---|---|---|
+| 1 | Estado inicial liotecnica: `aiEnabled=true`, `availableProviders=['gemini','ollama']` | ✅ |
+| 2 | `POST /api/ai/invoke` com módulo ON | `200 — "AI is on."` |
+| 3 | `PUT /api/owner/tenants/liotecnica/modules/ai {isEnabled:false}` | `200` |
+| 4 | `GET /api/tenant-configuracao/ai` reflete `aiEnabled=false` imediatamente | ✅ |
+| 5 | `POST /api/ai/invoke` com módulo OFF | `404` (UnifiedAiService retorna null → controller NotFound) |
+| 6 | Owner religa → `isEnabled:true` | `200` |
+| 7 | Invoke religado | `200 — "voltei"` |
+
+### 19.5 Comportamento da UI tenant
+
+- **Quando `aiEnabled=false`**: banner amarelo grande explicando que owner desabilitou; dropdowns continuam editáveis (admin pode pré-selecionar para quando for ativado), mas chamadas IA serão bloqueadas no servidor.
+- **Quando `availableProviders` está vazio**: banner amarelo separado avisando que owner não cadastrou nenhuma chave.
+- **Dropdowns**: mostram só providers com chave real cadastrada — não exibem opções que dariam erro.
+
+### 19.6 Refinement futuro (LUC-117)
+
+`AiController` retorna **404** quando `UnifiedAiService.InvokeAsync` devolve `null` (módulo off OU sem provider). Semanticamente, **503** ("Service Unavailable") seria mais correto — o endpoint existe, mas o serviço foi desabilitado para esse tenant. Não bloqueia uso, mas torna debug mais claro.

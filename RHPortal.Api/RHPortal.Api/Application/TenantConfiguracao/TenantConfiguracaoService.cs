@@ -58,6 +58,21 @@ public sealed class TenantAiConfigDto
     /// <summary>Lista de providers conhecidos pelo factory — para popular dropdowns na UI.</summary>
     public IReadOnlyList<string> KnownProviders { get; set; } = new List<string>();
 
+    /// <summary>
+    /// Lista de providers que têm chave **realmente cadastrada** (Master.AiProviderKey ativa
+    /// OU appsettings.Ai.{Provider}.ApiKey preenchida). A UI tenant só deve mostrar esses
+    /// no dropdown — providers sem chave levariam a erro.
+    /// (Fase 4 LLM-agnóstico, 2026-04-26.)
+    /// </summary>
+    public IReadOnlyList<string> AvailableProviders { get; set; } = new List<string>();
+
+    /// <summary>
+    /// <c>true</c> se o módulo <c>"ai"</c> está habilitado pelo owner para este tenant.
+    /// Quando <c>false</c>, todas as features IA estão indisponíveis e a UI deve mostrar
+    /// um aviso "IA não habilitada — contate o suporte".
+    /// </summary>
+    public bool AiEnabled { get; set; } = true;
+
     /// <summary>Provider que está sendo efetivamente usado AGORA neste tenant (após resolução override + global).</summary>
     public string EffectiveLlmProvider { get; set; } = "openai";
     public string EffectiveLlmModel { get; set; } = "";
@@ -95,17 +110,23 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
     private readonly ITenantContext _tenantContext;
     private readonly IAiProviderFactory _aiProviderFactory;
     private readonly AiOptions _aiOptions;
+    private readonly MasterDbContext _masterDb;
+    private readonly ITenantAiSettingsResolver _aiResolver;
 
     public TenantConfiguracaoService(
         AppDbContext db,
         ITenantContext tenantContext,
         IAiProviderFactory aiProviderFactory,
-        IOptions<AiOptions> aiOptions)
+        IOptions<AiOptions> aiOptions,
+        MasterDbContext masterDb,
+        ITenantAiSettingsResolver aiResolver)
     {
         _db = db;
         _tenantContext = tenantContext;
         _aiProviderFactory = aiProviderFactory;
         _aiOptions = aiOptions?.Value ?? new AiOptions();
+        _masterDb = masterDb;
+        _aiResolver = aiResolver;
     }
 
     public async Task<TenantConfiguracaoDto> GetAsync(CancellationToken ct)
@@ -207,7 +228,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
     public async Task<TenantAiConfigDto> GetAiConfigAsync(CancellationToken ct)
     {
         var config = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
-        return BuildAiConfigDto(config);
+        return await BuildAiConfigDtoAsync(config, ct);
     }
 
     public async Task<TenantAiConfigDto> UpsertAiConfigAsync(TenantAiConfigRequest request, CancellationToken ct)
@@ -230,10 +251,10 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         config.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
-        return BuildAiConfigDto(config);
+        return await BuildAiConfigDtoAsync(config, ct);
     }
 
-    private TenantAiConfigDto BuildAiConfigDto(Domain.Entities.TenantConfiguracao? config)
+    private async Task<TenantAiConfigDto> BuildAiConfigDtoAsync(Domain.Entities.TenantConfiguracao? config, CancellationToken ct)
     {
         var dto = new TenantAiConfigDto
         {
@@ -242,6 +263,8 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
             EmbeddingProvider = config?.EmbeddingProvider,
             EmbeddingModel = config?.EmbeddingModel,
             KnownProviders = _aiProviderFactory.KnownProviders,
+            AvailableProviders = await ComputeAvailableProvidersAsync(ct),
+            AiEnabled = await _aiResolver.IsAiEnabledAsync(ct),
         };
 
         // "Effective" = depois de resolver fallbacks. Mostra ao usuário o que vai
@@ -279,6 +302,38 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         // Anthropic não fornece embeddings — cai em OpenAI no fallback do factory Python
         _ => "text-embedding-3-small",
     };
+
+    /// <summary>
+    /// Computa quais providers têm chave realmente cadastrada (Master.AiProviderKey
+    /// ativa OU appsettings.Ai.{Provider}.ApiKey preenchida). Ollama é considerado
+    /// "available" se <c>Ai.Ollama.Enabled = true</c> (não exige chave).
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ComputeAvailableProvidersAsync(CancellationToken ct)
+    {
+        var available = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Master DB — AiProviderKey ativos
+        var dbKeys = await _masterDb.AiProviderKeys
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .Select(x => x.Provider)
+            .ToListAsync(ct);
+        foreach (var raw in dbKeys)
+        {
+            var norm = NormalizeProviderName(raw);
+            if (norm is not null) available.Add(norm);
+        }
+
+        // 2. appsettings.Ai.* fallback
+        if (!string.IsNullOrWhiteSpace(_aiOptions.OpenAI?.ApiKey)) available.Add("openai");
+        if (!string.IsNullOrWhiteSpace(_aiOptions.Gemini?.ApiKey)) available.Add("gemini");
+        if (!string.IsNullOrWhiteSpace(_aiOptions.Anthropic?.ApiKey)) available.Add("anthropic");
+
+        // 3. Ollama: sem chave; considerado disponível quando Enabled = true
+        if (_aiOptions.Ollama?.Enabled == true) available.Add("ollama");
+
+        return available.ToList();
+    }
 
     private static string? NullIfBlank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 

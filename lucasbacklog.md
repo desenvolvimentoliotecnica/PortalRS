@@ -200,15 +200,22 @@ Cada item tem: id, prioridade, status, tipo, título, contexto, critério de ace
   - [ ] `_check_dependencies` no Python idem para overrides de request
   - [ ] UI `/app/admin/ia` mostra um "warning" no painel "effective" quando o effective ≠ provider escolhido
 
-### LUC-112 — Fase 4: Cadastro de chaves no Owner UI
-- **Status:** 📋 backlog · **Tipo:** feature
-- **Contexto:** `AiProviderKey` já existe no Master DB — a UI `/Owner/IA` é esqueleto.
+### ~~LUC-112 — Fase 4: Cadastro de chaves no Owner UI + on/off por tenant~~ ✅ CONCLUÍDO (2026-04-26)
+> Movido para `lucaschangelog.md`. **Descoberto durante a fase:** `/Owner/IA`
+> **já estava funcional** (CRUD chaves dos 3 providers + modelos + dashboard de
+> uso) — minha doc inicial estava errada chamando-a de "esqueleto". O escopo
+> efetivamente entregue na Fase 4 foi: módulo `"ai"` no `ModuleCatalog`
+> (transversal, sem PackageKey), `UnifiedAiService` early-return quando módulo
+> off, `AvailableProviders`/`AiEnabled` no DTO do tenant, banner "IA não habilitada"
+> + dropdowns filtrados em `/app/admin/ia`. Smoke test 7/7 ponta-a-ponta.
+
+### LUC-117 — AiController retorna 503 (não 404) quando IA desabilitada
+- **Status:** 📋 backlog · **Tipo:** refactor · **Prioridade:** baixa
+- **Contexto:** Fase 4 deixou `AiController.Invoke` retornando `404` quando `UnifiedAiService` devolve `null` (módulo off OU sem provider). Funciona, mas semanticamente `503` Service Unavailable é mais correto — o endpoint existe, só está desabilitado para esse tenant. Ajuda em debug.
 - **Aceite:**
-  - [ ] `/Owner/IA` lista chaves por provider
-  - [ ] Adicionar chave: escolhe provider + cola chave + testa (chama endpoint de teste que bate no provider)
-  - [ ] Editar/rotacionar chave (criptografado via `ISecretProtector`)
-  - [ ] Deletar (com confirmação)
-  - [ ] Catálogo de modelos (`AiModel`) — cadastrar modelos disponíveis por provider
+  - [ ] `AiController.Invoke` distingue null por módulo off (503 com mensagem clara) de null por provider missing (já cobre LUC-116)
+  - [ ] `AssistenteIaController` idem
+  - [ ] Frontend trata 503 amigavelmente nas telas que usam IA
 
 ### LUC-113 — Fase 5: Observabilidade + docs operacionais
 - **Status:** 📋 backlog · **Tipo:** infra + docs

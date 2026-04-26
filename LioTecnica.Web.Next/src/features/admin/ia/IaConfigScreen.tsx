@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Brain, Save, Sparkles, Network } from "lucide-react";
+import { Brain, Save, Sparkles, Network, AlertTriangle } from "lucide-react";
 
 /* ────────── types ────────── */
 
@@ -16,19 +16,28 @@ interface TenantAiConfigDto {
     embeddingProvider: string | null;
     embeddingModel: string | null;
     knownProviders: string[];
+    availableProviders: string[];   // Fase 4: providers com chave cadastrada
+    aiEnabled: boolean;             // Fase 4: módulo "ai" do tenant
     effectiveLlmProvider: string;
     effectiveLlmModel: string;
     effectiveEmbeddingProvider: string;
     effectiveEmbeddingModel: string;
 }
 
-const PROVIDER_OPTIONS = [
-    { value: "", label: "Usar padrão global" },
+const ALL_PROVIDER_OPTIONS = [
     { value: "openai", label: "OpenAI" },
     { value: "gemini", label: "Google Gemini" },
     { value: "anthropic", label: "Anthropic Claude" },
     { value: "ollama", label: "Ollama (local)" },
 ];
+
+function buildProviderOptions(available: string[]) {
+    const lower = new Set(available.map(p => p.toLowerCase()));
+    return [
+        { value: "", label: "Usar padrão global" },
+        ...ALL_PROVIDER_OPTIONS.filter(o => lower.has(o.value)),
+    ];
+}
 
 const MODEL_PLACEHOLDERS: Record<string, string> = {
     openai: "ex.: gpt-4o-mini, gpt-4o",
@@ -62,6 +71,9 @@ export default function IaConfigScreen() {
         embeddingModel: string;
     } | null>(null);
 
+    const [aiEnabled, setAiEnabled] = useState<boolean>(true);
+    const [availableProviders, setAvailableProviders] = useState<string[]>([]);
+
     const load = useCallback(async () => {
         setLoading(true);
         try {
@@ -78,6 +90,8 @@ export default function IaConfigScreen() {
                 embeddingProvider: dto.effectiveEmbeddingProvider,
                 embeddingModel: dto.effectiveEmbeddingModel,
             });
+            setAiEnabled(dto.aiEnabled);
+            setAvailableProviders(dto.availableProviders ?? []);
         } catch (e) {
             toast.error(`Falha ao carregar: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
@@ -110,6 +124,8 @@ export default function IaConfigScreen() {
                 embeddingProvider: dto.effectiveEmbeddingProvider,
                 embeddingModel: dto.effectiveEmbeddingModel,
             });
+            setAiEnabled(dto.aiEnabled);
+            setAvailableProviders(dto.availableProviders ?? []);
             toast.success("Configuração de IA salva.");
         } catch (e) {
             toast.error(`Falha ao salvar: ${e instanceof Error ? e.message : "erro"}`);
@@ -137,6 +153,41 @@ export default function IaConfigScreen() {
                 </div>
             ) : (
                 <div className="space-y-10">
+                    {/* ── Banner: IA não habilitada para este tenant ── */}
+                    {!aiEnabled && (
+                        <div className="rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700/40 p-4 flex items-start gap-3">
+                            <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                            <div className="text-sm">
+                                <p className="font-medium text-amber-900 dark:text-amber-100">
+                                    IA não habilitada para este tenant
+                                </p>
+                                <p className="text-amber-800/80 dark:text-amber-200/70 mt-0.5">
+                                    O módulo de IA está desativado para sua empresa. As features que dependem de
+                                    LLM (extração de CV, geração de descrição de cargo, sugestão salarial,
+                                    assistente RH e LLM scoring no matching) não funcionarão até que o owner
+                                    da plataforma libere o acesso. Você ainda pode escolher um provider abaixo
+                                    para quando a IA for ativada — mas as chamadas serão bloqueadas no servidor.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Banner: nenhum provider com chave cadastrada ── */}
+                    {aiEnabled && availableProviders.length === 0 && (
+                        <div className="rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700/40 p-4 flex items-start gap-3">
+                            <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                            <div className="text-sm">
+                                <p className="font-medium text-amber-900 dark:text-amber-100">
+                                    Nenhum provider com chave cadastrada
+                                </p>
+                                <p className="text-amber-800/80 dark:text-amber-200/70 mt-0.5">
+                                    O owner da plataforma ainda não cadastrou chaves OpenAI/Gemini/Anthropic
+                                    nem habilitou o Ollama local. As features IA não vão funcionar.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* ── LLM (chat) ── */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2">
@@ -152,7 +203,7 @@ export default function IaConfigScreen() {
                                     onChange={(e) => setLlmProvider(e.target.value)}
                                     className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
                                 >
-                                    {PROVIDER_OPTIONS.map((o) => (
+                                    {buildProviderOptions(availableProviders).map((o) => (
                                         <option key={o.value} value={o.value}>{o.label}</option>
                                     ))}
                                 </select>
@@ -189,7 +240,7 @@ export default function IaConfigScreen() {
                                     onChange={(e) => setEmbeddingProvider(e.target.value)}
                                     className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
                                 >
-                                    {PROVIDER_OPTIONS.map((o) => (
+                                    {buildProviderOptions(availableProviders).map((o) => (
                                         <option key={o.value} value={o.value}>{o.label}</option>
                                     ))}
                                 </select>
