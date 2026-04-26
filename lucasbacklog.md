@@ -201,6 +201,25 @@ Cada item tem: id, prioridade, status, tipo, título, contexto, critério de ace
 > off, `AvailableProviders`/`AiEnabled` no DTO do tenant, banner "IA não habilitada"
 > + dropdowns filtrados em `/app/admin/ia`. Smoke test 7/7 ponta-a-ponta.
 
+### LUC-118 — Dashboard de Performance por Recrutador (widget próprio)
+- **Status:** 🛑 **BLOQUEADO** — precisa volume de uso real (>10 vagas atribuídas + >50 candidatos com histórico) para validar métricas e calibrar UI.
+- **Tipo:** feature
+- **Contexto:** A feature de "Atribuição manual de vaga a recrutador" (entregue em 2026-04-26) populou `Vaga.RecrutadorResponsavelUserId` corretamente, mas o relatório `r6 SLA por recrutador` é só uma fatia. Quando houver dados, criar widget próprio no dashboard agregando: vagas abertas/fechadas por recrutador no mês, % SLA atingido, tempo médio Triagem→Proposta, taxa de aceite de proposta, ações no matching (`RecruiterMatchingFeedback`).
+- **Aceite:**
+  - [ ] Estender `DashboardAgregadoService.ParaRhAsync` com `recrutadoresPerformance: RecrutadorPerformanceItem[]`
+  - [ ] Novo widget `RecrutadorPerformanceWidget.tsx` em `features/dashboard/widgets/`
+  - [ ] Coluna "Performance" no `DashboardScreen` (visão RH)
+  - [ ] Reuso de queries do relatório r6 + `CandidaturaEtapaHistorico` + `RecruiterMatchingFeedback`
+
+### LUC-119 — Refatorar relatório r6 para usar só Guid (eliminar string)
+- **Status:** 📋 backlog · **Prioridade:** baixa
+- **Tipo:** refactor
+- **Contexto:** Relatório `r6 SLA por recrutador` filtra por `RecrutadorResponsavelUserId` (Guid) mas agrupa por `RecrutadorResponsavel` (string). Hoje a feature de atribuição manual sincroniza ambos no `AssignRecrutadorAsync` e `SyncRecrutadorResponsavelStringAsync`, mantendo coerência. Mas o ideal é o relatório consultar `User.FullName` direto via JOIN no `RecrutadorResponsavelUser` — eliminando dependência da string desnormalizada.
+- **Aceite:**
+  - [ ] `ReportsController.GetSlaVaga` agrupa por `RecrutadorResponsavelUser.FullName` (Include navigation)
+  - [ ] `RecrutadorResponsavel` (string) fica como campo "histórico" preservado, mas relatórios não dependem mais dele
+  - [ ] Remover `SyncRecrutadorResponsavelStringAsync` se nada mais ler a string
+
 ### ~~LUC-117 — AiController retorna 503 (não 404) quando IA desabilitada~~ ✅ CONCLUÍDO (2026-04-26)
 > Movido para `lucaschangelog.md`. Entregue junto com a Fase 5:
 > `AiInvokeOutcome` carrega `AiUnavailableReason`; `AiController` retorna

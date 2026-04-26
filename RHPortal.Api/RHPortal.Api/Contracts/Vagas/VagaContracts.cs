@@ -107,10 +107,24 @@ public sealed record VagaCreateRequest(
     IReadOnlyList<VagaBeneficioRequest>? Beneficios,
     IReadOnlyList<VagaRequisitoRequest>? Requisitos,
     IReadOnlyList<VagaEtapaRequest>? Etapas,
-    IReadOnlyList<VagaPerguntaRequest>? PerguntasTriagem
+    IReadOnlyList<VagaPerguntaRequest>? PerguntasTriagem,
+    /// <summary>
+    /// (Atribuição manual de vaga — 2026-04-26) Vincula a vaga a um usuário com role Recrutador.
+    /// Quando preenchido por Admin/RH, sobrescreve auto-atribuição. Quando null e o usuário logado
+    /// é Recrutador, o backend auto-atribui ao próprio. Use o endpoint dedicado
+    /// <c>PATCH /api/vagas/{id}/recrutador</c> para atribuição em fluxo separado.
+    /// </summary>
+    Guid? RecrutadorResponsavelUserId = null
 );
 
 public sealed record UpdateVagaMatchingFiltrosRequest(string? MatchingFiltrosRaw);
+
+/// <summary>
+/// Atribui (ou desatribui, com null) uma vaga a um usuário recrutador.
+/// Endpoint <c>PATCH /api/vagas/{id}/recrutador</c>. Permitido apenas para Admin/RH.
+/// (Feature "Atribuição de Vaga a Recrutador" — 2026-04-26.)
+/// </summary>
+public sealed record AssignRecrutadorRequest(Guid? RecrutadorResponsavelUserId);
 
 public sealed record AprovarAlcadaSalarialRequest(
     [property: MaxLength(1000)] string? Justificativa,
@@ -222,7 +236,9 @@ public sealed record VagaUpdateRequest(
     IReadOnlyList<VagaBeneficioRequest>? Beneficios,
     IReadOnlyList<VagaRequisitoRequest>? Requisitos,
     IReadOnlyList<VagaEtapaRequest>? Etapas,
-    IReadOnlyList<VagaPerguntaRequest>? PerguntasTriagem
+    IReadOnlyList<VagaPerguntaRequest>? PerguntasTriagem,
+    /// <summary>(Atribuição manual de vaga — 2026-04-26) Idem VagaCreateRequest.</summary>
+    Guid? RecrutadorResponsavelUserId = null
 );
 
 public sealed record VagaResponse(

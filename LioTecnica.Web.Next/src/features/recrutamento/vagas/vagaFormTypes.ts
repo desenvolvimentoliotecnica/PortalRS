@@ -19,7 +19,10 @@ export interface VagaDraftFull {
     quantidadeVagas: number; tipoContratacao: string; threshold: number;
     descricao: string; codigoInterno: string; cbo: string;
     motivoAbertura: string; orcamentoAprovado: string;
-    gestorRequisitante: string; recrutadorResponsavel: string; prioridade: string;
+    gestorRequisitante: string; recrutadorResponsavel: string;
+    /** UserId (Guid) do recrutador atribuído. Atribuição manual feature 2026-04-26. */
+    recrutadorResponsavelUserId: string | null;
+    prioridade: string;
     resumoPitch: string; tagsResponsabilidades: string; tagsKeywords: string;
     confidencial: boolean; aceitaPcd: boolean; urgente: boolean;
     // Diversidade
@@ -60,7 +63,7 @@ export interface VagaDraftFull {
 export const EMPTY_DRAFT: VagaDraftFull = {
     titulo: "", codigo: "", centroCustoId: "", areaTime: "", modalidade: "presencial", status: "aberta", senioridade: "",
     quantidadeVagas: 1, tipoContratacao: "", threshold: 70, descricao: "", codigoInterno: "", cbo: "",
-    motivoAbertura: "", orcamentoAprovado: "", gestorRequisitante: "", recrutadorResponsavel: "", prioridade: "",
+    motivoAbertura: "", orcamentoAprovado: "", gestorRequisitante: "", recrutadorResponsavel: "", recrutadorResponsavelUserId: null, prioridade: "",
     resumoPitch: "", tagsResponsabilidades: "", tagsKeywords: "", confidencial: false, aceitaPcd: false, urgente: false,
     generoPreferencia: "", vagaAfirmativa: false, linguagemInclusiva: false, publicoAfirmativo: "", pcdObs: "",
     projetoNome: "", projetoCliente: "", projetoPrazo: "", projetoDescricao: "",
@@ -162,6 +165,7 @@ export function buildSavePayload(d: VagaDraftFull, enumText: (key: string, code:
         orcamentoAprovado: emptyToNull(d.orcamentoAprovado),
         gestorRequisitante: emptyToNull(d.gestorRequisitante),
         recrutadorResponsavel: emptyToNull(d.recrutadorResponsavel),
+        recrutadorResponsavelUserId: d.recrutadorResponsavelUserId ?? null,
         prioridade: emptyToNull(d.prioridade),
         resumoPitch: emptyToNull(d.resumoPitch),
         tagsResponsabilidadesRaw: emptyToNull(joinTagsRaw(splitTags(d.tagsResponsabilidades))),
@@ -239,6 +243,7 @@ export function mapApiToFormDraft(r: Record<string, unknown>): VagaDraftFull {
         codigoInterno: ps("codigoInterno"), cbo: ps("codigoCbo"),
         motivoAbertura: ps("motivoAbertura"), orcamentoAprovado: ps("orcamentoAprovado"),
         gestorRequisitante: ps("gestorRequisitante"), recrutadorResponsavel: ps("recrutadorResponsavel"),
+        recrutadorResponsavelUserId: (r["recrutadorResponsavelUserId"] as string | null | undefined) ?? null,
         prioridade: ps("prioridade"),
         resumoPitch: ps("resumoPitch"),
         tagsResponsabilidades: splitT("tagsResponsabilidadesRaw"),

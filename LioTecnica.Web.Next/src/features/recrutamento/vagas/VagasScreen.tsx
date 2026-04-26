@@ -1170,6 +1170,7 @@ export default function VagasScreen() {
                                         <TableHead className="w-28 cursor-pointer select-none" onClick={() => toggleSort("codigo")}>Código {sortIcon("codigo")}</TableHead>
                                         <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("requisitos")}>Requisitos {sortIcon("requisitos")}</TableHead>
                                         <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>Data criação {sortIcon("createdAt")}</TableHead>
+                                        <TableHead>Recrutador</TableHead>
                                         <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>Status {sortIcon("status")}</TableHead>
                                         <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("headcount")}>Headcount {sortIcon("headcount")}</TableHead>
                                         <TableHead className="w-12" />
@@ -1179,7 +1180,7 @@ export default function VagasScreen() {
                                     {loading ? (
                                         Array.from({ length: 5 }).map((_, i) => (
                                             <TableRow key={i}>
-                                                {Array.from({ length: 7 }).map((__, j) => (
+                                                {Array.from({ length: 8 }).map((__, j) => (
                                                     <TableCell key={j}>
                                                         <div className="h-4 animate-pulse rounded bg-muted" />
                                                     </TableCell>
@@ -1189,7 +1190,7 @@ export default function VagasScreen() {
                                     ) : paged.length === 0 ? (
                                         /* J2 — Rich empty state */
                                         <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={7} className="py-4">
+                                            <TableCell colSpan={8} className="py-4">
                                                 <EmptyState
                                                     icon={Briefcase}
                                                     title={rows.length === 0 ? "Nenhuma vaga ainda" : "Nenhuma vaga encontrada"}
@@ -1257,6 +1258,15 @@ export default function VagasScreen() {
                                                     </TableCell>
                                                     <TableCell className="text-xs text-muted-foreground">
                                                         {vaga.createdAtUtc ? new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR") : vaga.updatedAt ? new Date(vaga.updatedAt as string).toLocaleDateString("pt-BR") : "—"}
+                                                    </TableCell>
+                                                    <TableCell className="text-sm">
+                                                        {(() => {
+                                                            const raw = vaga as Record<string, unknown>;
+                                                            const nome = (raw.recrutadorResponsavel as string | undefined)?.trim();
+                                                            return nome
+                                                                ? <span title="Recrutador responsável">{nome}</span>
+                                                                : <span className="text-xs text-muted-foreground italic">não atribuído</span>;
+                                                        })()}
                                                     </TableCell>
                                                     <TableCell onClick={(e) => { e.stopPropagation(); const s = (vaga.status ?? "").toLowerCase(); if (s) setStatus(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]); }}>
                                                         <div className="flex items-center gap-1.5 flex-wrap">

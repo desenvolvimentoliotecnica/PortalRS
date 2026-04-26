@@ -9,6 +9,51 @@
 
 ## 2026-04-26
 
+### ✨ feature · R&S — Atribuição manual de vaga a recrutador + sincronia com relatório r6
+- **Contexto:** O usuário levantou que existia o conceito de "Recrutador responsável" no sistema mas o gerente de RH **não conseguia atribuir** uma vaga a um analista — a única forma do `RecrutadorResponsavelUserId` (FK) ser populado era o próprio recrutador editar a vaga (auto-atribuição). Vagas criadas via aprovação de `SolicitacaoVaga` ficavam órfãs (`UserId = NULL`). Além disso, a UI mostrava só um input texto-livre que ficava desacoplado do `UserId` — o relatório `r6 SLA por recrutador` agrupa por string mas filtra por Guid, podendo dessincronizar.
+- **O que foi entregue (10 arquivos modificados, 3 novos):**
+  - **Backend (.NET)**:
+    - `Controllers/LookupController.cs`: novo endpoint `GET /api/lookup/users-recrutadores` (espelha padrão de `users-gestores`; aceita roles iniciadas em "Recrutador" para cobrir aliases tipo "Recrutador Sr").
+    - `Contracts/Common/UserRecrutadorLookupItem.cs` (novo): record `(Id, Name, Email)`.
+    - `Contracts/Vagas/VagaContracts.cs`: + propriedade nullable `Guid? RecrutadorResponsavelUserId` em `VagaCreateRequest` e `VagaUpdateRequest`. Default `null` mantém backward-compat. + record novo `AssignRecrutadorRequest`.
+    - `Application/Vagas/VagaService.cs`:
+      - `ResolveRecrutadorResponsavelUserId(currentValue, requestedUserId = null)` — lógica nova: (1) se request manda Guid e usuário NÃO é Recrutador → respeita; (2) se Recrutador e currentValue null → auto-atribui (legacy preservado); (3) caso contrário mantém. Não quebra teste `VagaCarteiraScopeTests`.
+      - **novo** `SyncRecrutadorResponsavelStringAsync` — busca `User.FullName` e atualiza `Vaga.RecrutadorResponsavel` (string) para coerência com relatório r6. Trim para 120 chars (limite do campo). Não limpa string se UserId virar null.
+      - **novo** `AssignRecrutadorAsync(vagaId, userId, ct)` — encapsula atribuição com validação (vaga existe, usuário ativo) + sync da string + UpdatedAtUtc.
+      - `CreateAsync` chama `SyncRecrutadorResponsavelStringAsync` após resolver UserId.
+      - `ApplyUpdate` virou `async Task` (passa `ct`); chama sync se UserId mudou.
+      - Interface `IVagaService` ganha `AssignRecrutadorAsync`.
+    - `Controllers/VagasController.cs`: novo `PATCH /api/vagas/{id}/recrutador` com authorization role-based inline (`IsAdmin || Owner || RH || Administrador`) — Recrutador comum **não** pode atribuir vagas a outros. ProblemDetails 200/403/404.
+  - **Frontend (Next.js)**:
+    - `components/autocomplete/RecrutadorAutocomplete.tsx` (novo): pattern derivado de `CargoAutocomplete`; fetch `/api/lookup/users-recrutadores`, filtro local por nome/email, callbacks `(userId, name)`.
+    - `features/recrutamento/vagas/vagaFormTypes.ts` + `VagaFormModal.tsx`: `VagaDraft` ganha `recrutadorResponsavelUserId: string \| null`. Campo "Recrutador responsável" trocou input texto por `<RecrutadorAutocomplete>`. Submit envia ambos (Guid + string sincronizada).
+    - `features/recrutamento/vagas/VagasScreen.tsx`: coluna nova "Recrutador" entre "Data criação" e "Status" (mostra string `recrutadorResponsavel` ou italic "não atribuído"). Skeleton e empty state ajustados de 7 para 8 colunas.
+- **Validação (smoke test parcial — DB zerado, sem vagas/recrutadores reais):**
+  - `GET /api/lookup/users-recrutadores` → 200 `[]` (esperado — sem role "Recrutador" cadastrada ainda)
+  - `GET /api/lookup/users-gestores` → 200 (controle de regressão OK)
+  - `GET /api/vagas?recrutadorUserId=…` → 200 (filtro existente continua funcionando)
+  - `PATCH /api/vagas/{fakeId}/recrutador` (admin auth) → 404 (passou autorização, service rejeitou vaga inexistente — comportamento correto)
+  - `PATCH /api/vagas/.../recrutador` sem auth → 403
+  - `dotnet build`: "Compilação com êxito"
+  - `pnpm tsc --noEmit`: zero erros
+- **Casos pendentes de validação manual (precisam de dados reais):**
+  - Caso 5: Recrutador autoatribui ao criar vaga (legacy preservado)
+  - Caso 6: Relatório r6 mostra nome do recrutador (string sincronizada)
+  - Caso 7: Coluna na UI mostra dados; admin filtra por recrutador
+- **Decisões-chave (vide plano `~/.claude/plans/quero-ajustar-vamos-seguir-zesty-castle.md`):**
+  - Sincronia string ↔ Guid em todas as escritas (evita break do r6)
+  - Endpoint PATCH dedicado em vez de só PUT (auditável, autorização separada)
+  - Authorization role-based inline (não permission granular — sistema não tem `vagas.assign-recrutador`)
+  - Auto-atribuição do Recrutador preservada via lógica condicional
+  - Dashboard de performance dedicado **deferido** — relatório r6 já cobre, falta só dados reais
+- **Não escopo (entrou no backlog):**
+  - **LUC-118** — Dashboard de performance por recrutador (widget próprio, agregando `Vaga.RecrutadorResponsavelUserId × CandidaturaEtapaHistorico × RecruiterMatchingFeedback`). Bloqueado: precisa >10 vagas atribuídas + >50 candidatos com histórico.
+  - **LUC-119** — Refatorar relatório r6 para usar só Guid (eliminar dependência da string `RecrutadorResponsavel`).
+  - Backfill de vagas órfãs antigas (criadas via SolicitacaoVaga aprovada com `UserId = NULL`) — não migra automaticamente; admin atribui sob demanda via UI nova.
+- **Risco de quebra na "rodada de vaga":** confirmado **zero risco** — `ProjetoVaga` ("rodada") é container de candidatos por ciclo seletivo, totalmente desacoplado de quem é o recrutador.
+- **Commit:** *(pendente)*
+- **Docs atualizadas:** `lucasMODULOS_FUNCIONALIDADES.md` (nova seção "Vagas — atribuição de recrutador").
+
 ### 🧹 chore · A+B — Limpeza pós-épico LLM-agnóstico (LUC-014, LUC-022, AssistenteIa 503)
 - **Itens backlog:** LUC-014 e LUC-022 encerrados; LUC-012 marcado como parcial (60% coberto pela Fase 5); LUC-001/002/010/013/020/021 documentados como "🛑 BLOQUEADO" com nota explicando o que destrava cada um; LUC-023 marcado como coberto pelo `lucasRUNBOOK_IA.md`. LUC-003 e LUC-004 ficam "📋 PRONTO PARA TOCAR" (sem bloqueador).
 - **Contexto:** Após fechar o épico LLM-agnóstico (5 fases), faxinada de "ranchos abertos" — 3 entregas pequenas + reorganização do backlog para deixar claro o que pode ser tocado solo vs o que precisa de input externo (Leonardo, dados reais, AWS).

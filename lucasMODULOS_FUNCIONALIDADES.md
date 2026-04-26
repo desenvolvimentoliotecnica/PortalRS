@@ -465,6 +465,17 @@ Toda a árvore `/app/admin/*` requer permissão `admin.*`.
 ### `/app/admin/configuracoes`
 - **Para quê:** Configurações gerais do tenant (moeda, timezone, idioma) — `TenantConfiguracaoController`, `LocalizationConfigController`.
 
+### Vagas — atribuição de recrutador *(novo, 2026-04-26)*
+- **Para quê:** Gerente/Diretor de RH atribui uma vaga a um analista recrutador específico — preenche `Vaga.RecrutadorResponsavelUserId` (Guid) e mantém `Vaga.RecrutadorResponsavel` (string) sincronizado com o nome do usuário.
+- **Onde mexe:**
+  - `VagaFormModal` — campo "Recrutador responsável" virou dropdown com autocomplete (`RecrutadorAutocomplete`) que lista todos os usuários com role `Recrutador*` do tenant.
+  - `VagasListScreen` — coluna nova "Recrutador" entre "Data criação" e "Status".
+  - Sidebar do recrutador continua filtrando automaticamente via `VagasDataScope.ByRecrutador` (sem mudança).
+- **Endpoint dedicado:** `PATCH /api/vagas/{id}/recrutador` body `{ "recrutadorResponsavelUserId": "guid|null" }`. **Restrito a Admin/RH/Owner** (Recrutador comum não pode atribuir vagas a outros).
+- **Lookup novo:** `GET /api/lookup/users-recrutadores` retorna `[{ id, name, email }]` dos usuários ativos com role iniciando em "Recrutador" (ex.: "Recrutador", "Recrutador Sênior", "Recrutadora").
+- **Auto-atribuição preservada:** quando o próprio Recrutador cria/edita uma vaga sem mexer no campo, ele continua sendo atribuído automaticamente (comportamento legado).
+- **Performance/medição:** o relatório `r6 SLA por recrutador` (`GET /api/reports/sla-vaga`) **já existe** e agrupa por recrutador — usa o mesmo dado que esta feature popula. Dashboard dedicado fica para o backlog (`LUC-118` — esperando volume de uso real).
+
 ### `/app/admin/ia` *(novo na Fase 3 LLM-agnóstico, 2026-04-25)*
 - **Para quê:** Cada tenant escolhe seu provider de LLM (chat) e embeddings.
 - **Quem usa:** Admin do tenant.

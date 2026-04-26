@@ -28,6 +28,13 @@ public interface IVagaService
     Task<VagaResponse?> ChangeStatusAsync(Guid id, VagaStatus newStatus, CancellationToken ct);
     Task<VagaResponse?> AprovarAlcadaSalarialAsync(Guid id, string? justificativa, string? observacaoAprovador, CancellationToken ct);
     Task<VagaResponse?> LimparAlcadaSalarialAsync(Guid id, CancellationToken ct);
+
+    /// <summary>
+    /// Atribui (ou desatribui, com null) uma vaga a um usuário recrutador, mantendo
+    /// <c>RecrutadorResponsavelUserId</c> e <c>RecrutadorResponsavel</c> (string) sincronizados.
+    /// (Feature "Atribuição de Vaga a Recrutador" — 2026-04-26.)
+    /// </summary>
+    Task<VagaResponse> AssignRecrutadorAsync(Guid vagaId, Guid? recrutadorUserId, CancellationToken ct);
 }
 
 public sealed class VagaService : IVagaService
@@ -319,7 +326,7 @@ public sealed class VagaService : IVagaService
             OrcamentoAprovado = request.OrcamentoAprovado,
             GestorRequisitante = TrimOrNull(request.GestorRequisitante),
             RecrutadorResponsavel = TrimOrNull(request.RecrutadorResponsavel),
-            RecrutadorResponsavelUserId = ResolveRecrutadorResponsavelUserId(null),
+            RecrutadorResponsavelUserId = ResolveRecrutadorResponsavelUserId(null, request.RecrutadorResponsavelUserId),
             Prioridade = request.Prioridade,
             ResumoPitch = TrimOrNull(request.ResumoPitch),
             TagsResponsabilidadesRaw = TrimOrNull(request.TagsResponsabilidadesRaw),
@@ -393,6 +400,10 @@ public sealed class VagaService : IVagaService
 
         await ValidateFaixaSalarialAsync(entity, ct);
 
+        // Sincroniza string RecrutadorResponsavel a partir do UserId resolvido (mantém coerência
+        // para relatório r6 SLA por recrutador, que agrupa por string).
+        await SyncRecrutadorResponsavelStringAsync(entity, ct);
+
         _db.Vagas.Add(entity);
         await _db.SaveChangesAsync(ct);
 
@@ -452,7 +463,7 @@ public sealed class VagaService : IVagaService
 
         var oldFiltros = entity.MatchingFiltrosRaw;
         var oldStatus = entity.Status.ToString();
-        ApplyUpdate(entity, request);
+        await ApplyUpdate(entity, request, ct);
         if (entity.Status.ToString() != oldStatus)
         {
             await _statusHistorico.RegistrarAsync(
@@ -480,7 +491,7 @@ public sealed class VagaService : IVagaService
             if (refreshed is null) return null;
             EnsureTenantOwnership(refreshed);
 
-            ApplyUpdate(refreshed, request);
+            await ApplyUpdate(refreshed, request, ct);
             ReplaceChildren(refreshed, request);
             await ValidateFaixaSalarialAsync(refreshed, ct);
             try
@@ -1070,12 +1081,84 @@ public sealed class VagaService : IVagaService
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private Guid? ResolveRecrutadorResponsavelUserId(Guid? currentValue)
+    /// <summary>
+    /// Resolve o UserId do recrutador responsável da vaga.
+    /// Ordem (Fase de Atribuição manual — 2026-04-26):
+    ///   1. Se o request explicitamente envia <paramref name="requestedUserId"/> E o usuário logado
+    ///      é Admin/RH (não Recrutador) → respeita o valor enviado (atribuição manual).
+    ///   2. Se o usuário logado é Recrutador (<see cref="VagasDataScope.ByRecrutador"/>) e
+    ///      <paramref name="currentValue"/> é null → auto-atribui ao próprio (comportamento legado).
+    ///   3. Caso contrário mantém <paramref name="currentValue"/>.
+    /// </summary>
+    private Guid? ResolveRecrutadorResponsavelUserId(Guid? currentValue, Guid? requestedUserId = null)
     {
-        if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && _currentUser.UserId.HasValue)
+        // Caso 1: Admin/RH atribuindo explicitamente. Aceita inclusive null (= remover atribuição).
+        if (requestedUserId.HasValue && _currentUser.VagasDataScope != VagasDataScope.ByRecrutador)
+            return requestedUserId.Value;
+
+        // Caso 2: Auto-atribuição preservada para Recrutador quando não há valor.
+        if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador
+            && _currentUser.UserId.HasValue
+            && !currentValue.HasValue)
             return _currentUser.UserId.Value;
 
         return currentValue;
+    }
+
+    /// <summary>
+    /// Sincroniza a string <see cref="Vaga.RecrutadorResponsavel"/> com o nome do usuário
+    /// referenciado por <see cref="Vaga.RecrutadorResponsavelUserId"/>. Mantém ambos em coerência
+    /// para que relatórios legados que agrupam por string (ex.: r6 SLA por recrutador) continuem
+    /// reportando dados corretos. Quando o UserId é null, NÃO limpa a string (preserva o que o
+    /// admin tinha digitado manualmente como referência).
+    /// </summary>
+    private async Task SyncRecrutadorResponsavelStringAsync(Vaga entity, CancellationToken ct)
+    {
+        if (!entity.RecrutadorResponsavelUserId.HasValue) return;
+
+        var nome = await _db.Users
+            .AsNoTracking()
+            .Where(u => u.Id == entity.RecrutadorResponsavelUserId.Value)
+            .Select(u => u.FullName ?? u.Email ?? "")
+            .FirstOrDefaultAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(nome))
+            entity.RecrutadorResponsavel = nome.Length > 120 ? nome[..120] : nome;
+    }
+
+    /// <summary>
+    /// Atribui (ou desatribui, com null) uma vaga a um usuário recrutador. Usado pelo endpoint
+    /// dedicado <c>PATCH /api/vagas/{id}/recrutador</c>. Atualiza ambos os campos
+    /// (UserId + string) em sincronia. (Feature "Atribuição de Vaga a Recrutador" — 2026-04-26.)
+    /// </summary>
+    public async Task<VagaResponse> AssignRecrutadorAsync(Guid vagaId, Guid? recrutadorUserId, CancellationToken ct)
+    {
+        var entity = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == vagaId, ct)
+            ?? throw new InvalidOperationException($"Vaga {vagaId} não encontrada.");
+
+        if (recrutadorUserId.HasValue)
+        {
+            // Valida que o usuário existe no tenant atual
+            var userExists = await _db.Users
+                .AsNoTracking()
+                .AnyAsync(u => u.Id == recrutadorUserId.Value && u.IsActive, ct);
+            if (!userExists)
+                throw new InvalidOperationException($"Usuário recrutador {recrutadorUserId.Value} não encontrado ou inativo.");
+
+            entity.RecrutadorResponsavelUserId = recrutadorUserId.Value;
+            await SyncRecrutadorResponsavelStringAsync(entity, ct);
+        }
+        else
+        {
+            // null = remover atribuição. Não limpa a string (admin pode ter texto manual).
+            entity.RecrutadorResponsavelUserId = null;
+        }
+
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return await GetByIdAsync(entity.Id, ct)
+            ?? throw new InvalidOperationException("Falha ao recarregar vaga após atribuição.");
     }
 
     /// <summary>
@@ -1144,7 +1227,7 @@ public sealed class VagaService : IVagaService
         return await GetByIdAsync(id, ct);
     }
 
-    private void ApplyUpdate(Vaga entity, VagaUpdateRequest request)
+    private async Task ApplyUpdate(Vaga entity, VagaUpdateRequest request, CancellationToken ct)
     {
         entity.Codigo = TrimOrNull(request.Codigo);
         entity.Titulo = (request.Titulo ?? string.Empty).Trim();
@@ -1187,7 +1270,13 @@ public sealed class VagaService : IVagaService
         entity.OrcamentoAprovado = request.OrcamentoAprovado;
         entity.GestorRequisitante = TrimOrNull(request.GestorRequisitante);
         entity.RecrutadorResponsavel = TrimOrNull(request.RecrutadorResponsavel);
-        entity.RecrutadorResponsavelUserId = ResolveRecrutadorResponsavelUserId(entity.RecrutadorResponsavelUserId);
+        var oldRecrutadorUserId = entity.RecrutadorResponsavelUserId;
+        entity.RecrutadorResponsavelUserId = ResolveRecrutadorResponsavelUserId(
+            entity.RecrutadorResponsavelUserId,
+            request.RecrutadorResponsavelUserId);
+        // Se o UserId mudou, sincroniza a string com o nome do novo recrutador.
+        if (entity.RecrutadorResponsavelUserId != oldRecrutadorUserId)
+            await SyncRecrutadorResponsavelStringAsync(entity, ct);
         entity.Prioridade = request.Prioridade;
         entity.ResumoPitch = TrimOrNull(request.ResumoPitch);
         entity.TagsResponsabilidadesRaw = TrimOrNull(request.TagsResponsabilidadesRaw);

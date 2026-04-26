@@ -499,6 +499,45 @@ public sealed class VagasController : ControllerBase
     }
 
     /// <summary>
+    /// Atribui (ou desatribui, com null) uma vaga a um usuário recrutador.
+    /// Restrito a Admin/RH/Owner — Recrutador comum NÃO pode atribuir vagas a outros recrutadores.
+    /// (Feature "Atribuição de Vaga a Recrutador" — 2026-04-26.)
+    /// </summary>
+    [HttpPatch("{id:guid}/recrutador")]
+    [ProducesResponseType(typeof(VagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VagaResponse>> AssignRecrutador(
+        [FromRoute] Guid id,
+        [FromBody] AssignRecrutadorRequest request,
+        [FromServices] IVagaService vagaService,
+        CancellationToken ct)
+    {
+        // Bloqueio role-based (sistema usa role + scope, não permission granular).
+        // Recrutador (ByRecrutador) NÃO pode atribuir vagas a outros — apenas Admin/RH/Owner.
+        var canAssign = _userContext.IsAdmin
+                     || _userContext.IsInRole("Owner")
+                     || _userContext.IsInRole("RH")
+                     || _userContext.IsInRole("Administrador");
+        if (!canAssign)
+            return Forbid();
+
+        try
+        {
+            var updated = await vagaService.AssignRecrutadorAsync(id, request?.RecrutadorResponsavelUserId, ct);
+            return Ok(updated);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("não encontrada"))
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Aprova a alçada salarial de uma vaga fora da faixa cadastrada (épico Fase 3C).
     /// Após aprovação, a vaga pode ser salva mesmo com Salário fora da Faixa.
     /// </summary>
