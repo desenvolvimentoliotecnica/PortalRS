@@ -114,3 +114,30 @@ public sealed record AiInvokeResponse(
     string Content,
     decimal Cost
 );
+
+/// <summary>
+/// Motivo pelo qual a IA não pôde responder. Usado pelo controller para
+/// mapear para HTTP correto (Fase 5 LLM-agnóstico, 2026-04-26 — LUC-117).
+/// </summary>
+public enum AiUnavailableReason
+{
+    /// <summary>Owner desligou o módulo "ai" para este tenant — bloqueio comercial.</summary>
+    ModuleDisabled = 1,
+
+    /// <summary>Nenhum provider tem chave configurada (DB nem appsettings).</summary>
+    NoProviderConfigured = 2,
+
+    /// <summary>O provider escolhido não pôde ser resolvido pelo factory (nome inválido).</summary>
+    ProviderResolutionFailed = 3,
+}
+
+/// <summary>
+/// Resultado de <c>UnifiedAiService.InvokeWithOutcomeAsync</c>. Quando
+/// <see cref="Response"/> é não-nulo, há resposta válida; quando é nulo,
+/// <see cref="Reason"/> explica o porquê.
+/// </summary>
+public sealed record AiInvokeOutcome(
+    AiInvokeResponse? Response,
+    AiUnavailableReason? Reason,
+    string? Detail = null
+);

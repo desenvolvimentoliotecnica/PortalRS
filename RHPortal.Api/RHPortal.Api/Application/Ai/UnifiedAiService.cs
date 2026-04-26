@@ -10,7 +10,20 @@ namespace RhPortal.Api.Application.Ai;
 
 public interface IUnifiedAiService
 {
+    /// <summary>
+    /// Versão simplificada — retorna a resposta ou <c>null</c> sem distinguir motivo.
+    /// Usada por callers programáticos (CV extract, doc validation) que tratam
+    /// "sem IA" gracefully sem precisar do motivo.
+    /// </summary>
     Task<AiInvokeResponse?> InvokeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Versão estruturada — devolve <see cref="AiInvokeOutcome"/> com
+    /// <see cref="AiUnavailableReason"/> quando a IA não está disponível.
+    /// Usada pelos controllers para mapear corretamente para HTTP 503/422
+    /// (Fase 5 LLM-agnóstico, LUC-117).
+    /// </summary>
+    Task<AiInvokeOutcome> InvokeWithOutcomeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct);
 }
 
 /// <summary>
@@ -51,32 +64,54 @@ public sealed class UnifiedAiService : IUnifiedAiService
 
     public async Task<AiInvokeResponse?> InvokeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct)
     {
-        // Fase 4: gating por TenantModule. Se o owner desligou o módulo "ai" para
-        // este tenant, a IA não está disponível — mesmo havendo chave configurada.
+        var outcome = await InvokeWithOutcomeAsync(tenantId, userId, userName, request, ct);
+        return outcome.Response;
+    }
+
+    public async Task<AiInvokeOutcome> InvokeWithOutcomeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct)
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+
+        // Fase 4: gating por TenantModule. Se o owner desligou o módulo "ai",
+        // a IA não está disponível — mesmo havendo chave configurada.
         if (!await _tenantSettings.IsAiEnabledAsync(ct))
         {
             _logger.LogInformation(
-                "UnifiedAiService: tenant '{Tenant}' tem o módulo 'ai' desabilitado — invocação ignorada.",
-                tenantId);
-            return null;
+                "ai.invoke tenant={Tenant} status=blocked reason=ModuleDisabled module={Module}",
+                tenantId, request.Module);
+            return new AiInvokeOutcome(null, AiUnavailableReason.ModuleDisabled,
+                $"O módulo de IA está desabilitado para o tenant '{tenantId}'. Contate o owner da plataforma.");
         }
 
         var resolution = await ResolveProviderAsync(request, ct);
         if (resolution is null)
         {
             _logger.LogWarning(
-                "UnifiedAiService: nenhum provider configurado. Conhecidos pelo factory: {Known}",
-                string.Join(", ", _factory.KnownProviders));
-            return null;
+                "ai.invoke tenant={Tenant} status=blocked reason=NoProviderConfigured module={Module} known={Known}",
+                tenantId, request.Module, string.Join(",", _factory.KnownProviders));
+            return new AiInvokeOutcome(null, AiUnavailableReason.NoProviderConfigured,
+                "Nenhum provider de IA tem chave configurada. O owner precisa cadastrar uma chave em /Owner/IA ou no appsettings.Ai.");
         }
 
         var (providerName, decryptedKey, modelIdToUse, fromConfig, aiModelIdForUsage) = resolution;
 
         var provider = _factory.Resolve(providerName);
         if (provider is null)
-            return null;
+        {
+            _logger.LogWarning(
+                "ai.invoke tenant={Tenant} status=blocked reason=ProviderResolutionFailed provider={Provider}",
+                tenantId, providerName);
+            return new AiInvokeOutcome(null, AiUnavailableReason.ProviderResolutionFailed,
+                $"O provider '{providerName}' não foi reconhecido pelo factory.");
+        }
 
         var (content, cost) = await provider.InvokeAsync(decryptedKey, providerName, modelIdToUse, request.Payload, ct);
+        var elapsed = (DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
+
+        // Log estruturado — Fase 5 (observabilidade).
+        _logger.LogInformation(
+            "ai.invoke tenant={Tenant} user={User} provider={Provider} model={Model} module={Module} latency_ms={LatencyMs:F0} cost_usd={Cost:F8} from_config={FromConfig} content_len={ContentLen}",
+            tenantId, userName ?? "?", providerName, modelIdToUse, request.Module, elapsed, cost, fromConfig, content?.Length ?? 0);
 
         if (!fromConfig && aiModelIdForUsage.HasValue && !string.IsNullOrEmpty(content))
         {
@@ -97,7 +132,7 @@ public sealed class UnifiedAiService : IUnifiedAiService
             await _db.SaveChangesAsync(ct);
         }
 
-        return new AiInvokeResponse(content, cost);
+        return new AiInvokeOutcome(new AiInvokeResponse(content, cost), null);
     }
 
     // ──────────────────────────── resolução ────────────────────────────

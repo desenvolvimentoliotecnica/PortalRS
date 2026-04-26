@@ -9,6 +9,32 @@
 
 ## 2026-04-26
 
+### ✨ feature · Fase 5 (ÚLTIMA) do épico LLM-agnóstico — Observabilidade + 503 estruturado + runbook · 🎯 ÉPICO FECHADO
+- **Itens backlog:** LUC-113 e LUC-117 encerrados.
+- **Contexto:** Fechamento do épico iniciado em 2026-04-25. Fases 1-4 entregaram a infraestrutura (factories Python+.NET, escolha por tenant, on/off por tenant). Faltava observabilidade decente e runbook operacional para que o time consiga **operar** o sistema em prod sem precisar abrir o código toda vez. LUC-117 (refinement de 404→503) foi puxado pra Fase 5 já que mexia nos mesmos arquivos.
+- **O que mudou:**
+  - **`Contracts/Ai/AiContracts.cs`** — `AiUnavailableReason` enum (`ModuleDisabled`, `NoProviderConfigured`, `ProviderResolutionFailed`) + `AiInvokeOutcome` record (`Response?`, `Reason?`, `Detail?`).
+  - **`Application/Ai/UnifiedAiService.cs`** — novo método `InvokeWithOutcomeAsync` retorna o outcome estruturado; `InvokeAsync` legacy delega. **Logging estruturado em todas as paths**: sucesso (`ai.invoke tenant=X user=Y provider=Z model=W module=M latency_ms=N cost_usd=C from_config=B content_len=L`), bloqueado (`ai.invoke tenant=X status=blocked reason=ModuleDisabled module=M`).
+  - **`Controllers/AiController.cs`** — usa `InvokeWithOutcomeAsync`; quando `outcome.Response == null`, monta `ProblemDetails` com `Status=503`, `Title` legível, `Detail`, e `Extensions[reason]` + `Extensions[tenantId]`. Retorna `503 Service Unavailable`.
+  - **Novo:** `Controllers/AiMetricsController.cs` — endpoint `GET /api/admin/ai/metrics?days=N` (default 30, max 365). Admin-only, scoped por tenant atual. Agrega `AiUsageRecord` em `byModule`, `byModel` (com nome do provider), `byDay`. Retorna `totalCalls` e `totalCostUsd`.
+  - **Novo:** `lucasRUNBOOK_IA.md` — 7 seções operacionais: visão 30s, sintomas comuns + diagnóstico, métricas, rotação de chave sem downtime, mudar provider em prod, pegadinhas conhecidas (LUC-115/116), comandos cola-rápida, escalação por tipo de reclamação.
+- **Validação (smoke test passou):**
+  - Invoke com módulo ON → `200 — "alpha"` cost $8.1e-06
+  - Owner desliga módulo `ai`
+  - Invoke com módulo OFF → `503 ProblemDetails`: `{title: "IA desabilitada para este tenant", reason: "ModuleDisabled", tenantId: "liotecnica", detail: "...Contate o owner..."}`
+  - Religa + invoke → `200 — "beta"` cost $7.2e-06
+  - `/api/admin/ai/metrics?days=7` → JSON estruturado (totalCalls, byModule, byModel, byDay)
+  - Logs estruturados gravados ao vivo, fáceis de grep
+- **Limitação documentada (lucasIA_RAG.md §20.4):** `/api/admin/ai/metrics` agrega `AiUsageRecord`, que só persiste quando provider vem do DB (`AiProviderKey`). Quando vem do fallback config (`appsettings.Ai.{Provider}.ApiKey`), só os logs estruturados ficam. Em prod com chaves cadastradas no Owner UI, métricas funcionam normalmente.
+- **Arquivos:** 1 novo controller (`AiMetricsController`) + 1 novo doc (`lucasRUNBOOK_IA.md`) + 3 modificados (`AiContracts.cs`, `UnifiedAiService.cs`, `AiController.cs`).
+- **Commit:** *(pendente)*
+- **🎯 Épico LLM-agnóstico FECHADO** — 5 fases entregues em 2 dias (2026-04-25 a 26). Próximas evoluções voltam para o backlog ad-hoc:
+  - **LUC-115** (alta): reconciliar caminho Python `embeddings.py` com schema real (tabelas dedicadas vs colunas inline)
+  - **LUC-116** (média): resolver "estrito" quando tenant escolhe provider sem chave
+  - **LUC-110b** (média): trocar `IOllamaClient` direto pelo factory nos 7 serviços que ainda dependem dele
+  - Pendente Fase 5+: estender padrão 503/ProblemDetails do `AiController` para `AssistenteIaController` (chat, descricao-cargo, sugerir-salario, cv-resumir)
+- **Docs atualizadas:** `lucasIA_RAG.md` (§16.7 + §19.6 + §20 nova), `lucasINDEX.md` (entrada do RUNBOOK), `lucasbacklog.md` (LUC-113 e LUC-117 fechados).
+
 ### ✨ feature · Fase 4 do épico LLM-agnóstico — Owner liga/desliga IA por tenant + UI tenant respeita disponibilidade real
 - **Item backlog:** LUC-112 (encerrado). LUC-117 adicionado como melhoria.
 - **Contexto:** Após Fases 1-3 (multi-provider + escolha por tenant), faltava o "switch master" — owner controlando se cada cliente tem direito a IA, e a UI tenant honrando essa decisão. Investigação revelou que `/Owner/IA` **já era funcional** (CRUD chaves dos 3 providers + modelos + dashboard usage); minha doc inicial chamou de "esqueleto" erroneamente. Escopo real da Fase 4 ficou no gating + UX.

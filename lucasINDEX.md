@@ -13,7 +13,8 @@
 | **[lucasSTACK_TECNOLOGICA.md](./lucasSTACK_TECNOLOGICA.md)** | Inventário técnico de cada camada (frontend, API, IA, worker, banco, infra). Use para decisões de stack ou onboarding técnico. |
 | **[lucasMODULOS_FUNCIONALIDADES.md](./lucasMODULOS_FUNCIONALIDADES.md)** | Mapa tela por tela do produto (28 módulos). Cada tela com abas, ações, endpoints consumidos. Use para "onde fica X?" |
 | **[lucasINTEGRACOES.md](./lucasINTEGRACOES.md)** | Integrações externas (TOTVS, Entra ID, OpenAI, S3, SMTP, WhatsApp...) e sub-projetos auxiliares. Use para entender o que entra/sai do sistema. |
-| **[lucasIA_RAG.md](./lucasIA_RAG.md)** | Foco na Fase 4.5: pipeline RAG, regra v2 (65/35 + gates), componentes Python, persistência, gatilhos, plano de rollout. |
+| **[lucasIA_RAG.md](./lucasIA_RAG.md)** | Foco na Fase 4.5: pipeline RAG, regra v2 (65/35 + gates), componentes Python, persistência, gatilhos, plano de rollout. **+ §16-20:** épico LLM-agnóstico (5 fases concluídas) — Python factory, .NET factory, escolha por tenant, on/off por tenant, observabilidade. |
+| **[lucasRUNBOOK_IA.md](./lucasRUNBOOK_IA.md)** | **Manual operacional**: troubleshooting da IA em prod, rotação de chave sem downtime, mudar provider, pegadinhas conhecidas, comandos cola-rápida. Abrir aqui PRIMEIRO quando algo quebrar. |
 | **[lucasbacklog.md](./lucasbacklog.md)** | O que **eu** vou fazer (LUC-001..LUC-100+). Mantido vivo. |
 | **[lucaschangelog.md](./lucaschangelog.md)** | O que **eu** já fiz. Mantido vivo (entrada por dia/sprint). |
 

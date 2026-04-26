@@ -209,21 +209,21 @@ Cada item tem: id, prioridade, status, tipo, título, contexto, critério de ace
 > off, `AvailableProviders`/`AiEnabled` no DTO do tenant, banner "IA não habilitada"
 > + dropdowns filtrados em `/app/admin/ia`. Smoke test 7/7 ponta-a-ponta.
 
-### LUC-117 — AiController retorna 503 (não 404) quando IA desabilitada
-- **Status:** 📋 backlog · **Tipo:** refactor · **Prioridade:** baixa
-- **Contexto:** Fase 4 deixou `AiController.Invoke` retornando `404` quando `UnifiedAiService` devolve `null` (módulo off OU sem provider). Funciona, mas semanticamente `503` Service Unavailable é mais correto — o endpoint existe, só está desabilitado para esse tenant. Ajuda em debug.
-- **Aceite:**
-  - [ ] `AiController.Invoke` distingue null por módulo off (503 com mensagem clara) de null por provider missing (já cobre LUC-116)
-  - [ ] `AssistenteIaController` idem
-  - [ ] Frontend trata 503 amigavelmente nas telas que usam IA
+### ~~LUC-117 — AiController retorna 503 (não 404) quando IA desabilitada~~ ✅ CONCLUÍDO (2026-04-26)
+> Movido para `lucaschangelog.md`. Entregue junto com a Fase 5:
+> `AiInvokeOutcome` carrega `AiUnavailableReason`; `AiController` retorna
+> `503` com `ProblemDetails` estruturado contendo `reason` (`ModuleDisabled`,
+> `NoProviderConfigured`, `ProviderResolutionFailed`) + `tenantId`.
+> **Pendente para próxima sprint:** estender o mesmo padrão a
+> `AssistenteIaController` (chat/descricao-cargo/sugerir-salario/cv-resumir).
 
-### LUC-113 — Fase 5: Observabilidade + docs operacionais
-- **Status:** 📋 backlog · **Tipo:** infra + docs
-- **Contexto:** Fechar o épico com métricas e runbook.
-- **Aceite:**
-  - [ ] Log estruturado: cada chamada IA loga `{provider, model, tenant, module, latency_ms, tokens, cost_usd}`
-  - [ ] Métricas Prometheus/CloudWatch: qual provider está sendo mais usado, taxa de erro por provider
-  - [ ] `lucasRUNBOOK_IA.md` — troubleshooting, rotação de chave, mudar de provider em prod
+### ~~LUC-113 — Fase 5: Observabilidade + docs operacionais~~ ✅ CONCLUÍDO (2026-04-26)
+> Movido para `lucaschangelog.md`. Entregue: log estruturado em
+> `UnifiedAiService` (`tenant`, `provider`, `model`, `latency_ms`, `cost_usd`,
+> e `status=blocked reason=...` em bloqueios), endpoint
+> `GET /api/admin/ai/metrics?days=N` (totalCalls + breakdown por
+> módulo/modelo/dia), `lucasRUNBOOK_IA.md` (7 seções de operação).
+> **🎯 Épico LLM-agnóstico FECHADO.**
 
 ### LUC-114 — .NET: Healthcheck do serviço Python reportando provider ativo
 - **Status:** 📋 backlog · **Tipo:** infra · **Relacionado:** LUC-014

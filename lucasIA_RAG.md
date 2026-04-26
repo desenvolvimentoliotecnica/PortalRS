@@ -523,7 +523,9 @@ Consequência: com `EMBEDDING_PROVIDER=gemini`, os embeddings vão para a **colu
 | **2** | API .NET provider-agnóstica (`UnifiedAiService` aceita OpenAI/Gemini/Anthropic via factory) | ✅ concluído (2026-04-25) |
 | **3** | Seleção por tenant (TenantConfiguracao + UI admin) | ✅ concluído (2026-04-25) |
 | **4** | Owner liga/desliga IA por tenant + UI tenant respeita disponibilidade real | ✅ concluído (2026-04-26) |
-| 5 | Observabilidade + docs operacionais | 📋 backlog |
+| **5** | Observabilidade (log estruturado, métricas, 503 explícito) + runbook | ✅ concluído (2026-04-26) |
+
+**🎯 Épico LLM-agnóstico FECHADO.** Próximas evoluções voltam para o backlog ad-hoc (LUC-115 schema embeddings, LUC-116 resolver estrito, LUC-110b refactor `IOllamaClient` direto).
 
 Ver `lucasbacklog.md` (LUC-110..LUC-115 e derivados) para detalhes.
 
@@ -739,6 +741,58 @@ Qual modelo?          Admin do tenant                  AppDb.TenantConfiguracoes
 - **Quando `availableProviders` está vazio**: banner amarelo separado avisando que owner não cadastrou nenhuma chave.
 - **Dropdowns**: mostram só providers com chave real cadastrada — não exibem opções que dariam erro.
 
-### 19.6 Refinement futuro (LUC-117)
+### 19.6 ~~Refinement LUC-117~~ ✅ entregue na Fase 5
 
-`AiController` retorna **404** quando `UnifiedAiService.InvokeAsync` devolve `null` (módulo off OU sem provider). Semanticamente, **503** ("Service Unavailable") seria mais correto — o endpoint existe, mas o serviço foi desabilitado para esse tenant. Não bloqueia uso, mas torna debug mais claro.
+Resolvido. `AiController` agora retorna **`503 Service Unavailable`** com `ProblemDetails` estruturado, incluindo `reason` (`ModuleDisabled` / `NoProviderConfigured` / `ProviderResolutionFailed`) e `tenantId`. Ver §20.
+
+---
+
+## 20. Provider-agnóstico — Fase 5 (Observabilidade + runbook, 2026-04-26)
+
+### 20.1 O que mudou
+
+Fechamento do épico. 4 entregáveis:
+
+1. **LUC-117** — `AiController` retorna `503` com `ProblemDetails` em vez de `404` quando a IA está indisponível.
+2. **Logging estruturado** — `UnifiedAiService` loga cada chamada com `tenant`, `user`, `provider`, `model`, `module`, `latency_ms`, `cost_usd`. Bloqueios também são logados com `status=blocked reason=...`.
+3. **Endpoint `/api/admin/ai/metrics`** — métricas agregadas do tenant atual (totalCalls, totalCostUsd, breakdown por módulo/modelo/dia) baseadas em `AiUsageRecord`.
+4. **`lucasRUNBOOK_IA.md`** — runbook operacional: troubleshooting comum, rotação de chave sem downtime, mudar provider em prod, pegadinhas conhecidas, comandos cola-rápida.
+
+### 20.2 Arquivos novos / modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `Contracts/Ai/AiContracts.cs` | **+** `AiUnavailableReason` enum, **+** `AiInvokeOutcome` record |
+| `Application/Ai/UnifiedAiService.cs` | **+** `InvokeWithOutcomeAsync` que devolve outcome estruturado; `InvokeAsync` legacy delega; logging estruturado em todas as paths (sucesso, módulo off, sem provider, falha de resolução) |
+| `Controllers/AiController.cs` | usa `InvokeWithOutcomeAsync`; retorna `503` + `ProblemDetails` com `reason` + `tenantId` quando outcome.Reason ≠ null |
+| `Controllers/AiMetricsController.cs` | **novo** — `GET /api/admin/ai/metrics?days=N` (default 30, max 365). Admin-only. Por tenant. |
+| `lucasRUNBOOK_IA.md` | **novo** — 7 seções: visão 30s, sintomas, métricas, rotação, mudar provider, pegadinhas, escalação |
+
+### 20.3 Smoke test (validado 2026-04-26)
+
+```text
+1. Invoke ai=ON               → 200 "alpha"  cost=$8.1e-06
+2. Owner desliga módulo ai    → isEnabled=false
+3. Invoke ai=OFF              → 503 ProblemDetails {
+                                  type: "https://docs.renderrh.qualiit/ai/unavailable",
+                                  title: "IA desabilitada para este tenant",
+                                  detail: "...Contate o owner...",
+                                  reason: "ModuleDisabled",
+                                  tenantId: "liotecnica"
+                                }
+4. Religa + invoke            → 200 "beta"   cost=$7.2e-06
+5. /api/admin/ai/metrics?days=7 → JSON estruturado com totalCalls, byModule, byModel, byDay
+6. Logs:  ai.invoke tenant=liotecnica user=... provider=Gemini model=gemini-2.5-flash
+          module=smoke-fase5 latency_ms=1147 cost_usd=0.00000810 from_config=True content_len=5
+          ai.invoke tenant=liotecnica status=blocked reason=ModuleDisabled module=smoke-fase5-blocked
+```
+
+### 20.4 Limitação conhecida das métricas
+
+O endpoint `/api/admin/ai/metrics` agrega **`AiUsageRecord`**, que só é gravado quando o provider vem do **DB (`AiProviderKey`)**. Quando vem do **fallback `appsettings.Ai.{Provider}.ApiKey`** (caso de dev e tenants que ainda não cadastraram chave no Owner UI), o `from_config=true` é logado mas **não persiste em `AiUsageRecord`** — então as métricas mostram `totalCalls: 0` mesmo havendo chamadas.
+
+Em produção real, todos os tenants cadastram chave no Owner UI → `AiProviderKey` é usado → métricas funcionam normalmente. Em dev com fallback config, ler logs estruturados (`grep "ai.invoke" /tmp/renderrh-logs/api.log`).
+
+### 20.5 Como o runbook se relaciona
+
+`lucasRUNBOOK_IA.md` é o **manual operacional** complementar a este doc arquitetural. Quando algo quebra em prod, abrir o runbook primeiro — ele lista os 5 sintomas mais comuns + diagnóstico passo a passo + comandos cola-rápida.
