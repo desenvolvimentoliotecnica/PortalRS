@@ -15,6 +15,15 @@ namespace RhPortal.Api.Controllers;
 /// vagas com origem rastreável (AumentoQuadro / Substituição_Desligamento /
 /// Substituição_Promoção / Direta).
 ///
+/// Refactor 2026-04-27: chave de upsert preferencial é <c>IdReqRm</c> (= IDREQ da
+/// VREQ-mãe, gravado em <c>Vaga.IdReqRmOrigem</c>). Itens "Direta" (sem IdReqRm)
+/// continuam usando <c>CodVaga</c> (gravado em <c>Vaga.Codigo</c>). Match secundário
+/// por CodVaga é tentado quando IdReqRm não casa (reaproveita vagas pré-refactor).
+///
+/// Status agora vem explícito do worker (<c>item.Status</c>), mapeado a partir do
+/// CODSTATUS da req-mãe. Compatibilidade: se Status=NaoInformado, ainda respeita
+/// o flag legado <c>aberta</c>.
+///
 /// Resolve internamente:
 ///   - <c>CodSecao → CentroCustoId</c>
 ///   - <c>CodCargo → JobPositionId</c> (Code lookup)
@@ -63,11 +72,31 @@ public sealed class VagasSyncRmController : ControllerBase
         var desligamentoByIdReq = await _db.Desligamentos.AsNoTracking().Where(x => x.TenantId == tenantId)
             .ToDictionaryAsync(x => x.IdReqRm, x => x.Id, StringComparer.OrdinalIgnoreCase, ct);
 
-        // Vagas existentes por Codigo (CodVaga RM)
-        var codigos = request.Items.Select(i => i.CodVaga).Distinct().ToList();
-        var byCodigo = await _db.Vagas
-            .Where(v => v.TenantId == tenantId && v.Codigo != null && codigos.Contains(v.Codigo))
-            .ToDictionaryAsync(v => v.Codigo!, v => v, ct);
+        // Vagas existentes por chave preferencial (IdReqRm) e secundária (Codigo).
+        // Pós-refactor 2026-04-27: chave primária é IdReqRm; Codigo só é usado para itens
+        // Direta (sem req-mãe) e como fallback pra reaproveitar vagas pré-refactor.
+        var idReqs = request.Items
+            .Where(i => !string.IsNullOrWhiteSpace(i.IdReqRm))
+            .Select(i => i.IdReqRm!.Trim())
+            .Distinct()
+            .ToList();
+        var codigos = request.Items
+            .Where(i => !string.IsNullOrWhiteSpace(i.CodVaga))
+            .Select(i => i.CodVaga!.Trim())
+            .Distinct()
+            .ToList();
+
+        var byIdReq = idReqs.Count == 0
+            ? new Dictionary<string, Vaga>()
+            : await _db.Vagas
+                .Where(v => v.TenantId == tenantId && v.IdReqRmOrigem != null && idReqs.Contains(v.IdReqRmOrigem))
+                .ToDictionaryAsync(v => v.IdReqRmOrigem!, v => v, ct);
+
+        var byCodigo = codigos.Count == 0
+            ? new Dictionary<string, Vaga>()
+            : await _db.Vagas
+                .Where(v => v.TenantId == tenantId && v.Codigo != null && codigos.Contains(v.Codigo))
+                .ToDictionaryAsync(v => v.Codigo!, v => v, ct);
 
         var now = DateTimeOffset.UtcNow;
         var created = 0;
@@ -75,7 +104,15 @@ public sealed class VagasSyncRmController : ControllerBase
 
         foreach (var item in request.Items)
         {
-            var codigo = item.CodVaga.Trim();
+            // Validação mínima: precisa de pelo menos uma chave
+            var idReq = item.IdReqRm?.Trim();
+            var codVaga = item.CodVaga?.Trim();
+            if (string.IsNullOrEmpty(idReq) && string.IsNullOrEmpty(codVaga))
+            {
+                warnings.Add($"Item sem IdReqRm e sem CodVaga ignorado (titulo='{item.Titulo}').");
+                continue;
+            }
+
             Guid? centroCustoId = null;
             if (!string.IsNullOrWhiteSpace(item.CodSecao) && ccByCode.TryGetValue(item.CodSecao.Trim(), out var ccId))
                 centroCustoId = ccId;
@@ -83,8 +120,6 @@ public sealed class VagasSyncRmController : ControllerBase
             Guid? jobPositionId = null;
             if (!string.IsNullOrWhiteSpace(item.CodCargo) && jobByCode.TryGetValue(item.CodCargo.Trim(), out var jpId))
                 jobPositionId = jpId;
-
-            // Vaga não tem UnitId direto — vínculo de filial fica via CentroCusto.
 
             Guid? hierarquiaId = null;
             if (item.IdHierarquiaDestinoRm.HasValue && hierarquiaByIdRm.TryGetValue(item.IdHierarquiaDestinoRm.Value, out var hId))
@@ -97,20 +132,40 @@ public sealed class VagasSyncRmController : ControllerBase
                 origemDesligamentoId = dId;
 
             var titulo = (item.Titulo ?? "").Trim();
-            if (string.IsNullOrEmpty(titulo)) titulo = $"Vaga {codigo}";
+            if (string.IsNullOrEmpty(titulo)) titulo = $"Vaga {idReq ?? codVaga}";
             if (titulo.Length > 160) titulo = titulo.Substring(0, 160);
 
-            // Aberta vem do payload (Frente C — worker manda explícito).
-            // Fallback: legacy (controller infere de DataFechamento) para retrocompat.
-            var aberta = item.Aberta
-                ?? (!item.DataFechamento.HasValue || item.DataFechamento.Value.Date >= DateTime.UtcNow.Date);
+            // Status: agora vem explícito do worker (mapeado de CODSTATUS RM).
+            // Fallback retrocompat: se vier NaoInformado, infere do flag legado `aberta` ou de DataFechamento.
+            var statusItem = item.Status;
+            if (statusItem == VagaStatus.NaoInformado)
+            {
+                var aberta = item.Aberta
+                    ?? (!item.DataFechamento.HasValue || item.DataFechamento.Value.Date >= DateTime.UtcNow.Date);
+                statusItem = aberta ? VagaStatus.Aberta : VagaStatus.Encerrada;
+            }
 
-            // VRSVAGAS.DATAABERTURA vem sem timezone do RM — gravamos como UTC para preservar a data.
-            var dataAberturaRm = item.DataAbertura.HasValue
-                ? new DateTimeOffset(DateTime.SpecifyKind(item.DataAbertura.Value, DateTimeKind.Utc), TimeSpan.Zero)
-                : (DateTimeOffset?)null;
+            // Datas vêm sem timezone do RM — gravamos como UTC.
+            var dataAberturaRm = ToUtcOffsetOrNull(item.DataAbertura);
 
-            if (byCodigo.TryGetValue(codigo, out var existing))
+            // Match preferencial: IdReqRm → IdReqRmOrigem
+            Vaga? existing = null;
+            if (!string.IsNullOrEmpty(idReq) && byIdReq.TryGetValue(idReq, out var v1))
+                existing = v1;
+
+            // Match secundário: CodVaga → Codigo, mas só se a vaga não estiver vinculada a outro IdReqRm.
+            // Cobre vagas pré-refactor que tinham só Codigo, evitando duplicar quando o sync passa
+            // a indexar pela req-mãe.
+            if (existing is null && !string.IsNullOrEmpty(codVaga) && byCodigo.TryGetValue(codVaga, out var v2))
+            {
+                if (string.IsNullOrEmpty(v2.IdReqRmOrigem) || v2.IdReqRmOrigem == idReq)
+                    existing = v2;
+            }
+
+            var codFuncaoTrim = TruncateNullSafe(item.CodFuncao, 20);
+            var funcaoNomeTrim = TruncateNullSafe(item.FuncaoNome, 160);
+
+            if (existing is not null)
             {
                 existing.Titulo = titulo;
                 existing.QuantidadeVagas = item.Quantidade ?? existing.QuantidadeVagas;
@@ -120,13 +175,14 @@ public sealed class VagasSyncRmController : ControllerBase
                 existing.HierarquiaId = hierarquiaId ?? existing.HierarquiaId;
                 existing.OrigemTipo = item.OrigemTipo;
                 existing.OrigemDesligamentoId = origemDesligamentoId ?? existing.OrigemDesligamentoId;
-                existing.IdReqRmOrigem = item.IdReqRmOrigem ?? existing.IdReqRmOrigem;
-                existing.CodFuncaoRm = string.IsNullOrEmpty(item.CodFuncao?.Trim()) ? existing.CodFuncaoRm : item.CodFuncao!.Trim().Substring(0, Math.Min(20, item.CodFuncao.Trim().Length));
-                existing.FuncaoNomeRm = string.IsNullOrEmpty(item.FuncaoNome?.Trim()) ? existing.FuncaoNomeRm : item.FuncaoNome!.Trim().Substring(0, Math.Min(160, item.FuncaoNome.Trim().Length));
+                existing.IdReqRmOrigem = idReq ?? existing.IdReqRmOrigem;
+                if (!string.IsNullOrEmpty(codVaga))
+                    existing.Codigo = TruncateNullSafe(codVaga, 40);
+                existing.CodFuncaoRm = codFuncaoTrim ?? existing.CodFuncaoRm;
+                existing.FuncaoNomeRm = funcaoNomeTrim ?? existing.FuncaoNomeRm;
                 existing.DataAbertura = dataAberturaRm ?? existing.DataAbertura;
-                existing.Status = aberta ? VagaStatus.Aberta : VagaStatus.Encerrada;
+                existing.Status = statusItem;
                 existing.UpdatedAtUtc = now;
-                // Frente C: vaga apareceu neste ciclo — zera contador de ausência.
                 existing.CiclosAusenteRm = 0;
                 existing.UltimoCicloRmObservadoUtc = runStartUtc;
                 updated++;
@@ -137,7 +193,7 @@ public sealed class VagasSyncRmController : ControllerBase
                 {
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
-                    Codigo = codigo.Length > 40 ? codigo.Substring(0, 40) : codigo,
+                    Codigo = TruncateNullSafe(codVaga, 40),
                     Titulo = titulo,
                     QuantidadeVagas = item.Quantidade ?? 1,
                     HeadcountAutorizado = item.Quantidade ?? 1,
@@ -147,11 +203,11 @@ public sealed class VagasSyncRmController : ControllerBase
                     HierarquiaId = hierarquiaId,
                     OrigemTipo = item.OrigemTipo,
                     OrigemDesligamentoId = origemDesligamentoId,
-                    IdReqRmOrigem = item.IdReqRmOrigem,
-                    CodFuncaoRm = string.IsNullOrEmpty(item.CodFuncao?.Trim()) ? null : item.CodFuncao!.Trim().Substring(0, Math.Min(20, item.CodFuncao.Trim().Length)),
-                    FuncaoNomeRm = string.IsNullOrEmpty(item.FuncaoNome?.Trim()) ? null : item.FuncaoNome!.Trim().Substring(0, Math.Min(160, item.FuncaoNome.Trim().Length)),
+                    IdReqRmOrigem = idReq,
+                    CodFuncaoRm = codFuncaoTrim,
+                    FuncaoNomeRm = funcaoNomeTrim,
                     DataAbertura = dataAberturaRm,
-                    Status = aberta ? VagaStatus.Aberta : VagaStatus.Encerrada,
+                    Status = statusItem,
                     CreatedAtUtc = now,
                     UpdatedAtUtc = now,
                     UltimoCicloRmObservadoUtc = runStartUtc,
@@ -174,45 +230,50 @@ public sealed class VagasSyncRmController : ControllerBase
     }
 
     /// <summary>
-    /// Compara as vagas do Portal com origem RM (Codigo IS NOT NULL) com as que vieram neste ciclo.
-    /// Para cada ausente: incrementa <c>CiclosAusenteRm</c>; ao cruzar threshold, gera/atualiza
-    /// <c>RmSyncAlerta</c> tipo "VagaAusente". Quando a chave volta a aparecer, o alerta é resolvido
-    /// automaticamente (Acao = "Auto-resolvido — chave reapareceu no RM").
+    /// Compara as vagas do Portal com origem RM (IdReqRmOrigem OU Codigo preenchido) com
+    /// as que vieram neste ciclo. Para cada ausente em status vivo (Aberta/Pausada),
+    /// incrementa <c>CiclosAusenteRm</c>; ao cruzar threshold, gera/atualiza
+    /// <c>RmSyncAlerta</c> tipo "VagaAusente". Quando a chave volta a aparecer, o alerta é
+    /// resolvido automaticamente.
+    ///
+    /// Nota pós-refactor 2026-04-27: a chave do alerta agora prioriza IdReqRmOrigem
+    /// (mais estável que Codigo). Vagas com status já Encerrada/Cancelada/Preenchida
+    /// não são monitoradas porque já estão "fechadas" no Portal.
     /// </summary>
     private async Task DetectarZumbisVagasAsync(string tenantId, DateTimeOffset runStartUtc, CancellationToken ct)
     {
         var threshold = ZumbiThresholdCiclos;
 
-        // Vagas locais com origem RM que NÃO foram observadas neste ciclo (UltimoCicloRm < runStart).
         var ausentes = await _db.Vagas
             .Where(v => v.TenantId == tenantId
-                && v.Codigo != null
+                && (v.IdReqRmOrigem != null || v.Codigo != null)
                 && v.Status != VagaStatus.Encerrada
+                && v.Status != VagaStatus.Cancelada
+                && v.Status != VagaStatus.Preenchida
                 && (v.UltimoCicloRmObservadoUtc == null || v.UltimoCicloRmObservadoUtc < runStartUtc))
-            .Select(v => new { v.Id, v.Codigo, v.CiclosAusenteRm })
+            .Select(v => new { v.Id, v.Codigo, v.IdReqRmOrigem, v.CiclosAusenteRm })
             .ToListAsync(ct);
 
         if (ausentes.Count == 0)
         {
-            // Resolução automática: se há alertas abertos cuja chave NÃO está mais ausente, resolve.
             await AutoResolverAlertasVagasAsync(tenantId, ct);
             return;
         }
 
-        // Incrementa contador no banco em uma única passada.
         var ausentesIds = ausentes.Select(a => a.Id).ToList();
         await _db.Vagas
             .Where(v => ausentesIds.Contains(v.Id))
             .ExecuteUpdateAsync(s => s.SetProperty(v => v.CiclosAusenteRm, v => v.CiclosAusenteRm + 1), ct);
 
-        // Para os que cruzaram o threshold (nova contagem >= threshold), upsert do alerta.
         var cruzaramThreshold = ausentes
-            .Where(a => a.CiclosAusenteRm + 1 >= threshold && !string.IsNullOrEmpty(a.Codigo))
+            .Where(a => a.CiclosAusenteRm + 1 >= threshold)
+            .Select(a => new { a.Id, ChaveRm = a.IdReqRmOrigem ?? a.Codigo!, NovaContagem = a.CiclosAusenteRm + 1 })
+            .Where(a => !string.IsNullOrEmpty(a.ChaveRm))
             .ToList();
 
         if (cruzaramThreshold.Count > 0)
         {
-            var chaves = cruzaramThreshold.Select(a => a.Codigo!).ToList();
+            var chaves = cruzaramThreshold.Select(a => a.ChaveRm).ToList();
             var existentes = await _db.Set<RmSyncAlerta>()
                 .Where(x => x.TenantId == tenantId && x.Tipo == "VagaAusente" && chaves.Contains(x.ChaveRm))
                 .ToListAsync(ct);
@@ -220,7 +281,7 @@ public sealed class VagasSyncRmController : ControllerBase
             var now = DateTimeOffset.UtcNow;
             foreach (var a in cruzaramThreshold)
             {
-                var alerta = existentes.FirstOrDefault(x => x.ChaveRm == a.Codigo);
+                var alerta = existentes.FirstOrDefault(x => x.ChaveRm == a.ChaveRm);
                 if (alerta is null)
                 {
                     _db.Set<RmSyncAlerta>().Add(new RmSyncAlerta
@@ -230,22 +291,21 @@ public sealed class VagasSyncRmController : ControllerBase
                         Tipo = "VagaAusente",
                         EntidadeNome = "Vaga",
                         EntidadeId = a.Id,
-                        ChaveRm = a.Codigo!,
+                        ChaveRm = a.ChaveRm,
                         DetectadoEmUtc = now,
-                        CiclosAusente = a.CiclosAusenteRm + 1,
+                        CiclosAusente = a.NovaContagem,
                     });
                 }
                 else if (alerta.ResolvidoEmUtc.HasValue)
                 {
-                    // Alerta foi resolvido antes; voltou a sumir — reabre.
                     alerta.ResolvidoEmUtc = null;
                     alerta.Acao = null;
                     alerta.DetectadoEmUtc = now;
-                    alerta.CiclosAusente = a.CiclosAusenteRm + 1;
+                    alerta.CiclosAusente = a.NovaContagem;
                 }
                 else
                 {
-                    alerta.CiclosAusente = a.CiclosAusenteRm + 1;
+                    alerta.CiclosAusente = a.NovaContagem;
                 }
             }
             await _db.SaveChangesAsync(ct);
@@ -258,17 +318,27 @@ public sealed class VagasSyncRmController : ControllerBase
     private async Task AutoResolverAlertasVagasAsync(string tenantId, CancellationToken ct)
     {
         var presentes = await _db.Vagas
-            .Where(v => v.TenantId == tenantId && v.Codigo != null && v.CiclosAusenteRm == 0)
-            .Select(v => v.Codigo!)
+            .Where(v => v.TenantId == tenantId
+                && (v.IdReqRmOrigem != null || v.Codigo != null)
+                && v.CiclosAusenteRm == 0)
+            .Select(v => new { v.IdReqRmOrigem, v.Codigo })
             .ToListAsync(ct);
 
         if (presentes.Count == 0) return;
+
+        var chavesPresentes = presentes
+            .Select(p => p.IdReqRmOrigem ?? p.Codigo!)
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct()
+            .ToList();
+
+        if (chavesPresentes.Count == 0) return;
 
         var paraResolver = await _db.Set<RmSyncAlerta>()
             .Where(x => x.TenantId == tenantId
                 && x.Tipo == "VagaAusente"
                 && x.ResolvidoEmUtc == null
-                && presentes.Contains(x.ChaveRm))
+                && chavesPresentes.Contains(x.ChaveRm))
             .ToListAsync(ct);
 
         if (paraResolver.Count == 0) return;
@@ -280,5 +350,16 @@ public sealed class VagasSyncRmController : ControllerBase
             a.Acao = "Auto-resolvido — chave reapareceu no RM";
         }
         await _db.SaveChangesAsync(ct);
+    }
+
+    private static DateTimeOffset? ToUtcOffsetOrNull(DateTime? dt) =>
+        dt.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(dt.Value, DateTimeKind.Utc), TimeSpan.Zero) : null;
+
+    private static string? TruncateNullSafe(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return null;
+        var trimmed = value.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        return trimmed.Length > maxLength ? trimmed.Substring(0, maxLength) : trimmed;
     }
 }

@@ -1323,8 +1323,29 @@ Significado validado contra dados reais (`Liotecnica.Integration.RM.Schema.Table
 
 **Cuidados ao filtrar:**
 - Para **estado vigente / efetivado** (hierarquia atual de funcionário, última promoção em vigor, vagas efetivamente preenchidas): use `CODSTATUS = 4`.
-- Para **vagas em aberto / em recrutamento ativo** (joins com `VRSVAGAS` aberta): use `CODSTATUS IN (3, 4, 7)` — pega aprovada, concluída e suspensa. Excluir 1 e 2 (pré-aprovação) e 6 (cancelada).
+- Para **vagas no Portal (sync)**: use `CODSTATUS IN (3, 4, 6, 7)` — todas as fases pós-aprovação. O mapping para `VagaStatus` no Portal é feito pelo worker:
+  - `3` (Aprovada RM) → `VagaStatus.Aberta` (R&S trabalhando)
+  - `4` (Concluída RM) → `VagaStatus.Encerrada` (vaga preenchida com admissão)
+  - `6` (Cancelada RM) → `VagaStatus.Cancelada`
+  - `7` (Suspensa RM) → `VagaStatus.Pausada`
 - Para **histórico completo**: não filtre `CODSTATUS` — pegue tudo.
+
+### Inversão de fonte de vagas (refactor 2026-04-27)
+
+Antes desse refactor, o sync de vagas tomava `VRSVAGAS` como fonte primária. O problema: o R&S frequentemente esquece de baixar `ATIVO=0` em `VRSVAGAS` após admitir o substituto, gerando vagas zumbi (33/72 = 46% das abertas em 27/04/2026).
+
+A nova arquitetura inverte: as **VREQ*** (`VREQAUMENTOQUADRO` e `VREQSUBSTITUICAO`) são a fonte primária. Cada `IDREQ` com `CODSTATUS IN (3, 4, 6, 7)` vira uma vaga no Portal. `VRSVAGAS` é consultada apenas como **enriquecimento opcional** (descrição, requisitos, salário negociado pelo R&S) — match heurístico via CODFUNCAO + janela de DATAABERTURA.
+
+**Por que resolve os zumbis:** o `CODSTATUS` da req-mãe é atualizado automaticamente pelo workflow do TOTVS quando a admissão é registrada (vai para 4 = Concluída). A `VRSVAGAS.ATIVO` continua dependendo de ação manual e é ignorada para definir o status da vaga no Portal — é apenas fonte de campos opcionais quando match existe.
+
+**Chave de upsert no Portal:**
+- Vagas com origem RM: `IdReqRmOrigem` (= IDREQ da req-mãe). Estável e atualizado pelo TOTVS.
+- Vagas "Direta" (existem em `VRSVAGAS` aberta sem casamento com nenhuma VREQ viva): `Codigo` (= CODVAGA). Caso residual.
+
+**Como Natera/zumbis se resolvem sozinhos no próximo sync:**
+- Vaga 65 atual no Portal tem `Codigo="65"` e `IdReqRmOrigem="260"` (gravado pelo refactor anterior).
+- Novo payload manda item `IdReqRm="260"`, `Status=Encerrada` (porque `VREQSUBSTITUICAO 260.CODSTATUS=4`).
+- Match por `IdReqRmOrigem` → atualiza Status da vaga 65 para `Encerrada`. Mesmo padrão para os outros 32 zumbis.
 
 #### `VREQDESLIGAMENTO` — Solicitação de desligamento
 
