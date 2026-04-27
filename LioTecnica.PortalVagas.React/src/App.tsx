@@ -166,6 +166,21 @@ type PortalJob = {
   salarioMaximo?: number | null
   createdAtUtc: string
   tenantName?: string | null
+  descricaoPublica?: string | null
+  urgente?: boolean
+  aceitaPcd?: boolean
+  quantidadeVagas?: number | null
+  etapas?: Array<{ id?: string; nome?: string | null }>
+}
+
+type PortalApplicationSummary = {
+  id: string
+  candidatoId: string
+  vagaId: string
+  vagaTitulo?: string | null
+  status?: string | number | null
+  etapaMacro?: string | number | null
+  aplicadaEmUtc?: string | null
 }
 
 type WorkspaceState = {
@@ -185,98 +200,229 @@ type WorkspaceState = {
 }
 
 type AccessLanguage = 'pt-BR' | 'en-US' | 'es-ES'
+type BrazilianStateOption = { sigla: string; nome: string }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://localhost:7073'
 const DEFAULT_TENANT = (import.meta.env.VITE_DEFAULT_TENANT as string | undefined) ?? 'liotecnica'
 const TENANT_QUERY_KEY = 'tenantId'
 const ACCESS_LANGUAGE_STORAGE_KEY = 'portal-vagas-lang'
 const DEV_PROXY_BASE_URL = ''
+const IBGE_STATES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'
+const IBGE_CITIES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados'
+const BRAZILIAN_STATE_OPTIONS: BrazilianStateOption[] = [
+  { sigla: 'AC', nome: 'Acre' },
+  { sigla: 'AL', nome: 'Alagoas' },
+  { sigla: 'AP', nome: 'Amapá' },
+  { sigla: 'AM', nome: 'Amazonas' },
+  { sigla: 'BA', nome: 'Bahia' },
+  { sigla: 'CE', nome: 'Ceará' },
+  { sigla: 'DF', nome: 'Distrito Federal' },
+  { sigla: 'ES', nome: 'Espírito Santo' },
+  { sigla: 'GO', nome: 'Goiás' },
+  { sigla: 'MA', nome: 'Maranhão' },
+  { sigla: 'MT', nome: 'Mato Grosso' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul' },
+  { sigla: 'MG', nome: 'Minas Gerais' },
+  { sigla: 'PA', nome: 'Pará' },
+  { sigla: 'PB', nome: 'Paraíba' },
+  { sigla: 'PR', nome: 'Paraná' },
+  { sigla: 'PE', nome: 'Pernambuco' },
+  { sigla: 'PI', nome: 'Piauí' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul' },
+  { sigla: 'RO', nome: 'Rondônia' },
+  { sigla: 'RR', nome: 'Roraima' },
+  { sigla: 'SC', nome: 'Santa Catarina' },
+  { sigla: 'SP', nome: 'São Paulo' },
+  { sigla: 'SE', nome: 'Sergipe' },
+  { sigla: 'TO', nome: 'Tocantins' },
+]
 let resolvedApiBaseUrl: string | null = null
 
 const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
   'pt-BR': {
     helpLink: 'Precisa de ajuda?',
+    brandEyebrow: 'Portal de Vagas',
+    brandTitle: 'Construa sua carreira onde a inovação nasce.',
+    brandSubtitle: 'Entre no portal de vagas da Liotécnica para explorar oportunidades, completar seu perfil e acompanhar cada etapa da sua candidatura.',
+    brandBadge: 'Vagas abertas em 2026',
+    secureLogin: 'Conexão segura - LGPD',
+    copyright: '© 2026 Liotécnica Indústria de Alimentos',
+    pillar1Title: '+1.500 colaboradores',
+    pillar1: 'Indústria líder no setor alimentício, presente em todo o Brasil.',
+    pillar2Title: 'Plano de carreira',
+    pillar2: 'Trilhas estruturadas, mentorias e programas de desenvolvimento.',
+    pillar3Title: 'Pacote completo',
+    pillar3: 'Plano de saúde, refeição, Gympass, PLR e auxílio educação.',
     title: 'Acesse sua conta',
-    subtitle: 'Faça o seu login ou crie a sua conta. É simples e rápido.',
-    tenant: 'Tenant',
+    subtitle: 'Acompanhe suas candidaturas, complete seu perfil e descubra vagas que combinam com você.',
+    titleRegister: 'Crie sua conta',
+    subtitleRegister: 'Leva menos de 2 minutos. Você poderá completar seu perfil depois.',
+    tenant: 'Organização',
     email: 'E-mail',
+    emailPlaceholder: 'voce@empresa.com',
     password: 'Senha',
+    passwordPlaceholder: 'Mínimo 8 caracteres',
+    forgot: 'Esqueci minha senha',
+    rememberMe: 'Manter conectado neste dispositivo',
     loginButton: 'Entrar no portal',
-    processing: 'Processando...',
-    createHint: 'Ainda não possui acesso?',
-    createAccess: 'Criar acesso',
-    languageLabel: 'Idioma do perfil',
-    helpTitle: 'Como funciona o processo',
-    helpSubtitle: 'Etapas para acompanhar sua candidatura.',
-    helpStep1: 'Cadastro rápido e perfil único.',
-    helpStep2: 'Triagem e retorno em até 5 dias.',
+    processing: 'Entrando...',
+    creating: 'Criando conta...',
+    createHint: 'Ainda não tem cadastro?',
+    createAccess: 'Criar conta',
+    haveAccount: 'Já tem uma conta?',
+    signIn: 'Entrar',
+    languageLabel: 'Idioma',
+    helpTitle: 'Como funciona o processo seletivo',
+    helpSubtitle: 'Etapas para acompanhar sua candidatura na Liotécnica.',
+    helpStep1: 'Crie seu perfil único e candidate-se às vagas em poucos cliques.',
+    helpStep2: 'Nossa equipe analisa seu perfil e dá retorno em até 5 dias úteis.',
     helpStep3: 'Entrevista com gestor.',
-    helpStep4: 'Proposta e onboarding.',
+    helpStep4: 'Recebimento da oferta, exames e onboarding.',
     close: 'Fechar',
-    registerTitle: 'Criar acesso',
-    registerSubtitle: 'Preencha os dados básicos para entrar no portal.',
     fullName: 'Nome completo',
+    fullNamePlaceholder: 'Como aparece no seu RG',
     phone: 'Telefone',
+    phonePlaceholder: '(11) 99999-9999',
     city: 'Cidade',
+    cityPlaceholder: 'Selecione sua cidade',
     uf: 'UF',
+    ufPlaceholder: 'Selecione a UF',
+    loadingCities: 'Carregando cidades...',
     confirmPassword: 'Confirmar senha',
-    cancel: 'Cancelar',
+    ssoMicrosoft: 'Continuar com Microsoft',
+    ssoGoogle: 'Continuar com Google',
+    unavailable: 'em breve',
+    or: 'ou',
+    termsPrefix: 'Ao continuar, você concorda com os',
+    termsUse: 'Termos de uso',
+    termsAnd: 'e a',
+    privacyPolicy: 'Política de Privacidade',
+    termsSuffix: 'da Liotécnica.',
+    passwordsDontMatch: 'As senhas não conferem.',
   },
   'en-US': {
     helpLink: 'Need help?',
+    brandEyebrow: 'Jobs Portal',
+    brandTitle: 'Build your career where innovation begins.',
+    brandSubtitle: 'Access Liotécnica jobs, complete your profile, and follow every step of your application.',
+    brandBadge: 'Open roles in 2026',
+    secureLogin: 'Secure connection - LGPD',
+    copyright: '© 2026 Liotécnica Food Industries',
+    pillar1Title: '1,500+ employees',
+    pillar1: 'Leading food-industry company, present across Brazil.',
+    pillar2Title: 'Career growth',
+    pillar2: 'Structured tracks, mentorship and development programs.',
+    pillar3Title: 'Full benefits',
+    pillar3: 'Health, meal, Gympass, profit share and education aid.',
     title: 'Access your account',
-    subtitle: 'Log in or create your account. It is simple and fast.',
-    tenant: 'Tenant',
+    subtitle: 'Track applications, complete your profile, and discover roles that fit you.',
+    titleRegister: 'Create your account',
+    subtitleRegister: 'Takes less than 2 minutes. You can complete your profile later.',
+    tenant: 'Organization',
     email: 'Email',
+    emailPlaceholder: 'you@company.com',
     password: 'Password',
+    passwordPlaceholder: 'At least 8 characters',
+    forgot: 'Forgot password',
+    rememberMe: 'Keep me signed in on this device',
     loginButton: 'Enter the portal',
-    processing: 'Processing...',
+    processing: 'Signing in...',
+    creating: 'Creating account...',
     createHint: 'Do not have access yet?',
-    createAccess: 'Create access',
-    languageLabel: 'Profile language',
-    helpTitle: 'How the process works',
-    helpSubtitle: 'Steps to follow your application.',
+    createAccess: 'Create account',
+    haveAccount: 'Already have an account?',
+    signIn: 'Sign in',
+    languageLabel: 'Language',
+    helpTitle: 'How the hiring process works',
+    helpSubtitle: 'Steps to follow your application at Liotécnica.',
     helpStep1: 'Quick signup and a single profile.',
     helpStep2: 'Screening and response within 5 days.',
     helpStep3: 'Interview with the manager.',
     helpStep4: 'Offer and onboarding.',
     close: 'Close',
-    registerTitle: 'Create access',
-    registerSubtitle: 'Fill in the basic data to enter the portal.',
     fullName: 'Full name',
+    fullNamePlaceholder: 'As on your ID',
     phone: 'Phone',
+    phonePlaceholder: '+1 555 000 0000',
     city: 'City',
+    cityPlaceholder: 'Select your city',
     uf: 'State',
+    ufPlaceholder: 'Select state',
+    loadingCities: 'Loading cities...',
     confirmPassword: 'Confirm password',
-    cancel: 'Cancel',
+    ssoMicrosoft: 'Continue with Microsoft',
+    ssoGoogle: 'Continue with Google',
+    unavailable: 'coming soon',
+    or: 'or',
+    termsPrefix: 'By continuing, you agree to Liotécnica',
+    termsUse: 'Terms of Use',
+    termsAnd: 'and',
+    privacyPolicy: 'Privacy Policy',
+    termsSuffix: '',
+    passwordsDontMatch: 'Passwords do not match.',
   },
   'es-ES': {
     helpLink: '¿Necesitas ayuda?',
+    brandEyebrow: 'Portal de Vacantes',
+    brandTitle: 'Construye tu carrera donde nace la innovación.',
+    brandSubtitle: 'Accede al portal de vacantes de Liotécnica para explorar oportunidades, completar tu perfil y seguir tu candidatura.',
+    brandBadge: 'Vacantes abiertas en 2026',
+    secureLogin: 'Conexión segura - LGPD',
+    copyright: '© 2026 Liotécnica Industria de Alimentos',
+    pillar1Title: '+1.500 colaboradores',
+    pillar1: 'Industria líder del sector alimenticio, presente en todo Brasil.',
+    pillar2Title: 'Plan de carrera',
+    pillar2: 'Trayectorias estructuradas, mentorías y programas de desarrollo.',
+    pillar3Title: 'Beneficios completos',
+    pillar3: 'Salud, comida, Gympass, participación en utilidades y apoyo educativo.',
     title: 'Accede a tu cuenta',
-    subtitle: 'Inicia sesión o crea tu cuenta. Es simple y rápido.',
-    tenant: 'Tenant',
+    subtitle: 'Sigue tus candidaturas, completa tu perfil y descubre vacantes para ti.',
+    titleRegister: 'Crea tu cuenta',
+    subtitleRegister: 'Toma menos de 2 minutos. Puedes completar tu perfil después.',
+    tenant: 'Organización',
     email: 'Correo',
+    emailPlaceholder: 'tu@empresa.com',
     password: 'Contraseña',
+    passwordPlaceholder: 'Mínimo 8 caracteres',
+    forgot: 'Olvidé mi contraseña',
+    rememberMe: 'Mantenerme conectado en este dispositivo',
     loginButton: 'Entrar al portal',
-    processing: 'Procesando...',
-    createHint: '¿Aún no tienes acceso?',
-    createAccess: 'Crear acceso',
-    languageLabel: 'Idioma del perfil',
+    processing: 'Entrando...',
+    creating: 'Creando cuenta...',
+    createHint: '¿Aún no tienes cuenta?',
+    createAccess: 'Crear cuenta',
+    haveAccount: '¿Ya tienes cuenta?',
+    signIn: 'Entrar',
+    languageLabel: 'Idioma',
     helpTitle: 'Cómo funciona el proceso',
-    helpSubtitle: 'Pasos para seguir tu candidatura.',
-    helpStep1: 'Registro rápido y perfil único.',
-    helpStep2: 'Filtrado y respuesta en hasta 5 días.',
+    helpSubtitle: 'Pasos para seguir tu candidatura en Liotécnica.',
+    helpStep1: 'Crea tu perfil único y postúlate en pocos clics.',
+    helpStep2: 'Nuestro equipo revisa tu perfil y responde en hasta 5 días hábiles.',
     helpStep3: 'Entrevista con el responsable.',
-    helpStep4: 'Oferta e incorporación.',
+    helpStep4: 'Oferta, exámenes e incorporación.',
     close: 'Cerrar',
-    registerTitle: 'Crear acceso',
-    registerSubtitle: 'Completa los datos básicos para entrar al portal.',
     fullName: 'Nombre completo',
+    fullNamePlaceholder: 'Como en tu documento',
     phone: 'Teléfono',
+    phonePlaceholder: '+34 600 000 000',
     city: 'Ciudad',
+    cityPlaceholder: 'Selecciona tu ciudad',
     uf: 'Estado',
+    ufPlaceholder: 'Selecciona estado',
+    loadingCities: 'Cargando ciudades...',
     confirmPassword: 'Confirmar contraseña',
-    cancel: 'Cancelar',
+    ssoMicrosoft: 'Continuar con Microsoft',
+    ssoGoogle: 'Continuar con Google',
+    unavailable: 'próximamente',
+    or: 'o',
+    termsPrefix: 'Al continuar, aceptas los',
+    termsUse: 'Términos de uso',
+    termsAnd: 'y la',
+    privacyPolicy: 'Política de Privacidad',
+    termsSuffix: 'de Liotécnica.',
+    passwordsDontMatch: 'Las contraseñas no coinciden.',
   },
 }
 
@@ -417,7 +563,18 @@ function PortalApp() {
       {authError ?<div className="toast-banner error">{authError}</div> : null}
       <Routes>
         <Route path="/acesso" element={<AccessPage ctx={authContext} />} />
-        <Route path="/" element={<JobsPage ctx={authContext} />} />
+        <Route
+          path="/"
+          element={
+            initializing ?(
+              <PageLoading label="Validando seu acesso..." />
+            ) : session ?(
+              <JobsPage ctx={authContext} />
+            ) : (
+              <Navigate to={withTenant('/acesso', tenantId)} replace />
+            )
+          }
+        />
         <Route
           path="/candidato"
           element={
@@ -430,6 +587,7 @@ function PortalApp() {
             )
           }
         />
+        <Route path="*" element={<Navigate to={withTenant(session ? '/' : '/acesso', tenantId)} replace />} />
       </Routes>
       {session && profileModalOpen ?(
         <CandidateProfileModal ctx={authContext} onClose={() => setProfileModalOpen(false)} />
@@ -445,13 +603,13 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
   const [error, setError] = useState<string | null>(null)
   const [registerError, setRegisterError] = useState<string | null>(null)
   const [showHelpModal, setShowHelpModal] = useState(false)
-  const [showRegisterModal, setShowRegisterModal] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [language, setLanguage] = useState<AccessLanguage>(() => {
     if (typeof window === 'undefined') return 'pt-BR'
     const stored = window.localStorage.getItem(ACCESS_LANGUAGE_STORAGE_KEY)
     return stored === 'en-US' || stored === 'es-ES' || stored === 'pt-BR' ?stored : 'pt-BR'
   })
-  const [login, setLogin] = useState({ email: '', password: '' })
+  const [login, setLogin] = useState({ email: '', password: '', remember: true })
   const [register, setRegister] = useState({
     nome: '',
     email: '',
@@ -461,12 +619,64 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
     password: '',
     confirmPassword: '',
   })
+  const [ufOptions, setUfOptions] = useState(BRAZILIAN_STATE_OPTIONS)
+  const [cityOptions, setCityOptions] = useState<string[]>([])
+  const [cityLoading, setCityLoading] = useState(false)
   const text = ACCESS_TRANSLATIONS[language]
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     window.localStorage.setItem(ACCESS_LANGUAGE_STORAGE_KEY, language)
   }, [language])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(IBGE_STATES_URL)
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((states) => {
+        if (cancelled) return
+        const normalized = states
+          .map((state) => ({ sigla: state.sigla, nome: state.nome }))
+          .filter((state) => state.sigla && state.nome)
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        if (normalized.length) setUfOptions(normalized)
+      })
+      .catch(() => {
+        if (!cancelled) setUfOptions(BRAZILIAN_STATE_OPTIONS)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!register.uf) {
+      setCityOptions([])
+      setCityLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setCityLoading(true)
+    fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(register.uf)}/municipios?orderBy=nome`)
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((cities) => {
+        if (cancelled) return
+        const names = cities.map((city) => city.nome).filter(Boolean)
+        setCityOptions(names)
+        setRegister((current) => current.cidade && !names.includes(current.cidade) ?{ ...current, cidade: '' } : current)
+      })
+      .catch(() => {
+        if (!cancelled) setCityOptions([])
+      })
+      .finally(() => {
+        if (!cancelled) setCityLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [register.uf])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -497,7 +707,7 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
 
     try {
       if (register.password !== register.confirmPassword) {
-        throw new Error('As senhas não conferem.')
+        throw new Error(text.passwordsDontMatch)
       }
 
       const session = await portalRequest<AuthResponse>(ctx.tenantId, '/api/public/portal-auth/register', {
@@ -513,7 +723,6 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
       })
 
       ctx.setSession(normalizeAuthSession(session, ctx.tenantId))
-      setShowRegisterModal(false)
       navigate(withTenant('/', ctx.tenantId))
     } catch (err) {
       setRegisterError(readError(err))
@@ -524,70 +733,180 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
 
   return (
     <main className="auth-page-shell">
-      <header className="auth-page-header">
-        <div className="auth-page-container auth-page-header-inner">
-          <div className="auth-page-brand-spacer" aria-hidden="true"></div>
-          <button className="auth-page-help" type="button" onClick={() => setShowHelpModal(true)}>
-            {text.helpLink}
-          </button>
+      <aside className="auth-brand-panel">
+        <div className="auth-brand-pattern" aria-hidden="true"></div>
+        <div className="auth-brand-grid" aria-hidden="true"></div>
+
+        <div className="auth-brand-top">
+          <div className="auth-brand-lockup">
+            <img src="/images/logo-liotecnica.png" alt="Liotécnica" />
+          </div>
+          <span className="auth-brand-secure">
+            <i className="fas fa-lock" aria-hidden="true"></i>
+            {text.secureLogin}
+          </span>
         </div>
-      </header>
 
-      <section className="auth-page-body">
-        <div className="auth-page-container auth-page-grid">
-          <form className="auth-card auth-card-main" onSubmit={onSubmit}>
-            <div className="auth-title">
-              <img className="auth-logo-img" src="/images/logo-liotecnica.png" alt="Liotecnica" />
-              <h1>{text.title}</h1>
-              <h2>{text.subtitle}</h2>
+        <div className="auth-brand-content">
+          <span className="auth-brand-badge">
+            <i className="fas fa-sparkles" aria-hidden="true"></i>
+            {text.brandBadge}
+          </span>
+          <h1>{text.brandTitle}</h1>
+          <p>{text.brandSubtitle}</p>
+          <div className="auth-brand-pillars">
+            <div>
+              <span>01</span>
+              <strong>{text.pillar1Title}</strong>
+              <p>{text.pillar1}</p>
             </div>
-
-            <label className="auth-field">
-              <span>{text.tenant}</span>
-              <input value={ctx.tenantId} readOnly />
-            </label>
-
-            <label className="auth-field">
-              <span>{text.email}</span>
-              <input type="email" value={login.email} onChange={(e) => setLogin((v) => ({ ...v, email: e.target.value }))} required />
-            </label>
-            <label className="auth-field">
-              <span>{text.password}</span>
-              <input type="password" value={login.password} onChange={(e) => setLogin((v) => ({ ...v, password: e.target.value }))} required />
-            </label>
-
-            {error ?<div className="inline-alert error auth-inline-alert">{error}</div> : null}
-
-            <button className="auth-submit" type="submit" disabled={pending}>
-              {pending ?text.processing : text.loginButton}
-            </button>
-
-            <div className="auth-links">
-              <span className="auth-note">{text.createHint}</span>
-              <button className="auth-secondary-btn" type="button" onClick={() => setShowRegisterModal(true)}>
-                {text.createAccess}
-              </button>
+            <div>
+              <span>02</span>
+              <strong>{text.pillar2Title}</strong>
+              <p>{text.pillar2}</p>
             </div>
-          </form>
-        </div>
-      </section>
-
-      <footer className="auth-language-footer">
-        <div className="auth-page-container auth-language-inner">
-          <span className="auth-language-label">{text.languageLabel}</span>
-          <div className="language-flags auth-language-flags">
-            <button type="button" className={`auth-flag-btn${language === 'pt-BR' ?' is-active' : ''}`} onClick={() => setLanguage('pt-BR')} title="Português">
-              <img src="/images/flags/flag-br.svg" alt="Português" />
-            </button>
-            <button type="button" className={`auth-flag-btn${language === 'en-US' ?' is-active' : ''}`} onClick={() => setLanguage('en-US')} title="English">
-              <img src="/images/flags/flag-us.svg" alt="English" />
-            </button>
-            <button type="button" className={`auth-flag-btn${language === 'es-ES' ?' is-active' : ''}`} onClick={() => setLanguage('es-ES')} title="Español">
-              <img src="/images/flags/flag-es.svg" alt="Español" />
-            </button>
+            <div>
+              <span>03</span>
+              <strong>{text.pillar3Title}</strong>
+              <p>{text.pillar3}</p>
+            </div>
           </div>
         </div>
-      </footer>
+
+        <footer className="auth-brand-footer">{text.copyright}</footer>
+      </aside>
+
+      <section className="auth-form-panel">
+        <header className="auth-form-header">
+          <div className="auth-language-switch" aria-label={text.languageLabel}>
+            <button type="button" className={language === 'pt-BR' ?'is-active' : ''} onClick={() => setLanguage('pt-BR')}>PT</button>
+            <button type="button" className={language === 'en-US' ?'is-active' : ''} onClick={() => setLanguage('en-US')}>EN</button>
+            <button type="button" className={language === 'es-ES' ?'is-active' : ''} onClick={() => setLanguage('es-ES')}>ES</button>
+          </div>
+          <button className="auth-page-help" type="button" onClick={() => setShowHelpModal(true)}>
+            <i className="fas fa-circle-question" aria-hidden="true"></i>
+            {text.helpLink}
+          </button>
+        </header>
+
+        <div className="auth-form-card">
+          <div className="auth-title">
+            <h1>{authMode === 'register' ?text.titleRegister : text.title}</h1>
+            <h2>{authMode === 'register' ?text.subtitleRegister : text.subtitle}</h2>
+          </div>
+
+          <div className="auth-sso-grid">
+            <button type="button" className="auth-sso-btn" disabled>
+              <i className="fab fa-microsoft" aria-hidden="true"></i>
+              {text.ssoMicrosoft}
+              <span>{text.unavailable}</span>
+            </button>
+            <button type="button" className="auth-sso-btn" disabled>
+              <i className="fab fa-google" aria-hidden="true"></i>
+              {text.ssoGoogle}
+              <span>{text.unavailable}</span>
+            </button>
+          </div>
+
+          <div className="auth-divider">{text.or}</div>
+
+          {authMode === 'login' ?(
+            <form className="auth-card auth-card-main" onSubmit={onSubmit}>
+              <label className="auth-field">
+                <span>{text.email}</span>
+                <input type="email" value={login.email} onChange={(e) => setLogin((v) => ({ ...v, email: e.target.value }))} placeholder={text.emailPlaceholder} required />
+              </label>
+              <label className="auth-field">
+                <span className="auth-field-row">
+                  {text.password}
+                  <button className="auth-link-button is-disabled" type="button" disabled>{text.forgot}</button>
+                </span>
+                <input type="password" value={login.password} onChange={(e) => setLogin((v) => ({ ...v, password: e.target.value }))} placeholder={text.passwordPlaceholder} required />
+              </label>
+              <label className="auth-checkbox">
+                <input type="checkbox" checked={login.remember} onChange={(e) => setLogin((v) => ({ ...v, remember: e.target.checked }))} />
+                <span>{text.rememberMe}</span>
+              </label>
+              {error ?<div className="inline-alert error auth-inline-alert">{error}</div> : null}
+              <button className="auth-submit" type="submit" disabled={pending}>
+                {pending ?text.processing : text.loginButton}
+              </button>
+            </form>
+          ) : (
+            <form className="auth-card auth-card-main" onSubmit={onRegisterSubmit}>
+              <label className="auth-field">
+                <span>{text.fullName}</span>
+                <input value={register.nome} onChange={(e) => setRegister((v) => ({ ...v, nome: e.target.value }))} placeholder={text.fullNamePlaceholder} required />
+              </label>
+              <label className="auth-field">
+                <span>{text.email}</span>
+                <input type="email" value={register.email} onChange={(e) => setRegister((v) => ({ ...v, email: e.target.value }))} placeholder={text.emailPlaceholder} required />
+              </label>
+              <div className="grid two">
+                <label className="auth-field">
+                  <span>{text.phone}</span>
+                  <input inputMode="tel" maxLength={15} value={register.fone} onChange={(e) => setRegister((v) => ({ ...v, fone: formatBrazilianPhone(e.target.value) }))} placeholder={text.phonePlaceholder} required />
+                </label>
+                <label className="auth-field">
+                  <span>{text.uf}</span>
+                  <select value={register.uf} onChange={(e) => setRegister((v) => ({ ...v, uf: e.target.value, cidade: '' }))} required>
+                    <option value="">{text.ufPlaceholder}</option>
+                    {ufOptions.map((state) => (
+                      <option key={state.sigla} value={state.sigla}>{state.sigla} - {state.nome}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="auth-field">
+                <span>{text.city}</span>
+                <select value={register.cidade} onChange={(e) => setRegister((v) => ({ ...v, cidade: e.target.value }))} disabled={!register.uf || cityLoading || cityOptions.length === 0} required>
+                  <option value="">{cityLoading ?text.loadingCities : text.cityPlaceholder}</option>
+                  {cityOptions.map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid two">
+                <label className="auth-field">
+                  <span>{text.password}</span>
+                  <input type="password" value={register.password} onChange={(e) => setRegister((v) => ({ ...v, password: e.target.value }))} placeholder={text.passwordPlaceholder} required />
+                </label>
+                <label className="auth-field">
+                  <span>{text.confirmPassword}</span>
+                  <input type="password" value={register.confirmPassword} onChange={(e) => setRegister((v) => ({ ...v, confirmPassword: e.target.value }))} placeholder={text.passwordPlaceholder} required />
+                </label>
+              </div>
+              {registerError ?<div className="inline-alert error auth-inline-alert">{registerError}</div> : null}
+              <button className="auth-submit" type="submit" disabled={registerPending}>
+                {registerPending ?text.creating : text.createAccess}
+              </button>
+            </form>
+          )}
+
+          <div className="auth-links">
+            <span className="auth-note">{authMode === 'register' ?text.haveAccount : text.createHint}</span>
+            <button
+              className="auth-secondary-btn"
+              type="button"
+              onClick={() => {
+                setAuthMode((value) => value === 'register' ? 'login' : 'register')
+                setError(null)
+                setRegisterError(null)
+              }}
+            >
+              {authMode === 'register' ?text.signIn : text.createAccess}
+            </button>
+          </div>
+
+          <p className="auth-terms">
+            {text.termsPrefix}{' '}
+            <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer">{text.termsUse}</a>{' '}
+            {text.termsAnd}{' '}
+            <a href="/politica-de-privacidade" target="_blank" rel="noopener noreferrer">{text.privacyPolicy}</a>
+            {text.termsSuffix ?` ${text.termsSuffix}` : ''}
+          </p>
+        </div>
+      </section>
 
       {showHelpModal ?(
         <div className="auth-modal-backdrop" onClick={() => setShowHelpModal(false)}>
@@ -616,67 +935,6 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
         </div>
       ) : null}
 
-      {showRegisterModal ?(
-        <div className="auth-modal-backdrop">
-          <div className="auth-help-modal auth-register-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="auth-help-modal-header">
-              <div>
-                <h2>{text.registerTitle}</h2>
-                <div className="auth-help-modal-subtitle">{text.registerSubtitle}</div>
-              </div>
-              <button type="button" className="auth-modal-close" onClick={() => setShowRegisterModal(false)} aria-label="Fechar">
-                <i className="fas fa-times" aria-hidden="true"></i>
-              </button>
-            </div>
-
-            <form className="auth-register-form" onSubmit={onRegisterSubmit}>
-              <label className="auth-field">
-                <span>{text.fullName}</span>
-                <input value={register.nome} onChange={(e) => setRegister((v) => ({ ...v, nome: e.target.value }))} required />
-              </label>
-              <label className="auth-field">
-                <span>{text.email}</span>
-                <input type="email" value={register.email} onChange={(e) => setRegister((v) => ({ ...v, email: e.target.value }))} required />
-              </label>
-              <div className="grid two">
-                <label className="auth-field">
-                  <span>{text.phone}</span>
-                  <input value={register.fone} onChange={(e) => setRegister((v) => ({ ...v, fone: e.target.value }))} required />
-                </label>
-                <label className="auth-field">
-                  <span>{text.uf}</span>
-                  <input maxLength={2} value={register.uf} onChange={(e) => setRegister((v) => ({ ...v, uf: e.target.value }))} required />
-                </label>
-              </div>
-              <label className="auth-field">
-                <span>{text.city}</span>
-                <input value={register.cidade} onChange={(e) => setRegister((v) => ({ ...v, cidade: e.target.value }))} required />
-              </label>
-              <div className="grid two">
-                <label className="auth-field">
-                  <span>{text.password}</span>
-                  <input type="password" value={register.password} onChange={(e) => setRegister((v) => ({ ...v, password: e.target.value }))} required />
-                </label>
-                <label className="auth-field">
-                  <span>{text.confirmPassword}</span>
-                  <input type="password" value={register.confirmPassword} onChange={(e) => setRegister((v) => ({ ...v, confirmPassword: e.target.value }))} required />
-                </label>
-              </div>
-
-              {registerError ?<div className="inline-alert error auth-inline-alert">{registerError}</div> : null}
-
-              <div className="auth-help-modal-footer auth-register-footer">
-                <button className="auth-secondary-btn auth-modal-cancel" type="button" onClick={() => setShowRegisterModal(false)}>
-                  {text.cancel}
-                </button>
-                <button className="auth-submit auth-modal-primary auth-submit-inline" type="submit" disabled={registerPending}>
-                  {registerPending ?text.processing : text.createAccess}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
     </main>
   )
 }
@@ -686,11 +944,17 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
   const [message, setMessage] = useState('Carregando vagas...')
   const [error, setError] = useState<string | null>(null)
   const [jobs, setJobs] = useState<PortalJob[]>([])
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(() => new Set())
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({ q: '', location: '', mode: '', type: '', level: '', area: '', sort: 'recent' })
   const [selectedJob, setSelectedJob] = useState<PortalJob | null>(null)
   const [applyPending, setApplyPending] = useState(false)
   const [applyResult, setApplyResult] = useState<string | null>(null)
+  const [applicationFeedback, setApplicationFeedback] = useState<{
+    type: 'success' | 'error'
+    title: string
+    message: string
+  } | null>(null)
   const [applyData, setApplyData] = useState({
     nome: ctx.session?.candidate.nome ?? '',
     email: ctx.session?.candidate.email ?? '',
@@ -737,7 +1001,71 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
     void loadJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  useEffect(() => {
+    const candidate = ctx.session?.candidate
+    if (!candidate) {
+      setAppliedJobIds(new Set())
+      return
+    }
+
+    let cancelled = false
+    fetchJson<PortalApplicationSummary[]>(`/api/public/portal-auth/minhas-candidaturas/${candidate.id}?tenantId=${encodeURIComponent(ctx.tenantId)}`)
+      .then((items) => {
+        if (cancelled) return
+        setAppliedJobIds(new Set(items.map((item) => item.vagaId).filter(Boolean)))
+      })
+      .catch(() => {
+        if (!cancelled) setAppliedJobIds(new Set())
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [ctx.session?.candidate.id, ctx.tenantId])
+  useEffect(() => {
+    const candidate = ctx.session?.candidate
+    if (!selectedJob || !candidate) return
+
+    let cancelled = false
+    setApplyData((current) => ({
+      ...current,
+      nome: candidate.nome,
+      email: candidate.email,
+    }))
+
+    const authFetch = createAuthorizedClient(ctx)
+    authFetch<PortalProfile>(`/api/public/portal-candidates/${candidate.id}`)
+      .then((profile) => {
+        if (cancelled) return
+        setApplyData((current) => ({
+          ...current,
+          nome: candidate.nome,
+          email: candidate.email,
+          fone: current.fone || formatBrazilianPhone(profile.fone) || '',
+          cidadeUf: current.cidadeUf || formatCandidateCityUf(profile.cidade, profile.uf),
+          linkedin: current.linkedin || profile.linkedinUrl || '',
+        }))
+      })
+      .catch(() => {
+        setApplyResult('Não foi possível carregar seus dados básicos. Saia e entre novamente no portal para atualizar sua sessão.')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [ctx.session?.accessToken, ctx.session?.candidate.email, ctx.session?.candidate.id, ctx.session?.candidate.nome, selectedJob?.id])
   const groupedJobs = useMemo(() => groupJobsByArea(jobs), [jobs])
+  function openJobApplication(job: PortalJob) {
+    if (appliedJobIds.has(job.id)) {
+      setApplicationFeedback({
+        type: 'success',
+        title: 'Você já se candidatou',
+        message: `Sua candidatura para "${job.titulo}" já está registrada.`,
+      })
+      return
+    }
+    setSelectedJob(job)
+  }
   function clearFilters() {
     const next = { q: '', location: '', mode: '', type: '', level: '', area: '', sort: 'recent' }
     setFilters(next)
@@ -754,7 +1082,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
       form.append('nome', applyData.nome)
       form.append('email', applyData.email)
       form.append('fone', applyData.fone)
-      form.append('cidadeUf', applyData.cidadeUf)
+      form.append('cidadeUf', normalizeCityUfForSubmit(applyData.cidadeUf))
       form.append('linkedin', applyData.linkedin)
       form.append('portfolio', applyData.portfolio)
       form.append('cargoAtual', applyData.cargoAtual)
@@ -774,10 +1102,20 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           throw new Error(await readApiMessage(response))
         }
       })
-      setApplyResult('Candidatura enviada com sucesso.')
+      setAppliedJobIds((current) => new Set(current).add(selectedJob.id))
       setSelectedJob(null)
+      setApplicationFeedback({
+        type: 'success',
+        title: 'Candidatura enviada',
+        message: `Sua candidatura para "${selectedJob.titulo}" foi registrada com sucesso.`,
+      })
     } catch (err) {
-      setApplyResult(readError(err))
+      setSelectedJob(null)
+      setApplicationFeedback({
+        type: 'error',
+        title: 'Não foi possível enviar',
+        message: readError(err),
+      })
     } finally {
       setApplyPending(false)
     }
@@ -887,21 +1225,29 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                   {group.jobs.map((job, jobIndex) => {
                     const tags = buildJobTags(job)
                     const badges = buildJobBadgeValues(job)
+                    const alreadyApplied = appliedJobIds.has(job.id)
                     return (
                       <article
-                        className="job-card-react"
+                        className={`job-card-react${alreadyApplied ? ' is-applied' : ''}`}
                         key={job.id}
-                        onClick={() => setSelectedJob(job)}
+                        onClick={() => openJobApplication(job)}
                         role="button"
                         tabIndex={0}
+                        aria-disabled={alreadyApplied}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault()
-                            setSelectedJob(job)
+                            openJobApplication(job)
                           }
                         }}
                       >
                         <div className="job-hero" style={{ backgroundImage: getJobHeroBackground(groupIndex + jobIndex) }}>
+                          {alreadyApplied ?(
+                            <span className="job-applied-ribbon">
+                              <i className="fas fa-check" aria-hidden="true"></i>
+                              Já candidatado
+                            </span>
+                          ) : null}
                           <h3 className="job-title-on-hero">{job.titulo}</h3>
                           <div className="job-badge-row">
                             {badges.map((badge) => (
@@ -933,7 +1279,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
         ) : null}
         {selectedJob ?(
           <div className="modal-backdrop" onClick={() => setSelectedJob(null)}>
-            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-card application-modal-card" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <div>
                   <div className="eyebrow">Candidatura rápida</div>
@@ -941,14 +1287,17 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                 </div>
                 <button className="ghost-btn" type="button" onClick={() => setSelectedJob(null)}>Fechar</button>
               </div>
-              <form className="stack-form" onSubmit={submitApplication}>
+              <div className="application-modal-body">
+                <JobDetailsPanel job={selectedJob} />
+                <section className="application-form-panel" aria-label="Formulário de candidatura">
+                  <form className="stack-form" onSubmit={submitApplication}>
                 <div className="grid two">
-                  <label><span>Nome</span><input value={applyData.nome} onChange={(e) => setApplyData((v) => ({ ...v, nome: e.target.value }))} required /></label>
-                  <label><span>E-mail</span><input type="email" value={applyData.email} onChange={(e) => setApplyData((v) => ({ ...v, email: e.target.value }))} required /></label>
+                  <label><span>Nome</span><input value={applyData.nome} onChange={(e) => setApplyData((v) => ({ ...v, nome: e.target.value }))} required readOnly={Boolean(ctx.session)} /></label>
+                  <label><span>E-mail</span><input type="email" value={applyData.email} onChange={(e) => setApplyData((v) => ({ ...v, email: e.target.value }))} required readOnly={Boolean(ctx.session)} /></label>
                 </div>
                 <div className="grid two">
-                  <label><span>Telefone</span><input value={applyData.fone} onChange={(e) => setApplyData((v) => ({ ...v, fone: e.target.value }))} /></label>
-                  <label><span>Cidade / UF</span><input value={applyData.cidadeUf} onChange={(e) => setApplyData((v) => ({ ...v, cidadeUf: e.target.value }))} /></label>
+                  <label><span>Telefone</span><input value={applyData.fone} onChange={(e) => setApplyData((v) => ({ ...v, fone: formatBrazilianPhone(e.target.value) }))} readOnly={Boolean(ctx.session)} /></label>
+                  <label><span>Cidade / UF</span><input value={applyData.cidadeUf} onChange={(e) => setApplyData((v) => ({ ...v, cidadeUf: e.target.value }))} readOnly={Boolean(ctx.session)} /></label>
                 </div>
                 <div className="grid two">
                   <label><span>LinkedIn</span><input value={applyData.linkedin} onChange={(e) => setApplyData((v) => ({ ...v, linkedin: e.target.value }))} /></label>
@@ -965,12 +1314,100 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                 </label>
                 {applyResult ?<div className={`inline-alert ${applyResult.includes('sucesso') ?'success' : 'error'}`}>{applyResult}</div> : null}
                 <button className="primary-btn" type="submit" disabled={applyPending}>{applyPending ?'Enviando...' : 'Enviar candidatura'}</button>
-              </form>
+                  </form>
+                </section>
+              </div>
             </div>
+          </div>
+        ) : null}
+        {applicationFeedback ?(
+          <div className="swal-backdrop" role="presentation" onClick={() => setApplicationFeedback(null)}>
+            <section
+              className={`swal-card ${applicationFeedback.type}`}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="application-feedback-title"
+              aria-describedby="application-feedback-message"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="swal-icon" aria-hidden="true">
+                <i className={`fas ${applicationFeedback.type === 'success' ? 'fa-check' : 'fa-triangle-exclamation'}`}></i>
+              </div>
+              <h3 id="application-feedback-title">{applicationFeedback.title}</h3>
+              <p id="application-feedback-message">{applicationFeedback.message}</p>
+              <button className="primary-btn" type="button" onClick={() => setApplicationFeedback(null)}>
+                Entendi
+              </button>
+            </section>
           </div>
         ) : null}
       </main>
     </>
+  )
+}
+
+function JobDetailsPanel({ job }: { job: PortalJob }) {
+  const tags = buildJobTags(job)
+  const badges = buildJobBadgeValues(job)
+  const etapas = (job.etapas ?? [])
+    .map((etapa) => (etapa.nome || '').trim())
+    .filter(Boolean)
+
+  return (
+    <aside className="application-job-panel" aria-label="Detalhes da vaga">
+      <div className="application-job-hero">
+        <div className="eyebrow">Detalhes da vaga</div>
+        <h4>{job.titulo}</h4>
+        <p>{job.tenantName || 'Liotecnica'}</p>
+      </div>
+
+      <div className="application-job-meta">
+        <DetailItem label="Área" value={job.area || 'Não informado'} />
+        <DetailItem label="Local" value={formatJobLocation(job)} />
+        <DetailItem label="Salário" value={formatSalary(job.salarioMinimo, job.salarioMaximo)} />
+        <DetailItem label="Vagas" value={`${job.quantidadeVagas || 1}`} />
+      </div>
+
+      <div className="application-badge-row">
+        {(badges.length ?badges : ['Perfil geral']).map((badge) => (
+          <span className="job-tag" key={badge}>{badge}</span>
+        ))}
+        {job.aceitaPcd ?<span className="job-tag accent">PCD</span> : null}
+        {job.urgente ?<span className="job-tag urgent">Urgente</span> : null}
+      </div>
+
+      <section className="application-detail-section">
+        <h5>Descrição</h5>
+        <p>{job.descricaoPublica?.trim() || 'Descrição pública não informada para esta vaga.'}</p>
+      </section>
+
+      <section className="application-detail-section">
+        <h5>Tags e responsabilidades</h5>
+        <div className="application-chip-list">
+          {(tags.length ?tags : ['Perfil geral']).map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
+      </section>
+
+      {etapas.length ?(
+        <section className="application-detail-section">
+          <h5>Etapas do processo</h5>
+          <ol className="application-stage-list">
+            {etapas.map((etapa) => <li key={etapa}>{etapa}</li>)}
+          </ol>
+        </section>
+      ) : null}
+    </aside>
+  )
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 
@@ -3084,6 +3521,29 @@ function formatJobLocation(job: PortalJob) {
   return job.modalidade || 'N?o informado'
 }
 
+function formatCandidateCityUf(city?: string | null, uf?: string | null) {
+  const normalizedCity = (city || '').trim()
+  const normalizedUf = (uf || '').trim().toUpperCase()
+  if (normalizedCity && normalizedUf) return `${normalizedCity} / ${normalizedUf}`
+  if (normalizedCity) return normalizedCity
+  return normalizedUf
+}
+
+function normalizeCityUfForSubmit(value: string) {
+  const cleaned = value.trim()
+  const slashParts = cleaned.split('/').map((part) => part.trim()).filter(Boolean)
+  if (slashParts.length >= 2) return `${slashParts[0]}, ${slashParts[1].toUpperCase()}`
+  return cleaned
+}
+
+function formatBrazilianPhone(value?: string | null) {
+  const digits = (value || '').replace(/\D/g, '').slice(0, 11)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
+
 function normalizeAreaKey(value: string | null | undefined) {
   return (value || '')
     .toLowerCase()
@@ -3285,17 +3745,3 @@ async function openLgpdReceipt(authFetch: ReturnType<typeof createAuthorizedClie
 }
 
 export default App
-
-
-
-
-
-
-
-
-
-
-
-
-
-
