@@ -1305,21 +1305,24 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
 
 #### Domínio de `CODSTATUS` (todas as VREQ*)
 
-Significado validado contra dados reais (`Liotecnica.Integration.RM.Schema.Tables/*.json`) cruzando `CODSTATUS` com `DATACONCLUSAO` / `DATACANCELAMENTO`:
+Mapa oficial extraído da tabela de domínio `dbo.VREQSTATUS` (CODINTERNO + DESCRICAO):
 
-| Código | Status | Significado | Fontes |
-|--------|--------|-------------|--------|
-| 1 | Em digitação | Rascunho do solicitante, ainda não foi para aprovação | Inferido |
-| 2 | Em andamento | Workflow de aprovação rodando | Inferido |
-| 3 | Aprovada | Aprovada — RH/R&S pode trabalhar a vaga / efetivar a rescisão | Inferido |
-| **4** | **Concluída** | **Efetivada (vaga preenchida com admissão / rescisão concretizada / promoção em vigor).** Significativo: 74-96% dos registros com `CODSTATUS=4` têm `DATACONCLUSAO` preenchida | ✅ Confirmado |
-| 6 | Cancelada | Cancelada em qualquer fase. >91% têm `DATACANCELAMENTO` | ✅ Confirmado |
-| 7 | Suspensa | Standby (qualquer fase). **Aparece apenas em vaga/substituição/aumento_quadro — desligamento e transf/promoção não têm Suspensa.** Ao retomar, o **SLA zera e reinicia** | ✅ Confirmado |
+| Código | Status (TOTVS) | Mapeamento no Portal | Observação |
+|--------|----------------|----------------------|------------|
+| 1 | Em Andamento | (não importa) | Workflow de aprovação rodando |
+| 2 | Reprovado | (não importa) | Reprovado no workflow |
+| 3 | **Aprovado** | `VagaStatus.Aberta` | RH/R&S pode trabalhar a vaga |
+| **4** | **Concluída** | `VagaStatus.Encerrada` | Efetivada (vaga preenchida com admissão / rescisão concretizada / promoção em vigor) |
+| 5 | Pendente | (não importa) | Estado intermediário pouco usado neste tenant |
+| 6 | Cancelada | `VagaStatus.Cancelada` | Cancelada em qualquer fase |
+| 7 | Suspensa | `VagaStatus.Pausada` | Standby. Ao retomar, **SLA zera e reinicia** |
+| 8 | Consultando orçamento | (não importa) | Estado pré-aprovação |
+| 9 | Orçamento não aprovado | (não importa) | Estado pré-aprovação |
 
 **Regras de negócio importantes:**
 - **SLA** (vaga/substituição/aumento) começa a contar a partir da **Aprovada** (3). Suspensa pausa e ao retomar zera o contador.
 - **Desligamento** não tem Suspensa nem SLA.
-- **Reprovada** existe no domínio TOTVS mas o código numérico não foi observado nos dumps atuais — pode ser tratada como Cancelada (6) neste tenant ou usar código fora do conjunto observado. Confirmar caso necessário.
+- **Reprovado** vem como `CODSTATUS=2` (não 7 — que é Suspensa). Há volume real nos dumps (21 substituições, 23 desligamentos, 11 aumentos).
 
 **Cuidados ao filtrar:**
 - Para **estado vigente / efetivado** (hierarquia atual de funcionário, última promoção em vigor, vagas efetivamente preenchidas): use `CODSTATUS = 4`.
