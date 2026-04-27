@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 type AuthCandidate = {
@@ -74,7 +75,27 @@ type PortalEducation = { summary: { nivel?: string | null; areaPrincipal?: strin
 type PortalExperience = { id: string; empresa: string; cargo: string; inicio?: string | null; fim?: string | null; local?: string | null; atividades?: string | null }
 type PortalProject = { id: string; nome: string; periodo?: string | null; descricao?: string | null; link?: string | null; stack?: string | null; destaques?: string | null }
 type PortalExperienceProject = { experiences: PortalExperience[]; projects: PortalProject[] }
-type PortalPreferences = Record<string, string | null | undefined> & { updatedAtUtc?: string | null }
+type PortalPreferences = {
+  CargoAlvo?: string | null
+  Senioridade?: string | null
+  InicioDisponivel?: string | null
+  Resumo?: string | null
+  AreasInteresse?: string | null
+  ModeloTrabalho?: string | null
+  Jornada?: string | null
+  TipoContrato?: string | null
+  Viagens?: string | null
+  Mudanca?: string | null
+  CidadePreferida?: string | null
+  DistanciaMaxKm?: string | null
+  ObsDeslocamento?: string | null
+  PretensaoSalarial?: string | null
+  PretensaoNegociavel?: string | null
+  BeneficiosDesejados?: string | null
+  NaoAbreMaoDe?: string | null
+  UpdatedAtUtc?: string | null
+  updatedAtUtc?: string | null
+}
 type PortalAccessibility = {
   idioma?: string | null
   canal?: string | null
@@ -199,6 +220,28 @@ type WorkspaceState = {
   lgpd: PortalLgpd | null
 }
 
+const WORKSPACE_SECTIONS = [
+  { id: 'perfil-curriculo', label: 'Perfil e currículo', icon: 'fa-user' },
+  { id: 'experiencias', label: 'Experiências', icon: 'fa-briefcase' },
+  { id: 'projetos', label: 'Projetos', icon: 'fa-diagram-project' },
+  { id: 'preferencias', label: 'Preferências de vaga', icon: 'fa-bullseye' },
+  { id: 'matches', label: 'Conclusão e aderência', icon: 'fa-chart-line' },
+  { id: 'agenda', label: 'Agenda e disponibilidade', icon: 'fa-calendar-alt' },
+  { id: 'skills', label: 'Skills, links e certificações', icon: 'fa-bolt' },
+  { id: 'notificacoes-lgpd', label: 'Notificações e LGPD', icon: 'fa-shield-alt' },
+  { id: 'educacao', label: 'Educação', icon: 'fa-graduation-cap' },
+  { id: 'documentos', label: 'Documentos, referências e acessibilidade', icon: 'fa-paperclip' },
+] as const
+
+type WorkspaceSectionId = (typeof WORKSPACE_SECTIONS)[number]['id']
+
+function normalizeWorkspaceSection(hash: string): WorkspaceSectionId {
+  const cleanHash = hash.replace(/^#/, '')
+  return WORKSPACE_SECTIONS.some((section) => section.id === cleanHash)
+    ? cleanHash as WorkspaceSectionId
+    : 'perfil-curriculo'
+}
+
 type AccessLanguage = 'pt-BR' | 'en-US' | 'es-ES'
 type BrazilianStateOption = { sigla: string; nome: string }
 
@@ -209,6 +252,14 @@ const ACCESS_LANGUAGE_STORAGE_KEY = 'portal-vagas-lang'
 const DEV_PROXY_BASE_URL = ''
 const IBGE_STATES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'
 const IBGE_CITIES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados'
+const FALLBACK_JOB_AREAS = ['Administrativo', 'Comercial', 'Financeiro', 'Operações', 'Recursos Humanos', 'Tecnologia da Informação']
+const SENIORITY_OPTIONS = ['Estágio', 'Trainee', 'Júnior', 'Pleno', 'Sênior', 'Especialista', 'Coordenação', 'Gerência', 'Diretoria']
+const AVAILABILITY_OPTIONS = ['Imediato', 'Até 15 dias', 'Até 30 dias', 'Até 60 dias', 'A combinar']
+const WORK_MODEL_OPTIONS = ['Presencial', 'Híbrido', 'Remoto', 'Indiferente']
+const WORKDAY_OPTIONS = ['Integral', 'Parcial', 'Noturno', 'Escala', 'Flexível', 'A combinar']
+const CONTRACT_OPTIONS = ['CLT', 'PJ', 'Temporário', 'Estágio', 'Trainee', 'A combinar']
+const YES_NO_NEGOTIABLE_OPTIONS = ['Sim', 'Não', 'A combinar']
+const DISTANCE_OPTIONS = ['5', '10', '20', '30', '50', '75', '100']
 const BRAZILIAN_STATE_OPTIONS: BrazilianStateOption[] = [
   { sigla: 'AC', nome: 'Acre' },
   { sigla: 'AL', nome: 'Alagoas' },
@@ -526,16 +577,16 @@ function PortalApp() {
                     </button>
                     {userMenuOpen ?(
                       <div className="portal-user-dropdown" role="menu">
-                        <button
+                        <Link
                           className="portal-user-dropdown-item"
-                          type="button"
+                          to={withTenant('/candidato', tenantId)}
                           onClick={() => {
-                            setProfileModalOpen(true)
+                            setProfileModalOpen(false)
                             setUserMenuOpen(false)
                           }}
                         >
-                          Ver perfil
-                        </button>
+                          Meu espaço
+                        </Link>
                         <div className="portal-user-dropdown-divider" />
                         <button
                           className="portal-user-dropdown-item danger"
@@ -1448,7 +1499,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const authFetch = useMemo(() => createAuthorizedClient(ctx), [ctx])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
   const [profile, setProfile] = useState<PortalProfile | null>(null)
   const [completion, setCompletion] = useState<PortalCompletion | null>(null)
@@ -1800,39 +1850,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     setEditingCertId(null)
   }
 
-  async function handleSave() {
-    setSaving(true)
-    setMessage(null)
-    try {
-      const result = await authFetch<PortalProfile>(`/api/public/portal-candidates/${candidateId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          nome: form.nome.trim(),
-          fone: form.fone.trim(),
-          cidade: form.cidade.trim(),
-          uf: form.uf.trim().toUpperCase(),
-          linkedinUrl: profile?.linkedinUrl ?? null,
-          resumoProfissional: profile?.resumoProfissional ?? null,
-        }),
-      })
-      setProfile(result)
-      setForm((current) => ({
-        ...current,
-        nome: result.nome ?? current.nome,
-        email: result.email ?? current.email,
-        fone: result.fone ?? '',
-        cidade: result.cidade ?? '',
-        uf: result.uf ?? '',
-      }))
-      setMessage('Perfil atualizado com sucesso.')
-      await refreshProfileModal({ keepMessage: true })
-    } catch (err) {
-      setMessage(readError(err))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   async function handleResetProfile() {
     if (!window.confirm('Tem certeza que deseja limpar o perfil do candidato?')) return
     setMessage(null)
@@ -1849,34 +1866,63 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const matchesCount = matches.length
   const referencesCount = references.length
 
-  const sectionTiles = [
-    { key: 'perfil', label: 'Perfil', icon: 'fa-user', value: completion?.sections?.perfil ?? completion?.overall ?? 0, kind: 'percent' as const },
-    { key: 'testes', label: 'Testes', icon: 'fa-clipboard-check', value: completion?.sections?.testes ?? 0, kind: 'percent' as const },
-    { key: 'comp', label: 'Competências & Portfólio', icon: 'fa-bolt', value: completion?.sections?.comp ?? 0, kind: 'percent' as const },
-    { key: 'formacao', label: 'Formação & Educação', icon: 'fa-graduation-cap', value: completion?.sections?.formacao ?? 0, kind: 'percent' as const },
-    { key: 'exp', label: 'Experiência & Projetos', icon: 'fa-briefcase', value: completion?.sections?.exp ?? 0, kind: 'percent' as const },
-    { key: 'lgpd', label: 'Privacidade (LGPD)', icon: 'fa-shield-alt', value: completion?.sections?.lgpd ?? 0, kind: 'percent' as const },
-    { key: 'pref', label: 'Preferências / Objetivos', icon: 'fa-bullseye', value: completion?.sections?.pref ?? 0, kind: 'percent' as const },
-    { key: 'docs', label: 'Documentos & Anexos', icon: 'fa-paperclip', value: documents.length, kind: 'count' as const },
-    { key: 'refs', label: 'Referências', icon: 'fa-users', value: referencesCount, kind: 'count' as const },
-    { key: 'acess', label: 'Acessibilidade & Inclusão', icon: 'fa-universal-access', value: completion?.sections?.acess ?? 0, kind: 'percent' as const },
-    { key: 'agenda', label: 'Disponibilidade & Agenda', icon: 'fa-calendar-alt', value: completion?.sections?.agenda ?? 0, kind: 'percent' as const },
-    { key: 'hist', label: 'Histórico de Candidaturas', icon: 'fa-history', value: completion?.sections?.hist ?? 0, kind: 'percent' as const },
-    { key: 'notif', label: 'Notificações & Comunicação', icon: 'fa-bell', value: completion?.sections?.notif ?? 0, kind: 'percent' as const },
-    { key: 'matches', label: 'Vagas sugeridas', icon: 'fa-star', value: matchesCount, kind: 'count' as const },
-    { key: 'clear', label: 'Limpar perfil', icon: 'fa-eraser', value: 0, kind: 'action' as const },
+  const currentRole = portfolio?.preferences.workModel || preferences?.CargoAlvo || 'Perfil em construção'
+  const currentLocation = [form.cidade, form.uf].filter(Boolean).join(', ') || 'Localidade não informada'
+  const linkedinValue = profile?.linkedinUrl || portfolioLinksForm.linkedin || 'Não informado'
+  const clampProgress = (value?: number | null) => Math.max(0, Math.min(100, Math.round(value ?? 0)))
+  const countProgress = (count: number) => (count > 0 ?100 : 0)
+  const sectionProgress = (key: string, fallback = 0) => clampProgress(completion?.sections?.[key] ?? fallback)
+
+  const primarySectionTiles = [
+    { key: 'perfil', label: 'Identidade', sub: 'Dados básicos, avatar e currículo', icon: 'fa-user', value: sectionProgress('perfil', completion?.overall ?? 0), kind: 'percent' as const },
+    { key: 'exp', label: 'Experiência & Projetos', sub: 'Histórico profissional e entregas', icon: 'fa-briefcase', value: sectionProgress('exp', countProgress((experience?.experiences.length ?? 0) + (experience?.projects.length ?? 0))), kind: 'percent' as const },
+    { key: 'formacao', label: 'Formação & Educação', sub: 'Cursos, instituições e destaques', icon: 'fa-graduation-cap', value: sectionProgress('formacao', countProgress(education?.items.length ?? 0)), kind: 'percent' as const },
+    { key: 'comp', label: 'Competências & Portfólio', sub: 'Skills, certificados e links', icon: 'fa-bolt', value: sectionProgress('comp', countProgress((portfolio?.skills.length ?? 0) + (portfolio?.certifications.length ?? 0))), kind: 'percent' as const },
+    { key: 'pref', label: 'Preferências / Objetivos', sub: 'Pretensão, benefícios e prioridades', icon: 'fa-bullseye', value: sectionProgress('pref'), kind: 'percent' as const },
+    { key: 'agenda', label: 'Disponibilidade & Agenda', sub: 'Horários, entrevistas e bloqueios', icon: 'fa-calendar-alt', value: sectionProgress('agenda', countProgress(agenda?.blocks.length ?? 0)), kind: 'percent' as const },
+    { key: 'notif', label: 'Notificações & Comunicação', sub: 'Canais, alertas e frequência', icon: 'fa-bell', value: sectionProgress('notif'), kind: 'percent' as const },
+    { key: 'docs', label: 'Documentos & Anexos', sub: 'Arquivos e comprovantes', icon: 'fa-paperclip', value: documents.length, progress: countProgress(documents.length), kind: 'count' as const },
+    { key: 'refs', label: 'Referências', sub: 'Contatos profissionais', icon: 'fa-users', value: referencesCount, progress: countProgress(referencesCount), kind: 'count' as const },
+    { key: 'acess', label: 'Acessibilidade & Inclusão', sub: 'Preferências e necessidades de apoio', icon: 'fa-universal-access', value: sectionProgress('acess'), kind: 'percent' as const },
+    { key: 'lgpd', label: 'Privacidade / LGPD', sub: 'Consentimentos e retenção de dados', icon: 'fa-shield-alt', value: sectionProgress('lgpd', lgpd?.processarCandidatura ?100 : 0), kind: 'percent' as const },
   ]
 
+  const secondarySectionTiles = [
+    { key: 'testes', label: 'Testes', sub: 'Etapas complementares do RH', icon: 'fa-clipboard-check', value: sectionProgress('testes'), kind: 'percent' as const },
+    { key: 'hist', label: 'Histórico de candidaturas', sub: 'Acompanhamento das inscrições', icon: 'fa-history', value: sectionProgress('hist'), kind: 'percent' as const },
+    { key: 'matches', label: 'Vagas sugeridas', sub: 'Oportunidades com maior aderência', icon: 'fa-star', value: matchesCount, progress: countProgress(matchesCount), kind: 'count' as const },
+    { key: 'clear', label: 'Limpar perfil', sub: 'Remover dados auxiliares do perfil', icon: 'fa-eraser', value: 0, progress: 0, kind: 'action' as const },
+  ]
+
+  const sectionTiles = [...primarySectionTiles, ...secondarySectionTiles]
   const selectedTile = selectedSection ? sectionTiles.find((tile) => tile.key === selectedSection) ?? null : null
+  const tileProgress = (tile: (typeof sectionTiles)[number]) => tile.kind === 'action' ?0 : clampProgress('progress' in tile ?tile.progress : tile.value)
+  const tileStatus = (tile: (typeof sectionTiles)[number]) => {
+    if (tile.kind === 'action') return 'Ação'
+    const progress = tileProgress(tile)
+    if (progress === 100) return 'Completo'
+    if (progress >= 50) return 'Em andamento'
+    if (progress > 0) return 'Iniciado'
+    return 'Pendente'
+  }
 
   return (
     <div className="modal-backdrop profile-modal-backdrop">
       <div className="profile-modal-card" onClick={(event) => event.stopPropagation()}>
         <div>
           <div className="profile-modal-header">
-            <div>
-              <h2 className="profile-modal-title">Meu perfil</h2>
-              <div className="profile-modal-subtitle">Atualize seus dados básicos e acompanhe o preenchimento das seções.</div>
+            <div className="profile-modal-identity">
+              <div className="profile-modal-avatar">
+                {avatarPreview ?(
+                  <img src={avatarPreview} alt={profile?.nome || 'Avatar do candidato'} />
+                ) : (
+                  <span>{getInitials(form.nome || ctx.session?.candidate.nome || 'Candidato')}</span>
+                )}
+              </div>
+              <div>
+                <h2 className="profile-modal-title">{form.nome || ctx.session?.candidate.nome || 'Meu perfil'}</h2>
+                <div className="profile-modal-subtitle">{currentRole} · {currentLocation}</div>
+              </div>
             </div>
             <div className="profile-modal-header-actions">
               <button className="profile-modal-action secondary" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>
@@ -1900,96 +1946,89 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
             ) : (
               <div className={`profile-modal-grid${selectedSection ?' is-detail' : ''}`}>
                 {!selectedSection ?(
-                <section className="profile-left-panel">
-                  <div className="profile-panel-title">Dados do candidato</div>
-
-                  <div className="profile-avatar-panel">
-                    <div className="profile-avatar-circle">
-                      {avatarPreview ?(
-                        <img src={avatarPreview} alt={profile?.nome || 'Avatar do candidato'} />
-                      ) : (
-                        <span>{getInitials(form.nome || ctx.session?.candidate.nome || 'Candidato')}</span>
-                      )}
+                  <section className="profile-overview-panel">
+                    <div className="profile-mini-grid">
+                      <div className="profile-mini-card">
+                        <span>E-mail</span>
+                        <strong>{form.email || 'Não informado'}</strong>
+                      </div>
+                      <div className="profile-mini-card">
+                        <span>Telefone</span>
+                        <strong>{formatBrazilianPhone(form.fone) || 'Não informado'}</strong>
+                      </div>
+                      <div className="profile-mini-card">
+                        <span>LinkedIn</span>
+                        <strong>{linkedinValue}</strong>
+                      </div>
                     </div>
-                    <div className="profile-avatar-meta">
-                      <strong>{form.nome || 'Candidato'}</strong>
-                      <span>{completion?.overall ?? 0}% preenchido</span>
+
+                    <div className="profile-modal-section-heading">
+                      <span>Áreas do perfil</span>
+                      <strong>{clampProgress(completion?.overall)}% completo</strong>
                     </div>
-                  </div>
 
-                  <label className="auth-field">
-                    <span>Nome completo</span>
-                    <input value={form.nome} onChange={(e) => setForm((current) => ({ ...current, nome: e.target.value }))} required />
-                  </label>
-
-                  <label className="auth-field">
-                    <span>E-mail</span>
-                    <input value={form.email} readOnly />
-                  </label>
-
-                  <div className="profile-modal-two-columns">
-                    <label className="auth-field">
-                      <span>Telefone</span>
-                      <input value={form.fone} onChange={(e) => setForm((current) => ({ ...current, fone: e.target.value }))} required />
-                    </label>
-                    <label className="auth-field">
-                      <span>UF</span>
-                      <input value={form.uf} onChange={(e) => setForm((current) => ({ ...current, uf: e.target.value }))} maxLength={2} required />
-                    </label>
-                  </div>
-
-                  <label className="auth-field">
-                    <span>Cidade</span>
-                    <input value={form.cidade} onChange={(e) => setForm((current) => ({ ...current, cidade: e.target.value }))} required />
-                  </label>
-
-                  <div className="profile-panel-note">
-                    <i className="fas fa-shield-alt" aria-hidden="true"></i>
-                    <span>Seus dados são tratados de acordo com a LGPD.</span>
-                  </div>
-                </section>
-                ) : null}
-
-                <section className={`profile-right-panel${selectedSection ?' is-detail' : ''}`}>
-                  {!selectedSection ?(
                     <div className="profile-sections-grid">
-                      {sectionTiles.map((tile) => (
-                        <article
-                          className="profile-section-tile"
-                          key={tile.key}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setSelectedSection(tile.key)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault()
-                              setSelectedSection(tile.key)
-                            }
-                          }}
-                        >
-                          {tile.kind !== 'action' ?(
-                            <div className="profile-section-badge">
-                              {tile.kind === 'percent' ?`${tile.value}%` : tile.value}
+                      {primarySectionTiles.map((tile) => {
+                        const progress = tileProgress(tile)
+                        return (
+                          <button
+                            className="profile-section-tile"
+                            key={tile.key}
+                            type="button"
+                            onClick={() => setSelectedSection(tile.key)}
+                          >
+                            <div className="profile-section-topline">
+                              <span className="profile-section-icon">
+                                <i className={`fas ${tile.icon}`} aria-hidden="true"></i>
+                              </span>
+                              <span className={`profile-section-status${progress === 100 ?' is-complete' : progress > 0 ?' is-started' : ''}`}>
+                                {tileStatus(tile)}
+                              </span>
                             </div>
-                          ) : null}
-                          <div className="profile-section-icon">
-                            <i className={`fas ${tile.icon}`} aria-hidden="true"></i>
-                          </div>
-                          <div className="profile-section-label">{tile.label}</div>
-                        </article>
-                      ))}
+                            <div>
+                              <div className="profile-section-label">{tile.label}</div>
+                              <div className="profile-section-subtitle">{tile.sub}</div>
+                            </div>
+                            <div className="profile-section-progress" aria-hidden="true">
+                              <span style={{ width: `${progress}%` }}></span>
+                            </div>
+                          </button>
+                        )
+                      })}
                     </div>
-                  ) : (
+
+                    <div className="profile-secondary-area">
+                      <div className="profile-modal-section-heading compact">
+                        <span>Ações complementares</span>
+                      </div>
+                      <div className="profile-secondary-grid">
+                        {secondarySectionTiles.map((tile) => (
+                          <button
+                            className={`profile-secondary-tile${tile.kind === 'action' ?' danger' : ''}`}
+                            key={tile.key}
+                            type="button"
+                            onClick={() => setSelectedSection(tile.key)}
+                          >
+                            <i className={`fas ${tile.icon}`} aria-hidden="true"></i>
+                            <span>{tile.label}</span>
+                            {tile.kind !== 'action' ?<strong>{tile.kind === 'percent' ?`${tile.value}%` : tile.value}</strong> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                ) : (
+                  <section className="profile-right-panel is-detail">
                     <div className="profile-section-detail">
                       {selectedSection !== 'comp' ?(
                         <div className="profile-section-detail-head">
                           <div>
                             <div className="profile-section-detail-title">{selectedTile?.label}</div>
-                            <div className="profile-section-detail-subtitle">Detalhes da seção selecionada.</div>
+                            <div className="profile-section-detail-subtitle">{selectedTile?.sub || 'Detalhes da seção selecionada.'}</div>
                           </div>
                           <button className="profile-back-button" type="button" onClick={() => setSelectedSection(null)}>
                             <i className="fas fa-arrow-left" aria-hidden="true"></i>
-                            <span>Voltar às seções</span>
+                            <span>Todas as áreas</span>
                           </button>
                         </div>
                       ) : null}
@@ -2598,8 +2637,8 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         </div>
                       ) : null}
                     </div>
-                  )}
-                </section>
+                  </section>
+                )}
               </div>
             )}
           </div>
@@ -2685,9 +2724,9 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
           ) : null}
 
           <div className="profile-modal-footer">
-            <button className="profile-modal-footer-btn secondary" type="button" onClick={onClose}>Cancelar</button>
-            <button className="profile-modal-footer-btn primary" type="button" onClick={() => void handleSave()} disabled={saving || loading}>
-              {saving ?'Salvando...' : 'Salvar'}
+            <span className="profile-modal-lgpd-note">Suas informações são privadas e protegidas pela LGPD.</span>
+            <button className="profile-modal-footer-btn primary" type="button" onClick={onClose} disabled={loading}>
+              Concluir
             </button>
           </div>
         </div>
@@ -2698,7 +2737,9 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
 function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const candidateId = ctx.session?.candidate.id ?? ''
+  const [activeWorkspaceSection, setActiveWorkspaceSection] = useState<WorkspaceSectionId>(() => normalizeWorkspaceSection(window.location.hash))
   const [state, setState] = useState<WorkspaceState>({
     profile: null,
     completion: null,
@@ -2777,6 +2818,15 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateId])
 
+  useEffect(() => {
+    setActiveWorkspaceSection(normalizeWorkspaceSection(location.hash))
+  }, [location.hash])
+
+  function selectWorkspaceSection(sectionId: WorkspaceSectionId) {
+    setActiveWorkspaceSection(sectionId)
+    window.history.replaceState(null, '', `${location.pathname}${location.search}#${sectionId}`)
+  }
+
   async function saveJson(path: string, payload: unknown, successText: string, method: 'PUT' | 'POST' = 'PUT') {
     try {
       await authFetch(path, {
@@ -2836,92 +2886,100 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     )
   }
 
+  const profileComplete = Math.max(0, Math.min(100, Math.round(state.completion?.overall ?? 0)))
+  const candidateName = state.profile?.nome || ctx.session?.candidate.nome || 'Candidato'
+  const candidateEmail = state.profile?.email || ctx.session?.candidate.email || ''
+  const currentRole = state.portfolio?.preferences.workModel || asString(state.preferences?.CargoAlvo) || 'Perfil em construção'
+  const workspaceNavItems = WORKSPACE_SECTIONS.map((section) => ({
+    ...section,
+    badge: section.id === 'perfil-curriculo'
+      ?`${profileComplete}%`
+      : section.id === 'matches' && state.matches.length
+        ?String(state.matches.length)
+        : section.id === 'documentos' && state.documents.length
+          ?String(state.documents.length)
+          : null,
+  }))
+
   return (
-    <main className="workspace-shell">
-      <section className="workspace-hero">
-        <div>
-          <div className="eyebrow">Workspace do candidato</div>
-          <h2>{state.profile?.nome || ctx.session?.candidate.nome}</h2>
-          <p>{ctx.session?.candidate.email}  tenant {ctx.tenantId}</p>
-        </div>
-        <div className="workspace-actions">
-          <button className="secondary-btn" type="button" onClick={() => void refreshWorkspace()}>Atualizar tudo</button>
-          <button className="ghost-btn" type="button" onClick={handleLogout}>Sair</button>
-        </div>
-      </section>
-
-      {message ?<div className="toast-banner">{message}</div> : null}
-
-      <section className="summary-grid">
-        <SummaryCard title="Conclus?o do perfil" value={`${state.completion?.overall ?? 0}%`} detail="Score consolidado pelo servi?o de completion" />
-        <SummaryCard title="Job matches" value={String(state.matches.length)} detail="Oportunidades mais aderentes ao seu perfil" />
-        <SummaryCard title="Documentos" value={String(state.documents.length)} detail="Arquivos auxiliares al?m do curr?culo" />
-        <SummaryCard title="Refer?ncias" value={String(state.references.length)} detail="Pessoas que podem endossar sua trajet?ria" />
-      </section>
-
-      <div className="content-grid">
-        <section className="content-column">
-          <WorkspaceSection title="Perfil e curr?culo" description="Dados pessoais, foto, resumo e documentos principais.">
-            <div className="profile-shell">
-              <div className="avatar-plate">
-                {avatarPreview ?<img src={avatarPreview} alt={state.profile?.nome || 'Avatar do candidato'} /> : <span>{getInitials(state.profile?.nome || ctx.session?.candidate.nome || 'Candidato')}</span>}
+    <main className="workspace-shell workspace-view-shell">
+      <div className="workspace-view-grid">
+        <aside className="workspace-sidebar">
+          <section className="workspace-sidebar-card">
+            <div className="workspace-sidebar-profile">
+              <div className="workspace-sidebar-avatar">
+                {avatarPreview ?<img src={avatarPreview} alt={candidateName} /> : <span>{getInitials(candidateName)}</span>}
               </div>
-              <label className="upload-label">
-                Alterar avatar
-                <input type="file" accept="image/*" onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/avatar`, 'arquivo', file, 'Avatar atualizado.')
-                }} />
-              </label>
+              <div>
+                <strong>{candidateName}</strong>
+                <span>{currentRole}</span>
+              </div>
             </div>
+            <div className="workspace-sidebar-progress">
+              <div>
+                <span>Perfil completo</span>
+                <strong>{profileComplete}%</strong>
+              </div>
+              <div className="workspace-sidebar-progress-bar" aria-hidden="true">
+                <span style={{ width: `${profileComplete}%` }}></span>
+              </div>
+              <button className="workspace-sidebar-cta" type="button" onClick={() => selectWorkspaceSection('perfil-curriculo')}>
+                <i className="fas fa-pen" aria-hidden="true"></i>
+                Completar perfil
+              </button>
+            </div>
+          </section>
 
-            <RecordForm
-              fields={[
-                field('Nome', state.profile?.nome),
-                field('Telefone', state.profile?.fone),
-                field('Cidade', state.profile?.cidade),
-                field('UF', state.profile?.uf),
-                field('LinkedIn', state.profile?.linkedinUrl),
-                field('Resumo', state.profile?.resumoProfissional, 'textarea'),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}`, {
-                nome: values.Nome,
-                fone: values.Telefone,
-                cidade: values.Cidade,
-                uf: values.UF,
-                linkedinUrl: values.LinkedIn,
-                resumoProfissional: values.Resumo,
-              }, 'Perfil atualizado.')}
+          <nav className="workspace-sidebar-nav" aria-label="Navegação do meu espaço">
+            {workspaceNavItems.map((item) => (
+              <button
+                className={activeWorkspaceSection === item.id ?'is-active' : ''}
+                type="button"
+                key={item.id}
+                onClick={() => selectWorkspaceSection(item.id)}
+              >
+                <i className={`fas ${item.icon}`} aria-hidden="true"></i>
+                <span>{item.label}</span>
+                {item.badge ?<strong>{item.badge}</strong> : null}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        <section className="workspace-main-pane">
+          <section className="workspace-identity-hero">
+            <div>
+              <div className="eyebrow">Meu espaço</div>
+              <h1>Olá, <em>{candidateName.split(' ')[0]}</em></h1>
+              <p>{candidateEmail}</p>
+            </div>
+            <div className="workspace-actions">
+              <button className="secondary-btn" type="button" onClick={() => void refreshWorkspace()}>Atualizar tudo</button>
+              <button className="ghost-btn" type="button" onClick={handleLogout}>Sair</button>
+            </div>
+          </section>
+
+          {message ?<div className="toast-banner">{message}</div> : null}
+
+          <div className="content-grid workspace-content-grid is-single-section">
+        <section className="content-column">
+          <WorkspaceSection active={activeWorkspaceSection === 'perfil-curriculo'} id="perfil-curriculo" title="Perfil e currículo" description="Dados pessoais, foto, resumo e documentos principais.">
+            <CandidateProfileResumeForm
+              authFetch={authFetch}
+              avatarPreview={avatarPreview}
+              candidateId={candidateId}
+              candidateName={candidateName}
+              profile={state.profile}
+              saveJson={saveJson}
+              setMessage={setMessage}
+              setResumeParsePreview={setResumeParsePreview}
+              uploadFile={uploadFile}
             />
-
-            <div className="toolbar-row">
-              <label className="upload-label">
-                Enviar curr?culo
-                <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'Curr?culo enviado.')
-                }} />
-              </label>
-              <label className="upload-label">
-                Parsear curr?culo
-                <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  const form = new FormData()
-                  form.append('arquivo', file)
-                  void authFetch<Record<string, unknown>>(`/api/public/portal-candidates/${candidateId}/parse-resume`, { method: 'POST', body: form }, false)
-                    .then((result) => setResumeParsePreview(JSON.stringify(result, null, 2)))
-                    .catch((err) => setMessage(readError(err)))
-                }} />
-              </label>
-              <button className="secondary-btn" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>Abrir curr?culo HTML</button>
-              <button className="secondary-btn" type="button" onClick={() => void downloadResumePdf(authFetch, candidateId)}>Baixar PDF gerado</button>
-            </div>
 
             {resumeParsePreview ?<pre className="json-preview">{resumeParsePreview}</pre> : null}
           </WorkspaceSection>
 
-          <WorkspaceSection title="Conclus?o e ader?ncia" description="Diagn?stico autom?tico do perfil e vagas com maior match.">
+          <WorkspaceSection active={activeWorkspaceSection === 'matches'} id="matches" title="Conclusão e aderência" description="Diagnóstico automático do perfil e vagas com maior match.">
             <div className="completion-shell">
               {Object.entries(state.completion?.sections ?? {}).map(([key, value]) => (
                 <div key={key} className="metric-row">
@@ -2949,7 +3007,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             </div>
           </WorkspaceSection>
 
-          <WorkspaceSection title="Skills, links e certifica??es" description="Compet?ncias, prefer?ncias r?pidas e links do portf?lio.">
+          <WorkspaceSection active={activeWorkspaceSection === 'skills'} id="skills" title="Skills, links e certificações" description="Competências, preferências rápidas e links do portfólio.">
             <RecordForm
               fields={[
                 field('WorkModel', state.portfolio?.preferences.workModel),
@@ -2995,7 +3053,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             />
           </WorkspaceSection>
 
-          <WorkspaceSection title="Educa??o" description="Resumo da forma??o e hist?rico acad?mico detalhado.">
+          <WorkspaceSection active={activeWorkspaceSection === 'educacao'} id="educacao" title="Educação" description="Resumo da formação e histórico acadêmico detalhado.">
             <RecordForm
               fields={[
                 field('nivel', state.education?.summary.nivel),
@@ -3026,65 +3084,37 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         </section>
 
         <section className="content-column">
-          <WorkspaceSection title="Experi?ncias e projetos" description="Linha do tempo profissional e cases de entrega.">
-            <RepeaterSection
+          <WorkspaceSection active={activeWorkspaceSection === 'experiencias'} id="experiencias" title="Experiências" description="Linha do tempo profissional.">
+            <ExperienceRepeaterSection
               title="Experi?ncias"
               items={state.experience?.experiences ?? []}
               describe={(item) => `${item.cargo}  ${item.inicio || '?'} a ${item.fim || 'atual'}`}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences`, values, 'Experi?ncia adicionada.', 'POST')}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, values, 'Experi?ncia atualizada.')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, 'Experi?ncia removida.')}
-              fields={[
-                { name: 'empresa', label: 'Empresa' },
-                { name: 'cargo', label: 'Cargo' },
-                { name: 'inicio', label: 'In?cio' },
-                { name: 'fim', label: 'Fim' },
-                { name: 'local', label: 'Local / modelo' },
-                { name: 'atividades', label: 'Atividades' },
-              ]}
             />
-            <RepeaterSection
+          </WorkspaceSection>
+
+          <WorkspaceSection active={activeWorkspaceSection === 'projetos'} id="projetos" title="Projetos" description="Cases de entrega, tecnologias e destaques.">
+            <ProjectRepeaterSection
               title="Projetos"
               items={state.experience?.projects ?? []}
               describe={(item) => `${item.periodo || 'Per?odo livre'} ? ${item.stack || 'Stack aberta'}`}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/projects`, values, 'Projeto adicionado.', 'POST')}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/projects/${item.id}`, values, 'Projeto atualizado.')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/projects/${item.id}`, 'Projeto removido.')}
-              fields={[
-                { name: 'nome', label: 'Nome' },
-                { name: 'periodo', label: 'Per?odo' },
-                { name: 'descricao', label: 'Descri??o' },
-                { name: 'link', label: 'Link' },
-                { name: 'stack', label: 'Stack' },
-                { name: 'destaques', label: 'Destaques' },
-              ]}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection title="Prefer?ncias de vaga" description="Objetivo profissional, deslocamento, jornada e remunera??o.">
-            <RecordForm
-              fields={[
-                field('CargoAlvo', asString(state.preferences?.CargoAlvo)),
-                field('Senioridade', asString(state.preferences?.Senioridade)),
-                field('InicioDisponivel', asString(state.preferences?.InicioDisponivel)),
-                field('Resumo', asString(state.preferences?.Resumo), 'textarea'),
-                field('AreasInteresse', asString(state.preferences?.AreasInteresse)),
-                field('ModeloTrabalho', asString(state.preferences?.ModeloTrabalho)),
-                field('Jornada', asString(state.preferences?.Jornada)),
-                field('TipoContrato', asString(state.preferences?.TipoContrato)),
-                field('Viagens', asString(state.preferences?.Viagens)),
-                field('Mudanca', asString(state.preferences?.Mudanca)),
-                field('CidadePreferida', asString(state.preferences?.CidadePreferida)),
-                field('DistanciaMaxKm', asString(state.preferences?.DistanciaMaxKm)),
-                field('ObsDeslocamento', asString(state.preferences?.ObsDeslocamento)),
-                field('PretensaoSalarial', asString(state.preferences?.PretensaoSalarial)),
-                field('PretensaoNegociavel', asString(state.preferences?.PretensaoNegociavel)),
-                field('BeneficiosDesejados', asString(state.preferences?.BeneficiosDesejados)),
-                field('NaoAbreMaoDe', asString(state.preferences?.NaoAbreMaoDe)),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'Prefer?ncias salvas.')}
+          <WorkspaceSection active={activeWorkspaceSection === 'preferencias'} id="preferencias" title="Preferências de vaga" description="Objetivo profissional, deslocamento, jornada e remuneração.">
+            <CandidateJobPreferencesForm
+              preferences={state.preferences}
+              tenantId={ctx.tenantId}
+              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'Preferências salvas.')}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection title="Agenda e disponibilidade" description="Formato de entrevista, janelas preferidas e bloqueios.">
+          <WorkspaceSection active={activeWorkspaceSection === 'agenda'} id="agenda" title="Agenda e disponibilidade" description="Formato de entrevista, janelas preferidas e bloqueios.">
             <RecordForm
               fields={[
                 field('formatoEntrevista', state.agenda?.preferences.formatoEntrevista),
@@ -3124,7 +3154,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             />
           </WorkspaceSection>
 
-          <WorkspaceSection title="Notifica??es e LGPD" description="Consentimentos, canais e prioridades de contato.">
+          <WorkspaceSection active={activeWorkspaceSection === 'notificacoes-lgpd'} id="notificacoes-lgpd" title="Notificações e LGPD" description="Consentimentos, canais e prioridades de contato.">
             <RecordForm
               fields={[
                 field('frequencia', state.notifications?.frequencia),
@@ -3173,7 +3203,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             <button className="secondary-btn" type="button" onClick={() => void openLgpdReceipt(authFetch, candidateId)}>Abrir comprovante LGPD</button>
           </WorkspaceSection>
 
-          <WorkspaceSection title="Documentos, refer?ncias e acessibilidade" description="Toda a camada complementar do perfil do candidato.">
+          <WorkspaceSection active={activeWorkspaceSection === 'documentos'} id="documentos" title="Documentos, referências e acessibilidade" description="Toda a camada complementar do perfil do candidato.">
             <RepeaterSection
               title="Documentos"
               items={state.documents}
@@ -3237,8 +3267,327 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             />
           </WorkspaceSection>
         </section>
+          </div>
+        </section>
       </div>
     </main>
+  )
+}
+
+function CandidateJobPreferencesForm({
+  preferences,
+  tenantId,
+  onSubmit,
+}: {
+  preferences: PortalPreferences | null
+  tenantId: string
+  onSubmit: (values: PortalPreferences) => void | Promise<void>
+}) {
+  const parsedLocation = parsePreferredLocation(preferences?.CidadePreferida)
+  const [form, setForm] = useState({
+    CargoAlvo: asString(preferences?.CargoAlvo),
+    Senioridade: asString(preferences?.Senioridade),
+    InicioDisponivel: asString(preferences?.InicioDisponivel),
+    Resumo: asString(preferences?.Resumo),
+    AreasInteresse: splitPreferenceList(preferences?.AreasInteresse),
+    ModeloTrabalho: asString(preferences?.ModeloTrabalho),
+    Jornada: asString(preferences?.Jornada),
+    TipoContrato: asString(preferences?.TipoContrato),
+    Viagens: asString(preferences?.Viagens),
+    Mudanca: asString(preferences?.Mudanca),
+    CidadePreferida: parsedLocation.cidade,
+    UfPreferida: parsedLocation.uf,
+    DistanciaMaxKm: asString(preferences?.DistanciaMaxKm),
+    ObsDeslocamento: asString(preferences?.ObsDeslocamento),
+    PretensaoSalarial: formatCurrencyInput(asString(preferences?.PretensaoSalarial)),
+    PretensaoNegociavel: asString(preferences?.PretensaoNegociavel),
+    BeneficiosDesejados: asString(preferences?.BeneficiosDesejados),
+    NaoAbreMaoDe: asString(preferences?.NaoAbreMaoDe),
+  })
+  const [areaOptions, setAreaOptions] = useState<string[]>(FALLBACK_JOB_AREAS)
+  const [areaStatus, setAreaStatus] = useState<'loading' | 'ready' | 'fallback'>('loading')
+  const [ufOptions, setUfOptions] = useState(BRAZILIAN_STATE_OPTIONS)
+  const [cityOptions, setCityOptions] = useState<string[]>([])
+  const selectedAreas = form.AreasInteresse
+
+  useEffect(() => {
+    const nextLocation = parsePreferredLocation(preferences?.CidadePreferida)
+    setForm({
+      CargoAlvo: asString(preferences?.CargoAlvo),
+      Senioridade: asString(preferences?.Senioridade),
+      InicioDisponivel: asString(preferences?.InicioDisponivel),
+      Resumo: asString(preferences?.Resumo),
+      AreasInteresse: splitPreferenceList(preferences?.AreasInteresse),
+      ModeloTrabalho: asString(preferences?.ModeloTrabalho),
+      Jornada: asString(preferences?.Jornada),
+      TipoContrato: asString(preferences?.TipoContrato),
+      Viagens: asString(preferences?.Viagens),
+      Mudanca: asString(preferences?.Mudanca),
+      CidadePreferida: nextLocation.cidade,
+      UfPreferida: nextLocation.uf,
+      DistanciaMaxKm: asString(preferences?.DistanciaMaxKm),
+      ObsDeslocamento: asString(preferences?.ObsDeslocamento),
+      PretensaoSalarial: formatCurrencyInput(asString(preferences?.PretensaoSalarial)),
+      PretensaoNegociavel: asString(preferences?.PretensaoNegociavel),
+      BeneficiosDesejados: asString(preferences?.BeneficiosDesejados),
+      NaoAbreMaoDe: asString(preferences?.NaoAbreMaoDe),
+    })
+  }, [preferences])
+
+  useEffect(() => {
+    let cancelled = false
+    portalRequest<{ items: PortalJob[] }>(tenantId, '/api/public/vagas?page=1&pageSize=200')
+      .then((result) => {
+        if (cancelled) return
+        const areas = listUniqueJobValues(result.items ?? [], (job) => job.area)
+        const merged = mergePreferenceOptions(areas.length ?areas : FALLBACK_JOB_AREAS, selectedAreas)
+        setAreaOptions(merged)
+        setAreaStatus(areas.length ?'ready' : 'fallback')
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAreaOptions(mergePreferenceOptions(FALLBACK_JOB_AREAS, selectedAreas))
+          setAreaStatus('fallback')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tenantId, selectedAreas.join('|')])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(IBGE_STATES_URL)
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((states) => {
+        if (cancelled) return
+        const normalized = states
+          .map((state) => ({ sigla: state.sigla, nome: state.nome }))
+          .filter((state) => state.sigla && state.nome)
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        if (normalized.length) setUfOptions(normalized)
+      })
+      .catch(() => {
+        if (!cancelled) setUfOptions(BRAZILIAN_STATE_OPTIONS)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!form.UfPreferida) {
+      setCityOptions([])
+      return
+    }
+
+    let cancelled = false
+    fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(form.UfPreferida)}/municipios?orderBy=nome`)
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((cities) => {
+        if (cancelled) return
+        const names = cities.map((city) => city.nome).filter(Boolean)
+        setCityOptions(names)
+        setForm((current) => current.CidadePreferida && !names.includes(current.CidadePreferida)
+          ?{ ...current, CidadePreferida: '' }
+          : current)
+      })
+      .catch(() => {
+        if (!cancelled) setCityOptions([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [form.UfPreferida])
+
+  function updateField(name: keyof typeof form, value: string) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function toggleArea(area: string) {
+    setForm((current) => {
+      const exists = current.AreasInteresse.includes(area)
+      return {
+        ...current,
+        AreasInteresse: exists
+          ?current.AreasInteresse.filter((item) => item !== area)
+          : [...current.AreasInteresse, area],
+      }
+    })
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    const cidadePreferida = [form.CidadePreferida, form.UfPreferida].filter(Boolean).join(' / ')
+    onSubmit({
+      CargoAlvo: form.CargoAlvo.trim(),
+      Senioridade: form.Senioridade,
+      InicioDisponivel: form.InicioDisponivel,
+      Resumo: form.Resumo.trim(),
+      AreasInteresse: joinPreferenceList(form.AreasInteresse),
+      ModeloTrabalho: form.ModeloTrabalho,
+      Jornada: form.Jornada,
+      TipoContrato: form.TipoContrato,
+      Viagens: form.Viagens,
+      Mudanca: form.Mudanca,
+      CidadePreferida: cidadePreferida,
+      DistanciaMaxKm: form.DistanciaMaxKm,
+      ObsDeslocamento: form.ObsDeslocamento.trim(),
+      PretensaoSalarial: form.PretensaoSalarial.trim(),
+      PretensaoNegociavel: form.PretensaoNegociavel,
+      BeneficiosDesejados: form.BeneficiosDesejados.trim(),
+      NaoAbreMaoDe: form.NaoAbreMaoDe.trim(),
+    })
+  }
+
+  return (
+    <form className="job-preferences-form" onSubmit={handleSubmit}>
+      <section className="job-preferences-card">
+        <div className="job-preferences-card-head">
+          <span>Objetivo</span>
+          <strong>Conte para quais vagas você quer ser considerado.</strong>
+        </div>
+        <div className="job-preferences-grid">
+          <PreferenceTextField label="Cargo alvo" value={form.CargoAlvo} onChange={(value) => updateField('CargoAlvo', value)} placeholder="Ex.: Analista Financeiro" />
+          <PreferenceSelectField label="Senioridade" value={form.Senioridade} options={SENIORITY_OPTIONS} onChange={(value) => updateField('Senioridade', value)} />
+          <PreferenceSelectField label="Início disponível" value={form.InicioDisponivel} options={AVAILABILITY_OPTIONS} onChange={(value) => updateField('InicioDisponivel', value)} />
+          <label className="job-preferences-field is-full">
+            <span>Resumo profissional</span>
+            <textarea rows={4} value={form.Resumo} onChange={(event) => updateField('Resumo', event.target.value)} placeholder="Fale brevemente sobre seu objetivo e momento de carreira." />
+          </label>
+        </div>
+      </section>
+
+      <section className="job-preferences-card">
+        <div className="job-preferences-card-head">
+          <span>Áreas e modelo</span>
+          <strong>Preferências para encontrar oportunidades compatíveis.</strong>
+        </div>
+        <div className="job-preferences-field is-full">
+          <span>Áreas de interesse</span>
+          <div className="job-preferences-chip-grid">
+            {areaOptions.map((area) => (
+              <button
+                className={`job-preferences-chip${selectedAreas.includes(area) ?' is-selected' : ''}`}
+                key={area}
+                type="button"
+                onClick={() => toggleArea(area)}
+              >
+                {area}
+              </button>
+            ))}
+          </div>
+          <small>{areaStatus === 'fallback' ?'Usando lista padrão porque não foi possível derivar áreas das vagas agora.' : 'Opções derivadas das vagas abertas do tenant.'}</small>
+        </div>
+        <div className="job-preferences-grid">
+          <PreferenceSelectField label="Modelo de trabalho" value={form.ModeloTrabalho} options={WORK_MODEL_OPTIONS} onChange={(value) => updateField('ModeloTrabalho', value)} />
+          <PreferenceSelectField label="Jornada" value={form.Jornada} options={WORKDAY_OPTIONS} onChange={(value) => updateField('Jornada', value)} />
+          <PreferenceSelectField label="Tipo de contrato" value={form.TipoContrato} options={CONTRACT_OPTIONS} onChange={(value) => updateField('TipoContrato', value)} />
+        </div>
+      </section>
+
+      <section className="job-preferences-card">
+        <div className="job-preferences-card-head">
+          <span>Localidade</span>
+          <strong>Defina deslocamento, viagens e mudança.</strong>
+        </div>
+        <div className="job-preferences-grid">
+          <PreferenceSelectField label="Viagens" value={form.Viagens} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('Viagens', value)} />
+          <PreferenceSelectField label="Mudança" value={form.Mudanca} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('Mudanca', value)} />
+          <label className="job-preferences-field">
+            <span>UF preferida</span>
+            <select value={form.UfPreferida} onChange={(event) => setForm((current) => ({ ...current, UfPreferida: event.target.value, CidadePreferida: '' }))}>
+              <option value="">Selecionar UF</option>
+              {ufOptions.map((state) => (
+                <option key={state.sigla} value={state.sigla}>{state.sigla} - {state.nome}</option>
+              ))}
+            </select>
+          </label>
+          <label className="job-preferences-field">
+            <span>Cidade preferida</span>
+            <select value={form.CidadePreferida} onChange={(event) => updateField('CidadePreferida', event.target.value)} disabled={!form.UfPreferida}>
+              <option value="">{form.UfPreferida ?'Selecionar cidade' : 'Selecione a UF primeiro'}</option>
+              {cityOptions.map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </label>
+          <PreferenceSelectField label="Distância máxima" value={form.DistanciaMaxKm} options={DISTANCE_OPTIONS} onChange={(value) => updateField('DistanciaMaxKm', value)} suffix="km" />
+          <label className="job-preferences-field is-full">
+            <span>Observações de deslocamento</span>
+            <textarea rows={3} value={form.ObsDeslocamento} onChange={(event) => updateField('ObsDeslocamento', event.target.value)} placeholder="Ex.: aceito deslocamento para unidades próximas ao transporte público." />
+          </label>
+        </div>
+      </section>
+
+      <section className="job-preferences-card">
+        <div className="job-preferences-card-head">
+          <span>Remuneração e benefícios</span>
+          <strong>Ajude o RH a entender suas expectativas.</strong>
+        </div>
+        <div className="job-preferences-grid">
+          <PreferenceTextField label="Pretensão salarial" value={form.PretensaoSalarial} onChange={(value) => updateField('PretensaoSalarial', formatCurrencyInput(value))} placeholder="R$ 0,00" inputMode="numeric" />
+          <PreferenceSelectField label="Pretensão negociável" value={form.PretensaoNegociavel} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('PretensaoNegociavel', value)} />
+          <label className="job-preferences-field is-full">
+            <span>Benefícios desejados</span>
+            <textarea rows={3} value={form.BeneficiosDesejados} onChange={(event) => updateField('BeneficiosDesejados', event.target.value)} placeholder="Ex.: plano de saúde, vale alimentação, auxílio educação." />
+          </label>
+          <label className="job-preferences-field is-full">
+            <span>Não abro mão de</span>
+            <textarea rows={3} value={form.NaoAbreMaoDe} onChange={(event) => updateField('NaoAbreMaoDe', event.target.value)} placeholder="Ex.: contrato CLT, modelo híbrido, escala específica." />
+          </label>
+        </div>
+      </section>
+
+      <button className="secondary-btn" type="submit">Salvar preferências</button>
+    </form>
+  )
+}
+
+function PreferenceTextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  inputMode,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'search' | 'email' | 'url'
+}) {
+  return (
+    <label className="job-preferences-field">
+      <span>{label}</span>
+      <input inputMode={inputMode} placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  )
+}
+
+function PreferenceSelectField({
+  label,
+  value,
+  options,
+  onChange,
+  suffix,
+}: {
+  label: string
+  value: string
+  options: string[]
+  onChange: (value: string) => void
+  suffix?: string
+}) {
+  return (
+    <label className="job-preferences-field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">Selecionar</option>
+        {options.map((option) => (
+          <option key={option} value={option}>{suffix ?`${option} ${suffix}` : option}</option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -3335,19 +3684,11 @@ async function fetchJson<T>(url: string) {
   return response.json() as Promise<T>
 }
 
-function SummaryCard({ title, value, detail }: { title: string; value: string; detail: string }) {
-  return (
-    <article className="summary-card">
-      <div className="eyebrow">{title}</div>
-      <strong>{value}</strong>
-      <p>{detail}</p>
-    </article>
-  )
-}
+function WorkspaceSection({ active, id, title, description, children }: { active?: boolean; id?: string; title: string; description: string; children: ReactNode }) {
+  if (!active) return null
 
-function WorkspaceSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
-    <section className="workspace-card">
+    <section className="workspace-card" id={id}>
       <div className="section-head">
         <div>
           <h3>{title}</h3>
@@ -3356,6 +3697,528 @@ function WorkspaceSection({ title, description, children }: { title: string; des
       </div>
       <div className="section-body">{children}</div>
     </section>
+  )
+}
+
+function CandidateProfileResumeForm({
+  authFetch,
+  avatarPreview,
+  candidateId,
+  candidateName,
+  profile,
+  saveJson,
+  setMessage,
+  setResumeParsePreview,
+  uploadFile,
+}: {
+  authFetch: ReturnType<typeof createAuthorizedClient>
+  avatarPreview: string | null
+  candidateId: string
+  candidateName: string
+  profile: PortalProfile | null
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => Promise<void>
+  setMessage: (message: string | null) => void
+  setResumeParsePreview: (value: string) => void
+  uploadFile: (path: string, fieldName: string, file: File, successText: string) => Promise<void>
+}) {
+  const [form, setForm] = useState({
+    nome: '',
+    fone: '',
+    uf: '',
+    cidade: '',
+    linkedinUrl: '',
+    resumoProfissional: '',
+  })
+  const [ufOptions, setUfOptions] = useState(BRAZILIAN_STATE_OPTIONS)
+  const [cityOptions, setCityOptions] = useState<string[]>([])
+  const [cityLoading, setCityLoading] = useState(false)
+
+  useEffect(() => {
+    setForm({
+      nome: profile?.nome ?? '',
+      fone: formatBrazilianPhone(profile?.fone),
+      uf: (profile?.uf ?? '').toUpperCase(),
+      cidade: profile?.cidade ?? '',
+      linkedinUrl: profile?.linkedinUrl ?? '',
+      resumoProfissional: profile?.resumoProfissional ?? '',
+    })
+  }, [profile])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(IBGE_STATES_URL)
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((states) => {
+        if (cancelled) return
+        const normalized = states
+          .map((state) => ({ sigla: state.sigla, nome: state.nome }))
+          .filter((state) => state.sigla && state.nome)
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        if (normalized.length) setUfOptions(normalized)
+      })
+      .catch(() => {
+        if (!cancelled) setUfOptions(BRAZILIAN_STATE_OPTIONS)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!form.uf) {
+      setCityOptions([])
+      setCityLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setCityLoading(true)
+    fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(form.uf)}/municipios?orderBy=nome`)
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((cities) => {
+        if (cancelled) return
+        setCityOptions(cities.map((city) => city.nome).filter(Boolean))
+      })
+      .catch(() => {
+        if (!cancelled) setCityOptions([])
+      })
+      .finally(() => {
+        if (!cancelled) setCityLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [form.uf])
+
+  const citySelectOptions = form.cidade && !cityOptions.includes(form.cidade)
+    ?[form.cidade, ...cityOptions]
+    : cityOptions
+
+  return (
+    <>
+      <div className="profile-shell">
+        <div className="avatar-plate">
+          {avatarPreview ?<img src={avatarPreview} alt={profile?.nome || candidateName} /> : <span>{getInitials(profile?.nome || candidateName)}</span>}
+        </div>
+        <label className="upload-label">
+          Enviar Foto
+          <input type="file" accept="image/*" onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/avatar`, 'arquivo', file, 'Avatar atualizado.')
+          }} />
+        </label>
+      </div>
+
+      <form
+        className="stack-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void saveJson(`/api/public/portal-candidates/${candidateId}`, {
+            nome: form.nome.trim(),
+            fone: form.fone.trim(),
+            uf: form.uf.trim().toUpperCase(),
+            cidade: form.cidade.trim(),
+            linkedinUrl: form.linkedinUrl.trim(),
+            resumoProfissional: form.resumoProfissional.trim(),
+          }, 'Perfil atualizado.')
+        }}
+      >
+        <label>
+          <span>Nome</span>
+          <input value={form.nome} onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))} />
+        </label>
+        <label>
+          <span>Telefone</span>
+          <input
+            inputMode="tel"
+            placeholder="(11) 99999-9999"
+            value={form.fone}
+            onChange={(event) => setForm((current) => ({ ...current, fone: formatBrazilianPhone(event.target.value) }))}
+          />
+        </label>
+        <label>
+          <span>UF</span>
+          <select
+            value={form.uf}
+            onChange={(event) => setForm((current) => ({ ...current, uf: event.target.value, cidade: '' }))}
+          >
+            <option value="">Selecione a UF</option>
+            {ufOptions.map((state) => (
+              <option key={state.sigla} value={state.sigla}>{state.nome} / {state.sigla}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Cidade</span>
+          <select
+            value={form.cidade}
+            onChange={(event) => setForm((current) => ({ ...current, cidade: event.target.value }))}
+            disabled={!form.uf || cityLoading}
+          >
+            <option value="">{cityLoading ?'Carregando cidades...' : 'Selecione a cidade'}</option>
+            {citySelectOptions.map((city) => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>LinkedIn</span>
+          <input value={form.linkedinUrl} onChange={(event) => setForm((current) => ({ ...current, linkedinUrl: event.target.value }))} />
+        </label>
+        <label>
+          <span>Resumo</span>
+          <textarea rows={4} value={form.resumoProfissional} onChange={(event) => setForm((current) => ({ ...current, resumoProfissional: event.target.value }))} />
+        </label>
+        <button className="primary-btn" type="submit">Salvar seção</button>
+      </form>
+
+      <div className="toolbar-row">
+        <label className="upload-label">
+          Enviar currículo
+          <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'Currículo enviado.')
+          }} />
+        </label>
+        <label className="upload-label">
+          Parsear currículo
+          <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (!file) return
+            const upload = new FormData()
+            upload.append('arquivo', file)
+            void authFetch<Record<string, unknown>>(`/api/public/portal-candidates/${candidateId}/parse-resume`, { method: 'POST', body: upload }, false)
+              .then((result) => setResumeParsePreview(JSON.stringify(result, null, 2)))
+              .catch((err) => setMessage(readError(err)))
+          }} />
+        </label>
+        <button className="secondary-btn" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>Abrir currículo HTML</button>
+        <button className="secondary-btn" type="button" onClick={() => void downloadResumePdf(authFetch, candidateId)}>Baixar PDF gerado</button>
+      </div>
+    </>
+  )
+}
+
+function ExperienceRepeaterSection({
+  title,
+  items,
+  describe,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  title: string
+  items: PortalExperience[]
+  describe: (item: PortalExperience) => string
+  onAdd: (values: Record<string, string>) => void | Promise<void>
+  onUpdate: (item: PortalExperience, values: Record<string, string>) => void | Promise<void>
+  onDelete: (item: PortalExperience) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalExperience | null>(null)
+  const [draft, setDraft] = useState({
+    empresa: '',
+    cargo: '',
+    inicio: '',
+    fim: '',
+    local: '',
+    atividades: '',
+  })
+
+  function resetDraft() {
+    setDraft({
+      empresa: '',
+      cargo: '',
+      inicio: '',
+      fim: '',
+      local: '',
+      atividades: '',
+    })
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalExperience) {
+    setEditingItem(item)
+    setDraft({
+      empresa: item.empresa ?? '',
+      cargo: item.cargo ?? '',
+      inicio: item.inicio ?? '',
+      fim: item.fim ?? '',
+      local: item.local ?? '',
+      atividades: item.atividades ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  return (
+    <div className="subsection-card">
+      <div className="subsection-head">
+        <strong>{title}</strong>
+        <span>{items.length} item(ns)</span>
+      </div>
+      <div className="list-shell">
+        {items.map((item) => (
+          <article key={item.id} className="list-item">
+            <div>
+              <strong>{getRepeaterTitle(item)}</strong>
+              <p>{describe(item)}</p>
+            </div>
+            <div className="list-item-actions">
+              <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+              <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ?<div className="empty-inline">Nenhum item registrado ainda.</div> : null}
+      </div>
+      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar Experiência</button>
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ?'Editar Experiência' : 'Adicionar Experiência'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (editingItem) {
+                  onUpdate(editingItem, draft)
+                } else {
+                  onAdd(draft)
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Empresa</span>
+                  <input value={draft.empresa} onChange={(event) => setDraft((current) => ({ ...current, empresa: event.target.value }))} />
+                </label>
+                <div className="experience-detail-row">
+                  <label>
+                    <span>Cargo</span>
+                    <input value={draft.cargo} onChange={(event) => setDraft((current) => ({ ...current, cargo: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Início</span>
+                    <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Fim</span>
+                    <input type="date" value={draft.fim} onChange={(event) => setDraft((current) => ({ ...current, fim: event.target.value }))} />
+                  </label>
+                </div>
+                <label>
+                  <span>Local / modelo</span>
+                  <input value={draft.local} onChange={(event) => setDraft((current) => ({ ...current, local: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Descrição</span>
+                  <textarea rows={4} value={draft.atividades} onChange={(event) => setDraft((current) => ({ ...current, atividades: event.target.value }))} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ?'Salvar Experiência' : 'Adicionar Experiência'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
+function ProjectRepeaterSection({
+  title,
+  items,
+  describe,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  title: string
+  items: PortalProject[]
+  describe: (item: PortalProject) => string
+  onAdd: (values: Record<string, string>) => void | Promise<void>
+  onUpdate: (item: PortalProject, values: Record<string, string>) => void | Promise<void>
+  onDelete: (item: PortalProject) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalProject | null>(null)
+  const [draft, setDraft] = useState({
+    nome: '',
+    inicio: '',
+    fim: '',
+    descricao: '',
+    link: '',
+    stack: '',
+    destaques: '',
+  })
+
+  function splitPeriod(period?: string | null) {
+    const [start = '', end = ''] = (period ?? '').split(' a ')
+    return {
+      inicio: start.trim(),
+      fim: end.trim() === 'atual' ?'' : end.trim(),
+    }
+  }
+
+  function resetDraft() {
+    setDraft({
+      nome: '',
+      inicio: '',
+      fim: '',
+      descricao: '',
+      link: '',
+      stack: '',
+      destaques: '',
+    })
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalProject) {
+    const period = splitPeriod(item.periodo)
+    setEditingItem(item)
+    setDraft({
+      nome: item.nome ?? '',
+      inicio: period.inicio,
+      fim: period.fim,
+      descricao: item.descricao ?? '',
+      link: item.link ?? '',
+      stack: item.stack ?? '',
+      destaques: item.destaques ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  function buildPeriod() {
+    const start = draft.inicio.trim()
+    const end = draft.fim.trim()
+    if (start && end) return `${start} a ${end}`
+    if (start) return `${start} a atual`
+    return end
+  }
+
+  return (
+    <div className="subsection-card">
+      <div className="subsection-head">
+        <strong>{title}</strong>
+        <span>{items.length} item(ns)</span>
+      </div>
+      <div className="list-shell">
+        {items.map((item) => (
+          <article key={item.id} className="list-item">
+            <div>
+              <strong>{getRepeaterTitle(item)}</strong>
+              <p>{describe(item)}</p>
+            </div>
+            <div className="list-item-actions">
+              <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+              <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ?<div className="empty-inline">Nenhum item registrado ainda.</div> : null}
+      </div>
+      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar Projeto</button>
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ?'Editar Projeto' : 'Adicionar Projeto'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const payload = {
+                  nome: draft.nome,
+                  periodo: buildPeriod(),
+                  descricao: draft.descricao,
+                  link: draft.link,
+                  stack: draft.stack,
+                  destaques: draft.destaques,
+                }
+                if (editingItem) {
+                  onUpdate(editingItem, payload)
+                } else {
+                  onAdd(payload)
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Nome</span>
+                  <input value={draft.nome} onChange={(event) => setDraft((current) => ({ ...current, nome: event.target.value }))} />
+                </label>
+                <div className="project-period-row">
+                  <label>
+                    <span>Início</span>
+                    <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Fim</span>
+                    <input type="date" value={draft.fim} onChange={(event) => setDraft((current) => ({ ...current, fim: event.target.value }))} />
+                  </label>
+                </div>
+                <label>
+                  <span>Descrição</span>
+                  <textarea rows={4} value={draft.descricao} onChange={(event) => setDraft((current) => ({ ...current, descricao: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Link</span>
+                  <input value={draft.link} onChange={(event) => setDraft((current) => ({ ...current, link: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Stack</span>
+                  <textarea rows={4} value={draft.stack} onChange={(event) => setDraft((current) => ({ ...current, stack: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Destaques</span>
+                  <textarea rows={4} value={draft.destaques} onChange={(event) => setDraft((current) => ({ ...current, destaques: event.target.value }))} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ?'Salvar Projeto' : 'Adicionar Projeto'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
   )
 }
 
@@ -3742,6 +4605,41 @@ function sleep(ms: number) {
 
 function asString(value: string | null | undefined) {
   return value ?? ''
+}
+
+function splitPreferenceList(value?: string | null) {
+  return (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function joinPreferenceList(values: string[]) {
+  return values.map((item) => item.trim()).filter(Boolean).join(', ')
+}
+
+function mergePreferenceOptions(base: string[], selected: string[]) {
+  return Array.from(new Set([...base, ...selected].map((item) => item.trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
+function parsePreferredLocation(value?: string | null) {
+  const raw = (value ?? '').trim()
+  if (!raw) return { cidade: '', uf: '' }
+  const slashMatch = raw.match(/^(.+?)\s*\/\s*([A-Z]{2})$/i)
+  if (slashMatch) return { cidade: slashMatch[1].trim(), uf: slashMatch[2].trim().toUpperCase() }
+  const commaMatch = raw.match(/^(.+?),\s*([A-Z]{2})$/i)
+  if (commaMatch) return { cidade: commaMatch[1].trim(), uf: commaMatch[2].trim().toUpperCase() }
+  const dashMatch = raw.match(/^(.+?)\s*-\s*([A-Z]{2})$/i)
+  if (dashMatch) return { cidade: dashMatch[1].trim(), uf: dashMatch[2].trim().toUpperCase() }
+  return { cidade: raw, uf: '' }
+}
+
+function formatCurrencyInput(value: string) {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+  const cents = Number(digits) / 100
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents)
 }
 
 async function openResumeHtml(authFetch: ReturnType<typeof createAuthorizedClient>, candidateId: string) {
