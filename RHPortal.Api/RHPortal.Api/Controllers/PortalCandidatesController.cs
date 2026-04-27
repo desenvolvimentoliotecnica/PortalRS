@@ -37,6 +37,13 @@ public sealed class PortalCandidatesController : ControllerBase
         public IFormFile? Arquivo { get; set; }
     }
 
+    public sealed class PortalCandidateDocumentUploadInput
+    {
+        public string? Tipo { get; set; }
+        public string? Observacoes { get; set; }
+        public IFormFile? Arquivo { get; set; }
+    }
+
     /// <summary>
     /// Consulta o perfil basico do candidato (dados pessoais + curriculo atual).
     /// </summary>
@@ -1300,6 +1307,55 @@ public sealed class PortalCandidatesController : ControllerBase
         await db.SaveChangesAsync(ct);
 
         return Ok(MapDocumentDto(doc));
+    }
+
+    /// <summary>
+    /// Faz upload de um documento anexo do candidato.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("{id:guid}/documents/upload")]
+    [ProducesResponseType(typeof(PortalCandidateDocumentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [RequestSizeLimit(52_428_800)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 52_428_800)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<PortalCandidateDocumentDto>> UploadDocument(
+        Guid id,
+        [FromForm] PortalCandidateDocumentUploadInput input,
+        [FromServices] ICandidatoService service,
+        CancellationToken ct)
+    {
+        var arquivo = input?.Arquivo;
+        if (arquivo is null || arquivo.Length == 0)
+            return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoFileInvalid"] });
+
+        if (string.IsNullOrWhiteSpace(input?.Tipo))
+            return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoTypeRequired"] });
+
+        var tipo = ParseDocumentType(input.Tipo);
+
+        try
+        {
+            var created = await service.AddDocumentoAsync(id, tipo, NormalizeOptional(input.Observacoes), arquivo, ct);
+            if (created is null)
+                return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+            return Ok(new PortalCandidateDocumentDto(
+                created.Id,
+                MapDocumentTypeLabel(created.Tipo),
+                created.NomeArquivo,
+                created.Url,
+                null,
+                created.Descricao,
+                created.NomeArquivo,
+                created.CreatedAtUtc
+            ));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>

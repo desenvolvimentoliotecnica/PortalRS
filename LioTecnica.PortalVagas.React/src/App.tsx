@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
@@ -225,12 +225,14 @@ const WORKSPACE_SECTIONS = [
   { id: 'experiencias', label: 'Experiências', icon: 'fa-briefcase' },
   { id: 'projetos', label: 'Projetos', icon: 'fa-diagram-project' },
   { id: 'preferencias', label: 'Preferências de vaga', icon: 'fa-bullseye' },
-  { id: 'matches', label: 'Conclusão e aderência', icon: 'fa-chart-line' },
   { id: 'agenda', label: 'Agenda e disponibilidade', icon: 'fa-calendar-alt' },
   { id: 'skills', label: 'Skills, links e certificações', icon: 'fa-bolt' },
   { id: 'notificacoes-lgpd', label: 'Notificações e LGPD', icon: 'fa-shield-alt' },
   { id: 'educacao', label: 'Educação', icon: 'fa-graduation-cap' },
-  { id: 'documentos', label: 'Documentos, referências e acessibilidade', icon: 'fa-paperclip' },
+  { id: 'documentos', label: 'Documentos', icon: 'fa-paperclip' },
+  { id: 'referencias', label: 'Referências', icon: 'fa-users' },
+  { id: 'acessibilidade', label: 'Acessibilidade', icon: 'fa-universal-access' },
+  { id: 'matches', label: 'Conclusão e aderência', icon: 'fa-chart-line' },
 ] as const
 
 type WorkspaceSectionId = (typeof WORKSPACE_SECTIONS)[number]['id']
@@ -260,6 +262,11 @@ const WORKDAY_OPTIONS = ['Integral', 'Parcial', 'Noturno', 'Escala', 'Flexível'
 const CONTRACT_OPTIONS = ['CLT', 'PJ', 'Temporário', 'Estágio', 'Trainee', 'A combinar']
 const YES_NO_NEGOTIABLE_OPTIONS = ['Sim', 'Não', 'A combinar']
 const DISTANCE_OPTIONS = ['5', '10', '20', '30', '50', '75', '100']
+const ACCESSIBILITY_LANGUAGE_OPTIONS = ['Português', 'Inglês', 'Espanhol', 'Outro']
+const ACCESSIBILITY_CHANNEL_OPTIONS = ['E-mail', 'WhatsApp', 'Telefone', 'SMS', 'Portal', 'Indiferente']
+const ACCESSIBILITY_TIME_OPTIONS = ['Manhã', 'Tarde', 'Noite', 'Horário comercial', 'A combinar']
+const PCD_IDENTIFICATION_OPTIONS = ['Sim', 'Não', 'Prefiro não informar']
+const PCD_TYPE_OPTIONS = ['Física', 'Auditiva', 'Visual', 'Intelectual', 'Psicossocial', 'Múltipla', 'Outra']
 const BRAZILIAN_STATE_OPTIONS: BrazilianStateOption[] = [
   { sigla: 'AC', nome: 'Acre' },
   { sigla: 'AL', nome: 'Alagoas' },
@@ -2865,6 +2872,33 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     }
   }
 
+  async function uploadDocument(path: string, tipo: string, observacoes: string, arquivo: File) {
+    const form = new FormData()
+    form.append('Tipo', tipo)
+    form.append('Observacoes', observacoes)
+    form.append('Arquivo', arquivo)
+    try {
+      const response = await fetch(await buildApiUrl(path, ctx.tenantId), {
+        method: 'POST',
+        headers: {
+          'X-Tenant-Id': ctx.tenantId,
+        },
+        body: form,
+      })
+      if (!response.ok) {
+        throw new Error(await readApiMessage(response))
+      }
+      const created = await response.json() as PortalDocument
+      setState((current) => ({
+        ...current,
+        documents: [created, ...current.documents.filter((documentItem) => documentItem.id !== created.id)],
+      }))
+      setMessage('Documento enviado.')
+    } catch (err) {
+      setMessage(readError(err))
+    }
+  }
+
   async function handleLogout() {
     await signOutPortalSession(ctx)
     navigate(withTenant('/acesso', ctx.tenantId))
@@ -2898,6 +2932,8 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         ?String(state.matches.length)
         : section.id === 'documentos' && state.documents.length
           ?String(state.documents.length)
+          : section.id === 'referencias' && state.references.length
+            ?String(state.references.length)
           : null,
   }))
 
@@ -2980,31 +3016,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
           </WorkspaceSection>
 
           <WorkspaceSection active={activeWorkspaceSection === 'matches'} id="matches" title="Conclusão e aderência" description="Diagnóstico automático do perfil e vagas com maior match.">
-            <div className="completion-shell">
-              {Object.entries(state.completion?.sections ?? {}).map(([key, value]) => (
-                <div key={key} className="metric-row">
-                  <span>{key}</span>
-                  <strong>{value}%</strong>
-                </div>
-              ))}
-            </div>
-            {(state.completion?.suggestions ?? []).map((suggestion) => (
-              <article key={`${suggestion.section}-${suggestion.text}`} className="inline-card">
-                <strong>{suggestion.section}</strong>
-                <p>{suggestion.text}</p>
-                <span>{suggestion.impact}</span>
-              </article>
-            ))}
-            <div className="matches-grid">
-              {state.matches.map((match) => (
-                <article key={match.vagaId} className="inline-card">
-                  <strong>{match.title || 'Vaga sem t?tulo'}</strong>
-                  <p>{match.area || '?rea n?o informada'} ? {match.city || 'Cidade'} {match.uf || ''}</p>
-                  <span>Score {match.score}% ? {match.mode || 'Formato flex?vel'}</span>
-                  {match.reason ?<small>{match.reason}</small> : null}
-                </article>
-              ))}
-            </div>
+            <CandidateMatchInsightsSection completion={state.completion} matches={state.matches} onSelectSection={selectWorkspaceSection} />
           </WorkspaceSection>
 
           <WorkspaceSection active={activeWorkspaceSection === 'skills'} id="skills" title="Skills, links e certificações" description="Competências, preferências rápidas e links do portfólio.">
@@ -3203,66 +3215,35 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             <button className="secondary-btn" type="button" onClick={() => void openLgpdReceipt(authFetch, candidateId)}>Abrir comprovante LGPD</button>
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'documentos'} id="documentos" title="Documentos, referências e acessibilidade" description="Toda a camada complementar do perfil do candidato.">
-            <RepeaterSection
+          <WorkspaceSection active={activeWorkspaceSection === 'documentos'} id="documentos" title="Documentos" description="Arquivos, comprovantes e anexos importantes do seu perfil.">
+            <DocumentRepeaterSection
               title="Documentos"
               items={state.documents}
-              describe={(item) => `${item.tipo}  ${item.data || 'Sem data'} ${item.fileName ?` ${item.fileName}` : ''}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/documents`, values, 'Documento salvo.', 'POST')}
+              onUpload={(values) => uploadDocument(`/api/public/portal-candidates/${candidateId}/documents/upload`, values.tipo, values.observacoes, values.arquivo)}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, values, 'Documento atualizado.')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, 'Documento removido.')}
-              fields={[
-                { name: 'tipo', label: 'Tipo' },
-                { name: 'nome', label: 'Nome' },
-                { name: 'link', label: 'Link' },
-                { name: 'data', label: 'Data' },
-                { name: 'observacoes', label: 'Observa??es' },
-                { name: 'fileName', label: 'Nome do arquivo' },
-              ]}
             />
+          </WorkspaceSection>
 
-            <RepeaterSection
-              title="Refer?ncias"
+          <WorkspaceSection active={activeWorkspaceSection === 'referencias'} id="referencias" title="Referências" description="Contatos profissionais que podem apoiar sua trajetória.">
+            <ReferenceRepeaterSection
+              title="Referências"
               items={state.references}
-              describe={(item) => `${item.relacao || 'Rela??o livre'} ? ${item.contato || 'Contato n?o informado'}`}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/references`, {
                 ...values,
                 podeContatar: Boolean(values.podeContatar),
-              }, 'Refer?ncia salva.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, 'Refer?ncia removida.')}
-              fields={[
-                { name: 'nome', label: 'Nome' },
-                { name: 'relacao', label: 'Rela??o' },
-                { name: 'empresa', label: 'Empresa' },
-                { name: 'cargo', label: 'Cargo' },
-                { name: 'contato', label: 'Contato' },
-                { name: 'periodo', label: 'Per?odo' },
-                { name: 'linkedin', label: 'LinkedIn' },
-                { name: 'observacoes', label: 'Observa??es' },
-                { name: 'podeContatar', label: 'Pode contatar?(true/false)' },
-              ]}
+              }, 'Referência salva.', 'POST')}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, {
+                ...values,
+                podeContatar: Boolean(values.podeContatar),
+              }, 'Referência atualizada.')}
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, 'Referência removida.')}
             />
+          </WorkspaceSection>
 
-            <RecordForm
-              fields={[
-                field('idioma', state.accessibility?.idioma),
-                field('canal', state.accessibility?.canal),
-                field('melhorHorario', state.accessibility?.melhorHorario),
-                field('observacoesComunicacao', state.accessibility?.observacoesComunicacao, 'textarea'),
-                field('detalhesNecessidades', state.accessibility?.detalhesNecessidades, 'textarea'),
-                field('pcdIdentificacao', state.accessibility?.pcdIdentificacao),
-                field('pcdTipo', state.accessibility?.pcdTipo),
-                field('pcdComprovacao', state.accessibility?.pcdComprovacao),
-                field('pcdObservacoes', state.accessibility?.pcdObservacoes, 'textarea'),
-              ]}
-              checks={[
-                check('precisaLegendas', state.accessibility?.precisaLegendas),
-                check('precisaInterprete', state.accessibility?.precisaInterprete),
-                check('precisaLeitorTela', state.accessibility?.precisaLeitorTela),
-                check('precisaBaixaEstimulo', state.accessibility?.precisaBaixaEstimulo),
-                check('precisaMobilidade', state.accessibility?.precisaMobilidade),
-                check('precisaTempoExtra', state.accessibility?.precisaTempoExtra),
-                check('consentimentoPcd', state.accessibility?.consentimentoPcd),
-              ]}
+          <WorkspaceSection active={activeWorkspaceSection === 'acessibilidade'} id="acessibilidade" title="Acessibilidade" description="Preferências de comunicação, inclusão e necessidades de acessibilidade.">
+            <CandidateAccessibilityForm
+              accessibility={state.accessibility}
               onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/accessibility`, values, 'Acessibilidade atualizada.')}
             />
           </WorkspaceSection>
@@ -3271,6 +3252,326 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         </section>
       </div>
     </main>
+  )
+}
+
+function CandidateMatchInsightsSection({
+  completion,
+  matches,
+  onSelectSection,
+}: {
+  completion: PortalCompletion | null
+  matches: PortalMatchItem[]
+  onSelectSection: (sectionId: WorkspaceSectionId) => void
+}) {
+  const overall = clampCompletionPercent(completion?.overall)
+  const sections = Object.entries(completion?.sections ?? {})
+    .map(([key, value]) => ({ key, label: formatCompletionSectionLabel(key), value: clampCompletionPercent(value) }))
+    .sort((a, b) => a.value - b.value || a.label.localeCompare(b.label, 'pt-BR'))
+  const suggestions = completion?.suggestions ?? []
+  const incompleteSections = sections.filter((section) => section.value < 100).length
+  const topMatch = matches.reduce((best, match) => Math.max(best, clampCompletionPercent(match.score)), 0)
+  const ringStyle = { '--match-score': `${overall}%` } as CSSProperties
+
+  return (
+    <div className="match-insights">
+      <section className="match-insights-hero">
+        <div className="match-score-ring" style={ringStyle} aria-label={`Perfil ${overall}% completo`}>
+          <span>{overall}%</span>
+          <small>perfil</small>
+        </div>
+        <div className="match-insights-copy">
+          <div className="eyebrow">Diagnóstico do candidato</div>
+          <h3>{overall >= 80 ? 'Seu perfil já está bem encaminhado.' : 'Complete os pontos certos para ganhar aderência.'}</h3>
+          <p>
+            Cruzamos a conclusão do seu perfil com as vagas abertas para indicar onde ajustar informações e quais oportunidades parecem mais próximas.
+          </p>
+        </div>
+      </section>
+
+      <div className="match-kpi-grid" aria-label="Resumo de aderência">
+        <article>
+          <span>Perfil completo</span>
+          <strong>{overall}%</strong>
+          <small>{sections.length ? `${sections.length} áreas avaliadas` : 'Aguardando diagnóstico'}</small>
+        </article>
+        <article>
+          <span>Pontos de melhoria</span>
+          <strong>{suggestions.length || incompleteSections}</strong>
+          <small>{suggestions.length ? 'sugestões priorizadas' : 'áreas incompletas'}</small>
+        </article>
+        <article>
+          <span>Melhor aderência</span>
+          <strong>{matches.length ? `${topMatch}%` : '-'}</strong>
+          <small>{matches.length ? `${matches.length} vagas sugeridas` : 'sem vagas sugeridas agora'}</small>
+        </article>
+      </div>
+
+      <section className="match-panel">
+        <div className="match-panel-head">
+          <div>
+            <span className="eyebrow">Mapa de conclusão</span>
+            <h4>Áreas do perfil</h4>
+          </div>
+          <p>Priorize os itens com menor percentual para melhorar a qualidade das recomendações.</p>
+        </div>
+        {sections.length ? (
+          <div className="match-section-grid">
+            {sections.map((section) => {
+              const tone = getCompletionTone(section.value)
+              const targetSection = getCompletionTargetSection(section.key)
+              const cardContent = (
+                <>
+                  <div>
+                    <strong>{section.label}</strong>
+                    <span className="match-status-pill">{tone.label}</span>
+                  </div>
+                  <div className="match-progress-bar" aria-hidden="true">
+                    <span style={{ width: `${section.value}%` }}></span>
+                  </div>
+                  <small>{section.value}% concluído</small>
+                </>
+              )
+              if (targetSection) {
+                return (
+                  <button
+                    className={`match-section-card is-clickable ${tone.className}`}
+                    key={section.key}
+                    type="button"
+                    onClick={() => onSelectSection(targetSection)}
+                    aria-label={`Abrir seção ${section.label}`}
+                  >
+                    {cardContent}
+                  </button>
+                )
+              }
+
+              return (
+                <article className={`match-section-card ${tone.className}`} key={section.key}>
+                  {cardContent}
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="match-empty-state">
+            <strong>Diagnóstico ainda não disponível.</strong>
+            <p>Atualize seu perfil ou tente novamente em alguns instantes para carregar a conclusão.</p>
+          </div>
+        )}
+      </section>
+
+      <div className="match-two-column">
+        <section className="match-panel">
+          <div className="match-panel-head">
+            <div>
+              <span className="eyebrow">Próximas melhorias</span>
+              <h4>Sugestões para aumentar aderência</h4>
+            </div>
+          </div>
+          {suggestions.length ? (
+            <div className="match-suggestion-grid">
+              {suggestions.map((suggestion) => {
+                const impact = formatSuggestionImpact(suggestion.impact)
+                return (
+                  <article className={`match-suggestion-card ${impact.className}`} key={`${suggestion.section}-${suggestion.text}`}>
+                    <span>{impact.label}</span>
+                    <strong>{formatCompletionSectionLabel(suggestion.section)}</strong>
+                    <p>{suggestion.text}</p>
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="match-empty-state compact">
+              <strong>Nenhuma sugestão pendente.</strong>
+              <p>Seu perfil não possui alertas prioritários neste momento.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="match-panel">
+          <div className="match-panel-head">
+            <div>
+              <span className="eyebrow">Vagas sugeridas</span>
+              <h4>Oportunidades com maior match</h4>
+            </div>
+          </div>
+          {matches.length ? (
+            <div className="match-job-grid">
+              {matches.map((match) => {
+                const score = clampCompletionPercent(match.score)
+                return (
+                  <article className="match-job-card" key={match.vagaId}>
+                    <div className="match-job-card-head">
+                      <strong>{match.title || 'Vaga sem título'}</strong>
+                      <span>{score}%</span>
+                    </div>
+                    <p>{formatMatchLocation(match)}</p>
+                    <div className="match-job-tags">
+                      <span>{match.area || 'Área não informada'}</span>
+                      <span>{match.mode || 'Formato flexível'}</span>
+                      {match.level ? <span>{match.level}</span> : null}
+                    </div>
+                    <div className="match-progress-bar" aria-hidden="true">
+                      <span style={{ width: `${score}%` }}></span>
+                    </div>
+                    {match.reason ? <small>{match.reason}</small> : null}
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="match-empty-state compact">
+              <strong>Nenhuma vaga sugerida agora.</strong>
+              <p>Complete preferências, competências e experiências para melhorar o matching.</p>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function CandidateAccessibilityForm({
+  accessibility,
+  onSubmit,
+}: {
+  accessibility: PortalAccessibility | null
+  onSubmit: (values: PortalAccessibility) => void | Promise<void>
+}) {
+  const [form, setForm] = useState<PortalAccessibility>(() => normalizeAccessibility(accessibility))
+
+  useEffect(() => {
+    setForm(normalizeAccessibility(accessibility))
+  }, [accessibility])
+
+  function updateField<K extends keyof PortalAccessibility>(key: K, value: PortalAccessibility[K]) {
+    setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function toggleField<K extends keyof PortalAccessibility>(key: K) {
+    setForm((current) => ({ ...current, [key]: !Boolean(current[key]) as PortalAccessibility[K] }))
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void onSubmit(form)
+  }
+
+  const supportOptions: Array<{ key: keyof PortalAccessibility; title: string; description: string; icon: string }> = [
+    { key: 'precisaLegendas', title: 'Legendas', description: 'Prefiro conteúdos e entrevistas com legenda.', icon: 'fa-closed-captioning' },
+    { key: 'precisaInterprete', title: 'Intérprete', description: 'Preciso de intérprete de Libras ou apoio similar.', icon: 'fa-hands' },
+    { key: 'precisaLeitorTela', title: 'Leitor de tela', description: 'Uso tecnologia assistiva para navegação.', icon: 'fa-eye' },
+    { key: 'precisaBaixaEstimulo', title: 'Baixo estímulo', description: 'Prefiro ambientes com menos ruído e estímulos.', icon: 'fa-volume-low' },
+    { key: 'precisaMobilidade', title: 'Mobilidade', description: 'Preciso de apoio de acesso físico ou deslocamento.', icon: 'fa-wheelchair' },
+    { key: 'precisaTempoExtra', title: 'Tempo extra', description: 'Preciso de mais tempo em testes ou dinâmicas.', icon: 'fa-clock' },
+  ]
+
+  return (
+    <form className="accessibility-form" onSubmit={handleSubmit}>
+      <section className="accessibility-hero-card">
+        <div>
+          <span className="eyebrow">Experiência inclusiva</span>
+          <h3>Conte como podemos conduzir o processo seletivo com mais conforto.</h3>
+          <p>Essas informações ajudam o RH a ajustar comunicação, etapas e recursos de acessibilidade quando necessário.</p>
+        </div>
+        <div className="accessibility-privacy-note">
+          <i className="fas fa-shield-alt" aria-hidden="true"></i>
+          <span>Dados tratados com confidencialidade e usados apenas para apoiar sua candidatura.</span>
+        </div>
+      </section>
+
+      <section className="accessibility-card">
+        <div className="accessibility-card-head">
+          <div>
+            <span className="eyebrow">Comunicação</span>
+            <strong>Como prefere ser contatado?</strong>
+          </div>
+          <p>Escolha idioma, canal e melhor horário para contato.</p>
+        </div>
+        <div className="accessibility-grid">
+          <AccessibilitySelect label="Idioma preferido" value={asString(form.idioma)} options={ACCESSIBILITY_LANGUAGE_OPTIONS} onChange={(value) => updateField('idioma', value)} />
+          <AccessibilitySelect label="Canal preferido" value={asString(form.canal)} options={ACCESSIBILITY_CHANNEL_OPTIONS} onChange={(value) => updateField('canal', value)} />
+          <AccessibilitySelect label="Melhor horário" value={asString(form.melhorHorario)} options={ACCESSIBILITY_TIME_OPTIONS} onChange={(value) => updateField('melhorHorario', value)} />
+          <label className="accessibility-field is-full">
+            <span>Observações de comunicação</span>
+            <textarea rows={4} value={asString(form.observacoesComunicacao)} onChange={(event) => updateField('observacoesComunicacao', event.target.value)} placeholder="Ex.: prefiro mensagens por WhatsApp, evitar ligações pela manhã..." />
+          </label>
+        </div>
+      </section>
+
+      <section className="accessibility-card">
+        <div className="accessibility-card-head">
+          <div>
+            <span className="eyebrow">Apoios necessários</span>
+            <strong>Recursos para entrevistas, testes e etapas online</strong>
+          </div>
+          <p>Marque tudo que ajude a tornar a experiência mais adequada.</p>
+        </div>
+        <div className="accessibility-support-grid">
+          {supportOptions.map((option) => (
+            <button
+              className={`accessibility-support-card${form[option.key] ? ' is-selected' : ''}`}
+              key={option.key}
+              type="button"
+              onClick={() => toggleField(option.key)}
+              aria-pressed={Boolean(form[option.key])}
+            >
+              <i className={`fas ${option.icon}`} aria-hidden="true"></i>
+              <span>{option.title}</span>
+              <small>{option.description}</small>
+            </button>
+          ))}
+        </div>
+        <label className="accessibility-field">
+          <span>Detalhes das necessidades</span>
+          <textarea rows={4} value={asString(form.detalhesNecessidades)} onChange={(event) => updateField('detalhesNecessidades', event.target.value)} placeholder="Descreva adaptações, equipamentos, restrições ou qualquer informação importante." />
+        </label>
+      </section>
+
+      <section className="accessibility-card">
+        <div className="accessibility-card-head">
+          <div>
+            <span className="eyebrow">PCD e inclusão</span>
+            <strong>Informações opcionais sobre deficiência</strong>
+          </div>
+          <p>Preencha somente se fizer sentido para você.</p>
+        </div>
+        <label className="accessibility-consent">
+          <input type="checkbox" checked={form.consentimentoPcd} onChange={() => toggleField('consentimentoPcd')} />
+          <span>Autorizo o uso dessas informações para adaptações no processo seletivo e enquadramento PCD, quando aplicável.</span>
+        </label>
+        <div className="accessibility-grid">
+          <AccessibilitySelect label="Deseja se identificar como PCD?" value={asString(form.pcdIdentificacao)} options={PCD_IDENTIFICATION_OPTIONS} onChange={(value) => updateField('pcdIdentificacao', value)} />
+          <AccessibilitySelect label="Tipo de deficiência" value={asString(form.pcdTipo)} options={PCD_TYPE_OPTIONS} onChange={(value) => updateField('pcdTipo', value)} />
+          <label className="accessibility-field">
+            <span>Comprovação ou laudo</span>
+            <input value={asString(form.pcdComprovacao)} onChange={(event) => updateField('pcdComprovacao', event.target.value)} placeholder="Ex.: tenho laudo disponível, envio quando solicitado..." />
+          </label>
+          <label className="accessibility-field is-full">
+            <span>Observações sobre inclusão</span>
+            <textarea rows={4} value={asString(form.pcdObservacoes)} onChange={(event) => updateField('pcdObservacoes', event.target.value)} placeholder="Inclua informações relevantes para acolhimento, acessibilidade ou adaptações." />
+          </label>
+        </div>
+      </section>
+
+      <button className="primary-btn accessibility-submit" type="submit">Salvar acessibilidade</button>
+    </form>
+  )
+}
+
+function AccessibilitySelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <label className="accessibility-field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">Selecione</option>
+        {options.map((option) => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -4222,6 +4523,393 @@ function ProjectRepeaterSection({
   )
 }
 
+function DocumentRepeaterSection({
+  title,
+  items,
+  onUpload,
+  onUpdate,
+  onDelete,
+}: {
+  title: string
+  items: PortalDocument[]
+  onUpload: (values: { tipo: string; observacoes: string; arquivo: File }) => void | Promise<void>
+  onUpdate: (item: PortalDocument, values: Record<string, string>) => void | Promise<void>
+  onDelete: (item: PortalDocument) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalDocument | null>(null)
+  const [modalError, setModalError] = useState<string | null>(null)
+  const [draft, setDraft] = useState({
+    tipo: '',
+    observacoes: '',
+    arquivo: null as File | null,
+  })
+
+  function resetDraft() {
+    setDraft({
+      tipo: '',
+      observacoes: '',
+      arquivo: null,
+    })
+    setModalError(null)
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalDocument) {
+    setEditingItem(item)
+    setDraft({
+      tipo: item.tipo ?? '',
+      observacoes: item.observacoes ?? '',
+      arquivo: null,
+    })
+    setModalError(null)
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  return (
+    <div className="subsection-card document-section-card">
+      <div className="subsection-head document-section-head">
+        <div>
+          <span className="eyebrow">Central de arquivos</span>
+          <strong>{title}</strong>
+        </div>
+        <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar documento</button>
+      </div>
+
+      <div className="document-list-grid">
+        {items.map((item) => {
+          const displayName = item.fileName || item.nome || 'Documento sem nome'
+          return (
+            <article key={item.id} className="document-card">
+              <div className="document-card-head">
+                <div className="document-icon" aria-hidden="true">
+                  <i className={`fas ${getDocumentIcon(item)}`}></i>
+                </div>
+                <div>
+                  <strong>{displayName}</strong>
+                  <p>{item.tipo || 'Tipo não informado'}</p>
+                </div>
+              </div>
+              <dl className="document-meta-grid">
+                <div>
+                  <dt>Data</dt>
+                  <dd>{formatDocumentDate(item.data) || 'Sem data'}</dd>
+                </div>
+                <div>
+                  <dt>Cadastrado</dt>
+                  <dd>{formatJobDate(item.createdAtUtc)}</dd>
+                </div>
+              </dl>
+              {item.link ? <a className="document-link" href={item.link} target="_blank" rel="noreferrer">Abrir link</a> : null}
+              {item.observacoes ? <p className="document-note">{item.observacoes}</p> : null}
+              <div className="list-item-actions">
+                <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+                <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+              </div>
+            </article>
+          )
+        })}
+        {items.length === 0 ?(
+          <div className="document-empty-state">
+            <i className="fas fa-folder-open" aria-hidden="true"></i>
+            <strong>Nenhum documento cadastrado ainda.</strong>
+            <p>Inclua currículos, certificados, comprovantes ou links relevantes para o seu processo seletivo.</p>
+            <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar primeiro documento</button>
+          </div>
+        ) : null}
+      </div>
+
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ? 'Editar Documento' : 'Adicionar Documento'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid document-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (!draft.tipo.trim()) {
+                  setModalError('Selecione o tipo do documento.')
+                  return
+                }
+                if (editingItem) {
+                  onUpdate(editingItem, {
+                    tipo: draft.tipo,
+                    nome: editingItem.nome || editingItem.fileName || 'Documento',
+                    link: editingItem.link ?? '',
+                    data: editingItem.data ?? '',
+                    observacoes: draft.observacoes,
+                    fileName: editingItem.fileName ?? '',
+                  })
+                } else {
+                  if (!draft.arquivo) {
+                    setModalError('Selecione um arquivo para enviar.')
+                    return
+                  }
+                  onUpload({
+                    tipo: draft.tipo,
+                    observacoes: draft.observacoes,
+                    arquivo: draft.arquivo,
+                  })
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Tipo</span>
+                  <select value={draft.tipo} onChange={(event) => setDraft((current) => ({ ...current, tipo: event.target.value }))}>
+                    <option value="">Selecione</option>
+                    <option value="Currículo">Currículo</option>
+                    <option value="Certificado">Certificado</option>
+                    <option value="Diploma/Declaração">Diploma/Declaração</option>
+                    <option value="Comprovante">Comprovante</option>
+                    <option value="Portfólio">Portfólio</option>
+                    <option value="Outros">Outro</option>
+                  </select>
+                </label>
+                {!editingItem ? (
+                  <label className="document-upload-field">
+                    <span>Arquivo</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(event) => setDraft((current) => ({ ...current, arquivo: event.target.files?.[0] ?? null }))}
+                    />
+                    <small>{draft.arquivo ? draft.arquivo.name : 'PDF, DOC, DOCX, JPG ou PNG.'}</small>
+                  </label>
+                ) : null}
+                <label>
+                  <span>Observações</span>
+                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Informe contexto, validade, emissor ou qualquer observação importante." />
+                </label>
+                {modalError ? <div className="document-modal-error">{modalError}</div> : null}
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar Documento' : 'Adicionar Documento'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
+function ReferenceRepeaterSection({
+  title,
+  items,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  title: string
+  items: PortalReference[]
+  onAdd: (values: Record<string, string | boolean>) => void | Promise<void>
+  onUpdate: (item: PortalReference, values: Record<string, string | boolean>) => void | Promise<void>
+  onDelete: (item: PortalReference) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalReference | null>(null)
+  const [draft, setDraft] = useState({
+    nome: '',
+    relacao: '',
+    empresa: '',
+    cargo: '',
+    contato: '',
+    periodo: '',
+    linkedin: '',
+    observacoes: '',
+    podeContatar: true,
+  })
+
+  function resetDraft() {
+    setDraft({
+      nome: '',
+      relacao: '',
+      empresa: '',
+      cargo: '',
+      contato: '',
+      periodo: '',
+      linkedin: '',
+      observacoes: '',
+      podeContatar: true,
+    })
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalReference) {
+    setEditingItem(item)
+    setDraft({
+      nome: item.nome ?? '',
+      relacao: item.relacao ?? '',
+      empresa: item.empresa ?? '',
+      cargo: item.cargo ?? '',
+      contato: item.contato ?? '',
+      periodo: item.periodo ?? '',
+      linkedin: item.linkedin ?? '',
+      observacoes: item.observacoes ?? '',
+      podeContatar: Boolean(item.podeContatar),
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  return (
+    <div className="subsection-card reference-section-card">
+      <div className="subsection-head reference-section-head">
+        <div>
+          <span className="eyebrow">Rede profissional</span>
+          <strong>{title}</strong>
+        </div>
+        <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar referência</button>
+      </div>
+      <div className="reference-list-grid">
+        {items.map((item) => (
+          <article key={item.id} className="reference-card">
+            <div className="reference-card-head">
+              <div className="reference-avatar" aria-hidden="true">{getInitials(item.nome || 'Referência')}</div>
+              <div>
+                <strong>{item.nome || 'Referência sem nome'}</strong>
+                <p>{[item.relacao, item.empresa].filter(Boolean).join(' - ') || 'Relação não informada'}</p>
+              </div>
+            </div>
+            <dl className="reference-meta-grid">
+              <div>
+                <dt>Cargo</dt>
+                <dd>{item.cargo || 'Não informado'}</dd>
+              </div>
+              <div>
+                <dt>Contato</dt>
+                <dd>{item.contato || 'Não informado'}</dd>
+              </div>
+              <div>
+                <dt>Período</dt>
+                <dd>{item.periodo || 'Não informado'}</dd>
+              </div>
+              <div>
+                <dt>Contato permitido</dt>
+                <dd>{item.podeContatar ? 'Sim' : 'Não'}</dd>
+              </div>
+            </dl>
+            {item.linkedin ? <a className="reference-link" href={item.linkedin} target="_blank" rel="noreferrer">LinkedIn</a> : null}
+            {item.observacoes ? <p className="reference-note">{item.observacoes}</p> : null}
+            <div className="list-item-actions">
+              <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+              <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ?(
+          <div className="reference-empty-state">
+            <i className="fas fa-users" aria-hidden="true"></i>
+            <strong>Nenhuma referência cadastrada ainda.</strong>
+            <p>Adicione contatos profissionais que possam confirmar sua trajetória, projetos ou experiência.</p>
+            <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar primeira referência</button>
+          </div>
+        ) : null}
+      </div>
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ? 'Editar Referência' : 'Adicionar Referência'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid reference-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (editingItem) {
+                  onUpdate(editingItem, draft)
+                } else {
+                  onAdd(draft)
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Nome</span>
+                  <input value={draft.nome} onChange={(event) => setDraft((current) => ({ ...current, nome: event.target.value }))} />
+                </label>
+                <div className="reference-detail-row">
+                  <label>
+                    <span>Relação</span>
+                    <input value={draft.relacao} onChange={(event) => setDraft((current) => ({ ...current, relacao: event.target.value }))} placeholder="Ex.: gestor, colega, cliente..." />
+                  </label>
+                  <label>
+                    <span>Empresa</span>
+                    <input value={draft.empresa} onChange={(event) => setDraft((current) => ({ ...current, empresa: event.target.value }))} />
+                  </label>
+                </div>
+                <div className="reference-detail-row">
+                  <label>
+                    <span>Cargo</span>
+                    <input value={draft.cargo} onChange={(event) => setDraft((current) => ({ ...current, cargo: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Período</span>
+                    <input value={draft.periodo} onChange={(event) => setDraft((current) => ({ ...current, periodo: event.target.value }))} placeholder="Ex.: 2021 a 2024" />
+                  </label>
+                </div>
+                <label>
+                  <span>Contato</span>
+                  <input value={draft.contato} onChange={(event) => setDraft((current) => ({ ...current, contato: event.target.value }))} placeholder="E-mail, telefone ou WhatsApp" />
+                </label>
+                <label>
+                  <span>LinkedIn</span>
+                  <input value={draft.linkedin} onChange={(event) => setDraft((current) => ({ ...current, linkedin: event.target.value }))} placeholder="https://linkedin.com/in/..." />
+                </label>
+                <label>
+                  <span>Observações</span>
+                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Contexto da relação, melhor forma de contato ou observações importantes." />
+                </label>
+                <label className="reference-consent-row">
+                  <input type="checkbox" checked={draft.podeContatar} onChange={(event) => setDraft((current) => ({ ...current, podeContatar: event.target.checked }))} />
+                  <span>Autorizo contato com esta referência quando necessário.</span>
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar Referência' : 'Adicionar Referência'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
 function RecordForm({
   fields,
   checks,
@@ -4371,6 +5059,22 @@ function isRecentJob(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return false
   return date.getTime() > Date.now() - 3 * 24 * 60 * 60 * 1000
+}
+
+function formatDocumentDate(value?: string | null) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return formatJobDate(value)
+  return value
+}
+
+function getDocumentIcon(documentItem: PortalDocument) {
+  const text = normalizeSearchText(`${documentItem.tipo} ${documentItem.nome} ${documentItem.fileName ?? ''}`)
+  if (text.includes('pdf')) return 'fa-file-pdf'
+  if (text.includes('curriculo') || text.includes('curriculum')) return 'fa-file-lines'
+  if (text.includes('certificado') || text.includes('diploma')) return 'fa-certificate'
+  if (text.includes('portfolio')) return 'fa-briefcase'
+  if (text.includes('link')) return 'fa-link'
+  return 'fa-file-alt'
 }
 
 function listUniqueJobValues(jobs: PortalJob[], pick: (job: PortalJob) => string | null | undefined) {
@@ -4597,6 +5301,112 @@ async function readApiMessage(response: Response) {
 function readError(error: unknown) {
   if (error instanceof Error) return error.message
   return 'Ocorreu uma falha inesperada.'
+}
+
+const COMPLETION_SECTION_LABELS: Record<string, string> = {
+  perfil: 'Perfil básico',
+  testes: 'Testes',
+  comp: 'Competências',
+  competencias: 'Competências',
+  formacao: 'Formação',
+  educacao: 'Educação',
+  exp: 'Experiências',
+  experiencias: 'Experiências',
+  projetos: 'Projetos',
+  lgpd: 'Privacidade e LGPD',
+  pref: 'Preferências',
+  preferencias: 'Preferências',
+  acess: 'Acessibilidade',
+  acessibilidade: 'Acessibilidade',
+  agenda: 'Agenda',
+  hist: 'Histórico',
+  historico: 'Histórico',
+  notif: 'Notificações',
+  notificacoes: 'Notificações',
+  docs: 'Documentos',
+  documentos: 'Documentos',
+  refs: 'Referências',
+  referencias: 'Referências',
+}
+
+function clampCompletionPercent(value?: number | null) {
+  return Math.max(0, Math.min(100, Math.round(Number(value) || 0)))
+}
+
+function formatCompletionSectionLabel(key: string) {
+  const normalized = normalizeSearchText(key).replace(/[^a-z0-9]/g, '')
+  return COMPLETION_SECTION_LABELS[normalized] ?? key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/^./, (letter) => letter.toLocaleUpperCase('pt-BR'))
+}
+
+function getCompletionTargetSection(key: string): WorkspaceSectionId | null {
+  const normalized = normalizeSearchText(key).replace(/[^a-z0-9]/g, '')
+  const targets: Partial<Record<string, WorkspaceSectionId>> = {
+    perfil: 'perfil-curriculo',
+    formacao: 'educacao',
+    educacao: 'educacao',
+    exp: 'experiencias',
+    experiencias: 'experiencias',
+    projetos: 'projetos',
+    pref: 'preferencias',
+    preferencias: 'preferencias',
+    agenda: 'agenda',
+    comp: 'skills',
+    competencias: 'skills',
+    docs: 'documentos',
+    documentos: 'documentos',
+    refs: 'referencias',
+    referencias: 'referencias',
+    acess: 'acessibilidade',
+    acessibilidade: 'acessibilidade',
+    lgpd: 'notificacoes-lgpd',
+    notif: 'notificacoes-lgpd',
+    notificacoes: 'notificacoes-lgpd',
+  }
+  return targets[normalized] ?? null
+}
+
+function getCompletionTone(value: number) {
+  if (value >= 100) return { label: 'Completo', className: 'is-complete' }
+  if (value >= 70) return { label: 'Bom avanço', className: 'is-good' }
+  if (value >= 40) return { label: 'Em progresso', className: 'is-medium' }
+  return { label: 'Priorizar', className: 'is-low' }
+}
+
+function formatSuggestionImpact(value?: string | null) {
+  const normalized = normalizeSearchText(value ?? '')
+  if (normalized.includes('alto')) return { label: 'Alto impacto', className: 'is-high' }
+  if (normalized.includes('baixo')) return { label: 'Baixo impacto', className: 'is-low' }
+  return { label: 'Médio impacto', className: 'is-medium' }
+}
+
+function formatMatchLocation(match: PortalMatchItem) {
+  const location = [match.city, match.uf].filter(Boolean).join(', ')
+  return [match.area, location].filter(Boolean).join(' - ') || 'Local e área não informados'
+}
+
+function normalizeAccessibility(accessibility: PortalAccessibility | null): PortalAccessibility {
+  return {
+    idioma: asString(accessibility?.idioma),
+    canal: asString(accessibility?.canal),
+    melhorHorario: asString(accessibility?.melhorHorario),
+    observacoesComunicacao: asString(accessibility?.observacoesComunicacao),
+    precisaLegendas: Boolean(accessibility?.precisaLegendas),
+    precisaInterprete: Boolean(accessibility?.precisaInterprete),
+    precisaLeitorTela: Boolean(accessibility?.precisaLeitorTela),
+    precisaBaixaEstimulo: Boolean(accessibility?.precisaBaixaEstimulo),
+    precisaMobilidade: Boolean(accessibility?.precisaMobilidade),
+    precisaTempoExtra: Boolean(accessibility?.precisaTempoExtra),
+    detalhesNecessidades: asString(accessibility?.detalhesNecessidades),
+    consentimentoPcd: Boolean(accessibility?.consentimentoPcd),
+    pcdIdentificacao: asString(accessibility?.pcdIdentificacao),
+    pcdTipo: asString(accessibility?.pcdTipo),
+    pcdComprovacao: asString(accessibility?.pcdComprovacao),
+    pcdObservacoes: asString(accessibility?.pcdObservacoes),
+  }
 }
 
 function sleep(ms: number) {
