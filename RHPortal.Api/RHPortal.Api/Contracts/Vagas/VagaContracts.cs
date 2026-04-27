@@ -386,7 +386,9 @@ public sealed record VagaResponse(
     string? DecisaoRHRevisadoPorNome,
     DateTimeOffset? DecisaoRHEmUtc,
     int? DecisaoRHPrazoMeses,
-    DateTimeOffset? HeadcountProvisorioExpiresAtUtc
+    DateTimeOffset? HeadcountProvisorioExpiresAtUtc,
+    string? CodFuncaoRm = null,
+    string? FuncaoNomeRm = null
 );
 
 public sealed record VagaBeneficioRequest(

@@ -265,6 +265,14 @@ public sealed class JobPositionService : IJobPositionService
         var entity = await _db.JobPositions.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
+        // Cargos vinculados a funcionários importados do TOTVS RM são read-only.
+        // Inferimos a origem pela presença de funcionários com MatriculaRm ou CdnFuncionario.
+        var temFuncionariosImportados = await _db.Funcionarios.AnyAsync(
+            f => f.JobPositionId == id && (f.MatriculaRm != null || f.CdnFuncionario != null), ct);
+        if (temFuncionariosImportados)
+            throw new InvalidOperationException(
+                $"Cargo \"{entity.Code} - {entity.Name}\" tem funcionários importados do ERP. Não é permitido excluir — exclua na origem.");
+
         _db.JobPositions.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;

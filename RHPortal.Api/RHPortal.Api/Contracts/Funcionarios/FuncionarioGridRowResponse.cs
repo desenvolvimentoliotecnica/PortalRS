@@ -42,5 +42,9 @@ public sealed record FuncionarioGridRowResponse(
     /// <summary>PFUNC.CODSITUACAO original ("A","F","P","D","I","T",...).</summary>
     string? CodSituacaoRm,
     /// <summary>Descrição amigável ("Ativo", "Férias", "Demitido", etc.).</summary>
-    string? SituacaoRmDescricao
+    string? SituacaoRmDescricao,
+    /// <summary>Código da função TOTVS (PFUNC.CODFUNCAO).</summary>
+    string? CodFuncaoRm,
+    /// <summary>Nome específico da função TOTVS (PFUNCAO.NOME). Mais granular que cargo.</summary>
+    string? FuncaoNomeRm
 );

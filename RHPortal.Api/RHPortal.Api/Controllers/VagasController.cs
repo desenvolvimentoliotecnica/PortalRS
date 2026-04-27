@@ -94,6 +94,31 @@ public sealed class VagasController : ControllerBase
     }
 
     /// <summary>
+    /// Pipeline operacional de vagas — classifica vagas em 6 estágios baseados na situação
+    /// atual do recrutamento (Recém-sincronizada, Em divulgação, Recrutamento ativo,
+    /// Em seleção, Em proposta, Encerrada/Zumbi). Substitui a visão antiga baseada em
+    /// SolicitacaoVaga (que ignorava vagas vindas do RM).
+    /// </summary>
+    /// <param name="origem">Filtra por origem (Manual, AumentoQuadro, SubstituicaoDesligamento, ...).</param>
+    /// <param name="centroCustoId">Filtra por centro de custo.</param>
+    /// <param name="q">Busca textual em título, código ou função TOTVS.</param>
+    /// <param name="incluirZumbis">Quando false, omite vagas com CiclosAusenteRm >= 3.</param>
+    [HttpGet("pipeline")]
+    [ProducesResponseType(typeof(VagaPipelineResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<VagaPipelineResponse>> GetPipeline(
+        [FromQuery] VagaOrigemTipo? origem,
+        [FromQuery] Guid? centroCustoId,
+        [FromQuery] string? q,
+        [FromQuery] bool? incluirZumbis,
+        [FromServices] IVagaPipelineService pipelineService,
+        CancellationToken ct)
+    {
+        var filtros = new VagaPipelineFiltros(origem, centroCustoId, q, incluirZumbis ?? true);
+        var result = await pipelineService.ListarAsync(filtros, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Lista vagas aprovadas pelos superiores e que estão em rascunho,
     /// aguardando o RH preencher os detalhes para então liberar para o portal.
     /// </summary>

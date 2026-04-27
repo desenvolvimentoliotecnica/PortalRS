@@ -50,3 +50,20 @@ public sealed class FuncionarioMovimentacaoBulkRequest
 }
 
 public sealed record FuncionarioMovimentacaoBulkResponse(int Created, int Updated, int Total);
+
+public sealed record FuncionarioMovimentacaoComNomeListItem(
+    Guid Id,
+    Guid? FuncionarioId,
+    string? FuncionarioNome,
+    string ChapaRm,
+    string IdReqRm,
+    short TipoMovimentacao,
+    string? TipoDescricao,
+    DateTime DataAbertura,
+    DateTime? DataConclusao,
+    int CodStatus,
+    string? StatusDescricao,
+    string? CodFuncaoOrigem,
+    string? CodFuncaoDestino,
+    decimal? SalarioOrigem,
+    decimal? SalarioDestino);

@@ -13,8 +13,14 @@ var runExtractCv = args.Length > 0 && string.Equals(args[0], "extract-cv", Strin
 var runImportCv10 = args.Length > 0 && string.Equals(args[0], "import-cv-10", StringComparison.OrdinalIgnoreCase);
 var runImportCvByTalento = args.Length > 0 && string.Equals(args[0], "import-cv-by-talento", StringComparison.OrdinalIgnoreCase);
 var runSyncOnce = args.Length > 0 && string.Equals(args[0], "sync", StringComparison.OrdinalIgnoreCase);
+var runSyncFull = runSyncOnce && args.Any(a => string.Equals(a, "--full", StringComparison.OrdinalIgnoreCase));
 var runSyncOne = args.Length > 0 && string.Equals(args[0], "sync-one", StringComparison.OrdinalIgnoreCase);
 var runSyncClayton = args.Length > 0 && string.Equals(args[0], "sync-clayton", StringComparison.OrdinalIgnoreCase);
+var runSyncHistSal = args.Length > 0 && string.Equals(args[0], "sync-historico-salarial", StringComparison.OrdinalIgnoreCase);
+var runSyncFuncionariosOnly = args.Length > 0 && string.Equals(args[0], "sync-funcionarios", StringComparison.OrdinalIgnoreCase);
+var runSyncPessoasBulk = args.Length > 0 && string.Equals(args[0], "sync-pessoas-bulk", StringComparison.OrdinalIgnoreCase);
+var runSyncVagasOnly = args.Length > 0 && string.Equals(args[0], "sync-vagas", StringComparison.OrdinalIgnoreCase);
+var runSyncDesligamentosOnly = args.Length > 0 && string.Equals(args[0], "sync-desligamentos", StringComparison.OrdinalIgnoreCase);
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -61,6 +67,8 @@ builder.Services.AddSingleton<PortalVagaSyncService>();
 builder.Services.AddSingleton<PortalTalentoSyncService>();
 builder.Services.AddSingleton<PortalCandidatoVagaSyncService>();
 builder.Services.AddSingleton<PortalIntegrationCleanupService>();
+builder.Services.AddSingleton<PortalHistoricoSalarialSyncService>();
+builder.Services.AddSingleton<PortalPessoaBulkSyncService>();
 builder.Services.AddSingleton<ImportCvToPortalService>();
 builder.Services.AddHttpClient<PortalApiClient>()
     .ConfigurePrimaryHttpMessageHandler(() =>
@@ -73,7 +81,7 @@ builder.Services.AddHttpClient<PortalApiClient>()
 
 if (runSyncOnce || runSyncOne || runSyncClayton || runCleanCandidatosAndSync || runCleanCandidatosTalentosAndSync)
     builder.Services.AddSingleton<RmSyncWorker>();
-else if (!runClean && !runCleanCandidatos && !runCleanCandidatosTalentos && !runCleanCandidatosAndSync && !runCleanCandidatosTalentosAndSync && !runExtractOnly && !runExtractCv && !runImportCv10 && !runImportCvByTalento && !runSyncOne && !runSyncClayton)
+else if (!runClean && !runCleanCandidatos && !runCleanCandidatosTalentos && !runCleanCandidatosAndSync && !runCleanCandidatosTalentosAndSync && !runExtractOnly && !runExtractCv && !runImportCv10 && !runImportCvByTalento && !runSyncOne && !runSyncClayton && !runSyncHistSal && !runSyncFuncionariosOnly && !runSyncPessoasBulk && !runSyncVagasOnly && !runSyncDesligamentosOnly)
     builder.Services.AddHostedService<RmSyncWorker>();
 
 var host = builder.Build();
@@ -122,7 +130,7 @@ if (runExtractOnly)
     var extractor = host.Services.GetRequiredService<RmDataExtractor>();
     var ct = CancellationToken.None;
     await extractor.ExtractSchemaAsync(ct);
-    await extractor.ExtractAndSaveAsync(ct);
+    await extractor.ExtractAndSaveAsync(watermarks: null, ct: ct);
     return;
 }
 
@@ -164,8 +172,57 @@ if (runImportCvByTalento)
 
 if (runSyncOnce)
 {
+    if (runSyncFull)
+    {
+        // CLI `sync --full` — zera todos os checkpoints antes do ciclo, forçando varredura completa
+        // de todas as tabelas incrementais. Safety net pra corrigir registros perdidos por bug de watermark.
+        var portal = host.Services.GetRequiredService<PortalApiClient>();
+        await portal.ResetAllCheckpointsAsync(CancellationToken.None);
+        Console.WriteLine("[sync --full] checkpoints resetados; iniciando ciclo full.");
+    }
     var worker = host.Services.GetRequiredService<RmSyncWorker>();
     await worker.RunOneCycleAsync(CancellationToken.None);
+    return;
+}
+
+if (runSyncHistSal)
+{
+    var svc = host.Services.GetRequiredService<PortalHistoricoSalarialSyncService>();
+    await svc.SyncAsync(CancellationToken.None);
+    return;
+}
+
+if (runSyncFuncionariosOnly)
+{
+    // Roda só PortalFuncionarioSync — usa funcionario.json + pessoa.json já extraídos.
+    // Pula Pessoa/Talento/CandidatoVaga (lentos) e re-aplica DataAdmissao + Nacionalidade.
+    var svc = host.Services.GetRequiredService<PortalFuncionarioSyncService>();
+    await svc.SyncFuncionariosFromFuncionarioJsonAsync(CancellationToken.None);
+    return;
+}
+
+if (runSyncPessoasBulk)
+{
+    // Sync rápido de pessoas (~2700 candidatos puros) via /api/pessoas/bulk em chunks de 500.
+    // Pula CODPESSOAs já populados pelo sync de funcionários.
+    var svc = host.Services.GetRequiredService<PortalPessoaBulkSyncService>();
+    await svc.SyncAsync(CancellationToken.None);
+    return;
+}
+
+if (runSyncVagasOnly)
+{
+    // Sync só de vagas a partir de vaga.json + aumento_quadro.json + substituicao.json + funcao.json.
+    var svc = host.Services.GetRequiredService<PortalVagaSyncService>();
+    await svc.SyncVagasFromVagaJsonAsync(CancellationToken.None);
+    return;
+}
+
+if (runSyncDesligamentosOnly)
+{
+    // Re-sync desligamentos com lookup oficial PTPDEMISSAO + PMOTDEMISSAO.
+    var svc = host.Services.GetRequiredService<PortalDesligamentoSyncService>();
+    await svc.SyncDesligamentosFromJsonAsync(CancellationToken.None);
     return;
 }
 

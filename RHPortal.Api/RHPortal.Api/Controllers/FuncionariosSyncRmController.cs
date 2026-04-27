@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using RhPortal.Api.Contracts.Funcionarios;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -25,12 +26,17 @@ public sealed class FuncionariosSyncRmController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly IConfiguration _config;
 
-    public FuncionariosSyncRmController(AppDbContext db, ITenantContext tenantContext)
+    public FuncionariosSyncRmController(AppDbContext db, ITenantContext tenantContext, IConfiguration config)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _config = config;
     }
+
+    /// <summary>Threshold de ciclos consecutivos sem aparecer no payload do RM antes de gerar alerta. Default 3.</summary>
+    private int ZumbiThresholdCiclos => _config.GetValue<int?>("RmSync:ZumbiThresholdCiclos") ?? 3;
 
     [HttpPost("bulk")]
     [ProducesResponseType(typeof(FuncionarioSyncRmBulkResponse), StatusCodes.Status200OK)]
@@ -44,6 +50,7 @@ public sealed class FuncionariosSyncRmController : ControllerBase
 
         var tenantId = _tenantContext.TenantId;
         var total = request.Items.Count;
+        var runStartUtc = DateTimeOffset.UtcNow;
 
         // 2026-04-26: aceita TODOS funcionários (ativos + desligados/inativos).
         // Status é mapeado: A,F,P → Active(1); demais (D=Desligado, I=Inativo, etc.) → Inactive(2).
@@ -138,9 +145,12 @@ public sealed class FuncionariosSyncRmController : ControllerBase
             Guid? unitId = null;
             if (item.CodFilial.HasValue)
             {
-                var codePadded = item.CodFilial.Value.ToString().PadLeft(2, '0');
-                if (unitByCode.TryGetValue(codePadded, out var uId))
-                    unitId = uId;
+                // Tenta sem padding ("1") primeiro — Units do Portal vêm com codes curtos.
+                // Fallback pra padded ("01") por compatibilidade com filiais 2+ dígitos.
+                var raw = item.CodFilial.Value.ToString();
+                var padded = raw.PadLeft(2, '0');
+                if (unitByCode.TryGetValue(raw, out var uId)) unitId = uId;
+                else if (unitByCode.TryGetValue(padded, out uId)) unitId = uId;
             }
 
             Guid? hierarquiaId = null;
@@ -203,6 +213,9 @@ public sealed class FuncionariosSyncRmController : ControllerBase
                 pessoa.TituloEleitorSecao = Trunc(item.TituloEleitorSecao, 10) ?? pessoa.TituloEleitorSecao;
                 pessoa.CertificadoReservista = Trunc(item.CertificadoReservista, 20) ?? pessoa.CertificadoReservista;
                 pessoa.CategoriaMilitar = Trunc(item.CategoriaMilitar, 2) ?? pessoa.CategoriaMilitar;
+                pessoa.NomePai = Trunc(item.NomePai, 160) ?? pessoa.NomePai;
+                pessoa.NomeMae = Trunc(item.NomeMae, 160) ?? pessoa.NomeMae;
+                pessoa.Nacionalidade = Trunc(item.Nacionalidade, 60) ?? pessoa.Nacionalidade;
                 pessoa.UpdatedAtUtc = now;
                 pessoaId = pessoa.Id;
             }
@@ -235,7 +248,13 @@ public sealed class FuncionariosSyncRmController : ControllerBase
                 existing.CdnEmpresa = cdnEmpresa ?? existing.CdnEmpresa;
                 existing.CdnEstab = cdnEstab ?? existing.CdnEstab;
                 existing.CdnFuncionario = cdnFuncionario;
+                existing.DataAdmissao = item.DataAdmissao ?? existing.DataAdmissao;
+                existing.CodFuncaoRm = string.IsNullOrEmpty(item.CodFuncao?.Trim()) ? existing.CodFuncaoRm : item.CodFuncao!.Trim().Substring(0, Math.Min(20, item.CodFuncao.Trim().Length));
+                existing.FuncaoNomeRm = string.IsNullOrEmpty(item.FuncaoNome?.Trim()) ? existing.FuncaoNomeRm : item.FuncaoNome!.Trim().Substring(0, Math.Min(160, item.FuncaoNome.Trim().Length));
                 existing.UpdatedAtUtc = now;
+                // Frente C: funcionário apareceu neste ciclo — zera contador.
+                existing.CiclosAusenteRm = 0;
+                existing.UltimoCicloRmObservadoUtc = runStartUtc;
                 updated++;
             }
             else
@@ -245,6 +264,7 @@ public sealed class FuncionariosSyncRmController : ControllerBase
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
                     MatriculaRm = chapa,
+                    UltimoCicloRmObservadoUtc = runStartUtc,
                     Name = item.Nome.Length > 160 ? item.Nome.Substring(0, 160) : item.Nome,
                     Email = string.IsNullOrWhiteSpace(item.Email) ? null
                         : (item.Email.Length > 180 ? item.Email.Substring(0, 180) : item.Email),
@@ -261,6 +281,9 @@ public sealed class FuncionariosSyncRmController : ControllerBase
                     CdnEmpresa = cdnEmpresa,
                     CdnEstab = cdnEstab,
                     CdnFuncionario = cdnFuncionario,
+                    DataAdmissao = item.DataAdmissao,
+                    CodFuncaoRm = string.IsNullOrEmpty(item.CodFuncao?.Trim()) ? null : item.CodFuncao!.Trim().Substring(0, Math.Min(20, item.CodFuncao.Trim().Length)),
+                    FuncaoNomeRm = string.IsNullOrEmpty(item.FuncaoNome?.Trim()) ? null : item.FuncaoNome!.Trim().Substring(0, Math.Min(160, item.FuncaoNome.Trim().Length)),
                     Headcount = 1,
                     CreatedAtUtc = now,
                     UpdatedAtUtc = now,
@@ -272,6 +295,109 @@ public sealed class FuncionariosSyncRmController : ControllerBase
         // Salva em chunks pra não sobrecarregar a transação (637 rows é OK, mas defensivo)
         await _db.SaveChangesAsync(ct);
 
+        // Frente C — Detecção de zumbis (full sync only): funcionários no Portal com MatriculaRm
+        // e Status=Active que NÃO foram observados neste ciclo são candidatos. Threshold default 3.
+        if (request.Items.Count > 0)
+            await DetectarZumbisFuncionariosAsync(tenantId, runStartUtc, ct);
+
         return Ok(new FuncionarioSyncRmBulkResponse(created, updated, skipped, skippedInactive, total, warnings));
+    }
+
+    /// <summary>Análogo a <c>DetectarZumbisVagasAsync</c> mas para funcionários com <c>MatriculaRm</c>.</summary>
+    private async Task DetectarZumbisFuncionariosAsync(string tenantId, DateTimeOffset runStartUtc, CancellationToken ct)
+    {
+        var threshold = ZumbiThresholdCiclos;
+
+        var ausentes = await _db.Funcionarios
+            .Where(f => f.TenantId == tenantId
+                && f.MatriculaRm != null
+                && f.Status == FuncionarioStatus.Active
+                && (f.UltimoCicloRmObservadoUtc == null || f.UltimoCicloRmObservadoUtc < runStartUtc))
+            .Select(f => new { f.Id, f.MatriculaRm, f.CiclosAusenteRm })
+            .ToListAsync(ct);
+
+        if (ausentes.Count == 0)
+        {
+            await AutoResolverAlertasFuncionariosAsync(tenantId, ct);
+            return;
+        }
+
+        var ausentesIds = ausentes.Select(a => a.Id).ToList();
+        await _db.Funcionarios
+            .Where(f => ausentesIds.Contains(f.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.CiclosAusenteRm, f => f.CiclosAusenteRm + 1), ct);
+
+        var cruzaramThreshold = ausentes
+            .Where(a => a.CiclosAusenteRm + 1 >= threshold && !string.IsNullOrEmpty(a.MatriculaRm))
+            .ToList();
+
+        if (cruzaramThreshold.Count > 0)
+        {
+            var chaves = cruzaramThreshold.Select(a => a.MatriculaRm!).ToList();
+            var existentes = await _db.Set<RmSyncAlerta>()
+                .Where(x => x.TenantId == tenantId && x.Tipo == "FuncionarioAusente" && chaves.Contains(x.ChaveRm))
+                .ToListAsync(ct);
+
+            var now = DateTimeOffset.UtcNow;
+            foreach (var a in cruzaramThreshold)
+            {
+                var alerta = existentes.FirstOrDefault(x => x.ChaveRm == a.MatriculaRm);
+                if (alerta is null)
+                {
+                    _db.Set<RmSyncAlerta>().Add(new RmSyncAlerta
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = tenantId,
+                        Tipo = "FuncionarioAusente",
+                        EntidadeNome = "Funcionario",
+                        EntidadeId = a.Id,
+                        ChaveRm = a.MatriculaRm!,
+                        DetectadoEmUtc = now,
+                        CiclosAusente = a.CiclosAusenteRm + 1,
+                    });
+                }
+                else if (alerta.ResolvidoEmUtc.HasValue)
+                {
+                    alerta.ResolvidoEmUtc = null;
+                    alerta.Acao = null;
+                    alerta.DetectadoEmUtc = now;
+                    alerta.CiclosAusente = a.CiclosAusenteRm + 1;
+                }
+                else
+                {
+                    alerta.CiclosAusente = a.CiclosAusenteRm + 1;
+                }
+            }
+            await _db.SaveChangesAsync(ct);
+        }
+
+        await AutoResolverAlertasFuncionariosAsync(tenantId, ct);
+    }
+
+    private async Task AutoResolverAlertasFuncionariosAsync(string tenantId, CancellationToken ct)
+    {
+        var presentes = await _db.Funcionarios
+            .Where(f => f.TenantId == tenantId && f.MatriculaRm != null && f.CiclosAusenteRm == 0)
+            .Select(f => f.MatriculaRm!)
+            .ToListAsync(ct);
+
+        if (presentes.Count == 0) return;
+
+        var paraResolver = await _db.Set<RmSyncAlerta>()
+            .Where(x => x.TenantId == tenantId
+                && x.Tipo == "FuncionarioAusente"
+                && x.ResolvidoEmUtc == null
+                && presentes.Contains(x.ChaveRm))
+            .ToListAsync(ct);
+
+        if (paraResolver.Count == 0) return;
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var a in paraResolver)
+        {
+            a.ResolvidoEmUtc = now;
+            a.Acao = "Auto-resolvido — chave reapareceu no RM";
+        }
+        await _db.SaveChangesAsync(ct);
     }
 }

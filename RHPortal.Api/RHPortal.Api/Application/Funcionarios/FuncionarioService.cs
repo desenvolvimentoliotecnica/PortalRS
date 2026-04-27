@@ -178,7 +178,9 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.HierarquiaId,
                 x.Hierarquia != null ? x.Hierarquia.Descricao : null,
                 x.CodSituacaoRm,
-                x.SituacaoRmDescricao
+                x.SituacaoRmDescricao,
+                x.CodFuncaoRm,
+                x.FuncaoNomeRm
             ))
             .ToListAsync(ct);
 
@@ -204,6 +206,7 @@ public sealed class FuncionarioService : IFuncionarioService
             .Include(x => x.NivelCargo)
             .Include(x => x.UnidadeLotacao)
             .Include(x => x.CentroCusto)
+            .Include(x => x.Hierarquia)
             .Where(x => x.Id == id)
             .Select(x => new FuncionarioResponse(
                 x.Id,
@@ -248,7 +251,14 @@ public sealed class FuncionarioService : IFuncionarioService
                 x.CentroCusto != null ? x.CentroCusto.Code : null,
                 x.DataAdmissao,
                 x.DataNascimento,
-                x.Sexo
+                x.Sexo,
+                x.MatriculaRm,
+                x.HierarquiaId,
+                x.Hierarquia != null ? x.Hierarquia.Descricao : null,
+                x.CodSituacaoRm,
+                x.SituacaoRmDescricao,
+                x.CodFuncaoRm,
+                x.FuncaoNomeRm
             ))
             .FirstOrDefaultAsync(ct);
     }
@@ -382,6 +392,22 @@ public sealed class FuncionarioService : IFuncionarioService
     {
         var entity = await _db.Funcionarios.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
+
+        // Funcionários importados do TOTVS RM ou Datasul são read-only.
+        // O Portal espelha o ERP — exclusão tem que acontecer no sistema de origem,
+        // senão na próxima sincronização o registro volta. Princípio do projeto:
+        // nunca marretar dado de origem; só adicionar complementos no Portal.
+        var importadoRm = !string.IsNullOrWhiteSpace(entity.MatriculaRm);
+        var importadoDatasul = !string.IsNullOrWhiteSpace(entity.CdnFuncionario)
+            && !string.IsNullOrWhiteSpace(entity.CdnEmpresa)
+            && !string.IsNullOrWhiteSpace(entity.CdnEstab);
+        if (importadoRm || importadoDatasul)
+        {
+            var origem = importadoRm ? "TOTVS RM" : "TOTVS Datasul";
+            throw new InvalidOperationException(
+                $"Funcionário importado do {origem} (matrícula {entity.MatriculaRm ?? entity.CdnFuncionario}). "
+                + "Não é permitido excluir — exclua no ERP de origem; o Portal espelha o cadastro.");
+        }
 
         _db.Funcionarios.Remove(entity);
         await _db.SaveChangesAsync(ct);

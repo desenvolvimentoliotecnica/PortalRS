@@ -64,7 +64,11 @@ public sealed record CentroCustoResponse(
     // Campo absorvido de Area
     Guid? OwnerFuncionarioId = null,
     string? OwnerFuncionarioName = null,
-    string? Description2 = null
+    string? Description2 = null,
+    // Headcount derivado em runtime — formato "ativos/orçado".
+    // Orçado = ativos + headcount pendente das vagas abertas vinculadas ao CC.
+    int HeadcountAtivos = 0,
+    int HeadcountOrcado = 0
 );
 
 /// <summary>Nó da árvore hierárquica de centros de custo.</summary>

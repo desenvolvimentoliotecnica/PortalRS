@@ -1,0 +1,302 @@
+[
+  {
+    "CODCLIENTE": "1",
+    "CODINTERNO": "1",
+    "DESCRICAO": "Inic.Empregador com justa causa",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "2",
+    "CODINTERNO": "2",
+    "DESCRICAO": "Inic.Empregador sem justa causa",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "3",
+    "CODINTERNO": "3",
+    "DESCRICAO": "Inic.Empregado com justa causa",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "4",
+    "CODINTERNO": "4",
+    "DESCRICAO": "Inic.Empregado sem justa causa",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "5",
+    "CODINTERNO": "5",
+    "DESCRICAO": "Transfer\u00EAncia sem \u00F4nus p/ Cedente",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "6",
+    "CODINTERNO": "6",
+    "DESCRICAO": "Transfer\u00EAncia com \u00F4nus p/ Cedente",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "7",
+    "CODINTERNO": "7",
+    "DESCRICAO": "Reforma ou Transf. para Reserva",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "8",
+    "CODINTERNO": "8",
+    "DESCRICAO": "Falecimento",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "9",
+    "CODINTERNO": "9",
+    "DESCRICAO": "Outros casos",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "A",
+    "CODINTERNO": "A",
+    "DESCRICAO": "Aposentadoria invalidez (ac. trab.)",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "B",
+    "CODINTERNO": "B",
+    "DESCRICAO": "Rescis\u00E3o determinada pela justica",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "C",
+    "CODINTERNO": "C",
+    "DESCRICAO": "Culpa Rec\u00EDproca",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "D",
+    "CODINTERNO": "D",
+    "DESCRICAO": "Aposentadoria invalidez (doenca)",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "E",
+    "CODINTERNO": "E",
+    "DESCRICAO": "Aposentadoria especial",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "F",
+    "CODINTERNO": "F",
+    "DESCRICAO": "Falecimento p/ acidente de trabalho",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "G",
+    "CODINTERNO": "G",
+    "DESCRICAO": "For\u00E7a Maior",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "H",
+    "CODINTERNO": "H",
+    "DESCRICAO": "Exonera\u00E7\u00E3o de Cargo Comissionado",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2020-01-16T09:35:18",
+    "RECMODIFIEDBY": "mestre",
+    "RECMODIFIEDON": "2020-01-16T09:35:18"
+  },
+  {
+    "CODCLIENTE": "I",
+    "CODINTERNO": "I",
+    "DESCRICAO": "Apos. p/ Idade com resc. contrato",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "J",
+    "CODINTERNO": "J",
+    "DESCRICAO": "Apos. p/ Idade sem resc. contrato",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "M",
+    "CODINTERNO": "M",
+    "DESCRICAO": "Mudanca de Regime Trabalhista",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "N",
+    "CODINTERNO": "N",
+    "DESCRICAO": "Rescis\u00E3o Indireta",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2020-01-16T09:35:18",
+    "RECMODIFIEDBY": "mestre",
+    "RECMODIFIEDON": "2020-01-16T09:35:18"
+  },
+  {
+    "CODCLIENTE": "O",
+    "CODINTERNO": "O",
+    "DESCRICAO": "Aposentadoria invalidez (outros)",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "P",
+    "CODINTERNO": "P",
+    "DESCRICAO": "Falecimento p/ doenca profissional",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "R",
+    "CODINTERNO": "R",
+    "DESCRICAO": "Apos. Tempo Serv. c/ Resc. Contrato",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "S",
+    "CODINTERNO": "S",
+    "DESCRICAO": "Apos.tempo servico sem resc.contrato",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "T",
+    "CODINTERNO": "T",
+    "DESCRICAO": "T\u00E9rmino de contrato de trabalho",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "U",
+    "CODINTERNO": "U",
+    "DESCRICAO": "Aposentadoria Compuls\u00F3ria",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "V",
+    "CODINTERNO": "V",
+    "DESCRICAO": "Comum acordo",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "W",
+    "CODINTERNO": "W",
+    "DESCRICAO": "T\u00E9rmino da Cess\u00E3o/Requisi\u00E7\u00E3o",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  },
+  {
+    "CODCLIENTE": "X",
+    "CODINTERNO": "X",
+    "DESCRICAO": "Extin\u00E7\u00E3o do contrato de trabalho intermitente",
+    "PODEALTERAR": 0,
+    "RECCREATEDBY": null,
+    "RECCREATEDON": null,
+    "RECMODIFIEDBY": null,
+    "RECMODIFIEDON": null
+  }
+]

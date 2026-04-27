@@ -45,6 +45,32 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
         return Ok(rows);
     }
 
+    /// <summary>Lista todas as movimentações (uso na tela "Minhas Pendências"). Filtros por status.</summary>
+    [HttpGet("movimentacoes")]
+    [ProducesResponseType(typeof(List<FuncionarioMovimentacaoComNomeListItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<FuncionarioMovimentacaoComNomeListItem>>> ListAll(
+        [FromQuery] int[]? codStatus,
+        [FromQuery] int pageSize = 200,
+        CancellationToken ct = default)
+    {
+        var q = _db.FuncionarioMovimentacoes.AsNoTracking().AsQueryable();
+        if (codStatus is not null && codStatus.Length > 0)
+            q = q.Where(m => codStatus.Contains(m.CodStatus));
+
+        var rows = await q
+            .OrderByDescending(m => m.DataAbertura)
+            .Take(pageSize)
+            .Select(m => new FuncionarioMovimentacaoComNomeListItem(
+                m.Id, m.FuncionarioId,
+                m.Funcionario != null ? m.Funcionario.Name : null,
+                m.ChapaRm, m.IdReqRm, m.TipoMovimentacao, m.TipoDescricao,
+                m.DataAbertura, m.DataConclusao, m.CodStatus, m.StatusDescricao,
+                m.CodFuncaoOrigem, m.CodFuncaoDestino,
+                m.SalarioOrigem, m.SalarioDestino))
+            .ToListAsync(ct);
+        return Ok(rows);
+    }
+
     /// <summary>Bulk upsert idempotente — consumido pelo worker (PortalFuncionarioMovimentacaoSyncService).</summary>
     [HttpPost("movimentacoes/bulk")]
     [ProducesResponseType(typeof(FuncionarioMovimentacaoBulkResponse), StatusCodes.Status200OK)]

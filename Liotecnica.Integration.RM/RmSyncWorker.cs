@@ -153,142 +153,75 @@ public sealed class RmSyncWorker : BackgroundService
             _logWriter.WriteLine($"Extração de schema: ERRO - {ex.Message}");
         }
 
+        // Sync incremental (Frente A): busca watermark vigente para cada tabela RM que suporta delta
+        // (PFUNC, PPESSOA, VRSVAGAS, VREQ*) e passa para o extractor. Após o sync de cada entidade,
+        // _newWatermarks preserva o MAX(RECMODIFIEDON) para persistir via UpdateCheckpointAsync no FinishOk.
+        var watermarks = new Dictionary<string, DateTime?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var table in RmDataExtractor.IncrementalTables)
+            watermarks[table] = await _portalClient.GetCheckpointAsync(table, ct);
+
         try
         {
-            await _extractor.ExtractAndSaveAsync(ct);
+            _newWatermarks = await _extractor.ExtractAndSaveAsync(watermarks, ct);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Falha na extração de dados; continuando.");
             _logWriter.WriteLine($"Extração de dados: ERRO - {ex.Message}");
+            _newWatermarks = null;
         }
 
         // Hierarquia (organograma TOTVS) — Fase 1 do refactor 2026-04-26.
         // Sobe ANTES dos demais syncs porque Funcionario.HierarquiaId / Vaga.HierarquiaId
         // dependem das hierarquias estarem cadastradas.
-        try
-        {
-            await _hierarquiaSync.SyncHierarquiasFromJsonAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no sync de hierarquias; continuando.");
-            _logWriter.WriteLine($"Sync Hierarquias (VHIERARQUIA -> api/hierarquias): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("VHIERARQUIA", "Sync Hierarquias (VHIERARQUIA -> api/hierarquias)",
+            _hierarquiaSync.SyncHierarquiasFromJsonAsync, ct);
 
         // Empresas (GFILIAL → api/empresas) — Fase 1 do refactor 2026-04-26.
-        try
-        {
-            await _empresaSync.SyncEmpresasFromUnidadeJsonAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no sync de empresas; continuando.");
-            _logWriter.WriteLine($"Sync Empresas (GFILIAL -> api/empresas): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("GFILIAL", "Sync Empresas (GFILIAL -> api/empresas)",
+            _empresaSync.SyncEmpresasFromUnidadeJsonAsync, ct);
 
-        try
-        {
-            await _areaSync.SyncAreasFromDepartamentoJsonAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no envio de departamento (centro de custo) para a API; continuando.");
-            _logWriter.WriteLine($"Sync Centros de Custo (departamento -> api/centros-custo): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("PSECAO", "Sync Centros de Custo (departamento -> api/centros-custo)",
+            _areaSync.SyncAreasFromDepartamentoJsonAsync, ct);
 
-        try
-        {
-            await _categoriaSync.SyncCategoriasFromCargoJsonAsync(ct); // PFUNCAO → Funções (api/requisito-categorias)
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no envio de Funções para a API; continuando.");
-            _logWriter.WriteLine($"Sync Funções (PFUNCAO -> api/requisito-categorias): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("PFUNCAO", "Sync Funções (PFUNCAO -> api/requisito-categorias)",
+            _categoriaSync.SyncCategoriasFromCargoJsonAsync, ct);
 
-        try
-        {
-            await _cargoSync.SyncCargosFromCargoJsonAsync(ct); // PCARGO → Cargos (api/job-positions)
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no envio de Cargos para a API; continuando.");
-            _logWriter.WriteLine($"Sync Cargos (PCARGO -> api/job-positions): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("PCARGO", "Sync Cargos (PCARGO -> api/job-positions)",
+            _cargoSync.SyncCargosFromCargoJsonAsync, ct);
 
         if (_syncOptions.SyncUnits && _syncOptions.SyncUnitsExecute)
         {
-            try
-            {
-                await _unitSync.SyncUnitsFromUnidadeJsonAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Falha no envio de unidade para a API; continuando.");
-                _logWriter.WriteLine($"Sync Unidades (unidade -> api/units): ERRO - {ex.Message}");
-            }
+            await TrackedSyncAsync("UNIDADE", "Sync Unidades (unidade -> api/units)",
+                _unitSync.SyncUnitsFromUnidadeJsonAsync, ct);
         }
         else if (_syncOptions.SyncUnits)
         {
             _logWriter.WriteLine("Sync Unidades: ativo no integrador, execução desabilitada (RmSync.SyncUnitsExecute = false).");
         }
 
-        try
-        {
-            await _pessoaSync.SyncPessoasFromPessoaJsonAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no envio de pessoa para a API; continuando.");
-            _logWriter.WriteLine($"Sync Pessoas (pessoa -> api/pessoas): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("PPESSOA", "Sync Pessoas (pessoa -> api/pessoas)",
+            _pessoaSync.SyncPessoasFromPessoaJsonAsync, ct);
 
-        try
-        {
-            await _funcionarioSync.SyncFuncionariosFromFuncionarioJsonAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no envio de funcionário para a API; continuando.");
-            _logWriter.WriteLine($"Sync Funcionários (funcionario -> api/funcionarios): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("PFUNC", "Sync Funcionários (funcionario -> api/funcionarios)",
+            _funcionarioSync.SyncFuncionariosFromFuncionarioJsonAsync, ct);
 
         // Desligamento sync (Fase 1 do refactor 2026-04-26).
         // Roda DEPOIS dos funcionários porque resolve FuncionarioId via MatriculaRm.
-        try
-        {
-            await _desligamentoSync.SyncDesligamentosFromJsonAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no sync de desligamentos; continuando.");
-            _logWriter.WriteLine($"Sync Desligamentos (VREQDESLIGAMENTO -> api/desligamentos): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("VREQDESLIGAMENTO", "Sync Desligamentos (VREQDESLIGAMENTO -> api/desligamentos)",
+            _desligamentoSync.SyncDesligamentosFromJsonAsync, ct);
 
         // Histórico de movimentações (LUC-122) — depois de funcionários, pra resolver FuncionarioId via CHAPA.
-        try
-        {
-            await _movimentacaoSync.SyncMovimentacoesFromJsonAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha no sync de movimentações; continuando.");
-            _logWriter.WriteLine($"Sync Movimentações (VREQTRANSFPROMOCAO+VREQDESLIGAMENTO): ERRO - {ex.Message}");
-        }
+        await TrackedSyncAsync("VREQTRANSFPROMOCAO", "Sync Movimentações (VREQTRANSFPROMOCAO+VREQDESLIGAMENTO)",
+            _movimentacaoSync.SyncMovimentacoesFromJsonAsync, ct);
 
         if (_syncOptions.SyncVagas)
         {
-            try
-            {
-                await _extractor.ExtractVagasEmAbertoOnlyAsync(ct);
-                await _vagaSync.SyncVagasFromVagaJsonAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Falha no sync de vagas em aberto; continuando.");
-                _logWriter.WriteLine($"Sync Vagas (vaga -> api/vagas): ERRO - {ex.Message}");
-            }
+            // Frente C: NÃO chamamos mais ExtractVagasEmAbertoOnlyAsync — ela filtra Ativo=1 + DataFechamento>=hoje
+            // e impediria a detecção de zumbis. ExtractAndSaveAsync acima já gravou vaga.json com TODAS as vagas
+            // (sob filtro de watermark se for incremental). PortalVagaSyncService manda flag aberta para o controller.
+            await TrackedSyncAsync("VRSVAGAS", "Sync Vagas (vaga -> api/vagas)",
+                _vagaSync.SyncVagasFromVagaJsonAsync, ct);
             if (_syncOptions.SyncCandidatosVagaDiagnostic)
             {
                 try
@@ -303,39 +236,86 @@ public sealed class RmSyncWorker : BackgroundService
             }
             if (_syncOptions.SyncCandidatosVaga)
             {
-                try
+                await TrackedSyncAsync("CANDIDATOS_VAGA", "Sync Talentos/Candidatos por vaga", async innerCt =>
                 {
-                    await _extractor.ExtractCandidatosPorVagaAsync(ct);
+                    await _extractor.ExtractCandidatosPorVagaAsync(innerCt);
                     if (_syncOptions.SyncCandidatosPerfilCv)
-                        await _extractor.ExtractCandidatoPerfilAsync(ct);
-                    var emailToTalentoId = await _talentoSync.SyncTalentosAndGetEmailToIdMapAsync(ct);
-                    await _candidatoVagaSync.SyncCandidatosFromCandidatoVagaJsonAsync(ct, emailToTalentoId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Falha no sync de talentos/candidatos por vaga.");
-                    _logWriter.WriteLine($"Sync Talentos/Candidatos por vaga: ERRO - {ex.Message}");
-                }
+                        await _extractor.ExtractCandidatoPerfilAsync(innerCt);
+                    var emailToTalentoId = await _talentoSync.SyncTalentosAndGetEmailToIdMapAsync(innerCt);
+                    await _candidatoVagaSync.SyncCandidatosFromCandidatoVagaJsonAsync(innerCt, emailToTalentoId);
+                }, ct);
             }
         }
 
         _logWriter.WriteLine("========== Sincronização RM concluída ==========");
     }
 
+    // Status enum espelha RhPortal.Api.Domain.Enums.RmSyncStatus — sem dependência cruzada.
+    private const short StatusSucesso = 2;
+    private const short StatusFalha = 3;
+
+    /// <summary>
+    /// Watermarks novos capturados pelo extractor no ciclo atual (MAX RECMODIFIEDON por tabela base RM).
+    /// Preenchido em <c>SyncAsync</c> antes dos sync services e consumido pelo <c>TrackedSyncAsync</c>:
+    /// ao finalizar uma entidade com Sucesso, persiste o watermark via PUT checkpoint.
+    /// </summary>
+    private IReadOnlyDictionary<string, DateTime?>? _newWatermarks;
+
+    /// <summary>
+    /// Envelopa um sync em chamadas StartRun/FinishRun ao Portal e — quando a entidade é incremental
+    /// (RmDataExtractor.IncrementalTables) — atualiza o checkpoint com o novo watermark APÓS sucesso.
+    /// Mantém o try/catch existente (falha de uma entidade não derruba o ciclo).
+    /// </summary>
+    private async Task TrackedSyncAsync(
+        string entidade,
+        string logLabel,
+        Func<CancellationToken, Task> action,
+        CancellationToken ct)
+    {
+        DateTime? watermarkAplicado = null;
+        if (_newWatermarks != null && _newWatermarks.ContainsKey(entidade))
+        {
+            // Watermark aplicado neste ciclo é o que estava vigente no início (não o novo).
+            // Como já gravamos os JSON delta-only, _newWatermarks[entidade] contém o MAX observado.
+            // Para o run, registramos o watermark "novo" (já capturado).
+        }
+
+        var runId = await _portalClient.StartRunAsync(entidade, "full", watermarkAplicado, ct);
+        try
+        {
+            await action(ct);
+            DateTime? watermarkNovo = null;
+            if (_newWatermarks != null && _newWatermarks.TryGetValue(entidade, out var wm))
+                watermarkNovo = wm;
+
+            if (runId.HasValue)
+                await _portalClient.FinishRunAsync(runId.Value, StatusSucesso, 0, 0, 0, 0, null, watermarkNovo, ct);
+
+            if (RmDataExtractor.IncrementalTables.Contains(entidade) && watermarkNovo.HasValue)
+                await _portalClient.UpdateCheckpointAsync(entidade, watermarkNovo, "Sucesso", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha em {Label}; continuando.", logLabel);
+            _logWriter.WriteLine($"{logLabel}: ERRO - {ex.Message}");
+            if (runId.HasValue)
+                await _portalClient.FinishRunAsync(runId.Value, StatusFalha, 0, 0, 0, 0, ex.Message, null, ct);
+            // Em falha, NÃO avança checkpoint — próximo ciclo refaz desde o watermark anterior.
+        }
+    }
+
     /// <summary>Executa apenas extração de vagas em aberto + envio para api/vagas. Não extrai nem envia áreas, cargos, unidades, pessoas ou funcionários (evita duplicar).</summary>
     private async Task SyncVagasOnlyAsync(CancellationToken ct)
     {
         _logWriter.WriteLine("========== Sincronização RM (apenas vagas em aberto) iniciada ==========");
-        try
+        await TrackedSyncAsync("VRSVAGAS", "Sync Vagas (vaga -> api/vagas)", async innerCt =>
         {
-            await _extractor.ExtractVagasEmAbertoOnlyAsync(ct);
-            await _vagaSync.SyncVagasFromVagaJsonAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Falha no sync de vagas em aberto.");
-            _logWriter.WriteLine($"Sync Vagas: ERRO - {ex.Message}");
-        }
+            // No modo SyncVagasOnly não passamos por ExtractAndSaveAsync, então ainda precisamos
+            // popular vaga.json — usamos o caminho legado (em-aberto-only) já que o foco aqui é apenas
+            // o subset ativo. Detecção de zumbi neste modo fica desabilitada (payload incompleto).
+            await _extractor.ExtractVagasEmAbertoOnlyAsync(innerCt);
+            await _vagaSync.SyncVagasFromVagaJsonAsync(innerCt);
+        }, ct);
         if (_syncOptions.SyncCandidatosVagaDiagnostic)
         {
             try
@@ -350,19 +330,14 @@ public sealed class RmSyncWorker : BackgroundService
         }
         if (_syncOptions.SyncCandidatosVaga)
         {
-            try
+            await TrackedSyncAsync("CANDIDATOS_VAGA", "Sync Talentos/Candidatos por vaga", async innerCt =>
             {
-                await _extractor.ExtractCandidatosPorVagaAsync(ct);
+                await _extractor.ExtractCandidatosPorVagaAsync(innerCt);
                 if (_syncOptions.SyncCandidatosPerfilCv)
-                    await _extractor.ExtractCandidatoPerfilAsync(ct);
-                var emailToTalentoId = await _talentoSync.SyncTalentosAndGetEmailToIdMapAsync(ct);
-                await _candidatoVagaSync.SyncCandidatosFromCandidatoVagaJsonAsync(ct, emailToTalentoId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Falha no sync de talentos/candidatos por vaga.");
-                _logWriter.WriteLine($"Sync Talentos/Candidatos por vaga: ERRO - {ex.Message}");
-            }
+                    await _extractor.ExtractCandidatoPerfilAsync(innerCt);
+                var emailToTalentoId = await _talentoSync.SyncTalentosAndGetEmailToIdMapAsync(innerCt);
+                await _candidatoVagaSync.SyncCandidatosFromCandidatoVagaJsonAsync(innerCt, emailToTalentoId);
+            }, ct);
         }
         _logWriter.WriteLine("========== Sincronização RM (apenas vagas) concluída ==========");
     }

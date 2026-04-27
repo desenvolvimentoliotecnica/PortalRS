@@ -38,6 +38,8 @@ interface Item {
   parentDescription?: string | null;
   // Campos absorvidos de Department/Area (Sessão 31.2)
   headcount?: number;
+  headcountAtivos?: number;
+  headcountOrcado?: number;
   phone?: string | null;
   branchOrLocation?: string | null;
   ownerFuncionarioId?: string | null;
@@ -406,7 +408,10 @@ export default function CentroCustoCadastroScreen() {
                 <TableCell className="font-mono text-sm">{item.code}</TableCell>
                 <TableCell className="text-sm">{item.description}</TableCell>
                 <TableCell className="text-xs text-muted-foreground font-mono">{item.parentCode ? `${item.parentCode}` : <span className="italic">—</span>}</TableCell>
-                <TableCell className="text-sm text-right font-mono">{item.headcount ?? 0}</TableCell>
+                <TableCell className="text-sm text-right font-mono" title="Ativos / Orçado (ativos + vagas abertas)">
+                  {(item.headcountAtivos ?? item.headcount ?? 0)}
+                  <span className="text-muted-foreground">/{item.headcountOrcado ?? item.headcount ?? 0}</span>
+                </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{responsavel || <span className="italic">—</span>}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{item.branchOrLocation || <span className="italic">—</span>}</TableCell>
                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{fmtDate(item.validFrom) || "—"}</TableCell>

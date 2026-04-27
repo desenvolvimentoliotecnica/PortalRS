@@ -113,7 +113,8 @@ public static class NavegacaoManifest
         new("nav-matching",                 "Matching IA",            "/matching",                       "sparkles",          "matching.view",            Ordem: 50),
         // Fase 4 — Chatbot RAG + geração de conteúdo via Ollama (Qwen 2.5 + bge-m3)
         new("nav-assistente-ia",            "Assistente IA",          "/assistente-ia",                  "bot",               "matching.view",            Ordem: 52, OcultarDoOwner: true),
-        new("nav-triagem",                  "Pipeline",               "/triagem",                        "filter",            "triagem.view",             Ordem: 60),
+        new("nav-triagem",                  "Triagem",                "/triagem",                        "filter",            "triagem.view",             Ordem: 60),
+        new("nav-pipeline-vagas",           "Pipeline",               "/gestao/pipeline",                "workflow",          "candidatos.view",          Ordem: 65),
         new("nav-processo-seletivo",        "Processo Seletivo",      "/gestao/processo-seletivo",       "listchecks",        "processo-seletivo.view",   Ordem: 70),
         new("nav-agendas",                  "Agenda",                 "/agendas",                        "calendar",          "agenda.view",              Ordem: 80),
         new("nav-portalvagas",              "Portal de Vagas",        "/portalvagas",                    "globe",             "portalvagas.view",         Ordem: 90),
@@ -154,6 +155,8 @@ public static class NavegacaoManifest
         // A entidade RequisitoCategoria foi removida do domínio; a permissão `categories.view`
         // continua ativa apenas porque é compartilhada com "Categorias Salariais" (ordem 100).
         new("nav-cargos",                   "Cargos",                 "/cargos",                         "briefcase",         "jobpositions.view",        Ordem: 50),
+        // Funções TOTVS (PFUNCAO) — descrição mais granular do cargo, view derivada com headcount.
+        new("nav-funcoes",                  "Funções",                "/funcoes",                        "list-checks",       "jobpositions.view",        Ordem: 55),
         new("nav-descricao-cargo",          "Descrição de Cargos",    "/descricao-cargo",                "file-text",         "jobpositions.view",        Ordem: 60),
         // Renomeado: "Eixos de Vaga" → "SLA de Vagas". Conceito continua o mesmo
         // (agrupador com SLA de fechamento por eixo), mas o label fala diretamente

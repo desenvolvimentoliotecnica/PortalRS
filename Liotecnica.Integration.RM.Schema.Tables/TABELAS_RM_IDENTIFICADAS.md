@@ -1,5 +1,13 @@
 # Tabelas do TOTVS RM identificadas para o processo de integração
 
+> ⚠️ **Documento absorvido.** O conteúdo deste arquivo foi consolidado e atualizado em
+> [`lucasCORPORERM_MAPA.md`](../lucasCORPORERM_MAPA.md) (raiz do `Voltage.RenderRH/`),
+> que é agora o **mapa canônico** de todas as tabelas do CORPORERM usadas pelo sistema.
+>
+> Este arquivo é mantido apenas como histórico. Para informações atualizadas (incluindo
+> tabelas adicionadas no refator de 2026-04-26: VHIERARQUIA, VREQDESLIGAMENTO, PFHSTSAL,
+> XPESSOAFISICA, etc.), consulte o mapa novo.
+
 Com base no schema extraído (CORPORERM_HMG) e na documentação TOTVS RM / Labore, segue o mapeamento dos **cadastros** do menu (Departamentos, Áreas, Categorias, Cargos, Unidades, Funcionários, Pessoa) e do **pré-cadastro**.
 
 ---

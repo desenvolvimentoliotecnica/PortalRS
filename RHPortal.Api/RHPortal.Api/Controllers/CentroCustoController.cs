@@ -43,27 +43,66 @@ public sealed class CentroCustoController : ControllerBase
         }
 
         var total = await query.CountAsync(ct);
-        var items = await query
+        var ccList = await query
             .OrderBy(x => x.Code)
             .Skip(skip)
             .Take(take)
-            .Select(x => new CentroCustoResponse(
+            .Select(x => new
+            {
                 x.Id, x.Code, x.Description, x.Manager, x.Notes,
                 x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
                 x.EmpresaId,
-                x.Empresa != null ? x.Empresa.Code : null,
-                x.Empresa != null ? x.Empresa.Description : null,
+                EmpresaCode = x.Empresa != null ? x.Empresa.Code : null,
+                EmpresaDescription = x.Empresa != null ? x.Empresa.Description : null,
                 x.ValidFrom, x.ValidUntil,
                 x.ParentId,
-                x.Parent != null ? x.Parent.Code : null,
-                x.Parent != null ? x.Parent.Description : null,
-                x.Headcount,
+                ParentCode = x.Parent != null ? x.Parent.Code : null,
+                ParentDescription = x.Parent != null ? x.Parent.Description : null,
+                HeadcountAutorizado = x.Headcount,
                 x.Phone,
                 x.BranchOrLocation,
                 x.OwnerFuncionarioId,
-                x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
-                x.Description2))
+                OwnerFuncionarioName = x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
+                x.Description2,
+            })
             .ToListAsync(ct);
+
+        // Headcount derivado:
+        //   - Ativos = funcionários com Status=Active no CC
+        //   - Orçado = Ativos + vagas abertas vinculadas ao CC (Status=Aberta)
+        //   PSECAO.LIMITEFUNC do RM está zerado em 100% dos CCs, então usamos vagas abertas
+        //   como proxy de "headcount pendente / a contratar".
+        var ccIds = ccList.Select(c => c.Id).ToList();
+        var ativosByCc = await db.Funcionarios.AsNoTracking()
+            .Where(f => f.CentroCustoId != null && ccIds.Contains(f.CentroCustoId.Value)
+                        && f.Status == Domain.Enums.FuncionarioStatus.Active)
+            .GroupBy(f => f.CentroCustoId!.Value)
+            .Select(g => new { Id = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Id, g => g.Count, ct);
+
+        var vagasAbertasRaw = await db.Vagas.AsNoTracking()
+            .Where(v => v.CentroCustoId != null && ccIds.Contains(v.CentroCustoId.Value)
+                        && v.Status == global::RHPortal.Api.Domain.Enums.VagaStatus.Aberta)
+            .GroupBy(v => v.CentroCustoId!.Value)
+            .Select(g => new { Id = g.Key, Pendentes = g.Sum(v => v.HeadcountAutorizado) })
+            .ToListAsync(ct);
+        var vagasAbertasByCc = vagasAbertasRaw.ToDictionary(x => x.Id, x => Math.Max(0, x.Pendentes));
+
+        var items = ccList.Select(x =>
+        {
+            var ativos = ativosByCc.TryGetValue(x.Id, out var a) ? a : 0;
+            var pendentes = vagasAbertasByCc.TryGetValue(x.Id, out var p) ? p : 0;
+            var orcado = ativos + pendentes;
+            return new CentroCustoResponse(
+                x.Id, x.Code, x.Description, x.Manager, x.Notes,
+                x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
+                x.EmpresaId, x.EmpresaCode, x.EmpresaDescription,
+                x.ValidFrom, x.ValidUntil,
+                x.ParentId, x.ParentCode, x.ParentDescription,
+                ativos, // Headcount = ativos (compat)
+                x.Phone, x.BranchOrLocation, x.OwnerFuncionarioId, x.OwnerFuncionarioName, x.Description2,
+                ativos, orcado);
+        }).ToList();
 
         Response.Headers["X-Total-Count"] = total.ToString();
         return Ok(items);
@@ -108,28 +147,47 @@ public sealed class CentroCustoController : ControllerBase
         [FromServices] AppDbContext db,
         CancellationToken ct)
     {
-        var item = await db.CentrosCusto
+        var raw = await db.CentrosCusto
             .AsNoTracking()
             .Where(x => x.Id == id)
-            .Select(x => new CentroCustoResponse(
+            .Select(x => new
+            {
                 x.Id, x.Code, x.Description, x.Manager, x.Notes,
                 x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
                 x.EmpresaId,
-                x.Empresa != null ? x.Empresa.Code : null,
-                x.Empresa != null ? x.Empresa.Description : null,
+                EmpresaCode = x.Empresa != null ? x.Empresa.Code : null,
+                EmpresaDescription = x.Empresa != null ? x.Empresa.Description : null,
                 x.ValidFrom, x.ValidUntil,
                 x.ParentId,
-                x.Parent != null ? x.Parent.Code : null,
-                x.Parent != null ? x.Parent.Description : null,
-                x.Headcount,
-                x.Phone,
-                x.BranchOrLocation,
+                ParentCode = x.Parent != null ? x.Parent.Code : null,
+                ParentDescription = x.Parent != null ? x.Parent.Description : null,
+                x.Phone, x.BranchOrLocation,
                 x.OwnerFuncionarioId,
-                x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
-                x.Description2))
+                OwnerFuncionarioName = x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
+                x.Description2,
+            })
             .FirstOrDefaultAsync(ct);
 
-        return item is null ? NotFound() : Ok(item);
+        if (raw is null) return NotFound();
+
+        var ativos = await db.Funcionarios.AsNoTracking()
+            .CountAsync(f => f.CentroCustoId == raw.Id && f.Status == Domain.Enums.FuncionarioStatus.Active, ct);
+        var pendentes = await db.Vagas.AsNoTracking()
+            .Where(v => v.CentroCustoId == raw.Id && v.Status == global::RHPortal.Api.Domain.Enums.VagaStatus.Aberta)
+            .SumAsync(v => (int?)(v.HeadcountAutorizado), ct) ?? 0;
+        pendentes = Math.Max(0, pendentes);
+        var orcado = ativos + pendentes;
+
+        var item = new CentroCustoResponse(
+            raw.Id, raw.Code, raw.Description, raw.Manager, raw.Notes,
+            raw.IsActive, raw.CreatedAtUtc, raw.UpdatedAtUtc,
+            raw.EmpresaId, raw.EmpresaCode, raw.EmpresaDescription,
+            raw.ValidFrom, raw.ValidUntil,
+            raw.ParentId, raw.ParentCode, raw.ParentDescription,
+            ativos, raw.Phone, raw.BranchOrLocation,
+            raw.OwnerFuncionarioId, raw.OwnerFuncionarioName, raw.Description2,
+            ativos, orcado);
+        return Ok(item);
     }
 
     [HttpPost]
@@ -174,26 +232,36 @@ public sealed class CentroCustoController : ControllerBase
         db.CentrosCusto.Add(entity);
         await db.SaveChangesAsync(ct);
 
-        var created = await db.CentrosCusto
+        var raw = await db.CentrosCusto
             .AsNoTracking()
             .Where(x => x.Id == entity.Id)
-            .Select(x => new CentroCustoResponse(
+            .Select(x => new
+            {
                 x.Id, x.Code, x.Description, x.Manager, x.Notes,
                 x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
                 x.EmpresaId,
-                x.Empresa != null ? x.Empresa.Code : null,
-                x.Empresa != null ? x.Empresa.Description : null,
+                EmpresaCode = x.Empresa != null ? x.Empresa.Code : null,
+                EmpresaDescription = x.Empresa != null ? x.Empresa.Description : null,
                 x.ValidFrom, x.ValidUntil,
                 x.ParentId,
-                x.Parent != null ? x.Parent.Code : null,
-                x.Parent != null ? x.Parent.Description : null,
-                x.Headcount,
-                x.Phone,
-                x.BranchOrLocation,
+                ParentCode = x.Parent != null ? x.Parent.Code : null,
+                ParentDescription = x.Parent != null ? x.Parent.Description : null,
+                x.Phone, x.BranchOrLocation,
                 x.OwnerFuncionarioId,
-                x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
-                x.Description2))
+                OwnerFuncionarioName = x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
+                x.Description2,
+            })
             .FirstAsync(ct);
+
+        var created = new CentroCustoResponse(
+            raw.Id, raw.Code, raw.Description, raw.Manager, raw.Notes,
+            raw.IsActive, raw.CreatedAtUtc, raw.UpdatedAtUtc,
+            raw.EmpresaId, raw.EmpresaCode, raw.EmpresaDescription,
+            raw.ValidFrom, raw.ValidUntil,
+            raw.ParentId, raw.ParentCode, raw.ParentDescription,
+            0, raw.Phone, raw.BranchOrLocation,
+            raw.OwnerFuncionarioId, raw.OwnerFuncionarioName, raw.Description2,
+            0, 0);
 
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, created);
     }
@@ -245,26 +313,44 @@ public sealed class CentroCustoController : ControllerBase
 
         await db.SaveChangesAsync(ct);
 
-        var updated = await db.CentrosCusto
+        var raw = await db.CentrosCusto
             .AsNoTracking()
             .Where(x => x.Id == id)
-            .Select(x => new CentroCustoResponse(
+            .Select(x => new
+            {
                 x.Id, x.Code, x.Description, x.Manager, x.Notes,
                 x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
                 x.EmpresaId,
-                x.Empresa != null ? x.Empresa.Code : null,
-                x.Empresa != null ? x.Empresa.Description : null,
+                EmpresaCode = x.Empresa != null ? x.Empresa.Code : null,
+                EmpresaDescription = x.Empresa != null ? x.Empresa.Description : null,
                 x.ValidFrom, x.ValidUntil,
                 x.ParentId,
-                x.Parent != null ? x.Parent.Code : null,
-                x.Parent != null ? x.Parent.Description : null,
-                x.Headcount,
-                x.Phone,
-                x.BranchOrLocation,
+                ParentCode = x.Parent != null ? x.Parent.Code : null,
+                ParentDescription = x.Parent != null ? x.Parent.Description : null,
+                x.Phone, x.BranchOrLocation,
                 x.OwnerFuncionarioId,
-                x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
-                x.Description2))
+                OwnerFuncionarioName = x.OwnerFuncionario != null ? x.OwnerFuncionario.Name : null,
+                x.Description2,
+            })
             .FirstAsync(ct);
+
+        var ativos = await db.Funcionarios.AsNoTracking()
+            .CountAsync(f => f.CentroCustoId == raw.Id && f.Status == Domain.Enums.FuncionarioStatus.Active, ct);
+        var pendentes = await db.Vagas.AsNoTracking()
+            .Where(v => v.CentroCustoId == raw.Id && v.Status == global::RHPortal.Api.Domain.Enums.VagaStatus.Aberta)
+            .SumAsync(v => (int?)(v.HeadcountAutorizado), ct) ?? 0;
+        pendentes = Math.Max(0, pendentes);
+        var orcado = ativos + pendentes;
+
+        var updated = new CentroCustoResponse(
+            raw.Id, raw.Code, raw.Description, raw.Manager, raw.Notes,
+            raw.IsActive, raw.CreatedAtUtc, raw.UpdatedAtUtc,
+            raw.EmpresaId, raw.EmpresaCode, raw.EmpresaDescription,
+            raw.ValidFrom, raw.ValidUntil,
+            raw.ParentId, raw.ParentCode, raw.ParentDescription,
+            ativos, raw.Phone, raw.BranchOrLocation,
+            raw.OwnerFuncionarioId, raw.OwnerFuncionarioName, raw.Description2,
+            ativos, orcado);
 
         return Ok(updated);
     }
@@ -280,6 +366,18 @@ public sealed class CentroCustoController : ControllerBase
     {
         var entity = await db.CentrosCusto.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return NotFound();
+
+        // Centros de custo vinculados a funcionários importados do TOTVS RM são read-only.
+        // Inferimos a origem pela presença de funcionários com MatriculaRm ou CdnFuncionario.
+        var temFuncionariosImportados = await db.Funcionarios.AnyAsync(
+            f => f.CentroCustoId == id && (f.MatriculaRm != null || f.CdnFuncionario != null), ct);
+        if (temFuncionariosImportados)
+        {
+            return Conflict(new
+            {
+                message = $"Centro de Custo \"{entity.Code} - {entity.Description}\" tem funcionários importados do ERP. Não é permitido excluir — exclua na origem; o Portal espelha o cadastro.",
+            });
+        }
 
         // Pre-check de todos os vínculos antes de chamar SaveChanges.
         // Sem este bloco, o DELETE quebra com 23503 foreign_key_violation vindo do Postgres

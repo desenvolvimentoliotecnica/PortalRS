@@ -81,27 +81,31 @@ public sealed class PortalVagaSyncService
             return;
         }
 
-        // Filtra vagas em aberto (já filtramos via ExtractVagasEmAbertoOnlyAsync, mas defensivo)
+        // Frente C — detecção de zumbis: enviamos TODAS as vagas (abertas + fechadas) no payload.
+        // O controller usa "tudo que veio" como sinal de "não-zumbi" e detecta zumbis comparando
+        // contra as vagas locais com Codigo IS NOT NULL que NÃO vieram no payload por N ciclos.
+        // Vagas com DataFechamento preenchida ou Ativo=0 viram Status=Encerrada no Portal (controller decide).
         var hoje = DateTime.UtcNow.Date;
-        var abertas = vagas
-            .Where(v => v.Ativo == 1
-                       && (!v.DataFechamento.HasValue || v.DataFechamento.Value.Date >= hoje))
-            .ToList();
+        var abertas = vagas.ToList();
 
         var aumentoQuadro = await LoadAumentoQuadroAsync(path, ct);
         var substituicoes = await LoadSubstituicoesAsync(path, ct);
 
         // Lookups auxiliares
         var pfuncaoToCargo = await LoadPfuncaoCargoLookupAsync(path, ct);
+        var pfuncaoToNome = await LoadPfuncaoNomeLookupAsync(path, ct);
 
-        // Indexes pra resolução de origem (heurística por CODFUNCAO + janela de data)
+        // Indexes pra resolução de origem (heurística por CODFUNCAO + janela de data).
+        // Filtro CODSTATUS: 3=Aprovada (R&S trabalhando), 4=Concluída (vaga preenchida), 7=Suspensa.
+        // Excluímos 1=Em digitação, 2=Em andamento (pré-aprovação — vaga ainda não existe em VRSVAGAS)
+        // e 6=Cancelada. Ver lucasCORPORERM_MAPA.md §"Domínio de CODSTATUS".
         var aumentoByFuncao = aumentoQuadro
-            .Where(a => !string.IsNullOrWhiteSpace(a.CodFuncao) && a.CodStatus == 4) // Concluída
+            .Where(a => !string.IsNullOrWhiteSpace(a.CodFuncao) && a.CodStatus is 3 or 4 or 7)
             .GroupBy(a => a.CodFuncao!.Trim())
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.DataAbertura ?? DateTime.MinValue).ToList());
 
         var substByFuncao = substituicoes
-            .Where(s => !string.IsNullOrWhiteSpace(s.CodFuncao) && s.CodStatus == 4)
+            .Where(s => !string.IsNullOrWhiteSpace(s.CodFuncao) && s.CodStatus is 3 or 4 or 7)
             .GroupBy(s => s.CodFuncao!.Trim())
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.DataAbertura ?? DateTime.MinValue).ToList());
 
@@ -113,7 +117,7 @@ public sealed class PortalVagaSyncService
             var codFuncao = (v.CodFuncao ?? "").Trim();
             string? codCargo = null;
             if (!string.IsNullOrEmpty(codFuncao) && pfuncaoToCargo.TryGetValue(codFuncao, out var cc))
-                codCargo = cc;
+                codCargo = PortalCargoSyncService.ToPortalJobCode(cc);
 
             string? codSecao = null;
             int? codFilial = null;
@@ -168,6 +172,15 @@ public sealed class PortalVagaSyncService
 
             counters[origemTipo]++;
 
+            string? funcaoNome = null;
+            if (!string.IsNullOrEmpty(codFuncao) && pfuncaoToNome.TryGetValue(codFuncao, out var fn))
+                funcaoNome = fn;
+
+            // Frente C: aberta = Ativo=1 E (DataFechamento null ou futura). Vagas com Ativo=0 ou
+            // DataFechamento passada vão com aberta=false e o controller marca Status=Encerrada.
+            var ativaNoRm = v.Ativo == 1
+                && (!v.DataFechamento.HasValue || v.DataFechamento.Value.Date >= hoje);
+
             items.Add(new
             {
                 codVaga = v.CodVaga?.ToString() ?? string.Empty,
@@ -180,12 +193,14 @@ public sealed class PortalVagaSyncService
                 experienciasExigidas = v.ExperienciasExigidas,
                 codFuncao,
                 codCargo,
+                funcaoNome,
                 codSecao,
                 codFilial,
                 idHierarquiaDestinoRm = idHierarquia,
                 origemTipo,
                 idReqRmOrigem = idReqOrigem,
                 idReqDesligamentoRm = idReqDesligamento,
+                aberta = ativaNoRm,
             });
         }
 
@@ -228,6 +243,20 @@ public sealed class PortalVagaSyncService
             .Where(r => !string.IsNullOrWhiteSpace(r.Codigo) && !string.IsNullOrWhiteSpace(r.Cargo))
             .GroupBy(r => r.Codigo!.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().Cargo!.Trim(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<Dictionary<string, string>> LoadPfuncaoNomeLookupAsync(string path, CancellationToken ct)
+    {
+        var f = Path.Combine(path, "funcao.json");
+        if (!File.Exists(f)) return new(StringComparer.OrdinalIgnoreCase);
+        var rows = JsonSerializer.Deserialize<List<PfuncaoRow>>(await File.ReadAllTextAsync(f, ct), JsonOptions) ?? new();
+        // PFUNCAO duplica por CODCOLIGADA (1 e 2). Coligada 2 costuma ter o nome completo
+        // ("ANALISTA DE PRICING SR"), coligada 1 tem versão curta ("ANL PRICING SR").
+        // Pega sempre o mais longo pra exibição mais clara.
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Codigo) && !string.IsNullOrWhiteSpace(r.Nome))
+            .GroupBy(r => r.Codigo!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Nome!.Length).First().Nome!.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
     private string GetSchemaTablesPath()
@@ -307,6 +336,8 @@ public sealed class PortalVagaSyncService
         public string? Codigo { get; set; }
         [JsonPropertyName("CARGO")]
         public string? Cargo { get; set; }
+        [JsonPropertyName("NOME")]
+        public string? Nome { get; set; }
     }
 
     private sealed record BulkResponse(int Created, int Updated, int Total);

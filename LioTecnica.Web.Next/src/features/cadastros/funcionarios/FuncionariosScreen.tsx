@@ -31,6 +31,31 @@ interface EntityChangeListItem {
     changedColumns: string | null;
 }
 
+interface MovimentacaoItem {
+    id: string;
+    funcionarioId: string | null;
+    chapaRm: string;
+    idReqRm: string;
+    tipoMovimentacao: number;
+    tipoDescricao: string | null;
+    dataAbertura: string;
+    dataConclusao: string | null;
+    codStatus: number;
+    statusDescricao: string | null;
+    codFuncaoOrigem: string | null;
+    codFuncaoDestino: string | null;
+    codSecaoOrigem: string | null;
+    codSecaoDestino: string | null;
+    salarioOrigem: number | null;
+    salarioDestino: number | null;
+    gerouSubstituicao: boolean | null;
+}
+
+type TimelineEvent =
+    | { kind: "audit"; key: string; occurredAt: string; data: EntityChangeListItem }
+    | { kind: "movimentacao"; key: string; occurredAt: string; data: MovimentacaoItem }
+    | { kind: "admissao"; key: string; occurredAt: string; dataAdmissao: string };
+
 interface FuncItem {
     id: string;
     nome: string;
@@ -101,6 +126,12 @@ interface FuncDetail {
     dataAdmissao?: string;
     dataNascimento?: string;
     sexo?: string;
+    // TOTVS RM (LUC-122) — usado pra detectar origem RM e suprimir validações Datasul
+    matriculaRm?: string;
+    hierarquiaId?: string;
+    hierarquiaDescricao?: string;
+    codSituacaoRm?: string;
+    situacaoRmDescricao?: string;
 }
 
 interface LookupOption { id: string; label: string; }
@@ -337,6 +368,7 @@ export default function FuncionariosScreen() {
     const [detailTab, setDetailTab] = useState<"dados" | "editar" | "historico">("dados");
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyItems, setHistoryItems] = useState<EntityChangeListItem[]>([]);
+    const [movimentacoesItems, setMovimentacoesItems] = useState<MovimentacaoItem[]>([]);
 
     const EMPTY_EDIT_FORM: EditForm = { name: "", email: "", phone: "", status: "Active", headcount: 1, unitId: "", unitLabel: "", areaId: "", areaLabel: "", jobPositionId: "", jobPositionLabel: "", requisitoCategoriaId: "", requisitoCategoriaLabel: "", gestorDiretoId: "", gestorDiretoLabel: "", nivelHierarquicoId: "", nivelHierarquicoLabel: "", unidadeLotacaoId: "", unidadeLotacaoLabel: "", centroCustoId: "", centroCustoLabel: "", cdnFuncionario: "", cdnEmpresa: "", cdnEstab: "", dataAdmissao: "", dataNascimento: "", sexo: "", notes: "" };
     const [editForm, setEditForm] = useState<EditForm>(EMPTY_EDIT_FORM);
@@ -537,14 +569,25 @@ export default function FuncionariosScreen() {
     async function loadDetailHistory(id: string) {
         setHistoryLoading(true);
         setHistoryItems([]);
+        setMovimentacoesItems([]);
         try {
             const qs = new URLSearchParams({ entityName: "Funcionario", entityId: id, page: "1", pageSize: "50" });
-            const res = await apiFetch(`/api/audit/entity-changes?${qs.toString()}`);
-            if (!res.ok) { setHistoryItems([]); return; } // 403 para roles sem permissão — ignora silenciosamente
-            const payload = await res.json() as Record<string, unknown>;
-            const list = Array.isArray(payload?.items) ? (payload.items as EntityChangeListItem[]) : [];
-            setHistoryItems(list);
-        } catch { setHistoryItems([]); }
+            const [auditRes, movRes] = await Promise.all([
+                apiFetch(`/api/audit/entity-changes?${qs.toString()}`).catch(() => null),
+                apiFetch(`/api/funcionarios/${id}/movimentacoes`).catch(() => null),
+            ]);
+
+            if (auditRes?.ok) {
+                const payload = await auditRes.json() as Record<string, unknown>;
+                const list = Array.isArray(payload?.items) ? (payload.items as EntityChangeListItem[]) : [];
+                setHistoryItems(list);
+            }
+
+            if (movRes?.ok) {
+                const list = await movRes.json() as MovimentacaoItem[];
+                setMovimentacoesItems(Array.isArray(list) ? list : []);
+            }
+        } catch { /* ignora — UI mostra "nenhuma alteração" */ }
         finally { setHistoryLoading(false); }
     }
 
@@ -584,6 +627,11 @@ export default function FuncionariosScreen() {
             dataAdmissao: d.dataAdmissao ? String(d.dataAdmissao) : undefined,
             dataNascimento: d.dataNascimento ? String(d.dataNascimento) : undefined,
             sexo: d.sexo ? String(d.sexo) : undefined,
+            matriculaRm: d.matriculaRm ? String(d.matriculaRm) : undefined,
+            hierarquiaId: d.hierarquiaId ? String(d.hierarquiaId) : undefined,
+            hierarquiaDescricao: d.hierarquiaDescricao ? String(d.hierarquiaDescricao) : undefined,
+            codSituacaoRm: d.codSituacaoRm ? String(d.codSituacaoRm) : undefined,
+            situacaoRmDescricao: d.situacaoRmDescricao ? String(d.situacaoRmDescricao) : undefined,
         };
     }
 
@@ -593,6 +641,7 @@ export default function FuncionariosScreen() {
         setDetailLoading(true);
         setDetailTab("dados");
         setHistoryItems([]);
+        setMovimentacoesItems([]);
         void loadDetailHistory(id);
         try {
             const d = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${id}`);
@@ -601,7 +650,7 @@ export default function FuncionariosScreen() {
         finally { setDetailLoading(false); }
     }
 
-    function closeDetail() { setDetailId(null); setDetailData(null); setHistoryItems([]); setDetailTab("dados"); setEditForm(EMPTY_EDIT_FORM); }
+    function closeDetail() { setDetailId(null); setDetailData(null); setHistoryItems([]); setMovimentacoesItems([]); setDetailTab("dados"); setEditForm(EMPTY_EDIT_FORM); }
 
     async function enterEditMode(data: FuncDetail) {
         setEditForm({
@@ -956,13 +1005,22 @@ export default function FuncionariosScreen() {
                                 <TableCell className="text-sm text-muted-foreground">{f.centroCustoDescricao ? (f.centroCustoCode ? `${f.centroCustoCode} - ${f.centroCustoDescricao}` : f.centroCustoDescricao) : "—"}</TableCell>
                                 <TableCell>{statusBadge(f.status)}</TableCell>
                                 <TableCell className="text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <Button variant="outline" size="icon-xs" title="Ver detalhes" onClick={() => void openDetail(f.id)}><Eye /></Button>
-                                        <Link href={`/funcionarios/${f.id}/perfil`}>
-                                            <Button variant="outline" size="icon-xs" title="Ver Perfil 360°"><UserCircle /></Button>
-                                        </Link>
-                                        <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(f)}><Trash2 /></Button>
-                                    </div>
+                                    {(() => {
+                                        // Funcionários importados (RM/Datasul) são read-only — exclusão só no ERP de origem.
+                                        const importado = !!f.matriculaRm
+                                            || (!!f.cdnFuncionario && !!f.cdnEmpresa && !!f.cdnEstab);
+                                        return (
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button variant="outline" size="icon-xs" title="Ver detalhes" onClick={() => void openDetail(f.id)}><Eye /></Button>
+                                                <Link href={`/funcionarios/perfil?id=${f.id}`}>
+                                                    <Button variant="outline" size="icon-xs" title="Ver Perfil 360°"><UserCircle /></Button>
+                                                </Link>
+                                                {!importado && (
+                                                    <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(f)}><Trash2 /></Button>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </TableCell>
                             </TableRow>
                         )) : (
@@ -1009,30 +1067,40 @@ export default function FuncionariosScreen() {
                                 { k: "editar", label: "Editar" },
                                 { k: "historico", label: "Histórico" },
                             ] as const
-                        ).map((t) => (
+                        ).map((t) => {
+                            // Funcionários importados (RM/Datasul) são read-only — fonte da verdade está no ERP.
+                            const isImported = !!detailData?.matriculaRm
+                                || (!!detailData?.cdnFuncionario && !!detailData?.cdnEmpresa && !!detailData?.cdnEstab);
+                            const blockEdit = t.k === "editar" && isImported;
+                            return (
                             <Button
                                 key={t.k}
                                 type="button"
                                 size="sm"
                                 variant={detailTab === t.k ? "default" : "outline"}
                                 onClick={() => {
+                                    if (blockEdit) return;
                                     if (t.k === "editar" && detailData) { void enterEditMode(detailData); }
                                     else setDetailTab(t.k);
                                 }}
-                                disabled={detailLoading}
+                                disabled={detailLoading || blockEdit}
+                                title={blockEdit ? "Funcionário importado do ERP — somente leitura." : undefined}
                             >
                                 {t.k === "editar" && <Pencil className="size-3 mr-1" />}
                                 {t.label}
                             </Button>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {detailLoading ? (
                         <div className="py-12 text-center text-muted-foreground text-sm">Carregando…</div>
                     ) : detailTab === "dados" && detailData ? (
                         <div className="space-y-5">
-                            {/* Banner — Dados incompletos */}
+                            {/* Banner — Dados incompletos (não aplica a RM, que é gerido externamente) */}
                             {(() => {
+                                const isRm = !!detailData.matriculaRm;
+                                if (isRm) return null;
                                 const missing: string[] = [];
                                 if (!detailData.name?.trim()) missing.push("Nome");
                                 if (!detailData.jobPositionName) missing.push("Cargo");
@@ -1275,26 +1343,82 @@ export default function FuncionariosScreen() {
                         <div className="mt-2">
                             {historyLoading ? (
                                 <div className="py-6 text-center text-sm text-muted-foreground">Carregando histórico…</div>
-                            ) : historyItems.length ? (
-                                <div className="space-y-2">
-                                    {historyItems.map((h) => (
-                                        <div
-                                            key={h.id}
-                                            className="rounded-xl border border-border/40 bg-card/50 p-3 text-sm"
-                                        >
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <div className="font-medium">
-                                                    {fmt(h.occurredAt)} — {stateLabel(h.state)}
-                                                    {h.changedColumns ? <span className="text-muted-foreground"> ({h.changedColumns})</span> : null}
+                            ) : (() => {
+                                const events: TimelineEvent[] = [
+                                    ...historyItems.map((h) => ({
+                                        kind: "audit" as const,
+                                        key: `audit-${h.id}`,
+                                        occurredAt: h.occurredAt,
+                                        data: h,
+                                    })),
+                                    ...movimentacoesItems.map((m) => ({
+                                        kind: "movimentacao" as const,
+                                        key: `mov-${m.id}`,
+                                        occurredAt: m.dataAbertura,
+                                        data: m,
+                                    })),
+                                    ...(detailData?.dataAdmissao ? [{
+                                        kind: "admissao" as const,
+                                        key: "admissao",
+                                        occurredAt: detailData.dataAdmissao,
+                                        dataAdmissao: detailData.dataAdmissao,
+                                    }] : []),
+                                ].sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+
+                                if (events.length === 0) {
+                                    return <div className="py-6 text-center text-sm text-muted-foreground">Nenhum registro encontrado.</div>;
+                                }
+
+                                return (
+                                    <div className="space-y-2">
+                                        {events.map((e) => e.kind === "audit" ? (
+                                            <div key={e.key} className="rounded-xl border border-border/40 bg-card/50 p-3 text-sm">
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <div className="font-medium">
+                                                        {fmt(e.data.occurredAt)} — {stateLabel(e.data.state)}
+                                                        {e.data.changedColumns ? <span className="text-muted-foreground"> ({e.data.changedColumns})</span> : null}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">{e.data.userName ? `por ${e.data.userName}` : ""}</div>
                                                 </div>
-                                                <div className="text-xs text-muted-foreground">{h.userName ? `por ${h.userName}` : ""}</div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="py-6 text-center text-sm text-muted-foreground">Nenhuma alteração registrada.</div>
-                            )}
+                                        ) : e.kind === "admissao" ? (
+                                            <div key={e.key} className="rounded-xl border border-emerald-300/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 text-sm">
+                                                <div className="font-medium text-emerald-700 dark:text-emerald-300">
+                                                    {new Date(e.dataAdmissao + "T00:00:00").toLocaleDateString("pt-BR")} — Admissão
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div key={e.key} className="rounded-xl border border-violet-300/50 bg-violet-50/40 dark:bg-violet-950/20 p-3 text-sm">
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <div className="font-medium text-violet-700 dark:text-violet-300">
+                                                        {fmt(e.data.dataAbertura)} — {e.data.tipoDescricao ?? `Movimentação ${e.data.tipoMovimentacao}`}
+                                                        {e.data.statusDescricao ? <span className="text-muted-foreground"> · {e.data.statusDescricao}</span> : null}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground font-mono">#{e.data.idReqRm}</div>
+                                                </div>
+                                                {(e.data.codFuncaoOrigem || e.data.codFuncaoDestino) && (
+                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                        Função: {e.data.codFuncaoOrigem ?? "—"} → {e.data.codFuncaoDestino ?? "—"}
+                                                    </div>
+                                                )}
+                                                {(e.data.codSecaoOrigem || e.data.codSecaoDestino) && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        Seção: {e.data.codSecaoOrigem ?? "—"} → {e.data.codSecaoDestino ?? "—"}
+                                                    </div>
+                                                )}
+                                                {(e.data.salarioOrigem != null || e.data.salarioDestino != null) && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        Salário: {e.data.salarioOrigem != null ? `R$ ${e.data.salarioOrigem.toFixed(2)}` : "—"} → {e.data.salarioDestino != null ? `R$ ${e.data.salarioDestino.toFixed(2)}` : "—"}
+                                                    </div>
+                                                )}
+                                                {e.data.dataConclusao && (
+                                                    <div className="text-xs text-muted-foreground">Concluída em: {fmt(e.data.dataConclusao)}</div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     ) : null}
 

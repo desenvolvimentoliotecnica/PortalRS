@@ -82,6 +82,18 @@ public sealed class Funcionario : ITenantEntity
     [System.ComponentModel.DataAnnotations.MaxLength(60)]
     public string? SituacaoRmDescricao { get; set; }
 
+    /// <summary>
+    /// Código da função TOTVS RM (PFUNC.CODFUNCAO → PFUNCAO.CODIGO). Ex.: "904".
+    /// Função é mais granular que Cargo: cargo é a categoria ampla ("Coordenação"),
+    /// função é o título específico ("COORD. TI E PRIVACIDADE DE DADOS").
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(20)]
+    public string? CodFuncaoRm { get; set; }
+
+    /// <summary>Nome da função (PFUNCAO.NOME). Ex.: "COORD. TI E PRIVACIDADE DE DADOS".</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(160)]
+    public string? FuncaoNomeRm { get; set; }
+
     /// <summary>Código da empresa no TOTVS Datasul (cdn_empresa).</summary>
     [System.ComponentModel.DataAnnotations.MaxLength(3)]
     public string? CdnEmpresa { get; set; }
@@ -127,6 +139,14 @@ public sealed class Funcionario : ITenantEntity
 
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
+
+    // ── Detecção de zumbis (Frente C — sync RM) ──
+
+    /// <summary>Quantos ciclos consecutivos o funcionário não foi observado no payload do worker. Reseta a 0 quando reaparece.</summary>
+    public int CiclosAusenteRm { get; set; }
+
+    /// <summary>Timestamp do último ciclo do worker em que este funcionário apareceu no payload — null = nunca observado via sync.</summary>
+    public DateTimeOffset? UltimoCicloRmObservadoUtc { get; set; }
 
     /// <summary>Recalcula e aplica HasIncompleteData com base nos campos obrigatórios.</summary>
     public void RefreshIncompleteData() =>

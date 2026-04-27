@@ -1,0 +1,222 @@
+[
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "01",
+    "CODINTERNO": "01",
+    "DESCRICAO": "Excesso de Faltas (N\u00E3o Utilizar)",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:53:36",
+    "RECMODIFIEDBY": "Katia.Santos",
+    "RECMODIFIEDON": "2022-03-24T20:45:31"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "02",
+    "CODINTERNO": "02",
+    "DESCRICAO": "Problemas de Tratamento (N\u00E3o Utilizar)",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:53:53",
+    "RECMODIFIEDBY": "Katia.Santos",
+    "RECMODIFIEDON": "2022-03-24T20:45:46"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "03",
+    "CODINTERNO": "03",
+    "DESCRICAO": "Sem razao especifica",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:54:16",
+    "RECMODIFIEDBY": "mestre",
+    "RECMODIFIEDON": "2019-11-19T09:54:16"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "04",
+    "CODINTERNO": "04",
+    "DESCRICAO": "Reducao de quadro",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:54:31",
+    "RECMODIFIEDBY": "mestre",
+    "RECMODIFIEDON": "2019-11-19T09:54:31"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "05",
+    "CODINTERNO": "05",
+    "DESCRICAO": "Pedido de demissao",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:54:48",
+    "RECMODIFIEDBY": "mestre",
+    "RECMODIFIEDON": "2019-11-19T09:54:48"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "06",
+    "CODINTERNO": "06",
+    "DESCRICAO": "Insubordinacao",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:55:21",
+    "RECMODIFIEDBY": "mestre",
+    "RECMODIFIEDON": "2019-11-19T09:55:21"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "07",
+    "CODINTERNO": "07",
+    "DESCRICAO": "Excesso de Atrasos (N\u00E3o Utlizar)",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T10:01:25",
+    "RECMODIFIEDBY": "Katia.Santos",
+    "RECMODIFIEDON": "2022-03-24T20:45:20"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "08",
+    "CODINTERNO": "08",
+    "DESCRICAO": "Transfrencia mesma empresa",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T10:01:45",
+    "RECMODIFIEDBY": "mestre",
+    "RECMODIFIEDON": "2019-11-19T10:01:45"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "09",
+    "CODINTERNO": "09",
+    "DESCRICAO": "Termino de Contrato",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "fabielle.torres",
+    "RECCREATEDON": "2020-08-14T15:15:21",
+    "RECMODIFIEDBY": "fabielle.torres",
+    "RECMODIFIEDON": "2020-08-14T15:15:21"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODCLIENTE": "10",
+    "CODINTERNO": "10",
+    "DESCRICAO": "Demissao",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2021-07-02T09:24:46",
+    "RECMODIFIEDBY": "mestre",
+    "RECMODIFIEDON": "2021-07-02T09:24:46"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "01",
+    "CODINTERNO": "01",
+    "DESCRICAO": "Excesso de Faltas (N\u00E3o Utilizar)",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:53:36",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "02",
+    "CODINTERNO": "02",
+    "DESCRICAO": "Problemas de Tratamento (N\u00E3o Utilizar)",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:53:53",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "03",
+    "CODINTERNO": "03",
+    "DESCRICAO": "Sem razao especifica",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:54:16",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "04",
+    "CODINTERNO": "04",
+    "DESCRICAO": "Reducao de quadro",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:54:31",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "05",
+    "CODINTERNO": "05",
+    "DESCRICAO": "Pedido de demissao",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:54:48",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "06",
+    "CODINTERNO": "06",
+    "DESCRICAO": "Insubordinacao",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T09:55:21",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "07",
+    "CODINTERNO": "07",
+    "DESCRICAO": "Excesso de Atrasos (N\u00E3o Utlizar)",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T10:01:25",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "08",
+    "CODINTERNO": "08",
+    "DESCRICAO": "Transfrencia mesma empresa",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2019-11-19T10:01:45",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "09",
+    "CODINTERNO": "09",
+    "DESCRICAO": "Termino de Contrato",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "fabielle.torres",
+    "RECCREATEDON": "2020-08-14T15:15:21",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  },
+  {
+    "CODCOLIGADA": 2,
+    "CODCLIENTE": "10",
+    "CODINTERNO": "10",
+    "DESCRICAO": "Demissao",
+    "PODEALTERAR": 1,
+    "RECCREATEDBY": "mestre",
+    "RECCREATEDON": "2021-07-02T09:24:46",
+    "RECMODIFIEDBY": "jean.orlandini",
+    "RECMODIFIEDON": "2023-06-05T09:37:13"
+  }
+]

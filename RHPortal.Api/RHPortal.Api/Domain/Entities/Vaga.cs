@@ -150,6 +150,14 @@ namespace RHPortal.Api.Domain.Entities
         [System.ComponentModel.DataAnnotations.MaxLength(40)]
         public string? IdReqRmOrigem { get; set; }
 
+        /// <summary>Código da função TOTVS RM (VREQAUMENTOQUADRO.CODFUNCAO ou VREQSUBSTITUICAO.CODFUNCAO).</summary>
+        [System.ComponentModel.DataAnnotations.MaxLength(20)]
+        public string? CodFuncaoRm { get; set; }
+
+        /// <summary>Nome específico da função TOTVS (PFUNCAO.NOME). Ex.: "ANALISTA DE PRICING SR".</summary>
+        [System.ComponentModel.DataAnnotations.MaxLength(160)]
+        public string? FuncaoNomeRm { get; set; }
+
         public Guid? TurnoId { get; set; }
         public Turno? Turno { get; set; }
 
@@ -332,6 +340,16 @@ namespace RHPortal.Api.Domain.Entities
 
         public DateTimeOffset CreatedAtUtc { get; set; }
         public DateTimeOffset UpdatedAtUtc { get; set; }
+
+        // ── Detecção de zumbis (Frente C — sync RM) ──
+        // Vaga com Codigo (sync RM) que não vem no payload do worker por N ciclos consecutivos vira zumbi.
+        // Não muda Status automaticamente (diretriz "corrigir na origem RM"); apenas dispara RmSyncAlerta.
+
+        /// <summary>Quantos ciclos consecutivos a vaga não foi observada no payload do worker. Reseta a 0 quando reaparece.</summary>
+        public int CiclosAusenteRm { get; set; }
+
+        /// <summary>Timestamp do último ciclo do worker em que esta vaga apareceu no payload — null = nunca observada via sync.</summary>
+        public DateTimeOffset? UltimoCicloRmObservadoUtc { get; set; }
     }
 
     // --------------------

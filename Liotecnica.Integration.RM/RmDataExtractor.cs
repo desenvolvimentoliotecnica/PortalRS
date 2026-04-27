@@ -495,45 +495,97 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
     }
 
     /// <summary>
-    /// Conecta ao RM, lê cada tabela (SELECT *) e grava um JSON por tabela na pasta de saída.
+    /// Conjunto de tabelas RM que suportam sync incremental por watermark <c>RECMODIFIEDON</c>.
+    /// As demais (lookups: BAREA/PSECAO/PFUNCAO/PCARGO/GFILIAL/VHIERARQUIA) seguem em full porque
+    /// PortalVagaSyncService e PortalFuncionarioSyncService fazem JOIN in-memory contra o JSON
+    /// completo dessas tabelas — entrega delta-only quebraria os lookups.
     /// </summary>
-    public async Task ExtractAndSaveAsync(CancellationToken ct = default)
+    public static readonly IReadOnlySet<string> IncrementalTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "PFUNC",
+        "PPESSOA",
+        "VRSVAGAS",
+        "VREQDESLIGAMENTO",
+        "VREQAUMENTOQUADRO",
+        "VREQSUBSTITUICAO",
+        "VREQTRANSFPROMOCAO",
+        "PFHSTSAL",
+        "XPESSOAFISICA",
+    };
+
+    /// <summary>
+    /// Conecta ao RM, lê cada tabela e grava um JSON por tabela na pasta de saída.
+    /// Quando <paramref name="watermarks"/> contém um valor para a tabela e ela está em
+    /// <see cref="IncrementalTables"/>, aplica filtro <c>WHERE RECMODIFIEDON &gt; @wm</c>.
+    /// Devolve, por tabela base (chave = nome RM em uppercase), o <c>MAX(RECMODIFIEDON)</c>
+    /// observado no batch — usado pelo worker para avançar o checkpoint após o sync OK.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, DateTime?>> ExtractAndSaveAsync(
+        IReadOnlyDictionary<string, DateTime?>? watermarks = null,
+        CancellationToken ct = default)
     {
         _logWriter.WriteLine("--- Extração de dados das tabelas iniciada ---");
         var outputDir = GetOutputDirectory();
         Directory.CreateDirectory(outputDir);
         _logger.LogInformation("Extraindo dados do RM para {Path}", outputDir);
 
-        var tables = new[]
+        // (fullTableName, fileName, baseTableName) — base é o nome RM puro (sem schema), usado como chave de checkpoint.
+        var tables = new (string FullName, string FileName, string BaseName)[]
         {
-            (_schemaOptions.FullTableName(_schemaOptions.AreaTable), "area"),
-            (_schemaOptions.FullTableName(_schemaOptions.DepartamentoTable), "departamento"),
-            (_schemaOptions.FullTableName(_schemaOptions.FuncaoTable), "funcao"),
-            (_schemaOptions.FullTableName(_schemaOptions.CargoTable), "cargo"),
-            (_schemaOptions.FullTableName(_schemaOptions.VagaTable), "vaga"),
-            (_schemaOptions.FullTableName(_schemaOptions.UnidadeTable), "unidade"),
-            (_schemaOptions.FullTableName(_schemaOptions.FuncionarioTable), "funcionario"),
-            (_schemaOptions.FullTableName(_schemaOptions.PessoaTable), "pessoa"),
-            // Modelo TOTVS Liotécnica (descoberto 2026-04-26 — refactor do sync):
-            (_schemaOptions.FullTableName(_schemaOptions.HierarquiaTable), "hierarquia"),
-            (_schemaOptions.FullTableName(_schemaOptions.DesligamentoTable), "desligamento"),
-            (_schemaOptions.FullTableName(_schemaOptions.AumentoQuadroTable), "aumento_quadro"),
-            (_schemaOptions.FullTableName(_schemaOptions.SubstituicaoTable), "substituicao"),
-            (_schemaOptions.FullTableName(_schemaOptions.TransferenciaPromocaoTable), "transf_promocao"),
+            (_schemaOptions.FullTableName(_schemaOptions.AreaTable), "area", _schemaOptions.AreaTable),
+            (_schemaOptions.FullTableName(_schemaOptions.DepartamentoTable), "departamento", _schemaOptions.DepartamentoTable),
+            (_schemaOptions.FullTableName(_schemaOptions.FuncaoTable), "funcao", _schemaOptions.FuncaoTable),
+            (_schemaOptions.FullTableName(_schemaOptions.CargoTable), "cargo", _schemaOptions.CargoTable),
+            (_schemaOptions.FullTableName(_schemaOptions.VagaTable), "vaga", _schemaOptions.VagaTable),
+            (_schemaOptions.FullTableName(_schemaOptions.UnidadeTable), "unidade", _schemaOptions.UnidadeTable),
+            (_schemaOptions.FullTableName(_schemaOptions.FuncionarioTable), "funcionario", _schemaOptions.FuncionarioTable),
+            (_schemaOptions.FullTableName(_schemaOptions.PessoaTable), "pessoa", _schemaOptions.PessoaTable),
+            (_schemaOptions.FullTableName(_schemaOptions.HierarquiaTable), "hierarquia", _schemaOptions.HierarquiaTable),
+            (_schemaOptions.FullTableName(_schemaOptions.HierarquiaColigadaExternaTable), "hierarquia_coligada_externa", _schemaOptions.HierarquiaColigadaExternaTable),
+            (_schemaOptions.FullTableName("VQUADHIERARQUIA"), "quadrante_hierarquia", "VQUADHIERARQUIA"),
+            (_schemaOptions.FullTableName("PFUNCLIDERHRPLATFORM"), "pfunc_lider_hrplatform", "PFUNCLIDERHRPLATFORM"),
+            (_schemaOptions.FullTableName("VWPFUNCHIERARQUIA"), "view_pfunc_hierarquia", "VWPFUNCHIERARQUIA"),
+            (_schemaOptions.FullTableName("PFHSTSAL"), "historico_salarial", "PFHSTSAL"),
+            (_schemaOptions.FullTableName("XPESSOAFISICA"), "pessoa_fisica", "XPESSOAFISICA"),
+            (_schemaOptions.FullTableName("PTPDEMISSAO"), "tipo_demissao", "PTPDEMISSAO"),
+            (_schemaOptions.FullTableName("PMOTDEMISSAO"), "motivo_demissao", "PMOTDEMISSAO"),
+            (_schemaOptions.FullTableName(_schemaOptions.DesligamentoTable), "desligamento", _schemaOptions.DesligamentoTable),
+            (_schemaOptions.FullTableName(_schemaOptions.AumentoQuadroTable), "aumento_quadro", _schemaOptions.AumentoQuadroTable),
+            (_schemaOptions.FullTableName(_schemaOptions.SubstituicaoTable), "substituicao", _schemaOptions.SubstituicaoTable),
+            (_schemaOptions.FullTableName(_schemaOptions.TransferenciaPromocaoTable), "transf_promocao", _schemaOptions.TransferenciaPromocaoTable),
         };
 
         var connectionString = _rmOptions.GetConnectionString();
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 
-        foreach (var (fullTableName, fileName) in tables)
+        var newWatermarks = new Dictionary<string, DateTime?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (fullTableName, fileName, baseName) in tables)
         {
             try
             {
-                var rows = await ReadTableAsync(connection, fullTableName, ct);
+                var canIncremental = IncrementalTables.Contains(baseName);
+                DateTime? wm = null;
+                if (canIncremental && watermarks != null && watermarks.TryGetValue(baseName, out var w))
+                    wm = w;
+
+                var rows = await ReadTableAsync(connection, fullTableName, wm, ct);
                 var path = Path.Combine(outputDir, $"{fileName}.json");
                 await File.WriteAllTextAsync(path, JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true }), ct);
-                _logWriter.WriteLine($"Tabela {fullTableName} -> {fileName}.json: {rows.Count} registros");
+
+                if (canIncremental)
+                {
+                    var maxWm = ComputeMaxRecModifiedOn(rows);
+                    // Se o batch veio vazio (delta sem mudanças), preserva o watermark anterior — não regride.
+                    newWatermarks[baseName] = maxWm ?? wm;
+                    var modo = wm.HasValue ? $"incremental (>{wm:O})" : "full";
+                    _logWriter.WriteLine($"Tabela {fullTableName} -> {fileName}.json: {rows.Count} registros [{modo}]; novo watermark={maxWm:O}");
+                }
+                else
+                {
+                    _logWriter.WriteLine($"Tabela {fullTableName} -> {fileName}.json: {rows.Count} registros");
+                }
                 _logger.LogInformation("Tabela {Table}: {Count} registros gravados em {File}", fullTableName, rows.Count, path);
             }
             catch (Exception ex)
@@ -543,6 +595,28 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
             }
         }
         _logWriter.WriteLine("--- Extração de dados concluída ---");
+        return newWatermarks;
+    }
+
+    /// <summary>Encontra o maior valor de <c>RECMODIFIEDON</c> no batch lido (case-insensitive).</summary>
+    private static DateTime? ComputeMaxRecModifiedOn(List<Dictionary<string, object?>> rows)
+    {
+        if (rows.Count == 0) return null;
+        DateTime? max = null;
+        foreach (var row in rows)
+        {
+            foreach (var kv in row)
+            {
+                if (!string.Equals(kv.Key, "RECMODIFIEDON", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (kv.Value is DateTime dt)
+                {
+                    if (max == null || dt > max.Value) max = dt;
+                }
+                break;
+            }
+        }
+        return max;
     }
 
     private static async Task<List<Dictionary<string, object?>>> QueryToListAsync(SqlConnection connection, string sql, CancellationToken ct)
@@ -593,11 +667,20 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
         return rows;
     }
 
-    private async Task<List<Dictionary<string, object?>>> ReadTableAsync(SqlConnection connection, string fullTableName, CancellationToken ct)
+    private async Task<List<Dictionary<string, object?>>> ReadTableAsync(SqlConnection connection, string fullTableName, DateTime? watermark, CancellationToken ct)
     {
         var rows = new List<Dictionary<string, object?>>();
         var cmd = connection.CreateCommand();
-        cmd.CommandText = $"SELECT * FROM {fullTableName}";
+        if (watermark.HasValue)
+        {
+            // Fudge factor de 60s mitiga clock skew RM ↔ app server (UPSERT idempotente cobre duplicação).
+            cmd.CommandText = $"SELECT * FROM {fullTableName} WHERE RECMODIFIEDON > DATEADD(second, -60, @wm) ORDER BY RECMODIFIEDON";
+            cmd.Parameters.AddWithValue("@wm", watermark.Value);
+        }
+        else
+        {
+            cmd.CommandText = $"SELECT * FROM {fullTableName}";
+        }
         cmd.CommandTimeout = 120;
         await using var reader = await cmd.ExecuteReaderAsync(ct);
 

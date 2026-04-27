@@ -64,6 +64,7 @@ type VagaDraft = {
   quantidadeVagas: number; tipoContratacao: string; matchMinimoPercentual: number;
   descricaoInterna: string; codigoInterno: string; codigoCbo: string;
   cargoId: string; cargoCode: string; cargoName: string;
+  funcaoNomeRm: string; codFuncaoRm: string; // TOTVS RM - read-only
   categoriaSalarialId: string; categoriaSalarialCode: string; categoriaSalarialDescription: string;
   centroCustoId: string; centroCustoCode: string; centroCustoDescription: string;
   turnoId: string; turnoCode: string; turnoDescription: string;
@@ -118,6 +119,7 @@ function emptyDraft(): VagaDraft {
     quantidadeVagas: 1, tipoContratacao: "", matchMinimoPercentual: 70,
     descricaoInterna: "", codigoInterno: "", codigoCbo: "",
     cargoId: "", cargoCode: "", cargoName: "",
+    funcaoNomeRm: "", codFuncaoRm: "",
     categoriaSalarialId: "", categoriaSalarialCode: "", categoriaSalarialDescription: "",
     centroCustoId: "", centroCustoCode: "", centroCustoDescription: "",
     turnoId: "", turnoCode: "", turnoDescription: "",
@@ -939,6 +941,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         descricaoInterna: pick(v.descricaoInterna), codigoInterno: pick(v.codigoInterno),
         codigoCbo: pick(v.codigoCbo),
         cargoId: pick(v.jobPositionId), cargoCode: pick(v.jobPositionCode), cargoName: pick(v.jobPositionName),
+        funcaoNomeRm: pick(v.funcaoNomeRm), codFuncaoRm: pick(v.codFuncaoRm),
         categoriaSalarialId: pick(v.categoriaSalarialId),
         categoriaSalarialCode: pick(v.categoriaSalarialCode),
         categoriaSalarialDescription: pick(v.categoriaSalarialDescription),
@@ -1207,7 +1210,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} />
               </Field>
 
-              <Field label="Cargo" required span="col-span-12 md:col-span-8">
+              <Field label="Cargo" required span="col-span-12 md:col-span-4">
                 <CargoAutocomplete
                   value={draft.cargoCode || draft.cargoId}
                   defaultCargoLabel={draft.cargoCode ? { code: draft.cargoCode, name: draft.cargoName } : undefined}
@@ -1224,6 +1227,15 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                     }));
                   }}
                   placeholder="Digite código ou nome do cargo..."
+                />
+              </Field>
+              <Field label={draft.funcaoNomeRm ? "Função (TOTVS RM)" : "Função"} span="col-span-12 md:col-span-4">
+                <input
+                  readOnly
+                  className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+                  placeholder={draft.codFuncaoRm ? "" : "— sem vínculo RM —"}
+                  value={draft.funcaoNomeRm ? `${draft.codFuncaoRm} · ${draft.funcaoNomeRm}` : ""}
+                  title="Função TOTVS (PFUNCAO) — vem do RM, não editável"
                 />
               </Field>
               <Field label="Tipo de contratação" span="col-span-12 md:col-span-4">

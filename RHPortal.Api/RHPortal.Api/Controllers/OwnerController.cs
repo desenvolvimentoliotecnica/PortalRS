@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Funcionarios.Handlers;
+using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Application.Roles;
@@ -15,6 +16,7 @@ using RhPortal.Api.Application.Users;
 using RhPortal.Api.Contracts.Auditing;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Contracts.Funcionarios;
+using RhPortal.Api.Contracts.IntegracaoTotvs;
 using RhPortal.Api.Contracts.Logging;
 using RhPortal.Api.Contracts.Modules;
 using RhPortal.Api.Contracts.Owner;
@@ -42,14 +44,22 @@ public sealed class OwnerController : ControllerBase
     private readonly ITenantProvisioningService _provisioning;
     private readonly IServiceProvider _scope;
     private readonly IPreAdmissaoService _preAdmissaoService;
+    private readonly IRmSyncRunService _rmSyncRunService;
 
-    public OwnerController(MasterDbContext masterDb, OwnerAuthService ownerAuth, ITenantProvisioningService provisioning, IServiceProvider scope, IPreAdmissaoService preAdmissaoService)
+    public OwnerController(
+        MasterDbContext masterDb,
+        OwnerAuthService ownerAuth,
+        ITenantProvisioningService provisioning,
+        IServiceProvider scope,
+        IPreAdmissaoService preAdmissaoService,
+        IRmSyncRunService rmSyncRunService)
     {
         _masterDb = masterDb;
         _ownerAuth = ownerAuth;
         _provisioning = provisioning;
         _scope = scope;
         _preAdmissaoService = preAdmissaoService;
+        _rmSyncRunService = rmSyncRunService;
     }
 
     [AllowAnonymous]
@@ -1246,4 +1256,134 @@ public sealed class OwnerController : ControllerBase
         [FromQuery] IntegracaoResultado? resultado,
         CancellationToken ct)
         => Ok(await _preAdmissaoService.OwnerListPainelIntegracaoAsync(tenantId, resultado, ct));
+
+    /// <summary>
+    /// Painel cross-tenant da sincronização inbound RM → Portal: agrega <c>RmSyncRuns</c>
+    /// de TODOS os tenants ativos (cada tenant tem seu próprio banco). Alimenta a aba
+    /// "Sincronização RM" da tela <c>/Owner/Integracao</c>.
+    /// </summary>
+    [HttpGet("integracao/sync-rm")]
+    [ProducesResponseType(typeof(IReadOnlyList<OwnerPainelSyncRmRow>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> OwnerPainelSyncRm(
+        [FromQuery] string? tenantId,
+        [FromQuery] string? entidade,
+        [FromQuery] Domain.Enums.RmSyncStatus? status,
+        [FromQuery] DateTimeOffset? desde,
+        [FromQuery] int limit = 200,
+        CancellationToken ct = default)
+    {
+        var tenantsAlvo = await ResolveTargetTenantsAsync(tenantId, ct);
+        var aggregated = new List<OwnerPainelSyncRmRow>();
+
+        foreach (var tid in tenantsAlvo)
+        {
+            try
+            {
+                using var scope = _scope.CreateScope();
+                scope.ServiceProvider.GetRequiredService<ITenantContext>().SetTenantId(tid);
+                var svc = scope.ServiceProvider.GetRequiredService<IRmSyncRunService>();
+                var rows = await svc.OwnerListAsync(null, entidade, status, desde, limit, ct);
+                aggregated.AddRange(rows);
+            }
+            catch (Exception)
+            {
+                // Tenant sem tabela RmSyncRuns ainda (migration não aplicada) ou DB indisponível —
+                // ignora silenciosamente para não derrubar o painel inteiro por causa de um tenant.
+            }
+        }
+
+        var safeLimit = limit <= 0 ? 200 : Math.Min(limit, 1000);
+        return Ok(aggregated.OrderByDescending(r => r.StartedAtUtc).Take(safeLimit).ToList());
+    }
+
+    /// <summary>
+    /// Painel cross-tenant de alertas de zumbi (Frente C — vagas/funcionários que sumiram do RM
+    /// sem fechamento legítimo). Itera todos os tenants ativos. Diretriz: Portal não toca status;
+    /// apenas notifica para corrigir no RM.
+    /// </summary>
+    [HttpGet("integracao/sync-rm/alertas")]
+    [ProducesResponseType(typeof(IReadOnlyList<OwnerPainelAlertaRmRow>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> OwnerPainelAlertasRm(
+        [FromQuery] string? tenantId,
+        [FromQuery] bool incluirResolvidos = false,
+        [FromQuery] int limit = 200,
+        CancellationToken ct = default)
+    {
+        var tenantsAlvo = await ResolveTargetTenantsAsync(tenantId, ct);
+        var aggregated = new List<OwnerPainelAlertaRmRow>();
+
+        foreach (var tid in tenantsAlvo)
+        {
+            try
+            {
+                using var scope = _scope.CreateScope();
+                scope.ServiceProvider.GetRequiredService<ITenantContext>().SetTenantId(tid);
+                var svc = scope.ServiceProvider.GetRequiredService<IRmSyncRunService>();
+                var rows = await svc.OwnerListAlertasAsync(null, incluirResolvidos, limit, ct);
+                aggregated.AddRange(rows);
+            }
+            catch (Exception)
+            {
+                // idem acima — tenant sem migration aplicada ainda
+            }
+        }
+
+        var safeLimit = limit <= 0 ? 200 : Math.Min(limit, 1000);
+        return Ok(aggregated.OrderByDescending(r => r.DetectadoEmUtc).Take(safeLimit).ToList());
+    }
+
+    /// <summary>Resolve a lista de tenantIds para iterar (filtro específico ou todos os ativos).</summary>
+    private async Task<List<string>> ResolveTargetTenantsAsync(string? tenantId, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(tenantId))
+            return new List<string> { tenantId.Trim() };
+
+        return await _masterDb.Tenants
+            .AsNoTracking()
+            .Where(t => t.IsActive)
+            .OrderBy(t => t.TenantId)
+            .Select(t => t.TenantId)
+            .ToListAsync(ct);
+    }
+
+    /// <summary>Resolve manualmente um alerta. Idempotente — alertas já resolvidos retornam 204.</summary>
+    [HttpPost("integracao/sync-rm/alertas/{id:guid}/resolver")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResolverAlertaRm(Guid id, [FromBody] ResolverAlertaRequest request, CancellationToken ct)
+    {
+        try
+        {
+            await _rmSyncRunService.ResolverAlertaAsync(id, request, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Dispara um ciclo do worker em background (botão "Sincronizar agora" no painel).
+    /// Apenas dev/on-prem — em containerização, o worker roda como serviço separado.
+    /// Idempotente: se já há um manual run vivo nos últimos 15 min, devolve 409.
+    /// </summary>
+    [HttpPost("integracao/sync-rm/run-now")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> RunSyncRmNow(CancellationToken ct)
+    {
+        try
+        {
+            var pid = await _rmSyncRunService.TriggerRunNowAsync(ct);
+            if (pid is null)
+                return Conflict(new { message = "Já existe um ciclo manual em execução." });
+            return Accepted(new { message = "Worker disparado em background.", pid });
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            return StatusCode(503, new { message = ex.Message, hint = "Configure RmSync:WorkerProjectPath no appsettings." });
+        }
+    }
 }

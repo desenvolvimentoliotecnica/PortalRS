@@ -38,3 +38,6 @@ Liotecnica.Integration.RM.Logs/extraction.log
 # Python bytecode/cache
 **/__pycache__/
 *.pyc
+
+# Uploads de candidatos (currículos PDF) — dados pessoais, NÃO versionar (LGPD)
+**/App_Data/uploads/

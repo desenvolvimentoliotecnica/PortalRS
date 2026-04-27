@@ -39,6 +39,9 @@ public sealed class VagaSyncRmItem
     /// <summary>Código do cargo (PCARGO.CODIGO) — pre-resolvido pelo worker via PFUNCAO.CARGO.</summary>
     public string? CodCargo { get; set; }
 
+    /// <summary>Nome específico da função (PFUNCAO.NOME). Ex.: "ANALISTA DE PRICING SR".</summary>
+    public string? FuncaoNome { get; set; }
+
     /// <summary>Código da seção/centro de custo da requisição-pai (CODSECAO de VREQAUMENTOQUADRO ou VREQSUBSTITUICAO).</summary>
     public string? CodSecao { get; set; }
 
@@ -56,6 +59,14 @@ public sealed class VagaSyncRmItem
 
     /// <summary>Quando OrigemTipo=SubstituicaoDesligamento, IDREQ do desligamento que originou (resolve para OrigemDesligamentoId via lookup IdReqRm).</summary>
     public string? IdReqDesligamentoRm { get; set; }
+
+    /// <summary>
+    /// Se a vaga está aberta no RM (Ativo=1 e DataFechamento futura/null).
+    /// Quando false, o controller marca <c>Status=Encerrada</c>.
+    /// Default null = retrocompat (controller infere de DataFechamento).
+    /// Frente C: o worker manda <c>aberta=false</c> para vagas fechadas, viabilizando detecção de zumbi.
+    /// </summary>
+    public bool? Aberta { get; set; }
 }
 
 public sealed class VagaSyncRmBulkRequest

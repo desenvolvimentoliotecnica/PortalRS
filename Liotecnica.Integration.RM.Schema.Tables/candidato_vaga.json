@@ -91,8 +91,8 @@
     "NOMEPESSOA": "GABRIEL TEIXEIRA DIAS",
     "EMAIL": "GABRIEL.DIAS@LIOTECNICA.COM.BR",
     "TELEFONE1": "1147044356",
-    "TELEFONE2": null,
-    "CIDADE": "EMBU",
+    "TELEFONE2": "1196882265",
+    "CIDADE": "Embu das Artes",
     "ESTADO": "SP"
   },
   {
@@ -235,8 +235,8 @@
     "NOMEPESSOA": "GABRIEL TEIXEIRA DIAS",
     "EMAIL": "GABRIEL.DIAS@LIOTECNICA.COM.BR",
     "TELEFONE1": "1147044356",
-    "TELEFONE2": null,
-    "CIDADE": "EMBU",
+    "TELEFONE2": "1196882265",
+    "CIDADE": "Embu das Artes",
     "ESTADO": "SP"
   },
   {
@@ -252,7 +252,7 @@
     "EMAIL": "leandro.oliveira@liotecnica.com.br",
     "TELEFONE1": "11045572602",
     "TELEFONE2": "11969092397",
-    "CIDADE": "Embu",
+    "CIDADE": "Embu das Artes",
     "ESTADO": "SP"
   },
   {
@@ -492,7 +492,7 @@
     "EMAIL": "fortunatov862@gmail.com",
     "TELEFONE1": "00000000000",
     "TELEFONE2": "00000000000",
-    "CIDADE": "EMBU",
+    "CIDADE": "Embu das Artes",
     "ESTADO": "SP"
   },
   {
@@ -701,6 +701,22 @@
     "TELEFONE1": "11948541996",
     "TELEFONE2": null,
     "CIDADE": "EMBU DAS ARTES",
+    "ESTADO": "SP"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODVAGA": "1",
+    "NOMEVAGA": "COORDENADORA DE RH",
+    "CODPESSOA": 14427,
+    "APROVADO": null,
+    "STATUSTRIAGEM": 0,
+    "CODSELECAO": "2228",
+    "CHAPA": null,
+    "NOMEPESSOA": "VINICIUS ALVES COUTINHO",
+    "EMAIL": "VAC6548@GMAIL.COM",
+    "TELEFONE1": "38-99858.4372",
+    "TELEFONE2": null,
+    "CIDADE": "S\u00C3O PAULO",
     "ESTADO": "SP"
   },
   {
@@ -1422,22 +1438,6 @@
     "TELEFONE2": null,
     "CIDADE": "S\u00C3O PAULO",
     "ESTADO": "SP"
-  },
-  {
-    "CODCOLIGADA": 1,
-    "CODVAGA": "1",
-    "NOMEVAGA": "COORDENADORA DE RH",
-    "CODPESSOA": 14067,
-    "APROVADO": null,
-    "STATUSTRIAGEM": 1,
-    "CODSELECAO": "2660",
-    "CHAPA": null,
-    "NOMEPESSOA": "IDIAMARA PEREIRA FEITOR",
-    "EMAIL": "IDIAMARAFEITOR@HOTMAIL.COM",
-    "TELEFONE1": null,
-    "TELEFONE2": null,
-    "CIDADE": null,
-    "ESTADO": null
   },
   {
     "CODCOLIGADA": 1,
@@ -2435,6 +2435,22 @@
     "CODCOLIGADA": 1,
     "CODVAGA": "1",
     "NOMEVAGA": "COORDENADORA DE RH",
+    "CODPESSOA": 14364,
+    "APROVADO": null,
+    "STATUSTRIAGEM": 1,
+    "CODSELECAO": "2660",
+    "CHAPA": null,
+    "NOMEPESSOA": "IDIAMARA PEREIRA FEITOR",
+    "EMAIL": null,
+    "TELEFONE1": null,
+    "TELEFONE2": null,
+    "CIDADE": "Tabo\u00E3o da Serra",
+    "ESTADO": "SP"
+  },
+  {
+    "CODCOLIGADA": 1,
+    "CODVAGA": "1",
+    "NOMEVAGA": "COORDENADORA DE RH",
     "CODPESSOA": 9050,
     "APROVADO": null,
     "STATUSTRIAGEM": 0,
@@ -2954,8 +2970,8 @@
     "CHAPA": null,
     "NOMEPESSOA": "MIRELLI CAMARGOS DE AQUINO",
     "EMAIL": "MIRELLICAMARGSOS@GMAIL.COM",
-    "TELEFONE1": "11000000000",
-    "TELEFONE2": null,
+    "TELEFONE1": "11949896878",
+    "TELEFONE2": "1194989687",
     "CIDADE": "EMBU DAS ARTES",
     "ESTADO": "SP"
   },

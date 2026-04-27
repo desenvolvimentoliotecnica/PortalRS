@@ -36,6 +36,9 @@ public sealed class RmSchemaOptions
     /// <summary>Hierarquia/organograma TOTVS RM. Padrão: VHIERARQUIA.</summary>
     public string HierarquiaTable { get; set; } = RmTableNames.Hierarquia;
 
+    /// <summary>Ligação funcionário↔nó da hierarquia. Padrão: VHIERARQUIACOLIGADAEXTERNA.</summary>
+    public string HierarquiaColigadaExternaTable { get; set; } = RmTableNames.HierarquiaColigadaExterna;
+
     /// <summary>Solicitação de desligamento. Padrão: VREQDESLIGAMENTO.</summary>
     public string DesligamentoTable { get; set; } = RmTableNames.Desligamento;
 

@@ -366,7 +366,7 @@ function isFilaRow(row: GenericRow | SolicitacaoDetail): boolean {
 
 /* ──────────────────────────── Tab definitions ──────────────────────────── */
 
-type TabId = "contratacao" | "ferias" | "beneficio" | "dependentes" | "endereco" | "promocao" | "desligamento" | "_all";
+type TabId = "contratacao" | "promocao" | "desligamento" | "_all";
 
 interface TabDef {
     id: TabId;
@@ -389,103 +389,63 @@ const etapaCol = {
     },
 };
 
+// Tabs apontam pra dados sincronizados do TOTVS RM (visão consolidada do ERP).
+// Não dependem do fluxo de Solicitação interno do Portal — isso era a versão antiga.
 const TABS: TabDef[] = [
     {
         id: "contratacao", label: "Contratação", icon: Briefcase,
         color: "text-violet-600", bgColor: "bg-violet-500/15",
-        api: "/api/solicitacoes-vaga?statuses=1&statuses=5&statuses=9&statuses=10",
-        assumirApi: "/api/solicitacoes-vaga",
+        // Vagas abertas (Aumento de Quadro / Substituição) sincronizadas do RM.
+        api: "/api/vagas?status=Aberta&page=1&pageSize=200",
+        assumirApi: "/api/vagas",
         columns: [
+            { key: "codigo", label: "Cód.", render: (r) => <span className="font-mono text-xs">{pick(r, "codigo")}</span> },
             { key: "titulo", label: "Título" },
-            { key: "solicitanteNome", label: "Solicitante" },
-            etapaCol,
-            { key: "urgencia", label: "Urgência", render: (r) => urgenciaBadge(Number(r.urgencia ?? 0)) },
-            { key: "createdAtUtc", label: "Data", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+            { key: "centroCustoNome", label: "Centro de Custo", render: (r) => pick(r, "centroCustoNome") },
+            { key: "origemTipo", label: "Origem", render: (r) => {
+                const o = String(r.origemTipo ?? "");
+                return o === "AumentoQuadro" ? "Aumento Quadro"
+                    : o === "SubstituicaoDesligamento" ? "Subst. Desligamento"
+                    : o === "SubstituicaoPromocao" ? "Subst. Promoção"
+                    : o || "—";
+            }},
+            { key: "substituindoNome", label: "Substituindo", render: (r) => pick(r, "substituindoNome") },
+            { key: "dataAbertura", label: "Aberta em", render: (r) => formatDate(pick(r, "dataAbertura") !== "—" ? pick(r, "dataAbertura") : pick(r, "createdAtUtc")) },
         ],
     },
     {
         id: "promocao", label: "Movimentação", icon: TrendingUp,
         color: "text-teal-600", bgColor: "bg-teal-500/15",
-        api: "/api/solicitacoes-promocao?statuses=1&statuses=6",
-        assumirApi: "/api/solicitacoes-promocao",
+        // Movimentações em aberto no RM (CodStatus 1=Aberta, 2=Em análise, 5=Em andamento).
+        api: "/api/funcionarios/movimentacoes?codStatus=1&codStatus=2&codStatus=5&pageSize=200",
+        assumirApi: "/api/funcionarios/movimentacoes",
         columns: [
-            { key: "funcionarioNome", label: "Funcionário" },
-            { key: "novoCargoNome", label: "Novo Cargo" },
-            etapaCol,
-            { key: "dataEfetiva", label: "Data Efetiva", render: (r) => formatDate(pick(r, "dataEfetiva")) },
-            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+            { key: "funcionarioNome", label: "Funcionário", render: (r) => pick(r, "funcionarioNome") },
+            { key: "tipoDescricao", label: "Tipo", render: (r) => pick(r, "tipoDescricao") },
+            { key: "statusDescricao", label: "Status", render: (r) => pick(r, "statusDescricao") },
+            { key: "codFuncaoOrigem", label: "Função (origem→destino)", render: (r) => `${pick(r, "codFuncaoOrigem")} → ${pick(r, "codFuncaoDestino")}` },
+            { key: "dataAbertura", label: "Data Abertura", render: (r) => formatDate(pick(r, "dataAbertura")) },
         ],
     },
     {
         id: "desligamento", label: "Desligamento", icon: UserMinus,
         color: "text-rose-600", bgColor: "bg-rose-500/15",
-        api: "/api/solicitacoes-desligamento?statuses=1&statuses=6",
-        assumirApi: "/api/solicitacoes-desligamento",
+        // Desligamentos em aberto no RM (CodStatus 1=Aberta, 2=Em análise, 5=Em andamento).
+        api: "/api/desligamentos?codStatus=1&codStatus=2&codStatus=5&pageSize=200",
+        assumirApi: "/api/desligamentos",
         columns: [
-            { key: "funcionarioNome", label: "Funcionário" },
-            { key: "tipoDesligamento", label: "Tipo", render: (r) => TIPO_DESLIGAMENTO_MAP[Number(r.tipoDesligamento)] ?? String(r.tipoDesligamento ?? "—") },
-            etapaCol,
-            { key: "dataDesligamento", label: "Data Desligamento", render: (r) => formatDate(pick(r, "dataDesligamento")) },
-            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
-        ],
-    },
-    {
-        id: "ferias", label: "Férias", icon: Palmtree,
-        color: "text-sky-600", bgColor: "bg-sky-500/15",
-        api: "/api/colaborador/solicitacoes-ferias?statuses=1&statuses=6",
-        assumirApi: "/api/colaborador/solicitacoes-ferias",
-        columns: [
-            { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
-            etapaCol,
-            { key: "dataInicio", label: "Início", render: (r) => formatDate(pick(r, "dataInicio")) },
-            { key: "dataFim", label: "Fim", render: (r) => formatDate(pick(r, "dataFim")) },
-            { key: "dias", label: "Dias" },
-            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
-        ],
-    },
-    {
-        id: "beneficio", label: "Benefício", icon: Heart,
-        color: "text-pink-600", bgColor: "bg-pink-500/15",
-        api: "/api/colaborador/solicitacoes-beneficio?statuses=1&statuses=6",
-        assumirApi: "/api/colaborador/solicitacoes-beneficio",
-        columns: [
-            { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
-            { key: "tipoBeneficio", label: "Tipo" },
-            etapaCol,
-            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
-        ],
-    },
-    {
-        id: "dependentes", label: "Dependentes", icon: Users,
-        color: "text-indigo-600", bgColor: "bg-indigo-500/15",
-        api: "/api/colaborador/solicitacoes-dependente?statuses=1&statuses=6",
-        assumirApi: "/api/colaborador/solicitacoes-dependente",
-        columns: [
-            { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
-            { key: "dependenteNome", label: "Dependente", render: (r) => pick(r, "dependenteNome", pick(r, "nome", "—")) },
-            { key: "parentesco", label: "Parentesco" },
-            etapaCol,
-            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
-        ],
-    },
-    {
-        id: "endereco", label: "Endereço", icon: MapPin,
-        color: "text-amber-600", bgColor: "bg-amber-500/15",
-        api: "/api/colaborador/solicitacoes-endereco?statuses=1&statuses=6",
-        assumirApi: "/api/colaborador/solicitacoes-endereco",
-        columns: [
-            { key: "colaboradorNome", label: "Colaborador", render: (r) => pick(r, "colaboradorNome", pick(r, "solicitanteNome", "—")) },
-            { key: "logradouro", label: "Logradouro" },
-            { key: "cidade", label: "Cidade" },
-            etapaCol,
-            { key: "createdAtUtc", label: "Data Solic.", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+            { key: "funcionarioNome", label: "Funcionário", render: (r) => pick(r, "funcionarioNome") },
+            { key: "tipoRescisaoDescricao", label: "Tipo", render: (r) => pick(r, "tipoRescisaoDescricao") },
+            { key: "statusDescricao", label: "Status", render: (r) => pick(r, "statusDescricao") },
+            { key: "gerouSubstituicao", label: "Subst.?", render: (r) => r.gerouSubstituicao ? "Sim" : "Não" },
+            { key: "dataAbertura", label: "Data Abertura", render: (r) => formatDate(pick(r, "dataAbertura")) },
         ],
     },
 ];
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-const VALID_TAB_IDS: TabId[] = ["_all", "contratacao", "ferias", "beneficio", "dependentes", "endereco", "promocao", "desligamento"];
+const VALID_TAB_IDS: TabId[] = ["_all", "contratacao", "promocao", "desligamento"];
 const LS_TAB_KEY = "aprovacoes:activeTab";
 
 export default function AprovacoesScreen({ initialTab }: { initialTab?: string }) {
@@ -536,12 +496,10 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
 
     /* ── Data per tab ── */
     const [dataMap, setDataMap] = useState<Record<TabId, GenericRow[]>>({
-        _all: [], contratacao: [], ferias: [], beneficio: [], dependentes: [], endereco: [],
-        promocao: [], desligamento: [],
+        _all: [], contratacao: [], promocao: [], desligamento: [],
     });
     const [loadingMap, setLoadingMap] = useState<Record<TabId, boolean>>({
-        _all: true, contratacao: true, ferias: true, beneficio: true, dependentes: true, endereco: true,
-        promocao: true, desligamento: true,
+        _all: true, contratacao: true, promocao: true, desligamento: true,
     });
 
     /* ── Contratação detail (real API) ── */
@@ -561,8 +519,12 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     /* ── Fetch all tabs ── */
     const fetchTab = useCallback(async (tab: TabDef) => {
         try {
-            const data = await fetchJson<GenericRow[]>(tab.api);
-            setDataMap(prev => ({ ...prev, [tab.id]: Array.isArray(data) ? data : [] }));
+            const raw = await fetchJson<GenericRow[] | { items?: GenericRow[] }>(tab.api);
+            // Endpoints RM: /api/vagas é paginado ({items}); desligamentos e movimentações retornam array direto.
+            const rows: GenericRow[] = Array.isArray(raw)
+                ? raw
+                : (Array.isArray((raw as { items?: GenericRow[] })?.items) ? (raw as { items: GenericRow[] }).items : []);
+            setDataMap(prev => ({ ...prev, [tab.id]: rows }));
         } catch {
             setDataMap(prev => ({ ...prev, [tab.id]: [] }));
         } finally {
@@ -571,7 +533,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     }, []);
 
     const refreshAll = useCallback(() => {
-        setLoadingMap({ _all: true, contratacao: true, ferias: true, beneficio: true, dependentes: true, endereco: true, promocao: true, desligamento: true });
+        setLoadingMap({ _all: true, contratacao: true, promocao: true, desligamento: true });
         TABS.forEach(tab => void fetchTab(tab));
     }, [fetchTab]);
 
@@ -581,25 +543,15 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     useEffect(() => { setSelectedIds(new Set()); }, [activeTab]);
 
     /* ── Row relevance: show only tasks assigned to me OR open fila items ── */
-    const isMyRow = useCallback((row: GenericRow): boolean => {
-        // Never show my own requests as pendências for me
-        if (myFuncionarioId && row.solicitanteId === myFuncionarioId) return false;
-        // Fila de perfil — unclaimed AND current user belongs to the role
-        // etapaPendenteCanAssume is computed server-side based on user's role membership
-        if (row.etapaPendenteCanAssume === true) return true;
-        // Assumed by me directly (admin without Funcionario link)
-        if (myUserId && row.etapaPendenteAssumedByUserId === myUserId) return true;
-        // Nominated directly to me via Funcionario
-        if (myFuncionarioId) {
-            return row.etapaPendenteAprovadorId === myFuncionarioId;
-        }
-        // While me data is still loading, show everything
-        return !meLoaded;
-    }, [myFuncionarioId, myUserId, meLoaded]);
+    const isMyRow = useCallback((_row: GenericRow): boolean => {
+        // Tela passou pra modo "visão consolidada do RM" (read-only).
+        // Os filtros antigos baseados em etapa de aprovação Portal não se aplicam — mostra tudo.
+        return true;
+    }, []);
 
     /* ── Counts (per-tab, filtered to relevant items) ── */
     const counts = useMemo(() => {
-        const c: Record<TabId, number> = { _all: 0, contratacao: 0, ferias: 0, beneficio: 0, dependentes: 0, endereco: 0, promocao: 0, desligamento: 0 };
+        const c: Record<TabId, number> = { _all: 0, contratacao: 0, promocao: 0, desligamento: 0 };
         for (const tab of TABS) {
             c[tab.id] = dataMap[tab.id].filter(isMyRow).length;
         }
@@ -613,21 +565,54 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const activeTabDef = isAllMode ? TABS[0] : TABS.find(t => t.id === activeTab)!;
 
     const allColumns: { key: string; label: string; render?: (row: GenericRow) => React.ReactNode }[] = [
-        { key: "_tipo", label: "Tipo", render: (row) => {
-            const tabId = (row as GenericRow & { _tabId?: string })._tabId;
-            const tab = TABS.find(t => t.id === tabId);
-            if (!tab) return "—";
-            const Icon = tab.icon;
-            return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tab.color}`}><Icon className="size-3" />{tab.label}</span>;
-        }},
-        { key: "_desc", label: "Descrição", render: (row) => {
-            const tabId = (row as GenericRow & { _tabId?: string })._tabId;
-            const tab = TABS.find(t => t.id === tabId);
-            if (!tab) return "—";
-            const firstCol = tab.columns[0];
-            return firstCol?.render ? firstCol.render(row) : pick(row, firstCol?.key ?? "id");
-        }},
-        { key: "createdAtUtc", label: "Data", render: (r) => formatDate(pick(r, "createdAtUtc")) },
+        {
+            key: "_tipo", label: "Tipo", render: (row) => {
+                const tabId = (row as GenericRow & { _tabId?: string })._tabId;
+                const tab = TABS.find(t => t.id === tabId);
+                // Fallback heurístico se _tabId estiver faltando: detecta pelo formato dos campos.
+                const guessed = tab ?? (
+                    pick(row, "titulo") !== "—" ? TABS.find(t => t.id === "contratacao")
+                    : pick(row, "tipoDescricao") !== "—" ? TABS.find(t => t.id === "promocao")
+                    : pick(row, "tipoRescisaoDescricao") !== "—" ? TABS.find(t => t.id === "desligamento")
+                    : null
+                );
+                if (!guessed) return <span className="text-muted-foreground">—</span>;
+                const Icon = guessed.icon;
+                return <span className={`inline-flex items-center gap-1 rounded-full bg-card border border-border/50 px-2 py-0.5 text-[11px] font-semibold ${guessed.color}`}><Icon className="size-3" />{guessed.label}</span>;
+            },
+        },
+        {
+            key: "_desc", label: "Descrição", render: (row) => {
+                // Identificador principal por tipo: vaga → título; movimentação/desligamento → nome do funcionário.
+                const titulo = pick(row, "titulo");
+                if (titulo !== "—") return <span className="font-semibold">{titulo}</span>;
+                const nome = pick(row, "funcionarioNome");
+                if (nome !== "—") return <span className="font-semibold">{nome}</span>;
+                return <span className="text-muted-foreground font-mono text-xs">{pick(row, "id")}</span>;
+            },
+        },
+        {
+            key: "_detalhe", label: "Detalhe", render: (row) => {
+                const parts: string[] = [];
+                const cc = pick(row, "centroCustoNome");
+                const subst = pick(row, "substituindoNome");
+                const tipoDescricao = pick(row, "tipoDescricao");
+                const tipoRescisao = pick(row, "tipoRescisaoDescricao");
+                const status = pick(row, "statusDescricao");
+                if (cc !== "—") parts.push(cc);
+                if (subst !== "—") parts.push(`Subst. ${subst}`);
+                if (tipoDescricao !== "—") parts.push(tipoDescricao);
+                if (tipoRescisao !== "—") parts.push(tipoRescisao);
+                if (status !== "—") parts.push(status);
+                return parts.length ? <span className="text-xs">{parts.join(" · ")}</span> : <span className="text-muted-foreground">—</span>;
+            },
+        },
+        {
+            key: "_data", label: "Data", render: (r) => {
+                const da = pick(r, "dataAbertura");
+                return formatDate(da !== "—" ? da : pick(r, "createdAtUtc"));
+            },
+        },
     ];
 
     const filtered = useMemo(() => {
@@ -902,54 +887,8 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 })}
             </div>
 
-            {/* ── Bulk action bar ── */}
-            {!isLoading && selectableRows.length > 0 && (
-                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/50 bg-muted/40 px-4 py-3">
-                    {/* Select all toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
-                        <input
-                            type="checkbox"
-                            className="size-4 rounded border-gray-300 accent-primary cursor-pointer"
-                            checked={allSelectableSelected}
-                            onChange={toggleSelectAll}
-                        />
-                        <span className="text-sm font-medium text-foreground">
-                            {someSelected
-                                ? `${selectedIds.size} selecionada${selectedIds.size > 1 ? "s" : ""}`
-                                : "Selecionar todas"}
-                        </span>
-                        {someSelected && (
-                            <span className="text-xs text-muted-foreground">
-                                de {selectableRows.length}
-                            </span>
-                        )}
-                    </label>
-
-                    <div className="flex-1" />
-
-                    <div className="flex gap-2 shrink-0">
-                        <Button
-                            size="sm"
-                            disabled={!someSelected}
-                            className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 disabled:opacity-40"
-                            onClick={() => { setBulkObs(""); setBulkConfirmAction("approve"); }}
-                        >
-                            <CheckCheck className="size-4" />
-                            <span>Aprovar{someSelected ? ` (${selectedIds.size})` : ""}</span>
-                        </Button>
-                        <Button
-                            size="sm"
-                            disabled={!someSelected}
-                            variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50 gap-1.5 disabled:opacity-40"
-                            onClick={() => { setBulkObs(""); setBulkConfirmAction("reject"); }}
-                        >
-                            <X className="size-4" />
-                            <span>Recusar{someSelected ? ` (${selectedIds.size})` : ""}</span>
-                        </Button>
-                    </div>
-                </div>
-            )}
+            {/* Tela em modo somente-leitura — fluxo de aprovação foi descontinuado.
+                Os dados refletem o RM (via sync). Ações de aprovar/rejeitar acontecem no próprio RM. */}
 
             {/* ── Content: Mobile cards + Desktop table ── */}
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 backdrop-blur">
@@ -1081,57 +1020,17 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                     </div>
                                 )}
 
-                                {/* Action buttons — large, full-width touch targets */}
+                                {/* Apenas Ver — fluxo de aprovação descontinuado, dados refletem o RM. */}
                                 <div className="flex gap-2 pt-1">
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="gap-1.5 shrink-0"
+                                        className="gap-1.5"
                                         onClick={openDetail}
                                     >
                                         <Eye className="size-4" />
                                         <span>Ver</span>
                                     </Button>
-                                    {isFila ? (
-                                        <Button
-                                            size="sm"
-                                            disabled={acting}
-                                            className="flex-1 bg-violet-600 hover:bg-violet-700 gap-1.5"
-                                            onClick={() => void doAssumir(row)}
-                                        >
-                                            <UserCheck className="size-4" />
-                                            Assumir
-                                        </Button>
-                                    ) : (
-                                        <>
-                                            <Button
-                                                size="sm"
-                                                disabled={acting}
-                                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-1.5"
-                                                onClick={() => {
-                                                    setApprovalObs("");
-                                                    if (isContratacao) void doContratacaoAction(row.id, "approve");
-                                                    else void doGenericAction(row, "approve");
-                                                }}
-                                            >
-                                                <CheckCircle2 className="size-4" />
-                                                Aprovar
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                disabled={acting}
-                                                variant="destructive"
-                                                className="flex-1 gap-1.5"
-                                                onClick={() => {
-                                                    setRejectObs("");
-                                                    setRejectTarget({ row, isContratacao });
-                                                }}
-                                            >
-                                                <XCircle className="size-4" />
-                                                Recusar
-                                            </Button>
-                                        </>
-                                    )}
                                 </div>
                             </div>
                         );
@@ -1143,17 +1042,6 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-10">
-                                    {selectableRows.length > 0 && (
-                                        <input
-                                            type="checkbox"
-                                            className="size-4 rounded border-gray-300 accent-primary cursor-pointer"
-                                            checked={allSelectableSelected}
-                                            onChange={toggleSelectAll}
-                                            title="Selecionar todas"
-                                        />
-                                    )}
-                                </TableHead>
                                 {displayColumns.map(col => (
                                     <TableHead key={col.key}>{col.label}</TableHead>
                                 ))}
@@ -1163,7 +1051,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={displayColumns.length + 2} className="text-center text-muted-foreground py-8">
+                                    <TableCell colSpan={displayColumns.length + 1} className="text-center text-muted-foreground py-8">
                                         Carregando…
                                     </TableCell>
                                 </TableRow>
@@ -1184,101 +1072,26 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                     return (
                                         <TableRow
                                             key={`${rowTabId}-${row.id}`}
-                                            className={`cursor-pointer hover:bg-muted/40 ${isFila ? "border-l-[3px] border-l-violet-400" : ""} ${isSelected ? "bg-primary/5" : ""}`}
+                                            className="cursor-pointer hover:bg-muted/40"
                                             onClick={openDetail}
                                         >
-                                            <TableCell onClick={(e) => e.stopPropagation()} className="w-10">
-                                                {!isFila && (
-                                                    <input
-                                                        type="checkbox"
-                                                        className="size-4 rounded border-gray-300 accent-primary cursor-pointer"
-                                                        checked={isSelected}
-                                                        onChange={() => toggleSelect(row.id)}
-                                                    />
-                                                )}
-                                            </TableCell>
                                             {displayColumns.map((col, i) => (
                                                 <TableCell key={col.key} className={i === 0 ? "font-semibold" : "text-sm"}>
-                                                    {i === 0 ? (
-                                                        <div>
-                                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                                                <span>{col.render ? col.render(row) : pick(row, col.key)}</span>
-                                                                {isFila && !isAllMode && <FilaBadge />}
-                                                            </div>
-                                                            <button
-                                                                className="text-[10px] font-mono text-muted-foreground/60 hover:text-muted-foreground transition-colors"
-                                                                title={`ID: ${row.id} — clique para copiar`}
-                                                                onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(row.id); }}
-                                                            >
-                                                                {row.id}
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        col.render ? col.render(row) : pick(row, col.key)
-                                                    )}
+                                                    {col.render ? col.render(row) : pick(row, col.key)}
                                                 </TableCell>
                                             ))}
                                             <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="icon-xs"
-                                                        title="Ver detalhes"
-                                                        onClick={openDetail}
-                                                    >
-                                                        <Eye />
-                                                    </Button>
-                                                    {isFila ? (
-                                                        /* Fila de Perfil: only Assumir available */
-                                                        <Button
-                                                            size="sm"
-                                                            disabled={acting}
-                                                            className="bg-violet-600 hover:bg-violet-700 gap-1"
-                                                            onClick={() => void doAssumir(row)}
-                                                            title="Assumir esta tarefa como aprovador"
-                                                        >
-                                                            <UserCheck className="size-3" />
-                                                            <span className="hidden sm:inline">Assumir</span>
-                                                        </Button>
-                                                    ) : (
-                                                        /* Nominated: Approve / Reject inline */
-                                                        <>
-                                                            <Button
-                                                                size="sm"
-                                                                className="bg-emerald-600 hover:bg-emerald-700"
-                                                                title="Aprovar"
-                                                                onClick={() => {
-                                                                    setApprovalObs("");
-                                                                    if (isContratacao) void doContratacaoAction(row.id, "approve");
-                                                                    else void doGenericAction(row, "approve");
-                                                                }}
-                                                            >
-                                                                <CheckCircle2 className="size-3" />
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="destructive"
-                                                                title="Reprovar"
-                                                                onClick={() => {
-                                                                    setRejectObs("");
-                                                                    setRejectTarget({ row, isContratacao });
-                                                                }}
-                                                            >
-                                                                <XCircle className="size-3" />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                </div>
+                                                <Button variant="outline" size="icon-xs" title="Ver detalhes" onClick={openDetail}>
+                                                    <Eye />
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     );
                                 })
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={displayColumns.length + 2} className="text-center text-muted-foreground py-8">
-                                        {meLoaded
-                                            ? "Nenhuma pendência encontrada para você."
-                                            : "Carregando seus dados…"}
+                                    <TableCell colSpan={displayColumns.length + 1} className="text-center text-muted-foreground py-8">
+                                        Nenhuma pendência encontrada.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -1435,52 +1248,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                 </TabsContent>
                             </Tabs>
 
-                            {/* Actions — always visible */}
-                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && (
-                                isFilaRow(detail) ? (
-                                    <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4">
-                                        <div className="text-sm font-semibold text-violet-700 flex items-center gap-2">
-                                            <FilaBadge />
-                                            Fila de Perfil
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                                            Esta solicitação está na fila e pode ser assumida por qualquer membro do perfil configurado.
-                                            Ao assumir, você se torna o aprovador designado e poderá aprovar ou reprovar.
-                                        </p>
-                                        <Button
-                                            size="sm"
-                                            disabled={acting}
-                                            className="mt-3 bg-violet-600 hover:bg-violet-700 gap-1.5"
-                                            onClick={() => void doAssumir(detail as unknown as GenericRow)}
-                                        >
-                                            <UserCheck className="size-4" />
-                                            {acting ? "Assumindo…" : "Assumir tarefa"}
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-                                        <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
-                                        <textarea
-                                            className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
-                                            rows={2}
-                                            placeholder="Observação (opcional)..."
-                                            value={approvalObs}
-                                            onChange={(e) => setApprovalObs(e.target.value)}
-                                        />
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doContratacaoAction(detail.id, "approve")}>
-                                                <CheckCircle2 className="size-4" /> Aprovar
-                                            </Button>
-                                            <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doContratacaoAction(detail.id, "request-changes")}>
-                                                <AlertTriangle className="size-4" /> Pedir Ajustes
-                                            </Button>
-                                            <Button size="sm" variant="outline" disabled={acting} className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doContratacaoAction(detail.id, "reject")}>
-                                                <XCircle className="size-4" /> Reprovar
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )
-                            )}
+                            {/* Sem ações — espelho do RM, aprovação acontece no TOTVS. */}
                         </div>
                     ) : null}
                 </DialogContent>
@@ -1544,51 +1312,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                     </div>
                                 </div>
                             )}
-                            {/* Actions */}
-                            {isFilaRow(genericDetail) ? (
-                                /* Fila de Perfil — Assumir */
-                                <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4">
-                                    <div className="text-sm font-semibold text-violet-700 flex items-center gap-2">
-                                        <FilaBadge />
-                                        Fila de Perfil
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                                        Esta solicitação está na fila e pode ser assumida por qualquer membro do perfil configurado.
-                                    </p>
-                                    <Button
-                                        size="sm"
-                                        disabled={acting}
-                                        className="mt-3 bg-violet-600 hover:bg-violet-700 gap-1.5"
-                                        onClick={() => void doAssumir(genericDetail)}
-                                    >
-                                        <UserCheck className="size-4" />
-                                        {acting ? "Assumindo…" : "Assumir tarefa"}
-                                    </Button>
-                                </div>
-                            ) : (
-                                /* Nominated — normal approval */
-                                <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-                                    <div className="text-sm font-semibold text-amber-700">Sua decisão</div>
-                                    <textarea
-                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
-                                        rows={2}
-                                        placeholder="Observação (opcional)..."
-                                        value={approvalObs}
-                                        onChange={(e) => setApprovalObs(e.target.value)}
-                                    />
-                                    <div className="flex flex-wrap gap-2">
-                                        <Button size="sm" disabled={acting} className="bg-emerald-600 hover:bg-emerald-700" onClick={() => void doGenericAction(genericDetail, "approve")}>
-                                            <CheckCircle2 className="size-4" /> Aprovar
-                                        </Button>
-                                        <Button size="sm" variant="outline" disabled={acting} className="text-orange-600 border-orange-300 hover:bg-orange-50" onClick={() => void doGenericAction(genericDetail, "request-changes")}>
-                                            <AlertTriangle className="size-4" /> Pedir Ajustes
-                                        </Button>
-                                        <Button size="sm" variant="outline" disabled={acting} className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => void doGenericAction(genericDetail, "reject")}>
-                                            <XCircle className="size-4" /> Reprovar
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
+                            {/* Sem ações — visualização espelha o RM. Aprovação acontece no próprio TOTVS. */}
                         </div>
                     )}
                 </DialogContent>

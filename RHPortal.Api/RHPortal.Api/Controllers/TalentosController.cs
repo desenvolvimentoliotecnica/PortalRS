@@ -177,6 +177,21 @@ public sealed class TalentosController : ControllerBase
     }
 
     /// <summary>
+    /// Detalhe do job em PendenteValidacao: CV extraído + talento similar existente para comparação na UI.
+    /// </summary>
+    [HttpGet("import-jobs/{id:guid}")]
+    [ProducesResponseType(typeof(CvImportJobValidationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CvImportJobValidationResponse>> GetImportJob(
+        [FromRoute] Guid id,
+        [FromServices] ITalentoService service,
+        CancellationToken ct)
+    {
+        var item = await service.GetCvImportJobAsync(id, ct);
+        return item is null ? NotFound() : Ok(item);
+    }
+
+    /// <summary>
     /// Aprova a aplicação dos dados do CV no cadastro similar (job em PendenteValidacao).
     /// </summary>
     [HttpPost("import-jobs/{id:guid}/aprovar")]

@@ -469,13 +469,22 @@ public sealed class FuncionariosController : ControllerBase
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Delete(
         [FromRoute] Guid id,
         [FromServices] IDeleteFuncionarioHandler handler,
         CancellationToken ct)
     {
-        var deleted = await handler.HandleAsync(id, ct);
-        return deleted ? NoContent() : NotFound();
+        try
+        {
+            var deleted = await handler.HandleAsync(id, ct);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Funcionário importado do ERP — não pode ser excluído pelo Portal.
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -502,6 +511,8 @@ public sealed class FuncionariosController : ControllerBase
             .Include(x => x.NivelCargo)
             .Include(x => x.CentroCusto)
             .Include(x => x.GestorDireto)
+            .Include(x => x.Pessoa)
+            .Include(x => x.Hierarquia)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (f is null) return NotFound();
@@ -605,6 +616,21 @@ public sealed class FuncionariosController : ControllerBase
             ? $"/api/funcionarios/{f.GestorDiretoId}/avatar"
             : null;
 
+        // Para funcionários originados do TOTVS RM, dados pessoais (DataNascimento/Sexo) ficam na Pessoa,
+        // não na Funcionario — fallback pra Pessoa quando Funcionario não tem.
+        var dataNascimento = f.DataNascimento
+            ?? (f.Pessoa?.DataNascimento.HasValue == true ? DateOnly.FromDateTime(f.Pessoa.DataNascimento.Value) : (DateOnly?)null);
+        var sexo = f.Sexo ?? f.Pessoa?.Sexo;
+
+        // JobPosition.Description nem sempre é populada (ex.: cargos vindos do RM só têm Name).
+        var cargoNome = !string.IsNullOrWhiteSpace(f.JobPosition?.Description)
+            ? f.JobPosition!.Description
+            : f.JobPosition?.Name;
+
+        // Para RM, Unidade de Lotação não existe (Datasul-only) — usa Hierarquia como equivalente.
+        var lotacaoNome = f.UnidadeLotacao?.Description ?? f.Hierarquia?.Descricao;
+
+        var p = f.Pessoa;
         var result = new FuncionarioPerfil360Response(
             f.Id,
             f.Name,
@@ -613,15 +639,16 @@ public sealed class FuncionariosController : ControllerBase
             f.Status,
             !string.IsNullOrWhiteSpace(f.AvatarFileName) ? $"/api/funcionarios/{f.Id}/avatar" : null,
             f.DataAdmissao,
-            f.DataNascimento,
-            f.Sexo,
+            dataNascimento,
+            sexo,
             emExperiencia,
             diasRestantesExperiencia,
             progressoExperiencia,
-            f.JobPosition?.Description,
+            cargoNome,
+            f.FuncaoNomeRm,
             null, // AreaNome — Area absorvida pelo CentroCusto em 31.2
             f.Unit?.Name,
-            f.UnidadeLotacao?.Description,
+            lotacaoNome,
             f.NivelHierarquico?.Nome,
             f.NivelCargo?.NomComplet,
             f.CentroCusto?.Description,
@@ -631,6 +658,43 @@ public sealed class FuncionariosController : ControllerBase
             f.CdnFuncionario,
             f.CdnEmpresa,
             f.CdnEstab,
+            // RM
+            f.MatriculaRm,
+            f.Hierarquia?.Descricao,
+            f.CodSituacaoRm,
+            f.SituacaoRmDescricao,
+            // Pessoa: identificação
+            p?.Cpf,
+            p?.EstadoCivil,
+            p?.Naturalidade,
+            p?.EstadoNatal,
+            p?.GrauInstrucao,
+            p?.NomePai,
+            p?.NomeMae,
+            p?.Nacionalidade,
+            // Pessoa: endereço
+            p?.Cep,
+            p?.Logradouro,
+            p?.Numero,
+            p?.Complemento,
+            p?.Bairro,
+            p?.Cidade,
+            p?.Uf,
+            // Pessoa: documentos
+            p?.Rg,
+            p?.RgOrgEmissor,
+            p?.RgUf,
+            p?.RgDataEmissao,
+            p?.CarteiraTrabalho,
+            p?.CarteiraTrabalhoSerie,
+            p?.CarteiraTrabalhoUf,
+            p?.CarteiraTrabalhoData,
+            p?.NumeroPis,
+            p?.TituloEleitor,
+            p?.TituloEleitorZona,
+            p?.TituloEleitorSecao,
+            p?.CertificadoReservista,
+            p?.CategoriaMilitar,
             historicoItems,
             dependentesItems,
             docItems,

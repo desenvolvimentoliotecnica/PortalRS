@@ -157,6 +157,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Hierarquia> Hierarquias => Set<Hierarquia>();
     public DbSet<Desligamento> Desligamentos => Set<Desligamento>();
     public DbSet<FuncionarioMovimentacao> FuncionarioMovimentacoes => Set<FuncionarioMovimentacao>();
+    public DbSet<RmSyncRun> RmSyncRuns => Set<RmSyncRun>();
+    public DbSet<RmSyncCheckpoint> RmSyncCheckpoints => Set<RmSyncCheckpoint>();
+    public DbSet<RmSyncAlerta> RmSyncAlertas => Set<RmSyncAlerta>();
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
@@ -397,6 +400,47 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .WithMany()
                 .HasForeignKey(x => x.FuncionarioId)
                 .OnDelete(DeleteBehavior.SetNull);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmSyncRun>(b =>
+        {
+            b.ToTable("RmSyncRuns");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Entidade).HasMaxLength(60).IsRequired();
+            b.Property(x => x.Operacao).HasMaxLength(20).IsRequired();
+            b.Property(x => x.ErroMensagem).HasMaxLength(2000);
+            b.HasIndex(x => new { x.TenantId, x.Entidade, x.StartedAtUtc })
+                .HasDatabaseName("IX_RmSyncRuns_TenantId_Entidade_StartedAtUtc")
+                .IsDescending(false, false, true);
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmSyncCheckpoint>(b =>
+        {
+            b.ToTable("RmSyncCheckpoints");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Entidade).HasMaxLength(60).IsRequired();
+            b.Property(x => x.LastRunStatus).HasMaxLength(20);
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.Entidade }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmSyncAlerta>(b =>
+        {
+            b.ToTable("RmSyncAlertas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40).IsRequired();
+            b.Property(x => x.EntidadeNome).HasMaxLength(40).IsRequired();
+            b.Property(x => x.ChaveRm).HasMaxLength(80).IsRequired();
+            b.Property(x => x.Acao).HasMaxLength(120);
+            b.HasIndex(x => new { x.TenantId, x.Tipo, x.ChaveRm }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.ResolvidoEmUtc });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -3387,6 +3431,15 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        // Provider InMemory (testes) não suporta o tipo Pgvector.Vector — sem
+        // este Ignore o ModelValidator lança InvalidOperationException, e a
+        // tentativa do DI de re-resolver DbContextDependencies vira recursão
+        // que estoura a pilha. Esses embeddings só fazem sentido no Postgres.
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            modelBuilder.Entity<CandidatoEmbedding>().Ignore(e => e.Embedding);
+            modelBuilder.Entity<DescricaoCargoItemEmbedding>().Ignore(e => e.Embedding);
+        }
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

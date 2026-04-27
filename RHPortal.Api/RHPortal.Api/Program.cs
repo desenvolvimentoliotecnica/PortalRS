@@ -441,6 +441,7 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
 builder.Services.AddScoped<ISolicitacaoVagaService, SolicitacaoVagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Vagas.IVagaPipelineService, RhPortal.Api.Application.Vagas.VagaPipelineService>();
 builder.Services.AddScoped<RhPortal.Api.Application.PublicApproval.IMagicLinkService, RhPortal.Api.Application.PublicApproval.MagicLinkService>();
 builder.Services.AddScoped<RhPortal.Api.Application.EntrevistasSaida.IEntrevistaSaidaService, RhPortal.Api.Application.EntrevistasSaida.EntrevistaSaidaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.WorkflowRH.IWorkflowRHService, RhPortal.Api.Application.WorkflowRH.WorkflowRHService>();
@@ -476,6 +477,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.AwsSettings.IAwsSettingsServ
 builder.Services.AddScoped<RhPortal.Api.Infrastructure.Storage.IS3StorageService, RhPortal.Api.Infrastructure.Storage.S3StorageService>();
 builder.Services.AddScoped<IPreAdmissaoService, PreAdmissaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IIntegracaoTotvsService, RhPortal.Api.Application.IntegracaoTotvs.IntegracaoTotvsService>();
+builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IRmSyncRunService, RhPortal.Api.Application.IntegracaoTotvs.RmSyncRunService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.DocumentAiExtractor>();
 builder.Services.AddScoped<RhPortal.Api.Application.Blip.BlipDocumentoValidator>();
 builder.Services.AddScoped<RhPortal.Api.Application.Blip.BlipMessagingService>();

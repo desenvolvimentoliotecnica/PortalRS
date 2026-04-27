@@ -318,6 +318,18 @@
     ]
   },
   {
+    "CODPESSOA": "14427",
+    "CvText": "Forma\u00E7\u00E3o: 5 -",
+    "Formacao": [
+      {
+        "Curso": "5",
+        "Instituicao": "",
+        "Inicio": null,
+        "Fim": null
+      }
+    ]
+  },
+  {
     "CODPESSOA": "12565",
     "CvText": "Forma\u00E7\u00E3o: Ensino Escolar - E.E.Comandante Jacques Yves Cousteau",
     "Formacao": [

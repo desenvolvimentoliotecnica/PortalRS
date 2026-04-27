@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, FileUp, Loader2, Plus, RefreshCw, Search, UserCheck, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, Award, Briefcase, Check, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,6 +38,7 @@ type TalentItem = {
   uf?: string | null;
   origem?: string | null;
   cvImportStatus?: string | number | null;
+  cvImportJobId?: string | null;
   createdAtUtc?: string | null;
 };
 
@@ -95,6 +96,7 @@ function mapPaged(raw: unknown): Paged {
           cvImportStatus: typeof it.cvImportStatus === "string" || typeof it.cvImportStatus === "number"
             ? it.cvImportStatus
             : null,
+          cvImportJobId: str(it.cvImportJobId, "") || null,
           createdAtUtc: str(it.createdAtUtc, "") || null,
         } satisfies TalentItem;
       })
@@ -132,6 +134,21 @@ function cvStatusLabel(s: unknown): string {
     "3": "Concluído", Concluido: "Concluído",
   };
   return map[String(s)] ?? String(s);
+}
+
+function isPendenteValidacao(s: unknown): boolean {
+  if (s == null) return false;
+  const v = String(s);
+  return v === "2" || v === "PendenteValidacao";
+}
+
+function cvStatusBadgeClass(s: unknown): string {
+  const v = String(s ?? "");
+  if (v === "2" || v === "PendenteValidacao") return "bg-amber-100 text-amber-800 ring-amber-200";
+  if (v === "1" || v === "EmProcessamento") return "bg-blue-100 text-blue-700 ring-blue-200";
+  if (v === "3" || v === "Concluido") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (v === "0" || v === "Pendente") return "bg-slate-100 text-slate-600 ring-slate-200";
+  return "bg-slate-50 text-slate-500 ring-slate-200";
 }
 
 function fmtDate(iso?: string | null): string {
@@ -183,6 +200,12 @@ export default function TalentosScreen() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState<Record<string, unknown> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  const [valOpen, setValOpen] = useState(false);
+  const [valLoading, setValLoading] = useState(false);
+  const [valSaving, setValSaving] = useState(false);
+  const [valData, setValData] = useState<Record<string, unknown> | null>(null);
+  const [valJobId, setValJobId] = useState<string>("");
 
   /* ─── Load on mount ─── */
   useEffect(() => {
@@ -324,6 +347,44 @@ export default function TalentosScreen() {
       setDetailData(asRec(data));
     } catch { toast.error("Falha ao carregar detalhes."); }
     finally { setDetailLoading(false); }
+  }
+
+  function openValidacao(jobId: string) {
+    setValJobId(jobId);
+    setValOpen(true);
+    setValData(null);
+    setValLoading(true);
+    void (async () => {
+      try {
+        const data = await fetchJson<unknown>(`${BASE}/api/talentos/import-jobs/${encodeURIComponent(jobId)}`);
+        setValData(asRec(data));
+      } catch { toast.error("Falha ao carregar validação."); setValOpen(false); }
+      finally { setValLoading(false); }
+    })();
+  }
+
+  async function aprovarValidacao() {
+    if (!valJobId) return;
+    setValSaving(true);
+    try {
+      await fetchJson<unknown>(`${BASE}/api/talentos/import-jobs/${encodeURIComponent(valJobId)}/aprovar`, { method: "POST" });
+      toast.success("Cadastro existente atualizado com os dados do CV.");
+      setValOpen(false);
+      await load(page, pageSize, q, origem);
+    } catch { toast.error("Falha ao aprovar."); }
+    finally { setValSaving(false); }
+  }
+
+  async function recusarValidacao() {
+    if (!valJobId) return;
+    setValSaving(true);
+    try {
+      await fetchJson<unknown>(`${BASE}/api/talentos/import-jobs/${encodeURIComponent(valJobId)}/recusar`, { method: "POST" });
+      toast.success("Mantidos como talentos separados.");
+      setValOpen(false);
+      await load(page, pageSize, q, origem);
+    } catch { toast.error("Falha ao recusar."); }
+    finally { setValSaving(false); }
   }
 
   /* ─── Render ─── */
@@ -473,14 +534,30 @@ export default function TalentosScreen() {
                         {badge.label}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">
-                      {cvStatusLabel(t.cvImportStatus)}
+                    <TableCell className="hidden xl:table-cell">
+                      {t.cvImportStatus != null ? (
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${cvStatusBadgeClass(t.cvImportStatus)}`}>
+                          {cvStatusLabel(t.cvImportStatus)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground hidden xl:table-cell">
                       {fmtDate(t.createdAtUtc)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1 flex-wrap">
+                        {isPendenteValidacao(t.cvImportStatus) && t.cvImportJobId && (
+                          <Button
+                            size="sm"
+                            className="bg-amber-500 hover:bg-amber-600 text-white"
+                            onClick={() => openValidacao(t.cvImportJobId!)}
+                            title="Revisar duplicidade detectada"
+                          >
+                            <AlertTriangle className="mr-1 size-4" /> Validar
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           onClick={() => void openCadastrarCandidato(t)}
@@ -665,41 +742,452 @@ export default function TalentosScreen() {
 
       {/* ─── Modal: Detalhes do talento ─── */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="!max-w-[min(1280px,95vw)] max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalhes do talento</DialogTitle>
           </DialogHeader>
           {detailLoading ? (
             <div className="py-10 text-center"><Loader2 className="size-6 animate-spin mx-auto text-muted-foreground" /></div>
           ) : detailData ? (
-            <div className="space-y-4 mt-2">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {(["nome", "email", "cpf", "fone", "cidade", "uf", "origem", "linkedinUrl"] as const).map((k) => {
-                  const v = str(detailData[k], "");
-                  if (!v) return null;
-                  return (
-                    <div key={k}>
-                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-0.5">{k}</div>
-                      <div className="font-medium">{v}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              {str(detailData.resumoProfissional, "") && (
-                <div>
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">Resumo profissional</div>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{str(detailData.resumoProfissional, "")}</p>
-                </div>
-              )}
-            </div>
+            <TalentoDetailView data={detailData} />
           ) : (
             <p className="text-muted-foreground text-sm py-4">Sem dados.</p>
           )}
-          <div className="flex justify-end mt-2">
+          <div className="flex justify-end mt-2 sticky bottom-0 bg-background pt-2">
             <Button variant="outline" onClick={() => setDetailOpen(false)}>Fechar</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ─── Modal: Validar duplicidade ─── */}
+      <Dialog open={valOpen} onOpenChange={(o) => { if (!valSaving) setValOpen(o); }}>
+        <DialogContent className="!max-w-[min(1280px,95vw)] max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-600" />
+              Validar duplicidade de talento
+            </DialogTitle>
+            <DialogDescription>
+              O CV importado parece ser de uma pessoa <strong>já cadastrada</strong>. Compare os dados e decida se é a mesma pessoa (mesclar) ou outra (manter separados).
+            </DialogDescription>
+          </DialogHeader>
+          {valLoading ? (
+            <div className="py-10 text-center"><Loader2 className="size-6 animate-spin mx-auto text-muted-foreground" /></div>
+          ) : valData ? (
+            <ValidacaoCompareView data={valData} />
+          ) : (
+            <p className="text-muted-foreground text-sm py-4">Sem dados.</p>
+          )}
+          <div className="flex flex-wrap justify-end items-center gap-2 mt-3 sticky bottom-0 bg-background pt-3 border-t">
+            <Button variant="outline" onClick={() => setValOpen(false)} disabled={valSaving}>Fechar</Button>
+            <Button variant="outline" onClick={() => void recusarValidacao()} disabled={valSaving} className="text-slate-700">
+              <UserX className="mr-1 size-4" /> Outra pessoa (manter ambos)
+            </Button>
+            <Button onClick={() => void aprovarValidacao()} disabled={valSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              {valSaving ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Check className="mr-1 size-4" />}
+              Mesma pessoa (mesclar)
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
+  );
+}
+
+/* ─── Modal sub-component: rich talento detail ─── */
+
+function asArr(v: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((x) => asRec(x)).filter(Boolean) as Record<string, unknown>[];
+}
+
+function periodo(inicio?: string | null, fim?: string | null): string {
+  const i = (inicio ?? "").trim();
+  const f = (fim ?? "").trim();
+  if (!i && !f) return "";
+  if (i && f) return `${i} — ${f}`;
+  if (i) return `${i} — atual`;
+  return `até ${f}`;
+}
+
+function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
+  const nome = str(data.nome, "—");
+  const email = str(data.email, "");
+  const fone = str(data.fone, "");
+  const cidade = str(data.cidade, "");
+  const uf = str(data.uf, "");
+  const linkedin = str(data.linkedinUrl, "");
+  const cpf = str(data.cpf, "");
+  const origem = str(data.origem, "");
+  const resumo = str(data.resumoProfissional, "");
+
+  const competencias = asArr(data.competencias);
+  const experiencias = asArr(data.experiencias);
+  const treinamentos = asArr(data.treinamentos);
+  const formacao = asArr(data.formacao);
+
+  const local = [cidade, uf].filter(Boolean).join(" / ");
+
+  const compTipos = ["Idioma", "Ferramenta", "Técnica", "Comportamental"] as const;
+  const compsByTipo = compTipos
+    .map((tipo) => ({
+      tipo,
+      items: competencias.filter((c) => {
+        const t = str(c.tipo, "").toLowerCase();
+        if (tipo === "Idioma") return t.includes("idioma") || t.includes("language");
+        if (tipo === "Ferramenta") return t.includes("ferr") || t.includes("tool");
+        if (tipo === "Técnica") return t.includes("técn") || t.includes("tecn") || t.includes("tech");
+        if (tipo === "Comportamental") return t.includes("comp");
+        return false;
+      }),
+    }))
+    .filter((g) => g.items.length > 0);
+  const compOutras = competencias.filter(
+    (c) => !compsByTipo.some((g) => g.items.includes(c))
+  );
+
+  return (
+    <div className="mt-2 space-y-3">
+      {/* Header card — full width, denso */}
+      <div className="rounded-xl border bg-gradient-to-r from-slate-50 to-white px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="size-12 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-semibold">
+            {nome.slice(0, 1).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h3 className="text-base font-semibold leading-tight">{nome}</h3>
+              {origem && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">{origem}</span>}
+              {cpf && <span className="text-[11px] text-muted-foreground">CPF: {cpf}</span>}
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
+              {email && <span className="flex items-center gap-1.5"><Mail className="size-3.5" />{email}</span>}
+              {fone && <span className="flex items-center gap-1.5"><Phone className="size-3.5" />{fone}</span>}
+              {local && <span className="flex items-center gap-1.5"><MapPin className="size-3.5" />{local}</span>}
+              {linkedin && (
+                <a href={linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:underline">
+                  <Linkedin className="size-3.5" />{linkedin.replace(/^https?:\/\//, "").replace(/^www\./, "")}
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Layout 2 colunas: sidebar + main */}
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-3">
+        {/* ─── Sidebar ─── */}
+        <div className="space-y-3">
+          {competencias.length > 0 && (
+            <SectionCard icon={<Sparkles className="size-3.5" />} title={`Competências (${competencias.length})`} dense>
+              <div className="space-y-2">
+                {compsByTipo.map((g) => (
+                  <div key={g.tipo}>
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{g.tipo}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {g.items.map((c, idx) => {
+                        const nome = str(c.nome, "");
+                        const nivel = str(c.nivel, "");
+                        const tone =
+                          g.tipo === "Idioma" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                          g.tipo === "Ferramenta" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                          g.tipo === "Comportamental" ? "bg-pink-50 text-pink-700 border-pink-200" :
+                          "bg-blue-50 text-blue-700 border-blue-200";
+                        return (
+                          <span key={idx} className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] ${tone}`}>
+                            <span className="font-medium">{nome}</span>
+                            {nivel && <span className="opacity-70">· {nivel}</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {compOutras.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Outras</div>
+                    <div className="flex flex-wrap gap-1">
+                      {compOutras.map((c, idx) => {
+                        const nome = str(c.nome, "");
+                        const nivel = str(c.nivel, "");
+                        return (
+                          <span key={idx} className="inline-flex items-center gap-1 rounded-md border bg-slate-50 text-slate-700 border-slate-200 px-1.5 py-0.5 text-[11px]">
+                            <span className="font-medium">{nome}</span>
+                            {nivel && <span className="opacity-70">· {nivel}</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )}
+
+          {formacao.length > 0 && (
+            <SectionCard icon={<GraduationCap className="size-3.5" />} title={`Formação (${formacao.length})`} dense>
+              <ul className="space-y-2">
+                {formacao.map((f, idx) => {
+                  const curso = str(f.curso, "");
+                  const inst = str(f.instituicao, "");
+                  const tipo = str(f.tipo, "");
+                  const status = str(f.status, "");
+                  const inicio = str(f.inicio, "");
+                  const fim = str(f.fim, "");
+                  const per = periodo(inicio, fim);
+                  return (
+                    <li key={idx} className="border-l-2 border-emerald-200 pl-2.5">
+                      <div className="font-medium text-[13px] leading-snug">{curso}</div>
+                      {inst && <div className="text-[12px] text-slate-600">{inst}</div>}
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                        {tipo && <span className="rounded bg-emerald-50 text-emerald-700 px-1.5 py-0.5">{tipo}</span>}
+                        {status && <span className="rounded bg-amber-50 text-amber-700 px-1.5 py-0.5">{status}</span>}
+                        {per && <span className="tabular-nums">{per}</span>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </SectionCard>
+          )}
+
+          {treinamentos.length > 0 && (
+            <SectionCard icon={<Award className="size-3.5" />} title={`Cursos (${treinamentos.length})`} dense>
+              <ul className="space-y-1.5">
+                {treinamentos.map((t, idx) => {
+                  const nome = str(t.nome, "");
+                  const inst = str(t.instituicao, "");
+                  const ano = str(t.ano, "");
+                  const link = str(t.link, "");
+                  return (
+                    <li key={idx} className="text-[12px] flex items-baseline justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium leading-snug truncate">{nome}</div>
+                        {inst && <div className="text-[11px] text-slate-500 truncate">{inst}</div>}
+                        {link && <a href={link} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 hover:underline">certificado</a>}
+                      </div>
+                      {ano && <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{ano}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </SectionCard>
+          )}
+        </div>
+
+        {/* ─── Main ─── */}
+        <div className="space-y-3 min-w-0">
+          {resumo && (
+            <SectionCard icon={<Sparkles className="size-3.5" />} title="Resumo profissional" dense>
+              <p className="text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">{resumo}</p>
+            </SectionCard>
+          )}
+
+          {experiencias.length > 0 && (
+            <SectionCard icon={<Briefcase className="size-3.5" />} title={`Experiência profissional (${experiencias.length})`} dense>
+              <ol className="space-y-3 relative before:absolute before:left-[6px] before:top-1.5 before:bottom-1.5 before:w-px before:bg-slate-200">
+                {experiencias.map((exp, idx) => {
+                  const empresa = str(exp.empresa, "");
+                  const cargo = str(exp.cargo, "");
+                  const inicio = str(exp.inicio, "");
+                  const fim = str(exp.fim, "");
+                  const tipo = str(exp.tipoContratacao, "");
+                  const localExp = str(exp.local, "");
+                  const senior = str(exp.nivelSenioridade, "");
+                  const hier = str(exp.nivelHierarquico, "");
+                  const ativ = str(exp.atividades, "") || str(exp.resumoAtividades, "");
+                  const per = periodo(inicio, fim);
+                  return (
+                    <li key={idx} className="pl-5 relative">
+                      <span className="absolute left-0 top-1.5 size-3 rounded-full bg-primary/20 ring-2 ring-background" />
+                      <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                        <h4 className="font-semibold text-[13px] leading-tight">{cargo || "Cargo não informado"}{empresa && <span className="text-slate-500 font-normal"> · {empresa}</span>}</h4>
+                        {per && <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{per}</span>}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                        {senior && <span className="rounded bg-blue-50 text-blue-700 px-1.5 py-0.5">{senior}</span>}
+                        {hier && <span className="rounded bg-indigo-50 text-indigo-700 px-1.5 py-0.5">{hier}</span>}
+                        {tipo && <span className="rounded bg-slate-100 text-slate-700 px-1.5 py-0.5">{tipo}</span>}
+                        {localExp && <span className="rounded bg-slate-100 text-slate-600 px-1.5 py-0.5">{localExp}</span>}
+                      </div>
+                      {ativ && (
+                        <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600 whitespace-pre-wrap">{ativ}</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </SectionCard>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionCard({ icon, title, children, dense }: { icon: React.ReactNode; title: string; children: React.ReactNode; dense?: boolean }) {
+  return (
+    <div className="rounded-lg border bg-white">
+      <div className={`flex items-center gap-1.5 border-b bg-slate-50/60 rounded-t-lg ${dense ? "px-3 py-1.5" : "px-4 py-2.5"}`}>
+        <span className="text-primary">{icon}</span>
+        <h3 className={`font-semibold text-slate-800 ${dense ? "text-[12px]" : "text-sm"}`}>{title}</h3>
+      </div>
+      <div className={dense ? "p-3" : "p-4"}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Validação de duplicidade — comparação side-by-side ─── */
+
+function ValidacaoCompareView({ data }: { data: Record<string, unknown> }) {
+  const existing = asRec(data.existingTalento) ?? {};
+  const sugg = asRec(data.suggestedData) ?? {};
+
+  const ePessoa = {
+    nome: str(existing.nome, "—"),
+    email: str(existing.email, ""),
+    fone: str(existing.fone, ""),
+    cidade: str(existing.cidade, ""),
+    uf: str(existing.uf, ""),
+    cpf: str(existing.cpf, ""),
+    linkedin: str(existing.linkedinUrl, ""),
+    resumo: str(existing.resumoProfissional, ""),
+  };
+  const sPessoa = {
+    nome: str(sugg.nome, "—"),
+    email: str(sugg.email, ""),
+    fone: str(sugg.fone, ""),
+    cidade: str(sugg.cidade, ""),
+    uf: str(sugg.uf, ""),
+    cpf: str(sugg.cpf, ""),
+    linkedin: str(sugg.linkedinUrl, ""),
+    resumo: str(sugg.resumoProfissional, ""),
+  };
+
+  const eExp = asArr(existing.experiencias);
+  const sExp = asArr(sugg.experiencias);
+  const eForm = asArr(existing.formacao);
+  const sForm = asArr(sugg.formacao);
+  const eComp = asArr(existing.competencias);
+  const sComp = asArr(sugg.competencias);
+
+  return (
+    <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <ColuncaTalento titulo="Cadastro existente" subtitulo="Já está na base" cor="slate" pessoa={ePessoa} experiencias={eExp} formacao={eForm} competencias={eComp} />
+      <ColuncaTalento titulo="Novo CV importado" subtitulo="Dados extraídos pela IA" cor="amber" pessoa={sPessoa} experiencias={sExp} formacao={sForm} competencias={sComp} />
+    </div>
+  );
+}
+
+type ComparePessoa = { nome: string; email: string; fone: string; cidade: string; uf: string; cpf: string; linkedin: string; resumo: string };
+
+function ColuncaTalento({ titulo, subtitulo, cor, pessoa, experiencias, formacao, competencias }: {
+  titulo: string;
+  subtitulo: string;
+  cor: "slate" | "amber";
+  pessoa: ComparePessoa;
+  experiencias: Record<string, unknown>[];
+  formacao: Record<string, unknown>[];
+  competencias: Record<string, unknown>[];
+}) {
+  const headerTone = cor === "amber"
+    ? "bg-amber-50 border-amber-200 text-amber-900"
+    : "bg-slate-50 border-slate-200 text-slate-800";
+  const local = [pessoa.cidade, pessoa.uf].filter(Boolean).join(" / ");
+
+  return (
+    <div className={`rounded-xl border ${cor === "amber" ? "border-amber-200" : "border-slate-200"} bg-white overflow-hidden`}>
+      <div className={`px-4 py-2 border-b ${headerTone}`}>
+        <div className="text-[10px] font-semibold uppercase tracking-widest opacity-70">{subtitulo}</div>
+        <div className="text-sm font-semibold">{titulo}</div>
+      </div>
+      <div className="p-3 space-y-3">
+        {/* Identificação */}
+        <div className="space-y-1.5">
+          <div className="text-base font-semibold leading-tight">{pessoa.nome}</div>
+          <div className="grid grid-cols-1 gap-1 text-[12px] text-slate-600">
+            {pessoa.email && <div className="flex items-center gap-1.5"><Mail className="size-3.5 shrink-0" />{pessoa.email}</div>}
+            {pessoa.fone && <div className="flex items-center gap-1.5"><Phone className="size-3.5 shrink-0" />{pessoa.fone}</div>}
+            {local && <div className="flex items-center gap-1.5"><MapPin className="size-3.5 shrink-0" />{local}</div>}
+            {pessoa.cpf && <div className="text-[11px] text-muted-foreground">CPF: {pessoa.cpf}</div>}
+            {pessoa.linkedin && <a href={pessoa.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-blue-600 hover:underline truncate"><Linkedin className="size-3.5 shrink-0" />{pessoa.linkedin.replace(/^https?:\/\//, "").replace(/^www\./, "")}</a>}
+          </div>
+        </div>
+
+        {/* Resumo */}
+        {pessoa.resumo && (
+          <div className="border-t pt-2">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Resumo</div>
+            <p className="text-[12px] leading-relaxed text-slate-600 whitespace-pre-wrap line-clamp-6">{pessoa.resumo}</p>
+          </div>
+        )}
+
+        {/* Experiências */}
+        {experiencias.length > 0 && (
+          <div className="border-t pt-2">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <Briefcase className="size-3" /> Experiências ({experiencias.length})
+            </div>
+            <ul className="space-y-1.5">
+              {experiencias.slice(0, 5).map((exp, idx) => {
+                const cargo = str(exp.cargo, "");
+                const empresa = str(exp.empresa, "");
+                const inicio = str(exp.inicio, "");
+                const fim = str(exp.fim, "");
+                const per = periodo(inicio, fim);
+                return (
+                  <li key={idx} className="text-[12px] leading-tight">
+                    <div className="font-medium">{cargo}{empresa && <span className="text-slate-500 font-normal"> · {empresa}</span>}</div>
+                    {per && <div className="text-[11px] text-muted-foreground tabular-nums">{per}</div>}
+                  </li>
+                );
+              })}
+              {experiencias.length > 5 && <li className="text-[11px] text-muted-foreground italic">+{experiencias.length - 5} outra(s)</li>}
+            </ul>
+          </div>
+        )}
+
+        {/* Formação */}
+        {formacao.length > 0 && (
+          <div className="border-t pt-2">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <GraduationCap className="size-3" /> Formação ({formacao.length})
+            </div>
+            <ul className="space-y-1">
+              {formacao.slice(0, 4).map((f, idx) => {
+                const curso = str(f.curso, "");
+                const inst = str(f.instituicao, "");
+                return (
+                  <li key={idx} className="text-[12px] leading-tight">
+                    <div className="font-medium">{curso}</div>
+                    {inst && <div className="text-[11px] text-slate-500">{inst}</div>}
+                  </li>
+                );
+              })}
+              {formacao.length > 4 && <li className="text-[11px] text-muted-foreground italic">+{formacao.length - 4} outra(s)</li>}
+            </ul>
+          </div>
+        )}
+
+        {/* Competências */}
+        {competencias.length > 0 && (
+          <div className="border-t pt-2">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <Sparkles className="size-3" /> Competências ({competencias.length})
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {competencias.slice(0, 12).map((c, idx) => (
+                <span key={idx} className="inline-flex items-center rounded border bg-slate-50 text-slate-700 border-slate-200 px-1.5 py-0.5 text-[10px]">
+                  {str(c.nome, "")}
+                </span>
+              ))}
+              {competencias.length > 12 && <span className="text-[10px] text-muted-foreground italic">+{competencias.length - 12}</span>}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
