@@ -980,10 +980,10 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           sort: activeFilters.sort,
         })
         for (const [key, value] of Object.entries(activeFilters)) {
-          if (value && key !== 'sort') params.set(key, value)
+          if (value && key !== 'sort' && key !== 'q') params.set(key, value)
         }
         const result = await fetchJson<{ items: PortalJob[] }>(`/api/public/vagas?${params.toString()}`)
-        setJobs(result.items)
+        setJobs(filterJobsBySearch(result.items, activeFilters.q))
         setLoading(false)
         return
       } catch (err) {
@@ -1054,7 +1054,14 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
       cancelled = true
     }
   }, [ctx.session?.accessToken, ctx.session?.candidate.email, ctx.session?.candidate.id, ctx.session?.candidate.nome, selectedJob?.id])
-  const groupedJobs = useMemo(() => groupJobsByArea(jobs), [jobs])
+  const filterOptions = useMemo(() => ({
+    area: listUniqueJobValues(jobs, (job) => job.area),
+    mode: listUniqueJobValues(jobs, (job) => job.modalidade),
+    type: listUniqueJobValues(jobs, (job) => job.tipoContratacao),
+    level: listUniqueJobValues(jobs, (job) => job.senioridade),
+    location: listUniqueJobValues(jobs, (job) => formatJobLocation(job)).filter((value) => value !== 'Local a definir'),
+  }), [jobs])
+  const activeFilterCount = [filters.location, filters.mode, filters.type, filters.level, filters.area].filter(Boolean).length
   function openJobApplication(job: PortalJob) {
     if (appliedJobIds.has(job.id)) {
       setApplicationFeedback({
@@ -1122,72 +1129,59 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
   }
   return (
     <>
-      <section className="main-header">
-        <div className="portal-container">
-          <h1 className="display-hero">Transforme o Futuro da Alimentação</h1>
-          <p className="lead-copy">Ambiente inovador, tecnologia de ponta e paixão por qualidade.</p>
-        </div>
-      </section>
-      <div className="portal-container search-wrapper">
-        <div className="search-box">
-          <i className="fas fa-search" aria-hidden="true"></i>
-          <input
-            name="q"
-            type="search"
-            placeholder="Buscar por cargo, empresa, tecnologia..."
-            autoComplete="off"
-            value={filters.q}
-            onChange={(e) => setFilters((v) => ({ ...v, q: e.target.value }))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                void loadJobs()
-              }
-            }}
-          />
-          <button className="btn-search" type="button" onClick={() => void loadJobs()}>Buscar</button>
-          <button className="btn-clear" type="button" onClick={clearFilters}>Limpar</button>
-        </div>
-      </div>
-      <button className="back-to-top" type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-        <i className="fas fa-arrow-up" aria-hidden="true"></i>
-        <span>Topo</span>
-      </button>
-      <button className="filters-fab" type="button" onClick={() => setShowFilters((v) => !v)}>
-        <i className="fas fa-sliders-h" aria-hidden="true"></i>
-        <span>Filtros</span>
-      </button>
-      <main className="portal-container portal-main">
-        <div className="results-toolbar">
-          <div className="results-count">
-            <span>{jobs.length}</span> vagas encontradas
+      <section className="jobs-board-hero">
+        <div className="portal-container jobs-board-hero-inner">
+          <div className="jobs-board-heading">
+            <h1>Vagas abertas <em>na Liotécnica</em></h1>
+            <p>{jobs.length} {jobs.length === 1 ? 'oportunidade disponível' : 'oportunidades disponíveis'} · atualizado hoje</p>
           </div>
-          <div className="results-actions">
-            <button className="toolbar-btn toolbar-btn-primary" type="button" onClick={() => setShowFilters((v) => !v)}>
-              Ajustar filtros
+          <div className="jobs-board-controls">
+            <div className="jobs-board-search">
+              <i className="fas fa-search" aria-hidden="true"></i>
+              <input
+                name="q"
+                type="search"
+                placeholder="Buscar por cargo, área ou cidade..."
+                autoComplete="off"
+                value={filters.q}
+                onChange={(e) => setFilters((v) => ({ ...v, q: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void loadJobs()
+                  }
+                }}
+              />
+            </div>
+            <button className="jobs-board-filter-btn" type="button" onClick={() => setShowFilters((v) => !v)}>
+              <i className="fas fa-filter" aria-hidden="true"></i>
+              Filtros
+              {activeFilterCount > 0 ?<span>{activeFilterCount}</span> : null}
             </button>
-            <select className="toolbar-select" value={filters.sort} onChange={(e) => setFilters((v) => ({ ...v, sort: e.target.value }))}>
+            <select className="jobs-board-sort" value={filters.sort} onChange={(e) => setFilters((v) => ({ ...v, sort: e.target.value }))}>
               <option value="recent">Mais recentes</option>
-              <option value="salaryDesc">Faixa salarial (maior primeiro)</option>
+              <option value="salaryDesc">Maior salário</option>
               <option value="companyAsc">Empresa (A-Z)</option>
             </select>
+            <button className="jobs-board-search-btn" type="button" onClick={() => void loadJobs()}>Buscar</button>
           </div>
+          {showFilters ?(
+            <section className="jobs-board-filters">
+              <JobFilterGroup label="Área" options={filterOptions.area} value={filters.area} onChange={(area) => setFilters((v) => ({ ...v, area }))} />
+              <JobFilterGroup label="Localização" options={filterOptions.location} value={filters.location} onChange={(location) => setFilters((v) => ({ ...v, location }))} />
+              <JobFilterGroup label="Modalidade" options={filterOptions.mode} value={filters.mode} onChange={(mode) => setFilters((v) => ({ ...v, mode }))} />
+              <JobFilterGroup label="Contratação" options={filterOptions.type} value={filters.type} onChange={(type) => setFilters((v) => ({ ...v, type }))} />
+              <JobFilterGroup label="Senioridade" options={filterOptions.level} value={filters.level} onChange={(level) => setFilters((v) => ({ ...v, level }))} />
+              <div className="jobs-board-filter-actions">
+                <span>{activeFilterCount} filtro{activeFilterCount === 1 ? '' : 's'} ativo{activeFilterCount === 1 ? '' : 's'}</span>
+                <button type="button" onClick={() => void loadJobs()}>Aplicar filtros</button>
+                <button type="button" onClick={clearFilters}>Limpar todos</button>
+              </div>
+            </section>
+          ) : null}
         </div>
-        {showFilters ?(
-          <section className="react-filters-panel">
-            <div className="react-filters-grid">
-              <input placeholder="Cidade ou UF" value={filters.location} onChange={(e) => setFilters((v) => ({ ...v, location: e.target.value }))} />
-              <input placeholder="Modalidade" value={filters.mode} onChange={(e) => setFilters((v) => ({ ...v, mode: e.target.value }))} />
-              <input placeholder="Contrato" value={filters.type} onChange={(e) => setFilters((v) => ({ ...v, type: e.target.value }))} />
-              <input placeholder="Senioridade" value={filters.level} onChange={(e) => setFilters((v) => ({ ...v, level: e.target.value }))} />
-              <input placeholder="Área" value={filters.area} onChange={(e) => setFilters((v) => ({ ...v, area: e.target.value }))} />
-            </div>
-            <div className="react-filters-actions">
-              <button className="toolbar-btn toolbar-btn-primary" type="button" onClick={() => void loadJobs()}>Aplicar filtros</button>
-              <button className="toolbar-btn" type="button" onClick={clearFilters}>Limpar filtros</button>
-            </div>
-          </section>
-        ) : null}
+      </section>
+      <main className="portal-container jobs-board-main">
         {loading ?(
           <section className="jobs-loading-state">
             <div className="loader-ring" aria-hidden="true"></div>
@@ -1205,76 +1199,77 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           </section>
         ) : null}
         {!loading && !error && jobs.length === 0 ?(
-          <section className="empty-state">
+          <section className="jobs-board-empty">
             <h3>Nenhuma vaga encontrada</h3>
             <p>Tente remover alguns filtros ou refinar o texto de busca.</p>
-            <button className="toolbar-btn" type="button" onClick={clearFilters}>Limpar filtros</button>
+            <button type="button" onClick={clearFilters}>Limpar filtros</button>
           </section>
         ) : null}
         {!loading && !error ?(
-          <section className="jobs-sections">
-            {groupedJobs.map((group, groupIndex) => (
-              <section className="job-section" key={group.title}>
-                <div className="job-section-hero" style={{ backgroundImage: `url('${group.image}')` }}>
-                  <div className="job-section-title">
-                    <span>{group.title}</span>
+          <section className="jobs-board-list" aria-label="Vagas abertas">
+            {jobs.map((job) => {
+              const alreadyApplied = appliedJobIds.has(job.id)
+              const tags = buildJobTags(job)
+              const badges = buildJobBadgeValues(job)
+              const isNew = isRecentJob(job.createdAtUtc)
+              return (
+                <article
+                  className={`jobs-board-row${alreadyApplied ? ' is-applied' : ''}`}
+                  key={job.id}
+                  onClick={() => openJobApplication(job)}
+                  role="button"
+                  tabIndex={0}
+                  aria-disabled={alreadyApplied}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      openJobApplication(job)
+                    }
+                  }}
+                >
+                  <div className="jobs-board-row-main">
+                    <div className="jobs-board-pills">
+                      {job.area ?<span className="jobs-board-pill">{job.area}</span> : null}
+                      {badges.slice(0, 3).map((badge) => <span className="jobs-board-pill subtle" key={badge}>{badge}</span>)}
+                      {isNew ?<span className="jobs-board-pill accent">Nova</span> : null}
+                      {alreadyApplied ?(
+                        <span className="jobs-board-pill applied">
+                          <i className="fas fa-check" aria-hidden="true"></i>
+                          Já candidatado
+                        </span>
+                      ) : null}
+                    </div>
+                    <h3>{job.titulo}</h3>
+                    <div className="jobs-board-meta">
+                      <span><i className="fas fa-location-dot" aria-hidden="true"></i>{formatJobLocation(job)}</span>
+                      {job.senioridade ?<span><i className="fas fa-briefcase" aria-hidden="true"></i>{job.senioridade}</span> : null}
+                      <span><i className="fas fa-clock" aria-hidden="true"></i>{formatJobDate(job.createdAtUtc)}</span>
+                    </div>
+                    <div className="jobs-board-tags">
+                      {(tags.length ?tags : ['Perfil geral']).slice(0, 5).map((tag) => (
+                        <span key={tag}>{tag}</span>
+                      ))}
+                    </div>
                   </div>
-                  <span className="job-section-count">{group.jobs.length} vagas</span>
-                </div>
-                <div className="job-grid">
-                  {group.jobs.map((job, jobIndex) => {
-                    const tags = buildJobTags(job)
-                    const badges = buildJobBadgeValues(job)
-                    const alreadyApplied = appliedJobIds.has(job.id)
-                    return (
-                      <article
-                        className={`job-card-react${alreadyApplied ? ' is-applied' : ''}`}
-                        key={job.id}
-                        onClick={() => openJobApplication(job)}
-                        role="button"
-                        tabIndex={0}
-                        aria-disabled={alreadyApplied}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            openJobApplication(job)
-                          }
-                        }}
-                      >
-                        <div className="job-hero" style={{ backgroundImage: getJobHeroBackground(groupIndex + jobIndex) }}>
-                          {alreadyApplied ?(
-                            <span className="job-applied-ribbon">
-                              <i className="fas fa-check" aria-hidden="true"></i>
-                              Já candidatado
-                            </span>
-                          ) : null}
-                          <h3 className="job-title-on-hero">{job.titulo}</h3>
-                          <div className="job-badge-row">
-                            {badges.map((badge) => (
-                              <span className="job-pill-badge" key={badge}>{badge}</span>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="job-card-body">
-                          <div className="job-company">{job.tenantName || 'Liotecnica'}</div>
-                          <div className="job-meta">
-                            <span>{formatJobLocation(job)}</span>
-                            <span className="dot" aria-hidden="true"></span>
-                            <span>{job.area || 'Área em definição'}</span>
-                          </div>
-                          <div className="job-tags-row">
-                            {(tags.length ?tags : ['Perfil geral']).slice(0, 6).map((tag) => (
-                              <span className="job-tag" key={tag}>{tag}</span>
-                            ))}
-                          </div>
-                          <div className="job-salary-line">{formatSalary(job.salarioMinimo, job.salarioMaximo)}</div>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              </section>
-            ))}
+                  <div className="jobs-board-row-side">
+                    <strong>{formatSalary(job.salarioMinimo, job.salarioMaximo)}</strong>
+                    <small>{job.quantidadeVagas && job.quantidadeVagas > 1 ?`${job.quantidadeVagas} vagas` : '1 vaga'}</small>
+                  </div>
+                  <button
+                    className="jobs-board-details-btn"
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      openJobApplication(job)
+                    }}
+                    disabled={alreadyApplied}
+                  >
+                    {alreadyApplied ?'Candidatado' : 'Ver detalhes'}
+                    <i className={`fas ${alreadyApplied ? 'fa-check' : 'fa-arrow-right'}`} aria-hidden="true"></i>
+                  </button>
+                </article>
+              )
+            })}
           </section>
         ) : null}
         {selectedJob ?(
@@ -1343,6 +1338,38 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
         ) : null}
       </main>
     </>
+  )
+}
+
+function JobFilterGroup({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: string[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="jobs-board-filter-group">
+      <div className="jobs-board-filter-label">{label}</div>
+      <div className="jobs-board-filter-options">
+        {options.length ?options.map((option) => (
+          <label className="jobs-board-check" key={option}>
+            <input
+              type="checkbox"
+              checked={value === option}
+              onChange={() => onChange(value === option ? '' : option)}
+            />
+            <span>{option}</span>
+          </label>
+        )) : (
+          <span className="jobs-board-filter-empty">Sem opções</span>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -3471,24 +3498,61 @@ function formatSalary(min?: number | null, max?: number | null) {
   return fmt.format(min || max || 0)
 }
 
-const JOB_HERO_GRADIENTS = [
-  'linear-gradient(135deg, #1e3a8a, #0ea5e9)',
-  'linear-gradient(135deg, #0f766e, #22c55e)',
-  'linear-gradient(135deg, #7c3aed, #ec4899)',
-  'linear-gradient(135deg, #d97706, #f97316)',
-  'linear-gradient(135deg, #1d4ed8, #38bdf8)',
-  'linear-gradient(135deg, #4f46e5, #6366f1)',
-]
+function formatJobDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Data não informada'
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(date)
+}
 
-const JOB_SECTION_IMAGES = [
-  { match: 'industrial', title: 'Opera??es Industriais', image: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'qualidade', title: 'Qualidade & P&D', image: 'https://images.unsplash.com/photo-1582719471384-894fbb16e074?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'logistica', title: 'Log?stica & Supply', image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'rh', title: 'Administrativo & RH', image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'administrativo', title: 'Administrativo & RH', image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'comercial', title: 'Vendas & Marketing', image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'marketing', title: 'Vendas & Marketing', image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1600' },
-]
+function isRecentJob(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return false
+  return date.getTime() > Date.now() - 3 * 24 * 60 * 60 * 1000
+}
+
+function listUniqueJobValues(jobs: PortalJob[], pick: (job: PortalJob) => string | null | undefined) {
+  return Array.from(
+    new Set(
+      jobs
+        .map((job) => (pick(job) || '').trim())
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
+function filterJobsBySearch(jobs: PortalJob[], query: string) {
+  const terms = normalizeSearchText(query).split(/\s+/).filter(Boolean)
+  if (!terms.length) return jobs
+
+  return jobs.filter((job) => {
+    const searchable = normalizeSearchText([
+      job.titulo,
+      job.tenantName,
+      job.area,
+      job.cidade,
+      job.uf,
+      job.modalidade,
+      job.tipoContratacao,
+      job.senioridade,
+      job.descricaoPublica,
+      job.tagsKeywordsRaw,
+      job.tagsStackRaw,
+      job.tagsResponsabilidadesRaw,
+    ].filter(Boolean).join(' '))
+
+    return terms.every((term) => searchable.includes(term))
+  })
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 function parseJobTags(raw: string | null | undefined) {
   if (!raw) return []
@@ -3518,7 +3582,7 @@ function formatJobLocation(job: PortalJob) {
   if (city && uf) return `${city}, ${uf}`
   if (city) return city
   if (uf) return uf
-  return job.modalidade || 'N?o informado'
+  return job.modalidade || 'Local a definir'
 }
 
 function formatCandidateCityUf(city?: string | null, uf?: string | null) {
@@ -3542,43 +3606,6 @@ function formatBrazilianPhone(value?: string | null) {
   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
   if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-}
-
-function normalizeAreaKey(value: string | null | undefined) {
-  return (value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-function getJobSectionInfo(area: string | null | undefined) {
-  const key = normalizeAreaKey(area)
-  const match = JOB_SECTION_IMAGES.find((item) => key.includes(item.match))
-  if (match) return match
-  return {
-    title: area || 'Vagas em destaque',
-    image: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=1600',
-  }
-}
-
-function groupJobsByArea(jobs: PortalJob[]) {
-  const groups = new Map<string, PortalJob[]>()
-  for (const job of jobs) {
-    const info = getJobSectionInfo(job.area)
-    const key = `${info.title}|||${info.image}`
-    const bucket = groups.get(key) ?? []
-    bucket.push(job)
-    groups.set(key, bucket)
-  }
-
-  return Array.from(groups.entries()).map(([key, items]) => {
-    const [title, image] = key.split('|||')
-    return { title, image, jobs: items }
-  })
-}
-
-function getJobHeroBackground(index: number) {
-  return JOB_HERO_GRADIENTS[index % JOB_HERO_GRADIENTS.length]
 }
 
 function getInitials(name: string) {
