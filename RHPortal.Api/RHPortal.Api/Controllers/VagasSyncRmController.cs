@@ -86,11 +86,15 @@ public sealed class VagasSyncRmController : ControllerBase
             .Distinct()
             .ToList();
 
+        // IdReqRmOrigem é um AGRUPADOR (não chave única) — uma req com NUMVAGAS>1 gera N
+        // VRSVAGAS distintas, legitimamente com mesmo IDREQ. Lookup retorna lista.
         var byIdReq = idReqs.Count == 0
-            ? new Dictionary<string, Vaga>()
-            : await _db.Vagas
+            ? new Dictionary<string, List<Vaga>>()
+            : (await _db.Vagas
                 .Where(v => v.TenantId == tenantId && v.IdReqRmOrigem != null && idReqs.Contains(v.IdReqRmOrigem))
-                .ToDictionaryAsync(v => v.IdReqRmOrigem!, v => v, ct);
+                .ToListAsync(ct))
+                .GroupBy(v => v.IdReqRmOrigem!)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
         var byCodigo = codigos.Count == 0
             ? new Dictionary<string, Vaga>()
@@ -148,44 +152,49 @@ public sealed class VagasSyncRmController : ControllerBase
             // Datas vêm sem timezone do RM — gravamos como UTC.
             var dataAberturaRm = ToUtcOffsetOrNull(item.DataAbertura);
 
-            // Match preferencial: IdReqRm → IdReqRmOrigem
-            Vaga? existing = null;
-            if (!string.IsNullOrEmpty(idReq) && byIdReq.TryGetValue(idReq, out var v1))
-                existing = v1;
+            // Match preferencial: IdReqRm → todas as vagas com aquele IdReqRmOrigem (pode haver
+            // múltiplas se a req tem NUMVAGAS>1). Atualiza todas com o novo status/dados.
+            var existingMatches = new List<Vaga>();
+            if (!string.IsNullOrEmpty(idReq) && byIdReq.TryGetValue(idReq, out var matches))
+                existingMatches.AddRange(matches);
 
-            // Match secundário: CodVaga → Codigo, mas só se a vaga não estiver vinculada a outro IdReqRm.
-            // Cobre vagas pré-refactor que tinham só Codigo, evitando duplicar quando o sync passa
-            // a indexar pela req-mãe.
-            if (existing is null && !string.IsNullOrEmpty(codVaga) && byCodigo.TryGetValue(codVaga, out var v2))
+            // Match secundário por CodVaga: só usa quando idReq não casou (vaga pré-refactor que
+            // tinha só Codigo) OU quando codVaga aponta pra vaga distinta não já listada.
+            if (existingMatches.Count == 0 && !string.IsNullOrEmpty(codVaga) && byCodigo.TryGetValue(codVaga, out var v2))
             {
                 if (string.IsNullOrEmpty(v2.IdReqRmOrigem) || v2.IdReqRmOrigem == idReq)
-                    existing = v2;
+                    existingMatches.Add(v2);
             }
 
             var codFuncaoTrim = TruncateNullSafe(item.CodFuncao, 20);
             var funcaoNomeTrim = TruncateNullSafe(item.FuncaoNome, 160);
 
-            if (existing is not null)
+            if (existingMatches.Count > 0)
             {
-                existing.Titulo = titulo;
-                existing.QuantidadeVagas = item.Quantidade ?? existing.QuantidadeVagas;
-                existing.DescricaoInterna = string.IsNullOrWhiteSpace(item.Descricao) ? existing.DescricaoInterna : item.Descricao;
-                existing.CentroCustoId = centroCustoId ?? existing.CentroCustoId;
-                existing.JobPositionId = jobPositionId ?? existing.JobPositionId;
-                existing.HierarquiaId = hierarquiaId ?? existing.HierarquiaId;
-                existing.OrigemTipo = item.OrigemTipo;
-                existing.OrigemDesligamentoId = origemDesligamentoId ?? existing.OrigemDesligamentoId;
-                existing.IdReqRmOrigem = idReq ?? existing.IdReqRmOrigem;
-                if (!string.IsNullOrEmpty(codVaga))
-                    existing.Codigo = TruncateNullSafe(codVaga, 40);
-                existing.CodFuncaoRm = codFuncaoTrim ?? existing.CodFuncaoRm;
-                existing.FuncaoNomeRm = funcaoNomeTrim ?? existing.FuncaoNomeRm;
-                existing.DataAbertura = dataAberturaRm ?? existing.DataAbertura;
-                existing.Status = statusItem;
-                existing.UpdatedAtUtc = now;
-                existing.CiclosAusenteRm = 0;
-                existing.UltimoCicloRmObservadoUtc = runStartUtc;
-                updated++;
+                foreach (var existing in existingMatches)
+                {
+                    existing.Titulo = titulo;
+                    existing.QuantidadeVagas = item.Quantidade ?? existing.QuantidadeVagas;
+                    existing.DescricaoInterna = string.IsNullOrWhiteSpace(item.Descricao) ? existing.DescricaoInterna : item.Descricao;
+                    existing.CentroCustoId = centroCustoId ?? existing.CentroCustoId;
+                    existing.JobPositionId = jobPositionId ?? existing.JobPositionId;
+                    existing.HierarquiaId = hierarquiaId ?? existing.HierarquiaId;
+                    existing.OrigemTipo = item.OrigemTipo;
+                    existing.OrigemDesligamentoId = origemDesligamentoId ?? existing.OrigemDesligamentoId;
+                    existing.IdReqRmOrigem = idReq ?? existing.IdReqRmOrigem;
+                    // Codigo só é sobrescrito se codVaga vier no payload E a vaga existente
+                    // ainda não tem Codigo (preserva o vínculo da heurística antiga).
+                    if (!string.IsNullOrEmpty(codVaga) && string.IsNullOrEmpty(existing.Codigo))
+                        existing.Codigo = TruncateNullSafe(codVaga, 40);
+                    existing.CodFuncaoRm = codFuncaoTrim ?? existing.CodFuncaoRm;
+                    existing.FuncaoNomeRm = funcaoNomeTrim ?? existing.FuncaoNomeRm;
+                    existing.DataAbertura = dataAberturaRm ?? existing.DataAbertura;
+                    existing.Status = statusItem;
+                    existing.UpdatedAtUtc = now;
+                    existing.CiclosAusenteRm = 0;
+                    existing.UltimoCicloRmObservadoUtc = runStartUtc;
+                    updated++;
+                }
             }
             else
             {
