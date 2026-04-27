@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using RhPortal.Api.Infrastructure.Data;
 namespace RhPortal.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426234231_AddDocumentosLuc122ToPessoa")]
+    partial class AddDocumentosLuc122ToPessoa
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4792,44 +4795,6 @@ namespace RhPortal.Api.Migrations
                     b.ToTable("EmailTemplates", (string)null);
                 });
 
-            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FuncionarioMovimentacao", b =>
-                {
-                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uuid");
-                    b.Property<string>("TenantId").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
-                    b.Property<Guid?>("FuncionarioId").HasColumnType("uuid");
-                    b.Property<string>("ChapaRm").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
-                    b.Property<string>("IdReqRm").IsRequired().HasMaxLength(40).HasColumnType("character varying(40)");
-                    b.Property<short>("TipoMovimentacao").HasColumnType("smallint");
-                    b.Property<string>("TipoDescricao").HasMaxLength(60).HasColumnType("character varying(60)");
-                    b.Property<DateTime>("DataAbertura").HasColumnType("timestamp with time zone");
-                    b.Property<DateTime?>("DataConclusao").HasColumnType("timestamp with time zone");
-                    b.Property<DateTime?>("DataCancelamento").HasColumnType("timestamp with time zone");
-                    b.Property<int>("CodStatus").HasColumnType("integer");
-                    b.Property<string>("StatusDescricao").HasMaxLength(60).HasColumnType("character varying(60)");
-                    b.Property<string>("CodFuncaoOrigem").HasMaxLength(20).HasColumnType("character varying(20)");
-                    b.Property<string>("FuncaoOrigemNome").HasMaxLength(160).HasColumnType("character varying(160)");
-                    b.Property<string>("CodSecaoOrigem").HasMaxLength(60).HasColumnType("character varying(60)");
-                    b.Property<string>("CodSecaoDestino").HasMaxLength(60).HasColumnType("character varying(60)");
-                    b.Property<string>("CodFuncaoDestino").HasMaxLength(20).HasColumnType("character varying(20)");
-                    b.Property<string>("FuncaoDestinoNome").HasMaxLength(160).HasColumnType("character varying(160)");
-                    b.Property<Guid?>("HierarquiaOrigemId").HasColumnType("uuid");
-                    b.Property<Guid?>("HierarquiaDestinoId").HasColumnType("uuid");
-                    b.Property<int?>("IdHierarquiaOrigemRm").HasColumnType("integer");
-                    b.Property<int?>("IdHierarquiaDestinoRm").HasColumnType("integer");
-                    b.Property<decimal?>("SalarioOrigem").HasPrecision(18, 2).HasColumnType("numeric(18,2)");
-                    b.Property<decimal?>("SalarioDestino").HasPrecision(18, 2).HasColumnType("numeric(18,2)");
-                    b.Property<string>("Justificativa").HasColumnType("text");
-                    b.Property<bool?>("GerouSubstituicao").HasColumnType("boolean");
-                    b.Property<DateTimeOffset>("CreatedAtUtc").HasColumnType("timestamp with time zone");
-                    b.Property<DateTimeOffset>("UpdatedAtUtc").HasColumnType("timestamp with time zone");
-                    b.HasKey("Id");
-                    b.HasIndex("ChapaRm");
-                    b.HasIndex("FuncionarioId");
-                    b.HasIndex("TipoMovimentacao");
-                    b.HasIndex("TenantId", "IdReqRm").IsUnique();
-                    b.ToTable("FuncionarioMovimentacoes", (string)null);
-                });
-
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Empresa", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5525,123 +5490,6 @@ namespace RhPortal.Api.Migrations
                         .HasFilter("\"CdnFuncionario\" IS NOT NULL");
 
                     b.ToTable("Funcionarios", (string)null);
-                });
-
-            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FuncionarioMovimentacao", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ChapaRm")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("CodFuncaoDestino")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("CodFuncaoOrigem")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("CodSecaoDestino")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<string>("CodSecaoOrigem")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<int>("CodStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("DataAbertura")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DataCancelamento")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DataConclusao")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FuncaoDestinoNome")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<string>("FuncaoOrigemNome")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<Guid?>("FuncionarioId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool?>("GerouSubstituicao")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid?>("HierarquiaDestinoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("HierarquiaOrigemId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("IdHierarquiaDestinoRm")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("IdHierarquiaOrigemRm")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("IdReqRm")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("Justificativa")
-                        .HasColumnType("text");
-
-                    b.Property<decimal?>("SalarioDestino")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<decimal?>("SalarioOrigem")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<string>("StatusDescricao")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("TipoDescricao")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<short>("TipoMovimentacao")
-                        .HasColumnType("smallint");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ChapaRm");
-
-                    b.HasIndex("FuncionarioId");
-
-                    b.HasIndex("TipoMovimentacao");
-
-                    b.HasIndex("TenantId", "IdReqRm")
-                        .IsUnique();
-
-                    b.ToTable("FuncionarioMovimentacoes", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.GamificationDailyState", b =>
@@ -12138,16 +11986,6 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Unit");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FuncionarioMovimentacao", b =>
-                {
-                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Funcionario")
-                        .WithMany()
-                        .HasForeignKey("FuncionarioId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Funcionario");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.GamificationDailyState", b =>

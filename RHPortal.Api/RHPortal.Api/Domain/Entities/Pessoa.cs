@@ -63,6 +63,78 @@ public sealed class Pessoa : ITenantEntity
     /// <summary>Data de nascimento (apenas data, sem hora).</summary>
     public DateTime? DataNascimento { get; set; }
 
+    // ── Documentos pessoais (LUC-122 — vida completa do colaborador) ─────────
+
+    /// <summary>"M" = Masculino, "F" = Feminino, "O" = Outros.</summary>
+    [StringLength(1)]
+    public string? Sexo { get; set; }
+
+    /// <summary>Estado civil (TOTVS: S=Solteiro, C=Casado, D=Divorciado, V=Viúvo, etc.).</summary>
+    [StringLength(2)]
+    public string? EstadoCivil { get; set; }
+
+    /// <summary>Naturalidade (cidade onde nasceu).</summary>
+    [StringLength(120)]
+    public string? Naturalidade { get; set; }
+
+    /// <summary>UF de nascimento.</summary>
+    [StringLength(2)]
+    public string? EstadoNatal { get; set; }
+
+    /// <summary>Grau de instrução (TOTVS usa códigos: A=Analf, B=Fundamental, C=Médio, D=Superior, E=Especialização, F=Mestrado, G=Doutorado).</summary>
+    [StringLength(5)]
+    public string? GrauInstrucao { get; set; }
+
+    /// <summary>Órgão emissor do RG (ex.: "SSP").</summary>
+    [StringLength(20)]
+    public string? RgOrgEmissor { get; set; }
+
+    /// <summary>UF do RG.</summary>
+    [StringLength(2)]
+    public string? RgUf { get; set; }
+
+    /// <summary>Data de emissão do RG.</summary>
+    public DateTime? RgDataEmissao { get; set; }
+
+    /// <summary>Número da CTPS.</summary>
+    [StringLength(20)]
+    public string? CarteiraTrabalho { get; set; }
+
+    /// <summary>Série da CTPS.</summary>
+    [StringLength(10)]
+    public string? CarteiraTrabalhoSerie { get; set; }
+
+    /// <summary>UF da CTPS.</summary>
+    [StringLength(2)]
+    public string? CarteiraTrabalhoUf { get; set; }
+
+    /// <summary>Data de emissão da CTPS.</summary>
+    public DateTime? CarteiraTrabalhoData { get; set; }
+
+    /// <summary>PIS/PASEP/NIS.</summary>
+    [StringLength(20)]
+    public string? NumeroPis { get; set; }
+
+    /// <summary>Título de eleitor.</summary>
+    [StringLength(20)]
+    public string? TituloEleitor { get; set; }
+
+    /// <summary>Zona do título.</summary>
+    [StringLength(10)]
+    public string? TituloEleitorZona { get; set; }
+
+    /// <summary>Seção do título.</summary>
+    [StringLength(10)]
+    public string? TituloEleitorSecao { get; set; }
+
+    /// <summary>Certificado militar (reservista).</summary>
+    [StringLength(20)]
+    public string? CertificadoReservista { get; set; }
+
+    /// <summary>Categoria militar (P=Permanente, etc.).</summary>
+    [StringLength(2)]
+    public string? CategoriaMilitar { get; set; }
+
     /// <summary>
     /// Latitude geocodificada (graus decimais, WGS84). Cache do resultado de
     /// `IGeocodingService.GeocodeAsync` baseado no endereço (CEP+rua+cidade+UF).

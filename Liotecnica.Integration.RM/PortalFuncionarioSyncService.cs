@@ -35,7 +35,28 @@ public sealed class PortalFuncionarioSyncService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
+        Converters = { new NumberOrStringConverter() },
     };
+
+    /// <summary>Lê string ou número e devolve como string. PPESSOA tem NIT/TITULOELEITOR/etc como number puro.</summary>
+    private sealed class NumberOrStringConverter : JsonConverter<string?>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.TokenType switch
+            {
+                JsonTokenType.String => reader.GetString(),
+                JsonTokenType.Number => reader.TryGetInt64(out var l) ? l.ToString() : reader.GetDecimal().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                JsonTokenType.Null => null,
+                JsonTokenType.True => "true",
+                JsonTokenType.False => "false",
+                _ => reader.GetString(),
+            };
+        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
+        {
+            if (value is null) writer.WriteNullValue();
+            else writer.WriteStringValue(value);
+        }
+    }
 
     public PortalFuncionarioSyncService(
         ILogger<PortalFuncionarioSyncService> logger,
@@ -107,8 +128,6 @@ public sealed class PortalFuncionarioSyncService
 
             string? codCargo = null;
             if (!string.IsNullOrWhiteSpace(r.CodFuncao) && pfuncaoCargoByCodigo.TryGetValue(r.CodFuncao.Trim(), out var pc))
-                // O PortalCargoSyncService aplica prefixo "CAR-" + pad 2 chars no Code.
-                // Aqui tem que aplicar mesma transformação pra o lookup CodCargo → JobPosition.Code casar.
                 codCargo = PortalCargoSyncService.ToPortalJobCode(pc);
 
             int? idHierarquiaDestino = null;
@@ -134,6 +153,35 @@ public sealed class PortalFuncionarioSyncService
                 codFilial = r.CodFilial,
                 idHierarquiaDestinoRm = idHierarquiaDestino,
                 codPessoa = r.CodPessoa,
+                codColigada = r.CodColigada,
+                // ── LUC-122: cadastro pessoal completo de PPESSOA ─────────
+                apelido = pessoa?.Apelido?.Trim(),
+                sexo = pessoa?.Sexo?.Trim(),
+                estadoCivil = pessoa?.EstadoCivil?.Trim(),
+                naturalidade = pessoa?.Naturalidade?.Trim(),
+                estadoNatal = pessoa?.EstadoNatal?.Trim(),
+                grauInstrucao = pessoa?.GrauInstrucao?.Trim(),
+                cep = pessoa?.Cep?.Trim(),
+                logradouro = pessoa?.Rua?.Trim(),
+                numeroEndereco = pessoa?.Numero?.Trim(),
+                complemento = pessoa?.Complemento?.Trim(),
+                bairro = pessoa?.Bairro?.Trim(),
+                cidade = pessoa?.Cidade?.Trim(),
+                uf = pessoa?.Estado?.Trim(),
+                rg = pessoa?.CartIdentidade?.Trim(),
+                rgOrgEmissor = pessoa?.OrgEmissorIdent?.Trim(),
+                rgUf = pessoa?.UfCartIdent?.Trim(),
+                rgDataEmissao = pessoa?.DtEmissaoIdent,
+                carteiraTrabalho = pessoa?.CarteiraTrab?.Trim(),
+                carteiraTrabalhoSerie = pessoa?.SerieCartTrab?.Trim(),
+                carteiraTrabalhoUf = pessoa?.UfCartTrab?.Trim(),
+                carteiraTrabalhoData = pessoa?.DtCartTrab,
+                numeroPis = pessoa?.Nit?.Trim(),
+                tituloEleitor = pessoa?.TituloEleitor?.Trim(),
+                tituloEleitorZona = pessoa?.ZonaTitEleitor?.Trim(),
+                tituloEleitorSecao = pessoa?.SecaoTitEleitor?.Trim(),
+                certificadoReservista = pessoa?.CertifReserv?.Trim(),
+                categoriaMilitar = pessoa?.CategMilitar?.Trim(),
             };
         }).ToList();
 
@@ -216,6 +264,8 @@ public sealed class PortalFuncionarioSyncService
         public string? Chapa { get; set; }
         [JsonPropertyName("CODPESSOA")]
         public int? CodPessoa { get; set; }
+        [JsonPropertyName("CODCOLIGADA")]
+        public int? CodColigada { get; set; }
         [JsonPropertyName("CODSECAO")]
         public string? CodSecao { get; set; }
         [JsonPropertyName("CODFUNCAO")]
@@ -234,6 +284,8 @@ public sealed class PortalFuncionarioSyncService
         public int? Codigo { get; set; }
         [JsonPropertyName("NOME")]
         public string? Nome { get; set; }
+        [JsonPropertyName("APELIDO")]
+        public string? Apelido { get; set; }
         [JsonPropertyName("CPF")]
         public string? Cpf { get; set; }
         [JsonPropertyName("EMAIL")]
@@ -242,6 +294,65 @@ public sealed class PortalFuncionarioSyncService
         public string? Telefone1 { get; set; }
         [JsonPropertyName("DTNASCIMENTO")]
         public DateTime? DtNascimento { get; set; }
+        // Pessoal
+        [JsonPropertyName("SEXO")]
+        public string? Sexo { get; set; }
+        [JsonPropertyName("ESTADOCIVIL")]
+        public string? EstadoCivil { get; set; }
+        [JsonPropertyName("NATURALIDADE")]
+        public string? Naturalidade { get; set; }
+        [JsonPropertyName("ESTADONATAL")]
+        public string? EstadoNatal { get; set; }
+        [JsonPropertyName("GRAUINSTRUCAO")]
+        public string? GrauInstrucao { get; set; }
+        // Endereço
+        [JsonPropertyName("CEP")]
+        public string? Cep { get; set; }
+        [JsonPropertyName("RUA")]
+        public string? Rua { get; set; }
+        [JsonPropertyName("NUMERO")]
+        public string? Numero { get; set; }
+        [JsonPropertyName("COMPLEMENTO")]
+        public string? Complemento { get; set; }
+        [JsonPropertyName("BAIRRO")]
+        public string? Bairro { get; set; }
+        [JsonPropertyName("CIDADE")]
+        public string? Cidade { get; set; }
+        [JsonPropertyName("ESTADO")]
+        public string? Estado { get; set; }
+        // RG
+        [JsonPropertyName("CARTIDENTIDADE")]
+        public string? CartIdentidade { get; set; }
+        [JsonPropertyName("ORGEMISSORIDENT")]
+        public string? OrgEmissorIdent { get; set; }
+        [JsonPropertyName("UFCARTIDENT")]
+        public string? UfCartIdent { get; set; }
+        [JsonPropertyName("DTEMISSAOIDENT")]
+        public DateTime? DtEmissaoIdent { get; set; }
+        // CTPS
+        [JsonPropertyName("CARTEIRATRAB")]
+        public string? CarteiraTrab { get; set; }
+        [JsonPropertyName("SERIECARTTRAB")]
+        public string? SerieCartTrab { get; set; }
+        [JsonPropertyName("UFCARTTRAB")]
+        public string? UfCartTrab { get; set; }
+        [JsonPropertyName("DTCARTTRAB")]
+        public DateTime? DtCartTrab { get; set; }
+        // PIS
+        [JsonPropertyName("NIT")]
+        public string? Nit { get; set; }
+        // Título eleitor
+        [JsonPropertyName("TITULOELEITOR")]
+        public string? TituloEleitor { get; set; }
+        [JsonPropertyName("ZONATITELEITOR")]
+        public string? ZonaTitEleitor { get; set; }
+        [JsonPropertyName("SECAOTITELEITOR")]
+        public string? SecaoTitEleitor { get; set; }
+        // Reservista
+        [JsonPropertyName("CERTIFRESERV")]
+        public string? CertifReserv { get; set; }
+        [JsonPropertyName("CATEGMILITAR")]
+        public string? CategMilitar { get; set; }
     }
 
     private sealed class PfuncaoRow

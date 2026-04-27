@@ -17,6 +17,7 @@ public sealed class RmSyncWorker : BackgroundService
     private readonly RmDataExtractor _extractor;
     private readonly PortalHierarquiaSyncService _hierarquiaSync;
     private readonly PortalDesligamentoSyncService _desligamentoSync;
+    private readonly PortalFuncionarioMovimentacaoSyncService _movimentacaoSync;
     private readonly PortalEmpresaSyncService _empresaSync;
     private readonly PortalAreaSyncService _areaSync;
     private readonly PortalCategoriaSyncService _categoriaSync;
@@ -39,6 +40,7 @@ public sealed class RmSyncWorker : BackgroundService
         RmDataExtractor extractor,
         PortalHierarquiaSyncService hierarquiaSync,
         PortalDesligamentoSyncService desligamentoSync,
+        PortalFuncionarioMovimentacaoSyncService movimentacaoSync,
         PortalEmpresaSyncService empresaSync,
         PortalAreaSyncService areaSync,
         PortalCategoriaSyncService categoriaSync,
@@ -59,6 +61,7 @@ public sealed class RmSyncWorker : BackgroundService
         _extractor = extractor;
         _hierarquiaSync = hierarquiaSync;
         _desligamentoSync = desligamentoSync;
+        _movimentacaoSync = movimentacaoSync;
         _empresaSync = empresaSync;
         _areaSync = areaSync;
         _categoriaSync = categoriaSync;
@@ -261,6 +264,17 @@ public sealed class RmSyncWorker : BackgroundService
         {
             _logger.LogWarning(ex, "Falha no sync de desligamentos; continuando.");
             _logWriter.WriteLine($"Sync Desligamentos (VREQDESLIGAMENTO -> api/desligamentos): ERRO - {ex.Message}");
+        }
+
+        // Histórico de movimentações (LUC-122) — depois de funcionários, pra resolver FuncionarioId via CHAPA.
+        try
+        {
+            await _movimentacaoSync.SyncMovimentacoesFromJsonAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha no sync de movimentações; continuando.");
+            _logWriter.WriteLine($"Sync Movimentações (VREQTRANSFPROMOCAO+VREQDESLIGAMENTO): ERRO - {ex.Message}");
         }
 
         if (_syncOptions.SyncVagas)

@@ -156,6 +156,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<Hierarquia> Hierarquias => Set<Hierarquia>();
     public DbSet<Desligamento> Desligamentos => Set<Desligamento>();
+    public DbSet<FuncionarioMovimentacao> FuncionarioMovimentacoes => Set<FuncionarioMovimentacao>();
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
@@ -347,6 +348,34 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .WithMany()
                 .HasForeignKey(x => x.HierarquiaSuperiorId)
                 .OnDelete(DeleteBehavior.Restrict);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<FuncionarioMovimentacao>(b =>
+        {
+            b.ToTable("FuncionarioMovimentacoes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ChapaRm).HasMaxLength(20).IsRequired();
+            b.Property(x => x.IdReqRm).HasMaxLength(40).IsRequired();
+            b.Property(x => x.TipoDescricao).HasMaxLength(60);
+            b.Property(x => x.StatusDescricao).HasMaxLength(60);
+            b.Property(x => x.CodFuncaoOrigem).HasMaxLength(20);
+            b.Property(x => x.FuncaoOrigemNome).HasMaxLength(160);
+            b.Property(x => x.CodSecaoOrigem).HasMaxLength(60);
+            b.Property(x => x.CodSecaoDestino).HasMaxLength(60);
+            b.Property(x => x.CodFuncaoDestino).HasMaxLength(20);
+            b.Property(x => x.FuncaoDestinoNome).HasMaxLength(160);
+            b.Property(x => x.SalarioOrigem).HasPrecision(18, 2);
+            b.Property(x => x.SalarioDestino).HasPrecision(18, 2);
+            b.HasIndex(x => new { x.TenantId, x.IdReqRm }).IsUnique();
+            b.HasIndex(x => x.ChapaRm);
+            b.HasIndex(x => x.TipoMovimentacao);
+            b.HasIndex(x => x.FuncionarioId);
+            b.HasOne(x => x.Funcionario)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioId)
+                .OnDelete(DeleteBehavior.SetNull);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -853,8 +882,26 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.LinkedinUrl).HasMaxLength(260);
             b.Property(x => x.ResumoProfissional).HasMaxLength(2000);
             b.Property(x => x.Obs).HasMaxLength(2000);
+            // Documentos LUC-122
+            b.Property(x => x.Sexo).HasMaxLength(1);
+            b.Property(x => x.EstadoCivil).HasMaxLength(2);
+            b.Property(x => x.Naturalidade).HasMaxLength(120);
+            b.Property(x => x.EstadoNatal).HasMaxLength(2);
+            b.Property(x => x.GrauInstrucao).HasMaxLength(5);
+            b.Property(x => x.RgOrgEmissor).HasMaxLength(20);
+            b.Property(x => x.RgUf).HasMaxLength(2);
+            b.Property(x => x.CarteiraTrabalho).HasMaxLength(20);
+            b.Property(x => x.CarteiraTrabalhoSerie).HasMaxLength(10);
+            b.Property(x => x.CarteiraTrabalhoUf).HasMaxLength(2);
+            b.Property(x => x.NumeroPis).HasMaxLength(20);
+            b.Property(x => x.TituloEleitor).HasMaxLength(20);
+            b.Property(x => x.TituloEleitorZona).HasMaxLength(10);
+            b.Property(x => x.TituloEleitorSecao).HasMaxLength(10);
+            b.Property(x => x.CertificadoReservista).HasMaxLength(20);
+            b.Property(x => x.CategoriaMilitar).HasMaxLength(2);
 
             b.HasIndex(x => new { x.TenantId, x.Email });
+            b.HasIndex(x => new { x.TenantId, x.Cpf });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

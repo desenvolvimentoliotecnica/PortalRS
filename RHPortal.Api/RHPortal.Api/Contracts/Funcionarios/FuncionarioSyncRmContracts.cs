@@ -51,6 +51,53 @@ public sealed class FuncionarioSyncRmItem
 
     /// <summary>PPESSOA.CODIGO (chave pra resolver PessoaId no Portal).</summary>
     public int? CodPessoa { get; set; }
+
+    /// <summary>PFUNC.CODCOLIGADA — código da empresa/coligada (geralmente 1 na Liotécnica).</summary>
+    public int? CodColigada { get; set; }
+
+    // ─── Cadastro pessoal completo (LUC-122 — vida do colaborador) ─────────
+    // Tudo vem de PPESSOA via JOIN no worker. Endpoint cria/atualiza Pessoa
+    // pelo CPF (chave) e vincula PessoaId no Funcionario.
+
+    public string? Apelido { get; set; }
+    public string? Sexo { get; set; }
+    public string? EstadoCivil { get; set; }
+    public string? Naturalidade { get; set; }
+    public string? EstadoNatal { get; set; }
+    public string? GrauInstrucao { get; set; }
+
+    /// <summary>Endereço completo (tudo de PPESSOA).</summary>
+    public string? Cep { get; set; }
+    public string? Logradouro { get; set; }
+    public string? NumeroEndereco { get; set; }
+    public string? Complemento { get; set; }
+    public string? Bairro { get; set; }
+    public string? Cidade { get; set; }
+    public string? Uf { get; set; }
+
+    /// <summary>RG e órgão emissor.</summary>
+    public string? Rg { get; set; }
+    public string? RgOrgEmissor { get; set; }
+    public string? RgUf { get; set; }
+    public DateTime? RgDataEmissao { get; set; }
+
+    /// <summary>CTPS.</summary>
+    public string? CarteiraTrabalho { get; set; }
+    public string? CarteiraTrabalhoSerie { get; set; }
+    public string? CarteiraTrabalhoUf { get; set; }
+    public DateTime? CarteiraTrabalhoData { get; set; }
+
+    /// <summary>PIS/PASEP/NIS.</summary>
+    public string? NumeroPis { get; set; }
+
+    /// <summary>Título de eleitor.</summary>
+    public string? TituloEleitor { get; set; }
+    public string? TituloEleitorZona { get; set; }
+    public string? TituloEleitorSecao { get; set; }
+
+    /// <summary>Reservista (certificado militar).</summary>
+    public string? CertificadoReservista { get; set; }
+    public string? CategoriaMilitar { get; set; }
 }
 
 public sealed class FuncionarioSyncRmBulkRequest

@@ -49,6 +49,7 @@ builder.Services.AddSingleton<ExtractionLogWriter>();
 builder.Services.AddSingleton<RmDataExtractor>();
 builder.Services.AddSingleton<PortalHierarquiaSyncService>();
 builder.Services.AddSingleton<PortalDesligamentoSyncService>();
+builder.Services.AddSingleton<PortalFuncionarioMovimentacaoSyncService>();
 builder.Services.AddSingleton<PortalEmpresaSyncService>();
 builder.Services.AddSingleton<PortalAreaSyncService>();
 builder.Services.AddSingleton<PortalCategoriaSyncService>();
