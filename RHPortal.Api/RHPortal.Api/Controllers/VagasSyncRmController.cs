@@ -96,11 +96,15 @@ public sealed class VagasSyncRmController : ControllerBase
                 .GroupBy(v => v.IdReqRmOrigem!)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
+        // Codigo também pode estar duplicado em vagas pré-refactor (heurística antiga
+        // atribuiu IdReqRmOrigem distintos pra mesmas CODVAGAs). Lookup retorna lista.
         var byCodigo = codigos.Count == 0
-            ? new Dictionary<string, Vaga>()
-            : await _db.Vagas
+            ? new Dictionary<string, List<Vaga>>()
+            : (await _db.Vagas
                 .Where(v => v.TenantId == tenantId && v.Codigo != null && codigos.Contains(v.Codigo))
-                .ToDictionaryAsync(v => v.Codigo!, v => v, ct);
+                .ToListAsync(ct))
+                .GroupBy(v => v.Codigo!)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
         var now = DateTimeOffset.UtcNow;
         var created = 0;
@@ -158,12 +162,15 @@ public sealed class VagasSyncRmController : ControllerBase
             if (!string.IsNullOrEmpty(idReq) && byIdReq.TryGetValue(idReq, out var matches))
                 existingMatches.AddRange(matches);
 
-            // Match secundário por CodVaga: só usa quando idReq não casou (vaga pré-refactor que
-            // tinha só Codigo) OU quando codVaga aponta pra vaga distinta não já listada.
-            if (existingMatches.Count == 0 && !string.IsNullOrEmpty(codVaga) && byCodigo.TryGetValue(codVaga, out var v2))
+            // Match secundário por CodVaga (mesmo CODVAGA pode estar em vagas pré-refactor com
+            // IdReqRmOrigem diferentes). Aceita: sem IdReqRmOrigem ou batendo com idReq atual.
+            if (existingMatches.Count == 0 && !string.IsNullOrEmpty(codVaga) && byCodigo.TryGetValue(codVaga, out var v2List))
             {
-                if (string.IsNullOrEmpty(v2.IdReqRmOrigem) || v2.IdReqRmOrigem == idReq)
-                    existingMatches.Add(v2);
+                foreach (var v2 in v2List)
+                {
+                    if (string.IsNullOrEmpty(v2.IdReqRmOrigem) || v2.IdReqRmOrigem == idReq)
+                        existingMatches.Add(v2);
+                }
             }
 
             var codFuncaoTrim = TruncateNullSafe(item.CodFuncao, 20);

@@ -141,9 +141,13 @@ public sealed class PortalVagaSyncService
 
             var status = MapStatus(aum.CodStatus);
             var codFuncao = aum.CodFuncao?.Trim();
-            var vrsMatch = status == StatusAberta || status == StatusPausada
-                ? TryMatchVrs(codFuncao)
-                : null; // só enriquece com VRSVAGAS aberta para vagas ainda vivas
+            // Sempre tenta match com VRSVAGAS pra "consumir" e evitar que ela vire item Direta
+            // depois (o que causaria duplicata da mesma vaga). Os dados de enriquecimento
+            // (descrição, salário) só fazem sentido pra vagas vivas, então só usa quando o
+            // status no Portal é Aberta/Pausada — pra Encerrada/Cancelada o match é só pra
+            // marcar como consumida.
+            var vrsMatchRaw = TryMatchVrs(codFuncao);
+            var vrsMatch = (status == StatusAberta || status == StatusPausada) ? vrsMatchRaw : null;
 
             var (codCargo, funcaoNome) = ResolveFuncao(codFuncao, pfuncaoToCargo, pfuncaoToNome);
             var titulo = ResolveTitulo(vrsMatch?.Nome, funcaoNome, idReq);
@@ -184,9 +188,10 @@ public sealed class PortalVagaSyncService
 
             var status = MapStatus(sub.CodStatus);
             var codFuncao = sub.CodFuncao?.Trim();
-            var vrsMatch = status == StatusAberta || status == StatusPausada
-                ? TryMatchVrs(codFuncao)
-                : null;
+            // Mesmo padrão da seção AumentoQuadro: sempre consome VRSVAGAS pra evitar
+            // que ela vire item Direta depois (duplicata).
+            var vrsMatchRawSub = TryMatchVrs(codFuncao);
+            var vrsMatch = (status == StatusAberta || status == StatusPausada) ? vrsMatchRawSub : null;
 
             var (codCargo, funcaoNome) = ResolveFuncao(codFuncao, pfuncaoToCargo, pfuncaoToNome);
             var titulo = ResolveTitulo(vrsMatch?.Nome, funcaoNome, idReq);
