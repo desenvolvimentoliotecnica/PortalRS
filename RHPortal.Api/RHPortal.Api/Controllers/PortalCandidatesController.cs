@@ -53,6 +53,8 @@ public sealed class PortalCandidatesController : ControllerBase
     public async Task<ActionResult<PortalCandidateProfileResponse>> GetProfile(
         Guid id,
         [FromServices] AppDbContext db,
+        [FromServices] IHostEnvironment hostEnvironment,
+        [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
     {
         var candidate = await db.Candidatos
@@ -69,6 +71,8 @@ public sealed class PortalCandidatesController : ControllerBase
             .Select(d => new PortalCandidateDocumentoSummary(d.Id, d.NomeArquivo, d.CreatedAtUtc))
             .FirstOrDefault();
 
+        var avatarUrl = ResolveAvatarUrlIfFileExists(hostEnvironment, tenantContext, id, candidate.AvatarFileName);
+
         return Ok(new PortalCandidateProfileResponse(
             candidate.Id,
             candidate.Nome,
@@ -78,7 +82,7 @@ public sealed class PortalCandidatesController : ControllerBase
             candidate.Uf,
             candidate.LinkedinUrl,
             candidate.ResumoProfissional,
-            string.IsNullOrWhiteSpace(candidate.AvatarFileName) ? null : BuildAvatarUrl(candidate.Id),
+            avatarUrl,
             curriculo,
             candidate.TrabalhandoAtualmente
         ));
@@ -96,6 +100,8 @@ public sealed class PortalCandidatesController : ControllerBase
         [FromBody] PortalCandidateProfileUpdateRequest request,
         [FromServices] AppDbContext db,
         [FromServices] NotificationPublisher notificationPublisher,
+        [FromServices] IHostEnvironment hostEnvironment,
+        [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
     {
         if (!ModelState.IsValid)
@@ -126,6 +132,8 @@ public sealed class PortalCandidatesController : ControllerBase
             .Select(d => new PortalCandidateDocumentoSummary(d.Id, d.NomeArquivo, d.CreatedAtUtc))
             .FirstOrDefaultAsync(ct);
 
+        var avatarUrl = ResolveAvatarUrlIfFileExists(hostEnvironment, tenantContext, id, candidate.AvatarFileName);
+
         return Ok(new PortalCandidateProfileResponse(
             candidate.Id,
             candidate.Nome,
@@ -135,7 +143,7 @@ public sealed class PortalCandidatesController : ControllerBase
             candidate.Uf,
             candidate.LinkedinUrl,
             candidate.ResumoProfissional,
-            string.IsNullOrWhiteSpace(candidate.AvatarFileName) ? null : BuildAvatarUrl(candidate.Id),
+            avatarUrl,
             curriculo,
             candidate.TrabalhandoAtualmente
         ));
@@ -475,6 +483,7 @@ public sealed class PortalCandidatesController : ControllerBase
             summary?.Nivel,
             summary?.AreaPrincipal,
             summary?.Situacao,
+            summary?.DataConclusao,
             summary?.Destaques);
 
         return Ok(new PortalCandidateEducationResponse(summaryDto, items));
@@ -1611,6 +1620,7 @@ public sealed class PortalCandidatesController : ControllerBase
         summary.Nivel = NormalizeOptional(request.Nivel);
         summary.AreaPrincipal = NormalizeOptional(request.AreaPrincipal);
         summary.Situacao = NormalizeOptional(request.Situacao);
+        summary.DataConclusao = NormalizeOptional(request.DataConclusao);
         summary.Destaques = NormalizeOptional(request.Destaques);
 
         await db.SaveChangesAsync(ct);
@@ -1619,6 +1629,7 @@ public sealed class PortalCandidatesController : ControllerBase
             summary.Nivel,
             summary.AreaPrincipal,
             summary.Situacao,
+            summary.DataConclusao,
             summary.Destaques));
     }
 
@@ -2682,6 +2693,23 @@ public sealed class PortalCandidatesController : ControllerBase
 
     private static string BuildAvatarUrl(Guid candidatoId)
         => $"/api/public/portal-candidates/{candidatoId}/avatar";
+
+    private static string? ResolveAvatarUrlIfFileExists(
+        IHostEnvironment hostEnvironment,
+        ITenantContext tenantContext,
+        Guid candidatoId,
+        string? avatarFileName)
+    {
+        if (string.IsNullOrWhiteSpace(avatarFileName))
+            return null;
+
+        var folder = GetCandidateFolder(hostEnvironment, tenantContext, candidatoId);
+        var path = Path.Combine(folder, avatarFileName);
+        if (!System.IO.File.Exists(path))
+            return null;
+
+        return BuildAvatarUrl(candidatoId);
+    }
 
     private static string GetCandidateFolder(IHostEnvironment hostEnvironment, ITenantContext tenantContext, Guid candidatoId)
     {

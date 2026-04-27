@@ -262,12 +262,26 @@ img {
 .auth-card input,
 .stack-form input,
 .stack-form textarea,
+.stack-form select,
 .grid-form input {
   width: 100%;
   border: 1px solid rgba(16, 34, 24, 0.12);
   border-radius: 1rem;
   padding: 0.85rem 1rem;
   background: #fff;
+}
+
+.stack-form select {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath fill='%23223631' fill-opacity='0.55' d='M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  padding-right: 2.5rem;
+  min-height: 2.75rem;
+  line-height: 1.35;
 }
 
 .inline-field {
@@ -358,6 +372,12 @@ img {
 .list-shell {
   display: grid;
   gap: 1rem;
+}
+
+.stack-form > label {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
 .profile-shell {
@@ -3506,6 +3526,24 @@ img {
   border-radius: 1rem;
   background: #fff;
   padding: 0.85rem 1rem;
+}
+
+.project-form-grid select {
+  width: 100%;
+  border: 1px solid #d7e0eb;
+  border-radius: 1rem;
+  padding: 0.85rem 2.5rem 0.85rem 1rem;
+  font: inherit;
+  color: #061629;
+  cursor: pointer;
+  line-height: 1.35;
+  appearance: none;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath fill='%234a5d6f' fill-opacity='0.7' d='M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  min-height: 2.9rem;
+  box-sizing: border-box;
 }
 
 .project-form-grid textarea {

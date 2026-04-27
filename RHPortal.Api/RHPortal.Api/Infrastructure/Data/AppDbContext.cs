@@ -1834,6 +1834,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Nivel).HasMaxLength(60);
             b.Property(x => x.AreaPrincipal).HasMaxLength(120);
             b.Property(x => x.Situacao).HasMaxLength(40);
+            b.Property(x => x.DataConclusao).HasMaxLength(20);
             b.Property(x => x.Destaques).HasMaxLength(260);
 
             b.HasOne(x => x.Candidato)

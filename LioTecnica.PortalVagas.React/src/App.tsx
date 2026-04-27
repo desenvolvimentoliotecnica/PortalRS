@@ -71,7 +71,16 @@ type PortalPortfolio = {
   tags?: string | null
 }
 type PortalEducationItem = { id: string; curso: string; instituicao?: string | null; tipo?: string | null; status?: string | null; inicio?: string | null; fim?: string | null; observacoes?: string | null; link?: string | null }
-type PortalEducation = { summary: { nivel?: string | null; areaPrincipal?: string | null; situacao?: string | null; destaques?: string | null }; items: PortalEducationItem[] }
+type PortalEducation = {
+  summary: {
+    nivel?: string | null
+    areaPrincipal?: string | null
+    situacao?: string | null
+    dataConclusao?: string | null
+    destaques?: string | null
+  }
+  items: PortalEducationItem[]
+}
 type PortalExperience = { id: string; empresa: string; cargo: string; inicio?: string | null; fim?: string | null; local?: string | null; atividades?: string | null }
 type PortalProject = { id: string; nome: string; periodo?: string | null; descricao?: string | null; link?: string | null; stack?: string | null; destaques?: string | null }
 type PortalExperienceProject = { experiences: PortalExperience[]; projects: PortalProject[] }
@@ -229,6 +238,7 @@ const WORKSPACE_SECTIONS = [
   { id: 'skills', label: 'Skills, links e certificações', icon: 'fa-bolt' },
   { id: 'notificacoes-lgpd', label: 'Notificações e LGPD', icon: 'fa-shield-alt' },
   { id: 'educacao', label: 'Educação', icon: 'fa-graduation-cap' },
+  { id: 'cursos-formacoes', label: 'Cursos e formações', icon: 'fa-book-open' },
   { id: 'documentos', label: 'Documentos', icon: 'fa-paperclip' },
   { id: 'referencias', label: 'Referências', icon: 'fa-users' },
   { id: 'acessibilidade', label: 'Acessibilidade', icon: 'fa-universal-access' },
@@ -1611,10 +1621,12 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     ])
 
     let avatarUrl: string | null = null
-    try {
-      avatarUrl = await fetchAuthorizedBlobUrl(ctx, `/api/public/portal-candidates/${candidateId}/avatar`)
-    } catch {
-      avatarUrl = null
+    if (profileData.avatarUrl) {
+      try {
+        avatarUrl = await fetchAuthorizedBlobUrl(ctx, `/api/public/portal-candidates/${candidateId}/avatar`)
+      } catch {
+        avatarUrl = null
+      }
     }
 
     return {
@@ -1649,7 +1661,10 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     setDocuments(snapshot.documents)
     setReferences(snapshot.references)
     setLgpd(snapshot.lgpdData)
-    setAvatarPreview(snapshot.avatarUrl)
+    setAvatarPreview((prev) => {
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return snapshot.avatarUrl
+    })
     setForm({
       nome: snapshot.profileData.nome ?? '',
       email: snapshot.profileData.email ?? '',
@@ -2330,32 +2345,41 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                       {selectedSection === 'formacao' ?(
                         <div className="profile-section-detail-body">
-                          <RecordForm
-                            fields={[
-                              field('nivel', education?.summary.nivel),
-                              field('areaPrincipal', education?.summary.areaPrincipal),
-                              field('situacao', education?.summary.situacao),
-                              field('destaques', education?.summary.destaques),
-                            ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
-                          />
-
-                          <RepeaterSection
+                          <div className="subsection-card">
+                            <div className="subsection-head">
+                              <strong>Resumo da formação</strong>
+                            </div>
+                            <RecordForm
+                              fields={[
+                                fieldSelect('nivel', education?.summary.nivel, EDUCATION_SUMMARY_NIVEL_PRESETS, 'Nível'),
+                                field('areaPrincipal', education?.summary.areaPrincipal, 'input', 'Área principal'),
+                                fieldSelect('situacao', education?.summary.situacao, EDUCATION_SUMMARY_SITUACAO_PRESETS, 'Situação'),
+                                fieldDate('dataConclusao', education?.summary.dataConclusao, 'Data de conclusão'),
+                                field('destaques', education?.summary.destaques, 'textarea', 'Destaques'),
+                              ]}
+                              onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
+                              submitLabel="Salvar resumo"
+                              submitButtonClassName="secondary-btn"
+                            />
+                          </div>
+                          <EducationRepeaterSection
                             title="Cursos e formações"
                             items={education?.items ?? []}
-                            describe={(item) => `${item.instituicao || 'Instituição livre'} • ${item.status || 'Status aberto'}`}
-                            fields={[
-                              { name: 'curso', label: 'Curso' },
-                              { name: 'instituicao', label: 'Instituição' },
-                              { name: 'tipo', label: 'Tipo' },
-                              { name: 'status', label: 'Status' },
-                              { name: 'inicio', label: 'Inicio' },
-                              { name: 'fim', label: 'Fim' },
-                              { name: 'observacoes', label: 'Observações' },
-                              { name: 'link', label: 'Link' },
-                            ]}
-                            onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Formacao adicionada.', 'POST')}
-                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Formacao removida.')}
+                            describe={(item) =>
+                              [
+                                item.instituicao || 'Instituição livre',
+                                item.status || 'Status aberto',
+                                [item.inicio, item.fim].filter(Boolean).join(' – '),
+                              ]
+                                .filter((part) => Boolean(part && String(part).trim()))
+                                .join(' • ')
+                            }
+                            onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Formação adicionada.', 'POST')}
+                            onUpdate={(item, values) =>
+                              void saveJson(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, values, 'Formação atualizada.')
+                            }
+                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Formação removida.')}
+                            setAnnouncement={setMessage}
                           />
                         </div>
                       ) : null}
@@ -2634,7 +2658,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                           <div className="detail-group">
                             <div className="detail-group-title">Limpar perfil</div>
                             <p className="detail-paragraph">
-                              Use esta a??o para limpar os dados auxiliares do perfil, como no portal .NET.
+                              Use esta ação para limpar os dados auxiliares do perfil, como no portal .NET.
                             </p>
                             <button className="profile-danger-button" type="button" onClick={() => void handleResetProfile()}>
                               <i className="fas fa-eraser" aria-hidden="true"></i>
@@ -2807,11 +2831,24 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         lgpd,
       })
 
-      try {
-        const url = await fetchAuthorizedBlobUrl(ctx, `/api/public/portal-candidates/${candidateId}/avatar`)
-        setAvatarPreview(url)
-      } catch {
-        setAvatarPreview(null)
+      if (profile.avatarUrl) {
+        try {
+          const url = await fetchAuthorizedBlobUrl(ctx, `/api/public/portal-candidates/${candidateId}/avatar`)
+          setAvatarPreview((prev) => {
+            if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+            return url
+          })
+        } catch {
+          setAvatarPreview((prev) => {
+            if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+            return null
+          })
+        }
+      } else {
+        setAvatarPreview((prev) => {
+          if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+          return null
+        })
       }
     } catch (err) {
       setMessage(readError(err))
@@ -2930,11 +2967,13 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
       ?`${profileComplete}%`
       : section.id === 'matches' && state.matches.length
         ?String(state.matches.length)
-        : section.id === 'documentos' && state.documents.length
-          ?String(state.documents.length)
-          : section.id === 'referencias' && state.references.length
-            ?String(state.references.length)
-          : null,
+        : section.id === 'cursos-formacoes' && state.education?.items.length
+          ?String(state.education.items.length)
+          : section.id === 'documentos' && state.documents.length
+            ?String(state.documents.length)
+            : section.id === 'referencias' && state.references.length
+              ?String(state.references.length)
+            : null,
   }))
 
   return (
@@ -3033,7 +3072,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
                 field('Drive', state.portfolio?.links.drive),
                 field('Tags', state.portfolio?.tags),
               ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, values, 'Prefer?ncias e links salvos.')}
+              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, values, 'Preferências e links salvos.')}
             />
 
             <RepeaterSection
@@ -3045,52 +3084,65 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
               fields={[
                 { name: 'tipo', label: 'Tipo' },
                 { name: 'nome', label: 'Nome' },
-                { name: 'nivel', label: 'N?vel' },
-                { name: 'evidencia', label: 'Evid?ncia' },
+                { name: 'nivel', label: 'Nível' },
+                { name: 'evidencia', label: 'Evidência' },
               ]}
             />
 
             <RepeaterSection
-              title="Certifica??es"
+              title="Certificações"
               items={state.portfolio?.certifications ?? []}
-              describe={(item) => `${item.instituicao || 'Institui??o livre'} ${item.ano ?`? ${item.ano}` : ''}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications`, values, 'Certifica??o adicionada.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${item.id}`, 'Certifica??o removida.')}
+              describe={(item) => `${item.instituicao || 'Instituição livre'}${item.ano ? ` • ${item.ano}` : ''}`}
+              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications`, values, 'Certificação adicionada.', 'POST')}
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${item.id}`, 'Certificação removida.')}
               fields={[
                 { name: 'nome', label: 'Nome' },
-                { name: 'instituicao', label: 'Institui??o' },
+                { name: 'instituicao', label: 'Instituição' },
                 { name: 'ano', label: 'Ano' },
                 { name: 'link', label: 'Link' },
               ]}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'educacao'} id="educacao" title="Educação" description="Resumo da formação e histórico acadêmico detalhado.">
-            <RecordForm
-              fields={[
-                field('nivel', state.education?.summary.nivel),
-                field('areaPrincipal', state.education?.summary.areaPrincipal),
-                field('situacao', state.education?.summary.situacao),
-                field('destaques', state.education?.summary.destaques),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
-            />
-            <RepeaterSection
-              title="Cursos e forma??es"
+          <WorkspaceSection active={activeWorkspaceSection === 'educacao'} id="educacao" title="Educação" description="Nível, área, situação e destaques do seu percurso acadêmico.">
+            <div className="subsection-card">
+              <div className="subsection-head">
+                <strong>Resumo da formação</strong>
+              </div>
+              <RecordForm
+                fields={[
+                  fieldSelect('nivel', state.education?.summary.nivel, EDUCATION_SUMMARY_NIVEL_PRESETS, 'Nível'),
+                  field('areaPrincipal', state.education?.summary.areaPrincipal, 'input', 'Área principal'),
+                  fieldSelect('situacao', state.education?.summary.situacao, EDUCATION_SUMMARY_SITUACAO_PRESETS, 'Situação'),
+                  fieldDate('dataConclusao', state.education?.summary.dataConclusao, 'Data de conclusão'),
+                  field('destaques', state.education?.summary.destaques, 'textarea', 'Destaques'),
+                ]}
+                onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
+                submitLabel="Salvar resumo"
+                submitButtonClassName="secondary-btn"
+              />
+            </div>
+          </WorkspaceSection>
+
+          <WorkspaceSection active={activeWorkspaceSection === 'cursos-formacoes'} id="cursos-formacoes" title="Cursos e formações" description="Cursos, instituições, períodos e certificações. Adicione ou edite cada registro.">
+            <EducationRepeaterSection
+              title="Formações registradas"
               items={state.education?.items ?? []}
-              describe={(item) => `${item.instituicao || 'Institui??o livre'} ? ${item.status || 'Status aberto'}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Forma??o adicionada.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Forma??o removida.')}
-              fields={[
-                { name: 'curso', label: 'Curso' },
-                { name: 'instituicao', label: 'Institui??o' },
-                { name: 'tipo', label: 'Tipo' },
-                { name: 'status', label: 'Status' },
-                { name: 'inicio', label: 'In?cio' },
-                { name: 'fim', label: 'Fim' },
-                { name: 'observacoes', label: 'Observa??es' },
-                { name: 'link', label: 'Link' },
-              ]}
+              describe={(item) =>
+                [
+                  item.instituicao || 'Instituição livre',
+                  item.status || 'Status aberto',
+                  [item.inicio, item.fim].filter(Boolean).join(' – '),
+                ]
+                  .filter((part) => Boolean(part && String(part).trim()))
+                  .join(' • ')
+              }
+              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Formação adicionada.', 'POST')}
+              onUpdate={(item, values) =>
+                saveJson(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, values, 'Formação atualizada.')
+              }
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Formação removida.')}
+              setAnnouncement={setMessage}
             />
           </WorkspaceSection>
         </section>
@@ -3098,12 +3150,12 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         <section className="content-column">
           <WorkspaceSection active={activeWorkspaceSection === 'experiencias'} id="experiencias" title="Experiências" description="Linha do tempo profissional.">
             <ExperienceRepeaterSection
-              title="Experi?ncias"
+              title="Experiências"
               items={state.experience?.experiences ?? []}
-              describe={(item) => `${item.cargo}  ${item.inicio || '?'} a ${item.fim || 'atual'}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences`, values, 'Experi?ncia adicionada.', 'POST')}
-              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, values, 'Experi?ncia atualizada.')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, 'Experi?ncia removida.')}
+              describe={(item) => `${item.cargo} • ${item.inicio || '?'} a ${item.fim || 'atual'}`}
+              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences`, values, 'Experiência adicionada.', 'POST')}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, values, 'Experiência atualizada.')}
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, 'Experiência removida.')}
             />
           </WorkspaceSection>
 
@@ -3111,7 +3163,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             <ProjectRepeaterSection
               title="Projetos"
               items={state.experience?.projects ?? []}
-              describe={(item) => `${item.periodo || 'Per?odo livre'} ? ${item.stack || 'Stack aberta'}`}
+              describe={(item) => `${item.periodo || 'Período livre'} • ${item.stack || 'Stack aberta'}`}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/projects`, values, 'Projeto adicionado.', 'POST')}
               onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/projects/${item.id}`, values, 'Projeto atualizado.')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/projects/${item.id}`, 'Projeto removido.')}
@@ -3148,20 +3200,20 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
                 check('periodoTarde', state.agenda?.preferences.periodoTarde),
                 check('periodoNoite', state.agenda?.preferences.periodoNoite),
               ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, values, 'Prefer?ncias de agenda salvas.')}
+              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, values, 'Preferências de agenda salvas.')}
             />
             <RepeaterSection
               title="Bloqueios"
               items={state.agenda?.blocks ?? []}
-              describe={(item) => `${item.data || 'Data'} ? ${item.horario || 'Hor?rio'} ? ${item.observacoes || 'Sem observa??es'}`}
+              describe={(item) => `${item.data || 'Data'} • ${item.horario || 'Horário'} • ${item.observacoes || 'Sem observações'}`}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, values, 'Bloqueio adicionado.', 'POST')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}
               fields={[
                 { name: 'tipo', label: 'Tipo' },
-                { name: 'titulo', label: 'T?tulo' },
+                { name: 'titulo', label: 'Título' },
                 { name: 'data', label: 'Data' },
-                { name: 'horario', label: 'Hor?rio' },
-                { name: 'observacoes', label: 'Observa??es' },
+                { name: 'horario', label: 'Horário' },
+                { name: 'observacoes', label: 'Observações' },
               ]}
             />
           </WorkspaceSection>
@@ -3192,7 +3244,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
                 check('alertaDocumentos', state.notifications?.alertaDocumentos),
                 check('alertaLembretes', state.notifications?.alertaLembretes),
               ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, values, 'Notifica??es atualizadas.')}
+              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, values, 'Notificações atualizadas.')}
             />
 
             <RecordForm
@@ -3210,7 +3262,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
               onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, {
                 ...values,
                 retencaoMeses: values.retencaoMeses ?Number(values.retencaoMeses) : null,
-              }, 'Prefer?ncias LGPD atualizadas.')}
+              }, 'Preferências LGPD atualizadas.')}
             />
             <button className="secondary-btn" type="button" onClick={() => void openLgpdReceipt(authFetch, candidateId)}>Abrir comprovante LGPD</button>
           </WorkspaceSection>
@@ -4201,6 +4253,241 @@ function CandidateProfileResumeForm({
   )
 }
 
+const EDUCATION_TIPO_PRESETS = [
+  'Graduação',
+  'Tecnólogo',
+  'Técnico',
+  'Pós-graduação',
+  'MBA',
+  'Mestrado',
+  'Doutorado',
+  'Curso livre',
+  'Certificação',
+] as const
+
+const EDUCATION_STATUS_PRESETS = ['Concluído', 'Em andamento', 'Cursando', 'Interrompido'] as const
+
+function buildEducationTipoOptions(current?: string | null) {
+  const s = new Set<string>(EDUCATION_TIPO_PRESETS as unknown as string[])
+  if (current?.trim()) s.add(current.trim())
+  return Array.from(s)
+}
+
+function buildEducationStatusOptions(current?: string | null) {
+  const s = new Set<string>(EDUCATION_STATUS_PRESETS as unknown as string[])
+  if (current?.trim()) s.add(current.trim())
+  return Array.from(s)
+}
+
+function EducationRepeaterSection({
+  title,
+  items,
+  describe,
+  onAdd,
+  onUpdate,
+  onDelete,
+  setAnnouncement,
+}: {
+  title: string
+  items: PortalEducationItem[]
+  describe: (item: PortalEducationItem) => string
+  onAdd: (values: Record<string, string>) => void | Promise<void>
+  onUpdate: (item: PortalEducationItem, values: Record<string, string>) => void | Promise<void>
+  onDelete: (item: PortalEducationItem) => void
+  setAnnouncement?: (message: string | null) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalEducationItem | null>(null)
+  const [draft, setDraft] = useState({
+    curso: '',
+    instituicao: '',
+    tipo: '',
+    status: '',
+    inicio: '',
+    fim: '',
+    observacoes: '',
+    link: '',
+  })
+
+  const tipoOptions = useMemo(() => buildEducationTipoOptions(draft.tipo), [draft.tipo])
+  const statusOptions = useMemo(() => buildEducationStatusOptions(draft.status), [draft.status])
+
+  function resetDraft() {
+    setDraft({
+      curso: '',
+      instituicao: '',
+      tipo: '',
+      status: '',
+      inicio: '',
+      fim: '',
+      observacoes: '',
+      link: '',
+    })
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalEducationItem) {
+    setEditingItem(item)
+    setDraft({
+      curso: item.curso ?? '',
+      instituicao: item.instituicao ?? '',
+      tipo: item.tipo ?? '',
+      status: item.status ?? '',
+      inicio: item.inicio ?? '',
+      fim: item.fim ?? '',
+      observacoes: item.observacoes ?? '',
+      link: item.link ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  return (
+    <div className="subsection-card">
+      <div className="subsection-head">
+        <strong>{title}</strong>
+        <span>{items.length} item(ns)</span>
+      </div>
+      <div className="list-shell">
+        {items.map((item) => (
+          <article key={item.id} className="list-item">
+            <div>
+              <strong>{getRepeaterTitle(item as unknown as Record<string, unknown>)}</strong>
+              <p>{describe(item)}</p>
+            </div>
+            <div className="list-item-actions">
+              <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+              <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ? <div className="empty-inline">Nenhum item registrado ainda.</div> : null}
+      </div>
+      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar formação</button>
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ? 'Editar formação' : 'Adicionar formação'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (!draft.curso.trim()) {
+                  setAnnouncement?.('Informe o nome do curso.')
+                  return
+                }
+                const payload = {
+                  curso: draft.curso.trim(),
+                  instituicao: draft.instituicao.trim(),
+                  tipo: draft.tipo.trim(),
+                  status: draft.status.trim(),
+                  inicio: draft.inicio.trim(),
+                  fim: draft.fim.trim(),
+                  observacoes: draft.observacoes.trim(),
+                  link: draft.link.trim(),
+                }
+                if (editingItem) {
+                  void onUpdate(editingItem, payload)
+                } else {
+                  void onAdd(payload)
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Curso</span>
+                  <input
+                    value={draft.curso}
+                    onChange={(event) => setDraft((current) => ({ ...current, curso: event.target.value }))}
+                    placeholder="Ex.: Ciência da Computação"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>Instituição</span>
+                  <input
+                    value={draft.instituicao}
+                    onChange={(event) => setDraft((current) => ({ ...current, instituicao: event.target.value }))}
+                    placeholder="Ex.: universidade, plataforma EAD"
+                  />
+                </label>
+                <div className="project-period-row">
+                  <label>
+                    <span>Tipo</span>
+                    <select
+                      value={draft.tipo}
+                      onChange={(event) => setDraft((current) => ({ ...current, tipo: event.target.value }))}
+                    >
+                      <option value="">—</option>
+                      {tipoOptions.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Status</span>
+                    <select
+                      value={draft.status}
+                      onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
+                    >
+                      <option value="">—</option>
+                      {statusOptions.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="project-period-row">
+                  <label>
+                    <span>Início</span>
+                    <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Fim</span>
+                    <input type="date" value={draft.fim} onChange={(event) => setDraft((current) => ({ ...current, fim: event.target.value }))} />
+                  </label>
+                </div>
+                <label>
+                  <span>Observações</span>
+                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Link</span>
+                  <input
+                    placeholder="https://..."
+                    value={draft.link}
+                    onChange={(event) => setDraft((current) => ({ ...current, link: event.target.value }))}
+                  />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar formação' : 'Adicionar formação'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
 function ExperienceRepeaterSection({
   title,
   items,
@@ -4914,10 +5201,14 @@ function RecordForm({
   fields,
   checks,
   onSubmit,
+  submitLabel = 'Salvar seção',
+  submitButtonClassName = 'primary-btn',
 }: {
-  fields: { label: string; name: string; value?: string | null; kind?: 'input' | 'textarea' }[]
+  fields: { label: string; name: string; value?: string | null; kind?: 'input' | 'textarea' | 'select'; options?: readonly string[]; inputType?: 'text' | 'date' | 'url' | 'email' | 'number' }[]
   checks?: { name: string; checked?: boolean }[]
   onSubmit: (values: Record<string, string | boolean>) => void
+  submitLabel?: string
+  submitButtonClassName?: string
 }) {
   const initial = useMemo(() => {
     const values: Record<string, string | boolean> = {}
@@ -4944,8 +5235,22 @@ function RecordForm({
           <span>{fieldItem.label}</span>
           {fieldItem.kind === 'textarea' ?(
             <textarea rows={4} value={String(values[fieldItem.name] ?? '')} onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))} />
+          ) : fieldItem.kind === 'select' && fieldItem.options?.length ?(
+            <select
+              value={String(values[fieldItem.name] ?? '')}
+              onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))}
+            >
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(fieldItem.options, String(values[fieldItem.name] ?? '')).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
           ) : (
-            <input value={String(values[fieldItem.name] ?? '')} onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))} />
+            <input
+              type={fieldItem.inputType ?? 'text'}
+              value={String(values[fieldItem.name] ?? '')}
+              onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))}
+            />
           )}
         </label>
       ))}
@@ -4963,7 +5268,7 @@ function RecordForm({
           ))}
         </div>
       ) : null}
-      <button className="primary-btn" type="submit">Salvar seção</button>
+      <button className={submitButtonClassName} type="submit">{submitLabel}</button>
     </form>
   )
 }
@@ -5034,8 +5339,52 @@ function PageLoading({ label }: { label: string }) {
   )
 }
 
-function field(label: string, value?: string | null, kind: 'input' | 'textarea' = 'input') {
-  return { label, name: label, value, kind }
+const EDUCATION_SUMMARY_NIVEL_PRESETS = [
+  'Ensino fundamental',
+  'Ensino médio',
+  'Técnico',
+  'Tecnólogo',
+  'Superior (graduação)',
+  'Pós-graduação',
+  'Mestrado',
+  'Doutorado',
+] as const
+
+const EDUCATION_SUMMARY_SITUACAO_PRESETS = [
+  'Cursando',
+  'Concluído',
+  'Incompleto',
+  'Interrompido',
+  'Trancado',
+] as const
+
+function mergeEducationSummarySelectOptions(presets: readonly string[], current: string) {
+  const merged = [...presets]
+  const t = current.trim()
+  if (t && !merged.includes(t)) merged.push(t)
+  return merged
+}
+
+function field(
+  name: string,
+  value?: string | null,
+  kind: 'input' | 'textarea' = 'input',
+  displayLabel?: string,
+) {
+  return { label: displayLabel ?? name, name, value, kind }
+}
+
+function fieldSelect(
+  name: string,
+  value: string | null | undefined,
+  presets: readonly string[],
+  displayLabel: string,
+) {
+  return { label: displayLabel, name, value, kind: 'select' as const, options: presets }
+}
+
+function fieldDate(name: string, value: string | null | undefined, displayLabel: string) {
+  return { label: displayLabel, name, value, kind: 'input' as const, inputType: 'date' as const }
 }
 
 function check(name: string, checked?: boolean) {
@@ -5346,7 +5695,10 @@ function getCompletionTargetSection(key: string): WorkspaceSectionId | null {
   const normalized = normalizeSearchText(key).replace(/[^a-z0-9]/g, '')
   const targets: Partial<Record<string, WorkspaceSectionId>> = {
     perfil: 'perfil-curriculo',
-    formacao: 'educacao',
+    formacao: 'cursos-formacoes',
+    formacoes: 'cursos-formacoes',
+    cursos: 'cursos-formacoes',
+    cursosformacoes: 'cursos-formacoes',
     educacao: 'educacao',
     exp: 'experiencias',
     experiencias: 'experiencias',

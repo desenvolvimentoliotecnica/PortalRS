@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
+    // Default 7093; override with `npm run dev -- --port 3050` if your local stack uses 3050 (see API WebOrigin).
     port: 7093,
     proxy: {
       '/api': {

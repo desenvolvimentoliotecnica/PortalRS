@@ -19,6 +19,10 @@ public sealed class CandidatoEducacaoResumo : ITenantEntity
     [StringLength(40)]
     public string? Situacao { get; set; }
 
+    /// <summary>Data de conclusão do nível/formação principal (YYYY-MM-DD, como nos itens).</summary>
+    [StringLength(20)]
+    public string? DataConclusao { get; set; }
+
     [StringLength(260)]
     public string? Destaques { get; set; }
 
