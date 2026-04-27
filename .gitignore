@@ -41,3 +41,7 @@ Liotecnica.Integration.RM.Logs/extraction.log
 
 # Uploads de candidatos (currículos PDF) — dados pessoais, NÃO versionar (LGPD)
 **/App_Data/uploads/
+
+# DB backups: dump COMPLETO do tenant principal fica local (dados reais, LGPD).
+# Schema-only e tenants de teste são versionados.
+db-backup/**/dev_render_liotecnica.sql.gz
