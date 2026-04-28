@@ -206,6 +206,7 @@ public sealed record FuncionarioPerfil360Response(
     int? ProgressoExperiencia,
     // ── Cargo e estrutura ──
     string? CargoNome,
+    string? FuncaoNome,
     string? AreaNome,
     string? UnidadeNome,
     string? UnidadeLotacaoNome,
@@ -220,6 +221,43 @@ public sealed record FuncionarioPerfil360Response(
     string? CdnFuncionario,
     string? CdnEmpresa,
     string? CdnEstab,
+    // ── TOTVS RM ──
+    string? MatriculaRm,
+    string? HierarquiaDescricao,
+    string? CodSituacaoRm,
+    string? SituacaoRmDescricao,
+    // ── Pessoa: identificação ──
+    string? Cpf,
+    string? EstadoCivil,
+    string? Naturalidade,
+    string? EstadoNatal,
+    string? GrauInstrucao,
+    string? NomePai,
+    string? NomeMae,
+    string? Nacionalidade,
+    // ── Pessoa: endereço ──
+    string? Cep,
+    string? Logradouro,
+    string? NumeroEndereco,
+    string? Complemento,
+    string? Bairro,
+    string? Cidade,
+    string? Uf,
+    // ── Pessoa: documentos ──
+    string? Rg,
+    string? RgOrgEmissor,
+    string? RgUf,
+    DateTime? RgDataEmissao,
+    string? CarteiraTrabalho,
+    string? CarteiraTrabalhoSerie,
+    string? CarteiraTrabalhoUf,
+    DateTime? CarteiraTrabalhoData,
+    string? NumeroPis,
+    string? TituloEleitor,
+    string? TituloEleitorZona,
+    string? TituloEleitorSecao,
+    string? CertificadoReservista,
+    string? CategoriaMilitar,
     // ── Sublistas ──
     IReadOnlyList<HistoricoCarreiraItemResponse> HistoricoCarreira,
     IReadOnlyList<DependenteResponse> Dependentes,
@@ -265,5 +303,13 @@ public sealed record FuncionarioResponse(
     // Dados pessoais
     DateOnly? DataAdmissao,
     DateOnly? DataNascimento,
-    string? Sexo
+    string? Sexo,
+    // TOTVS RM (LUC-122)
+    string? MatriculaRm,
+    Guid? HierarquiaId,
+    string? HierarquiaDescricao,
+    string? CodSituacaoRm,
+    string? SituacaoRmDescricao,
+    string? CodFuncaoRm,
+    string? FuncaoNomeRm
 );

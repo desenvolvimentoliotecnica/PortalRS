@@ -85,4 +85,51 @@ public sealed class OneOnOneController : ControllerBase
         var deleted = await service.DeleteAsync(id, userId, ct);
         return deleted ? NoContent() : NotFound();
     }
+
+    // ── Templates de Pauta (Entrega 1.2 — Fase 1 Paridade Feedz) ──
+
+    /// <summary>Lista os templates de pauta de 1:1 disponíveis para o tenant.</summary>
+    [RequirePermission("feedback.oneonone.view")]
+    [HttpGet("templates")]
+    [ProducesResponseType(typeof(IReadOnlyList<OneOnOneTemplateResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarTemplates(
+        [FromServices] IOneOnOneTemplateService templateService,
+        [FromQuery] bool incluirInativos,
+        CancellationToken ct) =>
+        Ok(await templateService.ListAsync(incluirInativos, ct));
+
+    /// <summary>Detalhe de um template de pauta (com itens).</summary>
+    [RequirePermission("feedback.oneonone.view")]
+    [HttpGet("templates/{id:guid}")]
+    [ProducesResponseType(typeof(OneOnOneTemplateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTemplate(
+        Guid id,
+        [FromServices] IOneOnOneTemplateService templateService,
+        CancellationToken ct)
+    {
+        var result = await templateService.GetAsync(id, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>Cria um template de pauta customizado pelo tenant.</summary>
+    [RequirePermission("feedback.oneonone.view")]
+    [HttpPost("templates")]
+    [ProducesResponseType(typeof(OneOnOneTemplateResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CriarTemplate(
+        [FromBody] OneOnOneTemplateCreateRequest request,
+        [FromServices] IOneOnOneTemplateService templateService,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await templateService.CreateAsync(request, ct);
+            return CreatedAtAction(nameof(GetTemplate), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

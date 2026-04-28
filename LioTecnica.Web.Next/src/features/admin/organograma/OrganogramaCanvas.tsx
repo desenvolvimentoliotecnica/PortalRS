@@ -338,7 +338,7 @@ function FuncionarioNodeCard({ data }: { data: FuncionarioNodeData }) {
                     onMouseLeave={() => setShowMenu(false)}
                 >
                     <Link
-                        href={`/funcionarios/${data.id}/perfil`}
+                        href={`/funcionarios/perfil?id=${data.id}`}
                         className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] text-violet-600 hover:bg-violet-50 transition-colors border-r border-gray-100"
                         onPointerDown={(e) => e.stopPropagation()}
                         title="Ver Perfil 360°"

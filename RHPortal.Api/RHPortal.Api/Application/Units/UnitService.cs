@@ -277,6 +277,15 @@ public sealed class UnitService : IUnitService
         var entity = await _db.Units.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
+        // Estabelecimentos vinculados a funcionários importados do TOTVS RM são read-only.
+        // Não tem marker explícito de origem na entidade, então inferimos pela presença de
+        // funcionários com MatriculaRm ou CdnFuncionario apontando pra ele.
+        var temFuncionariosImportados = await _db.Funcionarios.AnyAsync(
+            f => f.UnitId == id && (f.MatriculaRm != null || f.CdnFuncionario != null), ct);
+        if (temFuncionariosImportados)
+            throw new InvalidOperationException(
+                $"Estabelecimento \"{entity.Name}\" tem funcionários importados do ERP. Não é permitido excluir — exclua na origem.");
+
         _db.Units.Remove(entity);
         await _db.SaveChangesAsync(ct);
         return true;

@@ -6,6 +6,305 @@ Datas em ISO `YYYY-MM-DD`. Tipos: `Added` / `Changed` / `Fixed` / `Removed` / `S
 
 ---
 
+## [Unreleased] — 2026-04-28 — Polish visual + filtros de escopo + correções HTTP
+
+Ronda final de ajustes pós-Fase 1 cobrindo: rebranding visual da matriz Nine-Box, simplificação do empty-state em Ciclos, correção do HTTP 400 ao postar celebrações com menção não resolvida, e extensão das super-roles do `PermissionAuthorizationHandler` / `ModuleAuthorizationHandler` para reconhecer `Admin`/`Administrador` (antes só `Owner`/`ApiKey`).
+
+### Changed — Nine-Box: paleta pastel + drag-and-drop + drawer + filtros de escopo
+**Frontend:** `LioTecnica.Web.Next/src/features/feedback/nine-box/NineBoxScreen.tsx` (reescrita visual, mantendo todos os endpoints `/api/nine-box/*` e `/api/funcionarios`).
+
+- Paleta pastel padrão de mercado (Estrela=azul, Núcleo=amarelo, Em Desenvolvimento=laranja, Questionável=vermelho — 9 quadrantes mapeados em `QUADRANTS` com `bg/border/title/swatch`).
+- **Drag-and-drop nativo** entre quadrantes (HTML5 dataTransfer) — substituiu o "clique-para-mover" da Entrega 1.7. Arrastar de "A posicionar" para um quadrante chama `POST /api/nine-box`.
+- **Drawer lateral** (slide-in 420px) ao clicar no header de um quadrante: lista pessoas com avatar/cargo/área e atalhos "Recomendações" / "Adicionar".
+- **Avatares determinísticos**: hash do `funcionarioId` mapeia para uma paleta de 16 tons pastéis. Iniciais sobrepostas. Reuso visual em chips, drawer e painel "A posicionar".
+- **Painéis inferiores em grid 12-col**:
+  - "**A posicionar**" (col-span-7) — chips dashed dos funcionários ainda sem assessment.
+  - "**Distribuição**" (col-span-5) — 4 buckets (Top tier, Núcleo, Em desenv., Atenção) com barras e %.
+- **Legenda** em grid 3-col com swatch + nome + descrição macro de cada quadrante.
+
+### Changed — Nine-Box: filtros de escopo (Hierarquia + Área) com bloqueio até filtrar
+- **Filtros adicionados na toolbar**: 2 selects nativos (Hierarquia / Área).
+  - **Hierarquia** mapeia `HierarquiaId/HierarquiaDescricao` (organograma TOTVS — `PFUNCAO/PSECAO`). Foi escolhido em vez de `GestorDireto` porque o sync RM não popula `Funcionarios.GestorDiretoId` no banco da Liotécnica (0/636 ativos).
+  - **Área** mapeia `CentroCustoId/CentroCustoDescricao` (comentário em `FuncionarioListQuery.cs:16`: *"Centro de custo — absorveu Area em 31.2"*). Cobertura: 636/636 ativos.
+- **Bloqueio até aplicar 1 filtro**: matriz, "A posicionar" e "Distribuição" só renderizam após `hierarquiaFilter || areaFilter`. Antes disso, card de instrução "Selecione um escopo para começar" — evita poluição com 600+ pessoas do tenant.
+- **Status=Ativo no fetch**: `?pageSize=500&status=1` (per requisito do usuário "funcionários deve ser somente os ativos").
+- Lookups dos selects derivados da lista TODA (não dos filtrados) — usuário sempre vê todas as opções disponíveis.
+
+### Changed — Ciclos de Avaliação: empty-state limpo
+**Frontend:** `LioTecnica.Web.Next/src/features/feedback/CiclosAvaliacaoScreen.tsx`
+
+- Quando `ciclos.length === 0 && !loading`, esconder completamente o bloco de filtros + busca + tabela.
+- Visível só: header (título + descrição + botões `De Template` / `Novo Ciclo` / refresh) + 4 KPI cards zerados.
+- Decisão tomada após iteração com mock HTML "hero state" — usuário preferiu o visual clean direto, sem hero gradient nem grid de templates inline.
+
+### Fixed — Celebrações: HTTP 400 ao postar com menção não resolvida
+**Backend:** `Contracts/Feedback/CelebrationContracts.cs` + `Application/Feedback/CelebrationService.cs`
+**Frontend:** `LioTecnica.Web.Next/src/features/feedback/CelebracaoScreen.tsx`
+
+Sintoma: usuário publicava celebração com `@@FULANO` mas matching no front falhava → enviava `mentionedUserIds: [null]` → ASP.NET retornava 400 antes do código rodar (struct `Guid` não-anulável dentro do array).
+
+Fix em 3 camadas:
+1. **Contratos C#** trocados de `IReadOnlyList<Guid>` para `IReadOnlyList<Guid?>?` em `CelebrationCreateRequest` e `CelebrationCommentCreateRequest` — tolerante a `[]`, `[null]` e nulls dentro do array.
+2. **`CelebrationService.CreateAsync` + `CreateCommentAsync`**: filtra `null`/`Guid.Empty`/duplicados antes de bater no banco — `(request.MentionedUserIds ?? []).Where(x => x.HasValue && x.Value != Guid.Empty).Select(x => x!.Value).Distinct()`.
+3. **Frontend `CelebracaoScreen.tsx`**: filtra ids inválidos do array antes do POST com type guard `(id): id is string => typeof id === "string" && id.length > 0`.
+
+Smoke test confirmou: payloads `{"mentionedUserIds":[null]}` e `{"mentionedUserIds":[]}` agora retornam 401 (auth ausente em teste sem JWT) em vez de 400 — body deserializa.
+
+### Fixed — Permissões: Admin/Administrador como super-roles
+**Backend:** `Infrastructure/Security/PermissionAuthorizationHandler.cs` + `ModuleAuthorizationHandler.cs`
+
+- Antes só `Owner` e `ApiKey` passavam sem checar permissão/módulo.
+- Agora também `Admin` e `Administrador` (case-insensitive) — espelha o comportamento esperado pelo usuário na sessão (admin do tenant deveria ter visão completa sem precisar configurar 30 permissões).
+
+### Fixed — Multi-tenant shadow users
+**SQL** (não migration, fix one-shot por tenant):
+- Owner global `d5823d79-9c97-433b-8f63-1a3be431eaa9` não existia em `Users` no banco `dev_render_liotecnica` → FK violation ao postar celebrações (FK `AuthorId → Users.Id`).
+- Inserido shadow user + atribuição às roles `Admin`/`Administrador`. `UserRoles` exige `(UserId, RoleId, TenantId)` — incluído `TenantId` na insert (esquema multi-tenant, não Identity puro).
+- Backfill de shadow users a partir dos 636 funcionários ativos da Liotécnica via endpoint `POST /api/funcionarios/backfill-shadow-users` (novo). Resultado: 636 shadow users criados.
+
+### Documentação
+
+- `changelog.md` — esta entrada (final da seção Fase 1).
+- Memória pessoal `~/.claude/.../memory/` atualizada com:
+  - `Sempre corrigir na origem RM, nunca marretar no Portal` — usuário reportou inconsistências (gestor zerado, vaga zumbi) que devem ir pro RH responsável corrigir no TOTVS, não receberem lógica defensiva no Portal.
+  - `Inversão de fonte de vagas (VREQ* primário)` — refactor 2026-04-27 que resolveu zumbis automaticamente.
+  - `CODSTATUS=4 "Concluída" = vaga preenchida` — não é "aprovação concluída".
+
+---
+
+## [Unreleased] — 2026-04-28 — Fase 1 fechada (Entregas 1.3 → 1.10)
+
+### Entrega 1.3 — Templates de Feedback (12 modelos)
+- Entity `FeedbackTemplate` + migration `20260428011820_AddFeedbackTemplates`
+- Service `IFeedbackTemplateService` (List/Get/Create) + 3 endpoints em `FeedbackItemsController` (`/templates`)
+- Seeder com 12 templates: Reconhecimento, Construtivo, Comunicação, Liderança, Colaboração, Evolução, Pós-Projeto, Pós-Apresentação, Sob Pressão, Proatividade, Melhoria, Marco. Conteúdo com placeholders `[contexto]` para o usuário substituir.
+- Frontend `EnviarFeedbackScreen.tsx` integrado: dropdown agrupando "📚 Modelos Padrão" (do servidor) + "🧩 Modelos Universais" (fallback local). Banner "✨ Template aplicado" com guia.
+- 12 testes em `FeedbackTemplateServiceTests.cs`.
+
+### Entrega 1.4 — PDI auto-gerado por IA (a "jóia") 🌟
+- Service `IPdiSuggesterService` em `Application/Feedback/PdiSuggesterService.cs` com **estratégia em camadas**: tenta IA via `ILlmAssistantService` → cai para fallback heurístico determinístico se IA falhar/timeout/indisponível. Garante valor mesmo com `RHPortal.Ai` degraded.
+- Pipeline: agrega notas por pergunta da `AvaliacaoResposta`, identifica top 3-5 gaps, gera 5 metas SMART com horizonte 4 meses.
+- Endpoint preview `GET /api/avaliacao/ciclos/{cicloId}/sugerir-pdi/{funcionarioId}` (não persiste).
+- Endpoint apply `POST /api/feedback/plans/from-suggestion` em `DevelopmentPlansController` — gestor revisa e aplica.
+- DTOs `PdiSuggestionResult`, `PdiSuggestedGoal`, `PdiCreateFromSuggestionRequest` em `Contracts/Feedback/`.
+- Sem migration nova (reusa `DevelopmentPlan` + `DevelopmentPlanGoal`).
+- 12 testes em `PdiSuggesterServiceTests.cs` (todos passam com `llm: null` forçando fallback).
+
+### Entrega 1.5 — Templates de Survey (eNPS, Clima, Liderança, Diversidade)
+- Entity `SurveyTemplate` + `SurveyTemplateQuestion` + migration `20260428013143_AddSurveyTemplates`
+- Service `ISurveyTemplateService` com `CreateSurveyFromTemplateAsync` (copia perguntas + opções para `Survey` real)
+- 4 templates seed BR validados:
+  - **eNPS** — Score 0-10 + comentário (cron sugerido trimestral)
+  - **Clima** — 7 perguntas SingleChoice + textos livres (semestral)
+  - **Liderança** — 7 perguntas (semestral)
+  - **Diversidade** — 6 perguntas pulse anônimo DE&I (anual)
+- 4 endpoints em `SurveysController` (`/templates`, `/from-template`)
+- 13 testes em `SurveyTemplateServiceTests.cs`.
+- **Débito conhecido**: cadência cron é apenas informativa hoje. Disparo automático recorrente fica para Onda 2 (hosted service).
+
+### Entrega 1.6 — OKRs com cascata simples
+- `Meta` ganhou `ParentMetaId` (self-FK opcional) + nav `ParentMeta`/`ChildMetas`
+- Nova entity `MetaCheckin` (status verde/amarelo/vermelho + ValorAtual + comentário) + migration `20260428013853_AddMetaCheckinAndParentMetaId`
+- Métodos novos em `MetaService`: `ListTreeAsync(rootId?)`, `AddCheckinAsync`, `ListCheckinsAsync`
+- DTOs novos: `MetaTreeNode`, `MetaCheckinCreateRequest`, `MetaCheckinResponse`
+- Endpoints novos em `MetasController`: `GET /tree`, `POST /{id}/checkins`, `GET /{id}/checkins`
+- Check-in com `ValorAtual` atualiza meta automaticamente; ao chegar em 100% → status `Concluida`.
+- 11 testes em `MetaServiceCascataTests.cs` cobrindo: árvore 3-níveis, parent inválido, status inválido, cancelamento, ordenação por mais recente.
+
+### Entrega 1.7 — Nine Box "drag-drop" (clique-mover)
+- Approach: clique no card seleciona, clique em outro quadrante move (sem dependência de lib drag-drop nova).
+- `NineBoxScreen.tsx`: state `movingItemId` + `moveItemToQuadrant` (POST `/api/nine-box`), banner de "Movendo: João" no header com cancelar, ring visual no card selecionado, hint "Clique para mover" em quadrantes vazios durante o modo.
+- Atualização local após mover (sem reload completo).
+
+### Entrega 1.8 — Catálogo Render Coins (fechando a alça da gamificação)
+- Entities `RenderCoinReward` + `RenderCoinRedemption` + migration `20260428023716_AddRenderCoinRewards`
+- Service `IRenderCoinRewardService`: `List/Get/Create`, `RedeemAsync` (debita saldo + decrementa estoque), `UpdateRedemptionStatusAsync` (Aprovar/Entregar/Cancelar — cancelar estorna coins e estoque).
+- Workflow: 0=Solicitado → 1=Aprovado → 2=Entregue (ou 3=Cancelado).
+- Cria automaticamente `RenderCoinTransaction` de débito ao resgatar e de crédito ao cancelar.
+- Seeder com 6 recompensas: Café com Mimo (R$30, 100c), Massagem 45min (250c, estoque 5), Voucher iFood R$50 (200c, estoque 10), Day-Off (800c, estoque 3), Curso até R$200 (500c), Doação R$100 (300c).
+- 5 endpoints novos em `GamificationController` (`/rewards`, `/rewards/redeem`, `/redemptions`, `/redemptions/{id}/status`).
+- 15 testes em `RenderCoinRewardServiceTests.cs` cobrindo saldo insuficiente, estoque zero, inativo, estorno, decremento de estoque.
+
+### Entrega 1.9 — Centro de Notificações in-app
+- **Backend já existia** completo (`Notification`, `NotificationReceipt`, `NotificationsController`, `NotificationsHub`).
+- Frontend: estendido `TopbarClient.tsx` com integração real ao `/api/notifications`:
+  - Polling de 60s para buscar últimas 10 + unread count
+  - Badge unifica `notifUnread + pendingApprovals`
+  - Dropdown com lista clicável (level color: error/warning=vermelho, success=verde, info=azul), age label (agora/min/h/d), highlight de não lidas, mark-read on click
+  - Click em notif com URL navega + marca read; sem URL marca read inline
+  - Banner especial de "aprovações pendentes" preserva fluxo existente
+- Sem mudanças de schema.
+- **Débito conhecido**: integração SignalR client (push real-time) fica para Onda 2.
+
+### Entrega 1.10 — Mobile responsivo
+- Pass de breakpoints nas telas/componentes que mudei nas entregas 1.1-1.9:
+  - `TopbarClient` dropdown de notificações: `w-[calc(100vw-2rem)] sm:w-96` (não estoura em mobile pequeno)
+  - `CiclosAvaliacaoScreen` header: botões `flex-wrap w-full sm:w-auto` + `flex-1 sm:flex-none`, label "Atualizar" oculto em mobile
+- Telas existentes (Reuniões 1:1, Enviar Feedback) já tinham `grid-cols-1 md:grid-cols-2` etc. — mantidas.
+- **Débito conhecido**: app mobile nativo fica para Onda 3.
+
+### Resumo numérico da Fase 1 fechada
+
+| Entrega | Tabelas novas | Endpoints novos | Testes novos | Migration |
+|---|---|---|---|---|
+| 1.1 Avaliação | 2 | 4 | 16 | ✅ |
+| 1.2 1:1 | 2 | 3 | 16 | ✅ |
+| 1.3 Feedback | 1 | 3 | 12 | ✅ |
+| 1.4 PDI IA | 0 (reuso) | 2 | 12 | — |
+| 1.5 Survey | 2 | 4 | 13 | ✅ |
+| 1.6 OKR cascata | 1 (+coluna) | 3 | 11 | ✅ |
+| 1.7 Nine Box | 0 (só FE) | 0 | 0 | — |
+| 1.8 Render Coins | 2 | 5 | 15 | ✅ |
+| 1.9 Notificações | 0 (já existia) | 0 | 0 | — |
+| 1.10 Mobile | 0 (só FE) | 0 | 0 | — |
+| **Total** | **10 tabelas + 1 coluna** | **24 endpoints** | **95 testes** | **6 migrations** |
+
+### Validação fim-a-fim em produção local
+
+API reiniciada após cada entrega, todas as migrations aplicadas em `dev_render_dev` e `dev_render_liotecnica`. Conferência via SQL no tenant `liotecnica`:
+
+| Entrega | Seeder | Quantidade |
+|---|---|---|
+| 1.1 Avaliação | `AvaliacaoTemplateSeeder` | 7 templates |
+| 1.2 1:1 | `OneOnOneTemplateSeeder` | 10 templates |
+| 1.3 Feedback | `FeedbackTemplateSeeder` | 12 templates |
+| 1.5 Survey | `SurveyTemplateSeeder` | 4 templates |
+| 1.6 Meta | (coluna ParentMetaId + tabela MetaCheckins) | OK |
+| 1.8 Render Coins | `RenderCoinRewardSeeder` | 6 recompensas |
+
+**Total: 39 itens seed por tenant ativo.** Todos os seeders são idempotentes (rerun não duplica).
+
+### Suite de testes
+- Suite total: **735 passam, 2 pré-existentes falham** (`Build_ModuloStandaloneDesativado`, `MatchingModule_IncluiApenasMatching` em `NavegacaoSidebarService`/`ModuleScreensResolver` não tocados).
+- **0 regressões introduzidas pelas entregas 1.3-1.10.**
+- Build limpo (`0 Erro(s)`), sem mudanças pendentes no model snapshot, TypeScript no frontend sem erros.
+
+### Bug fix encontrado durante validação
+- Migration `20260428023716_AddRenderCoinRewards` referenciava `AspNetUsers` (errado) — a tabela de usuários no schema deste projeto é `Users` (sem prefixo Identity padrão). Corrigido inline no SQL idempotente da migration.
+
+### Documentação
+- `lucasMODULOS_FUNCIONALIDADES.md` — atualizado nas seções §15 (Avaliação) e §16 (Feedback/1:1/Mood) com novos templates.
+- Plano de execução em `~/.claude/plans/vamos-avaliar-o-modulo-validated-hejlsberg.md` — todas as 10 entregas marcadas como concluídas.
+
+---
+
+## [Unreleased] — 2026-04-28 — Entrega 1.2: Templates de Pauta de 1:1 (Fase 1 — Paridade Feedz)
+
+### Added — Catálogo de templates de pauta para reuniões 1:1
+Segunda entrega da **Fase 1 do roadmap Gestão de Pessoas — Paridade Feedz**. Alvo: eliminar a "tela em branco" ao agendar uma 1:1 e padronizar conversas por contexto (carreira, performance, retorno de férias, wellbeing, etc.). 10 pautas prontas chegam automaticamente em todo tenant via seeder idempotente no startup.
+
+- **Entidades novas** em `Domain/Entities/OneOnOneTemplate.cs`:
+  - `OneOnOneTemplate` (`ITenantEntity`) — Codigo único por tenant, Nome, Descricao, Categoria, IsSystem, IsActive, Ordem.
+  - `OneOnOneTemplateItem` — filhos com Texto e Ordem (cascata via FK).
+- **Migration** `20260428005355_AddOneOnOneTemplates.cs` — SQL idempotente (`CREATE TABLE IF NOT EXISTS`, FK em `DO $$ ... IF NOT EXISTS`) para suportar tenants antigos.
+- **Seeder** `Infrastructure/Data/Seeders/OneOnOneTemplateSeeder.EnsureAsync` invocado por `DbSeeder.cs` no loop multi-tenant — **10 templates de sistema** (Codigo → Nome → Categoria → itens):
+  1. **CheckIn** → Check-in Semanal Rápido → Performance → 4 itens
+  2. **Carreira** → Carreira & Crescimento → Carreira → 5 itens
+  3. **Performance** → Acompanhamento de Metas → Performance → 5 itens
+  4. **Projeto** → Status de Projeto → Performance → 5 itens
+  5. **Onboarding** → Onboarding (30/60/90 dias) → Onboarding → 6 itens
+  6. **PosAvaliacao** → Pós-Avaliação de Desempenho → Carreira → 5 itens
+  7. **RetornoFerias** → Retorno de Férias / Afastamento → Wellbeing → 5 itens
+  8. **Wellbeing** → Bem-estar & Carga de Trabalho → Wellbeing → 5 itens
+  9. **Conflito** → Resolução de Conflito → Wellbeing → 5 itens
+  10. **Promocao** → Conversa sobre Promoção → Carreira → 5 itens
+- **Service** `Application/Feedback/OneOnOneTemplateService` (`IOneOnOneTemplateService`) com:
+  - `ListAsync(incluirInativos)` — catálogo ordenado por Ordem
+  - `GetAsync(id)` — detalhe com itens
+  - `CreateAsync(request)` — tenant cria customizado (`IsSystem=false`)
+  - `RenderForMeetingAsync(templateId)` — gera `(Subject, Notes-em-markdown)` para o `OneOnOneService` popular o meeting com pauta pronta
+- **Endpoints** novos em `OneOnOneController` (rota base `api/feedback/oneonone`):
+  - `GET /templates` (`feedback.oneonone.view`)
+  - `GET /templates/{id}` (`feedback.oneonone.view`)
+  - `POST /templates` (`feedback.oneonone.view`)
+- **`OneOnOneCreateRequest` estendido** com `TemplateId?` opcional. Quando informado e Subject/Notes vierem null, o `OneOnOneService.CreateAsync` chama `RenderForMeetingAsync` para popular automaticamente. Se Subject/Notes vierem explícitos, prevalecem (gestor pode editar).
+- **Frontend** — `LioTecnica.Web.Next/src/features/feedback/Reunioes1a1Screen.tsx`:
+  - Botão "Do Template" no header (abre catálogo em grid responsivo)
+  - Cards selecionáveis com nome, descrição, categoria (badge) e contagem de itens
+  - Ao escolher template: abre modal de criar 1:1 com Subject pré-preenchido com o nome e Notes em markdown (bullets ordenados da pauta)
+  - Badge "Do template" no título do modal indica origem
+  - Submit envia `templateId` no body para auditoria/métricas
+
+### Changed — `AppDbContext`, `OneOnOneService`, `Program.cs`
+- Novos `DbSet<OneOnOneTemplate>` e `DbSet<OneOnOneTemplateItem>`.
+- `OnModelCreating` configurando query filter por `_tenantContext.TenantId`, índice único `(TenantId, Codigo)`, índice `(TenantId, IsActive)`, FK cascata template→itens.
+- `OneOnOneService` agora depende de `IOneOnOneTemplateService` (constructor injection).
+- DI registrado em `Program.cs:475` (`IOneOnOneTemplateService` → `OneOnOneTemplateService`, scoped).
+
+### Tests
+- 16 testes novos em `RHPortal.Api.Tests/Feedback/OneOnOneTemplateServiceTests.cs`:
+  - **Seeder (5)**: rodada inicial cria 10, idempotência, isolamento entre tenants (2 DbContexts), preserva customizações, valida tenantId.
+  - **Service ListAsync (2)**: filtro de ativos, ordenação por Ordem.
+  - **Service CreateAsync (4)**: cria customizado, código duplicado, sem itens, espaços trimados.
+  - **Service RenderForMeetingAsync (3)**: template ativo gera markdown, inexistente retorna null, inativo retorna null.
+  - **Integração com OneOnOneService.CreateAsync (3)**: template popula Subject/Notes, Subject explícito prevalece, sem template usa comportamento legado.
+- `OneOnOneServiceTests.cs` ajustado pra novo constructor (mock de `IOneOnOneTemplateService`).
+- Suite completa: **656 passam, 2 pré-existentes falham** (`Build_ModuloStandaloneDesativado`, `MatchingModule_IncluiApenasMatching` — testam `NavegacaoSidebarService`/`ModuleScreensResolver` não tocados). **Zero regressões**.
+- `dotnet build` → 0 erros.
+- `dotnet ef migrations has-pending-model-changes` → "No changes have been made to the model".
+- API reiniciada localmente, migration aplicou em `dev_render_dev` e `dev_render_liotecnica`, seeder populou os 10 templates por tenant — confirmado via SQL.
+
+### Docs
+- `lucasMODULOS_FUNCIONALIDADES.md` — seção §16 (Feedback contínuo, 1:1, Mood) atualizada com templates de pauta.
+- Plano de execução em `~/.claude/plans/vamos-avaliar-o-modulo-validated-hejlsberg.md` — Entrega 1.2 marcada como concluída.
+
+---
+
+## [Unreleased] — 2026-04-27 — Entrega 1.1: Templates de Avaliação (Fase 1 — Paridade Feedz)
+
+### Added — Catálogo de templates de avaliação prontos
+Primeira entrega da **Fase 1 do roadmap Gestão de Pessoas — Paridade Feedz**. Alvo: deixar de ter "tela em branco" ao criar um ciclo de avaliação. Cinco templates prontos chegam automaticamente para todo tenant (novo ou existente, via seeder idempotente no startup).
+
+- **Entidades novas** em `Domain/Entities/AvaliacaoTemplate.cs`:
+  - `AvaliacaoTemplate` (`ITenantEntity`) — Codigo único por tenant, Nome, Descricao, PeriodoSugerido, IsSystem, IsActive, Ordem.
+  - `AvaliacaoTemplatePergunta` — filhos com Texto e Ordem (cascata via FK).
+- **Migration** `20260427220153_AddAvaliacaoTemplates.cs` — SQL idempotente (`CREATE TABLE IF NOT EXISTS`, `ADD CONSTRAINT` em `DO $$ ... IF NOT EXISTS`) para suportar tenants antigos sem quebrar.
+- **Seeder** `Infrastructure/Data/Seeders/AvaliacaoTemplateSeeder.EnsureAsync` invocado por `DbSeeder.cs` no loop multi-tenant — **7 templates de sistema** (Codigo → Nome → Ordem → perguntas):
+  1. **Anual** → Avaliação Anual 360° → 10 → 8 perguntas (cobre desempenho + comportamento + potencial)
+  2. **Av180** → Avaliação 180° (Gestor + Autoavaliação) → 12 → 6 perguntas (diálogo gestor↔liderado, sem peso do 360°)
+  3. **Av90** → Avaliação 90° (Gestor → Liderado) → 14 → 5 perguntas (uma direção, foco em desempenho objetivo)
+  4. **Semestral** → versão enxuta de meio de ano → 20 → 5 perguntas
+  5. **30-60-90** → onboarding estruturado → 30 → 6 perguntas
+  6. **Auto** → Autoavaliação Simples (reflexão pré-1:1) → 40 → 5 perguntas
+  7. **Lider** → Avaliação de Liderança (gestores/líderes) → 50 → 7 perguntas
+- **Service** `Application/Avaliacao/AvaliacaoTemplateService` com 4 operações:
+  - `ListAsync(incluirInativos)` — catálogo ordenado por `Ordem` + `Nome`
+  - `GetAsync(id)` — detalhe com perguntas
+  - `CreateAsync(request)` — tenant cria template customizado (`IsSystem=false`)
+  - `CriarCicloFromTemplateAsync(request, criadoPorId)` — cria um `AvaliacaoCiclo` herdando perguntas do template
+- **Endpoints** novos em `AvaliacaoController` (base route `api/avaliacao`):
+  - `GET /templates` (`desempenho.view`)
+  - `GET /templates/{id}` (`desempenho.view`)
+  - `POST /templates` (`desempenho.ciclos.manage`)
+  - `POST /ciclos/from-template` (`desempenho.ciclos.manage`)
+- **Frontend** — `LioTecnica.Web.Next/src/features/feedback/CiclosAvaliacaoScreen.tsx` ganhou:
+  - Botão "Do Template" no header (abre catálogo em grid responsivo)
+  - Cards selecionáveis com nome, descrição, contagem de perguntas e badge "Padrão" para templates de sistema
+  - Form de criar ciclo pré-preenchido ao escolher template; usuário ainda pode editar nome/período/perguntas
+  - Submit usa endpoint `from-template` quando perguntas não foram alteradas; cai no fluxo padrão `POST /ciclos` se editou perguntas (preserva auditoria de origem)
+
+### Changed — `AppDbContext`
+- Novos `DbSet<AvaliacaoTemplate>` e `DbSet<AvaliacaoTemplatePergunta>` (linhas 121-122).
+- `OnModelCreating` configurando query filter por `_tenantContext.TenantId`, índice único `(TenantId, Codigo)`, índice `(TenantId, IsActive)`, FK cascata template→perguntas.
+- DI registrado em `Program.cs:474` (`IAvaliacaoTemplateService` → `AvaliacaoTemplateService`, scoped).
+
+### Tests
+- 16 testes novos em `RHPortal.Api.Tests/Avaliacao/AvaliacaoTemplateServiceTests.cs` (xUnit + Moq + EF InMemory):
+  - **Seeder (5 testes)**: rodada inicial cria 7, idempotência (rodada dupla mesmo tenant não duplica), isolamento entre tenants (com 2 DbContexts simulando o pattern multi-tenant real), preserva customizações de RH, valida tenantId obrigatório.
+  - **Service ListAsync (2 testes)**: filtro de ativos vs todos, ordenação por Ordem.
+  - **Service CreateAsync (4 testes)**: cria com IsSystem=false, código duplicado lança erro, sem perguntas lança erro, espaços em branco filtrados/trimados.
+  - **Service CriarCicloFromTemplateAsync (5 testes)**: template ativo gera ciclo, template inexistente lança erro, template inativo lança erro, nome vazio lança erro, respeita IniciarEmRascunho.
+- Suite completa: **639 passam, 2 pré-existentes falham** (`Build_ModuloStandaloneDesativado`, `MatchingModule_IncluiApenasMatching` — ambos testam `NavegacaoSidebarService`/`ModuleScreensResolver` que não foram tocados nesta entrega). **Zero regressões introduzidas**.
+- `dotnet build --no-incremental` → 0 erros, sem warning novo.
+- `dotnet ef migrations has-pending-model-changes` → "No changes have been made to the model since the last migration".
+- `npx tsc --noEmit` no frontend → sem erros.
+
+### Docs
+- `lucasMODULOS_FUNCIONALIDADES.md` — seção §15 (Avaliação de Desempenho) atualizada com templates.
+- Plano de execução em `~/.claude/plans/vamos-avaliar-o-modulo-validated-hejlsberg.md` — Entrega 1.1 marcada como concluída.
+
+---
+
 ## [Unreleased] — 2026-04-24 (tarde) — FASE 5 — Agent RAG com Function Calling
 
 ### Added — Agente de IA com ferramentas estruturadas

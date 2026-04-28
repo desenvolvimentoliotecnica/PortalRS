@@ -6,7 +6,14 @@ public sealed record OneOnOneCreateRequest(
     [Required] Guid CollaboratorId,
     [Required] DateTimeOffset MeetingDate,
     [MaxLength(200)] string? Subject = null,
-    [MaxLength(4000)] string? Notes = null);
+    [MaxLength(4000)] string? Notes = null,
+    /// <summary>
+    /// Opcional. Quando informado, o serviço carrega o template e usa ele para popular
+    /// Subject (com o Nome do template) e Notes (com a pauta em markdown — bullets dos
+    /// <c>OneOnOneTemplateItem</c>) — só se o request não tiver enviado os próprios.
+    /// Permite "começar do template" sem perder a possibilidade de o gestor sobrescrever.
+    /// </summary>
+    Guid? TemplateId = null);
 
 public sealed record OneOnOneUpdateRequest(
     DateTimeOffset MeetingDate,

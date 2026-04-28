@@ -201,6 +201,16 @@ public sealed record CvImportJobValidationPayload(
     TalentoUpdateRequest? TalentoUpdate
 );
 
+/// <summary>Detalhe do job pendente de validação para comparação side-by-side na UI.</summary>
+public sealed record CvImportJobValidationResponse(
+    Guid JobId,
+    Guid PlaceholderTalentoId,
+    Guid SimilarTalentoId,
+    TalentoResponse? ExistingTalento,
+    TalentoImportPdfSuggestedData? SuggestedData,
+    DateTimeOffset CreatedAtUtc
+);
+
 public sealed record TalentoImportPdfSuggestedData(
     string? Nome,
     string? Email,

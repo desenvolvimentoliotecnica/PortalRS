@@ -129,5 +129,73 @@ public sealed class SurveysController : ControllerBase
         }
         return NoContent();
     }
+
+    // ── Templates de Survey (Entrega 1.5 — Fase 1 Paridade Feedz) ──
+
+    [RequirePermission("feedback.pesquisas.view")]
+    [HttpGet("templates")]
+    [ProducesResponseType(typeof(IReadOnlyList<SurveyTemplateResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarTemplates(
+        [FromServices] ISurveyTemplateService templateService,
+        [FromQuery] bool incluirInativos,
+        CancellationToken ct) =>
+        Ok(await templateService.ListAsync(incluirInativos, ct));
+
+    [RequirePermission("feedback.pesquisas.view")]
+    [HttpGet("templates/{id:guid}")]
+    [ProducesResponseType(typeof(SurveyTemplateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTemplate(
+        Guid id,
+        [FromServices] ISurveyTemplateService templateService,
+        CancellationToken ct)
+    {
+        var r = await templateService.GetAsync(id, ct);
+        return r is null ? NotFound() : Ok(r);
+    }
+
+    [RequirePermission("feedback.pesquisas.view")]
+    [HttpPost("templates")]
+    [ProducesResponseType(typeof(SurveyTemplateResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CriarTemplate(
+        [FromBody] SurveyTemplateCreateRequest request,
+        [FromServices] ISurveyTemplateService templateService,
+        CancellationToken ct)
+    {
+        try
+        {
+            var r = await templateService.CreateAsync(request, ct);
+            return CreatedAtAction(nameof(GetTemplate), new { id = r.Id }, r);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Cria um Survey real a partir de um template (copia perguntas e opções).</summary>
+    [RequirePermission("feedback.pesquisas.view")]
+    [HttpPost("from-template")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateFromTemplate(
+        [FromBody] SurveyFromTemplateRequest request,
+        [FromServices] ISurveyTemplateService templateService,
+        CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid? userId = Guid.TryParse(userIdClaim, out var uid) ? uid : null;
+
+        try
+        {
+            var surveyId = await templateService.CreateSurveyFromTemplateAsync(request, userId, ct);
+            return CreatedAtAction(nameof(GetTemplate), new { id = surveyId }, new { id = surveyId });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }
 

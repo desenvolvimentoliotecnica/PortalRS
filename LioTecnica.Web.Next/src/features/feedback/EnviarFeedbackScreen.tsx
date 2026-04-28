@@ -34,16 +34,25 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
     );
 }
 
-/* ── Templates ── */
-const TEMPLATES: { value: string; label: string; body: string }[] = [
-    { value: "", label: "Nenhum modelo", body: "" },
-    { value: "parar-continuar-comecar", label: "Modelo: Parar / Continuar / Começar", body: "🛑 Parar:\n\n✅ Continuar:\n\n🚀 Começar:\n" },
-    { value: "sci", label: "Modelo: SCI — Situação/Comportamento/Impacto", body: "📌 Situação:\n\n🔍 Comportamento:\n\n💡 Impacto:\n" },
-    { value: "cnv", label: "Modelo: Comunicação Não Violenta", body: "👁 Observação:\n\n❤️ Sentimento:\n\n🎯 Necessidade:\n\n🤝 Pedido:\n" },
-    { value: "1on1", label: "Modelo: 1 on 1", body: "📋 Tópicos discutidos:\n\n✅ Ações combinadas:\n\n📅 Próximos passos:\n" },
-    { value: "otimas-ideias", label: "Modelo: Ótimas Ideias", body: "💡 Ideia:\n\n🎯 Impacto esperado:\n\n🚀 Como implementar:\n" },
-    { value: "boa-reuniao", label: "Modelo: Boa Reunião", body: "📌 O que discutimos:\n\n✅ O que decidimos:\n\n📅 Próximas ações:\n" },
-    { value: "presencial", label: "Feedback presencial", body: "Este feedback foi dado em uma conversa presencial.\n\nResumo:\n" },
+/* ── Templates do servidor (Entrega 1.3 — Fase 1 Paridade Feedz) ── */
+interface FeedbackTemplateResponse {
+    id: string;
+    codigo: string;
+    nome: string;
+    descricao: string | null;
+    categoria: string | null;
+    conteudo: string;
+    tipoSugerido: string | null;
+    isSystem: boolean;
+    isActive: boolean;
+    ordem: number;
+}
+
+/* Fallback (modelos universais que ficam sempre disponíveis mesmo sem servidor) */
+const TEMPLATES_LOCAIS: { value: string; label: string; body: string }[] = [
+    { value: "parar-continuar-comecar", label: "Parar / Continuar / Começar", body: "🛑 Parar:\n\n✅ Continuar:\n\n🚀 Começar:\n" },
+    { value: "sci", label: "SCI — Situação / Comportamento / Impacto", body: "📌 Situação:\n\n🔍 Comportamento:\n\n💡 Impacto:\n" },
+    { value: "cnv", label: "Comunicação Não Violenta", body: "👁 Observação:\n\n❤️ Sentimento:\n\n🎯 Necessidade:\n\n🤝 Pedido:\n" },
 ];
 
 const MAX_CHARS = 4000;
@@ -56,6 +65,8 @@ export default function EnviarFeedbackScreen() {
     const [sending, setSending] = useState(false);
     const [isPresencial, setIsPresencial] = useState(false);
     const [template, setTemplate] = useState("");
+    const [serverTemplates, setServerTemplates] = useState<FeedbackTemplateResponse[]>([]);
+    const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
 
     // Star ratings for company items
     const [starAlinhamento, setStarAlinhamento] = useState(0);
@@ -65,12 +76,28 @@ export default function EnviarFeedbackScreen() {
         fetchJson<UserOption[]>("/api/feedback/celebrations/mention-users?take=200")
             .then(setUsers)
             .catch(() => { });
+        // Carrega templates de mensagem do servidor (12 do seeder + customizados do tenant).
+        fetchJson<FeedbackTemplateResponse[]>("/api/feedback/items/templates")
+            .then(setServerTemplates)
+            .catch(() => { /* se falhar, mantém fallback local */ });
     }, []);
 
     function handleTemplateChange(v: string) {
         setTemplate(v);
-        const t = TEMPLATES.find((x) => x.value === v);
-        if (t && t.body) setContent(t.body);
+        if (!v) { setAppliedTemplateId(null); return; }
+        // Primeiro: tenta servidor (id GUID)
+        const fromServer = serverTemplates.find((s) => s.id === v);
+        if (fromServer) {
+            setContent(fromServer.conteudo);
+            setAppliedTemplateId(fromServer.id);
+            return;
+        }
+        // Fallback: modelos universais
+        const local = TEMPLATES_LOCAIS.find((x) => x.value === v);
+        if (local && local.body) {
+            setContent(local.body);
+            setAppliedTemplateId(null);
+        }
     }
 
     async function handleSend() {
@@ -155,10 +182,30 @@ export default function EnviarFeedbackScreen() {
                         value={template}
                         onChange={(e) => handleTemplateChange(e.target.value)}
                     >
-                        {TEMPLATES.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
+                        <option value="">Nenhum modelo</option>
+                        {/* Templates de mensagem do servidor (Entrega 1.3) — agrupados por categoria */}
+                        {serverTemplates.length > 0 && (
+                            <optgroup label="📚 Modelos Padrão">
+                                {serverTemplates
+                                    .filter(t => t.isActive)
+                                    .map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.nome}{t.categoria ? ` · ${t.categoria}` : ""}
+                                        </option>
+                                    ))}
+                            </optgroup>
+                        )}
+                        <optgroup label="🧩 Modelos Universais">
+                            {TEMPLATES_LOCAIS.map((t) => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
+                        </optgroup>
                     </select>
+                    {appliedTemplateId && (
+                        <p className="text-[11px] text-muted-foreground italic">
+                            ✨ Template aplicado — substitua os <code className="bg-muted/40 px-1 rounded">[placeholders]</code> entre colchetes pelos detalhes do feedback.
+                        </p>
+                    )}
                     <textarea
                         className="w-full rounded-lg border border-input bg-background p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
                         rows={8}

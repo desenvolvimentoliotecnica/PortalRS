@@ -148,6 +148,8 @@ public sealed class VagaService : IVagaService
                 v.HierarquiaId,
                 HierarquiaDescricao = v.Hierarquia != null ? v.Hierarquia.Descricao : null,
                 v.IdReqRmOrigem,
+                v.CodFuncaoRm,
+                v.FuncaoNomeRm,
             })
             .ToListAsync(ct);
 
@@ -210,7 +212,9 @@ public sealed class VagaService : IVagaService
                     v.SubstituindoNome,
                     v.HierarquiaId,
                     v.HierarquiaDescricao,
-                    v.IdReqRmOrigem
+                    v.IdReqRmOrigem,
+                    v.CodFuncaoRm,
+                    v.FuncaoNomeRm
                 );
             })
             .ToList();
@@ -651,6 +655,13 @@ public sealed class VagaService : IVagaService
         var entity = await _db.Vagas.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
+        // Vagas vindas do TOTVS RM (Aumento Quadro / Substituição) são read-only no Portal.
+        // Marker: IdReqRmOrigem populado OU OrigemTipo != Manual. Exclusão tem que acontecer
+        // no RM (encerrar a requisição lá), senão na próxima sincronização a vaga volta.
+        if (!string.IsNullOrWhiteSpace(entity.IdReqRmOrigem) || entity.OrigemTipo != VagaOrigemTipo.Manual)
+            throw new InvalidOperationException(
+                $"Vaga importada do TOTVS RM (req #{entity.IdReqRmOrigem ?? "—"}). Não é permitido excluir — encerre a requisição no ERP de origem; o Portal espelha o cadastro.");
+
         if (entity.Status != VagaStatus.Rascunho)
         {
             // Vagas canceladas sem nenhuma ocupação ativa também podem ser excluídas
@@ -857,7 +868,9 @@ public sealed class VagaService : IVagaService
             null, // DecisaoRHRevisadoPorNome
             null, // DecisaoRHEmUtc
             null, // DecisaoRHPrazoMeses
-            v.HeadcountProvisorioExpiresAtUtc
+            v.HeadcountProvisorioExpiresAtUtc,
+            v.CodFuncaoRm,
+            v.FuncaoNomeRm
         );
     }
 

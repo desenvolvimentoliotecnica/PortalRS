@@ -326,6 +326,13 @@ public sealed class PessoaService : IPessoaService
         var entity = await _db.Pessoas.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
+        // Pessoas com Origem=Funcionario vieram do sync TOTVS RM (PortalPessoaBulkSyncService
+        // ou via FuncionariosSyncRmController). São read-only — a exclusão tem que acontecer
+        // no ERP de origem; senão na próxima sincronização o registro volta.
+        if (entity.Origem == OrigemPessoa.Funcionario)
+            throw new InvalidOperationException(
+                "Pessoa importada do TOTVS RM. Não é permitido excluir — exclua no ERP de origem; o Portal espelha o cadastro.");
+
         var hasFuncionarioAtivo = await _db.Funcionarios
             .AnyAsync(x => x.PessoaId == id && x.Status == Domain.Enums.FuncionarioStatus.Active, ct);
         if (hasFuncionarioAtivo)

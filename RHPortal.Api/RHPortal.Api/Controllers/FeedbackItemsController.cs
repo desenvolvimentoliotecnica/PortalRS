@@ -72,4 +72,48 @@ public sealed class FeedbackItemsController : ControllerBase
         var result = await service.ListAllAsync(page, pageSize, ct);
         return Ok(result);
     }
+
+    // ── Templates de Mensagem (Entrega 1.3 — Fase 1 Paridade Feedz) ──
+
+    [RequirePermission("feedback.send")]
+    [HttpGet("templates")]
+    [ProducesResponseType(typeof(IReadOnlyList<FeedbackTemplateResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarTemplates(
+        [FromServices] IFeedbackTemplateService templateService,
+        [FromQuery] bool incluirInativos,
+        CancellationToken ct) =>
+        Ok(await templateService.ListAsync(incluirInativos, ct));
+
+    [RequirePermission("feedback.send")]
+    [HttpGet("templates/{id:guid}")]
+    [ProducesResponseType(typeof(FeedbackTemplateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTemplate(
+        Guid id,
+        [FromServices] IFeedbackTemplateService templateService,
+        CancellationToken ct)
+    {
+        var result = await templateService.GetAsync(id, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [RequirePermission("feedback.send")]
+    [HttpPost("templates")]
+    [ProducesResponseType(typeof(FeedbackTemplateResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CriarTemplate(
+        [FromBody] FeedbackTemplateCreateRequest request,
+        [FromServices] IFeedbackTemplateService templateService,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await templateService.CreateAsync(request, ct);
+            return CreatedAtAction(nameof(GetTemplate), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

@@ -338,7 +338,18 @@ function UnidadesUnidadesTab() {
             toast.success("Estabelecimento excluído.");
             setDeleteTarget(null);
             await syncList();
-        } catch { toast.error("Falha ao excluir."); }
+        } catch (err) {
+            // Extrai a mensagem do backend em caso de 409 (ex.: estabelecimento RM read-only).
+            const raw = err instanceof Error ? err.message : String(err);
+            const bodyStart = raw.indexOf(": ");
+            const body = bodyStart >= 0 ? raw.slice(bodyStart + 2) : raw;
+            let friendly = "Falha ao excluir.";
+            try {
+                const parsed = JSON.parse(body) as { message?: string };
+                if (parsed?.message) friendly = parsed.message;
+            } catch { /* não é JSON */ }
+            toast.error(friendly, { duration: 8000 });
+        }
     }
 
     function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {

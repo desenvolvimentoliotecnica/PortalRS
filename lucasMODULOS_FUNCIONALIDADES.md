@@ -334,15 +334,23 @@ Todas usam `SolicitacaoAprovacaoEtapa` para rastrear quem aprovou em cada nível
 - **Para quê:** Ciclos de avaliação 360° (geralmente 3 ciclos por ano: Jan-Abr, Mai-Ago, Set-Dez).
 - **Quem usa:** RH (cria ciclo), Gestor (avalia), Colaborador (auto-avalia + avalia pares).
 - **Abas:**
-  - **Ciclos** (`AvaliacaoCiclo`) — abrir, fechar, calibragem
+  - **Templates** (`AvaliacaoTemplate` + `AvaliacaoTemplatePergunta`) — **Entrega 1.1 (Fase 1 Paridade Feedz)**. 7 modelos prontos chegam por seeder em todo tenant: Anual 360° (completo), 180° (Gestor+Auto), 90° (Gestor→Liderado), Semestral, 30-60-90 Onboarding, Auto-avaliação, Liderança. Tenant pode criar customizados via POST `/templates`. Idempotente — adicionar templates novos no seeder propaga automaticamente para tenants existentes no próximo restart.
+  - **Ciclos** (`AvaliacaoCiclo`) — abrir, fechar, calibragem. Pode ser criado do zero ou a partir de um template.
   - **Perguntas** (`AvaliacaoPergunta`) — categorizadas (Desempenho, Competência, Liderança)
   - **Convites** (`AvaliacaoConvite`) — quem avalia quem (com token público)
   - **Respostas** (`AvaliacaoResposta`)
   - **Calibragem** (`AvaliacaoCalibragem`) — RH ajusta notas em reunião
 - **Endpoints:**
-  - `POST /api/feedback/evaluations`
-  - `POST /api/feedback/evaluations/{id}/enviar-convites`
-  - `POST /api/feedback/evaluations/{id}/fechar`
+  - `GET /api/avaliacao/templates` — lista templates do catálogo
+  - `GET /api/avaliacao/templates/{id}` — detalhe com perguntas
+  - `POST /api/avaliacao/templates` — cria template customizado (RH)
+  - `POST /api/avaliacao/ciclos/from-template` — cria ciclo herdando perguntas do template
+  - `POST /api/avaliacao/ciclos` — cria ciclo do zero
+  - `POST /api/avaliacao/ciclos/{id}/ativar` — ativa rascunho
+  - `POST /api/avaliacao/ciclos/{id}/convites/gerar` — gera convocações 360°
+  - `POST /api/avaliacao/ciclos/{id}/fechar` — encerra
+  - `GET  /api/avaliacao/ciclos/{id}/calibragem` — comitê de calibragem
+  - `POST /api/avaliacao/ciclos/{id}/calibragem/decidir` — decisão final + Nine-Box opcional
 
 ---
 
@@ -353,12 +361,16 @@ Todas usam `SolicitacaoAprovacaoEtapa` para rastrear quem aprovou em cada nível
   - **Feedback contínuo** (`FeedbackItem`) — qualquer pessoa pode dar feedback a qualquer outra, com rating por categoria
   - **PDI** (`DevelopmentPlan` + `DevelopmentPlanGoal`) — planos individuais com metas
   - **1:1** (`OneOnOneMeeting`) — registro de reuniões gestor↔subordinado com pauta + anotações
+  - **Templates de Pauta de 1:1** (`OneOnOneTemplate` + `OneOnOneTemplateItem`) — **Entrega 1.2 (Fase 1 Paridade Feedz)**. 10 pautas prontas chegam por seeder em todo tenant: Check-in Semanal, Carreira & Crescimento, Acompanhamento de Metas, Status de Projeto, Onboarding 30/60/90, Pós-Avaliação, Retorno de Férias, Bem-estar & Carga, Resolução de Conflito, Conversa sobre Promoção. Tenant pode criar customizados via POST `/templates`. Quando o gestor escolhe template ao criar 1:1, Subject e Notes (markdown) são pré-populados.
   - **Mood** (`MoodEntry`) — humor diário (😀 / 😐 / 😞) com observação opcional
 - **Endpoints:**
   - `POST /api/feedback`
   - `GET /api/feedback/plans`
   - `GET /api/feedback/mood`
-  - `POST /api/feedback/oneonone`
+  - `POST /api/feedback/oneonone` — cria 1:1 (aceita `templateId` opcional para pré-popular pauta)
+  - `GET /api/feedback/oneonone/templates` — lista templates de pauta (sistema + customizados ativos)
+  - `GET /api/feedback/oneonone/templates/{id}` — detalhe com itens
+  - `POST /api/feedback/oneonone/templates` — cria template customizado pelo tenant
 
 ---
 

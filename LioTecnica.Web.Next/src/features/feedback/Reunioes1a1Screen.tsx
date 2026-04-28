@@ -4,7 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
     RefreshCw, Plus, Trash2, Pencil, ChevronLeft, ChevronRight,
     Search, Calendar, Clock, ArrowUpDown, X, Users,
+    BookTemplate, Sparkles,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +36,27 @@ interface OneOnOneList {
     totalItems: number;
     page: number;
     pageSize: number;
+}
+
+/* Templates de pauta — Entrega 1.2 (Fase 1 Paridade Feedz) */
+interface OneOnOneTemplateItemResponse {
+    id: string;
+    texto: string;
+    ordem: number;
+}
+
+interface OneOnOneTemplateResponse {
+    id: string;
+    codigo: string;
+    nome: string;
+    descricao: string | null;
+    categoria: string | null;
+    isSystem: boolean;
+    isActive: boolean;
+    ordem: number;
+    totalItens: number;
+    criadoEmUtc: string;
+    itens: OneOnOneTemplateItemResponse[];
 }
 
 type SortKey = "name" | "last" | "next" | "freq";
@@ -78,7 +105,13 @@ export default function Reunioes1a1Screen() {
     const [formEndTime, setFormEndTime] = useState("");
     const [formSubject, setFormSubject] = useState("");
     const [formNotes, setFormNotes] = useState("");
+    const [formTemplateId, setFormTemplateId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+
+    // Templates de pauta (Entrega 1.2)
+    const [templates, setTemplates] = useState<OneOnOneTemplateResponse[]>([]);
+    const [templatesLoading, setTemplatesLoading] = useState(false);
+    const [templatesPickerOpen, setTemplatesPickerOpen] = useState(false);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -131,7 +164,7 @@ export default function Reunioes1a1Screen() {
     }
 
     function openCreate() {
-        setEditId(null); setFormName(""); setFormDate(""); setFormEndTime(""); setFormSubject(""); setFormNotes("");
+        setEditId(null); setFormName(""); setFormDate(""); setFormEndTime(""); setFormSubject(""); setFormNotes(""); setFormTemplateId(null);
         setModalOpen(true);
     }
 
@@ -142,7 +175,47 @@ export default function Reunioes1a1Screen() {
         setFormEndTime(m.endTime ?? "");
         setFormSubject(m.subject ?? "");
         setFormNotes(m.notes ?? "");
+        setFormTemplateId(null);
         setModalOpen(true);
+    }
+
+    /* Templates de pauta — Entrega 1.2 */
+    const loadTemplates = useCallback(async () => {
+        setTemplatesLoading(true);
+        try {
+            const data = await fetchJson<OneOnOneTemplateResponse[]>("/api/feedback/oneonone/templates");
+            setTemplates(data ?? []);
+        } catch {
+            toast.error("Falha ao carregar templates de pauta.");
+        } finally {
+            setTemplatesLoading(false);
+        }
+    }, []);
+
+    function renderPautaMarkdown(t: OneOnOneTemplateResponse): string {
+        const bullets = t.itens
+            .slice()
+            .sort((a, b) => a.ordem - b.ordem)
+            .map(i => `- ${i.texto}`)
+            .join("\n");
+        return t.descricao
+            ? `**Pauta — ${t.nome}**\n\n_${t.descricao}_\n\n${bullets}`
+            : `**Pauta — ${t.nome}**\n\n${bullets}`;
+    }
+
+    function applyTemplate(t: OneOnOneTemplateResponse) {
+        setFormTemplateId(t.id);
+        setFormSubject(t.nome);
+        setFormNotes(renderPautaMarkdown(t));
+        setTemplatesPickerOpen(false);
+        // Mantém modal de criar/editar aberto se já estiver
+        if (!modalOpen) {
+            setEditId(null);
+            setFormName("");
+            setFormDate("");
+            setFormEndTime("");
+            setModalOpen(true);
+        }
     }
 
     async function handleSave() {
@@ -156,6 +229,10 @@ export default function Reunioes1a1Screen() {
                 endTime: formEndTime || null,
                 subject: formSubject.trim() || null,
                 notes: formNotes.trim() || null,
+                // Entrega 1.2: id do template usado, para auditoria/métricas (backend usa
+                // só se Subject/Notes vierem null — mas como já preenchemos no front, é redundante,
+                // serve como rastro).
+                templateId: formTemplateId,
             };
             if (editId) {
                 await fetchJson(`/api/feedback/one-on-one/${editId}`, {
@@ -206,6 +283,9 @@ export default function Reunioes1a1Screen() {
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" disabled title="Em breve">
                         <Calendar className="size-4 mr-1" />Desvincular Agenda
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => { void loadTemplates(); setTemplatesPickerOpen(true); }}>
+                        <BookTemplate className="size-4 mr-1" />Do Template
                     </Button>
                     <Button size="sm" onClick={openCreate}>
                         <Plus className="size-4 mr-1" />Criar reunião 1:1
@@ -356,12 +436,66 @@ export default function Reunioes1a1Screen() {
                 </div>
             )}
 
+            {/* ── Templates Picker (Entrega 1.2) ── */}
+            <Dialog open={templatesPickerOpen} onOpenChange={setTemplatesPickerOpen}>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <BookTemplate className="size-5 text-primary" />
+                            Escolha um Template de Pauta
+                        </DialogTitle>
+                        <DialogDescription>
+                            Pautas pré-prontas por contexto (carreira, performance, projeto, etc.). Ao selecionar, o assunto e as anotações são pré-preenchidos com a pauta — você ainda pode editar antes de salvar.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2 max-h-[60vh] overflow-y-auto">
+                        {templatesLoading ? (
+                            <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}</div>
+                        ) : templates.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-6">Nenhum template disponível.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {templates.map((t) => (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => applyTemplate(t)}
+                                        className="text-left rounded-xl border border-border/40 bg-card p-4 shadow-sm hover:border-primary hover:shadow-md transition-all"
+                                    >
+                                        <div className="flex items-start justify-between mb-2 gap-2">
+                                            <h3 className="font-semibold text-sm">{t.nome}</h3>
+                                            {t.isSystem && <Badge variant="secondary" className="text-[10px] shrink-0"><Sparkles className="size-2.5 mr-0.5" /> Padrão</Badge>}
+                                        </div>
+                                        {t.descricao && (
+                                            <p className="text-xs text-muted-foreground mb-2 line-clamp-3">{t.descricao}</p>
+                                        )}
+                                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+                                            <span>{t.totalItens} item{t.totalItens !== 1 ? "s" : ""}</span>
+                                            {t.categoria && <Badge variant="outline" className="text-[10px]">{t.categoria}</Badge>}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setTemplatesPickerOpen(false)}>Cancelar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* ── Modal Criar/Editar ── */}
             {modalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setModalOpen(false)}>
                     <div className="rounded-xl border bg-card p-6 shadow-xl w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between">
-                            <h5 className="font-bold">{editId ? "Editar reunião 1:1" : "Criar reunião 1:1"}</h5>
+                            <h5 className="font-bold flex items-center gap-2">
+                                {editId ? "Editar reunião 1:1" : "Criar reunião 1:1"}
+                                {formTemplateId && (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                        <BookTemplate className="size-2.5 mr-0.5" /> Do template
+                                    </Badge>
+                                )}
+                            </h5>
                             <Button variant="outline" size="sm" onClick={() => setModalOpen(false)}>
                                 <X className="size-4" />
                             </Button>

@@ -24,7 +24,7 @@ public sealed class Desligamento : ITenantEntity
     [MaxLength(20)]
     public string ChapaRm { get; set; } = default!;
 
-    /// <summary>FK para Funcionario (resolvido via CHAPA = Funcionario.MatriculaRm). Null = funcionário não encontrado no Portal ainda.</summary>
+    /// <summary>FK para Funcionario (resolvido via CHAPA = Funcionario.MatriculaRm).</summary>
     public Guid? FuncionarioId { get; set; }
     public Funcionario? Funcionario { get; set; }
 

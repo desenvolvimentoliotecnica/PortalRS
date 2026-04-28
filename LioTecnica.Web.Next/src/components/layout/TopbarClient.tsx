@@ -60,6 +60,39 @@ export default function TopbarClient({
   const [searchOpen, setSearchOpen] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState(0);
 
+  /* Centro de Notificações in-app — Entrega 1.9 */
+  type NotificationListItem = {
+    id: string;
+    title: string;
+    message: string;
+    level: string;
+    createdAtUtc: string;
+    url: string | null;
+    isRead: boolean;
+  };
+  const [notifications, setNotifications] = useState<NotificationListItem[]>([]);
+  const [notifUnread, setNotifUnread] = useState(0);
+
+  async function loadNotifications() {
+    try {
+      const res = await apiFetch("/api/notifications?take=10", { cache: "no-store" });
+      if (!res || typeof res !== "object") return;
+      const r = res as { unreadCount?: number; items?: NotificationListItem[] };
+      setNotifUnread(r.unreadCount ?? 0);
+      setNotifications(r.items ?? []);
+    } catch {
+      // Silencioso — a aprovação pendente continua funcionando como fallback
+    }
+  }
+
+  async function markNotifRead(id: string) {
+    try {
+      await apiFetch(`/api/notifications/${id}/read`, { method: "POST" });
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      setNotifUnread(prev => Math.max(0, prev - 1));
+    } catch { /* silencioso */ }
+  }
+
   useEffect(() => {
     if (!me) return;
     apiFetch("/api/aprovacoes/pendentes/count")
@@ -68,6 +101,11 @@ export default function TopbarClient({
         setPendingApprovals(count);
       })
       .catch(() => {});
+
+    void loadNotifications();
+    // Poll a cada 60s — versão polling-only (sem SignalR client por simplicidade desta entrega).
+    const intervalId = setInterval(loadNotifications, 60_000);
+    return () => clearInterval(intervalId);
   }, [me]);
 
   /* ─── Actions ─── */
@@ -249,42 +287,110 @@ export default function TopbarClient({
             </Button>
           ) : (
             <>
-              {/* ── Notification bell ── */}
-              <DropdownMenu>
+              {/* ── Notification bell (Entrega 1.9 — Centro de Notificações in-app) ── */}
+              <DropdownMenu onOpenChange={(open) => { if (open) void loadNotifications(); }}>
                 <DropdownMenuTrigger asChild>
                   <button
                     className="relative inline-flex items-center justify-center rounded-md p-2 text-lt-primary/70 hover:bg-lt-primary/5 hover:text-lt-primary transition-colors"
                     title="Notificações"
                   >
                     <Bell className="size-4" />
-                    {pendingApprovals > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
-                        {pendingApprovals > 99 ? "99+" : pendingApprovals}
-                      </span>
-                    )}
+                    {(() => {
+                      const totalBadge = notifUnread + pendingApprovals;
+                      return totalBadge > 0 ? (
+                        <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+                          {totalBadge > 99 ? "99+" : totalBadge}
+                        </span>
+                      ) : null;
+                    })()}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
-                  <div className="px-3 py-2 border-b">
+                <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] sm:w-96 max-h-[28rem] overflow-y-auto">
+                  <div className="px-3 py-2 border-b sticky top-0 bg-popover">
                     <div className="font-semibold text-sm">Notificações</div>
-                    <div className="text-xs text-muted-foreground">Últimas atualizações</div>
-                  </div>
-                  {pendingApprovals > 0 ? (
-                    <div className="py-3 px-3 text-sm text-center">
-                      <span className="font-medium text-foreground">{pendingApprovals}</span>
-                      <span className="text-muted-foreground"> {pendingApprovals === 1 ? "aprovação pendente" : "aprovações pendentes"}</span>
+                    <div className="text-xs text-muted-foreground">
+                      {notifUnread > 0
+                        ? `${notifUnread} não ${notifUnread === 1 ? "lida" : "lidas"}`
+                        : "Sem novidades"}
                     </div>
-                  ) : (
-                    <div className="py-3 px-3 text-sm text-muted-foreground text-center">
+                  </div>
+
+                  {/* Aprovações pendentes (banner especial) */}
+                  {pendingApprovals > 0 && (
+                    <Link
+                      href="/gestao/aprovacoes"
+                      className="block border-b px-3 py-2 hover:bg-accent transition-colors"
+                    >
+                      <div className="text-sm font-semibold text-foreground">
+                        {pendingApprovals} {pendingApprovals === 1 ? "aprovação pendente" : "aprovações pendentes"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Clique para revisar e aprovar.
+                      </div>
+                    </Link>
+                  )}
+
+                  {/* Lista de notificações reais (do /api/notifications) */}
+                  {notifications.length === 0 && pendingApprovals === 0 ? (
+                    <div className="py-6 px-3 text-sm text-muted-foreground text-center">
                       Sem notificações recentes.
                     </div>
+                  ) : (
+                    <div className="divide-y">
+                      {notifications.map((n) => {
+                        const levelColor =
+                          n.level === "error" || n.level === "warning"
+                            ? "bg-red-500"
+                            : n.level === "success"
+                              ? "bg-emerald-500"
+                              : "bg-blue-500";
+                        const ageMinutes = Math.max(
+                          0,
+                          Math.floor((Date.now() - new Date(n.createdAtUtc).getTime()) / 60000)
+                        );
+                        const ageLabel =
+                          ageMinutes < 1 ? "agora" :
+                          ageMinutes < 60 ? `${ageMinutes} min` :
+                          ageMinutes < 1440 ? `${Math.floor(ageMinutes / 60)}h` :
+                          `${Math.floor(ageMinutes / 1440)}d`;
+                        const itemContent = (
+                          <div className={`flex gap-2 p-3 ${n.isRead ? "opacity-70" : "bg-accent/30"}`}>
+                            <span className={`mt-1.5 inline-block size-2 rounded-full shrink-0 ${levelColor}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <p className={`text-sm truncate ${n.isRead ? "font-normal" : "font-semibold"}`}>
+                                  {n.title}
+                                </p>
+                                <span className="text-[10px] text-muted-foreground shrink-0">{ageLabel}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
+                            </div>
+                          </div>
+                        );
+
+                        return n.url ? (
+                          <Link
+                            key={n.id}
+                            href={n.url}
+                            onClick={() => { if (!n.isRead) void markNotifRead(n.id); }}
+                            className="block hover:bg-accent/50 transition-colors"
+                          >
+                            {itemContent}
+                          </Link>
+                        ) : (
+                          <button
+                            key={n.id}
+                            onClick={() => { if (!n.isRead) void markNotifRead(n.id); }}
+                            className="block w-full text-left hover:bg-accent/50 transition-colors"
+                          >
+                            {itemContent}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                  <div className="border-t p-2 flex flex-col gap-1">
-                    {pendingApprovals > 0 && (
-                      <Button variant="default" size="sm" className="w-full" asChild>
-                        <Link href="/gestao/aprovacoes">Ver aprovações pendentes</Link>
-                      </Button>
-                    )}
+
+                  <div className="border-t p-2 sticky bottom-0 bg-popover">
                     <Button variant="ghost" size="sm" className="w-full" asChild>
                       <Link href="/notificacoes">Ver todas as notificações</Link>
                     </Button>

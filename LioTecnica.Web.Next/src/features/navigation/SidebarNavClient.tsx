@@ -74,6 +74,7 @@ import {
   UserPlus,
   Users,
   UserX,
+  Workflow,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -191,6 +192,7 @@ const ICONS: Record<string, LucideIcon> = {
   "user-plus": UserPlus,
   users: Users,
   "user-x": UserX,
+  workflow: Workflow,
   // Colaborador
   "credit-card": CreditCard,
   "palmtree":    Palmtree,

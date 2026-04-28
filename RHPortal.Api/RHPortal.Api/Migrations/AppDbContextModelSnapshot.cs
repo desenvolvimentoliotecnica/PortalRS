@@ -178,9 +178,16 @@ namespace RhPortal.Api.Migrations
                     b.Property<bool>("ChecagemAntecedentes")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("CiclosAusenteRm")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Cidade")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<string>("CodFuncaoRm")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Codigo")
                         .HasMaxLength(40)
@@ -244,6 +251,10 @@ namespace RhPortal.Api.Migrations
 
                     b.Property<short?>("FormacaoArea")
                         .HasColumnType("smallint");
+
+                    b.Property<string>("FuncaoNomeRm")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
 
                     b.Property<short?>("GeneroPreferencia")
                         .HasColumnType("smallint");
@@ -474,6 +485,9 @@ namespace RhPortal.Api.Migrations
                     b.Property<string>("Uf")
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
+
+                    b.Property<DateTimeOffset?>("UltimoCicloRmObservadoUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("UnidadeLotacaoId")
                         .HasColumnType("uuid");
@@ -1808,6 +1822,84 @@ namespace RhPortal.Api.Migrations
                     b.HasIndex("TenantId", "CicloId", "AvaliandoId");
 
                     b.ToTable("AvaliacaoRespostas", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.AvaliacaoTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AtualizadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PeriodoSugerido")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.ToTable("AvaliacaoTemplates", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.AvaliacaoTemplatePergunta", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateId");
+
+                    b.ToTable("AvaliacaoTemplatePerguntas", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.BatchMatchingRun", b =>
@@ -5313,6 +5405,69 @@ namespace RhPortal.Api.Migrations
                     b.ToTable("FeedbackItemRatings", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FeedbackTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AtualizadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Categoria")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTimeOffset>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TipoSugerido")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.ToTable("FeedbackTemplates", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.FluxoAprovacaoConfig", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5368,6 +5523,13 @@ namespace RhPortal.Api.Migrations
                     b.Property<Guid?>("CentroCustoId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("CiclosAusenteRm")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodFuncaoRm")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("CodSituacaoRm")
                         .HasMaxLength(5)
                         .HasColumnType("character varying(5)");
@@ -5384,6 +5546,10 @@ namespace RhPortal.Api.Migrations
                     b.Property<string>("Email")
                         .HasMaxLength(180)
                         .HasColumnType("character varying(180)");
+
+                    b.Property<string>("FuncaoNomeRm")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
 
                     b.Property<Guid?>("GestorDiretoId")
                         .HasColumnType("uuid");
@@ -5444,6 +5610,9 @@ namespace RhPortal.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset?>("UltimoCicloRmObservadoUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("UnidadeLotacaoId")
                         .HasColumnType("uuid");
@@ -6290,6 +6459,9 @@ namespace RhPortal.Api.Migrations
                     b.Property<Guid>("FuncionarioId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ParentMetaId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateOnly?>("Prazo")
                         .HasColumnType("date");
 
@@ -6323,11 +6495,56 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("FuncionarioId");
 
+                    b.HasIndex("ParentMetaId");
+
                     b.HasIndex("TenantId", "FuncionarioId");
+
+                    b.HasIndex("TenantId", "ParentMetaId");
 
                     b.HasIndex("TenantId", "Status");
 
                     b.ToTable("Metas", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.MetaCheckin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Comentario")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CriadoPorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MetaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<decimal?>("ValorAtual")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CriadoPorId");
+
+                    b.HasIndex("MetaId");
+
+                    b.HasIndex("TenantId", "MetaId", "CriadoEmUtc");
+
+                    b.ToTable("MetaCheckins", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.MoodEntry", b =>
@@ -6827,6 +7044,84 @@ namespace RhPortal.Api.Migrations
                     b.ToTable("OneOnOneMeetings", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.OneOnOneTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AtualizadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Categoria")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.ToTable("OneOnOneTemplates", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.OneOnOneTemplateItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateId");
+
+                    b.ToTable("OneOnOneTemplateItens", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.PerguntaEntrevistaSaida", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6997,12 +7292,24 @@ namespace RhPortal.Api.Migrations
                     b.Property<decimal?>("Longitude")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("Nacionalidade")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<string>("Naturalidade")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("NomeMae")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("NomePai")
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
 
@@ -8271,6 +8578,119 @@ namespace RhPortal.Api.Migrations
                     b.ToTable("RenderCoinBalances", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RenderCoinRedemption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CoinsGastos")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTimeOffset>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("ProcessadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ProcessadoPorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RewardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RewardId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TenantId", "RewardId");
+
+                    b.HasIndex("TenantId", "UserId", "Status");
+
+                    b.ToTable("RenderCoinRedemptions", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RenderCoinReward", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AtualizadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Categoria")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("CustoCoins")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("EstoqueDisponivel")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ImagemUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.ToTable("RenderCoinRewards", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.RenderCoinTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8395,6 +8815,165 @@ namespace RhPortal.Api.Migrations
                     b.HasIndex("TenantId", "EntrevistaId");
 
                     b.ToTable("RespostasEntrevistaSaida", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RmSyncAlerta", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Acao")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ChaveRm")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("CiclosAusente")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("DetectadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("EntidadeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EntidadeNome")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset?>("ResolvidoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResolvidoPorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ResolvidoEmUtc");
+
+                    b.HasIndex("TenantId", "Tipo", "ChaveRm")
+                        .IsUnique();
+
+                    b.ToTable("RmSyncAlertas", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RmSyncCheckpoint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Entidade")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<DateTime?>("LastRecModifiedOn")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("LastRunAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastRunStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Entidade")
+                        .IsUnique();
+
+                    b.ToTable("RmSyncCheckpoints", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RmSyncRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Atualizados")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Criados")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("EndedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Entidade")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("ErroMensagem")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Ignorados")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Operacao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("TotalLidos")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("WatermarkAplicadoUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("WatermarkNovoUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.HasIndex("TenantId", "Entidade", "StartedAtUtc")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("IX_RmSyncRuns_TenantId_Entidade_StartedAtUtc");
+
+                    b.ToTable("RmSyncRuns", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.RoleMenu", b =>
@@ -9642,6 +10221,97 @@ namespace RhPortal.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("SurveyResponses", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AtualizadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CadenciaSugerida")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TipoSurvey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.ToTable("SurveyTemplates", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyTemplateQuestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OpcoesJson")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateId");
+
+                    b.ToTable("SurveyTemplateQuestions", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Talento", b =>
@@ -11351,6 +12021,17 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Ciclo");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.AvaliacaoTemplatePergunta", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.AvaliacaoTemplate", "Template")
+                        .WithMany("Perguntas")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.BatchMatchingRunVaga", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.BatchMatchingRun", "Run")
@@ -12262,9 +12943,35 @@ namespace RhPortal.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("RhPortal.Api.Domain.Entities.Meta", "ParentMeta")
+                        .WithMany("ChildMetas")
+                        .HasForeignKey("ParentMetaId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("CriadaPor");
 
                     b.Navigation("Funcionario");
+
+                    b.Navigation("ParentMeta");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.MetaCheckin", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "CriadoPor")
+                        .WithMany()
+                        .HasForeignKey("CriadoPorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Meta", "Meta")
+                        .WithMany("Checkins")
+                        .HasForeignKey("MetaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CriadoPor");
+
+                    b.Navigation("Meta");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.MoodEntry", b =>
@@ -12348,6 +13055,17 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Collaborator");
 
                     b.Navigation("Manager");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.OneOnOneTemplateItem", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.OneOnOneTemplate", "Template")
+                        .WithMany("Itens")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.PerguntaEntrevistaSaida", b =>
@@ -12546,6 +13264,25 @@ namespace RhPortal.Api.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RenderCoinRedemption", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.RenderCoinReward", "Reward")
+                        .WithMany("Redemptions")
+                        .HasForeignKey("RewardId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Reward");
 
                     b.Navigation("User");
                 });
@@ -12956,6 +13693,17 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Survey");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyTemplateQuestion", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.SurveyTemplate", "Template")
+                        .WithMany("Questions")
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Talento", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.Pessoa", "Pessoa")
@@ -13183,6 +13931,11 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Respostas");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.AvaliacaoTemplate", b =>
+                {
+                    b.Navigation("Perguntas");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.BatchMatchingRun", b =>
                 {
                     b.Navigation("Vagas");
@@ -13262,6 +14015,18 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Anexos");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Meta", b =>
+                {
+                    b.Navigation("Checkins");
+
+                    b.Navigation("ChildMetas");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.OneOnOneTemplate", b =>
+                {
+                    b.Navigation("Itens");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Pessoa", b =>
                 {
                     b.Navigation("Bloqueios");
@@ -13274,6 +14039,11 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Documentos");
 
                     b.Navigation("DocumentosSolicitados");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RenderCoinReward", b =>
+                {
+                    b.Navigation("Redemptions");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Skill", b =>
@@ -13296,6 +14066,11 @@ namespace RhPortal.Api.Migrations
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyResponse", b =>
                 {
                     b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.SurveyTemplate", b =>
+                {
+                    b.Navigation("Questions");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Talento", b =>

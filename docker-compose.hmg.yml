@@ -1,0 +1,83 @@
+# Stack HMG (homologação) — GitHub Actions faz build/push das imagens; no servidor: pull + up.
+#
+# Pré-requisitos no host:
+#   - rede Docker externa: docker network create rhportal-net  (uma vez)
+#   - ficheiro de ambiente (segredos / connection strings): ver docs/HMG-DEPLOY.md
+#
+# Variáveis esperadas no shell ou num ficheiro `.env` ao lado deste ficheiro:
+#   HMG_REGISTRY_PREFIX  ex.: ghcr.io/org/repo   (sem barra final)
+#   HMG_IMAGE_TAG        ex.: sha do commit ou latest
+#   HMG_ENV_FILE         caminho absoluto opcional para .env (default: .env.hmg)
+
+name: rhportal-hmg
+
+services:
+  api:
+    image: ${HMG_REGISTRY_PREFIX}/rhportal-api:${HMG_IMAGE_TAG}
+    container_name: rhportal-api
+    restart: unless-stopped
+    ports:
+      - "5000:80"
+    env_file:
+      - ${HMG_ENV_FILE:-.env.hmg}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - rhportal-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  web-next:
+    image: ${HMG_REGISTRY_PREFIX}/rhportal-web-next:${HMG_IMAGE_TAG}
+    container_name: rhportal-web-next
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - rhportal-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  portal-vagas:
+    image: ${HMG_REGISTRY_PREFIX}/rhportal-portal-vagas:${HMG_IMAGE_TAG}
+    container_name: rhportal-portal-vagas
+    restart: unless-stopped
+    ports:
+      - "3050:8080"
+    networks:
+      - rhportal-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  ai:
+    image: ${HMG_REGISTRY_PREFIX}/rhportal-ai:${HMG_IMAGE_TAG}
+    container_name: rhportal-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ${HMG_ENV_FILE:-.env.hmg}
+    networks:
+      - rhportal-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health/live > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+networks:
+  rhportal-net:
+    external: true

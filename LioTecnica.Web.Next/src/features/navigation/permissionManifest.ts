@@ -65,6 +65,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-areas",                     label: "Áreas",                       href: "/areas",                          icon: "grid",             permission: "areas.view" },
     { id: "nav-categorias",                label: "Funções",                     href: "/categorias",                     icon: "tags",             permission: "categories.view" },
     { id: "nav-cargos",                    label: "Cargos",                      href: "/cargos",                         icon: "briefcase",        permission: "jobpositions.view" },
+    { id: "nav-funcoes",                   label: "Funções",                     href: "/funcoes",                        icon: "list-checks",      permission: "jobpositions.view" },
     { id: "nav-nivel-cargo",               label: "Cargos - Nível de Cargo",         href: "/nivel-cargo",                    icon: "layers",           permission: "jobpositions.view" },
     { id: "nav-unidades",                  label: "Unidades",                    href: "/unidades",                       icon: "map-pin",          permission: "units.view" },
     { id: "nav-centros-custo",             label: "Centros de Custo",            href: "/centros-custo",                  icon: "landmark",         permission: "areas.view" },

@@ -757,12 +757,15 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               <span>{areaName || "—"}</span>
               <span className="text-border">|</span>
               <span>{modalidadeStr || "—"}</span>
-              {(vaga?.createdAtUtc as string) && (
-                <>
-                  <span className="text-border">|</span>
-                  <span>Criada em {new Date(vaga!.createdAtUtc as string).toLocaleDateString("pt-BR")}</span>
-                </>
-              )}
+              {(() => {
+                const dt = (vaga?.dataAbertura as string | undefined) ?? (vaga?.createdAtUtc as string | undefined);
+                return dt ? (
+                  <>
+                    <span className="text-border">|</span>
+                    <span>Aberta em {new Date(dt).toLocaleDateString("pt-BR")}</span>
+                  </>
+                ) : null;
+              })()}
             </div>
           </div>
         </div>

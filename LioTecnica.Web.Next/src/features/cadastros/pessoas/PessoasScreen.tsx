@@ -305,7 +305,11 @@ export default function PessoasScreen() {
       linkedinUrl: (p.linkedinUrl ?? "").trim() || null,
       resumoProfissional: (p.resumoProfissional ?? "").trim() || null,
       obs: (p.obs ?? "").trim() || null,
-      origem: Number.isFinite(Number(p.origem)) ? Number(p.origem) : 0,
+      // API serializa o enum como string ("Funcionario", "Manual"…) via JsonStringEnumConverter.
+      // Em alguns lugares vem como número (legado). Suporta ambos pra manter origem correto.
+      origem: typeof p.origem === "number"
+        ? p.origem
+        : ({ Manual: 0, Talento: 1, Vaga: 2, Email: 3, Site: 4, Candidatura: 5, Pasta: 6, Funcionario: 7, Outro: 8 } as Record<string, number>)[String(p.origem ?? "")] ?? 0,
       cep: (p.cep ?? "").trim() || null,
       logradouro: (p.logradouro ?? "").trim() || null,
       numero: (p.numero ?? "").trim() || null,
@@ -537,15 +541,20 @@ export default function PessoasScreen() {
                           <UserX />
                         </Button>
                       )}
-                      <Button
-                        variant="outline"
-                        size="icon-xs"
-                        title="Excluir"
-                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                        onClick={() => void deletePessoa(p)}
-                      >
-                        <Trash2 />
-                      </Button>
+                      {/* Pessoas com origem=Funcionario vieram do sync TOTVS RM — read-only.
+                          API serializa o enum como string ("Funcionario") via JsonStringEnumConverter,
+                          mas em alguns endpoints retorna como número (7). Compara ambos. */}
+                      {(p.origem !== 7 && String(p.origem) !== "Funcionario") && (
+                        <Button
+                          variant="outline"
+                          size="icon-xs"
+                          title="Excluir"
+                          className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => void deletePessoa(p)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

@@ -72,5 +72,9 @@ public sealed record VagaListItemResponse(
     Guid? HierarquiaId,
     string? HierarquiaDescricao,
     /// <summary>IDREQ da requisição-mãe no TOTVS (informativo, rastreável).</summary>
-    string? IdReqRmOrigem
+    string? IdReqRmOrigem,
+    /// <summary>Código da função TOTVS (PFUNC.CODFUNCAO).</summary>
+    string? CodFuncaoRm,
+    /// <summary>Nome específico da função TOTVS (PFUNCAO.NOME). Ex.: "ANALISTA DE PRICING SR".</summary>
+    string? FuncaoNomeRm
 );

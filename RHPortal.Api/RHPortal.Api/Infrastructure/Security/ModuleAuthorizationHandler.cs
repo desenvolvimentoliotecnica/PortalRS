@@ -27,7 +27,9 @@ public sealed class ModuleAuthorizationHandler : AuthorizationHandler<ModuleRequ
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, ModuleRequirement requirement)
     {
-        if (context.User.IsInRole("Owner") || context.User.IsInRole("ApiKey"))
+        // Super-roles passam (Owner global + ApiKey + Admin/Administrador do tenant).
+        if (context.User.IsInRole("Owner") || context.User.IsInRole("ApiKey")
+            || context.User.IsInRole("Admin") || context.User.IsInRole("Administrador"))
         {
             context.Succeed(requirement);
             return;

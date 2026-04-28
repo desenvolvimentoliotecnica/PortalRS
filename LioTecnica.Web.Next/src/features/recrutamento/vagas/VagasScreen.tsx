@@ -505,8 +505,11 @@ export default function VagasScreen() {
         const qq = q.trim().toLowerCase();
         const result = rows.filter((v) => {
             if (status.length > 0 && !status.includes((v.status ?? "").toLowerCase())) return false;
-            // F1 — Date range filter
-            const dateField = ((v as Record<string, unknown>).createdAtUtc as string | null | undefined) ?? v.updatedAt;
+            // F1 — Date range filter. Prioriza dataAbertura (real do RM ou quando passou a Aberta) sobre createdAtUtc (importação).
+            const vr = v as Record<string, unknown>;
+            const dateField = (vr.dataAbertura as string | null | undefined)
+                ?? (vr.createdAtUtc as string | null | undefined)
+                ?? v.updatedAt;
             if (dateFrom && dateField && new Date(dateField) < new Date(dateFrom)) return false;
             if (dateTo && dateField && new Date(dateField) > new Date(`${dateTo}T23:59:59`)) return false;
             // F2 — Aging bucket filter
@@ -538,8 +541,10 @@ export default function VagasScreen() {
                 default: {
                     const ra = a as Record<string, unknown>;
                     const rb = b as Record<string, unknown>;
-                    const da = new Date((ra.createdAtUtc as string | undefined) ?? pickString(a.updatedAt) ?? "").getTime() || 0;
-                    const db = new Date((rb.createdAtUtc as string | undefined) ?? pickString(b.updatedAt) ?? "").getTime() || 0;
+                    const dva = (ra.dataAbertura as string | undefined) ?? (ra.createdAtUtc as string | undefined) ?? pickString(a.updatedAt) ?? "";
+                    const dvb = (rb.dataAbertura as string | undefined) ?? (rb.createdAtUtc as string | undefined) ?? pickString(b.updatedAt) ?? "";
+                    const da = new Date(dva).getTime() || 0;
+                    const db = new Date(dvb).getTime() || 0;
                     return dir * (da - db);
                 }
             }
@@ -1169,7 +1174,8 @@ export default function VagasScreen() {
                                         <TableHead className="min-w-[260px] cursor-pointer select-none" onClick={() => toggleSort("titulo")}>Vaga {sortIcon("titulo")}</TableHead>
                                         <TableHead className="w-28 cursor-pointer select-none" onClick={() => toggleSort("codigo")}>Código {sortIcon("codigo")}</TableHead>
                                         <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("requisitos")}>Requisitos {sortIcon("requisitos")}</TableHead>
-                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>Data criação {sortIcon("createdAt")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>Data abertura {sortIcon("createdAt")}</TableHead>
+                                        <TableHead>Data importação</TableHead>
                                         <TableHead>Recrutador</TableHead>
                                         <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>Status {sortIcon("status")}</TableHead>
                                         <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("headcount")}>Headcount {sortIcon("headcount")}</TableHead>
@@ -1281,7 +1287,15 @@ export default function VagasScreen() {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-xs text-muted-foreground">
-                                                        {vaga.createdAtUtc ? new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR") : vaga.updatedAt ? new Date(vaga.updatedAt as string).toLocaleDateString("pt-BR") : "—"}
+                                                        {(() => {
+                                                            const dt = (vagaRaw.dataAbertura as string | undefined)
+                                                                ?? (vaga.createdAtUtc as string | undefined)
+                                                                ?? (vaga.updatedAt as string | undefined);
+                                                            return dt ? new Date(dt).toLocaleDateString("pt-BR") : "—";
+                                                        })()}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground">
+                                                        {vaga.createdAtUtc ? new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR") : "—"}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
                                                         {(() => {

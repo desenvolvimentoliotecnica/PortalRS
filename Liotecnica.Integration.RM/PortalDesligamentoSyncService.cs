@@ -28,24 +28,14 @@ public sealed class PortalDesligamentoSyncService
     };
 
     /// <summary>
-    /// Mapa de tipos de rescisão TOTVS RM (CODTIPORESCISAO).
-    /// Liotécnica usa códigos numéricos ("1"-"9") e algumas letras ("B","N","T") em registros legados.
+    /// Lookup de tipos de rescisão lido de tipo_demissao.json (PTPDEMISSAO do TOTVS RM).
+    /// Substitui o hardcoded antigo (estava com "com/sem justa causa" invertidos).
+    /// Carregado preguiçosamente no primeiro uso do SyncCoreAsync.
     /// </summary>
-    private static readonly Dictionary<string, string> TiposRescisao = new(StringComparer.OrdinalIgnoreCase)
-    {
-        { "1", "Iniciativa do empregador sem justa causa" },
-        { "2", "Iniciativa do empregador com justa causa" },
-        { "3", "Iniciativa do empregado com aviso prévio" },
-        { "4", "Iniciativa do empregado sem justa causa" },
-        { "5", "Acordo entre as partes" },
-        { "6", "Término de contrato a prazo determinado" },
-        { "7", "Aposentadoria" },
-        { "8", "Falecimento" },
-        { "9", "Transferência" },
-        { "B", "Tipo B (legado)" },
-        { "N", "Tipo N (legado)" },
-        { "T", "Transferência (legado)" },
-    };
+    private Dictionary<string, string>? _tiposRescisaoCache;
+
+    /// <summary>Lookup de motivos de rescisão (PMOTDEMISSAO).</summary>
+    private Dictionary<string, string>? _motivosRescisaoCache;
 
     public PortalDesligamentoSyncService(
         ILogger<PortalDesligamentoSyncService> logger,
@@ -81,6 +71,12 @@ public sealed class PortalDesligamentoSyncService
             return;
         }
 
+        // Carrega lookups oficiais do RM (PTPDEMISSAO, PMOTDEMISSAO).
+        var tiposRescisao = await LoadLookupAsync(path, "tipo_demissao.json", ct);
+        var motivosRescisao = await LoadLookupAsync(path, "motivo_demissao.json", ct);
+        _tiposRescisaoCache = tiposRescisao;
+        _motivosRescisaoCache = motivosRescisao;
+
         var json = await File.ReadAllTextAsync(file, ct);
         var rows = JsonSerializer.Deserialize<List<DesligamentoRow>>(json, JsonOptions);
         if (rows is null || rows.Count == 0)
@@ -96,9 +92,9 @@ public sealed class PortalDesligamentoSyncService
                 idReqRm = r.IdReq!.Value.ToString(),
                 chapaRm = (r.Chapa ?? "").Trim(),
                 codMotivoRescisao = r.CodMotRescisao?.Trim(),
-                motivoRescisaoDescricao = (string?)null,
+                motivoRescisaoDescricao = !string.IsNullOrWhiteSpace(r.CodMotRescisao) && motivosRescisao.TryGetValue(r.CodMotRescisao!.Trim(), out var motDesc) ? motDesc : null,
                 codTipoRescisao = r.CodTipoRescisao?.Trim(),
-                tipoRescisaoDescricao = !string.IsNullOrWhiteSpace(r.CodTipoRescisao) && TiposRescisao.TryGetValue(r.CodTipoRescisao!.Trim(), out var desc) ? desc : null,
+                tipoRescisaoDescricao = !string.IsNullOrWhiteSpace(r.CodTipoRescisao) && tiposRescisao.TryGetValue(r.CodTipoRescisao!.Trim(), out var desc) ? desc : null,
                 gerouSubstituicao = (r.CriaSubstituicao ?? 0) == 1,
                 // Datas TOTVS são "Unspecified" (sem fuso). Postgres com timestamptz exige UTC ou Local.
                 // Tratamos como UTC (TOTVS Liotécnica armazena horário Brasília mas sem indicador de fuso).
@@ -133,6 +129,33 @@ public sealed class PortalDesligamentoSyncService
     /// <summary>Força DateTime → UTC kind sem alterar o valor (TOTVS guarda hora local sem fuso).</summary>
     private static DateTime? AsUtc(DateTime? value) =>
         value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : null;
+
+    /// <summary>
+    /// Carrega tabela dinâmica TOTVS RM (PTPDEMISSAO ou PMOTDEMISSAO) do JSON extraído,
+    /// retornando dicionário CODCLIENTE → DESCRICAO. Deduplica por CODCLIENTE
+    /// (essas tabelas podem ter mesma chave em coligadas diferentes).
+    /// </summary>
+    private async Task<Dictionary<string, string>> LoadLookupAsync(string path, string fileName, CancellationToken ct)
+    {
+        var file = Path.Combine(path, fileName);
+        if (!File.Exists(file))
+        {
+            _logWriter.WriteLine($"Sync Desligamentos: {fileName} não encontrado — descrição vai ficar nula.");
+            return new(StringComparer.OrdinalIgnoreCase);
+        }
+        var json = await File.ReadAllTextAsync(file, ct);
+        var rows = JsonSerializer.Deserialize<List<LookupRow>>(json, JsonOptions) ?? new();
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.CodCliente) && !string.IsNullOrWhiteSpace(r.Descricao))
+            .GroupBy(r => r.CodCliente!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Descricao!.Trim(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class LookupRow
+    {
+        [JsonPropertyName("CODCLIENTE")] public string? CodCliente { get; set; }
+        [JsonPropertyName("DESCRICAO")] public string? Descricao { get; set; }
+    }
 
     private string GetSchemaTablesPath()
     {

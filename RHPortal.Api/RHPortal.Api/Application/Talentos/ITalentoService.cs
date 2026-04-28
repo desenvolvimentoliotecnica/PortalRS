@@ -25,6 +25,8 @@ public interface ITalentoService
     Task AprovarCvImportJobAsync(Guid jobId, CancellationToken ct);
     /// <summary>Recusa a aplicação no similar; mantém o talento atual como está.</summary>
     Task RecusarCvImportJobAsync(Guid jobId, CancellationToken ct);
+    /// <summary>Retorna o detalhe do job em PendenteValidacao (CV extraído + talento existente similar) para comparação na UI.</summary>
+    Task<CvImportJobValidationResponse?> GetCvImportJobAsync(Guid jobId, CancellationToken ct);
     /// <summary>Retorna o arquivo de um documento do talento para download.</summary>
     Task<TalentoDocumentoFileResult?> GetDocumentoFileAsync(Guid talentoId, Guid documentoId, CancellationToken ct);
     /// <summary>Upload de currículo (PDF) no talento existente: salva documento, extrai texto e dados sugeridos pela LLM para revisar na tela e aplicar.</summary>

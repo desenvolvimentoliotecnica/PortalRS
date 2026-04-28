@@ -69,6 +69,24 @@ interface HistoricoCarreiraItem {
     isProvisorio: boolean;
 }
 
+interface MovimentacaoItem {
+    id: string;
+    chapaRm: string;
+    idReqRm: string;
+    tipoMovimentacao: number;
+    tipoDescricao: string | null;
+    dataAbertura: string;
+    dataConclusao: string | null;
+    codStatus: number;
+    statusDescricao: string | null;
+    codFuncaoOrigem: string | null;
+    codFuncaoDestino: string | null;
+    codSecaoOrigem: string | null;
+    codSecaoDestino: string | null;
+    salarioOrigem: number | null;
+    salarioDestino: number | null;
+}
+
 interface Perfil360 {
     id: string;
     nome: string;
@@ -83,6 +101,7 @@ interface Perfil360 {
     diasRestantesExperiencia: number | null;
     progressoExperiencia: number | null;
     cargoNome: string | null;
+    funcaoNome: string | null;
     areaNome: string | null;
     unidadeNome: string | null;
     unidadeLotacaoNome: string | null;
@@ -95,6 +114,39 @@ interface Perfil360 {
     cdnFuncionario: string | null;
     cdnEmpresa: string | null;
     cdnEstab: string | null;
+    matriculaRm: string | null;
+    hierarquiaDescricao: string | null;
+    codSituacaoRm: string | null;
+    situacaoRmDescricao: string | null;
+    cpf: string | null;
+    estadoCivil: string | null;
+    naturalidade: string | null;
+    estadoNatal: string | null;
+    grauInstrucao: string | null;
+    nomePai: string | null;
+    nomeMae: string | null;
+    nacionalidade: string | null;
+    cep: string | null;
+    logradouro: string | null;
+    numeroEndereco: string | null;
+    complemento: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    uf: string | null;
+    rg: string | null;
+    rgOrgEmissor: string | null;
+    rgUf: string | null;
+    rgDataEmissao: string | null;
+    carteiraTrabalho: string | null;
+    carteiraTrabalhoSerie: string | null;
+    carteiraTrabalhoUf: string | null;
+    carteiraTrabalhoData: string | null;
+    numeroPis: string | null;
+    tituloEleitor: string | null;
+    tituloEleitorZona: string | null;
+    tituloEleitorSecao: string | null;
+    certificadoReservista: string | null;
+    categoriaMilitar: string | null;
     historicoCarreira: HistoricoCarreiraItem[];
     dependentes: DependenteResponse[];
     documentos: DocumentoResponse[];
@@ -155,23 +207,35 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function FuncionarioPerfil360Screen({ id, onBack }: { id: string; onBack?: () => void }) {
     const router = useRouter();
-    const goBack = onBack ?? (() => goBack());
+    // Default volta no histórico do navegador. Quando renderizado dentro de outro componente
+    // (ex.: modal), o pai passa onBack pra fechar o overlay em vez de navegar.
+    const goBack = onBack ?? (() => router.back());
     const [perfil, setPerfil] = useState<Perfil360 | null>(null);
+    const [movimentacoes, setMovimentacoes] = useState<MovimentacaoItem[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         setLoading(true);
-        apiFetch(`/api/funcionarios/${id}/perfil-360`)
-            .then((r) => r.json() as Promise<Perfil360>)
-            .then((p) => setPerfil({
-                ...p,
-                historicoCarreira: p.historicoCarreira ?? [],
-                dependentes: p.dependentes ?? [],
-                documentos: p.documentos ?? [],
-                holerites: p.holerites ?? [],
-            }))
-            .catch(() => toast.error("Erro ao carregar perfil."))
-            .finally(() => setLoading(false));
+        Promise.allSettled([
+            apiFetch(`/api/funcionarios/${id}/perfil-360`).then((r) => r.json() as Promise<Perfil360>),
+            apiFetch(`/api/funcionarios/${id}/movimentacoes`).then((r) => r.json() as Promise<MovimentacaoItem[]>),
+        ]).then(([perfilRes, movRes]) => {
+            if (perfilRes.status === "fulfilled") {
+                const p = perfilRes.value;
+                setPerfil({
+                    ...p,
+                    historicoCarreira: p.historicoCarreira ?? [],
+                    dependentes: p.dependentes ?? [],
+                    documentos: p.documentos ?? [],
+                    holerites: p.holerites ?? [],
+                });
+            } else {
+                toast.error("Erro ao carregar perfil.");
+            }
+            if (movRes.status === "fulfilled" && Array.isArray(movRes.value)) {
+                setMovimentacoes(movRes.value);
+            }
+        }).finally(() => setLoading(false));
     }, [id]);
 
     if (loading) {
@@ -247,10 +311,6 @@ export default function FuncionarioPerfil360Screen({ id, onBack }: { id: string;
                 <TabsList className="flex flex-wrap h-auto gap-1">
                     <TabsTrigger value="cadastro"><User className="size-3.5 mr-1" />Cadastro</TabsTrigger>
                     <TabsTrigger value="carreira"><TrendingUp className="size-3.5 mr-1" />Carreira</TabsTrigger>
-                    <TabsTrigger value="dependentes"><Users className="size-3.5 mr-1" />Dependentes</TabsTrigger>
-                    <TabsTrigger value="documentos"><FileText className="size-3.5 mr-1" />Documentos</TabsTrigger>
-                    <TabsTrigger value="holerites"><Receipt className="size-3.5 mr-1" />Holerites</TabsTrigger>
-                    <TabsTrigger value="dados-bancarios"><CreditCard className="size-3.5 mr-1" />Banco</TabsTrigger>
                 </TabsList>
 
                 {/* ── Cadastro ── */}
@@ -268,8 +328,75 @@ export default function FuncionarioPerfil360Screen({ id, onBack }: { id: string;
                                 <InfoRow label="Telefone" value={perfil.telefone} />
                                 <InfoRow label="Nascimento" value={fmtDate(perfil.dataNascimento)} />
                                 <InfoRow label="Sexo" value={perfil.sexo === "M" ? "Masculino" : perfil.sexo === "F" ? "Feminino" : null} />
+                                <InfoRow label="Estado Civil" value={perfil.estadoCivil} />
+                                <InfoRow label="Nacionalidade" value={perfil.nacionalidade === "10" ? "Brasileira" : perfil.nacionalidade} />
+                                <InfoRow label="Naturalidade" value={[perfil.naturalidade, perfil.estadoNatal].filter(Boolean).join(" / ")} />
+                                <InfoRow label="Grau de Instrução" value={perfil.grauInstrucao} />
+                                <InfoRow label="CPF" value={perfil.cpf} />
+                                {(perfil.nomePai || perfil.nomeMae) && (
+                                    <>
+                                        <InfoRow label="Nome do Pai" value={perfil.nomePai} />
+                                        <InfoRow label="Nome da Mãe" value={perfil.nomeMae} />
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
+
+                        {/* Endereço */}
+                        {(perfil.logradouro || perfil.cep) && (
+                            <Card>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <MapPin className="size-4 text-violet-600" /> Endereço
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <InfoRow label="Logradouro" value={[perfil.logradouro, perfil.numeroEndereco].filter(Boolean).join(", ")} />
+                                    <InfoRow label="Complemento" value={perfil.complemento} />
+                                    <InfoRow label="Bairro" value={perfil.bairro} />
+                                    <InfoRow label="CEP" value={perfil.cep} />
+                                    <InfoRow label="Cidade/UF" value={[perfil.cidade, perfil.uf].filter(Boolean).join(" / ")} />
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Documentos pessoais */}
+                        {(perfil.rg || perfil.carteiraTrabalho || perfil.numeroPis || perfil.tituloEleitor || perfil.certificadoReservista) && (
+                            <Card>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <FileText className="size-4 text-violet-600" /> Documentos Pessoais
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {perfil.rg && (
+                                        <InfoRow
+                                            label="RG"
+                                            value={[perfil.rg, perfil.rgOrgEmissor, perfil.rgUf].filter(Boolean).join(" · ") + (perfil.rgDataEmissao ? ` · ${fmtDate(perfil.rgDataEmissao)}` : "")}
+                                        />
+                                    )}
+                                    {perfil.carteiraTrabalho && (
+                                        <InfoRow
+                                            label="CTPS"
+                                            value={[perfil.carteiraTrabalho, perfil.carteiraTrabalhoSerie ? `Sér. ${perfil.carteiraTrabalhoSerie}` : null, perfil.carteiraTrabalhoUf].filter(Boolean).join(" · ") + (perfil.carteiraTrabalhoData ? ` · ${fmtDate(perfil.carteiraTrabalhoData)}` : "")}
+                                        />
+                                    )}
+                                    <InfoRow label="PIS/PASEP" value={perfil.numeroPis} />
+                                    {perfil.tituloEleitor && (
+                                        <InfoRow
+                                            label="Título de Eleitor"
+                                            value={[perfil.tituloEleitor, perfil.tituloEleitorZona ? `Zona ${perfil.tituloEleitorZona}` : null, perfil.tituloEleitorSecao ? `Seção ${perfil.tituloEleitorSecao}` : null].filter(Boolean).join(" · ")}
+                                        />
+                                    )}
+                                    {perfil.certificadoReservista && (
+                                        <InfoRow
+                                            label="Reservista"
+                                            value={[perfil.certificadoReservista, perfil.categoriaMilitar].filter(Boolean).join(" · Cat. ")}
+                                        />
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
 
                         <Card>
                             <CardHeader className="pb-2">
@@ -279,12 +406,9 @@ export default function FuncionarioPerfil360Screen({ id, onBack }: { id: string;
                             </CardHeader>
                             <CardContent>
                                 <InfoRow label="Cargo" value={perfil.cargoNome} />
-                                <InfoRow label="Nível de Cargo" value={perfil.nivelCargoNome} />
-                                <InfoRow label="Nível Hierárquico" value={perfil.nivelHierarquicoNome} />
-                                <InfoRow label="Área" value={perfil.areaNome} />
-                                <InfoRow label="Unidade" value={perfil.unidadeNome} />
-                                <InfoRow label="Lotação" value={perfil.unidadeLotacaoNome} />
+                                <InfoRow label="Função" value={perfil.funcaoNome} />
                                 <InfoRow label="Centro de Custo" value={perfil.centroCustoNome} />
+                                <InfoRow label="Unidade" value={perfil.unidadeNome} />
                             </CardContent>
                         </Card>
 
@@ -320,7 +444,7 @@ export default function FuncionarioPerfil360Screen({ id, onBack }: { id: string;
                                             <p className="text-sm font-medium truncate">{perfil.gestorDiretoNome}</p>
                                         </div>
                                         <Link
-                                            href={`/funcionarios/${perfil.gestorDiretoId}/perfil`}
+                                            href={`/funcionarios/perfil?id=${perfil.gestorDiretoId}`}
                                             className="text-xs text-violet-600 hover:underline flex items-center gap-0.5"
                                         >
                                             Ver <ChevronRight className="size-3" />
@@ -332,20 +456,67 @@ export default function FuncionarioPerfil360Screen({ id, onBack }: { id: string;
                     </div>
                 </TabsContent>
 
-                {/* ── Histórico de Carreira ── */}
+                {/* ── Histórico de Carreira (PFHSTSAL + OcupacoesHistorico) ── */}
                 <TabsContent value="carreira" className="mt-4">
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-sm flex items-center gap-2">
                                 <TrendingUp className="size-4 text-violet-600" />
-                                Histórico de Carreira ({perfil.historicoCarreira.length})
+                                Histórico de Carreira ({movimentacoes.length + perfil.historicoCarreira.length})
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            {perfil.historicoCarreira.length === 0 ? (
+                            {(movimentacoes.length === 0 && perfil.historicoCarreira.length === 0) ? (
                                 <p className="text-center text-muted-foreground text-sm py-6">Sem histórico registrado.</p>
                             ) : (
                                 <ol className="relative border-l border-muted ml-3 space-y-6 py-2">
+                                    {/* Movimentações (PFHSTSAL — promoções, acordos, enquadramentos, admissão) */}
+                                    {[...movimentacoes].sort((a, b) => (a.dataAbertura < b.dataAbertura ? 1 : -1)).map((m) => {
+                                        const variacao = m.salarioOrigem != null && m.salarioDestino != null && m.salarioOrigem > 0
+                                            ? ((m.salarioDestino - m.salarioOrigem) / m.salarioOrigem) * 100
+                                            : null;
+                                        return (
+                                            <li key={`mov-${m.id}`} className="ml-4">
+                                                <span className="absolute -left-1.5 mt-1.5 size-3 rounded-full border border-violet-400 bg-violet-100" />
+                                                <p className="text-sm font-semibold">
+                                                    {m.tipoDescricao ?? `Movimentação ${m.tipoMovimentacao}`}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    {fmtDate(m.dataAbertura)}
+                                                    {m.statusDescricao ? <> · <span>{m.statusDescricao}</span></> : null}
+                                                </p>
+                                                {(m.salarioOrigem != null || m.salarioDestino != null) && (
+                                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                                        Salário:{" "}
+                                                        <span className="font-mono">
+                                                            {m.salarioOrigem != null ? `R$ ${m.salarioOrigem.toFixed(2)}` : "—"}
+                                                        </span>
+                                                        {" → "}
+                                                        <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">
+                                                            {m.salarioDestino != null ? `R$ ${m.salarioDestino.toFixed(2)}` : "—"}
+                                                        </span>
+                                                        {variacao != null && variacao !== 0 && (
+                                                            <span className={`ml-1 ${variacao > 0 ? "text-emerald-600" : "text-red-600"}`}>
+                                                                ({variacao > 0 ? "+" : ""}{variacao.toFixed(2)}%)
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                )}
+                                                {(m.codFuncaoOrigem || m.codFuncaoDestino) && m.codFuncaoOrigem !== m.codFuncaoDestino && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Função: {m.codFuncaoOrigem ?? "—"} → {m.codFuncaoDestino ?? "—"}
+                                                    </p>
+                                                )}
+                                                {(m.codSecaoOrigem || m.codSecaoDestino) && m.codSecaoOrigem !== m.codSecaoDestino && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Seção: {m.codSecaoOrigem ?? "—"} → {m.codSecaoDestino ?? "—"}
+                                                    </p>
+                                                )}
+                                            </li>
+                                        );
+                                    })}
+
+                                    {/* Ocupações Portal (vagas internas) */}
                                     {perfil.historicoCarreira.map((h) => (
                                         <li key={h.id} className="ml-4">
                                             <span className="absolute -left-1.5 mt-1.5 size-3 rounded-full border border-violet-400 bg-violet-100" />
@@ -369,164 +540,6 @@ export default function FuncionarioPerfil360Screen({ id, onBack }: { id: string;
                     </Card>
                 </TabsContent>
 
-                {/* ── Dependentes ── */}
-                <TabsContent value="dependentes" className="mt-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm flex items-center gap-2">
-                                <Users className="size-4 text-violet-600" />
-                                Dependentes ({perfil.dependentes.length})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {perfil.dependentes.length === 0 ? (
-                                <p className="text-center text-muted-foreground text-sm py-6">Nenhum dependente cadastrado.</p>
-                            ) : (
-                                <div className="divide-y">
-                                    {perfil.dependentes.map((d) => (
-                                        <div key={d.id} className="py-3 flex items-center justify-between">
-                                            <div>
-                                                <p className="text-sm font-medium">{d.nomeCompleto}</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {d.parentesco} · Nasc: {fmtDate(d.dataNascimento)}
-                                                    {d.cpf && ` · CPF: ${d.cpf}`}
-                                                </p>
-                                            </div>
-                                            {d.isPcd && (
-                                                <Badge variant="outline" className="text-xs text-blue-600 border-blue-300 shrink-0">
-                                                    PCD
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* ── Documentos ── */}
-                <TabsContent value="documentos" className="mt-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm flex items-center gap-2">
-                                <FileText className="size-4 text-violet-600" />
-                                Documentos ({perfil.documentos.length})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {perfil.documentos.length === 0 ? (
-                                <p className="text-center text-muted-foreground text-sm py-6">Nenhum documento enviado.</p>
-                            ) : (
-                                <div className="divide-y">
-                                    {perfil.documentos.map((d) => {
-                                        const statusMap: Record<string, { label: string; color: string }> = {
-                                            PendenteValidacao: { label: "Pendente", color: "text-amber-600 border-amber-300" },
-                                            Aprovado: { label: "Aprovado", color: "text-emerald-600 border-emerald-300" },
-                                            Reprovado: { label: "Reprovado", color: "text-red-600 border-red-300" },
-                                        };
-                                        const st = statusMap[d.status] ?? { label: d.status, color: "" };
-                                        return (
-                                            <div key={d.id} className="py-3 flex items-center justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-medium truncate">{d.nomeArquivo}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {d.tipo} · {fmtBytes(d.tamanhoBytes)}
-                                                    </p>
-                                                    {d.observacaoRh && (
-                                                        <p className="text-xs text-muted-foreground italic">{d.observacaoRh}</p>
-                                                    )}
-                                                </div>
-                                                <Badge variant="outline" className={`text-xs shrink-0 ${st.color}`}>
-                                                    {st.label}
-                                                </Badge>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* ── Holerites ── */}
-                <TabsContent value="holerites" className="mt-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm flex items-center gap-2">
-                                <Receipt className="size-4 text-violet-600" />
-                                Holerites
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {perfil.holerites.length === 0 ? (
-                                <p className="text-center text-muted-foreground text-sm py-6">Nenhum holerite disponível.</p>
-                            ) : (
-                                <div className="space-y-4">
-                                    {Object.entries(holeritesPorAno)
-                                        .sort(([a], [b]) => Number(b) - Number(a))
-                                        .map(([ano, lista]) => (
-                                            <div key={ano}>
-                                                <p className="text-xs font-semibold text-muted-foreground mb-2">{ano}</p>
-                                                <div className="divide-y border rounded-md">
-                                                    {lista.map((h) => (
-                                                        <div key={h.id} className="flex items-center justify-between px-3 py-2">
-                                                            <div>
-                                                                <p className="text-sm font-medium">
-                                                                    {MESES[h.mesReferencia - 1]} {h.anoReferencia}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {fmtBytes(h.tamanhoBytes)}
-                                                                    {h.enviadoPorNome ? ` · RH: ${h.enviadoPorNome}` : " · TOTVS"}
-                                                                </p>
-                                                            </div>
-                                                            <a
-                                                                href={`/api/colaborador/holerites/${h.id}/download`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-xs text-violet-600 hover:underline flex items-center gap-0.5"
-                                                            >
-                                                                Download
-                                                            </a>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* ── Dados Bancários ── */}
-                <TabsContent value="dados-bancarios" className="mt-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm flex items-center gap-2">
-                                <CreditCard className="size-4 text-violet-600" /> Dados Bancários
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {!perfil.dadosBancarios ? (
-                                <p className="text-center text-muted-foreground text-sm py-6">Dados bancários não cadastrados.</p>
-                            ) : (
-                                <>
-                                    <InfoRow label="Banco" value={perfil.dadosBancarios.banco} />
-                                    <InfoRow label="Agência" value={perfil.dadosBancarios.agencia} />
-                                    <InfoRow label="Conta" value={perfil.dadosBancarios.conta} />
-                                    <InfoRow label="Tipo" value={perfil.dadosBancarios.tipoConta} />
-                                    {perfil.dadosBancarios.pix && (
-                                        <InfoRow label="PIX" value={perfil.dadosBancarios.pix} />
-                                    )}
-                                    <p className="text-xs text-muted-foreground mt-3">
-                                        Atualizado em: {fmtDate(perfil.dadosBancarios.updatedAtUtc)}
-                                    </p>
-                                </>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
             </Tabs>
         </div>
     );

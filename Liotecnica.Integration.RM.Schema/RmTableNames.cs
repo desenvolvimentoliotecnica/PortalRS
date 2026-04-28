@@ -36,6 +36,9 @@ public static class RmTableNames
     /// <summary>Hierarquia / organograma TOTVS RM. Cada nó tem IDHIERARQUIA + DESCHIERARQUIA + IDHIERARQUIASUPERIOR + ESTRUTURA ("1.2.20.21").</summary>
     public const string Hierarquia = "VHIERARQUIA";
 
+    /// <summary>Liga funcionário (CHAPAFUNC) a um nó da hierarquia (IDHIERARQUIA). Necessária pra montar organograma.</summary>
+    public const string HierarquiaColigadaExterna = "VHIERARQUIACOLIGADAEXTERNA";
+
     /// <summary>Solicitações de desligamento (rescisão). Tem CHAPA + CRIASUBSTITUICAO (flag "Gera substituição") + CODSTATUS.</summary>
     public const string Desligamento = "VREQDESLIGAMENTO";
 

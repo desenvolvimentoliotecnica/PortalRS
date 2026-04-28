@@ -35,6 +35,9 @@ interface FuncDetail {
     cdnFuncionario?: string;
     cdnEmpresa?: string;
     cdnEstab?: string;
+    matriculaRm?: string;
+    hierarquiaDescricao?: string;
+    dataAdmissao?: string;
 }
 
 interface EntityChangeListItem {
@@ -44,6 +47,26 @@ interface EntityChangeListItem {
     entityName: string;
     userName: string | null;
     changedColumns: string | null;
+}
+
+interface MovimentacaoItem {
+    id: string;
+    funcionarioId: string | null;
+    chapaRm: string;
+    idReqRm: string;
+    tipoMovimentacao: number;
+    tipoDescricao: string | null;
+    dataAbertura: string;
+    dataConclusao: string | null;
+    codStatus: number;
+    statusDescricao: string | null;
+    codFuncaoOrigem: string | null;
+    codFuncaoDestino: string | null;
+    codSecaoOrigem: string | null;
+    codSecaoDestino: string | null;
+    salarioOrigem: number | null;
+    salarioDestino: number | null;
+    gerouSubstituicao: boolean | null;
 }
 
 interface Props {
@@ -84,12 +107,14 @@ export default function FuncionarioDetailDialog({ funcionarioId, onClose }: Prop
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<"dados" | "historico">("dados");
     const [history, setHistory] = useState<EntityChangeListItem[]>([]);
+    const [movimentacoes, setMovimentacoes] = useState<MovimentacaoItem[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
 
     useEffect(() => {
         if (!funcionarioId) {
             setData(null);
             setHistory([]);
+            setMovimentacoes([]);
             setTab("dados");
             return;
         }
@@ -121,6 +146,9 @@ export default function FuncionarioDetailDialog({ funcionarioId, onClose }: Prop
                     cdnFuncionario: d.cdnFuncionario ? String(d.cdnFuncionario) : undefined,
                     cdnEmpresa: d.cdnEmpresa ? String(d.cdnEmpresa) : undefined,
                     cdnEstab: d.cdnEstab ? String(d.cdnEstab) : undefined,
+                    matriculaRm: d.matriculaRm ? String(d.matriculaRm) : undefined,
+                    hierarquiaDescricao: d.hierarquiaDescricao ? String(d.hierarquiaDescricao) : undefined,
+                    dataAdmissao: d.dataAdmissao ? String(d.dataAdmissao) : undefined,
                 });
             })
             .catch(() => { toast.error("Falha ao carregar dados do funcionário."); onClose(); })
@@ -128,10 +156,22 @@ export default function FuncionarioDetailDialog({ funcionarioId, onClose }: Prop
 
         setHistoryLoading(true);
         const qs = new URLSearchParams({ entityName: "Funcionario", entityId: funcionarioId, page: "1", pageSize: "50" });
-        fetchJson<Record<string, unknown>>(`/api/audit/entity-changes?${qs.toString()}`)
-            .then((p) => setHistory(Array.isArray(p?.items) ? (p.items as EntityChangeListItem[]) : []))
-            .catch(() => setHistory([]))
-            .finally(() => setHistoryLoading(false));
+        Promise.allSettled([
+            fetchJson<Record<string, unknown>>(`/api/audit/entity-changes?${qs.toString()}`),
+            fetchJson<MovimentacaoItem[]>(`/api/funcionarios/${funcionarioId}/movimentacoes`),
+        ]).then(([auditRes, movRes]) => {
+            if (auditRes.status === "fulfilled") {
+                const p = auditRes.value;
+                setHistory(Array.isArray(p?.items) ? (p.items as EntityChangeListItem[]) : []);
+            } else {
+                setHistory([]);
+            }
+            if (movRes.status === "fulfilled" && Array.isArray(movRes.value)) {
+                setMovimentacoes(movRes.value);
+            } else {
+                setMovimentacoes([]);
+            }
+        }).finally(() => setHistoryLoading(false));
     }, [funcionarioId, onClose]);
 
     return (
@@ -160,8 +200,10 @@ export default function FuncionarioDetailDialog({ funcionarioId, onClose }: Prop
                     <div className="py-12 text-center text-muted-foreground text-sm">Carregando…</div>
                 ) : tab === "dados" && data ? (
                     <div className="space-y-5">
-                        {/* Banner — Dados incompletos */}
+                        {/* Banner — Dados incompletos (não aplica a RM, que é gerido externamente) */}
                         {(() => {
+                            const isRm = !!data.matriculaRm;
+                            if (isRm) return null;
                             const missing: string[] = [];
                             if (!data.name?.trim()) missing.push("Nome");
                             if (!data.jobPositionName) missing.push("Cargo");
@@ -287,23 +329,67 @@ export default function FuncionarioDetailDialog({ funcionarioId, onClose }: Prop
                     <div className="mt-2">
                         {historyLoading ? (
                             <div className="py-6 text-center text-sm text-muted-foreground">Carregando histórico…</div>
-                        ) : history.length ? (
-                            <div className="space-y-2">
-                                {history.map((h) => (
-                                    <div key={h.id} className="rounded-xl border border-border/40 bg-card/50 p-3 text-sm">
-                                        <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <div className="font-medium">
-                                                {fmt(h.occurredAt)} — {stateLabel(h.state)}
-                                                {h.changedColumns ? <span className="text-muted-foreground"> ({h.changedColumns})</span> : null}
+                        ) : (() => {
+                            const events = [
+                                ...history.map((h) => ({ kind: "audit" as const, key: `audit-${h.id}`, occurredAt: h.occurredAt, audit: h })),
+                                ...movimentacoes.map((m) => ({ kind: "mov" as const, key: `mov-${m.id}`, occurredAt: m.dataAbertura, mov: m })),
+                                ...(data?.dataAdmissao ? [{ kind: "admissao" as const, key: "admissao", occurredAt: data.dataAdmissao, dataAdmissao: data.dataAdmissao }] : []),
+                            ].sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+
+                            if (events.length === 0) {
+                                return <div className="py-6 text-center text-sm text-muted-foreground">Nenhum registro encontrado.</div>;
+                            }
+
+                            return (
+                                <div className="space-y-2">
+                                    {events.map((e) => e.kind === "audit" ? (
+                                        <div key={e.key} className="rounded-xl border border-border/40 bg-card/50 p-3 text-sm">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <div className="font-medium">
+                                                    {fmt(e.audit.occurredAt)} — {stateLabel(e.audit.state)}
+                                                    {e.audit.changedColumns ? <span className="text-muted-foreground"> ({e.audit.changedColumns})</span> : null}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">{e.audit.userName ? `por ${e.audit.userName}` : ""}</div>
                                             </div>
-                                            <div className="text-xs text-muted-foreground">{h.userName ? `por ${h.userName}` : ""}</div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="py-6 text-center text-sm text-muted-foreground">Nenhuma alteração registrada.</div>
-                        )}
+                                    ) : e.kind === "admissao" ? (
+                                        <div key={e.key} className="rounded-xl border border-emerald-300/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 text-sm">
+                                            <div className="font-medium text-emerald-700 dark:text-emerald-300">
+                                                {new Date(e.dataAdmissao + "T00:00:00").toLocaleDateString("pt-BR")} — Admissão
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div key={e.key} className="rounded-xl border border-violet-300/50 bg-violet-50/40 dark:bg-violet-950/20 p-3 text-sm">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <div className="font-medium text-violet-700 dark:text-violet-300">
+                                                    {fmt(e.mov.dataAbertura)} — {e.mov.tipoDescricao ?? `Movimentação ${e.mov.tipoMovimentacao}`}
+                                                    {e.mov.statusDescricao ? <span className="text-muted-foreground"> · {e.mov.statusDescricao}</span> : null}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground font-mono">#{e.mov.idReqRm}</div>
+                                            </div>
+                                            {(e.mov.codFuncaoOrigem || e.mov.codFuncaoDestino) && (
+                                                <div className="text-xs text-muted-foreground mt-1">
+                                                    Função: {e.mov.codFuncaoOrigem ?? "—"} → {e.mov.codFuncaoDestino ?? "—"}
+                                                </div>
+                                            )}
+                                            {(e.mov.codSecaoOrigem || e.mov.codSecaoDestino) && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    Seção: {e.mov.codSecaoOrigem ?? "—"} → {e.mov.codSecaoDestino ?? "—"}
+                                                </div>
+                                            )}
+                                            {(e.mov.salarioOrigem != null || e.mov.salarioDestino != null) && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    Salário: {e.mov.salarioOrigem != null ? `R$ ${e.mov.salarioOrigem.toFixed(2)}` : "—"} → {e.mov.salarioDestino != null ? `R$ ${e.mov.salarioDestino.toFixed(2)}` : "—"}
+                                                </div>
+                                            )}
+                                            {e.mov.dataConclusao && (
+                                                <div className="text-xs text-muted-foreground">Concluída em: {fmt(e.mov.dataConclusao)}</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
                     </div>
                 ) : null}
 

@@ -104,6 +104,7 @@ public sealed class PortalFuncionarioSyncService
 
         var pessoaByCodigo = await LoadPessoaLookupAsync(path, ct);
         var pfuncaoCargoByCodigo = await LoadPfuncaoCargoLookupAsync(path, ct);
+        var pfuncaoNomeByCodigo = await LoadPfuncaoNomeLookupAsync(path, ct);
         var ultimaHierarquiaByChapa = await LoadUltimaHierarquiaPorChapaAsync(path, ct);
 
         // 2026-04-26: trazemos TODOS os PFUNC (ativos + desligados/inativos) pra:
@@ -150,6 +151,7 @@ public sealed class PortalFuncionarioSyncService
                 codSecao = r.CodSecao,
                 codFuncao = r.CodFuncao,
                 codCargo,
+                funcaoNome = !string.IsNullOrWhiteSpace(r.CodFuncao) && pfuncaoNomeByCodigo.TryGetValue(r.CodFuncao.Trim(), out var fn) ? fn : null,
                 codFilial = r.CodFilial,
                 idHierarquiaDestinoRm = idHierarquiaDestino,
                 codPessoa = r.CodPessoa,
@@ -182,6 +184,8 @@ public sealed class PortalFuncionarioSyncService
                 tituloEleitorSecao = pessoa?.SecaoTitEleitor?.Trim(),
                 certificadoReservista = pessoa?.CertifReserv?.Trim(),
                 categoriaMilitar = pessoa?.CategMilitar?.Trim(),
+                // PPESSOA.NACIONALIDADE ("10" = Brasileira). Worker envia o código; UI pode mapear.
+                nacionalidade = pessoa?.Nacionalidade?.Trim(),
             };
         }).ToList();
 
@@ -230,6 +234,21 @@ public sealed class PortalFuncionarioSyncService
             .Where(r => !string.IsNullOrWhiteSpace(r.Codigo) && !string.IsNullOrWhiteSpace(r.Cargo))
             .GroupBy(r => r.Codigo!.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First().Cargo!.Trim(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<Dictionary<string, string>> LoadPfuncaoNomeLookupAsync(string path, CancellationToken ct)
+    {
+        var file = Path.Combine(path, "funcao.json");
+        if (!File.Exists(file)) return new(StringComparer.OrdinalIgnoreCase);
+        var json = await File.ReadAllTextAsync(file, ct);
+        var rows = JsonSerializer.Deserialize<List<PfuncaoRow>>(json, JsonOptions) ?? new();
+        // PFUNCAO duplica por CODCOLIGADA (1 e 2). Coligada 2 costuma ter o nome completo
+        // ("ANALISTA DE PRICING SR"), coligada 1 tem versão curta ("ANL PRICING SR").
+        // Pega sempre o mais longo pra exibição mais clara.
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Codigo) && !string.IsNullOrWhiteSpace(r.Nome))
+            .GroupBy(r => r.Codigo!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Nome!.Length).First().Nome!.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task<Dictionary<string, int>> LoadUltimaHierarquiaPorChapaAsync(string path, CancellationToken ct)
@@ -353,6 +372,9 @@ public sealed class PortalFuncionarioSyncService
         public string? CertifReserv { get; set; }
         [JsonPropertyName("CATEGMILITAR")]
         public string? CategMilitar { get; set; }
+        // Nacionalidade (código TOTVS, ex.: "10" = Brasileira).
+        [JsonPropertyName("NACIONALIDADE")]
+        public string? Nacionalidade { get; set; }
     }
 
     private sealed class PfuncaoRow
@@ -361,6 +383,8 @@ public sealed class PortalFuncionarioSyncService
         public string? Codigo { get; set; }
         [JsonPropertyName("CARGO")]
         public string? Cargo { get; set; }
+        [JsonPropertyName("NOME")]
+        public string? Nome { get; set; }
     }
 
     private sealed class TransfPromocaoRow

@@ -161,11 +161,11 @@ export default function FeedbacksScreen() {
                     <Button variant="outline" size="sm" disabled title="Em breve">
                         <Inbox className="size-4 mr-1" />Solicitar
                     </Button>
-                    <Link href="/app/enviar-feedback">
-                        <Button size="sm">
+                    <Button size="sm" asChild>
+                        <Link href="/feedback/enviar">
                             <Send className="size-4 mr-1" />Enviar Feedback
-                        </Button>
-                    </Link>
+                        </Link>
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => { void loadData(); void loadCounts(); }} disabled={loading}>
                         <RefreshCw className="size-4" />
                     </Button>

@@ -4,7 +4,10 @@ namespace RhPortal.Api.Contracts.Feedback;
 
 public sealed record CelebrationCreateRequest(
     [Required, MinLength(1), MaxLength(4000)] string Content,
-    [Required] IReadOnlyList<Guid> MentionedUserIds);
+    // Opcional. Frontends antigos podem mandar [] ou nulls dentro do array (quando o
+    // matching de @menção não encontra ninguém) — o service filtra valores inválidos
+    // antes de persistir, então aqui é tolerante por design.
+    IReadOnlyList<Guid?>? MentionedUserIds);
 
 public sealed record CelebrationPostResponse(
     Guid Id,
@@ -26,7 +29,8 @@ public sealed record CelebrationMentionUserResponse(Guid Id, string FullName, st
 
 public sealed record CelebrationCommentCreateRequest(
     [Required, MinLength(1), MaxLength(2000)] string Content,
-    [Required] IReadOnlyList<Guid> MentionedUserIds);
+    // Tolerante a [], [null] e nulls dentro do array — mesma motivação de CelebrationCreateRequest.
+    IReadOnlyList<Guid?>? MentionedUserIds);
 
 public sealed record CelebrationCommentMentionResponse(Guid UserId, string FullName);
 

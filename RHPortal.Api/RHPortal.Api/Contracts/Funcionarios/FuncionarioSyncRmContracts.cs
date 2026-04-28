@@ -43,6 +43,9 @@ public sealed class FuncionarioSyncRmItem
     /// <summary>Código do cargo (PCARGO.CODIGO). Worker resolve via PFUNCAO.CARGO offline. Lookup direto para JobPosition.Code no Portal.</summary>
     public string? CodCargo { get; set; }
 
+    /// <summary>Nome da função (PFUNCAO.NOME) — descrição específica do cargo TOTVS.</summary>
+    public string? FuncaoNome { get; set; }
+
     /// <summary>PFUNC.CODFILIAL (ex.: 11) — resolve para UnitId via Empresa.Code.</summary>
     public int? CodFilial { get; set; }
 
@@ -98,6 +101,13 @@ public sealed class FuncionarioSyncRmItem
     /// <summary>Reservista (certificado militar).</summary>
     public string? CertificadoReservista { get; set; }
     public string? CategoriaMilitar { get; set; }
+
+    /// <summary>Filiação (PPESSOA.NOMEPAI / PPESSOA.NOMEMAE).</summary>
+    public string? NomePai { get; set; }
+    public string? NomeMae { get; set; }
+
+    /// <summary>Nacionalidade descritiva (já resolvida pelo worker via lookup do código TOTVS).</summary>
+    public string? Nacionalidade { get; set; }
 }
 
 public sealed class FuncionarioSyncRmBulkRequest

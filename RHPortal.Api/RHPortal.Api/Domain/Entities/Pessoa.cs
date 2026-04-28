@@ -135,6 +135,18 @@ public sealed class Pessoa : ITenantEntity
     [StringLength(2)]
     public string? CategoriaMilitar { get; set; }
 
+    /// <summary>Nome do pai (Filiação — vem do PPESSOA).</summary>
+    [StringLength(160)]
+    public string? NomePai { get; set; }
+
+    /// <summary>Nome da mãe (Filiação — vem do PPESSOA).</summary>
+    [StringLength(160)]
+    public string? NomeMae { get; set; }
+
+    /// <summary>Nacionalidade (PPESSOA.NACIONALIDADE — código TOTVS, ex.: "10" = Brasileira).</summary>
+    [StringLength(60)]
+    public string? Nacionalidade { get; set; }
+
     /// <summary>
     /// Latitude geocodificada (graus decimais, WGS84). Cache do resultado de
     /// `IGeocodingService.GeocodeAsync` baseado no endereço (CEP+rua+cidade+UF).

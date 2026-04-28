@@ -118,7 +118,17 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<AvaliacaoResposta> AvaliacaoRespostas => Set<AvaliacaoResposta>();
     public DbSet<AvaliacaoConvite> AvaliacaoConvites => Set<AvaliacaoConvite>();
     public DbSet<AvaliacaoCalibragem> AvaliacaoCalibragens => Set<AvaliacaoCalibragem>();
+    public DbSet<AvaliacaoTemplate> AvaliacaoTemplates => Set<AvaliacaoTemplate>();
+    public DbSet<AvaliacaoTemplatePergunta> AvaliacaoTemplatePerguntas => Set<AvaliacaoTemplatePergunta>();
     public DbSet<OneOnOneMeeting> OneOnOneMeetings => Set<OneOnOneMeeting>();
+    public DbSet<OneOnOneTemplate> OneOnOneTemplates => Set<OneOnOneTemplate>();
+    public DbSet<OneOnOneTemplateItem> OneOnOneTemplateItens => Set<OneOnOneTemplateItem>();
+    public DbSet<FeedbackTemplate> FeedbackTemplates => Set<FeedbackTemplate>();
+    public DbSet<SurveyTemplate> SurveyTemplates => Set<SurveyTemplate>();
+    public DbSet<SurveyTemplateQuestion> SurveyTemplateQuestions => Set<SurveyTemplateQuestion>();
+    public DbSet<MetaCheckin> MetaCheckins => Set<MetaCheckin>();
+    public DbSet<RenderCoinReward> RenderCoinRewards => Set<RenderCoinReward>();
+    public DbSet<RenderCoinRedemption> RenderCoinRedemptions => Set<RenderCoinRedemption>();
     public DbSet<MoodEntry> MoodEntries => Set<MoodEntry>();
     public DbSet<RenderCoinBalance> RenderCoinBalances => Set<RenderCoinBalance>();
     public DbSet<RenderCoinTransaction> RenderCoinTransactions => Set<RenderCoinTransaction>();
@@ -157,6 +167,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<Hierarquia> Hierarquias => Set<Hierarquia>();
     public DbSet<Desligamento> Desligamentos => Set<Desligamento>();
     public DbSet<FuncionarioMovimentacao> FuncionarioMovimentacoes => Set<FuncionarioMovimentacao>();
+    public DbSet<RmSyncRun> RmSyncRuns => Set<RmSyncRun>();
+    public DbSet<RmSyncCheckpoint> RmSyncCheckpoints => Set<RmSyncCheckpoint>();
+    public DbSet<RmSyncAlerta> RmSyncAlertas => Set<RmSyncAlerta>();
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
@@ -397,6 +410,47 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .WithMany()
                 .HasForeignKey(x => x.FuncionarioId)
                 .OnDelete(DeleteBehavior.SetNull);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmSyncRun>(b =>
+        {
+            b.ToTable("RmSyncRuns");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Entidade).HasMaxLength(60).IsRequired();
+            b.Property(x => x.Operacao).HasMaxLength(20).IsRequired();
+            b.Property(x => x.ErroMensagem).HasMaxLength(2000);
+            b.HasIndex(x => new { x.TenantId, x.Entidade, x.StartedAtUtc })
+                .HasDatabaseName("IX_RmSyncRuns_TenantId_Entidade_StartedAtUtc")
+                .IsDescending(false, false, true);
+            b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmSyncCheckpoint>(b =>
+        {
+            b.ToTable("RmSyncCheckpoints");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Entidade).HasMaxLength(60).IsRequired();
+            b.Property(x => x.LastRunStatus).HasMaxLength(20);
+            b.Property(x => x.Notes).HasMaxLength(500);
+            b.HasIndex(x => new { x.TenantId, x.Entidade }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmSyncAlerta>(b =>
+        {
+            b.ToTable("RmSyncAlertas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40).IsRequired();
+            b.Property(x => x.EntidadeNome).HasMaxLength(40).IsRequired();
+            b.Property(x => x.ChaveRm).HasMaxLength(80).IsRequired();
+            b.Property(x => x.Acao).HasMaxLength(120);
+            b.HasIndex(x => new { x.TenantId, x.Tipo, x.ChaveRm }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.ResolvidoEmUtc });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -2847,6 +2901,91 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Texto).HasMaxLength(500).IsRequired();
         });
 
+        modelBuilder.Entity<AvaliacaoTemplate>(b =>
+        {
+            b.ToTable("AvaliacaoTemplates");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Codigo).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(2000);
+            b.Property(x => x.PeriodoSugerido).HasMaxLength(50);
+            b.HasMany(x => x.Perguntas).WithOne(p => p.Template).HasForeignKey(p => p.TemplateId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.Codigo }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.IsActive });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AvaliacaoTemplatePergunta>(b =>
+        {
+            b.ToTable("AvaliacaoTemplatePerguntas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Texto).HasMaxLength(500).IsRequired();
+        });
+
+        modelBuilder.Entity<OneOnOneTemplate>(b =>
+        {
+            b.ToTable("OneOnOneTemplates");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Codigo).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(2000);
+            b.Property(x => x.Categoria).HasMaxLength(64);
+            b.HasMany(x => x.Itens).WithOne(i => i.Template).HasForeignKey(i => i.TemplateId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.Codigo }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.IsActive });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<OneOnOneTemplateItem>(b =>
+        {
+            b.ToTable("OneOnOneTemplateItens");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Texto).HasMaxLength(500).IsRequired();
+        });
+
+        modelBuilder.Entity<FeedbackTemplate>(b =>
+        {
+            b.ToTable("FeedbackTemplates");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Codigo).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(2000);
+            b.Property(x => x.Categoria).HasMaxLength(64);
+            b.Property(x => x.Conteudo).HasMaxLength(4000).IsRequired();
+            b.Property(x => x.TipoSugerido).HasMaxLength(40);
+            b.HasIndex(x => new { x.TenantId, x.Codigo }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.IsActive });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SurveyTemplate>(b =>
+        {
+            b.ToTable("SurveyTemplates");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Codigo).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(2000);
+            b.Property(x => x.TipoSurvey).HasMaxLength(64).IsRequired();
+            b.Property(x => x.CadenciaSugerida).HasMaxLength(100);
+            b.HasMany(x => x.Questions).WithOne(q => q.Template).HasForeignKey(q => q.TemplateId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.TenantId, x.Codigo }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.IsActive });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SurveyTemplateQuestion>(b =>
+        {
+            b.ToTable("SurveyTemplateQuestions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Texto).HasMaxLength(500).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(40).IsRequired();
+            b.Property(x => x.OpcoesJson).HasColumnType("text");
+        });
+
         modelBuilder.Entity<AvaliacaoResposta>(b =>
         {
             b.ToTable("AvaliacaoRespostas");
@@ -2913,8 +3052,58 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.CriadaPorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // OKR cascateado (Entrega 1.6 — Fase 1 Paridade Feedz): self-reference
+            b.HasOne(x => x.ParentMeta)
+                .WithMany(x => x.ChildMetas)
+                .HasForeignKey(x => x.ParentMetaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             b.HasIndex(x => new { x.TenantId, x.FuncionarioId });
             b.HasIndex(x => new { x.TenantId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.ParentMetaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<MetaCheckin>(b =>
+        {
+            b.ToTable("MetaCheckins");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Comentario).HasMaxLength(2000);
+            b.Property(x => x.ValorAtual).HasColumnType("decimal(18,4)");
+            b.HasOne(x => x.Meta).WithMany(x => x.Checkins).HasForeignKey(x => x.MetaId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.CriadoPor).WithMany().HasForeignKey(x => x.CriadoPorId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.TenantId, x.MetaId, x.CriadoEmUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RenderCoinReward>(b =>
+        {
+            b.ToTable("RenderCoinRewards");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Codigo).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Nome).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(2000);
+            b.Property(x => x.Categoria).HasMaxLength(64);
+            b.Property(x => x.ImagemUrl).HasMaxLength(500);
+            b.Property(x => x.CustoCoins).HasColumnType("decimal(18,2)");
+            b.HasIndex(x => new { x.TenantId, x.Codigo }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.IsActive });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RenderCoinRedemption>(b =>
+        {
+            b.ToTable("RenderCoinRedemptions");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Observacao).HasMaxLength(2000);
+            b.Property(x => x.CoinsGastos).HasColumnType("decimal(18,2)");
+            b.HasOne(x => x.Reward).WithMany(r => r.Redemptions).HasForeignKey(x => x.RewardId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            b.HasIndex(x => new { x.TenantId, x.UserId, x.Status });
+            b.HasIndex(x => new { x.TenantId, x.RewardId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -3388,6 +3577,15 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        // Provider InMemory (testes) não suporta o tipo Pgvector.Vector — sem
+        // este Ignore o ModelValidator lança InvalidOperationException, e a
+        // tentativa do DI de re-resolver DbContextDependencies vira recursão
+        // que estoura a pilha. Esses embeddings só fazem sentido no Postgres.
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            modelBuilder.Entity<CandidatoEmbedding>().Ignore(e => e.Embedding);
+            modelBuilder.Entity<DescricaoCargoItemEmbedding>().Ignore(e => e.Embedding);
+        }
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

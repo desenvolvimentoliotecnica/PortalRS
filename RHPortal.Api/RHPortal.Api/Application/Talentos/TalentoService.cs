@@ -877,7 +877,7 @@ public sealed class TalentoService : ITalentoService
             Email: NormalizeEmail(!string.IsNullOrWhiteSpace(suggestedData.Email) ? suggestedData.Email : pessoa.Email),
             Fone: TrimMax(!string.IsNullOrWhiteSpace(suggestedData.Fone) ? suggestedData.Fone.Trim() : pessoa.Fone, 40),
             Cidade: TrimMax(suggestedData.Cidade?.Trim() ?? pessoa.Cidade, 120),
-            Uf: TrimMax(!string.IsNullOrWhiteSpace(suggestedData.Uf) ? suggestedData.Uf.Trim().ToUpperInvariant()[..Math.Min(2, suggestedData.Uf.Trim().Length)] : pessoa.Uf, 2),
+            Uf: TrimMax(NormalizeUf(suggestedData.Uf) ?? pessoa.Uf, 2),
             LinkedinUrl: TrimMax(suggestedData.LinkedinUrl?.Trim() ?? pessoa.LinkedinUrl, 260),
             ResumoProfissional: TrimMax(suggestedData.ResumoProfissional?.Trim() ?? pessoa.ResumoProfissional, 2000),
             Obs: TrimMax(pessoa.Obs, 2000),
@@ -990,10 +990,24 @@ public sealed class TalentoService : ITalentoService
     private async Task ProcessCvImportFromFileAsync(TalentoCvImportJob job, Talento entity, TalentoDocumento doc, string filePath, bool enviarParaGpt, CancellationToken ct)
     {
         TalentoImportPdfSuggestedData? suggestedData = null;
+        string? warning = null;
         var text = await ResumeTextExtractor.ExtractAsync(filePath, ct);
-        if (enviarParaGpt && !string.IsNullOrWhiteSpace(text))
+        if (enviarParaGpt)
         {
-            suggestedData = await _cvGptExtractor.ExtractSuggestedDataAsync(text, ct);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                warning = "Documento sem texto extraível. Pode ser um PDF escaneado/imagem ou um arquivo em branco. Re-suba um currículo com texto selecionável.";
+                _logger.LogWarning("CvImport: empty text extracted from {File} (jobId={JobId}).", doc.NomeArquivo, job.Id);
+            }
+            else
+            {
+                suggestedData = await _cvGptExtractor.ExtractSuggestedDataAsync(text, ct);
+                if (suggestedData is null)
+                {
+                    warning = "A IA não retornou dados estruturados. Verifique se o modelo/chave em /Owner/IA estão válidos (logs do servidor têm o detalhe).";
+                    _logger.LogWarning("CvImport: AI extractor returned null for jobId={JobId}.", job.Id);
+                }
+            }
         }
 
         var isPlaceholder = entity.Pessoa?.Email == "aguardando@talento.local";
@@ -1165,12 +1179,13 @@ public sealed class TalentoService : ITalentoService
 
         job.Status = CvImportStatus.Concluido;
         job.FinishedAtUtc = DateTimeOffset.UtcNow;
+        job.ErrorMessage = warning;
         await _db.TalentoCvImportJobs
             .Where(j => j.Id == job.Id && j.TenantId == _tenantContext.TenantId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(j => j.Status, CvImportStatus.Concluido)
                 .SetProperty(j => j.FinishedAtUtc, job.FinishedAtUtc!.Value)
-                .SetProperty(j => j.ErrorMessage, (string?)null), ct);
+                .SetProperty(j => j.ErrorMessage, warning), ct);
     }
 
     private static TalentoUpdateRequest BuildTalentoUpdateRequestFromSuggestedData(TalentoImportPdfSuggestedData suggestedData, Talento entity)
@@ -1186,7 +1201,7 @@ public sealed class TalentoService : ITalentoService
             Email: NormalizeEmail(!string.IsNullOrWhiteSpace(suggestedData.Email) ? suggestedData.Email : p.Email),
             Fone: TrimMax(suggestedData.Fone?.Trim() ?? p.Fone, 40),
             Cidade: TrimMax(suggestedData.Cidade?.Trim() ?? p.Cidade, 120),
-            Uf: TrimMax(!string.IsNullOrWhiteSpace(suggestedData.Uf) ? suggestedData.Uf.Trim().ToUpperInvariant()[..Math.Min(2, suggestedData.Uf.Trim().Length)] : p.Uf, 2),
+            Uf: TrimMax(NormalizeUf(suggestedData.Uf) ?? p.Uf, 2),
             LinkedinUrl: TrimMax(suggestedData.LinkedinUrl?.Trim() ?? p.LinkedinUrl, 260),
             ResumoProfissional: TrimMax(suggestedData.ResumoProfissional?.Trim() ?? p.ResumoProfissional, 2000),
             Obs: TrimMax(p.Obs, 2000),
@@ -1215,11 +1230,53 @@ public sealed class TalentoService : ITalentoService
         if (payload?.TalentoUpdate is null)
             throw new InvalidOperationException("Dados do job inválidos.");
 
+        // Atualiza o talento existente com os dados do CV
         await UpdateAsync(job.SimilarTalentoId.Value, payload.TalentoUpdate, ct);
 
+        // Move o documento do PDF do placeholder para o talento existente, antes de remover o placeholder
+        var placeholderTalentoId = job.TalentoId;
+        var similarTalentoId = job.SimilarTalentoId.Value;
+        var docs = await _db.TalentoDocumentos
+            .Where(d => d.TalentoId == placeholderTalentoId && d.TenantId == _tenantContext.TenantId)
+            .ToListAsync(ct);
+        foreach (var d in docs)
+        {
+            var src = Path.Combine(GetTalentoFolder(placeholderTalentoId), d.StorageFileName ?? "");
+            var dstFolder = GetTalentoFolder(similarTalentoId);
+            Directory.CreateDirectory(dstFolder);
+            var dst = Path.Combine(dstFolder, d.StorageFileName ?? "");
+            if (!string.IsNullOrEmpty(d.StorageFileName) && File.Exists(src))
+            {
+                try { File.Move(src, dst, overwrite: true); } catch { }
+            }
+            d.TalentoId = similarTalentoId;
+        }
+        await _db.SaveChangesAsync(ct);
+
+        // Reaponta o job para o talento mesclado (mantendo histórico) e fecha
+        job.TalentoId = similarTalentoId;
         job.Status = CvImportStatus.Concluido;
         job.FinishedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        // Remove o placeholder Talento + Pessoa órfã (se ninguém mais usa)
+        var placeholder = await _db.Talentos.AsTracking().FirstOrDefaultAsync(t => t.Id == placeholderTalentoId && t.TenantId == _tenantContext.TenantId, ct);
+        if (placeholder is not null)
+        {
+            var placeholderPessoaId = placeholder.PessoaId;
+            _db.Talentos.Remove(placeholder);
+            await _db.SaveChangesAsync(ct);
+            var stillUsed = await _db.Talentos.AnyAsync(t => t.PessoaId == placeholderPessoaId, ct);
+            if (!stillUsed)
+            {
+                var placeholderPessoa = await _db.Pessoas.AsTracking().FirstOrDefaultAsync(p => p.Id == placeholderPessoaId, ct);
+                if (placeholderPessoa is not null)
+                {
+                    _db.Pessoas.Remove(placeholderPessoa);
+                    await _db.SaveChangesAsync(ct);
+                }
+            }
+        }
     }
 
     public async Task RecusarCvImportJobAsync(Guid jobId, CancellationToken ct)
@@ -1230,9 +1287,71 @@ public sealed class TalentoService : ITalentoService
         if (job is null)
             throw new InvalidOperationException("Job não encontrado ou não está pendente de validação.");
 
+        // Aplica os dados extraídos no placeholder Talento, transformando-o em um talento independente
+        // (não mais "Aguardando dados") — usuário decidiu que é OUTRA pessoa, então mantemos o cadastro novo.
+        if (!string.IsNullOrWhiteSpace(job.SuggestedDataJson))
+        {
+            var payload = JsonSerializer.Deserialize<CvImportJobValidationPayload>(job.SuggestedDataJson, CvImportJobJsonOptions);
+            if (payload?.SuggestedData is not null)
+            {
+                var placeholderTalento = await _db.Talentos
+                    .AsTracking()
+                    .Include(t => t.Pessoa)
+                    .FirstOrDefaultAsync(t => t.Id == job.TalentoId && t.TenantId == _tenantContext.TenantId, ct);
+                if (placeholderTalento is not null)
+                {
+                    if (placeholderTalento.Pessoa is not null)
+                    {
+                        var req = BuildPessoaUpdateRequestFromSuggestedData(payload.SuggestedData, placeholderTalento.Pessoa);
+                        await _pessoaService.UpdateAsync(placeholderTalento.PessoaId, req, ct);
+                    }
+                    await _db.TalentoCompetencias.Where(c => c.TalentoId == placeholderTalento.Id).ExecuteDeleteAsync(ct);
+                    await _db.TalentoExperiencias.Where(e => e.TalentoId == placeholderTalento.Id).ExecuteDeleteAsync(ct);
+                    await _db.TalentoTreinamentos.Where(t => t.TalentoId == placeholderTalento.Id).ExecuteDeleteAsync(ct);
+                    await _db.TalentoFormacoes.Where(f => f.TalentoId == placeholderTalento.Id).ExecuteDeleteAsync(ct);
+                    await _db.Entry(placeholderTalento).Collection(x => x.Competencias).LoadAsync(ct);
+                    await _db.Entry(placeholderTalento).Collection(x => x.Experiencias).LoadAsync(ct);
+                    await _db.Entry(placeholderTalento).Collection(x => x.Treinamentos).LoadAsync(ct);
+                    await _db.Entry(placeholderTalento).Collection(x => x.Formacao).LoadAsync(ct);
+                    placeholderTalento.Competencias.Clear();
+                    placeholderTalento.Experiencias.Clear();
+                    placeholderTalento.Treinamentos.Clear();
+                    placeholderTalento.Formacao.Clear();
+                    ApplyCompetencias(placeholderTalento, payload.SuggestedData.Competencias);
+                    ApplyExperiencias(placeholderTalento, payload.SuggestedData.Experiencias);
+                    ApplyTreinamentos(placeholderTalento, payload.SuggestedData.Treinamentos);
+                    ApplyFormacao(placeholderTalento, payload.SuggestedData.Formacao);
+                    placeholderTalento.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                    placeholderTalento.Versao++;
+                    await _db.Entry(placeholderTalento).Reference(x => x.Pessoa).LoadAsync(ct);
+                    placeholderTalento.CvProfileJson = BuildCvProfileJson(placeholderTalento);
+                    await _db.SaveChangesAsync(ct);
+                }
+            }
+        }
+
         job.Status = CvImportStatus.Concluido;
         job.FinishedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<CvImportJobValidationResponse?> GetCvImportJobAsync(Guid jobId, CancellationToken ct)
+    {
+        var job = await _db.TalentoCvImportJobs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.TenantId == _tenantContext.TenantId && j.Status == CvImportStatus.PendenteValidacao, ct);
+        if (job is null || !job.SimilarTalentoId.HasValue || string.IsNullOrWhiteSpace(job.SuggestedDataJson))
+            return null;
+
+        var payload = JsonSerializer.Deserialize<CvImportJobValidationPayload>(job.SuggestedDataJson, CvImportJobJsonOptions);
+        var existing = await GetByIdAsync(job.SimilarTalentoId.Value, ct);
+        return new CvImportJobValidationResponse(
+            JobId: job.Id,
+            PlaceholderTalentoId: job.TalentoId,
+            SimilarTalentoId: job.SimilarTalentoId.Value,
+            ExistingTalento: existing,
+            SuggestedData: payload?.SuggestedData,
+            CreatedAtUtc: job.CreatedAtUtc);
     }
 
     public async Task<(Talento Talento, bool Created)> GetOrCreateByEmailAsync(string email, string? nome, string? fone, string? cidade, string? uf, string? linkedinUrl, string? resumoProfissional, string? obs, OrigemTalento origem, CancellationToken ct)
@@ -1710,4 +1829,31 @@ public sealed class TalentoService : ITalentoService
     }
 
     private static string NormalizeEmail(string? email) => (email ?? string.Empty).Trim().ToLowerInvariant();
+
+    private static readonly Dictionary<string, string> UfByName = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["acre"] = "AC", ["alagoas"] = "AL", ["amapá"] = "AP", ["amapa"] = "AP", ["amazonas"] = "AM",
+        ["bahia"] = "BA", ["ceará"] = "CE", ["ceara"] = "CE", ["distrito federal"] = "DF",
+        ["espírito santo"] = "ES", ["espirito santo"] = "ES", ["goiás"] = "GO", ["goias"] = "GO",
+        ["maranhão"] = "MA", ["maranhao"] = "MA", ["mato grosso"] = "MT", ["mato grosso do sul"] = "MS",
+        ["minas gerais"] = "MG", ["pará"] = "PA", ["para"] = "PA", ["paraíba"] = "PB", ["paraiba"] = "PB",
+        ["paraná"] = "PR", ["parana"] = "PR", ["pernambuco"] = "PE", ["piauí"] = "PI", ["piaui"] = "PI",
+        ["rio de janeiro"] = "RJ", ["rio grande do norte"] = "RN", ["rio grande do sul"] = "RS",
+        ["rondônia"] = "RO", ["rondonia"] = "RO", ["roraima"] = "RR", ["santa catarina"] = "SC",
+        ["são paulo"] = "SP", ["sao paulo"] = "SP", ["sergipe"] = "SE", ["tocantins"] = "TO"
+    };
+
+    /// <summary>Aceita "SP" ou "São Paulo" e devolve sempre "SP". Trata caso o Gemini volte o nome completo.</summary>
+    private static string? NormalizeUf(string? uf)
+    {
+        if (string.IsNullOrWhiteSpace(uf)) return null;
+        var t = uf.Trim();
+        if (UfByName.TryGetValue(t, out var code)) return code;
+        // Já é sigla? — mantém só se forem 2 letras ASCII
+        if (t.Length == 2 && char.IsLetter(t[0]) && char.IsLetter(t[1]))
+            return t.ToUpperInvariant();
+        // Fallback: pega as primeiras 2 letras ASCII (evita corte UTF-8 que gera "SÃ")
+        var letters = new string(t.Where(char.IsLetter).Where(c => c < 128).Take(2).ToArray());
+        return letters.Length == 2 ? letters.ToUpperInvariant() : null;
+    }
 }
