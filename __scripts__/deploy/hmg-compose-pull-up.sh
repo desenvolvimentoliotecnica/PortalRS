@@ -24,6 +24,14 @@ fi
 docker network inspect rhportal-net >/dev/null 2>&1 || docker network create rhportal-net
 
 docker compose -f "$COMPOSE_FILE" pull
+
+# Parar stack antiga e libertar nomes fixos (container_name). Sem isto, "up" pode falhar com
+# Conflict: container name "/rhportal-api" is already in use — ex. stack criada noutro path/projeto.
+docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+for cname in rhportal-api rhportal-web-next rhportal-portal-vagas rhportal-ai; do
+  docker rm -f "$cname" >/dev/null 2>&1 || true
+done
+
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 docker compose -f "$COMPOSE_FILE" ps
 
