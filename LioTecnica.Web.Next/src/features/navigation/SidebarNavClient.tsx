@@ -289,6 +289,9 @@ function NavLeaf({
     );
   }
 
+  const openInNewTab = item.openInNewTab === true;
+  const isHttp = /^https?:\/\//i.test(item.href);
+
   return (
     <li className={showBadge && isCollapsed ? "relative" : undefined}>
       <Link
@@ -300,12 +303,17 @@ function NavLeaf({
           isCollapsed && "justify-center px-2",
         )}
         href={item.href}
+        target={openInNewTab ? "_blank" : undefined}
+        rel={openInNewTab ? "noopener noreferrer" : undefined}
+        prefetch={isHttp ? false : undefined}
         title={
           isCollapsed
             ? `${item.label}${showBadge ? ` (${pendenciasCount})` : ""}`
             : undefined
         }
-        onMouseEnter={() => void prefetchScreenData(item.href)}
+        onMouseEnter={() => {
+          if (!isHttp) void prefetchScreenData(item.href);
+        }}
       >
         <Icon
           aria-hidden

@@ -32,7 +32,8 @@ public sealed record NavItemResponse(
     string? ModuloKey,
     string? PackageKey,
     bool Acessivel,
-    string? MotivoBloqueio);
+    string? MotivoBloqueio,
+    bool OpenInNewTab = false);
 
 /// <summary>
 /// Códigos de bloqueio semântico. O frontend usa para decidir apresentação.

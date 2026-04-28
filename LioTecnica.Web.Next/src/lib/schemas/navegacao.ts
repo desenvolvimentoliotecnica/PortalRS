@@ -34,6 +34,7 @@ export const NavItemResponseSchema = z.object({
   packageKey: z.string().nullable().optional(),
   acessivel: z.boolean(),
   motivoBloqueio: z.string().nullable().optional(),
+  openInNewTab: z.boolean().optional().default(false),
 });
 
 export type NavItemResponse = z.infer<typeof NavItemResponseSchema>;
@@ -103,6 +104,7 @@ function normalizeGrupo(raw: unknown): NavGrupoResponse {
 
 function normalizeItem(raw: unknown): NavItemResponse {
   const obj = (raw as Record<string, unknown>) ?? {};
+  const openRaw = obj.openInNewTab ?? obj.OpenInNewTab;
   return {
     id: String(obj.id ?? obj.Id ?? ""),
     label: String(obj.label ?? obj.Label ?? ""),
@@ -115,5 +117,6 @@ function normalizeItem(raw: unknown): NavItemResponse {
     motivoBloqueio: (obj.motivoBloqueio ?? obj.MotivoBloqueio ?? null) as
       | string
       | null,
+    openInNewTab: openRaw === true || openRaw === "true",
   };
 }

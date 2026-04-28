@@ -25,7 +25,9 @@ public static class NavegacaoManifest
         string? GrupoUiOverride = null,
         bool Destacado = false,
         int Ordem = 0,
-        bool OcultarDoOwner = false);
+        bool OcultarDoOwner = false,
+        // Se true: sidebar usa target=_blank (ex.: Portal de Vagas noutra origem/porta; href pode vir da config).
+        bool OpenInNewTab = false);
 
     public sealed record GrupoUiDefinition(
         string Key,
@@ -117,7 +119,7 @@ public static class NavegacaoManifest
         new("nav-pipeline-vagas",           "Pipeline",               "/gestao/pipeline",                "workflow",          "candidatos.view",          Ordem: 65),
         new("nav-processo-seletivo",        "Processo Seletivo",      "/gestao/processo-seletivo",       "listchecks",        "processo-seletivo.view",   Ordem: 70),
         new("nav-agendas",                  "Agenda",                 "/agendas",                        "calendar",          "agenda.view",              Ordem: 80),
-        new("nav-portalvagas",              "Portal de Vagas",        "/portalvagas",                    "globe",             "portalvagas.view",         Ordem: 90),
+        new("nav-portalvagas",              "Portal de Vagas",        "/portalvagas",                    "globe",             "portalvagas.view",         Ordem: 90, OpenInNewTab: true),
         new("nav-talentos",                 "Banco de Talentos",      "/talentos",                       "sparkles",          "candidatos.view",          ModuloKeyOverride: "candidatos", Ordem: 95),
 
         // ── Gestão de Pessoas (pacote) ───────────────────────────────────────
