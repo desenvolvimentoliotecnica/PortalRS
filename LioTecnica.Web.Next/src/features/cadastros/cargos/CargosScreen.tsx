@@ -88,6 +88,41 @@ function escapeTsvCell(s: string) {
     return s.replace(/\t/g, " ").replace(/\r?\n/g, " ");
 }
 
+/** API pode devolver PascalCase ou string numérica; totvsCargoBasicId costuma ser opcional nos DTOs. */
+function optionalInt(record: Record<string, unknown>, ...keys: string[]): number | undefined {
+    for (const k of keys) {
+        const v = record[k];
+        if (typeof v === "number" && Number.isFinite(v)) return v;
+        if (typeof v === "string" && v.trim() !== "") {
+            const n = Number.parseInt(v, 10);
+            if (!Number.isNaN(n)) return n;
+        }
+    }
+    return undefined;
+}
+
+/** JsonStringEnumConverter em camelCase: "active" | "inactive" — selects locais usam ativo/inativo. */
+function mapCargoStatusToSelect(raw: unknown): string {
+    const s = String(raw ?? "").toLowerCase();
+    if (s === "active" || s === "ativo" || s === "1") return "ativo";
+    if (s === "inactive" || s === "inativo" || s === "2") return "inativo";
+    return "ativo";
+}
+
+/** Alinha resposta seniority/pleno/etc. aos <option value> (Domain.Enums.SeniorityLevel). */
+function mapSeniorityToSelectOptionValue(raw: unknown): string {
+    if (raw == null || raw === "") return "";
+    let s = String(raw).trim().toLowerCase();
+    if (s === "gestor") s = "gestao";
+    const numeric: Record<string, string> = {
+        "1": "junior", "2": "pleno", "3": "senior", "4": "especialista",
+        "5": "gestao", "6": "estagio", "7": "coordenacao", "8": "gerencia", "9": "diretoria",
+    };
+    if (numeric[s]) return numeric[s];
+    const allowed = new Set(["junior", "pleno", "senior", "especialista", "gestao", "estagio", "coordenacao", "gerencia", "diretoria"]);
+    return allowed.has(s) ? s : "";
+}
+
 function statusBadge(s: string | null | undefined) {
     const st = (s ?? "").toLowerCase();
     if (st === "ativo" || st === "active")
@@ -195,23 +230,29 @@ export default function CargosScreen() {
 
     const syncList = useCallback(async () => {
         const payload = await fetchJson<{ items: Record<string, unknown>[] }>(`/api/job-positions?pageSize=5000`);
-        const mapped: CargoItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((i) => ({
-            id: String(i.id ?? ""),
-            codigo: String(i.code ?? ""),
-            nome: String(i.name ?? ""),
-            centroCustoNome: String(i.centroCustoDescription ?? i.centroCustoName ?? i.areaName ?? ""),
-            centroCustoId: i.centroCustoId ? String(i.centroCustoId) : undefined,
-            senioridade: String(i.seniority ?? ""),
-            funcionarios: typeof i.funcionariosCount === "number" ? i.funcionariosCount : 0,
-            status: String(i.status ?? ""),
-            description: i.description ? String(i.description) : undefined,
-            updatedAtUtc: i.updatedAtUtc ? String(i.updatedAtUtc) : undefined,
-            totvsCargoBasicId: typeof i.totvsCargoBasicId === "number" ? i.totvsCargoBasicId : undefined,
-            totvsNivCargoId: typeof i.totvsNivCargoId === "number" ? i.totvsNivCargoId : undefined,
-            nivelCargoNomReduz: i.nivelCargoNomReduz ? String(i.nivelCargoNomReduz) : undefined,
-            desEnvelPagto: i.desEnvelPagto ? String(i.desEnvelPagto) : undefined,
-            occupationalClassification: i.occupationalClassification ? String(i.occupationalClassification) : undefined,
-        }));
+        const mapped: CargoItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((raw) => {
+            const i = raw as Record<string, unknown>;
+            return {
+                id: String(i.id ?? ""),
+                codigo: String(i.code ?? i.Code ?? ""),
+                nome: String(i.name ?? i.Name ?? ""),
+                centroCustoNome: String(i.centroCustoDescription ?? i.centroCustoName ?? i.areaName ?? ""),
+                centroCustoId: i.centroCustoId ? String(i.centroCustoId) : undefined,
+                senioridade: String(i.seniority ?? ""),
+                funcionarios: typeof i.funcionariosCount === "number" ? i.funcionariosCount : 0,
+                status: String(i.status ?? ""),
+                tipo: i.type !== undefined ? String(i.type)
+                    : i.Type !== undefined ? String(i.Type)
+                        : undefined,
+                description: i.description ? String(i.description) : undefined,
+                updatedAtUtc: i.updatedAtUtc ? String(i.updatedAtUtc) : undefined,
+                totvsCargoBasicId: optionalInt(i, "totvsCargoBasicId", "TotvsCargoBasicId"),
+                totvsNivCargoId: optionalInt(i, "totvsNivCargoId", "TotvsNivCargoId"),
+                nivelCargoNomReduz: i.nivelCargoNomReduz ? String(i.nivelCargoNomReduz) : undefined,
+                desEnvelPagto: i.desEnvelPagto ? String(i.desEnvelPagto) : undefined,
+                occupationalClassification: i.occupationalClassification ? String(i.occupationalClassification) : undefined,
+            };
+        });
         setRows(mapped);
         setScreenCache("/cargos", mapped);
     }, []);
@@ -305,9 +346,9 @@ export default function CargosScreen() {
                 code: String(detail?.code ?? detail?.Code ?? item.codigo ?? ""),
                 name: String(detail?.name ?? detail?.Name ?? item.nome ?? ""),
                 centroCustoId: String(detail?.centroCustoId ?? detail?.CentroCustoId ?? item.centroCustoId ?? "") || null,
-                seniority: String(detail?.seniority ?? detail?.Seniority ?? item.senioridade ?? ""),
-                status: String(detail?.status ?? item.status ?? "ativo"),
-                tipo: String(detail?.tipo ?? detail?.Tipo ?? detail?.type ?? detail?.Type ?? item.tipo ?? ""),
+                seniority: mapSeniorityToSelectOptionValue(detail?.seniority ?? detail?.Seniority ?? item.senioridade),
+                status: mapCargoStatusToSelect(detail?.status ?? item.status),
+                tipo: String(detail?.type ?? detail?.Type ?? detail?.tipo ?? detail?.Tipo ?? item.tipo ?? "").trim(),
                 occupationalClassification: String(detail?.occupationalClassification ?? detail?.OccupationalClassification ?? ""),
                 description: String(detail?.description ?? detail?.Description ?? ""),
                 similarityIndicator: String(detail?.similarityIndicator ?? detail?.SimilarityIndicator ?? ""),
@@ -315,6 +356,8 @@ export default function CargosScreen() {
                 nivelCargoId: detail?.nivelCargoId ? String(detail.nivelCargoId) : null,
                 nivelCargoLabel: detail?.nivelCargoNomComplet ? String(detail.nivelCargoNomComplet) : undefined,
                 desEnvelPagto: String(detail?.desEnvelPagto ?? ""),
+                totvsCargoBasicId: optionalInt(detail, "totvsCargoBasicId", "TotvsCargoBasicId") ?? item.totvsCargoBasicId,
+                totvsNivCargoId: optionalInt(detail, "totvsNivCargoId", "TotvsNivCargoId") ?? item.totvsNivCargoId,
                 updatedAtUtc: detail?.updatedAtUtc ? String(detail.updatedAtUtc) : undefined,
             });
             setEditOpen(true);
@@ -330,7 +373,7 @@ export default function CargosScreen() {
             code: draft.code.trim() || null,
             name: draft.name.trim(),
             centroCustoId: draft.centroCustoId || null,
-            seniority: draft.seniority.trim() || null,
+            seniority: draft.seniority.trim() || "pleno",
             status: draft.status.toLowerCase() === "inativo" ? "Inactive" : "Active",
             tipo: draft.tipo.trim() || null,
             occupationalClassification: draft.occupationalClassification.trim(),
@@ -339,6 +382,8 @@ export default function CargosScreen() {
             fullDescription: draft.fullDescription.trim() || null,
             nivelCargoId: draft.nivelCargoId || null,
             desEnvelPagto: draft.desEnvelPagto.trim() || null,
+            totvsCargoBasicId: draft.totvsCargoBasicId ?? null,
+            totvsNivCargoId: draft.totvsNivCargoId ?? null,
         };
         try {
             if (draft.id) {
@@ -692,11 +737,15 @@ export default function CargosScreen() {
                             <label className="mb-1 block text-xs font-medium text-muted-foreground">Senioridade</label>
                             <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={draft.seniority} onChange={(e) => setDraft((d) => ({ ...d, seniority: e.target.value }))}>
                                 <option value="">Selecionar senioridade</option>
-                                <option value="junior">Junior</option>
+                                <option value="junior">Júnior</option>
                                 <option value="pleno">Pleno</option>
-                                <option value="senior">Senior</option>
+                                <option value="senior">Sênior</option>
                                 <option value="especialista">Especialista</option>
-                                <option value="gestor">Gestor</option>
+                                <option value="gestao">Gestão</option>
+                                <option value="estagio">Estágio</option>
+                                <option value="coordenacao">Coordenação</option>
+                                <option value="gerencia">Gerência</option>
+                                <option value="diretoria">Diretoria</option>
                             </select>
                         </div>
                         {draft.updatedAtUtc && (
