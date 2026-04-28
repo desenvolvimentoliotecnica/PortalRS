@@ -157,6 +157,7 @@ public static class NavegacaoManifest
         new("nav-cargos",                   "Cargos",                 "/cargos",                         "briefcase",         "jobpositions.view",        Ordem: 50),
         // Funções TOTVS (PFUNCAO) — descrição mais granular do cargo, view derivada com headcount.
         new("nav-funcoes",                  "Funções",                "/funcoes",                        "list-checks",       "jobpositions.view",        Ordem: 55),
+        new("nav-nivel-cargo",              "Níveis de Cargo",        "/nivel-cargo",                    "layers",            "jobpositions.view",        Ordem: 58),
         new("nav-descricao-cargo",          "Descrição de Cargos",    "/descricao-cargo",                "file-text",         "jobpositions.view",        Ordem: 60),
         // Renomeado: "Eixos de Vaga" → "SLA de Vagas". Conceito continua o mesmo
         // (agrupador com SLA de fechamento por eixo), mas o label fala diretamente
