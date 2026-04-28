@@ -43,6 +43,7 @@ const OWNER_ROOT_GROUPS: NavGrupoResponse[] = [
       href: item.href,
       icon: item.icon ?? null,
       ordem: idx,
+      openInNewTab: item.openInNewTab,
       moduloKey: null,
       packageKey: null,
       acessivel: true,
