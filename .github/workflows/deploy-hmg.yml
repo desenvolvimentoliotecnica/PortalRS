@@ -1,0 +1,166 @@
+# Deploy automático para homologação (HMG): merge em main → build imagens → GHCR → servidor via SSH.
+#
+# Job deploy-hmg usa runner self-hosted com label hmg-deploy (rede privada; ex. 10.0.0.80).
+# Registar o agent na mesma LAN/VPN que o servidor — ver docs/HMG-DEPLOY.md (Self-hosted runner).
+#
+# Variáveis de build: Settings → Actions → Variables. Segredos: Settings → Actions → Secrets (docs/HMG-DEPLOY.md).
+
+name: Deploy HMG
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hmg-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_prefix: ${{ steps.meta.outputs.image_prefix }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image prefix (GHCR exige minúsculas)
+        id: meta
+        run: |
+          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_prefix=${REGISTRY}/${REPO_LC}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_PREFIX=${REGISTRY}/${REPO_LC}" >> "$GITHUB_ENV"
+        env:
+          REGISTRY: ghcr.io
+
+      - name: Public URLs for builds estáticos (defaults HMG)
+        id: urls
+        shell: bash
+        run: |
+          NEXT_API="${{ vars.HMG_NEXT_PUBLIC_API_BASE }}"
+          NEXT_ORIGIN="${{ vars.HMG_NEXT_PUBLIC_PORTAL_ORIGIN }}"
+          VITE_API="${{ vars.HMG_VITE_API_BASE_URL }}"
+          VITE_TENANT="${{ vars.HMG_VITE_DEFAULT_TENANT }}"
+          echo "next_public_api=${NEXT_API:-http://10.0.0.80:5000}" >> "$GITHUB_OUTPUT"
+          echo "next_public_origin=${NEXT_ORIGIN:-http://10.0.0.80:3000}" >> "$GITHUB_OUTPUT"
+          echo "vite_api=${VITE_API:-http://10.0.0.80:5000}" >> "$GITHUB_OUTPUT"
+          echo "vite_tenant=${VITE_TENANT:-liotecnica}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build args — URLs do portal no HMG (ajustar nas Variables do repositório se necessário)
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: RHPortal.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/rhportal-api:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/rhportal-api:latest
+
+      - name: Build & push Portal Admin (Web.Next)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: LioTecnica.Web.Next/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE=${{ steps.urls.outputs.next_public_api }}
+            NEXT_PUBLIC_PORTAL_ORIGIN=${{ steps.urls.outputs.next_public_origin }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/rhportal-web-next:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/rhportal-web-next:latest
+
+      - name: Build & push Portal de Vagas (React)
+        uses: docker/build-push-action@v6
+        with:
+          context: LioTecnica.PortalVagas.React
+          file: LioTecnica.PortalVagas.React/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ steps.urls.outputs.vite_api }}
+            VITE_DEFAULT_TENANT=${{ steps.urls.outputs.vite_tenant }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/rhportal-portal-vagas:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/rhportal-portal-vagas:latest
+
+      - name: Build & push RHPortal.Ai
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: RHPortal.Ai/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/rhportal-ai:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/rhportal-ai:latest
+
+  deploy-hmg:
+    name: Deploy via SSH (self-hosted)
+    needs: build-and-push
+    runs-on: [self-hosted, hmg-deploy]
+    if: github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/hmg_deploy_key
+          chmod 600 ~/.ssh/hmg_deploy_key
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "mkdir -p ~/rhportal-hmg"
+
+      - name: Copy compose + deploy script to server
+        run: |
+          scp -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
+            docker-compose.hmg.yml \
+            __scripts__/deploy/hmg-compose-pull-up.sh \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/rhportal-hmg/"
+
+      - name: Pull images and recreate stack
+        run: |
+          set -euo pipefail
+          if [[ -z "${{ secrets.GHCR_PULL_TOKEN }}" || -z "${{ secrets.GHCR_PULL_USER }}" ]]; then
+            echo "Defina os secrets GHCR_PULL_TOKEN e GHCR_PULL_USER no repositório."
+            exit 1
+          fi
+          LOCAL_ENV="${RUNNER_TEMP}/hmg-deploy.env"
+          {
+            echo "HMG_REGISTRY_PREFIX=${{ needs.build-and-push.outputs.image_prefix }}"
+            echo "HMG_IMAGE_TAG=${{ github.sha }}"
+            echo "GHCR_PULL_USER=${{ secrets.GHCR_PULL_USER }}"
+            echo "GHCR_PULL_TOKEN=${{ secrets.GHCR_PULL_TOKEN }}"
+          } > "$LOCAL_ENV"
+          chmod 600 "$LOCAL_ENV"
+          scp -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
+            "$LOCAL_ENV" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/rhportal-hmg/.deploy.env"
+          rm -f "$LOCAL_ENV"
+          ssh -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "set -a && source ~/rhportal-hmg/.deploy.env && set +a && chmod +x ~/rhportal-hmg/hmg-compose-pull-up.sh && bash ~/rhportal-hmg/hmg-compose-pull-up.sh && rm -f ~/rhportal-hmg/.deploy.env"
