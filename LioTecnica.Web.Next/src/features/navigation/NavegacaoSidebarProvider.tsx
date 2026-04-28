@@ -108,7 +108,11 @@ export function NavegacaoSidebarProvider({ children }: { children: ReactNode }) 
       const hrefs = new Set<string>();
       for (const g of grupos) {
         for (const it of g.itens) {
-          if (it.acessivel) hrefs.add(it.href);
+          if (it.acessivel) {
+            hrefs.add(it.href);
+            // Rota embutida antiga /portalvagas continua permitida se o menu apontar à origem externa.
+            if (it.id === "nav-portalvagas") hrefs.add("/portalvagas");
+          }
         }
       }
       visibleHrefs = hrefs;
@@ -143,7 +147,7 @@ export function navItemResponseToBff(it: NavItemResponse): BffNavItem {
     label: it.label,
     href: it.href,
     icon: it.icon ?? undefined,
-    openInNewTab: false,
+    openInNewTab: it.openInNewTab ?? false,
     children: [],
   };
 }

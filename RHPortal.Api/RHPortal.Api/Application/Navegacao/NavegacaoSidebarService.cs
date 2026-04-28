@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Contracts.Navegacao;
 using RhPortal.Api.Domain.Entities;
@@ -25,11 +26,16 @@ public sealed class NavegacaoSidebarService
 {
     private readonly TenantModuleService _tenantModuleService;
     private readonly TenantScreenService _screenService;
+    private readonly IConfiguration _configuration;
 
-    public NavegacaoSidebarService(TenantModuleService tenantModuleService, TenantScreenService screenService)
+    public NavegacaoSidebarService(
+        TenantModuleService tenantModuleService,
+        TenantScreenService screenService,
+        IConfiguration configuration)
     {
         _tenantModuleService = tenantModuleService;
         _screenService = screenService;
+        _configuration = configuration;
     }
 
     /// <summary>
@@ -42,7 +48,12 @@ public sealed class NavegacaoSidebarService
     {
         var enabledModuleKeys = await _tenantModuleService.GetEnabledModuleKeysAsync(tenantId, ct);
         var screenEstados = await _screenService.GetEstadoMapAsync(tenantId, ct);
-        return Build(permissions, enabledModuleKeys, contextoEspecial: null, screenEstados);
+        return Build(
+            permissions,
+            enabledModuleKeys,
+            contextoEspecial: null,
+            screenEstados,
+            portalVagasPublicUrl: ResolvePortalVagasPublicUrl());
     }
 
     /// <summary>
@@ -54,7 +65,24 @@ public sealed class NavegacaoSidebarService
     {
         var enabledModuleKeys = await _tenantModuleService.GetEnabledModuleKeysAsync(tenantId, ct);
         var screenEstados = await _screenService.GetEstadoMapAsync(tenantId, ct);
-        return Build(new[] { "*" }, enabledModuleKeys, contextoEspecial: "owner-em-tenant", screenEstados);
+        return Build(
+            new[] { "*" },
+            enabledModuleKeys,
+            contextoEspecial: "owner-em-tenant",
+            screenEstados,
+            portalVagasPublicUrl: ResolvePortalVagasPublicUrl());
+    }
+
+    /// <summary>
+    /// URL pública do SPA do portal de candidaturas (ex.: mesma rede, outra porta que o admin).
+    /// Vazio = mantém href relativo do manifesto (<c>/portalvagas</c>).
+    /// </summary>
+    private string? ResolvePortalVagasPublicUrl()
+    {
+        var raw = _configuration["Navegacao:PortalVagasPublicUrl"];
+        if (!string.IsNullOrWhiteSpace(raw))
+            return raw.Trim();
+        return Environment.GetEnvironmentVariable("PORTAL_VAGAS_PUBLIC_URL")?.Trim();
     }
 
     /// <summary>
@@ -64,7 +92,8 @@ public sealed class NavegacaoSidebarService
         IReadOnlyCollection<string> permissions,
         ISet<string> enabledModuleKeys,
         string? contextoEspecial,
-        IReadOnlyDictionary<string, string>? screenEstados = null)
+        IReadOnlyDictionary<string, string>? screenEstados = null,
+        string? portalVagasPublicUrl = null)
     {
         var hasWildcard = permissions.Contains("*");
         var isOwnerContext = contextoEspecial is not null;
@@ -134,16 +163,18 @@ public sealed class NavegacaoSidebarService
                 grupos[grupoKey] = new List<NavItemResponse>();
             }
 
+            var href = ResolveItemHref(item, portalVagasPublicUrl);
             grupos[grupoKey].Add(new NavItemResponse(
                 Id: item.Id,
                 Label: item.Label,
-                Href: item.Href,
+                Href: href,
                 Icon: item.Icon,
                 Ordem: item.Ordem,
                 ModuloKey: modulo?.Key,
                 PackageKey: modulo?.PackageKey,
                 Acessivel: acessivel,
-                MotivoBloqueio: motivo));
+                MotivoBloqueio: motivo,
+                OpenInNewTab: item.OpenInNewTab));
         }
 
         // Ordenar itens dentro de cada bucket
@@ -161,5 +192,17 @@ public sealed class NavegacaoSidebarService
             .ToList();
 
         return new NavegacaoSidebarResponse(respostaGrupos, contextoEspecial);
+    }
+
+    private static string ResolveItemHref(NavegacaoManifest.NavManifestItem item, string? portalVagasPublicUrl)
+    {
+        if (!string.Equals(item.Id, "nav-portalvagas", StringComparison.OrdinalIgnoreCase))
+            return item.Href;
+
+        var u = portalVagasPublicUrl?.Trim();
+        if (string.IsNullOrEmpty(u))
+            return item.Href;
+
+        return u.TrimEnd('/') + "/";
     }
 }
