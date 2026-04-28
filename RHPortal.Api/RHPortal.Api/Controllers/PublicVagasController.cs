@@ -77,7 +77,9 @@ public sealed class PublicVagasController : ControllerBase
             .Include(v => v.Etapas)
             .Where(v => v.Status == VagaStatus.Aberta)
             .Where(v => !v.Confidencial)
-            .Where(v => v.Visibilidade == VagaPublicacaoVisibilidade.Externa
+            .Where(v => !v.Visibilidade.HasValue
+                || v.Visibilidade == VagaPublicacaoVisibilidade.NaoInformado
+                || v.Visibilidade == VagaPublicacaoVisibilidade.Externa
                 || v.Visibilidade == VagaPublicacaoVisibilidade.InternaEExterna)
             .Where(v => !v.DataInicio.HasValue || v.DataInicio.Value <= today)
             .Where(v => !v.DataEncerramento.HasValue || v.DataEncerramento.Value >= today);
@@ -204,7 +206,9 @@ public sealed class PublicVagasController : ControllerBase
             .Where(v => v.Id == id)
             .Where(v => v.Status == VagaStatus.Aberta)
             .Where(v => !v.Confidencial)
-            .Where(v => v.Visibilidade == VagaPublicacaoVisibilidade.Externa
+            .Where(v => !v.Visibilidade.HasValue
+                || v.Visibilidade == VagaPublicacaoVisibilidade.NaoInformado
+                || v.Visibilidade == VagaPublicacaoVisibilidade.Externa
                 || v.Visibilidade == VagaPublicacaoVisibilidade.InternaEExterna)
             .Where(v => !v.DataInicio.HasValue || v.DataInicio.Value <= today)
             .Where(v => !v.DataEncerramento.HasValue || v.DataEncerramento.Value >= today)

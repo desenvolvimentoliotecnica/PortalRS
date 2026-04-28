@@ -52,6 +52,36 @@ public sealed class Funcionario : ITenantEntity
     [System.ComponentModel.DataAnnotations.MaxLength(12)]
     public string? CdnFuncionario { get; set; }
 
+    /// <summary>
+    /// CHAPA do funcionário no TOTVS RM (PFUNC.CHAPA — ex.: "00000581").
+    /// Chave de integração com a Liotécnica. Populada pelo <c>PortalFuncionarioSyncService</c>.
+    /// Usada por <c>Desligamento.ChapaRm</c> para resolver <c>FuncionarioId</c>.
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(20)]
+    public string? MatriculaRm { get; set; }
+
+    /// <summary>
+    /// Hierarquia atual do funcionário no organograma TOTVS RM.
+    /// Derivada do último <c>VREQTRANSFPROMOCAO.IDHIERARQUIADESTINO</c> aprovado para a CHAPA.
+    /// Para os ~38% sem registro em VREQTRANSFPROMOCAO, fica NULL e pode ser
+    /// preenchido manualmente pelo Admin no Portal.
+    /// </summary>
+    public Guid? HierarquiaId { get; set; }
+    public Hierarquia? Hierarquia { get; set; }
+
+    /// <summary>
+    /// PFUNC.CODSITUACAO original do TOTVS — granularidade maior que Status (Active/Inactive).
+    /// Valores comuns Liotécnica: A=Ativo, F=Férias, P=Pré-admissão, D=Demitido, I=Inativo,
+    /// T=Transferido, R=Aposentado, B=Beneficiário, S=Substituição, Z/W/M=outros.
+    /// Tela de Funcionários pode filtrar por este código pra ver apenas demitidos, em férias, etc.
+    /// </summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(5)]
+    public string? CodSituacaoRm { get; set; }
+
+    /// <summary>Descrição amigável de CodSituacaoRm (ex.: "Ativo", "Férias", "Demitido").</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(60)]
+    public string? SituacaoRmDescricao { get; set; }
+
     /// <summary>Código da empresa no TOTVS Datasul (cdn_empresa).</summary>
     [System.ComponentModel.DataAnnotations.MaxLength(3)]
     public string? CdnEmpresa { get; set; }

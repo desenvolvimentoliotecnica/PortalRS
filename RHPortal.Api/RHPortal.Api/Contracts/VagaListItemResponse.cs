@@ -61,5 +61,16 @@ public sealed record VagaListItemResponse(
 
     // Rodada (publicação) ativa — null se vaga não tiver rodada ativa
     int? RodadaAtivaNumero,
-    int? RodadaAtivaCandidatos
+    int? RodadaAtivaCandidatos,
+
+    // Origem TOTVS RM (refactor 2026-04-26)
+    /// <summary>Origem da vaga (Manual, AumentoQuadro, SubstituicaoDesligamento, SubstituicaoPromocao, Direta).</summary>
+    VagaOrigemTipo OrigemTipo,
+    /// <summary>Quando vaga é substituição de desligamento, nome do funcionário desligado (lookup via OrigemDesligamentoId → Desligamento.Funcionario.Name).</summary>
+    string? SubstituindoNome,
+    /// <summary>Hierarquia (organograma TOTVS) que a vaga pertence. Null = sem hierarquia mapeada.</summary>
+    Guid? HierarquiaId,
+    string? HierarquiaDescricao,
+    /// <summary>IDREQ da requisição-mãe no TOTVS (informativo, rastreável).</summary>
+    string? IdReqRmOrigem
 );

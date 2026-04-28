@@ -33,6 +33,25 @@ public static class RmTableNames
     /// <summary>Tabela de pessoas (mestre).</summary>
     public const string Pessoa = "PPESSOA";
 
+    /// <summary>Hierarquia / organograma TOTVS RM. Cada nó tem IDHIERARQUIA + DESCHIERARQUIA + IDHIERARQUIASUPERIOR + ESTRUTURA ("1.2.20.21").</summary>
+    public const string Hierarquia = "VHIERARQUIA";
+
+    /// <summary>Solicitações de desligamento (rescisão). Tem CHAPA + CRIASUBSTITUICAO (flag "Gera substituição") + CODSTATUS.</summary>
+    public const string Desligamento = "VREQDESLIGAMENTO";
+
+    /// <summary>Solicitação de aumento de quadro (vaga nova). Origem da maioria dos atributos da vaga: IDHIERARQUIADESTINO + CODSECAO + CODFUNCAO + CODFILIAL.</summary>
+    public const string AumentoQuadro = "VREQAUMENTOQUADRO";
+
+    /// <summary>Solicitação de substituição (gerada quando desligamento ou promoção tem flag de substituir). Liga ao desligamento/promoção via IDREQPAI + TIPOREQPAI.</summary>
+    public const string Substituicao = "VREQSUBSTITUICAO";
+
+    /// <summary>Solicitação de transferência ou promoção do funcionário. Origem da hierarquia atual do funcionário (último concluído).</summary>
+    public const string TransferenciaPromocao = "VREQTRANSFPROMOCAO";
+
     /// <summary>Retorna todas as tabelas envolvidas no processo de integração.</summary>
-    public static IReadOnlyList<string> All => new[] { Area, Departamento, Funcao, Cargo, Vaga, Unidade, Funcionario, Pessoa };
+    public static IReadOnlyList<string> All => new[]
+    {
+        Area, Departamento, Funcao, Cargo, Vaga, Unidade, Funcionario, Pessoa,
+        Hierarquia, Desligamento, AumentoQuadro, Substituicao, TransferenciaPromocao
+    };
 }

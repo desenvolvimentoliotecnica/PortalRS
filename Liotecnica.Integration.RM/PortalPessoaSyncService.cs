@@ -16,6 +16,7 @@ public sealed class PortalPessoaSyncService
     private readonly OutputOptions _outputOptions;
     private readonly IHostEnvironment _env;
     private readonly ExtractionLogWriter _logWriter;
+    private readonly RmSyncOptions _syncOptions;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,12 +28,14 @@ public sealed class PortalPessoaSyncService
         ILogger<PortalPessoaSyncService> logger,
         PortalApiClient portalClient,
         IOptions<OutputOptions> outputOptions,
+        IOptions<RmSyncOptions> syncOptions,
         IHostEnvironment env,
         ExtractionLogWriter logWriter)
     {
         _logger = logger;
         _portalClient = portalClient;
         _outputOptions = outputOptions.Value;
+        _syncOptions = syncOptions.Value;
         _env = env;
         _logWriter = logWriter;
     }
@@ -72,6 +75,15 @@ public sealed class PortalPessoaSyncService
             return;
         }
 
+        // Cap opcional via RmSync:MaxPessoasToSync — usado no modo sync-one pra validar
+        // o pipeline rapidamente (sem isso são ~7938 POSTs a 1-3s cada na Liotécnica).
+        if (_syncOptions.MaxPessoasToSync is int cap && cap > 0 && items.Count > cap)
+        {
+            _logWriter.WriteLine($"Sync Pessoas: limitando envio a {cap} (de {items.Count}) via RmSync:MaxPessoasToSync.");
+            _logger.LogInformation("Sync Pessoas: aplicando cap MaxPessoasToSync={Cap} (total disponível={Total}).", cap, items.Count);
+            items = items.Take(cap).ToList();
+        }
+
         _logWriter.WriteLine($"Sync Pessoas: enviando {items.Count} itens (PPESSOA -> api/pessoas)");
 
         var emailToId = await LoadExistingPessoasAsync(ct);
@@ -87,17 +99,21 @@ public sealed class PortalPessoaSyncService
                 var nome = (row.Nome ?? "").Trim();
                 if (string.IsNullOrEmpty(nome)) continue;
 
+                // Bloco 10 (refactor 2026-04-26): NÃO criamos mais email fake "codigo<X>@rm.sync".
+                // PPESSOA real tem ~41% sem email — esses ficam Email=NULL no Portal.
+                // Chave de dedup vira CPF + Nome (CPF é mais estável que email pra pessoas legadas).
                 var email = (row.Email ?? "").Trim();
-                if (string.IsNullOrEmpty(email))
-                    email = $"codigo{row.Codigo}@rm.sync";
-                var key = email.Trim().ToLowerInvariant();
+                var hasRealEmail = !string.IsNullOrEmpty(email);
+                var key = hasRealEmail
+                    ? email.ToLowerInvariant()
+                    : $"cpf:{(row.Cpf ?? "").Trim()}|codigo:{row.Codigo}"; // chave interna pro dedup
                 if (string.IsNullOrEmpty(key)) continue;
 
                 // API usa JsonStringEnumConverter: enviar origem como string "Funcionario"
                 var body = new
                 {
                     nome = nome.Length > 160 ? nome.Substring(0, 160) : nome,
-                    email = email.Length > 180 ? email.Substring(0, 180) : email,
+                    email = hasRealEmail ? (email.Length > 180 ? email.Substring(0, 180) : email) : null,
                     fone = Trunc(row.Telefone1, 40),
                     cidade = Trunc(row.Cidade, 120),
                     uf = Trunc(row.Estado, 2),

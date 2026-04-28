@@ -7,6 +7,241 @@
 
 ---
 
+## 2026-04-26
+
+### 🏗️ infra · TOTVS RM — Refactor completo do sync (5 fases) — entrega-ônibus do dia
+
+Auditoria de qualidade descobriu que dados sincronizados pra o tenant `liotecnica` estavam catastróficos (todas as 72 vagas no mesmo CC, 7924 "funcionários" fakes da PPESSOA, hierarquia inexistente). Refactor completo com plano em `lucas/.claude/plans/refactor-completo-sync-totvs-liotecnica.md` aprovado pelo gestor (eu) entrega 5 fases num único dia:
+
+- **FASE 1 (commit `715d044`)**: Hierarquia (VHIERARQUIA → 176 nós), Desligamento (VREQDESLIGAMENTO → 728 com flag `GerouSubstituicao`), Empresa (GFILIAL → 4 ativas), `Funcionario.MatriculaRm`. 4 controllers/services novos + 3 migrations idempotentes.
+- **FASE 2 (commit `715d044`)**: refactor `PortalFuncionarioSyncService` pra usar `dbo.PFUNC` (637 ativos) JOIN PPESSOA + última `VREQTRANSFPROMOCAO` por CHAPA pra hierarquia. Refactor `PortalVagaSyncService` com `OrigemTipo` (enum: AumentoQuadro / SubstituicaoDesligamento / SubstituicaoPromocao / Direta) — vagas resolvem CC + hierarquia via `VREQAUMENTOQUADRO` ou `VREQSUBSTITUICAO`. Bloco 9 (filtrar `PFUNCAO.INATIVA != 1`). 2 endpoints `*/sync-rm/bulk` novos. Vaga ganha `HierarquiaId, OrigemDesligamentoId, IdReqRmOrigem`.
+- **FASE 3 (commit `1ec3f3e`)**: PortalPessoaSyncService não cria mais email fake `codigo<X>@rm.sync` — pessoa sem email vira `Email=NULL`. Bug B7 (cargos com prefixo `CAR-XX`) confirmado como padrão correto da API.
+- **FASE 4**: UI completa.
+  - Tela `/admin/organograma` ganhou toggle **"TOTVS RM"** vs **"Datasul"** — modo TOTVS renderiza árvore navegável simples consumindo `/api/hierarquias/tree` com 167 nós ativos.
+  - Tela `/gestao/desligamentos` ganhou mesmo toggle — modo TOTVS lista pipeline com filtros (status, gerou substituição, busca por chapa/nome/IDREQ) consumindo `/api/desligamentos`.
+  - `VagasScreen` ganhou chip de **Origem** ao lado do título da vaga (4 cores diferentes pra AumentoQuadro / SubstDesligamento / SubstPromocao / Direta). Quando vaga é substituição de desligamento, chip mostra "Subst. [Nome do desligado]". Linha de meta-info da vaga agora inclui `hierarquiaDescricao` quando presente.
+  - `FuncionariosScreen` ganhou coluna **"RM"** entre Matrícula (Datasul) e Nome — exibe `MatriculaRm` (PFUNC.CHAPA) com tooltip da Hierarquia.
+  - Backend: `VagaListItemResponse` ganhou 5 campos novos (`OrigemTipo`, `SubstituindoNome`, `HierarquiaId`, `HierarquiaDescricao`, `IdReqRmOrigem`). `FuncionarioGridRowResponse` ganhou 3 novos (`MatriculaRm`, `HierarquiaId`, `HierarquiaDescricao`). Atualizado em `VagaService` + `ListVagasPendenciasRhHandler` + `FuncionarioService`.
+- **FASE 5**: smoke test ponta-a-ponta + docs.
+
+**Validação ponta-a-ponta com PROD CORPORERM (login read-only `rm_readonly_voltage` criado pelo DBA):**
+
+| Métrica | Antes | Depois |
+|---|---|---|
+| Funcionários | 7924 fakes da PPESSOA, todos com CC/cargo/gestor NULL | **637 reais** (CODSITUACAO ativos), 100% com CC + cargo, 81% com email real, 10% com hierarquia (limite real do RM) |
+| Vagas | 72 todas no CC `01-LIOLOG` (chute) | **72 com CC variado real**, 51 AumentoQuadro + 14 SubstDesligamento + 3 SubstPromocao + 4 Direta |
+| Hierarquia organograma | inexistente | 176 nós sincronizados, árvore navegável |
+| Desligamentos | inexistente | 728 (650 concluídos), 609 com flag de substituição |
+| Empresas | vazia | 4 (uma por GFILIAL ativa) |
+| Centros de Custo | já tinha 419 mas com sync errado | 419 com sync via `PSECAO.CODIGO` correto |
+| Pessoas com email fake `@rm.sync` | ~41% | **0%** |
+
+**Caso Lucas Muniz Machado (CHAPA 00000581) na tela:**
+- Antes: aparecia como vinda da PPESSOA, sem CC nem cargo nem gestor (espelho fake).
+- Depois: CC `01.11.023.002 GESTAO SISTEMAS`, Cargo `CAR-03 (Coordenação)`, Email `lucas.machado@liotecnica.com.br`, MatriculaRm `00000581`, Status Active.
+
+**Decisões arquiteturais documentadas:**
+- **Toggles em vez de telas paralelas**: tela existente `/admin/organograma` (React Flow / Datasul) e `/gestao/desligamentos` (Solicitações Datasul) ganharam toggle pra alternar pra fonte TOTVS RM. Não criamos rotas duplicadas. Multi-tenant: cliente sem TOTVS RM continua vendo o canvas Datasul; tenant Liotécnica vê TOTVS por default.
+- **Endpoints `*/sync-rm/bulk` dedicados**: backend tem endpoints `/api/funcionarios/sync-rm/bulk` e `/api/vagas/sync-rm/bulk` que recebem códigos crus do RM (CHAPA, CODSECAO, CODCARGO, CODFILIAL, IDHIERARQUIADESTINO) e resolvem FKs internamente. Não conflita com endpoints `/api/funcionarios` POST tradicionais.
+- **Login read-only no PROD**: DBA criou `rm_readonly_voltage` com role `db_datareader` único. Worker conecta com `ApplicationIntent=ReadOnly`. Audit do código mostra zero queries de escrita no RM. Senha sai de `appsettings.Development.json` (LUC-121 cobre move pra Master DB encriptado).
+
+**Backlog herdado (LUC-120, LUC-121):** worker multi-tenant + secrets em Master DB.
+
+**Arquivos novos (12) + alterados (~15):**
+- `Domain/Entities`: Hierarquia.cs, Desligamento.cs, VagaOrigemTipo.cs (enum). Funcionario/Vaga ganharam campos.
+- `Migrations` (5 idempotentes): AddHierarquias, AddDesligamentos, AddMatriculaRm, AddHierarquiaIdToFuncionario, AddOrigemHierarquiaToVagas.
+- `Controllers`: HierarquiasController, DesligamentosController, FuncionariosSyncRmController, VagasSyncRmController.
+- `Worker`: PortalHierarquiaSyncService, PortalDesligamentoSyncService, PortalEmpresaSyncService novos. PortalFuncionarioSyncService + PortalVagaSyncService refatorados.
+- `Frontend`: HierarquiaTotvsTree.tsx, DesligamentosTotvsList.tsx novos. /admin/organograma/page.tsx + /gestao/desligamentos/page.tsx com toggle. VagasScreen + FuncionariosScreen extendidos.
+
+### ✨ feature · TOTVS RM — Gating comercial por tenant (Opção C) + sync direto do banco RM via VPN
+- **Contexto:** O `Liotecnica.Integration.RM` era worker standalone com tenant + ApiKey + paths hardcoded em `appsettings.Development.json` (resíduo do dev anterior). Não tinha controle comercial — rodava enquanto o processo estivesse vivo, independente do tenant `liotecnica` estar pagando o módulo. E quando outros clientes entrassem, o Owner não tinha como visualizar/desligar a integração por cliente. Dependência adicional: o `appsettings` apontava `Output.SchemaTablesPath` para path do dev anterior — não funcionava local.
+- **O que foi entregue (5 arquivos backend, 4 worker, +1 controller novo):**
+  - **Backend (.NET) — gating:**
+    - `Infrastructure/Modules/ModuleCatalog.cs`: + módulo standalone `"totvs-rm"` (`PackageKey: null`, `IsCore: false`, `PermissionKeyPrefixes: ["integracao-totvs."]`). Comentário inline explicando o switch comercial.
+    - `Infrastructure/Security/RolePermissionManifest.cs`: + permission `"integracao-totvs.view"` em `TenantPermissions` (Admin/RH/Owner ganham; Colaborador/Gestor não).
+    - `Controllers/TenantModulesController.cs` (novo): endpoint `GET /api/tenant-modules/{moduleKey}/status` retornando `{ key, isEnabled }`. Aceita `JwtBearer` **ou** `X-Api-Key` via `FallbackPolicy` do `Program.cs` — não precisa declarar `AuthenticationSchemes` explicitamente. 404 quando `moduleKey` não existe no catálogo. Reusa `TenantModuleService.GetEnabledModuleKeysAsync` (regra efetiva: módulos core sempre on, módulos com `PackageKey` só on se pacote-pai ativo).
+  - **Worker (Liotecnica.Integration.RM):**
+    - `PortalApiClient.cs`: + `IsModuleEnabledAsync(moduleKey, ct)`. GET `api/tenant-modules/{key}/status`. Defensivo: HTTP 5xx ou rede caída → **fail-open** (assume `true`, loga warning). HTTP 404 → tratado como OFF.
+    - `RmSyncWorker.cs`: + early-return no início de `SyncAsync` antes de `ExtractSchemaAsync`. Quando OFF → log `"Módulo 'totvs-rm' desabilitado para o tenant — ciclo pulado"`, **zero queries SQL no RM, zero POSTs na API**.
+    - `RmSyncOptions.cs` + `Program.cs`: + opção `MaxPessoasToSync` (existia `MaxTalentosToSync` e `MaxCandidatosToSync`). `runSyncOne` agora injeta `MaxPessoasToSync=1` para o smoke test não tomar 4h batendo POST 1-a-1 nos 7938 PPESSOA.
+    - `PortalPessoaSyncService.cs`: respeita o cap (`items.Take(cap)` antes do foreach que faz POST/PUT em `api/pessoas`).
+    - `appsettings.Development.json`: `Portal.BaseUrl` → `http://localhost:5056/`, `ApiKey` → chave nova gerada via `POST /api/admin/api-keys` no tenant `liotecnica`, `Output.SchemaTablesPath` → path do meu Mac.
+- **Validação ponta-a-ponta (com VPN ativa, ping 12ms para 172.19.30.7):**
+  - **Caso 1 — Owner UI mostra módulo:** `GET /api/owner/tenants/liotecnica/modules/detailed` retorna `{ key: "totvs-rm", name: "TOTVS RM", isEnabled: true (default), telas: [] }`.
+  - **Caso 2 — endpoint público funciona com X-Api-Key:** `GET /api/tenant-modules/totvs-rm/status` (header `X-Api-Key + X-Tenant-Id`) → 200, `{ key: "totvs-rm", isEnabled: true }`.
+  - **Caso 3 — gating OFF:** Owner desliga via `PUT /api/owner/.../modules/totvs-rm {isEnabled:false}`. `dotnet run -- sync-one` emite log `"Módulo 'totvs-rm' desabilitado para o tenant — ciclo pulado"`, sai sem queries SQL.
+  - **Caso 4 — gating ON:** Owner liga de volta. `dotnet run -- sync-one` (~75s vs ~4h estimadas antes) executa pipeline inteiro: extract real do RM (8557 tabelas, 140k colunas, 763 vagas, 7938 pessoas, 413 deptos), respeita cap `MaxPessoasToSync=1`, cria 1 talento. 4 talentos extras falharam com 500 (optimistic concurrency exception — bug pré-existente de `TalentoController`, não desta mudança).
+  - **Caso 5 — Postgres:** `dev_render_liotecnica` confirma 419 `CentrosCusto`, 8181 `Pessoas`, 7924 `Funcionarios`, 5 `Talentos` (1 desta rodada, 4 anteriores).
+- **Comportamento esperado por cenário:**
+  - Tenant SEM TOTVS contratado → módulo OFF (default em provisioning de tenant novo, worker não é deployado).
+  - Tenant que CANCELA → Owner desliga toggle, worker para de empurrar dados sem mexer em servidor; dados existentes ficam intactos.
+  - Tenant que VOLTA → Owner liga, worker retoma no próximo ciclo.
+- **Decisão arquitetural:** Mantemos worker físico **um por cliente** (deploy por tenant). Refactor multi-tenant do worker fica no backlog (LUC-120) para quando o 2º cliente TOTVS aparecer — não vale a complexidade hoje com cliente único.
+- **Backlog herdado:**
+  - `LUC-121` — Mover `Portal.ApiKey` e `Rm.UserId/Password` do `appsettings` para Master DB encriptado (mesma onda dos secrets de IA da Fase 4 final).
+  - Bug pré-existente em `TalentoController`: `optimistic concurrency exception` ao criar 4+ talentos com mesmo email/CPF colidindo. Não bloqueia esta entrega.
+- **Arquivos:**
+  - Backend: `RHPortal.Api/RHPortal.Api/Infrastructure/Modules/ModuleCatalog.cs`, `Infrastructure/Security/RolePermissionManifest.cs`, **+** `Controllers/TenantModulesController.cs`.
+  - Worker: `Liotecnica.Integration.RM/PortalApiClient.cs`, `RmSyncWorker.cs`, `RmSyncOptions.cs`, `PortalPessoaSyncService.cs`, `Program.cs`, `appsettings.Development.json`.
+  - Docs: `lucasINTEGRACOES.md` (seção 1.7 nova "Gating comercial por tenant", 1.8 "Smoke test local", 1.9 "Caps de teste").
+
+### ✨ feature · R&S — Atribuição manual de vaga a recrutador + sincronia com relatório r6
+- **Contexto:** O usuário levantou que existia o conceito de "Recrutador responsável" no sistema mas o gerente de RH **não conseguia atribuir** uma vaga a um analista — a única forma do `RecrutadorResponsavelUserId` (FK) ser populado era o próprio recrutador editar a vaga (auto-atribuição). Vagas criadas via aprovação de `SolicitacaoVaga` ficavam órfãs (`UserId = NULL`). Além disso, a UI mostrava só um input texto-livre que ficava desacoplado do `UserId` — o relatório `r6 SLA por recrutador` agrupa por string mas filtra por Guid, podendo dessincronizar.
+- **O que foi entregue (10 arquivos modificados, 3 novos):**
+  - **Backend (.NET)**:
+    - `Controllers/LookupController.cs`: novo endpoint `GET /api/lookup/users-recrutadores` (espelha padrão de `users-gestores`; aceita roles iniciadas em "Recrutador" para cobrir aliases tipo "Recrutador Sr").
+    - `Contracts/Common/UserRecrutadorLookupItem.cs` (novo): record `(Id, Name, Email)`.
+    - `Contracts/Vagas/VagaContracts.cs`: + propriedade nullable `Guid? RecrutadorResponsavelUserId` em `VagaCreateRequest` e `VagaUpdateRequest`. Default `null` mantém backward-compat. + record novo `AssignRecrutadorRequest`.
+    - `Application/Vagas/VagaService.cs`:
+      - `ResolveRecrutadorResponsavelUserId(currentValue, requestedUserId = null)` — lógica nova: (1) se request manda Guid e usuário NÃO é Recrutador → respeita; (2) se Recrutador e currentValue null → auto-atribui (legacy preservado); (3) caso contrário mantém. Não quebra teste `VagaCarteiraScopeTests`.
+      - **novo** `SyncRecrutadorResponsavelStringAsync` — busca `User.FullName` e atualiza `Vaga.RecrutadorResponsavel` (string) para coerência com relatório r6. Trim para 120 chars (limite do campo). Não limpa string se UserId virar null.
+      - **novo** `AssignRecrutadorAsync(vagaId, userId, ct)` — encapsula atribuição com validação (vaga existe, usuário ativo) + sync da string + UpdatedAtUtc.
+      - `CreateAsync` chama `SyncRecrutadorResponsavelStringAsync` após resolver UserId.
+      - `ApplyUpdate` virou `async Task` (passa `ct`); chama sync se UserId mudou.
+      - Interface `IVagaService` ganha `AssignRecrutadorAsync`.
+    - `Controllers/VagasController.cs`: novo `PATCH /api/vagas/{id}/recrutador` com authorization role-based inline (`IsAdmin || Owner || RH || Administrador`) — Recrutador comum **não** pode atribuir vagas a outros. ProblemDetails 200/403/404.
+  - **Frontend (Next.js)**:
+    - `components/autocomplete/RecrutadorAutocomplete.tsx` (novo): pattern derivado de `CargoAutocomplete`; fetch `/api/lookup/users-recrutadores`, filtro local por nome/email, callbacks `(userId, name)`.
+    - `features/recrutamento/vagas/vagaFormTypes.ts` + `VagaFormModal.tsx`: `VagaDraft` ganha `recrutadorResponsavelUserId: string \| null`. Campo "Recrutador responsável" trocou input texto por `<RecrutadorAutocomplete>`. Submit envia ambos (Guid + string sincronizada).
+    - `features/recrutamento/vagas/VagasScreen.tsx`: coluna nova "Recrutador" entre "Data criação" e "Status" (mostra string `recrutadorResponsavel` ou italic "não atribuído"). Skeleton e empty state ajustados de 7 para 8 colunas.
+- **Validação (smoke test parcial — DB zerado, sem vagas/recrutadores reais):**
+  - `GET /api/lookup/users-recrutadores` → 200 `[]` (esperado — sem role "Recrutador" cadastrada ainda)
+  - `GET /api/lookup/users-gestores` → 200 (controle de regressão OK)
+  - `GET /api/vagas?recrutadorUserId=…` → 200 (filtro existente continua funcionando)
+  - `PATCH /api/vagas/{fakeId}/recrutador` (admin auth) → 404 (passou autorização, service rejeitou vaga inexistente — comportamento correto)
+  - `PATCH /api/vagas/.../recrutador` sem auth → 403
+  - `dotnet build`: "Compilação com êxito"
+  - `pnpm tsc --noEmit`: zero erros
+- **Casos pendentes de validação manual (precisam de dados reais):**
+  - Caso 5: Recrutador autoatribui ao criar vaga (legacy preservado)
+  - Caso 6: Relatório r6 mostra nome do recrutador (string sincronizada)
+  - Caso 7: Coluna na UI mostra dados; admin filtra por recrutador
+- **Decisões-chave (vide plano `~/.claude/plans/quero-ajustar-vamos-seguir-zesty-castle.md`):**
+  - Sincronia string ↔ Guid em todas as escritas (evita break do r6)
+  - Endpoint PATCH dedicado em vez de só PUT (auditável, autorização separada)
+  - Authorization role-based inline (não permission granular — sistema não tem `vagas.assign-recrutador`)
+  - Auto-atribuição do Recrutador preservada via lógica condicional
+  - Dashboard de performance dedicado **deferido** — relatório r6 já cobre, falta só dados reais
+- **Não escopo (entrou no backlog):**
+  - **LUC-118** — Dashboard de performance por recrutador (widget próprio, agregando `Vaga.RecrutadorResponsavelUserId × CandidaturaEtapaHistorico × RecruiterMatchingFeedback`). Bloqueado: precisa >10 vagas atribuídas + >50 candidatos com histórico.
+  - **LUC-119** — Refatorar relatório r6 para usar só Guid (eliminar dependência da string `RecrutadorResponsavel`).
+  - Backfill de vagas órfãs antigas (criadas via SolicitacaoVaga aprovada com `UserId = NULL`) — não migra automaticamente; admin atribui sob demanda via UI nova.
+- **Risco de quebra na "rodada de vaga":** confirmado **zero risco** — `ProjetoVaga` ("rodada") é container de candidatos por ciclo seletivo, totalmente desacoplado de quem é o recrutador.
+- **Commit:** *(pendente)*
+- **Docs atualizadas:** `lucasMODULOS_FUNCIONALIDADES.md` (nova seção "Vagas — atribuição de recrutador").
+
+### 🧹 chore · A+B — Limpeza pós-épico LLM-agnóstico (LUC-014, LUC-022, AssistenteIa 503)
+- **Itens backlog:** LUC-014 e LUC-022 encerrados; LUC-012 marcado como parcial (60% coberto pela Fase 5); LUC-001/002/010/013/020/021 documentados como "🛑 BLOQUEADO" com nota explicando o que destrava cada um; LUC-023 marcado como coberto pelo `lucasRUNBOOK_IA.md`. LUC-003 e LUC-004 ficam "📋 PRONTO PARA TOCAR" (sem bloqueador).
+- **Contexto:** Após fechar o épico LLM-agnóstico (5 fases), faxinada de "ranchos abertos" — 3 entregas pequenas + reorganização do backlog para deixar claro o que pode ser tocado solo vs o que precisa de input externo (Leonardo, dados reais, AWS).
+- **O que foi entregue:**
+  - **LUC-014** — `RHPortalAiHealthCheck : IHealthCheck` em `Infrastructure/HealthChecks/`. Bate em `{RhAi.BaseUrl}/health/ready` com timeout 3s. Reporta `Healthy` (200), `Degraded` (non-2xx — Python responde mas não pronto), `Unhealthy` (timeout/rede). Quando `RhAi.BaseUrl` vazio, retorna `Healthy/skipped` para evitar falso negativo. Registrado em `AddHealthChecks()` com `failureStatus: Degraded` (Python down não tira API do ar). `appsettings.Development.json` ganhou `"RhAi.BaseUrl": "http://localhost:8000"` para o check virar real em dev.
+  - **AssistenteIaController + 503** — pendência da Fase 5. Criei `RequireAiModuleAttribute` em `Infrastructure/Filters/` (action filter `IAsyncActionFilter`); aplicado em 5 endpoints (`/chat`, `/chat/stream`, `/descricao-cargo/gerar`, `/cv/resumir/{id}`, `/vagas/sugerir-salario/{id}`, `/embeddings/reindexar`). `/health` do assistente NÃO recebe (é status do Ollama, faz sentido ficar sempre disponível). Resposta 503 com mesmo `ProblemDetails` do `AiController` (`reason: ModuleDisabled`, `tenantId`, `detail` amigável).
+  - **LUC-022** — 8 HTMLs (`EntradaEmailPasta`, `Matching`, `candidatos`, `dashboardv1`, `relatorios`, `triagem`, `usuarios_perfis`, `vagas`) movidos via `git mv` para `__analise__/mockups-mvc/`. Verificado antes que **só docs `lucas*`** referenciavam — zero código produtivo afetado. `lucasVISAO_GERAL.md` atualizado para apontar nova localização.
+  - **LUC-012 doc** — atualizado no backlog dizendo que ~60% já foi entregue na Fase 5 (logs estruturados + endpoint `/api/admin/ai/metrics` + healthcheck). Pendente: exporter Prometheus formal, métricas P50/P90/P95 (precisa dados reais), dashboard Grafana.
+  - **Bloqueadores documentados** no backlog: LUC-001 (DB zerado), LUC-002 (depende de LUC-001 + decisão arquitetural), LUC-010 (precisa ground-truth), LUC-013 (sem Datasul de teste), LUC-020 (sem mailbox de teste), LUC-021 (sem AWS prod). Cada item tem nota "Para destravar: ..." explicando o que falta.
+- **Validação:**
+  - `GET /health` → `rhportal_ai: Healthy "RHPortal.Ai OK"` ✅
+  - `POST /api/assistente-ia/chat` com IA ON → `200 — "pong"` ✅
+  - `POST /api/assistente-ia/chat` com IA OFF → `503 ProblemDetails` ✅
+  - `POST /api/assistente-ia/descricao-cargo/gerar` com IA OFF → `503 ProblemDetails` ✅
+  - Raiz limpo de HTMLs ✅
+  - Build "Compilação com êxito" ✅
+- **Arquivos:** 2 novos (`RHPortalAiHealthCheck.cs`, `RequireAiModuleAttribute.cs`) + 4 modificados (`Program.cs`, `AssistenteIaController.cs`, `appsettings.Development.json`, `lucasVISAO_GERAL.md`) + 8 movidos (HTMLs raiz → `__analise__/mockups-mvc/`).
+- **Commit:** *(pendente)*
+- **Estado do backlog após esta limpeza:**
+  - ✅ Concluídos: LUC-014, LUC-022, LUC-023 (coberto), Fase 5 (LUC-113), LUC-117
+  - 🟡 Parcial: LUC-012 (60%)
+  - 📋 Pronto pra tocar solo: LUC-003 (~2h), LUC-004 (~2.5h), LUC-115 (5-8h, com risco), LUC-110b (12-16h, refactor grande), LUC-116 (~1.5h)
+  - 🛑 Bloqueado por input externo: LUC-001, LUC-002, LUC-010, LUC-013, LUC-020, LUC-021, LUC-101, LUC-102
+
+### ✨ feature · Fase 5 (ÚLTIMA) do épico LLM-agnóstico — Observabilidade + 503 estruturado + runbook · 🎯 ÉPICO FECHADO
+- **Itens backlog:** LUC-113 e LUC-117 encerrados.
+- **Contexto:** Fechamento do épico iniciado em 2026-04-25. Fases 1-4 entregaram a infraestrutura (factories Python+.NET, escolha por tenant, on/off por tenant). Faltava observabilidade decente e runbook operacional para que o time consiga **operar** o sistema em prod sem precisar abrir o código toda vez. LUC-117 (refinement de 404→503) foi puxado pra Fase 5 já que mexia nos mesmos arquivos.
+- **O que mudou:**
+  - **`Contracts/Ai/AiContracts.cs`** — `AiUnavailableReason` enum (`ModuleDisabled`, `NoProviderConfigured`, `ProviderResolutionFailed`) + `AiInvokeOutcome` record (`Response?`, `Reason?`, `Detail?`).
+  - **`Application/Ai/UnifiedAiService.cs`** — novo método `InvokeWithOutcomeAsync` retorna o outcome estruturado; `InvokeAsync` legacy delega. **Logging estruturado em todas as paths**: sucesso (`ai.invoke tenant=X user=Y provider=Z model=W module=M latency_ms=N cost_usd=C from_config=B content_len=L`), bloqueado (`ai.invoke tenant=X status=blocked reason=ModuleDisabled module=M`).
+  - **`Controllers/AiController.cs`** — usa `InvokeWithOutcomeAsync`; quando `outcome.Response == null`, monta `ProblemDetails` com `Status=503`, `Title` legível, `Detail`, e `Extensions[reason]` + `Extensions[tenantId]`. Retorna `503 Service Unavailable`.
+  - **Novo:** `Controllers/AiMetricsController.cs` — endpoint `GET /api/admin/ai/metrics?days=N` (default 30, max 365). Admin-only, scoped por tenant atual. Agrega `AiUsageRecord` em `byModule`, `byModel` (com nome do provider), `byDay`. Retorna `totalCalls` e `totalCostUsd`.
+  - **Novo:** `lucasRUNBOOK_IA.md` — 7 seções operacionais: visão 30s, sintomas comuns + diagnóstico, métricas, rotação de chave sem downtime, mudar provider em prod, pegadinhas conhecidas (LUC-115/116), comandos cola-rápida, escalação por tipo de reclamação.
+- **Validação (smoke test passou):**
+  - Invoke com módulo ON → `200 — "alpha"` cost $8.1e-06
+  - Owner desliga módulo `ai`
+  - Invoke com módulo OFF → `503 ProblemDetails`: `{title: "IA desabilitada para este tenant", reason: "ModuleDisabled", tenantId: "liotecnica", detail: "...Contate o owner..."}`
+  - Religa + invoke → `200 — "beta"` cost $7.2e-06
+  - `/api/admin/ai/metrics?days=7` → JSON estruturado (totalCalls, byModule, byModel, byDay)
+  - Logs estruturados gravados ao vivo, fáceis de grep
+- **Limitação documentada (lucasIA_RAG.md §20.4):** `/api/admin/ai/metrics` agrega `AiUsageRecord`, que só persiste quando provider vem do DB (`AiProviderKey`). Quando vem do fallback config (`appsettings.Ai.{Provider}.ApiKey`), só os logs estruturados ficam. Em prod com chaves cadastradas no Owner UI, métricas funcionam normalmente.
+- **Arquivos:** 1 novo controller (`AiMetricsController`) + 1 novo doc (`lucasRUNBOOK_IA.md`) + 3 modificados (`AiContracts.cs`, `UnifiedAiService.cs`, `AiController.cs`).
+- **Commit:** *(pendente)*
+- **🎯 Épico LLM-agnóstico FECHADO** — 5 fases entregues em 2 dias (2026-04-25 a 26). Próximas evoluções voltam para o backlog ad-hoc:
+  - **LUC-115** (alta): reconciliar caminho Python `embeddings.py` com schema real (tabelas dedicadas vs colunas inline)
+  - **LUC-116** (média): resolver "estrito" quando tenant escolhe provider sem chave
+  - **LUC-110b** (média): trocar `IOllamaClient` direto pelo factory nos 7 serviços que ainda dependem dele
+  - Pendente Fase 5+: estender padrão 503/ProblemDetails do `AiController` para `AssistenteIaController` (chat, descricao-cargo, sugerir-salario, cv-resumir)
+- **Docs atualizadas:** `lucasIA_RAG.md` (§16.7 + §19.6 + §20 nova), `lucasINDEX.md` (entrada do RUNBOOK), `lucasbacklog.md` (LUC-113 e LUC-117 fechados).
+
+### ✨ feature · Fase 4 do épico LLM-agnóstico — Owner liga/desliga IA por tenant + UI tenant respeita disponibilidade real
+- **Item backlog:** LUC-112 (encerrado). LUC-117 adicionado como melhoria.
+- **Contexto:** Após Fases 1-3 (multi-provider + escolha por tenant), faltava o "switch master" — owner controlando se cada cliente tem direito a IA, e a UI tenant honrando essa decisão. Investigação revelou que `/Owner/IA` **já era funcional** (CRUD chaves dos 3 providers + modelos + dashboard usage); minha doc inicial chamou de "esqueleto" erroneamente. Escopo real da Fase 4 ficou no gating + UX.
+- **O que mudou:**
+  - **`Infrastructure/Modules/ModuleCatalog.cs`** — novo módulo standalone `"ai"` (transversal, sem PackageKey). Default ON em tenants novos via `EnsureDefaultsAsync`. Para tenants existentes, o `DbSeeder.MigrateAndSeedAsync` chama `EnsureDefaults` no startup → módulo aparece automaticamente sem migration.
+  - **`Application/Ai/TenantAiSettingsResolver.cs`** — `IsAiEnabledAsync()` consulta `TenantModuleService.GetEnabledModuleKeysAsync` via `IServiceProvider` lazy (não falha em endpoints owner-level). Owner/system sempre retorna `true` (não há "tenant" para gating).
+  - **`Application/Ai/UnifiedAiService.cs`** — early-return no início de `InvokeAsync`: se módulo `ai` off, loga info e devolve `null`. AiController traduz para 404 (ver LUC-117 para refinar para 503).
+  - **`Application/TenantConfiguracao/TenantConfiguracaoService.cs`** — `TenantAiConfigDto` ganha `AvailableProviders` (intersecção: Master.AiProviderKey ativos + appsettings.Ai.{Provider}.ApiKey preenchidos + Ollama enabled) e `AiEnabled`. `BuildAiConfigDto` virou async. Injeta `MasterDbContext` e `ITenantAiSettingsResolver`.
+  - **`LioTecnica.Web.Next/src/features/admin/ia/IaConfigScreen.tsx`** — banner amarelo "IA não habilitada" quando `aiEnabled=false`; banner separado "nenhum provider com chave"; dropdowns filtrados via `buildProviderOptions(availableProviders)`. Imports `AlertTriangle`.
+- **Validação (smoke test 7/7):**
+  - Estado inicial liotecnica: `aiEnabled=true`, `availableProviders=['gemini','ollama']`
+  - Invoke com IA ON → `200 — "AI is on."` ($9.3e-06)
+  - `PUT /api/owner/tenants/liotecnica/modules/ai {isEnabled:false}` → `200`
+  - `GET /api/tenant-configuracao/ai` → `aiEnabled=false`
+  - Invoke com IA OFF → `404` (esperado — UnifiedAiService devolveu null)
+  - Religa → `200`
+  - Invoke novamente → `200 — "voltei"` ($6.6e-06)
+- **Hierarquia de gating documentada em `lucasIA_RAG.md` §19.3:**
+  - Tenant tem IA? → Owner decide (TenantModule)
+  - Quais providers? → Owner cadastra chaves (`/Owner/IA`)
+  - Qual provider/modelo? → Admin do tenant escolhe (`/app/admin/ia`, Fase 3)
+- **Arquivos:** 5 modificados (1 entidade catalog + 3 services .NET + 1 UI). Zero migration EF (módulo é code-first via `ModuleCatalog`, persistência via `EnsureDefaults`).
+- **Commit:** *(pendente)*
+- **Impacto:** modelo de licenciamento de IA fica viável — cliente "básico" sem IA, "pro" com Ollama local (zero custo + LGPD), "premium" com OpenAI/Gemini/Anthropic. Owner controla margem; admin do tenant tem autonomia dentro do que foi liberado.
+- **LUC-117 adicionado:** AiController/AssistenteIaController devem retornar 503 (não 404) quando IA desabilitada — semanticamente mais correto, ajuda debug e UX no frontend.
+- **Docs atualizadas:** `lucasIA_RAG.md` (§16.7 + §19 nova), `lucasMODULOS_FUNCIONALIDADES.md` (toggle no Owner), `lucasbacklog.md` (LUC-112 fechado, LUC-117 adicionado).
+
+### ✨ feature · Fase 3 do épico LLM-agnóstico — Seleção de provider POR TENANT
+- **Item backlog:** LUC-111 (encerrado). LUC-116 adicionado como melhoria.
+- **Contexto:** Fases 1 e 2 deixaram o sistema multi-provider (OpenAI/Gemini/Anthropic/Ollama), mas a escolha era global (env var no Python, `appsettings.Ai.DefaultProvider` no .NET). Tenants diferentes não podiam ter providers diferentes. Esta fase muda isso: cada tenant escolhe seu provider/modelo na própria sidebar admin, persistido no banco do tenant, com fallback para o default global quando vazio.
+- **O que mudou — backend .NET:**
+  - **Novo:** `Application/Ai/TenantAiSettingsResolver.cs` — `ITenantAiSettingsResolver.GetCurrentAsync()` lê o `AppDbContext` do tenant atual via `IServiceProvider` lazy (não falha em endpoints owner-level sem tenant).
+  - `Domain/Entities/TenantConfiguracao.cs` — 4 campos novos nullable: `LlmProvider`, `LlmModel`, `EmbeddingProvider`, `EmbeddingModel`. `null` = herda global.
+  - **Migration EF** `20260425135252_AddLlmProviderFieldsToTenantConfiguracao` totalmente idempotente (`ADD COLUMN IF NOT EXISTS`), conforme `CLAUDE.md`. O scaffold gerou drift antigo do snapshot junto — também ficou idempotente para não quebrar tenants existentes.
+  - `Application/Ai/UnifiedAiService.cs` — resolução ganha **passo 0**: se o tenant tem `LlmProvider` preenchido, força esse provider (filtra `Master.AiProviderKey` por nome; cai para `Ai.{Provider}` config quando sem chave).
+  - `Application/TenantConfiguracao/TenantConfiguracaoService.cs` — DTOs `TenantAiConfigDto`/`TenantAiConfigRequest`, métodos `GetAiConfigAsync` / `UpsertAiConfigAsync`. Whitelist de providers (`openai|gemini|anthropic|ollama`); valores desconhecidos viram `null`. Calcula "effective" pós-fallback.
+  - `Controllers/TenantConfiguracaoController.cs` — endpoints `GET /api/tenant-configuracao/ai` e `PUT /api/tenant-configuracao/ai` (admin only).
+  - `Infrastructure/Ai/RHPortalAiMatchClient.cs` — cada payload para o Python carrega `llm_provider`, `llm_model`, `embedding_provider`, `embedding_model` do tenant atual.
+  - `Program.cs` — registra `ITenantAiSettingsResolver` no DI.
+- **O que mudou — Python:**
+  - **Novo:** `app/request_context.py` — `RequestOverrides` + `use_request_overrides()` ContextManager via `contextvars` (thread/async-safe).
+  - `app/main.py` — `MatchRequest` + `EvaluateOneRequest` ganham 4 campos opcionais; endpoints envolvem chamadas em `with use_request_overrides(...)`.
+  - `app/llm_factory.py` — `get_chat_llm()` e `get_embeddings_client()` consultam `request_context.get_overrides()` antes do default.
+- **O que mudou — frontend:**
+  - **Novo:** `src/app/(app)/admin/ia/page.tsx` (rota `/app/admin/ia`).
+  - **Novo:** `src/features/admin/ia/IaConfigScreen.tsx` — selects de provider, inputs de modelo, painel "effective", botão Salvar.
+- **Validação (smoke test ponta-a-ponta com 2 tenants):**
+  - Estado inicial sem override → `effective: gemini/2.5-flash` (global) ✅
+  - PUT liotecnica → `anthropic/claude-3-5-haiku` → persistido + effective trocou ✅
+  - dev (sem override) continua `gemini` (isolado por tenant) ✅
+  - `/api/ai/invoke` em ambos retornou conteúdo real, cost contabilizado ✅
+  - Revert liotecnica → null → effective volta a `gemini` global ✅
+  - Migration aplicou nos 3 bancos (master + liotecnica + dev) automaticamente no startup ✅
+- **Pendência descoberta (LUC-116):** quando tenant escolhe provider X mas X não tem chave, o resolver atual cai silenciosamente no próximo provider com chave. Mascara erro de configuração. Próxima sprint.
+- **Arquivos:** 5 novos (`TenantAiSettingsResolver.cs`, `request_context.py`, migration .cs/.Designer.cs, `IaConfigScreen.tsx` + `page.tsx`) + 8 modificados.
+- **Commit:** *(pendente)*
+- **Impacto:** primeira feature multi-tenant de IA real — cada cliente escolhe seu próprio LLM dentro do que está disponível. Próxima fase amplia: Owner cadastra chaves e liga/desliga IA por tenant.
+- **Docs atualizadas:** `lucasIA_RAG.md` (§17 ampliada com tabela de fases + §18 nova), `lucasMODULOS_FUNCIONALIDADES.md` (nova rota `/app/admin/ia`), `lucasbacklog.md` (LUC-111 encerrado, LUC-116 adicionado).
+
+---
+
 ## 2026-04-25
 
 ### ✨ feature · Fase 2 do épico LLM-agnóstico — API .NET aceita OpenAI / Gemini / Anthropic via factory

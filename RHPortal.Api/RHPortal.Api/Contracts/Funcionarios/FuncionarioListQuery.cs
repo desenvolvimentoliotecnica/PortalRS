@@ -17,5 +17,7 @@ public sealed record FuncionarioListQuery(
     Guid? CentroCustoId = null,
     Guid? GestorDiretoId = null,
     Guid? OnlyFuncionarioId = null,
-    IReadOnlyList<Guid>? GestorUnidadeIds = null
+    IReadOnlyList<Guid>? GestorUnidadeIds = null,
+    /// <summary>Filtrar por CODSITUACAO TOTVS RM (A, F, P, D, I, T, etc.). Null = todos.</summary>
+    string? CodSituacaoRm = null
 );

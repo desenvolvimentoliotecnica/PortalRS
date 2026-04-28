@@ -25,7 +25,7 @@ public sealed class AiController : ControllerBase
     [ProducesResponseType(typeof(AiInvokeResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<AiInvokeResponse>> Invoke([FromBody] AiInvokeRequest request, CancellationToken ct)
     {
         if (request is null) return BadRequest();
@@ -38,8 +38,29 @@ public sealed class AiController : ControllerBase
         var userId = Guid.TryParse(userIdClaim, out var uid) ? uid : (Guid?)null;
         var userName = User.FindFirstValue(ClaimTypes.Name) ?? User.Identity?.Name;
 
-        var result = await _service.InvokeAsync(tenantId, userId, userName, request, ct);
-        if (result is null) return NotFound();
-        return Ok(result);
+        // Fase 5 / LUC-117: distinguir motivo da indisponibilidade.
+        var outcome = await _service.InvokeWithOutcomeAsync(tenantId, userId, userName, request, ct);
+        if (outcome.Response is not null) return Ok(outcome.Response);
+
+        // Mapear motivo → HTTP semanticamente correto (503 Service Unavailable).
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status503ServiceUnavailable,
+            Title = outcome.Reason switch
+            {
+                AiUnavailableReason.ModuleDisabled => "IA desabilitada para este tenant",
+                AiUnavailableReason.NoProviderConfigured => "Nenhum provider de IA configurado",
+                AiUnavailableReason.ProviderResolutionFailed => "Provider de IA não reconhecido",
+                _ => "Serviço de IA indisponível"
+            },
+            Detail = outcome.Detail,
+            Type = "https://docs.renderrh.qualiit/ai/unavailable",
+            Extensions =
+            {
+                ["reason"] = outcome.Reason?.ToString(),
+                ["tenantId"] = tenantId,
+            }
+        };
+        return StatusCode(StatusCodes.Status503ServiceUnavailable, problem);
     }
 }

@@ -11,6 +11,7 @@ import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/C
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
 import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
+import { RecrutadorAutocomplete } from "@/components/autocomplete/RecrutadorAutocomplete";
 import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
 import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
@@ -68,7 +69,10 @@ type VagaDraft = {
   turnoId: string; turnoCode: string; turnoDescription: string;
   unidadeLotacaoId: string; unidadeLotacaoCode: string; unidadeLotacaoDescription: string;
   motivoAbertura: string; orcamentoAprovado: string; gestorRequisitante: string;
-  recrutadorResponsavel: string; prioridade: string; resumoPitch: string;
+  recrutadorResponsavel: string;
+  /** UserId (Guid) do recrutador atribuído. Atribuição manual feature 2026-04-26. */
+  recrutadorResponsavelUserId: string | null;
+  prioridade: string; resumoPitch: string;
   tagsResponsabilidades: string; tagsKeywords: string;
   confidencial: boolean; aceitaPcd: boolean; urgente: boolean;
   generoPreferencia: string; vagaAfirmativa: boolean; linguagemInclusiva: boolean;
@@ -119,7 +123,7 @@ function emptyDraft(): VagaDraft {
     turnoId: "", turnoCode: "", turnoDescription: "",
     unidadeLotacaoId: "", unidadeLotacaoCode: "", unidadeLotacaoDescription: "",
     motivoAbertura: "", orcamentoAprovado: "", gestorRequisitante: "",
-    recrutadorResponsavel: "", prioridade: "", resumoPitch: "",
+    recrutadorResponsavel: "", recrutadorResponsavelUserId: null, prioridade: "", resumoPitch: "",
     tagsResponsabilidades: "", tagsKeywords: "",
     confidencial: false, aceitaPcd: false, urgente: false,
     generoPreferencia: "", vagaAfirmativa: false, linguagemInclusiva: false,
@@ -497,6 +501,7 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     orcamentoAprovado: emptyToNull(d.orcamentoAprovado),
     gestorRequisitante: emptyToNull(d.gestorRequisitante),
     recrutadorResponsavel: emptyToNull(d.recrutadorResponsavel),
+    recrutadorResponsavelUserId: d.recrutadorResponsavelUserId ?? null,
     prioridade: emptyToNull(d.prioridade),
     resumoPitch: emptyToNull(d.resumoPitch),
     tagsResponsabilidadesRaw: tagsRaw(d.tagsResponsabilidades),
@@ -948,7 +953,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         unidadeLotacaoDescription: pick(v.unidadeLotacaoDescription),
         motivoAbertura: pickEnum(v.motivoAbertura),
         orcamentoAprovado: pickEnum(v.orcamentoAprovado), gestorRequisitante: pick(v.gestorRequisitante),
-        recrutadorResponsavel: pick(v.recrutadorResponsavel), prioridade: pickEnum(v.prioridade),
+        recrutadorResponsavel: pick(v.recrutadorResponsavel),
+        recrutadorResponsavelUserId: (v.recrutadorResponsavelUserId as string | null | undefined) ?? null,
+        prioridade: pickEnum(v.prioridade),
         resumoPitch: pick(v.resumoPitch),
         tagsResponsabilidades: pick(v.tagsResponsabilidadesRaw).replace(/;/g, "; "),
         tagsKeywords: pick(v.tagsKeywordsRaw).replace(/;/g, "; "),
@@ -1348,7 +1355,18 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               {/* Seção: Responsáveis */}
               <SectionHeader title="Responsáveis" />
               <Field label="Gestor requisitante" span="col-span-12 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Nome do gestor" maxLength={120} value={draft.gestorRequisitante} onChange={(e) => set("gestorRequisitante", e.target.value)} /></Field>
-              <Field label="Recrutador responsável" span="col-span-12 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Nome do recrutador" maxLength={120} value={draft.recrutadorResponsavel} onChange={(e) => set("recrutadorResponsavel", e.target.value)} /></Field>
+              <Field label="Recrutador responsável" span="col-span-12 md:col-span-4">
+                <RecrutadorAutocomplete
+                  value={draft.recrutadorResponsavelUserId}
+                  onChange={(userId, name) => {
+                    set("recrutadorResponsavelUserId", userId);
+                    // Mantém a string sincronizada com o nome escolhido (back também sincroniza,
+                    // mas atualizar local melhora UX e evita race com refresh).
+                    set("recrutadorResponsavel", name ?? "");
+                  }}
+                  defaultLabel={draft.recrutadorResponsavel ? { name: draft.recrutadorResponsavel } : undefined}
+                />
+              </Field>
               <Field label="Match mínimo (IA)" span="col-span-12 md:col-span-4">
                 <div className="flex items-center gap-2">
                   <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.matchMinimoPercentual} onChange={(e) => set("matchMinimoPercentual", clamp(Number(e.target.value) || 0, 0, 100))} />

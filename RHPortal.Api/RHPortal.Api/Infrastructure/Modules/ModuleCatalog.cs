@@ -54,6 +54,25 @@ public static class ModuleCatalog
 
         // ── Standalone opcional (sem pacote-pai) ──────────────────────────────
         new("relatorios",      "Relatórios",          "Relatórios gerenciais",                                        IsCore: false, PermissionKeyPrefixes: ["relatorios."]),
+        // Fase 4 LLM-agnóstico (2026-04-26): "ai" é o switch master de IA do tenant.
+        // Quando desligado, UnifiedAiService retorna null (early-return) — todas as
+        // features que dependem de LLM/embedding via API (CV extract, doc validation,
+        // descrição de cargo, sugestão salarial, assistente RH) ficam indisponíveis.
+        // Os módulos "matching" (acima) e este são complementares: matching controla
+        // só a tela; "ai" controla a infraestrutura inteira.
+        //
+        // Tela própria deste módulo: 1 (apenas "Configuração de IA" em /app/admin/ia,
+        // permission ai.config). As demais features de IA estão em telas de OUTROS
+        // módulos (matching, candidatos, cargos, assistente RH) — quando o owner
+        // desativa "ai", essas features bloqueiam (503) mesmo as telas continuando
+        // visíveis. Vide lucasIA_RAG.md §19.3.
+        new("ai",              "IA (LLM)",            "Switch transversal de IA. Tela: Configuração de IA. Quando OFF, bloqueia features IA em outras telas: CV extract, descrição de cargo, sugestão salarial, assistente RH, LLM scoring no matching.", IsCore: false, PermissionKeyPrefixes: ["ai."]),
+        // Integração TOTVS RM (2026-04-26): switch comercial. Worker externo
+        // (Liotecnica.Integration.RM) consulta o status deste módulo antes de
+        // cada ciclo via GET /api/tenant-modules/totvs-rm/status. Quando OFF,
+        // worker pula o ciclo e dorme — sem queries SQL nem chamadas POST.
+        // Tenants sem TOTVS RM nascem com módulo OFF (worker nem é deployado).
+        new("totvs-rm",        "TOTVS RM",            "Sincronização periódica RM → Portal (áreas, cargos, funcionários, vagas, candidatos). Requer worker externo deployado para o tenant. Switch comercial — quando OFF, sync pausa sem destruir dados existentes.", IsCore: false, PermissionKeyPrefixes: ["integracao-totvs."]),
     };
 
     private static readonly Dictionary<string, ModuleDefinition> _byKey =

@@ -6,6 +6,7 @@ public sealed record PortalCandidateEducationSummaryDto(
     string? Nivel,
     string? AreaPrincipal,
     string? Situacao,
+    string? DataConclusao,
     string? Destaques
 );
 
@@ -30,6 +31,7 @@ public sealed record PortalCandidateEducationSummaryRequest(
     [MaxLength(60)] string? Nivel,
     [MaxLength(120)] string? AreaPrincipal,
     [MaxLength(40)] string? Situacao,
+    [MaxLength(20)] string? DataConclusao,
     [MaxLength(260)] string? Destaques
 );
 

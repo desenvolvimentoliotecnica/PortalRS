@@ -32,5 +32,15 @@ public sealed record FuncionarioGridRowResponse(
     bool HasIncompleteData,
     // Códigos para exibição
     string? UnidadeLotacaoCode,
-    string? CentroCustoCode
+    string? CentroCustoCode,
+    // Integração TOTVS RM (refactor 2026-04-26)
+    /// <summary>PFUNC.CHAPA — matrícula no TOTVS RM.</summary>
+    string? MatriculaRm,
+    /// <summary>FK Hierarquia (organograma TOTVS) — derivada da última promoção do funcionário.</summary>
+    Guid? HierarquiaId,
+    string? HierarquiaDescricao,
+    /// <summary>PFUNC.CODSITUACAO original ("A","F","P","D","I","T",...).</summary>
+    string? CodSituacaoRm,
+    /// <summary>Descrição amigável ("Ativo", "Férias", "Demitido", etc.).</summary>
+    string? SituacaoRmDescricao
 );

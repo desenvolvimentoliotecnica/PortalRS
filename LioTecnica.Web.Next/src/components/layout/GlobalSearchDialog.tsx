@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import {
     BadgeCheck,
     Building2,
+    BriefcaseBusiness,
     Search,
     Loader2,
     ArrowRight,
+    UserRound,
+    UsersRound,
 } from "lucide-react";
 import {
     Dialog,
@@ -36,6 +39,9 @@ interface CategoryMeta {
 }
 
 const CATEGORIES: Record<Category, CategoryMeta> = {
+    vagas: { label: "Vagas", icon: BriefcaseBusiness, color: "text-sky-600", bg: "bg-sky-100" },
+    candidatos: { label: "Candidatos", icon: UserRound, color: "text-emerald-600", bg: "bg-emerald-100" },
+    pessoas: { label: "Pessoas", icon: UsersRound, color: "text-indigo-600", bg: "bg-indigo-100" },
     funcionarios: { label: "Funcionários", icon: BadgeCheck, color: "text-amber-600", bg: "bg-amber-100" },
     centrosCusto: { label: "Centros de Custo", icon: Building2, color: "text-rose-600", bg: "bg-rose-100" },
 };

@@ -180,7 +180,7 @@
 | `azure-pipelines.yml` | Azure DevOps | CI/CD: build do Next.js + publish artefato |
 | `.githooks/` | Git | Hooks pre-commit/pre-push |
 
-Ainda há, no raiz, **HTMLs estáticos antigos** (`vagas.html`, `candidatos.html`, `dashboardv1.html`, `Matching.html`, `triagem.html`, `usuarios_perfis.html`, `relatorios.html`, `EntradaEmailPasta.html`) que serviram de **mockup/protótipo** antes da migração para Next.js. **Não são produtivos** — só ficam ali para referência visual.
+Os **HTMLs estáticos antigos** (`vagas.html`, `candidatos.html`, `dashboardv1.html`, `Matching.html`, `triagem.html`, `usuarios_perfis.html`, `relatorios.html`, `EntradaEmailPasta.html`) que serviram de **mockup/protótipo** antes da migração para Next.js foram movidos para `__analise__/mockups-mvc/` em 2026-04-26 (LUC-022) — não eram produtivos, só ficavam ali para referência visual.
 
 ---
 

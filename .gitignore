@@ -30,6 +30,9 @@
 # **/appsettings.Development.json  ← DESATIVADO INTENCIONALMENTE
 !**/appsettings.Development.sample.json
 
+# Export de imagens Docker para deploy (tar grande)
+__scripts__/deploy/out/
+
 # Arquivos problemáticos no Windows
 nul
 **/nul

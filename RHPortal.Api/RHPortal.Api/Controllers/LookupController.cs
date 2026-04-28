@@ -227,6 +227,47 @@ public sealed class LookupController : ControllerBase
     }
 
     /// <summary>
+    /// Lista usuários que possuem o perfil (role) Recrutador — para atribuição manual de vaga
+    /// pelo gerente/diretor de RH. Inclui aliases comuns (Recrutador, Recrutador Sênior, etc.).
+    /// (Feature "Atribuição de Vaga a Recrutador" — 2026-04-26.)
+    /// </summary>
+    [HttpGet("users-recrutadores")]
+    [ProducesResponseType(typeof(IReadOnlyList<UserRecrutadorLookupItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<UserRecrutadorLookupItem>>> UsersRecrutadores(CancellationToken ct)
+    {
+        // Busca todas as roles cujo Name começa com "Recrutador" (case-insensitive)
+        // Cobre "Recrutador", "Recrutador Sênior", "Recrutador Sr", "Recrutadora", etc.
+        var recrutadorRoleIds = await _db.Roles
+            .AsNoTracking()
+            .Where(r => r.Name != null && r.Name.ToLower().StartsWith("recrutador"))
+            .Select(r => r.Id)
+            .ToListAsync(ct);
+
+        if (recrutadorRoleIds.Count == 0)
+            return Ok(new List<UserRecrutadorLookupItem>());
+
+        var userIds = await _db.Set<ApplicationUserRole>()
+            .AsNoTracking()
+            .Where(ur => recrutadorRoleIds.Contains(ur.RoleId))
+            .Select(ur => ur.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (userIds.Count == 0)
+            return Ok(new List<UserRecrutadorLookupItem>());
+
+        var items = await _db.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id) && u.IsActive)
+            .OrderBy(u => u.FullName)
+            .ThenBy(u => u.Email)
+            .Select(u => new UserRecrutadorLookupItem(u.Id, u.FullName ?? "", u.Email ?? ""))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
     /// Busca funcionários com paginação (para seleção e filtros).
     /// </summary>
     [HttpGet("funcionarios")]

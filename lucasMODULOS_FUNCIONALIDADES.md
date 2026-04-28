@@ -465,6 +465,30 @@ Toda a árvore `/app/admin/*` requer permissão `admin.*`.
 ### `/app/admin/configuracoes`
 - **Para quê:** Configurações gerais do tenant (moeda, timezone, idioma) — `TenantConfiguracaoController`, `LocalizationConfigController`.
 
+### Vagas — atribuição de recrutador *(novo, 2026-04-26)*
+- **Para quê:** Gerente/Diretor de RH atribui uma vaga a um analista recrutador específico — preenche `Vaga.RecrutadorResponsavelUserId` (Guid) e mantém `Vaga.RecrutadorResponsavel` (string) sincronizado com o nome do usuário.
+- **Onde mexe:**
+  - `VagaFormModal` — campo "Recrutador responsável" virou dropdown com autocomplete (`RecrutadorAutocomplete`) que lista todos os usuários com role `Recrutador*` do tenant.
+  - `VagasListScreen` — coluna nova "Recrutador" entre "Data criação" e "Status".
+  - Sidebar do recrutador continua filtrando automaticamente via `VagasDataScope.ByRecrutador` (sem mudança).
+- **Endpoint dedicado:** `PATCH /api/vagas/{id}/recrutador` body `{ "recrutadorResponsavelUserId": "guid|null" }`. **Restrito a Admin/RH/Owner** (Recrutador comum não pode atribuir vagas a outros).
+- **Lookup novo:** `GET /api/lookup/users-recrutadores` retorna `[{ id, name, email }]` dos usuários ativos com role iniciando em "Recrutador" (ex.: "Recrutador", "Recrutador Sênior", "Recrutadora").
+- **Auto-atribuição preservada:** quando o próprio Recrutador cria/edita uma vaga sem mexer no campo, ele continua sendo atribuído automaticamente (comportamento legado).
+- **Performance/medição:** o relatório `r6 SLA por recrutador` (`GET /api/reports/sla-vaga`) **já existe** e agrupa por recrutador — usa o mesmo dado que esta feature popula. Dashboard dedicado fica para o backlog (`LUC-118` — esperando volume de uso real).
+
+### `/app/admin/ia` *(novo na Fase 3 LLM-agnóstico, 2026-04-25)*
+- **Para quê:** Cada tenant escolhe seu provider de LLM (chat) e embeddings.
+- **Quem usa:** Admin do tenant.
+- **Campos:**
+  - **LLM Provider** (dropdown: OpenAI / Gemini / Anthropic / Ollama / "padrão global")
+  - **LLM Model** (input de texto, com placeholder do default do provider escolhido)
+  - **Embedding Provider** (dropdown idem)
+  - **Embedding Model** (input)
+- **Painel "Effective":** mostra qual provider/modelo está sendo realmente usado agora (após resolução de fallbacks).
+- **Endpoints:**
+  - `GET /api/tenant-configuracao/ai`
+  - `PUT /api/tenant-configuracao/ai` (admin only)
+
 ### `/app/admin/entra-id`
 - **Para quê:** Configurar SSO Microsoft do tenant (ClientId, ClientSecret, Tenant Microsoft, RedirectUri).
 - **Endpoint:** `EntraIdConfigController`.
@@ -530,6 +554,13 @@ Toda a árvore `/Owner/*` requer JWT de Owner.
 ### `/Owner/IA`
 - **Para quê:** Gerenciar chaves de IA (`AiProviderKey` — OpenAI, Anthropic, Gemini) e modelos (`AiModel`).
 - **Endpoints:** `OwnerAiController` (`GET/POST/PUT/DELETE /api/owner/ai/keys`).
+- **Já está funcional** (CRUD de chaves dos 3 providers + catálogo de modelos + dashboard de uso/custo por tenant e por usuário).
+
+### `/Owner/Tenants/[id]/modules` — toggle "IA habilitada"
+- **Para quê (Fase 4 LLM-agnóstico, 2026-04-26):** Owner liga/desliga o módulo `ai` para cada tenant (transversal — afeta TODAS as features que dependem de LLM/embedding via API).
+- **Endpoint:** `PUT /api/owner/tenants/{tenantId}/modules/ai { "isEnabled": true/false }`
+- **Quando OFF:** `UnifiedAiService.InvokeAsync` retorna `null` cedo; UI tenant `/app/admin/ia` mostra banner "IA não habilitada".
+- **Default:** todo tenant novo provisionado nasce com `ai=true` (via `EnsureDefaultsAsync`).
 
 ---
 

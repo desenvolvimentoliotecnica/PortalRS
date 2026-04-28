@@ -51,6 +51,7 @@ from app.unified_matching import (
 
 # Legacy (mantido para retrocompatibilidade)
 from app.matching import run_matching
+from app.request_context import use_request_overrides
 
 # Backfill state: avoid repeated parallel backfills per tenant
 BACKFILL_LAST_RUN: dict[str, float] = {}
@@ -105,6 +106,12 @@ class MatchRequest(BaseModel):
     tenant_id: str | None = Field(None, description="ID do tenant (opcional)")
     limit: int | None = Field(None, ge=10, le=100, description="Tamanho do ranking (10-100, default: 20)")
     rule_version: str | None = Field(None, description="Versão da regra: v1_80_20 ou v2_65_35_strict")
+    # Fase 3 LLM-agnóstico — overrides por tenant injetados pela API .NET.
+    # Quando vazios, valem as env vars LLM_PROVIDER / EMBEDDING_PROVIDER.
+    llm_provider: str | None = Field(None, description="Override de LLM provider (openai|gemini|ollama)")
+    llm_model: str | None = Field(None, description="Override de LLM model (ex: gemini-2.5-flash)")
+    embedding_provider: str | None = Field(None, description="Override de embedding provider")
+    embedding_model: str | None = Field(None, description="Override de embedding model")
 
 
 class MatchItem(BaseModel):
@@ -143,6 +150,11 @@ class EvaluateOneRequest(BaseModel):
     source: str = Field(..., description="'candidato' ou 'talento'")
     tenant_id: str | None = Field(None, description="ID do tenant (opcional)")
     rule_version: str | None = Field(None, description="Versão da regra: v1_80_20 ou v2_65_35_strict")
+    # Fase 3 LLM-agnóstico — overrides por tenant
+    llm_provider: str | None = Field(None, description="Override de LLM provider")
+    llm_model: str | None = Field(None, description="Override de LLM model")
+    embedding_provider: str | None = Field(None, description="Override de embedding provider")
+    embedding_model: str | None = Field(None, description="Override de embedding model")
 
 
 class EvaluateOneResponse(BaseModel):
@@ -344,12 +356,19 @@ def run_matching_endpoint(req: MatchRequest, background_tasks: BackgroundTasks) 
     ranking_size = req.limit or DEFAULT_RANKING_SIZE
 
     try:
-        items = run_unified_matching(
-            req.vaga_id,
-            req.tenant_id,
-            top_n=ranking_size,
-            rule_version=req.rule_version,
-        )
+        # Fase 3: aplica overrides de provider/modelo do tenant durante a chamada.
+        with use_request_overrides(
+            llm_provider=req.llm_provider,
+            llm_model=req.llm_model,
+            embedding_provider=req.embedding_provider,
+            embedding_model=req.embedding_model,
+        ):
+            items = run_unified_matching(
+                req.vaga_id,
+                req.tenant_id,
+                top_n=ranking_size,
+                rule_version=req.rule_version,
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no matching unificado: {e!s}")
 
@@ -397,13 +416,20 @@ def evaluate_one_endpoint(req: EvaluateOneRequest) -> EvaluateOneResponse:
         raise HTTPException(status_code=404, detail="Vaga não encontrada")
 
     try:
-        result = evaluate_single_person(
-            req.vaga_id,
-            req.person_id,
-            req.source,
-            req.tenant_id,
-            rule_version=req.rule_version,
-        )
+        # Fase 3: aplica overrides do tenant.
+        with use_request_overrides(
+            llm_provider=req.llm_provider,
+            llm_model=req.llm_model,
+            embedding_provider=req.embedding_provider,
+            embedding_model=req.embedding_model,
+        ):
+            result = evaluate_single_person(
+                req.vaga_id,
+                req.person_id,
+                req.source,
+                req.tenant_id,
+                rule_version=req.rule_version,
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro na avaliação: {e!s}")
 

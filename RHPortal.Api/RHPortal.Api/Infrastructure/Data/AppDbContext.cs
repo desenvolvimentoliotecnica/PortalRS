@@ -154,6 +154,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<UnidadeLotacao> UnidadesLotacao => Set<UnidadeLotacao>();
     public DbSet<MotivoRequisicaoVagaConfig> MotivosRequisicaoVagaConfig => Set<MotivoRequisicaoVagaConfig>();
     public DbSet<Empresa> Empresas => Set<Empresa>();
+    public DbSet<Hierarquia> Hierarquias => Set<Hierarquia>();
+    public DbSet<Desligamento> Desligamentos => Set<Desligamento>();
+    public DbSet<FuncionarioMovimentacao> FuncionarioMovimentacoes => Set<FuncionarioMovimentacao>();
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
@@ -328,6 +331,72 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Code).HasMaxLength(30).IsRequired();
             b.Property(x => x.Description).HasMaxLength(120).IsRequired();
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Hierarquia>(b =>
+        {
+            b.ToTable("Hierarquias");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Descricao).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Estrutura).HasMaxLength(200);
+            b.HasIndex(x => new { x.TenantId, x.IdHierarquiaRm }).IsUnique();
+            b.HasIndex(x => x.IdHierarquiaSuperiorRm);
+            b.HasIndex(x => x.Estrutura);
+            b.HasOne(x => x.HierarquiaSuperior)
+                .WithMany()
+                .HasForeignKey(x => x.HierarquiaSuperiorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<FuncionarioMovimentacao>(b =>
+        {
+            b.ToTable("FuncionarioMovimentacoes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ChapaRm).HasMaxLength(20).IsRequired();
+            b.Property(x => x.IdReqRm).HasMaxLength(40).IsRequired();
+            b.Property(x => x.TipoDescricao).HasMaxLength(60);
+            b.Property(x => x.StatusDescricao).HasMaxLength(60);
+            b.Property(x => x.CodFuncaoOrigem).HasMaxLength(20);
+            b.Property(x => x.FuncaoOrigemNome).HasMaxLength(160);
+            b.Property(x => x.CodSecaoOrigem).HasMaxLength(60);
+            b.Property(x => x.CodSecaoDestino).HasMaxLength(60);
+            b.Property(x => x.CodFuncaoDestino).HasMaxLength(20);
+            b.Property(x => x.FuncaoDestinoNome).HasMaxLength(160);
+            b.Property(x => x.SalarioOrigem).HasPrecision(18, 2);
+            b.Property(x => x.SalarioDestino).HasPrecision(18, 2);
+            b.HasIndex(x => new { x.TenantId, x.IdReqRm }).IsUnique();
+            b.HasIndex(x => x.ChapaRm);
+            b.HasIndex(x => x.TipoMovimentacao);
+            b.HasIndex(x => x.FuncionarioId);
+            b.HasOne(x => x.Funcionario)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<Desligamento>(b =>
+        {
+            b.ToTable("Desligamentos");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.IdReqRm).HasMaxLength(40).IsRequired();
+            b.Property(x => x.ChapaRm).HasMaxLength(20).IsRequired();
+            b.Property(x => x.CodMotivoRescisao).HasMaxLength(10);
+            b.Property(x => x.MotivoRescisaoDescricao).HasMaxLength(120);
+            b.Property(x => x.TipoRescisaoDescricao).HasMaxLength(120);
+            b.HasIndex(x => new { x.TenantId, x.IdReqRm }).IsUnique();
+            b.HasIndex(x => x.ChapaRm);
+            b.HasIndex(x => x.CodStatus);
+            b.HasIndex(x => x.GerouSubstituicao);
+            b.HasOne(x => x.Funcionario)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioId)
+                .OnDelete(DeleteBehavior.SetNull);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -813,8 +882,26 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.LinkedinUrl).HasMaxLength(260);
             b.Property(x => x.ResumoProfissional).HasMaxLength(2000);
             b.Property(x => x.Obs).HasMaxLength(2000);
+            // Documentos LUC-122
+            b.Property(x => x.Sexo).HasMaxLength(1);
+            b.Property(x => x.EstadoCivil).HasMaxLength(2);
+            b.Property(x => x.Naturalidade).HasMaxLength(120);
+            b.Property(x => x.EstadoNatal).HasMaxLength(2);
+            b.Property(x => x.GrauInstrucao).HasMaxLength(5);
+            b.Property(x => x.RgOrgEmissor).HasMaxLength(20);
+            b.Property(x => x.RgUf).HasMaxLength(2);
+            b.Property(x => x.CarteiraTrabalho).HasMaxLength(20);
+            b.Property(x => x.CarteiraTrabalhoSerie).HasMaxLength(10);
+            b.Property(x => x.CarteiraTrabalhoUf).HasMaxLength(2);
+            b.Property(x => x.NumeroPis).HasMaxLength(20);
+            b.Property(x => x.TituloEleitor).HasMaxLength(20);
+            b.Property(x => x.TituloEleitorZona).HasMaxLength(10);
+            b.Property(x => x.TituloEleitorSecao).HasMaxLength(10);
+            b.Property(x => x.CertificadoReservista).HasMaxLength(20);
+            b.Property(x => x.CategoriaMilitar).HasMaxLength(2);
 
             b.HasIndex(x => new { x.TenantId, x.Email });
+            b.HasIndex(x => new { x.TenantId, x.Cpf });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -1000,6 +1087,16 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Phone).HasMaxLength(40);
             b.Property(x => x.Notes).HasMaxLength(1000);
             b.Property(x => x.Headcount);
+            b.Property(x => x.MatriculaRm).HasMaxLength(20);
+            b.HasIndex(x => new { x.TenantId, x.MatriculaRm });
+            b.Property(x => x.CodSituacaoRm).HasMaxLength(5);
+            b.Property(x => x.SituacaoRmDescricao).HasMaxLength(60);
+            b.HasIndex(x => new { x.TenantId, x.CodSituacaoRm });
+
+            b.HasOne(x => x.Hierarquia)
+                .WithMany()
+                .HasForeignKey(x => x.HierarquiaId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             b.HasOne(x => x.Pessoa)
                 .WithMany()
@@ -1351,6 +1448,20 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.GestorRequisitante).HasMaxLength(120);
             b.Property(x => x.RecrutadorResponsavel).HasMaxLength(120);
             b.Property(x => x.PublicoAfirmativo).HasMaxLength(120);
+
+            // Integração TOTVS RM (refactor 2026-04-26)
+            b.Property(x => x.IdReqRmOrigem).HasMaxLength(40);
+            b.Property(x => x.OrigemTipo).HasConversion<short>();
+            b.HasIndex(x => x.OrigemTipo);
+            b.HasIndex(x => x.IdReqRmOrigem);
+            b.HasOne(x => x.Hierarquia)
+                .WithMany()
+                .HasForeignKey(x => x.HierarquiaId)
+                .OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.OrigemDesligamento)
+                .WithMany()
+                .HasForeignKey(x => x.OrigemDesligamentoId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             b.Property(x => x.ProjetoNome).HasMaxLength(160);
             b.Property(x => x.ProjetoClienteAreaImpactada).HasMaxLength(160);
@@ -1723,6 +1834,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Nivel).HasMaxLength(60);
             b.Property(x => x.AreaPrincipal).HasMaxLength(120);
             b.Property(x => x.Situacao).HasMaxLength(40);
+            b.Property(x => x.DataConclusao).HasMaxLength(20);
             b.Property(x => x.Destaques).HasMaxLength(260);
 
             b.HasOne(x => x.Candidato)

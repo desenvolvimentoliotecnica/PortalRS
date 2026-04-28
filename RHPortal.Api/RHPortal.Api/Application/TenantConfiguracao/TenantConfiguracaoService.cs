@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using RhPortal.Api.Application.Ai;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
@@ -40,6 +42,52 @@ public sealed class ConfiguracaoHeadcountRequest
     public string? BlipApiKey { get; set; }
 }
 
+// ── DTOs de IA por tenant (Fase 3 LLM-agnóstico) ──
+
+/// <summary>
+/// Configuração de provider de IA por tenant.
+/// Quando algum campo é <c>null</c>, o sistema cai no default global (<c>appsettings.Ai.*</c>).
+/// </summary>
+public sealed class TenantAiConfigDto
+{
+    public string? LlmProvider { get; set; }
+    public string? LlmModel { get; set; }
+    public string? EmbeddingProvider { get; set; }
+    public string? EmbeddingModel { get; set; }
+
+    /// <summary>Lista de providers conhecidos pelo factory — para popular dropdowns na UI.</summary>
+    public IReadOnlyList<string> KnownProviders { get; set; } = new List<string>();
+
+    /// <summary>
+    /// Lista de providers que têm chave **realmente cadastrada** (Master.AiProviderKey ativa
+    /// OU appsettings.Ai.{Provider}.ApiKey preenchida). A UI tenant só deve mostrar esses
+    /// no dropdown — providers sem chave levariam a erro.
+    /// (Fase 4 LLM-agnóstico, 2026-04-26.)
+    /// </summary>
+    public IReadOnlyList<string> AvailableProviders { get; set; } = new List<string>();
+
+    /// <summary>
+    /// <c>true</c> se o módulo <c>"ai"</c> está habilitado pelo owner para este tenant.
+    /// Quando <c>false</c>, todas as features IA estão indisponíveis e a UI deve mostrar
+    /// um aviso "IA não habilitada — contate o suporte".
+    /// </summary>
+    public bool AiEnabled { get; set; } = true;
+
+    /// <summary>Provider que está sendo efetivamente usado AGORA neste tenant (após resolução override + global).</summary>
+    public string EffectiveLlmProvider { get; set; } = "openai";
+    public string EffectiveLlmModel { get; set; } = "";
+    public string EffectiveEmbeddingProvider { get; set; } = "openai";
+    public string EffectiveEmbeddingModel { get; set; } = "";
+}
+
+public sealed class TenantAiConfigRequest
+{
+    public string? LlmProvider { get; set; }
+    public string? LlmModel { get; set; }
+    public string? EmbeddingProvider { get; set; }
+    public string? EmbeddingModel { get; set; }
+}
+
 // ── Service ──
 
 public interface ITenantConfiguracaoService
@@ -48,17 +96,37 @@ public interface ITenantConfiguracaoService
     Task<TenantConfiguracaoDto> UpsertAsync(TenantConfiguracaoUpsertRequest request, CancellationToken ct);
     Task<ConfiguracaoHeadcountDto> GetHeadcountConfigAsync(CancellationToken ct);
     Task<ConfiguracaoHeadcountDto> UpsertHeadcountConfigAsync(ConfiguracaoHeadcountRequest request, CancellationToken ct);
+
+    /// <summary>Retorna a configuração de IA do tenant, mais o "effective" depois de resolver fallbacks.</summary>
+    Task<TenantAiConfigDto> GetAiConfigAsync(CancellationToken ct);
+
+    /// <summary>Atualiza os 4 campos de provider/modelo de IA. Strings vazias ou whitespace viram <c>null</c>.</summary>
+    Task<TenantAiConfigDto> UpsertAiConfigAsync(TenantAiConfigRequest request, CancellationToken ct);
 }
 
 public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly IAiProviderFactory _aiProviderFactory;
+    private readonly AiOptions _aiOptions;
+    private readonly MasterDbContext _masterDb;
+    private readonly ITenantAiSettingsResolver _aiResolver;
 
-    public TenantConfiguracaoService(AppDbContext db, ITenantContext tenantContext)
+    public TenantConfiguracaoService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IAiProviderFactory aiProviderFactory,
+        IOptions<AiOptions> aiOptions,
+        MasterDbContext masterDb,
+        ITenantAiSettingsResolver aiResolver)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _aiProviderFactory = aiProviderFactory;
+        _aiOptions = aiOptions?.Value ?? new AiOptions();
+        _masterDb = masterDb;
+        _aiResolver = aiResolver;
     }
 
     public async Task<TenantConfiguracaoDto> GetAsync(CancellationToken ct)
@@ -154,4 +222,134 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         AprovadorRhId = c.AprovadorRhId,
         AprovadorRhNome = c.AprovadorRh?.Name,
     };
+
+    // ────────── IA por tenant (Fase 3 LLM-agnóstico) ──────────
+
+    public async Task<TenantAiConfigDto> GetAiConfigAsync(CancellationToken ct)
+    {
+        var config = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
+        return await BuildAiConfigDtoAsync(config, ct);
+    }
+
+    public async Task<TenantAiConfigDto> UpsertAiConfigAsync(TenantAiConfigRequest request, CancellationToken ct)
+    {
+        var config = await _db.TenantConfiguracoes.FirstOrDefaultAsync(ct);
+        if (config is null)
+        {
+            config = new Domain.Entities.TenantConfiguracao
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId ?? "",
+            };
+            _db.TenantConfiguracoes.Add(config);
+        }
+
+        config.LlmProvider = NormalizeProviderName(request.LlmProvider);
+        config.LlmModel = NullIfBlank(request.LlmModel);
+        config.EmbeddingProvider = NormalizeProviderName(request.EmbeddingProvider);
+        config.EmbeddingModel = NullIfBlank(request.EmbeddingModel);
+        config.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return await BuildAiConfigDtoAsync(config, ct);
+    }
+
+    private async Task<TenantAiConfigDto> BuildAiConfigDtoAsync(Domain.Entities.TenantConfiguracao? config, CancellationToken ct)
+    {
+        var dto = new TenantAiConfigDto
+        {
+            LlmProvider = config?.LlmProvider,
+            LlmModel = config?.LlmModel,
+            EmbeddingProvider = config?.EmbeddingProvider,
+            EmbeddingModel = config?.EmbeddingModel,
+            KnownProviders = _aiProviderFactory.KnownProviders,
+            AvailableProviders = await ComputeAvailableProvidersAsync(ct),
+            AiEnabled = await _aiResolver.IsAiEnabledAsync(ct),
+        };
+
+        // "Effective" = depois de resolver fallbacks. Mostra ao usuário o que vai
+        // realmente acontecer ao chamar IA agora.
+        var defaultProvider = string.IsNullOrWhiteSpace(_aiOptions.DefaultProvider)
+            ? "openai"
+            : _aiOptions.DefaultProvider.Trim().ToLowerInvariant();
+        var llmProvider = (config?.LlmProvider ?? defaultProvider).ToLowerInvariant();
+        var embeddingProvider = (config?.EmbeddingProvider ?? defaultProvider).ToLowerInvariant();
+
+        dto.EffectiveLlmProvider = llmProvider;
+        dto.EffectiveLlmModel = !string.IsNullOrWhiteSpace(config?.LlmModel)
+            ? config!.LlmModel!
+            : DefaultChatModelFor(llmProvider);
+        dto.EffectiveEmbeddingProvider = embeddingProvider;
+        dto.EffectiveEmbeddingModel = !string.IsNullOrWhiteSpace(config?.EmbeddingModel)
+            ? config!.EmbeddingModel!
+            : DefaultEmbeddingModelFor(embeddingProvider);
+
+        return dto;
+    }
+
+    private string DefaultChatModelFor(string provider) => provider switch
+    {
+        "gemini" => _aiOptions.Gemini?.DefaultModel ?? "gemini-2.5-flash",
+        "anthropic" => _aiOptions.Anthropic?.DefaultModel ?? "claude-3-5-sonnet-20241022",
+        "ollama" => _aiOptions.Ollama?.ChatModel ?? "qwen2.5:7b",
+        _ => _aiOptions.OpenAI?.DefaultModel ?? "gpt-4o-mini",
+    };
+
+    private string DefaultEmbeddingModelFor(string provider) => provider switch
+    {
+        "gemini" => "models/gemini-embedding-001",
+        "ollama" => _aiOptions.Ollama?.EmbeddingModel ?? "bge-m3",
+        // Anthropic não fornece embeddings — cai em OpenAI no fallback do factory Python
+        _ => "text-embedding-3-small",
+    };
+
+    /// <summary>
+    /// Computa quais providers têm chave realmente cadastrada (Master.AiProviderKey
+    /// ativa OU appsettings.Ai.{Provider}.ApiKey preenchida). Ollama é considerado
+    /// "available" se <c>Ai.Ollama.Enabled = true</c> (não exige chave).
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ComputeAvailableProvidersAsync(CancellationToken ct)
+    {
+        var available = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Master DB — AiProviderKey ativos
+        var dbKeys = await _masterDb.AiProviderKeys
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .Select(x => x.Provider)
+            .ToListAsync(ct);
+        foreach (var raw in dbKeys)
+        {
+            var norm = NormalizeProviderName(raw);
+            if (norm is not null) available.Add(norm);
+        }
+
+        // 2. appsettings.Ai.* fallback
+        if (!string.IsNullOrWhiteSpace(_aiOptions.OpenAI?.ApiKey)) available.Add("openai");
+        if (!string.IsNullOrWhiteSpace(_aiOptions.Gemini?.ApiKey)) available.Add("gemini");
+        if (!string.IsNullOrWhiteSpace(_aiOptions.Anthropic?.ApiKey)) available.Add("anthropic");
+
+        // 3. Ollama: sem chave; considerado disponível quando Enabled = true
+        if (_aiOptions.Ollama?.Enabled == true) available.Add("ollama");
+
+        return available.ToList();
+    }
+
+    private static string? NullIfBlank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static string? NormalizeProviderName(string? raw)
+    {
+        var v = NullIfBlank(raw);
+        if (v is null) return null;
+        var lower = v.ToLowerInvariant();
+        // Whitelist defensiva — evita gravar valores estranhos.
+        return lower switch
+        {
+            "openai" or "gpt" or "azure" => "openai",
+            "gemini" or "google" => "gemini",
+            "anthropic" or "claude" => "anthropic",
+            "ollama" or "local" => "ollama",
+            _ => null, // unknown → trata como "use default"
+        };
+    }
 }

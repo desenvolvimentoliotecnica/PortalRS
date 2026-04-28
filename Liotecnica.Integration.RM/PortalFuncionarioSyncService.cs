@@ -7,9 +7,19 @@ using Microsoft.Extensions.Options;
 namespace Liotecnica.Integration.RM;
 
 /// <summary>
-/// Envia o Funcionário do RM (SEMPRESAFUNCIONARIO / funcionario.json) para a API do Portal como Funcionario (api/funcionarios).
-/// SEMPRESAFUNCIONARIO tem NOME, EMAIL, CHAPA, CARGO, ATIVO (ativo/desligado).
-/// Se o RM disponibilizar códigos como CODFILIAL/CODSECAO na extração, o sync tenta resolver UnitId/CentroCustoId via Code já cadastrado no Portal (api/units, api/centros-custo).
+/// Sincroniza funcionários do TOTVS RM (<c>dbo.PFUNC</c>) para a API do Portal
+/// (<c>POST /api/funcionarios/sync-rm/bulk</c>).
+///
+/// Fluxo (refactor 2026-04-26 — substituiu o fallback antigo PPESSOA→Funcionário):
+/// 1. Lê <c>funcionario.json</c> (= PFUNC) — fonte autoritativa de funcionários TOTVS Liotécnica.
+/// 2. Filtra apenas <c>CODSITUACAO IN ('A','F','P')</c> (~637 ativos de 5314).
+/// 3. JOIN in-memory com <c>pessoa.json</c> (PPESSOA) via <c>CODPESSOA</c> pra obter
+///    nome real, e-mail real, CPF, telefone, data de nascimento.
+/// 4. JOIN in-memory com <c>funcao.json</c> (PFUNCAO) pra resolver
+///    <c>PFUNC.CODFUNCAO → PFUNCAO.CARGO</c> (= código do PCARGO no Portal).
+/// 5. JOIN in-memory com <c>transf_promocao.json</c> (VREQTRANSFPROMOCAO) pra obter
+///    a última hierarquia destino aprovada por CHAPA (38% dos ativos têm).
+/// 6. Envia bulk com chaves crus (códigos RM) — endpoint resolve FKs internamente.
 /// </summary>
 public sealed class PortalFuncionarioSyncService
 {
@@ -18,36 +28,55 @@ public sealed class PortalFuncionarioSyncService
     private readonly OutputOptions _outputOptions;
     private readonly IHostEnvironment _env;
     private readonly ExtractionLogWriter _logWriter;
+    private readonly RmSyncOptions _syncOptions;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString,
+        Converters = { new NumberOrStringConverter() },
     };
+
+    /// <summary>Lê string ou número e devolve como string. PPESSOA tem NIT/TITULOELEITOR/etc como number puro.</summary>
+    private sealed class NumberOrStringConverter : JsonConverter<string?>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.TokenType switch
+            {
+                JsonTokenType.String => reader.GetString(),
+                JsonTokenType.Number => reader.TryGetInt64(out var l) ? l.ToString() : reader.GetDecimal().ToString(System.Globalization.CultureInfo.InvariantCulture),
+                JsonTokenType.Null => null,
+                JsonTokenType.True => "true",
+                JsonTokenType.False => "false",
+                _ => reader.GetString(),
+            };
+        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
+        {
+            if (value is null) writer.WriteNullValue();
+            else writer.WriteStringValue(value);
+        }
+    }
 
     public PortalFuncionarioSyncService(
         ILogger<PortalFuncionarioSyncService> logger,
         PortalApiClient portalClient,
         IOptions<OutputOptions> outputOptions,
+        IOptions<RmSyncOptions> syncOptions,
         IHostEnvironment env,
         ExtractionLogWriter logWriter)
     {
         _logger = logger;
         _portalClient = portalClient;
         _outputOptions = outputOptions.Value;
+        _syncOptions = syncOptions.Value;
         _env = env;
         _logWriter = logWriter;
     }
 
-    /// <summary>
-    /// Lê funcionario.json (SEMPRESAFUNCIONARIO) e envia para api/funcionarios. Não propaga exceções.
-    /// </summary>
     public async Task SyncFuncionariosFromFuncionarioJsonAsync(CancellationToken ct = default)
     {
-        try
-        {
-            await SyncFuncionariosFromFuncionarioJsonCoreAsync(ct);
-        }
+        try { await SyncCoreAsync(ct); }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Sync Funcionários: falha geral.");
@@ -55,339 +84,169 @@ public sealed class PortalFuncionarioSyncService
         }
     }
 
-    private async Task SyncFuncionariosFromFuncionarioJsonCoreAsync(CancellationToken ct)
+    private async Task SyncCoreAsync(CancellationToken ct)
     {
         var path = GetSchemaTablesPath();
-        var funcionarioFile = Path.Combine(path, "funcionario.json");
-        if (File.Exists(funcionarioFile))
+        var pfuncFile = Path.Combine(path, "funcionario.json");
+        if (!File.Exists(pfuncFile))
         {
-            var json = await File.ReadAllTextAsync(funcionarioFile, ct);
-            var items = JsonSerializer.Deserialize<List<FuncionarioRow>>(json, JsonOptions);
-            if (items is not null && items.Count > 0)
-            {
-                var codeToRequisitoCategoriaId = await LoadRequisitoCategoriasByCodeAsync(ct);
-                var codeToUnitId = await LoadUnitsByCodeAsync(ct);
-                var codeToCentroCustoId = await LoadCentrosCustoByCodeAsync(ct);
-
-                await SyncFuncionariosFromRowsAsync(items, (row) =>
-                {
-                    var chapa = (row.Chapa ?? "").Trim();
-                    var name = (row.Nome ?? "").Trim();
-                    var email = (row.Email ?? "").Trim();
-                    if (string.IsNullOrEmpty(email)) email = string.IsNullOrEmpty(chapa) ? null : $"{chapa}@rm.sync";
-                    if (string.IsNullOrEmpty(email)) return (null, null, null, null, null, null, null, null);
-                    if (string.IsNullOrEmpty(name)) name = chapa ?? email;
-                    var statusStr = IsAtivo(row.Ativo) ? "Active" : "Inactive";
-                    var notes = string.IsNullOrEmpty(chapa) ? null : $"RM CHAPA={chapa}";
-                    var funcaoCode = (row.Funcao ?? "").Trim();
-                    var requisitoCategoriaId = string.IsNullOrEmpty(funcaoCode) ? null : (codeToRequisitoCategoriaId.TryGetValue(funcaoCode, out var id) ? id : (Guid?)null);
-
-                    var unitCode = NormalizeCode(GetFirstNonEmpty(
-                        GetAsCode(row.CodFilial),
-                        GetAsCode(row.CodFilialAlt),
-                        GetAsCode(row.CodEstabelecimento),
-                        GetAsCode(row.CodUnidade)));
-                    var ccCode = NormalizeCode(GetFirstNonEmpty(
-                        GetAsCode(row.CodSecao),
-                        GetAsCode(row.CodSecaoAlt),
-                        GetAsCode(row.CodDepartamento),
-                        GetAsCode(row.CodDepto)));
-
-                    Guid? unitId = null;
-                    if (!string.IsNullOrEmpty(unitCode) && codeToUnitId.TryGetValue(unitCode, out var uid))
-                        unitId = uid;
-
-                    Guid? centroCustoId = null;
-                    if (!string.IsNullOrEmpty(ccCode) && codeToCentroCustoId.TryGetValue(ccCode, out var ccId))
-                        centroCustoId = ccId;
-
-                    return (name, email, Trunc(row.Telefone, 40), statusStr, notes, requisitoCategoriaId, unitId, centroCustoId);
-                }, "SEMPRESAFUNCIONARIO", ct);
-                return;
-            }
-        }
-
-        _logWriter.WriteLine("Sync Funcionários: funcionario.json vazio ou ausente; sincronizando a partir de pessoa.json (PPESSOA).");
-        _logger.LogInformation("Funcionário: sincronizando a partir de pessoa.json (PPESSOA).");
-        var pessoaFile = Path.Combine(path, "pessoa.json");
-        if (!File.Exists(pessoaFile))
-        {
-            _logWriter.WriteLine("Sync Funcionários: pessoa.json não encontrado; pulando.");
+            _logWriter.WriteLine("Sync Funcionários: funcionario.json não encontrado; pulando.");
             return;
         }
-        var pessoaJson = await File.ReadAllTextAsync(pessoaFile, ct);
-        var pessoas = JsonSerializer.Deserialize<List<PessoaRowForFuncionario>>(pessoaJson, JsonOptions);
-        if (pessoas is null || pessoas.Count == 0)
+
+        var pfuncJson = await File.ReadAllTextAsync(pfuncFile, ct);
+        var pfuncRows = JsonSerializer.Deserialize<List<PfuncRow>>(pfuncJson, JsonOptions);
+        if (pfuncRows is null || pfuncRows.Count == 0)
         {
-            _logWriter.WriteLine("Sync Funcionários: nenhum registro em pessoa.json.");
+            _logWriter.WriteLine("Sync Funcionários: PFUNC vazio.");
             return;
         }
-        await SyncFuncionariosFromPessoaRowsAsync(pessoas, ct);
+
+        var pessoaByCodigo = await LoadPessoaLookupAsync(path, ct);
+        var pfuncaoCargoByCodigo = await LoadPfuncaoCargoLookupAsync(path, ct);
+        var ultimaHierarquiaByChapa = await LoadUltimaHierarquiaPorChapaAsync(path, ct);
+
+        // 2026-04-26: trazemos TODOS os PFUNC (ativos + desligados/inativos) pra:
+        //   - Vincular Desligamento.FuncionarioId mesmo de quem saiu (CODSITUACAO=D)
+        //   - Permitir histórico/auditoria
+        // O endpoint sync-rm/bulk recebe codSituacao e mapeia pra Funcionario.Status:
+        //   A,F,P → Active(1)  |  D,I,outros → Inactive(2)
+        // Tela de Funcionários filtra Active por default; toggle pra mostrar inativos.
+        // Dedup por CHAPA — TOTVS pode ter PFUNC duplicado em schemas TOTVSAUDIT.
+        // Quando há mais de 1, preferimos o registro ativo (CODSITUACAO IN A,F,P).
+        var todos = pfuncRows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Chapa))
+            .GroupBy(r => r.Chapa!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(r => new[] { "A", "F", "P" }.Contains((r.CodSituacao ?? "").Trim().ToUpperInvariant())).First())
+            .ToList();
+        var ativosCount = todos.Count(r => new[] { "A", "F", "P" }.Contains((r.CodSituacao ?? "").Trim().ToUpperInvariant()));
+        _logWriter.WriteLine($"Sync Funcionários: PFUNC total={pfuncRows.Count}, com chapa={todos.Count}, ativos={ativosCount}, inativos={todos.Count - ativosCount}");
+
+        var items = todos.Select(r =>
+        {
+            var pessoa = r.CodPessoa.HasValue && pessoaByCodigo.TryGetValue(r.CodPessoa.Value, out var p) ? p : null;
+
+            string? codCargo = null;
+            if (!string.IsNullOrWhiteSpace(r.CodFuncao) && pfuncaoCargoByCodigo.TryGetValue(r.CodFuncao.Trim(), out var pc))
+                codCargo = PortalCargoSyncService.ToPortalJobCode(pc);
+
+            int? idHierarquiaDestino = null;
+            if (ultimaHierarquiaByChapa.TryGetValue(r.Chapa!.Trim(), out var hier))
+                idHierarquiaDestino = hier;
+
+            var nome = (pessoa?.Nome ?? "").Trim();
+            if (nome.Length > 160) nome = nome.Substring(0, 160);
+
+            return new
+            {
+                chapa = r.Chapa.Trim(),
+                nome = string.IsNullOrEmpty(nome) ? "(sem nome)" : nome,
+                email = string.IsNullOrWhiteSpace(pessoa?.Email) ? null : pessoa!.Email!.Trim().ToLowerInvariant(),
+                cpf = string.IsNullOrWhiteSpace(pessoa?.Cpf) ? null : pessoa!.Cpf!.Trim(),
+                telefone = pessoa?.Telefone1?.Trim(),
+                dataAdmissao = r.DataAdmissao.HasValue ? DateOnly.FromDateTime(r.DataAdmissao.Value) : (DateOnly?)null,
+                dataNascimento = pessoa?.DtNascimento.HasValue == true ? DateOnly.FromDateTime(pessoa.DtNascimento.Value) : (DateOnly?)null,
+                codSituacao = r.CodSituacao,
+                codSecao = r.CodSecao,
+                codFuncao = r.CodFuncao,
+                codCargo,
+                codFilial = r.CodFilial,
+                idHierarquiaDestinoRm = idHierarquiaDestino,
+                codPessoa = r.CodPessoa,
+                codColigada = r.CodColigada,
+                // ── LUC-122: cadastro pessoal completo de PPESSOA ─────────
+                apelido = pessoa?.Apelido?.Trim(),
+                sexo = pessoa?.Sexo?.Trim(),
+                estadoCivil = pessoa?.EstadoCivil?.Trim(),
+                naturalidade = pessoa?.Naturalidade?.Trim(),
+                estadoNatal = pessoa?.EstadoNatal?.Trim(),
+                grauInstrucao = pessoa?.GrauInstrucao?.Trim(),
+                cep = pessoa?.Cep?.Trim(),
+                logradouro = pessoa?.Rua?.Trim(),
+                numeroEndereco = pessoa?.Numero?.Trim(),
+                complemento = pessoa?.Complemento?.Trim(),
+                bairro = pessoa?.Bairro?.Trim(),
+                cidade = pessoa?.Cidade?.Trim(),
+                uf = pessoa?.Estado?.Trim(),
+                rg = pessoa?.CartIdentidade?.Trim(),
+                rgOrgEmissor = pessoa?.OrgEmissorIdent?.Trim(),
+                rgUf = pessoa?.UfCartIdent?.Trim(),
+                rgDataEmissao = pessoa?.DtEmissaoIdent,
+                carteiraTrabalho = pessoa?.CarteiraTrab?.Trim(),
+                carteiraTrabalhoSerie = pessoa?.SerieCartTrab?.Trim(),
+                carteiraTrabalhoUf = pessoa?.UfCartTrab?.Trim(),
+                carteiraTrabalhoData = pessoa?.DtCartTrab,
+                numeroPis = pessoa?.Nit?.Trim(),
+                tituloEleitor = pessoa?.TituloEleitor?.Trim(),
+                tituloEleitorZona = pessoa?.ZonaTitEleitor?.Trim(),
+                tituloEleitorSecao = pessoa?.SecaoTitEleitor?.Trim(),
+                certificadoReservista = pessoa?.CertifReserv?.Trim(),
+                categoriaMilitar = pessoa?.CategMilitar?.Trim(),
+            };
+        }).ToList();
+
+        // Cap dedicado pra funcionários (sem confundir com MaxPessoasToSync que é só pra PPESSOA bulk).
+        // Default null = sem cap (envia todos os ~637 ativos).
+        if (_syncOptions.MaxFuncionariosToSync is int cap && cap > 0 && items.Count > cap)
+        {
+            _logWriter.WriteLine($"Sync Funcionários: limitando envio a {cap} (de {items.Count}) via RmSync:MaxFuncionariosToSync.");
+            items = items.Take(cap).ToList();
+        }
+
+        var body = new { items };
+        _logWriter.WriteLine($"Sync Funcionários: enviando {items.Count} funcionários ativos para api/funcionarios/sync-rm/bulk");
+
+        var resp = await _portalClient.Http.PostAsJsonAsync("api/funcionarios/sync-rm/bulk", body, JsonOptions, ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var msg = await resp.Content.ReadAsStringAsync(ct);
+            _logWriter.WriteLine($"Sync Funcionários: ERRO {resp.StatusCode}: {msg}");
+            _logger.LogWarning("POST api/funcionarios/sync-rm/bulk falhou: {Status} {Msg}", resp.StatusCode, msg);
+            return;
+        }
+
+        var result = await resp.Content.ReadFromJsonAsync<BulkResponse>(JsonOptions, ct);
+        _logWriter.WriteLine($"Sync Funcionários: OK — criados={result?.Created ?? 0}, atualizados={result?.Updated ?? 0}, pulados ativos={result?.Skipped ?? 0}, pulados inativos={result?.SkippedInactive ?? 0}, total enviado={result?.Total ?? 0}");
+        _logger.LogInformation("Sync Funcionários: criados={Created}, atualizados={Updated}, totalAtivos={TotalAtivos}",
+            result?.Created ?? 0, result?.Updated ?? 0, result?.Total ?? 0);
     }
 
-    /// <summary>Sync a partir de linhas de pessoa.json (PPESSOA): um Funcionário por Pessoa.</summary>
-    private async Task SyncFuncionariosFromPessoaRowsAsync(List<PessoaRowForFuncionario> rows, CancellationToken ct)
+    private async Task<Dictionary<int, PessoaRow>> LoadPessoaLookupAsync(string path, CancellationToken ct)
     {
-        var emailToExisting = await LoadExistingFuncionariosAsync(ct);
-        var attemptedThisBatch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var created = 0;
-        var skipped = 0;
-        var updated = 0;
-        _logWriter.WriteLine($"Sync Funcionários (de Pessoas): enviando até {rows.Count} itens (PPESSOA -> api/funcionarios)");
-
-        foreach (var row in rows)
-        {
-            try
-            {
-                var nome = (row.Nome ?? "").Trim();
-                if (string.IsNullOrEmpty(nome)) continue;
-                var email = (row.Email ?? "").Trim();
-                if (string.IsNullOrEmpty(email))
-                    email = $"codigo{row.Codigo}@rm.sync";
-                var key = email.Trim().ToLowerInvariant();
-                if (string.IsNullOrEmpty(key)) continue;
-                if (emailToExisting.TryGetValue(key, out _)) { skipped++; continue; }
-                if (attemptedThisBatch.Contains(key)) { skipped++; continue; }
-                attemptedThisBatch.Add(key);
-
-                var body = new
-                {
-                    name = nome.Length > 160 ? nome.Substring(0, 160) : nome,
-                    email = email.Length > 180 ? email.Substring(0, 180) : email,
-                    phone = Trunc(row.Telefone1, 40),
-                    status = "Active",
-                    headcount = 1,
-                    unitId = (Guid?)null,
-                    centroCustoId = (Guid?)null,
-                    jobPositionId = (Guid?)null,
-                    requisitoCategoriaId = (Guid?)null,
-                    notes = $"RM CODIGO={row.Codigo}",
-                    userId = (Guid?)null
-                };
-
-                var response = await _portalClient.Http.PostAsJsonAsync("api/funcionarios", body, JsonOptions, ct);
-                if (response.IsSuccessStatusCode)
-                {
-                    var f = await response.Content.ReadFromJsonAsync<FuncionarioResponse>(JsonOptions, ct);
-                    if (f != null && !string.IsNullOrEmpty(f.Email))
-                    {
-                        emailToExisting[f.Email.Trim().ToLowerInvariant()] = new ExistingFuncionario(f.Id, null, null); // pessoa path: sem unidade/CC
-                        created++;
-                    }
-                }
-                else
-                {
-                    var msg = await response.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Funcionários (Pessoas): ERRO {response.StatusCode} para Email={email}: {msg}");
-                    _logger.LogWarning("POST api/funcionarios falhou para Email={Email}: {Status} {Msg}", email, response.StatusCode, msg);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Falha ao enviar funcionário Codigo={Codigo}; continuando.", row.Codigo);
-                _logWriter.WriteLine($"Sync Funcionários (Pessoas): exceção para Codigo={row.Codigo}: {ex.Message}");
-            }
-        }
-
-        _logWriter.WriteLine($"Sync Funcionários (de Pessoas): concluído. Criados: {created}, atualizados: {updated}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Funcionários (de Pessoas): criados={Created}, atualizados={Updated}, já existentes: {Skipped}", created, updated, skipped);
+        var file = Path.Combine(path, "pessoa.json");
+        if (!File.Exists(file)) return new();
+        var json = await File.ReadAllTextAsync(file, ct);
+        var rows = JsonSerializer.Deserialize<List<PessoaRow>>(json, JsonOptions) ?? new();
+        return rows.Where(p => p.Codigo.HasValue).ToDictionary(p => p.Codigo!.Value, p => p);
     }
 
-    private async Task<Dictionary<string, Guid>> LoadRequisitoCategoriasByCodeAsync(CancellationToken ct)
+    private async Task<Dictionary<string, string>> LoadPfuncaoCargoLookupAsync(string path, CancellationToken ct)
     {
-        var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            var list = await _portalClient.Http.GetFromJsonAsync<List<RequisitoCategoriaItem>>("api/requisito-categorias", JsonOptions, ct);
-            if (list != null)
-                foreach (var x in list)
-                {
-                    var code = (x.Code ?? "").Trim();
-                    if (!string.IsNullOrEmpty(code))
-                        map[code] = x.Id;
-                }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha ao carregar funções (requisito-categorias); funcionário sem função.");
-        }
-        return map;
+        var file = Path.Combine(path, "funcao.json");
+        if (!File.Exists(file)) return new(StringComparer.OrdinalIgnoreCase);
+        var json = await File.ReadAllTextAsync(file, ct);
+        var rows = JsonSerializer.Deserialize<List<PfuncaoRow>>(json, JsonOptions) ?? new();
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Codigo) && !string.IsNullOrWhiteSpace(r.Cargo))
+            .GroupBy(r => r.Codigo!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Cargo!.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
-    private async Task SyncFuncionariosFromRowsAsync<T>(
-        List<T> items,
-        Func<T, (string? name, string? email, string? phone, string? statusStr, string? notes, Guid? requisitoCategoriaId, Guid? unitId, Guid? centroCustoId)> mapRow,
-        string sourceName,
-        CancellationToken ct)
+    private async Task<Dictionary<string, int>> LoadUltimaHierarquiaPorChapaAsync(string path, CancellationToken ct)
     {
-        _logWriter.WriteLine($"Sync Funcionários: enviando {items.Count} itens ({sourceName} -> api/funcionarios)");
-        var emailToExisting = await LoadExistingFuncionariosAsync(ct);
-        var created = 0;
-        var skipped = 0;
-        var updated = 0;
-        foreach (var row in items)
-        {
-            try
-            {
-                var (name, email, phone, statusStr, notes, requisitoCategoriaId, unitId, centroCustoId) = mapRow(row);
-                if (string.IsNullOrEmpty(email)) continue;
-                var key = email.Trim().ToLowerInvariant();
-                if (emailToExisting.TryGetValue(key, out var existing))
-                {
-                    // Sempre atualiza existente com payload completo do RM (preenche vazios e alinha status).
-                    var updateBody = new
-                    {
-                        name = (name ?? email).Length > 160 ? (name ?? email).Substring(0, 160) : (name ?? email),
-                        email = email.Length > 180 ? email.Substring(0, 180) : email,
-                        phone = phone,
-                        status = statusStr ?? "Active",
-                        headcount = 1,
-                        unitId = unitId ?? existing.UnitId,
-                        centroCustoId = centroCustoId ?? existing.CentroCustoId,
-                        jobPositionId = (Guid?)null,
-                        requisitoCategoriaId = requisitoCategoriaId,
-                        notes = notes
-                    };
-
-                    var resp = await _portalClient.Http.PutAsJsonAsync($"api/funcionarios/{existing.Id}", updateBody, JsonOptions, ct);
-                    if (resp.IsSuccessStatusCode)
-                    {
-                        emailToExisting[key] = existing with { UnitId = updateBody.unitId, CentroCustoId = updateBody.centroCustoId };
-                        updated++;
-                    }
-                    else
-                    {
-                        var msg = await resp.Content.ReadAsStringAsync(ct);
-                        _logWriter.WriteLine($"Sync Funcionários: ERRO {resp.StatusCode} no UPDATE para Email={email}: {msg}");
-                        _logger.LogWarning("PUT api/funcionarios/{Id} falhou para Email={Email}: {Status} {Msg}", existing.Id, email, resp.StatusCode, msg);
-                    }
-                    continue;
-                }
-
-                var body = new
-                {
-                    name = (name ?? email).Length > 160 ? (name ?? email).Substring(0, 160) : (name ?? email),
-                    email = email.Length > 180 ? email.Substring(0, 180) : email,
-                    phone = phone,
-                    status = statusStr ?? "Active",
-                    headcount = 1,
-                    unitId = unitId,
-                    centroCustoId = centroCustoId,
-                    jobPositionId = (Guid?)null,
-                    requisitoCategoriaId = requisitoCategoriaId,
-                    notes = notes,
-                    userId = (Guid?)null
-                };
-                var response = await _portalClient.Http.PostAsJsonAsync("api/funcionarios", body, JsonOptions, ct);
-                if (response.IsSuccessStatusCode)
-                {
-                    var f = await response.Content.ReadFromJsonAsync<FuncionarioResponse>(JsonOptions, ct);
-                    if (f != null && !string.IsNullOrEmpty(f.Email))
-                    {
-                        emailToExisting[f.Email.Trim().ToLowerInvariant()] = new ExistingFuncionario(f.Id, f.UnitId, f.CentroCustoId);
-                        created++;
-                    }
-                }
-                else
-                {
-                    var msg = await response.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Funcionários: ERRO {response.StatusCode} para Email={email}: {msg}");
-                    _logger.LogWarning("POST api/funcionarios falhou para Email={Email}: {Status} {Msg}", email, response.StatusCode, msg);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Falha ao enviar funcionário; continuando.");
-            }
-        }
-        _logWriter.WriteLine($"Sync Funcionários: concluído. Criados: {created}, atualizados: {updated}, já existentes: {skipped}");
-        _logger.LogInformation("Sync Funcionários: criados={Created}, atualizados={Updated}, já existentes: {Skipped}", created, updated, skipped);
-    }
-
-    private async Task<Dictionary<string, ExistingFuncionario>> LoadExistingFuncionariosAsync(CancellationToken ct)
-    {
-        var map = new Dictionary<string, ExistingFuncionario>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            var page = 1;
-            const int pageSize = 500;
-            while (true)
-            {
-                var paged = await _portalClient.Http.GetFromJsonAsync<PagedResult<FuncionarioGridRowResponse>>(
-                    $"api/funcionarios?page={page}&pageSize={pageSize}", JsonOptions, ct);
-                if (paged?.Items == null || paged.Items.Count == 0)
-                    break;
-                foreach (var f in paged.Items)
-                {
-                    var key = (f.Email ?? "").Trim().ToLowerInvariant();
-                    if (!string.IsNullOrEmpty(key))
-                        map[key] = new ExistingFuncionario(f.Id, f.UnitId, f.CentroCustoId);
-                }
-                if (page >= (paged.TotalPages ?? 1))
-                    break;
-                page++;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha ao carregar funcionários existentes do portal; assumindo nenhum.");
-            _logWriter.WriteLine($"Sync Funcionários: falha ao carregar existentes - {ex.Message}");
-        }
-        return map;
-    }
-
-    private async Task<Dictionary<string, Guid>> LoadUnitsByCodeAsync(CancellationToken ct)
-    {
-        var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            var page = 1;
-            const int pageSize = 500;
-            while (true)
-            {
-                var paged = await _portalClient.Http.GetFromJsonAsync<PagedResult<UnitGridRowResponse>>(
-                    $"api/units?page={page}&pageSize={pageSize}", JsonOptions, ct);
-                if (paged?.Items == null || paged.Items.Count == 0)
-                    break;
-                foreach (var u in paged.Items)
-                {
-                    var code = NormalizeCode(u.Code);
-                    if (!string.IsNullOrEmpty(code))
-                        map[code] = u.Id;
-                }
-                if (page >= (paged.TotalPages ?? 1))
-                    break;
-                page++;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha ao carregar units do portal; funcionário ficará sem UnitId quando não resolver.");
-            _logWriter.WriteLine($"Sync Funcionários: falha ao carregar units - {ex.Message}");
-        }
-        return map;
-    }
-
-    private async Task<Dictionary<string, Guid>> LoadCentrosCustoByCodeAsync(CancellationToken ct)
-    {
-        var map = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            var list = await _portalClient.Http.GetFromJsonAsync<List<CentroCustoItem>>("api/centros-custo?take=5000", JsonOptions, ct);
-            if (list != null)
-                foreach (var cc in list)
-                {
-                    var code = NormalizeCode(cc.Code);
-                    if (!string.IsNullOrEmpty(code))
-                        map[code] = cc.Id;
-                }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Falha ao carregar centros de custo do portal; funcionário ficará sem CentroCustoId quando não resolver.");
-            _logWriter.WriteLine($"Sync Funcionários: falha ao carregar centros de custo - {ex.Message}");
-        }
-        return map;
+        var file = Path.Combine(path, "transf_promocao.json");
+        if (!File.Exists(file)) return new(StringComparer.OrdinalIgnoreCase);
+        var json = await File.ReadAllTextAsync(file, ct);
+        var rows = JsonSerializer.Deserialize<List<TransfPromocaoRow>>(json, JsonOptions) ?? new();
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Chapa)
+                        && r.IdHierarquiaDestino.HasValue
+                        && r.CodStatus == 4)
+            .GroupBy(r => r.Chapa!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(x => x.DataConclusao ?? DateTime.MinValue).First().IdHierarquiaDestino!.Value,
+                StringComparer.OrdinalIgnoreCase);
     }
 
     private string GetSchemaTablesPath()
@@ -399,105 +258,122 @@ public sealed class PortalFuncionarioSyncService
         return Path.GetFullPath(Path.Combine(contentRoot, "..", "Liotecnica.Integration.RM.Schema.Tables"));
     }
 
-    /// <summary>ATIVO: 'S', '1', 'Y', 's', 'y' = ativo; caso contrário = desligado/inativo.</summary>
-    private static bool IsAtivo(string? ativo)
-    {
-        if (string.IsNullOrWhiteSpace(ativo)) return true;
-        var v = ativo.Trim();
-        return v == "S" || v == "1" || v == "Y" || v.Equals("s", StringComparison.OrdinalIgnoreCase) || v.Equals("y", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string? Trunc(string? value, int max) => string.IsNullOrEmpty(value) ? null : (value.Length <= max ? value : value.Substring(0, max));
-
-    /// <summary>Linha de funcionario.json (SEMPRESAFUNCIONARIO do RM – colunas originais).</summary>
-    private sealed class FuncionarioRow
+    private sealed class PfuncRow
     {
         [JsonPropertyName("CHAPA")]
         public string? Chapa { get; set; }
-        [JsonPropertyName("NOME")]
-        public string? Nome { get; set; }
-        [JsonPropertyName("EMAIL")]
-        public string? Email { get; set; }
-        [JsonPropertyName("TELEFONE")]
-        public string? Telefone { get; set; }
-        [JsonPropertyName("CARGO")]
-        public string? Cargo { get; set; }
-        [JsonPropertyName("FUNCAO")]
-        public string? Funcao { get; set; }
-        [JsonPropertyName("ATIVO")]
-        public string? Ativo { get; set; }
         [JsonPropertyName("CODPESSOA")]
-        public int? Codpessoa { get; set; }
-
-        // Campos opcionais (dependem do schema real do SEMPRESAFUNCIONARIO).
-        // Se existirem na extração, usamos para resolver Unit/Area por código.
-        [JsonPropertyName("CODFILIAL")]
-        public JsonElement CodFilial { get; set; }
-        [JsonPropertyName("CODFILIALFUNCIONARIO")]
-        public JsonElement CodFilialAlt { get; set; }
-        [JsonPropertyName("CODESTAB")]
-        public JsonElement CodEstabelecimento { get; set; }
-        [JsonPropertyName("CODUNIDADE")]
-        public JsonElement CodUnidade { get; set; }
-
+        public int? CodPessoa { get; set; }
+        [JsonPropertyName("CODCOLIGADA")]
+        public int? CodColigada { get; set; }
         [JsonPropertyName("CODSECAO")]
-        public JsonElement CodSecao { get; set; }
-        [JsonPropertyName("CODIGOSECAO")]
-        public JsonElement CodSecaoAlt { get; set; }
-        [JsonPropertyName("CODDEPARTAMENTO")]
-        public JsonElement CodDepartamento { get; set; }
-        [JsonPropertyName("CODDEPTO")]
-        public JsonElement CodDepto { get; set; }
+        public string? CodSecao { get; set; }
+        [JsonPropertyName("CODFUNCAO")]
+        public string? CodFuncao { get; set; }
+        [JsonPropertyName("CODFILIAL")]
+        public int? CodFilial { get; set; }
+        [JsonPropertyName("CODSITUACAO")]
+        public string? CodSituacao { get; set; }
+        [JsonPropertyName("DATAADMISSAO")]
+        public DateTime? DataAdmissao { get; set; }
     }
 
-    /// <summary>Linha de pessoa.json (PPESSOA) usada para sync de Funcionários a partir de Pessoas.</summary>
-    private sealed class PessoaRowForFuncionario
+    private sealed class PessoaRow
     {
         [JsonPropertyName("CODIGO")]
-        public int Codigo { get; set; }
+        public int? Codigo { get; set; }
         [JsonPropertyName("NOME")]
         public string? Nome { get; set; }
+        [JsonPropertyName("APELIDO")]
+        public string? Apelido { get; set; }
+        [JsonPropertyName("CPF")]
+        public string? Cpf { get; set; }
         [JsonPropertyName("EMAIL")]
         public string? Email { get; set; }
         [JsonPropertyName("TELEFONE1")]
         public string? Telefone1 { get; set; }
+        [JsonPropertyName("DTNASCIMENTO")]
+        public DateTime? DtNascimento { get; set; }
+        // Pessoal
+        [JsonPropertyName("SEXO")]
+        public string? Sexo { get; set; }
+        [JsonPropertyName("ESTADOCIVIL")]
+        public string? EstadoCivil { get; set; }
+        [JsonPropertyName("NATURALIDADE")]
+        public string? Naturalidade { get; set; }
+        [JsonPropertyName("ESTADONATAL")]
+        public string? EstadoNatal { get; set; }
+        [JsonPropertyName("GRAUINSTRUCAO")]
+        public string? GrauInstrucao { get; set; }
+        // Endereço
+        [JsonPropertyName("CEP")]
+        public string? Cep { get; set; }
+        [JsonPropertyName("RUA")]
+        public string? Rua { get; set; }
+        [JsonPropertyName("NUMERO")]
+        public string? Numero { get; set; }
+        [JsonPropertyName("COMPLEMENTO")]
+        public string? Complemento { get; set; }
+        [JsonPropertyName("BAIRRO")]
+        public string? Bairro { get; set; }
+        [JsonPropertyName("CIDADE")]
+        public string? Cidade { get; set; }
+        [JsonPropertyName("ESTADO")]
+        public string? Estado { get; set; }
+        // RG
+        [JsonPropertyName("CARTIDENTIDADE")]
+        public string? CartIdentidade { get; set; }
+        [JsonPropertyName("ORGEMISSORIDENT")]
+        public string? OrgEmissorIdent { get; set; }
+        [JsonPropertyName("UFCARTIDENT")]
+        public string? UfCartIdent { get; set; }
+        [JsonPropertyName("DTEMISSAOIDENT")]
+        public DateTime? DtEmissaoIdent { get; set; }
+        // CTPS
+        [JsonPropertyName("CARTEIRATRAB")]
+        public string? CarteiraTrab { get; set; }
+        [JsonPropertyName("SERIECARTTRAB")]
+        public string? SerieCartTrab { get; set; }
+        [JsonPropertyName("UFCARTTRAB")]
+        public string? UfCartTrab { get; set; }
+        [JsonPropertyName("DTCARTTRAB")]
+        public DateTime? DtCartTrab { get; set; }
+        // PIS
+        [JsonPropertyName("NIT")]
+        public string? Nit { get; set; }
+        // Título eleitor
+        [JsonPropertyName("TITULOELEITOR")]
+        public string? TituloEleitor { get; set; }
+        [JsonPropertyName("ZONATITELEITOR")]
+        public string? ZonaTitEleitor { get; set; }
+        [JsonPropertyName("SECAOTITELEITOR")]
+        public string? SecaoTitEleitor { get; set; }
+        // Reservista
+        [JsonPropertyName("CERTIFRESERV")]
+        public string? CertifReserv { get; set; }
+        [JsonPropertyName("CATEGMILITAR")]
+        public string? CategMilitar { get; set; }
     }
 
-    /// <summary>Resposta da API: Status vem como string (JsonStringEnumConverter).</summary>
-    private sealed record FuncionarioResponse(Guid Id, string Name, string Email, string? Phone, string? Status, int Headcount,
-        Guid? UnitId, string? UnitName, Guid? CentroCustoId, string? CentroCustoDescricao, Guid? JobPositionId, string? JobPositionName,
-        Guid? RequisitoCategoriaId, string? RequisitoCategoriaName,
-        Guid? UserId, string? Notes, DateTimeOffset CreatedAtUtc, DateTimeOffset UpdatedAtUtc);
-
-    private sealed record FuncionarioGridRowResponse(Guid Id, string Name, string Email, string? Phone, string? Status, int Headcount,
-        Guid? UnitId, string? UnitName, Guid? CentroCustoId, string? CentroCustoDescricao, Guid? JobPositionId, string? JobPositionName,
-        Guid? RequisitoCategoriaId, string? RequisitoCategoriaName);
-
-    private sealed record PagedResult<T>(List<T>? Items, int Page, int PageSize, int TotalItems, int? TotalPages);
-
-    private sealed record RequisitoCategoriaItem(Guid Id, string Code, string Name);
-
-    private sealed record UnitGridRowResponse(Guid Id, string Name, string Code);
-
-    private sealed record CentroCustoItem(Guid Id, string Code, string Description);
-
-    private sealed record ExistingFuncionario(Guid Id, Guid? UnitId, Guid? CentroCustoId);
-
-    private static string? GetFirstNonEmpty(params string?[] values)
+    private sealed class PfuncaoRow
     {
-        foreach (var v in values)
-            if (!string.IsNullOrWhiteSpace(v))
-                return v.Trim();
-        return null;
+        [JsonPropertyName("CODIGO")]
+        public string? Codigo { get; set; }
+        [JsonPropertyName("CARGO")]
+        public string? Cargo { get; set; }
     }
 
-    private static string? GetAsCode(JsonElement el)
+    private sealed class TransfPromocaoRow
     {
-        if (el.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null) return null;
-        var s = el.ValueKind == JsonValueKind.String ? el.GetString() : el.ToString();
-        s = s?.Trim();
-        return string.IsNullOrEmpty(s) ? null : s;
+        [JsonPropertyName("CHAPA")]
+        public string? Chapa { get; set; }
+        [JsonPropertyName("IDHIERARQUIADESTINO")]
+        public int? IdHierarquiaDestino { get; set; }
+        [JsonPropertyName("DATACONCLUSAO")]
+        public DateTime? DataConclusao { get; set; }
+        [JsonPropertyName("CODSTATUS")]
+        public int? CodStatus { get; set; }
     }
 
-    private static string? NormalizeCode(string? code) => string.IsNullOrWhiteSpace(code) ? null : code.Trim();
+    private sealed record BulkResponse(int Created, int Updated, int Skipped, int SkippedInactive, int Total);
 }

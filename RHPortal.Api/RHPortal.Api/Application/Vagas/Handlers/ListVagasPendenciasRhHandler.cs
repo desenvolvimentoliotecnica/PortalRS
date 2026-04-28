@@ -115,7 +115,12 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    v.OrigemTipo,
+                    null, // SubstituindoNome — não carregado neste handler
+                    v.HierarquiaId,
+                    null, // HierarquiaDescricao — não carregada neste handler
+                    v.IdReqRmOrigem
                 ))
                 .ToList();
 

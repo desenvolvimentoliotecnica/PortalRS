@@ -23,7 +23,9 @@ if (runSyncOne)
     builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
     {
         ["RmSync:MaxTalentosToSync"] = "1",
-        ["RmSync:MaxCandidatosToSync"] = "1"
+        ["RmSync:MaxCandidatosToSync"] = "1",
+        // sync-one é smoke test — sem este cap, a API recebe 7938 POSTs em pessoa (~4h).
+        ["RmSync:MaxPessoasToSync"] = "1"
     });
 }
 if (runSyncClayton)
@@ -45,6 +47,10 @@ builder.Services.Configure<RmSyncOptions>(builder.Configuration.GetSection(RmSyn
 
 builder.Services.AddSingleton<ExtractionLogWriter>();
 builder.Services.AddSingleton<RmDataExtractor>();
+builder.Services.AddSingleton<PortalHierarquiaSyncService>();
+builder.Services.AddSingleton<PortalDesligamentoSyncService>();
+builder.Services.AddSingleton<PortalFuncionarioMovimentacaoSyncService>();
+builder.Services.AddSingleton<PortalEmpresaSyncService>();
 builder.Services.AddSingleton<PortalAreaSyncService>();
 builder.Services.AddSingleton<PortalCategoriaSyncService>();
 builder.Services.AddSingleton<PortalCargoSyncService>();

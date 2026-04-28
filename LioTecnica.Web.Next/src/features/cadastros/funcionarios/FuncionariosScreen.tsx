@@ -50,10 +50,16 @@ interface FuncItem {
     hasIncompleteData: boolean;
     unidadeLotacaoCode?: string;
     centroCustoCode?: string;
-    // TOTVS
+    // TOTVS Datasul
     cdnFuncionario?: string;
     cdnEmpresa?: string;
     cdnEstab?: string;
+    // TOTVS RM (refactor 2026-04-26)
+    matriculaRm?: string;
+    hierarquiaId?: string;
+    hierarquiaDescricao?: string;
+    codSituacaoRm?: string;
+    situacaoRmDescricao?: string;
 }
 
 interface FuncDetail {
@@ -407,6 +413,12 @@ export default function FuncionariosScreen() {
             cdnFuncionario: i.cdnFuncionario ? String(i.cdnFuncionario) : undefined,
             cdnEmpresa: i.cdnEmpresa ? String(i.cdnEmpresa) : undefined,
             cdnEstab: i.cdnEstab ? String(i.cdnEstab) : undefined,
+            // TOTVS RM
+            matriculaRm: i.matriculaRm ? String(i.matriculaRm) : undefined,
+            hierarquiaId: i.hierarquiaId ? String(i.hierarquiaId) : undefined,
+            hierarquiaDescricao: i.hierarquiaDescricao ? String(i.hierarquiaDescricao) : undefined,
+            codSituacaoRm: i.codSituacaoRm ? String(i.codSituacaoRm) : undefined,
+            situacaoRmDescricao: i.situacaoRmDescricao ? String(i.situacaoRmDescricao) : undefined,
         }));
         setRows(mapped);
         setScreenCache("/funcionarios", mapped);
@@ -877,6 +889,7 @@ export default function FuncionariosScreen() {
                             <TableHead>Empresa</TableHead>
                             <TableHead>Estab</TableHead>
                             <TableHead>Matrícula</TableHead>
+                            <TableHead title="CHAPA do TOTVS RM">RM</TableHead>
                             {(() => {
                                 const sortHead = (col: string, label: string) => {
                                     const active = sort === col;
@@ -909,6 +922,25 @@ export default function FuncionariosScreen() {
                                 <TableCell className="font-mono text-sm text-muted-foreground">{f.cdnEmpresa || "—"}</TableCell>
                                 <TableCell className="font-mono text-sm text-muted-foreground">{f.cdnEstab || "—"}</TableCell>
                                 <TableCell className="font-mono text-sm">{f.cdnFuncionario || "—"}</TableCell>
+                                <TableCell className="font-mono text-xs text-muted-foreground" title={f.hierarquiaDescricao ? `Hierarquia: ${f.hierarquiaDescricao}` : undefined}>
+                                    {f.matriculaRm ? (
+                                        <div className="flex flex-col gap-0.5">
+                                            <span>{f.matriculaRm}</span>
+                                            {f.situacaoRmDescricao && (
+                                                <span className={`inline-flex items-center px-1.5 py-0 text-[10px] font-medium rounded w-fit ${
+                                                    f.codSituacaoRm === "A" ? "bg-emerald-100 text-emerald-700"
+                                                    : f.codSituacaoRm === "F" ? "bg-blue-100 text-blue-700"
+                                                    : f.codSituacaoRm === "P" ? "bg-cyan-100 text-cyan-700"
+                                                    : f.codSituacaoRm === "D" ? "bg-rose-100 text-rose-700"
+                                                    : f.codSituacaoRm === "I" ? "bg-amber-100 text-amber-700"
+                                                    : "bg-slate-100 text-slate-600"
+                                                }`} title={`CODSITUACAO=${f.codSituacaoRm}`}>
+                                                    {f.situacaoRmDescricao}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ) : "—"}
+                                </TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-1.5">
                                         <span className="font-semibold">{f.nome}</span>

@@ -521,9 +521,11 @@ Consequência: com `EMBEDDING_PROVIDER=gemini`, os embeddings vão para a **colu
 |---|---|---|
 | **1** | Python: factory (OpenAI/Gemini/Ollama) | ✅ concluído (2026-04-25) |
 | **2** | API .NET provider-agnóstica (`UnifiedAiService` aceita OpenAI/Gemini/Anthropic via factory) | ✅ concluído (2026-04-25) |
-| 3 | Seleção por tenant (TenantConfiguracao + UI admin) | 📋 backlog |
-| 4 | Cadastro de chaves no Owner (`/Owner/IA` funcional) | 📋 backlog |
-| 5 | Observabilidade + docs operacionais | 📋 backlog |
+| **3** | Seleção por tenant (TenantConfiguracao + UI admin) | ✅ concluído (2026-04-25) |
+| **4** | Owner liga/desliga IA por tenant + UI tenant respeita disponibilidade real | ✅ concluído (2026-04-26) |
+| **5** | Observabilidade (log estruturado, métricas, 503 explícito) + runbook | ✅ concluído (2026-04-26) |
+
+**🎯 Épico LLM-agnóstico FECHADO.** Próximas evoluções voltam para o backlog ad-hoc (LUC-115 schema embeddings, LUC-116 resolver estrito, LUC-110b refactor `IOllamaClient` direto).
 
 Ver `lucasbacklog.md` (LUC-110..LUC-115 e derivados) para detalhes.
 
@@ -594,3 +596,203 @@ A resposta veio do `gemini-2.5-flash` via factory. Nenhuma chave OpenAI envolvid
 5. Adicione seção `Ai.Mistral` no `appsettings.json`
 
 Sem mexer em `UnifiedAiService` nem em nenhum caller existente.
+
+---
+
+## 18. Provider-agnóstico — Fase 3 (Seleção por tenant, 2026-04-25)
+
+### 18.1 O que mudou
+
+Cada tenant agora pode escolher **seu próprio provider** de LLM e embeddings — sem afetar outros tenants. A escolha é persistida no banco do tenant e tem prioridade sobre o default global do `appsettings.Ai`.
+
+### 18.2 Arquivos novos / modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `Domain/Entities/TenantConfiguracao.cs` | **+** 4 campos nullable: `LlmProvider`, `LlmModel`, `EmbeddingProvider`, `EmbeddingModel` |
+| `Migrations/20260425135252_AddLlmProviderFieldsToTenantConfiguracao.cs` | **nova** — migration EF totalmente idempotente (`ADD COLUMN IF NOT EXISTS`) cobrindo as 4 colunas + drift histórico do snapshot |
+| `Application/Ai/TenantAiSettingsResolver.cs` | **novo** — `ITenantAiSettingsResolver.GetCurrentAsync()` lê o `AppDbContext` do tenant atual (lazy via `IServiceProvider`); falhas degradam para `null` (cai no global) |
+| `Application/Ai/UnifiedAiService.cs` | resolução ganha **passo 0**: se `TenantConfiguracao.LlmProvider` preenchido, força esse provider (filtra `AiProviderKey` por nome e/ou usa fallback config do mesmo provider) |
+| `Application/TenantConfiguracao/TenantConfiguracaoService.cs` | **+** DTOs `TenantAiConfigDto`/`TenantAiConfigRequest`, métodos `GetAiConfigAsync` / `UpsertAiConfigAsync`. Whitelist de providers (`openai\|gemini\|anthropic\|ollama`); valores desconhecidos viram `null`. Calcula "effective" pós-fallback |
+| `Controllers/TenantConfiguracaoController.cs` | **+** endpoints `GET /api/tenant-configuracao/ai` e `PUT /api/tenant-configuracao/ai` (admin only) |
+| `Infrastructure/Ai/RHPortalAiMatchClient.cs` | injeta `ITenantAiSettingsResolver`; cada payload para o Python carrega `llm_provider`, `llm_model`, `embedding_provider`, `embedding_model` do tenant |
+| `RHPortal.Ai/app/request_context.py` | **novo** — `contextvars` com `RequestOverrides` + `use_request_overrides()` ContextManager |
+| `RHPortal.Ai/app/main.py` | `MatchRequest` + `EvaluateOneRequest` ganham 4 campos opcionais; endpoints envolvem chamadas em `with use_request_overrides(...)` |
+| `RHPortal.Ai/app/llm_factory.py` | `get_chat_llm()` e `get_embeddings_client()` consultam `request_context.get_overrides()` antes do default |
+| `LioTecnica.Web.Next/src/app/(app)/admin/ia/page.tsx` | **nova rota** `/app/admin/ia` (AuthGuard) |
+| `LioTecnica.Web.Next/src/features/admin/ia/IaConfigScreen.tsx` | **nova UI** — selects de provider, inputs de modelo, painel "effective", botão Salvar |
+| `Program.cs` | registra `ITenantAiSettingsResolver` no DI |
+
+### 18.3 Ordem de resolução final (Fase 1+2+3)
+
+```
+0. (Fase 3) Tenant escolheu provider em TenantConfiguracao.LlmProvider?
+   └─ SIM: força esse provider; filtra Master.AiProviderKey por nome,
+      cai em config Ai.{Provider} se sem chave em DB.
+1. (Fase 2) Senão, pega primeiro AiProviderKey ativo no Master DB.
+2. (Fase 2) Senão, fallback Ai.{OpenAI|Gemini|Anthropic} respeitando
+   Ai.DefaultProvider.
+3. Nada configurado → null.
+```
+
+### 18.4 Pipeline tenant-aware ponta-a-ponta
+
+```
+Browser
+  └─ POST /api/tenant-configuracao/ai  { llmProvider:"gemini", llmModel:"gemini-2.5-pro" }
+     ├─ TenantConfiguracaoService.UpsertAiConfigAsync
+     │  └─ persiste em TenantConfiguracoes
+     └─ retorna effective + knownProviders
+
+Browser
+  └─ GET /api/vagas/{id}/matching-candidates  (lê cache)
+
+API .NET (background recompute)
+  └─ RHPortalAiMatchClient.RunUnifiedMatchingAsync(vagaId, "liotecnica")
+     ├─ ITenantAiSettingsResolver.GetCurrentAsync()
+     │  └─ AppDbContext lazy → SELECT LlmProvider, LlmModel,...
+     └─ POST http://localhost:8000/matching/run  body com llm_provider/embedding_provider...
+
+RHPortal.Ai (Python)
+  └─ run_matching_endpoint
+     └─ with use_request_overrides(llm_provider="gemini", llm_model="gemini-2.5-pro"):
+        └─ run_unified_matching(...)
+           ├─ get_chat_llm()  → reads request_context → ChatGoogleGenerativeAI(model=2.5-pro)
+           └─ get_embeddings_client()  → reads request_context → ...
+```
+
+### 18.5 Smoke test executado (2026-04-25)
+
+```text
+=== Estado inicial: nenhum override ===
+effective = gemini / gemini-2.5-flash  (global, vindo de Ai.DefaultProvider)
+
+=== PUT liotecnica { provider:"anthropic", model:"claude-3-5-haiku" } ===
+persistido OK; effective = anthropic / claude-3-5-haiku-20241022
+
+=== dev (sem override) ===
+effective = gemini / gemini-2.5-flash  (cada tenant é isolado)
+
+=== /api/ai/invoke em ambos os tenants ===
+→ liotecnica: HTTP 200, content="Oi liotecnica!", cost=$5.97e-05
+→ dev:        HTTP 200, content="oi dev",          cost=$1.50e-05
+
+=== Revert liotecnica → null ===
+effective volta para gemini global
+```
+
+### 18.6 Observação operacional
+
+Quando o tenant escolhe um provider mas a **chave correspondente não está configurada** (nem em `Master.AiProviderKey`, nem em `appsettings.Ai.{Provider}.ApiKey`), o resolver atual cai silenciosamente no próximo provider com chave válida. Isso pode mascarar erros de configuração.
+
+Item **LUC-116** no backlog: tornar o comportamento "estrito" — se tenant escolheu provider X e não há chave para X, retornar 503 explícito em vez de fallback silencioso.
+
+---
+
+## 19. Provider-agnóstico — Fase 4 (Owner liga/desliga IA por tenant, 2026-04-26)
+
+### 19.1 O que mudou
+
+Owner ganhou o **switch master de IA por tenant** via o sistema de `TenantModule` que já existia. Agora a separação fica clara:
+
+- **Owner** controla **se** o tenant tem IA (módulo `ai` on/off) e **quais providers** estão disponíveis (chaves cadastradas em `/Owner/IA`)
+- **Admin do tenant** controla **qual** provider/modelo usar (entre os disponíveis), via `/app/admin/ia` (Fase 3)
+
+### 19.2 Arquivos novos / modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `Infrastructure/Modules/ModuleCatalog.cs` | **+** módulo standalone `"ai"` (transversal, sem `PackageKey`) |
+| `Application/Ai/TenantAiSettingsResolver.cs` | **+** `IsAiEnabledAsync()` consulta `TenantModuleService.GetEnabledModuleKeysAsync` |
+| `Application/Ai/UnifiedAiService.cs` | early-return no início do `InvokeAsync` se módulo `ai` desligado para o tenant atual |
+| `Application/TenantConfiguracao/TenantConfiguracaoService.cs` | `GetAiConfigAsync` agora popula `AvailableProviders` (intersecção entre Master DB + appsettings + Ollama enabled) e `AiEnabled`; `BuildAiConfigDto` virou async |
+| `LioTecnica.Web.Next/src/features/admin/ia/IaConfigScreen.tsx` | **+** banner amarelo "IA não habilitada" quando `aiEnabled=false`; **+** banner "nenhum provider com chave"; dropdowns filtrados via `buildProviderOptions(availableProviders)` |
+| `lucaschangelog.md`, `lucasbacklog.md`, `lucasMODULOS_FUNCIONALIDADES.md` | atualizados |
+
+> **UI `/Owner/IA` já existia funcional** (CRUD chaves OpenAI/Gemini/Anthropic + modelos + usage) — não precisei criar do zero. A doc anterior estava errada chamando-a de "esqueleto".
+
+### 19.3 Hierarquia de gating
+
+```
+Pergunta              Onde decide                      Onde grava
+────────────────────  ───────────────────────────────  ─────────────────────────
+Tenant tem IA?        Owner (toggle TenantModule)      Master.TenantModules
+Quais providers?      Owner (cadastra chave)           Master.AiProviderKeys
+                                                        + appsettings.Ai.*
+Qual provider usar?   Admin do tenant (/app/admin/ia)  AppDb.TenantConfiguracoes
+Qual modelo?          Admin do tenant                  AppDb.TenantConfiguracoes
+```
+
+### 19.4 Smoke test ponta-a-ponta (2026-04-26)
+
+| # | Cenário | Resultado |
+|---|---|---|
+| 1 | Estado inicial liotecnica: `aiEnabled=true`, `availableProviders=['gemini','ollama']` | ✅ |
+| 2 | `POST /api/ai/invoke` com módulo ON | `200 — "AI is on."` |
+| 3 | `PUT /api/owner/tenants/liotecnica/modules/ai {isEnabled:false}` | `200` |
+| 4 | `GET /api/tenant-configuracao/ai` reflete `aiEnabled=false` imediatamente | ✅ |
+| 5 | `POST /api/ai/invoke` com módulo OFF | `404` (UnifiedAiService retorna null → controller NotFound) |
+| 6 | Owner religa → `isEnabled:true` | `200` |
+| 7 | Invoke religado | `200 — "voltei"` |
+
+### 19.5 Comportamento da UI tenant
+
+- **Quando `aiEnabled=false`**: banner amarelo grande explicando que owner desabilitou; dropdowns continuam editáveis (admin pode pré-selecionar para quando for ativado), mas chamadas IA serão bloqueadas no servidor.
+- **Quando `availableProviders` está vazio**: banner amarelo separado avisando que owner não cadastrou nenhuma chave.
+- **Dropdowns**: mostram só providers com chave real cadastrada — não exibem opções que dariam erro.
+
+### 19.6 ~~Refinement LUC-117~~ ✅ entregue na Fase 5
+
+Resolvido. `AiController` agora retorna **`503 Service Unavailable`** com `ProblemDetails` estruturado, incluindo `reason` (`ModuleDisabled` / `NoProviderConfigured` / `ProviderResolutionFailed`) e `tenantId`. Ver §20.
+
+---
+
+## 20. Provider-agnóstico — Fase 5 (Observabilidade + runbook, 2026-04-26)
+
+### 20.1 O que mudou
+
+Fechamento do épico. 4 entregáveis:
+
+1. **LUC-117** — `AiController` retorna `503` com `ProblemDetails` em vez de `404` quando a IA está indisponível.
+2. **Logging estruturado** — `UnifiedAiService` loga cada chamada com `tenant`, `user`, `provider`, `model`, `module`, `latency_ms`, `cost_usd`. Bloqueios também são logados com `status=blocked reason=...`.
+3. **Endpoint `/api/admin/ai/metrics`** — métricas agregadas do tenant atual (totalCalls, totalCostUsd, breakdown por módulo/modelo/dia) baseadas em `AiUsageRecord`.
+4. **`lucasRUNBOOK_IA.md`** — runbook operacional: troubleshooting comum, rotação de chave sem downtime, mudar provider em prod, pegadinhas conhecidas, comandos cola-rápida.
+
+### 20.2 Arquivos novos / modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `Contracts/Ai/AiContracts.cs` | **+** `AiUnavailableReason` enum, **+** `AiInvokeOutcome` record |
+| `Application/Ai/UnifiedAiService.cs` | **+** `InvokeWithOutcomeAsync` que devolve outcome estruturado; `InvokeAsync` legacy delega; logging estruturado em todas as paths (sucesso, módulo off, sem provider, falha de resolução) |
+| `Controllers/AiController.cs` | usa `InvokeWithOutcomeAsync`; retorna `503` + `ProblemDetails` com `reason` + `tenantId` quando outcome.Reason ≠ null |
+| `Controllers/AiMetricsController.cs` | **novo** — `GET /api/admin/ai/metrics?days=N` (default 30, max 365). Admin-only. Por tenant. |
+| `lucasRUNBOOK_IA.md` | **novo** — 7 seções: visão 30s, sintomas, métricas, rotação, mudar provider, pegadinhas, escalação |
+
+### 20.3 Smoke test (validado 2026-04-26)
+
+```text
+1. Invoke ai=ON               → 200 "alpha"  cost=$8.1e-06
+2. Owner desliga módulo ai    → isEnabled=false
+3. Invoke ai=OFF              → 503 ProblemDetails {
+                                  type: "https://docs.renderrh.qualiit/ai/unavailable",
+                                  title: "IA desabilitada para este tenant",
+                                  detail: "...Contate o owner...",
+                                  reason: "ModuleDisabled",
+                                  tenantId: "liotecnica"
+                                }
+4. Religa + invoke            → 200 "beta"   cost=$7.2e-06
+5. /api/admin/ai/metrics?days=7 → JSON estruturado com totalCalls, byModule, byModel, byDay
+6. Logs:  ai.invoke tenant=liotecnica user=... provider=Gemini model=gemini-2.5-flash
+          module=smoke-fase5 latency_ms=1147 cost_usd=0.00000810 from_config=True content_len=5
+          ai.invoke tenant=liotecnica status=blocked reason=ModuleDisabled module=smoke-fase5-blocked
+```
+
+### 20.4 Limitação conhecida das métricas
+
+O endpoint `/api/admin/ai/metrics` agrega **`AiUsageRecord`**, que só é gravado quando o provider vem do **DB (`AiProviderKey`)**. Quando vem do **fallback `appsettings.Ai.{Provider}.ApiKey`** (caso de dev e tenants que ainda não cadastraram chave no Owner UI), o `from_config=true` é logado mas **não persiste em `AiUsageRecord`** — então as métricas mostram `totalCalls: 0` mesmo havendo chamadas.
+
+Em produção real, todos os tenants cadastram chave no Owner UI → `AiProviderKey` é usado → métricas funcionam normalmente. Em dev com fallback config, ler logs estruturados (`grep "ai.invoke" /tmp/renderrh-logs/api.log`).
+
+### 20.5 Como o runbook se relaciona
+
+`lucasRUNBOOK_IA.md` é o **manual operacional** complementar a este doc arquitetural. Quando algo quebra em prod, abrir o runbook primeiro — ele lista os 5 sintomas mais comuns + diagnóstico passo a passo + comandos cola-rápida.

@@ -8,6 +8,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
@@ -218,7 +219,12 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<MasterDbContext>("database_master")
-    .AddDbContextCheck<AppDbContext>("database");
+    .AddDbContextCheck<AppDbContext>("database")
+    // Fase 5 LLM-agnóstico — LUC-014: reporta status do serviço Python RHPortal.Ai.
+    // Usa Degraded quando Python responde mas não está pronto (não tira o app do ar).
+    .AddCheck<RhPortal.Api.Infrastructure.HealthChecks.RHPortalAiHealthCheck>(
+        "rhportal_ai",
+        failureStatus: HealthStatus.Degraded);
 
 // Tenancy
 builder.Services.AddScoped<ITenantContext, TenantContext>();
@@ -272,6 +278,8 @@ builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.GeminiProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProvider, RhPortal.Api.Application.Ai.AnthropicProvider>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IAiProviderFactory, RhPortal.Api.Application.Ai.AiProviderFactory>();
+// Fase 3 LLM-agnóstico — leitura de provider/modelo do tenant atual
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ITenantAiSettingsResolver, RhPortal.Api.Application.Ai.TenantAiSettingsResolver>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IUnifiedAiService, RhPortal.Api.Application.Ai.UnifiedAiService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();

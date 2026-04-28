@@ -10,23 +10,32 @@ namespace RhPortal.Api.Application.Ai;
 
 public interface IUnifiedAiService
 {
+    /// <summary>
+    /// Versão simplificada — retorna a resposta ou <c>null</c> sem distinguir motivo.
+    /// Usada por callers programáticos (CV extract, doc validation) que tratam
+    /// "sem IA" gracefully sem precisar do motivo.
+    /// </summary>
     Task<AiInvokeResponse?> InvokeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Versão estruturada — devolve <see cref="AiInvokeOutcome"/> com
+    /// <see cref="AiUnavailableReason"/> quando a IA não está disponível.
+    /// Usada pelos controllers para mapear corretamente para HTTP 503/422
+    /// (Fase 5 LLM-agnóstico, LUC-117).
+    /// </summary>
+    Task<AiInvokeOutcome> InvokeWithOutcomeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct);
 }
 
 /// <summary>
 /// Orquestra a invocação de provedores de IA (OpenAI / Gemini / Anthropic / ...)
-/// a partir de config (appsettings.Ai.*) OU do Master DB (AiProviderKey + AiModel).
-///
-/// <para><b>Ordem de resolução</b> (Fase 2 LLM-agnóstico):</para>
+/// a partir de:
 /// <list type="number">
-///   <item>Se há <c>AiProviderKey</c> ativo no Master DB → usa (prioridade máxima).</item>
-///   <item>Senão, tenta fallback por config: <c>Ai:OpenAI</c>, <c>Ai:Gemini</c>, <c>Ai:Anthropic</c>,
-///   respeitando <c>Ai:DefaultProvider</c> quando múltiplas seções têm chave preenchida.</item>
-///   <item>Se nada está configurado, retorna <c>null</c>.</item>
+///   <item><b>(Fase 3)</b> <c>TenantConfiguracao.LlmProvider</c> do tenant atual — se preenchido, vence.</item>
+///   <item><b>(Fase 2)</b> <c>AiProviderKey</c> ativo no Master DB.</item>
+///   <item><b>(Fase 2)</b> Fallback por <c>appsettings.Ai.*</c>, respeitando <c>Ai.DefaultProvider</c>.</item>
 /// </list>
-///
-/// O provider concreto é resolvido pelo <see cref="IAiProviderFactory"/>, o que
-/// permite adicionar novos providers sem mexer aqui.
+/// Sem nada configurado, retorna <c>null</c>. O provider concreto é resolvido
+/// pelo <see cref="IAiProviderFactory"/>.
 /// </summary>
 public sealed class UnifiedAiService : IUnifiedAiService
 {
@@ -34,6 +43,7 @@ public sealed class UnifiedAiService : IUnifiedAiService
     private readonly ISecretProtector _protector;
     private readonly IAiProviderFactory _factory;
     private readonly AiOptions _aiOptions;
+    private readonly ITenantAiSettingsResolver _tenantSettings;
     private readonly ILogger<UnifiedAiService> _logger;
 
     public UnifiedAiService(
@@ -41,33 +51,67 @@ public sealed class UnifiedAiService : IUnifiedAiService
         ISecretProtector protector,
         IAiProviderFactory factory,
         IOptions<AiOptions> aiOptions,
+        ITenantAiSettingsResolver tenantSettings,
         ILogger<UnifiedAiService> logger)
     {
         _db = db;
         _protector = protector;
         _factory = factory;
         _aiOptions = aiOptions?.Value ?? new AiOptions();
+        _tenantSettings = tenantSettings;
         _logger = logger;
     }
 
     public async Task<AiInvokeResponse?> InvokeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct)
     {
+        var outcome = await InvokeWithOutcomeAsync(tenantId, userId, userName, request, ct);
+        return outcome.Response;
+    }
+
+    public async Task<AiInvokeOutcome> InvokeWithOutcomeAsync(string tenantId, Guid? userId, string? userName, AiInvokeRequest request, CancellationToken ct)
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+
+        // Fase 4: gating por TenantModule. Se o owner desligou o módulo "ai",
+        // a IA não está disponível — mesmo havendo chave configurada.
+        if (!await _tenantSettings.IsAiEnabledAsync(ct))
+        {
+            _logger.LogInformation(
+                "ai.invoke tenant={Tenant} status=blocked reason=ModuleDisabled module={Module}",
+                tenantId, request.Module);
+            return new AiInvokeOutcome(null, AiUnavailableReason.ModuleDisabled,
+                $"O módulo de IA está desabilitado para o tenant '{tenantId}'. Contate o owner da plataforma.");
+        }
+
         var resolution = await ResolveProviderAsync(request, ct);
         if (resolution is null)
         {
             _logger.LogWarning(
-                "UnifiedAiService: nenhum provider configurado. Conhecidos pelo factory: {Known}",
-                string.Join(", ", _factory.KnownProviders));
-            return null;
+                "ai.invoke tenant={Tenant} status=blocked reason=NoProviderConfigured module={Module} known={Known}",
+                tenantId, request.Module, string.Join(",", _factory.KnownProviders));
+            return new AiInvokeOutcome(null, AiUnavailableReason.NoProviderConfigured,
+                "Nenhum provider de IA tem chave configurada. O owner precisa cadastrar uma chave em /Owner/IA ou no appsettings.Ai.");
         }
 
         var (providerName, decryptedKey, modelIdToUse, fromConfig, aiModelIdForUsage) = resolution;
 
         var provider = _factory.Resolve(providerName);
         if (provider is null)
-            return null;
+        {
+            _logger.LogWarning(
+                "ai.invoke tenant={Tenant} status=blocked reason=ProviderResolutionFailed provider={Provider}",
+                tenantId, providerName);
+            return new AiInvokeOutcome(null, AiUnavailableReason.ProviderResolutionFailed,
+                $"O provider '{providerName}' não foi reconhecido pelo factory.");
+        }
 
         var (content, cost) = await provider.InvokeAsync(decryptedKey, providerName, modelIdToUse, request.Payload, ct);
+        var elapsed = (DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
+
+        // Log estruturado — Fase 5 (observabilidade).
+        _logger.LogInformation(
+            "ai.invoke tenant={Tenant} user={User} provider={Provider} model={Model} module={Module} latency_ms={LatencyMs:F0} cost_usd={Cost:F8} from_config={FromConfig} content_len={ContentLen}",
+            tenantId, userName ?? "?", providerName, modelIdToUse, request.Module, elapsed, cost, fromConfig, content?.Length ?? 0);
 
         if (!fromConfig && aiModelIdForUsage.HasValue && !string.IsNullOrEmpty(content))
         {
@@ -88,7 +132,7 @@ public sealed class UnifiedAiService : IUnifiedAiService
             await _db.SaveChangesAsync(ct);
         }
 
-        return new AiInvokeResponse(content, cost);
+        return new AiInvokeOutcome(new AiInvokeResponse(content, cost), null);
     }
 
     // ──────────────────────────── resolução ────────────────────────────
@@ -102,10 +146,20 @@ public sealed class UnifiedAiService : IUnifiedAiService
 
     private async Task<ProviderResolution?> ResolveProviderAsync(AiInvokeRequest request, CancellationToken ct)
     {
-        // 1. Prioridade máxima: chave ativa no Master DB
-        var dbKey = await _db.AiProviderKeys
-            .AsNoTracking()
-            .Where(x => x.IsActive)
+        // 0. Override do TENANT (Fase 3): se TenantConfiguracao.LlmProvider preenchido,
+        //    força o provider escolhido pelo admin do tenant.
+        var tenantOverride = await _tenantSettings.GetCurrentAsync(ct);
+        var tenantProviderOverride = tenantOverride?.LlmProvider;
+        var tenantModelOverride = tenantOverride?.LlmModel;
+
+        // 1. Prioridade máxima: chave ativa no Master DB.
+        //    Se tenant escolheu um provider específico, filtra por ele; senão pega "primeiro ativo".
+        var dbKeyQuery = _db.AiProviderKeys.AsNoTracking().Where(x => x.IsActive);
+        if (!string.IsNullOrWhiteSpace(tenantProviderOverride))
+        {
+            dbKeyQuery = dbKeyQuery.Where(x => x.Provider != null && x.Provider.ToLower() == tenantProviderOverride);
+        }
+        var dbKey = await dbKeyQuery
             .OrderByDescending(x => x.IsDefault)
             .ThenBy(x => x.CreatedAtUtc)
             .FirstOrDefaultAsync(ct);
@@ -140,7 +194,10 @@ public sealed class UnifiedAiService : IUnifiedAiService
             }
 
             var decryptedKey = _protector.Decrypt(dbKey.EncryptedKey);
-            var modelId = model?.ModelId ?? DefaultModelFor(providerName);
+            // Modelo: tenant override > AiModel.IsDefault > DefaultModelFor
+            var modelId = !string.IsNullOrWhiteSpace(tenantModelOverride)
+                ? tenantModelOverride!
+                : (model?.ModelId ?? DefaultModelFor(providerName));
 
             return new ProviderResolution(
                 ProviderName: providerName,
@@ -151,7 +208,8 @@ public sealed class UnifiedAiService : IUnifiedAiService
         }
 
         // 2. Fallback: appsettings.Ai.*
-        var preferred = (_aiOptions.DefaultProvider ?? "openai").Trim().ToLowerInvariant();
+        //    Tenant override (se houver) ganha prioridade sobre Ai.DefaultProvider.
+        var preferred = (tenantProviderOverride ?? _aiOptions.DefaultProvider ?? "openai").Trim().ToLowerInvariant();
         var openAiKey = _aiOptions.OpenAI?.ApiKey?.Trim();
         var geminiKey = _aiOptions.Gemini?.ApiKey?.Trim();
         var anthropicKey = _aiOptions.Anthropic?.ApiKey?.Trim();
@@ -187,10 +245,17 @@ public sealed class UnifiedAiService : IUnifiedAiService
 
             if (!string.IsNullOrEmpty(key))
             {
+                // Se tenant tem override de modelo E o provider que estamos prestes a usar
+                // bate com o que o tenant pediu, respeita o LlmModel do tenant.
+                var effectiveModel = (!string.IsNullOrWhiteSpace(tenantModelOverride)
+                                      && string.Equals(providerName, tenantProviderOverride, StringComparison.OrdinalIgnoreCase))
+                    ? tenantModelOverride!
+                    : modelId;
+
                 return new ProviderResolution(
                     ProviderName: providerName!,
                     DecryptedKey: key,
-                    ModelId: modelId,
+                    ModelId: effectiveModel,
                     FromConfig: true,
                     AiModelIdForUsage: null);
             }

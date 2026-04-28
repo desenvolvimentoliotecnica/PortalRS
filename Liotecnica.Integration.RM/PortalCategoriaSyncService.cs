@@ -66,14 +66,21 @@ public sealed class PortalCategoriaSyncService
         }
 
         var json = await File.ReadAllTextAsync(file, ct);
-        var items = JsonSerializer.Deserialize<List<FuncaoRow>>(json, JsonOptions);
-        if (items is null || items.Count == 0)
+        var allItems = JsonSerializer.Deserialize<List<FuncaoRow>>(json, JsonOptions);
+        if (allItems is null || allItems.Count == 0)
         {
             _logWriter.WriteLine("Sync Funções: nenhum registro em funcao.json.");
             return;
         }
 
-        _logWriter.WriteLine($"Sync Funções: enviando {items.Count} itens (PFUNCAO -> Funções) para api/requisito-categorias");
+        // Bloco 9 (refactor 2026-04-26): só sincroniza funções ATIVAS (PFUNCAO.INATIVA != 1).
+        // Liotécnica tem 1564 PFUNCAOs no total mas a maioria é histórica/desligada — não precisa
+        // poluir o lookup do recrutador.
+        var totalRm = allItems.Count;
+        var items = allItems.Where(r => r.Inativa != 1).ToList();
+        var ignoradas = totalRm - items.Count;
+
+        _logWriter.WriteLine($"Sync Funções: PFUNCAO total={totalRm}, ativas={items.Count}, inativas ignoradas={ignoradas} (filtro INATIVA != 1)");
 
         var codeToId = await LoadExistingCategoriasAsync(ct);
 

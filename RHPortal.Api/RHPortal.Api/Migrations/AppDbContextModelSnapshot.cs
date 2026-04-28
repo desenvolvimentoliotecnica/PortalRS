@@ -255,17 +255,27 @@ namespace RhPortal.Api.Migrations
                     b.Property<int>("HeadcountAutorizado")
                         .HasColumnType("integer");
 
+                    b.Property<int>("HeadcountPendente")
+                        .HasColumnType("integer");
+
                     b.Property<int>("HeadcountProvisorio")
                         .HasColumnType("integer");
 
                     b.Property<DateTimeOffset?>("HeadcountProvisorioExpiresAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("HierarquiaId")
+                        .HasColumnType("uuid");
+
                     b.Property<TimeOnly?>("HoraEntrada")
                         .HasColumnType("time without time zone");
 
                     b.Property<TimeOnly?>("HoraSaida")
                         .HasColumnType("time without time zone");
+
+                    b.Property<string>("IdReqRmOrigem")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.Property<TimeSpan?>("Intervalo")
                         .HasColumnType("interval");
@@ -339,6 +349,12 @@ namespace RhPortal.Api.Migrations
                         .HasColumnType("character varying(240)");
 
                     b.Property<short?>("OrcamentoAprovado")
+                        .HasColumnType("smallint");
+
+                    b.Property<Guid?>("OrigemDesligamentoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<short>("OrigemTipo")
                         .HasColumnType("smallint");
 
                     b.Property<short?>("Periodicidade")
@@ -484,7 +500,15 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("EixoVagaId");
 
+                    b.HasIndex("HierarquiaId");
+
+                    b.HasIndex("IdReqRmOrigem");
+
                     b.HasIndex("JobPositionId");
+
+                    b.HasIndex("OrigemDesligamentoId");
+
+                    b.HasIndex("OrigemTipo");
 
                     b.HasIndex("RecrutadorResponsavelUserId");
 
@@ -2511,6 +2535,10 @@ namespace RhPortal.Api.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DataConclusao")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("Destaques")
                         .HasMaxLength(260)
                         .HasColumnType("character varying(260)");
@@ -3761,6 +3789,54 @@ namespace RhPortal.Api.Migrations
                     b.ToTable("CentrosCusto", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.DadosBancarios", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Agencia")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Banco")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Conta")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FuncionarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Pix")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<short>("TipoConta")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FuncionarioId");
+
+                    b.ToTable("DadosBancarios");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Dependente", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4022,6 +4098,92 @@ namespace RhPortal.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("DescricaoCargoItemEmbeddings", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Desligamento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChapaRm")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CodMotivoRescisao")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("CodStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodTipoRescisao")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("DataAbertura")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DataCancelamento")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DataConclusao")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DataPrevista")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("FuncionarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("GerouSubstituicao")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("IdReqRm")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Justificativa")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MotivoRescisaoDescricao")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int?>("NumDiasAviso")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TipoRescisaoDescricao")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChapaRm");
+
+                    b.HasIndex("CodStatus");
+
+                    b.HasIndex("FuncionarioId");
+
+                    b.HasIndex("GerouSubstituicao");
+
+                    b.HasIndex("TenantId", "IdReqRm")
+                        .IsUnique();
+
+                    b.ToTable("Desligamentos", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.DevelopmentPlan", b =>
@@ -5206,6 +5368,10 @@ namespace RhPortal.Api.Migrations
                     b.Property<Guid?>("CentroCustoId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CodSituacaoRm")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -5228,8 +5394,15 @@ namespace RhPortal.Api.Migrations
                     b.Property<int>("Headcount")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("HierarquiaId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("JobPositionId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("MatriculaRm")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -5255,6 +5428,14 @@ namespace RhPortal.Api.Migrations
                     b.Property<string>("Phone")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Sexo")
+                        .HasMaxLength(1)
+                        .HasColumnType("character varying(1)");
+
+                    b.Property<string>("SituacaoRmDescricao")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -5282,6 +5463,8 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("GestorDiretoId");
 
+                    b.HasIndex("HierarquiaId");
+
                     b.HasIndex("JobPositionId");
 
                     b.HasIndex("NivelCargoId");
@@ -5296,14 +5479,135 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex("TenantId", "CodSituacaoRm");
+
                     b.HasIndex("TenantId", "Email")
                         .HasFilter("\"Email\" IS NOT NULL");
+
+                    b.HasIndex("TenantId", "MatriculaRm");
 
                     b.HasIndex("TenantId", "CdnEmpresa", "CdnEstab", "CdnFuncionario")
                         .IsUnique()
                         .HasFilter("\"CdnFuncionario\" IS NOT NULL");
 
                     b.ToTable("Funcionarios", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FuncionarioMovimentacao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChapaRm")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CodFuncaoDestino")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CodFuncaoOrigem")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CodSecaoDestino")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("CodSecaoOrigem")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("CodStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("DataAbertura")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DataCancelamento")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DataConclusao")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FuncaoDestinoNome")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("FuncaoOrigemNome")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid?>("FuncionarioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool?>("GerouSubstituicao")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("HierarquiaDestinoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("HierarquiaOrigemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("IdHierarquiaDestinoRm")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("IdHierarquiaOrigemRm")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("IdReqRm")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Justificativa")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("SalarioDestino")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("SalarioOrigem")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("StatusDescricao")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TipoDescricao")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<short>("TipoMovimentacao")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChapaRm");
+
+                    b.HasIndex("FuncionarioId");
+
+                    b.HasIndex("TipoMovimentacao");
+
+                    b.HasIndex("TenantId", "IdReqRm")
+                        .IsUnique();
+
+                    b.ToTable("FuncionarioMovimentacoes", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.GamificationDailyState", b =>
@@ -5366,6 +5670,61 @@ namespace RhPortal.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("GamificationDailyStates", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Hierarquia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Estrutura")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("HierarquiaSuperiorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("IdHierarquiaRm")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("IdHierarquiaSuperiorRm")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("IdNivelHierarquiaRm")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Estrutura");
+
+                    b.HasIndex("HierarquiaSuperiorId");
+
+                    b.HasIndex("IdHierarquiaSuperiorRm");
+
+                    b.HasIndex("TenantId", "IdHierarquiaRm")
+                        .IsUnique();
+
+                    b.ToTable("Hierarquias", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.HistoricoAlteracaoWorkflowRH", b =>
@@ -5541,7 +5900,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("FuncionarioId");
 
-                    b.ToTable("Holerites", (string)null);
+                    b.ToTable("Holerites");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.InboxAnexo", b =>
@@ -6146,7 +6505,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("NiveisCargo", (string)null);
+                    b.ToTable("NiveisCargo");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.NivelHierarquico", b =>
@@ -6551,7 +6910,30 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("CarteiraTrabalho")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("CarteiraTrabalhoData")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CarteiraTrabalhoSerie")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("CarteiraTrabalhoUf")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("CategoriaMilitar")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
                     b.Property<string>("Cep")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CertificadoReservista")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
@@ -6578,6 +6960,14 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(180)
                         .HasColumnType("character varying(180)");
 
+                    b.Property<string>("EstadoCivil")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("EstadoNatal")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
                     b.Property<string>("Fone")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
@@ -6588,6 +6978,10 @@ namespace RhPortal.Api.Migrations
 
                     b.Property<DateTimeOffset?>("GeocodificadoEmUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GrauInstrucao")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
 
                     b.Property<decimal?>("Latitude")
                         .HasColumnType("numeric");
@@ -6603,6 +6997,10 @@ namespace RhPortal.Api.Migrations
                     b.Property<decimal?>("Longitude")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("Naturalidade")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -6611,6 +7009,10 @@ namespace RhPortal.Api.Migrations
                     b.Property<string>("Numero")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("NumeroPis")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Obs")
                         .HasMaxLength(2000)
@@ -6627,10 +7029,37 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<DateTime?>("RgDataEmissao")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RgOrgEmissor")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RgUf")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("Sexo")
+                        .HasMaxLength(1)
+                        .HasColumnType("character varying(1)");
+
                     b.Property<string>("TenantId")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TituloEleitor")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TituloEleitorSecao")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("TituloEleitorZona")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<string>("Uf")
                         .HasMaxLength(2)
@@ -6640,6 +7069,8 @@ namespace RhPortal.Api.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Cpf");
 
                     b.HasIndex("TenantId", "Email");
 
@@ -6786,8 +7217,8 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<int?>("CnhDataExpedicao")
-                        .HasColumnType("integer");
+                    b.Property<DateOnly?>("CnhDataExpedicao")
+                        .HasColumnType("date");
 
                     b.Property<string>("CnhNumero")
                         .HasMaxLength(20)
@@ -6797,8 +7228,8 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<int?>("CnhPrimeiraHabilitacao")
-                        .HasColumnType("integer");
+                    b.Property<DateOnly?>("CnhPrimeiraHabilitacao")
+                        .HasColumnType("date");
 
                     b.Property<string>("CnhUf")
                         .HasMaxLength(2)
@@ -7230,6 +7661,9 @@ namespace RhPortal.Api.Migrations
 
                     b.Property<int?>("RegimeTrabalhista")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("RequisitoCategoriaId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ReservistaNumero")
                         .HasMaxLength(20)
@@ -8250,7 +8684,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesBeneficio", (string)null);
+                    b.ToTable("SolicitacoesBeneficio");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDependente", b =>
@@ -8337,7 +8771,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesDependente", (string)null);
+                    b.ToTable("SolicitacoesDependente");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoDesligamento", b =>
@@ -8402,6 +8836,9 @@ namespace RhPortal.Api.Migrations
                     b.Property<Guid?>("SolicitacaoVagaGeradaId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("SolicitacaoVagaOrigemId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("SolicitanteId")
                         .HasColumnType("uuid");
 
@@ -8443,7 +8880,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("UnitId");
 
-                    b.ToTable("SolicitacoesDesligamento", (string)null);
+                    b.ToTable("SolicitacoesDesligamento");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoEndereco", b =>
@@ -8528,7 +8965,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesEndereco", (string)null);
+                    b.ToTable("SolicitacoesEndereco");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoFerias", b =>
@@ -8609,7 +9046,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesFerias", (string)null);
+                    b.ToTable("SolicitacoesFerias");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoPagamentoExtra", b =>
@@ -8698,7 +9135,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("SolicitanteId");
 
-                    b.ToTable("SolicitacoesPagamentoExtra", (string)null);
+                    b.ToTable("SolicitacoesPagamentoExtra");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoPromocao", b =>
@@ -8836,7 +9273,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasIndex("UnitId");
 
-                    b.ToTable("SolicitacoesPromocao", (string)null);
+                    b.ToTable("SolicitacoesPromocao");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.SolicitacaoVaga", b =>
@@ -8851,6 +9288,9 @@ namespace RhPortal.Api.Migrations
                     b.Property<Guid?>("AprovadorId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CandidatoContratadoId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("CentroCustoId")
                         .HasColumnType("uuid");
 
@@ -8859,6 +9299,9 @@ namespace RhPortal.Api.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("DataDesligamento")
+                        .HasColumnType("date");
 
                     b.Property<short?>("DecisaoRH")
                         .HasColumnType("smallint");
@@ -8874,6 +9317,12 @@ namespace RhPortal.Api.Migrations
 
                     b.Property<Guid?>("DecisaoRHRevisadoPorId")
                         .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DesligamentoVinculadoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("DiasAvisoPrevioDesligamento")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("DisponibilidadeViagens")
                         .HasColumnType("boolean");
@@ -8910,6 +9359,10 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<string>("MotivoDesligamentoTexto")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<short?>("MotivoRequisicao")
                         .HasColumnType("smallint");
 
@@ -8919,6 +9372,9 @@ namespace RhPortal.Api.Migrations
                     b.Property<string>("ObservacaoAprovador")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<bool?>("PossuiEstabilidadeDesligamento")
+                        .HasColumnType("boolean");
 
                     b.Property<int?>("PrazoDias")
                         .HasColumnType("integer");
@@ -8946,6 +9402,9 @@ namespace RhPortal.Api.Migrations
 
                     b.Property<int>("TentativasIntegracao")
                         .HasColumnType("integer");
+
+                    b.Property<short?>("TipoAvisoPrevioDesligamento")
+                        .HasColumnType("smallint");
 
                     b.Property<short>("TipoContrato")
                         .HasColumnType("smallint");
@@ -8979,6 +9438,8 @@ namespace RhPortal.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AprovadorId");
+
+                    b.HasIndex("CandidatoContratadoId");
 
                     b.HasIndex("CentroCustoId");
 
@@ -9621,7 +10082,7 @@ namespace RhPortal.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TenantAwsSettings", (string)null);
+                    b.ToTable("TenantAwsSettings");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantBranding", b =>
@@ -9683,14 +10144,53 @@ namespace RhPortal.Api.Migrations
                     b.Property<Guid?>("AprovadorRhId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AzureAdClientId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AzureAdClientSecret")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AzureAdTenantId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BlipApiKey")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BlipApiUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BlipNumeroHospedeiro")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("BloqueiaSalarioForaFaixa")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("DiasAlertaVagaSemFill")
                         .HasColumnType("integer");
 
                     b.Property<int>("DiasProvisaoSubstituicao")
                         .HasColumnType("integer");
 
+                    b.Property<string>("EmbeddingModel")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmbeddingProvider")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LlmModel")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LlmProvider")
+                        .HasColumnType("text");
+
                     b.Property<bool>("RhDeveAprovarAposGestor")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("SlaAprovacaoHoras")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SlaEscalacaoHoras")
+                        .HasColumnType("integer");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -10537,9 +11037,19 @@ namespace RhPortal.Api.Migrations
                         .HasForeignKey("EixoVagaId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("RhPortal.Api.Domain.Entities.Hierarquia", "Hierarquia")
+                        .WithMany()
+                        .HasForeignKey("HierarquiaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("RhPortal.Api.Domain.Entities.JobPosition", "JobPosition")
                         .WithMany()
                         .HasForeignKey("JobPositionId");
+
+                    b.HasOne("RhPortal.Api.Domain.Entities.Desligamento", "OrigemDesligamento")
+                        .WithMany()
+                        .HasForeignKey("OrigemDesligamentoId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("RhPortal.Api.Domain.Entities.ApplicationUser", "RecrutadorResponsavelUser")
                         .WithMany()
@@ -10562,7 +11072,11 @@ namespace RhPortal.Api.Migrations
 
                     b.Navigation("EixoVaga");
 
+                    b.Navigation("Hierarquia");
+
                     b.Navigation("JobPosition");
+
+                    b.Navigation("OrigemDesligamento");
 
                     b.Navigation("RecrutadorResponsavelUser");
 
@@ -11270,6 +11784,17 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.DadosBancarios", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Funcionario");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Dependente", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Funcionario")
@@ -11311,6 +11836,16 @@ namespace RhPortal.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("DescricaoCargoItem");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Desligamento", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Funcionario");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.DevelopmentPlan", b =>
@@ -11511,6 +12046,11 @@ namespace RhPortal.Api.Migrations
                         .HasForeignKey("GestorDiretoId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("RhPortal.Api.Domain.Entities.Hierarquia", "Hierarquia")
+                        .WithMany()
+                        .HasForeignKey("HierarquiaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("RhPortal.Api.Domain.Entities.JobPosition", "JobPosition")
                         .WithMany()
                         .HasForeignKey("JobPositionId")
@@ -11549,6 +12089,8 @@ namespace RhPortal.Api.Migrations
 
                     b.Navigation("GestorDireto");
 
+                    b.Navigation("Hierarquia");
+
                     b.Navigation("JobPosition");
 
                     b.Navigation("NivelCargo");
@@ -11564,6 +12106,16 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.FuncionarioMovimentacao", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Funcionario");
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.GamificationDailyState", b =>
                 {
                     b.HasOne("RhPortal.Api.Domain.Entities.ApplicationUser", "User")
@@ -11573,6 +12125,16 @@ namespace RhPortal.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.Hierarquia", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.Hierarquia", "HierarquiaSuperior")
+                        .WithMany()
+                        .HasForeignKey("HierarquiaSuperiorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("HierarquiaSuperior");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.HistoricoAlteracaoWorkflowRH", b =>
@@ -12281,6 +12843,10 @@ namespace RhPortal.Api.Migrations
                         .HasForeignKey("AprovadorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("RhPortal.Api.Domain.Entities.Candidato", "CandidatoContratado")
+                        .WithMany()
+                        .HasForeignKey("CandidatoContratadoId");
+
                     b.HasOne("RhPortal.Api.Domain.Entities.CentroCusto", "CentroCusto")
                         .WithMany()
                         .HasForeignKey("CentroCustoId");
@@ -12324,6 +12890,8 @@ namespace RhPortal.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Aprovador");
+
+                    b.Navigation("CandidatoContratado");
 
                     b.Navigation("CentroCusto");
 

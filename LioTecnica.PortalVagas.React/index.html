@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portal de Vagas React</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <div vw class="enabled">
+      <div vw-access-button class="active"></div>
+      <div vw-plugin-wrapper>
+        <div class="vw-plugin-top-wrapper"></div>
+      </div>
+    </div>
+    <script>
+      window.initVLIBRAS = () => {
+        const widgetCtor =
+          window.VLibras?.Widget ||
+          window.VLibras?.default?.Widget ||
+          (typeof window.VLibras?.default === 'function' ? window.VLibras.default : null);
+
+        if (typeof widgetCtor === 'function') {
+          try { new widgetCtor('https://vlibras.gov.br/app'); } catch {}
+        }
+      };
+    </script>
+    <script src="https://vlibras.gov.br/app/vlibras-plugin.js" defer onload="window.initVLIBRAS && window.initVLIBRAS()"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

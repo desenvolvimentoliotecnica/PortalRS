@@ -40,6 +40,12 @@ public sealed class RmSyncOptions
     /// <summary>Se definido, limita quantos candidatos (por vaga) são sincronizados por ciclo (ex.: 1 para validar). Null = sem limite.</summary>
     public int? MaxCandidatosToSync { get; set; }
 
+    /// <summary>Se definido, limita quantas pessoas (PPESSOA) são enviadas para api/pessoas por ciclo. Null = sem limite. Útil pro modo "sync-one" não tomar 4h batendo na API uma a uma.</summary>
+    public int? MaxPessoasToSync { get; set; }
+
+    /// <summary>Se definido, limita quantos funcionários (PFUNC) são enviados via api/funcionarios/sync-rm/bulk. Null = sem limite (envia todos os ativos, ~637 na Liotécnica).</summary>
+    public int? MaxFuncionariosToSync { get; set; }
+
     /// <summary>Se definido, processa apenas este e-mail (ex.: claytonhamada@gmail.com para validar um talento/candidato). Null = todos.</summary>
     public string? SyncOnlyEmail { get; set; }
 }
