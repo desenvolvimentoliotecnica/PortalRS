@@ -235,8 +235,11 @@ const WORKSPACE_SECTIONS = [
   { id: 'projetos', label: 'Projetos', icon: 'fa-diagram-project' },
   { id: 'preferencias', label: 'Preferências de vaga', icon: 'fa-bullseye' },
   { id: 'agenda', label: 'Agenda e disponibilidade', icon: 'fa-calendar-alt' },
-  { id: 'skills', label: 'Skills, links e certificações', icon: 'fa-bolt' },
-  { id: 'notificacoes-lgpd', label: 'Notificações e LGPD', icon: 'fa-shield-alt' },
+  { id: 'skills', label: 'Portfólio e links', icon: 'fa-link' },
+  { id: 'competencias', label: 'Competências', icon: 'fa-layer-group' },
+  { id: 'credenciais', label: 'Credenciais', icon: 'fa-certificate' },
+  { id: 'notificacoes', label: 'Notificações', icon: 'fa-bell' },
+  { id: 'lgpd', label: 'LGPD e privacidade', icon: 'fa-shield-alt' },
   { id: 'educacao', label: 'Educação', icon: 'fa-graduation-cap' },
   { id: 'cursos-formacoes', label: 'Cursos e formações', icon: 'fa-book-open' },
   { id: 'documentos', label: 'Documentos', icon: 'fa-paperclip' },
@@ -249,8 +252,9 @@ type WorkspaceSectionId = (typeof WORKSPACE_SECTIONS)[number]['id']
 
 function normalizeWorkspaceSection(hash: string): WorkspaceSectionId {
   const cleanHash = hash.replace(/^#/, '')
-  return WORKSPACE_SECTIONS.some((section) => section.id === cleanHash)
-    ? cleanHash as WorkspaceSectionId
+  const migrated = cleanHash === 'notificacoes-lgpd' ? 'notificacoes' : cleanHash
+  return WORKSPACE_SECTIONS.some((section) => section.id === migrated)
+    ? migrated as WorkspaceSectionId
     : 'perfil-curriculo'
 }
 
@@ -1007,6 +1011,59 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
   )
 }
 
+function trimApplyField(value?: string | null): string {
+  return (value ?? '').trim()
+}
+
+/** LinkedIn pode estar no PUT do perfil (`linkedinUrl`) e/ou em skills-portfolio (`links.linkedin`). */
+function mergeLinkedInForApply(profileLinkedIn?: string | null, portfolioLinkedIn?: string | null): string {
+  const fromProfile = trimApplyField(profileLinkedIn)
+  if (fromProfile) return fromProfile
+  return trimApplyField(portfolioLinkedIn)
+}
+
+function parseExperienceStartDate(value?: string | null): Date | null {
+  const v = trimApplyField(value)
+  if (!v) return null
+  const d = new Date(v.includes('T') ? v : `${v}T12:00:00`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+/** Cargo em experiência sem data de fim, senão a experiência mais recente; por fim “cargo alvo” das preferências. */
+function deriveCargoAtualFromExperiences(experiences: PortalExperience[], cargoAlvo?: string | null): string {
+  if (!experiences.length) return trimApplyField(cargoAlvo)
+  const hasFim = (e: PortalExperience) => trimApplyField(e.fim).length > 0
+  const current = experiences.filter((e) => !hasFim(e))
+  const pool = current.length > 0 ? current : experiences
+  const sorted = [...pool].sort((a, b) => {
+    const tb = parseExperienceStartDate(b.inicio)?.getTime() ?? 0
+    const ta = parseExperienceStartDate(a.inicio)?.getTime() ?? 0
+    return tb - ta
+  })
+  if (sorted[0]?.cargo) return trimApplyField(sorted[0].cargo)
+  return trimApplyField(cargoAlvo)
+}
+
+/** Estimativa a partir da data de início mais antiga nas experiências (campo data do formulário). */
+function deriveAnosExperienciaFromExperiences(experiences: PortalExperience[]): string {
+  const times = experiences
+    .map((e) => parseExperienceStartDate(e.inicio)?.getTime())
+    .filter((t): t is number => t != null && !Number.isNaN(t))
+  if (!times.length) return ''
+  const earliest = Math.min(...times)
+  const years = (Date.now() - earliest) / (365.25 * 24 * 60 * 60 * 1000)
+  const rounded = Math.max(0, Math.min(80, Math.round(years)))
+  return String(rounded)
+}
+
+/** Apenas dígitos; limita a 0–80 (contrato da API). */
+function sanitizeAnosExperienciaInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 3)
+  if (digits === '') return ''
+  const n = Math.min(80, parseInt(digits, 10))
+  return Number.isNaN(n) ? '' : String(n)
+}
+
 function JobsPage({ ctx }: { ctx: AuthContext }) {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('Carregando vagas...')
@@ -1095,6 +1152,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
     if (!selectedJob || !candidate) return
 
     let cancelled = false
+    setApplyResult(null)
     setApplyData((current) => ({
       ...current,
       nome: candidate.nome,
@@ -1102,21 +1160,36 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
     }))
 
     const authFetch = createAuthorizedClient(ctx)
-    authFetch<PortalProfile>(`/api/public/portal-candidates/${candidate.id}`)
-      .then((profile) => {
-        if (cancelled) return
-        setApplyData((current) => ({
-          ...current,
-          nome: candidate.nome,
-          email: candidate.email,
-          fone: current.fone || formatBrazilianPhone(profile.fone) || '',
-          cidadeUf: current.cidadeUf || formatCandidateCityUf(profile.cidade, profile.uf),
-          linkedin: current.linkedin || profile.linkedinUrl || '',
-        }))
-      })
-      .catch(() => {
+    const base = `/api/public/portal-candidates/${candidate.id}`
+    void Promise.all([
+      authFetch<PortalProfile>(base).catch(() => null),
+      authFetch<PortalPortfolio>(`${base}/skills-portfolio`).catch(() => null),
+      authFetch<PortalExperienceProject>(`${base}/experience-projects`).catch(() => null),
+      authFetch<PortalPreferences>(`${base}/preferences`).catch(() => null),
+    ]).then(([profile, skillsPortfolio, expProject, preferences]) => {
+      if (cancelled) return
+      if (!profile) {
         setApplyResult('Não foi possível carregar seus dados básicos. Saia e entre novamente no portal para atualizar sua sessão.')
-      })
+        return
+      }
+      const experiences = expProject?.experiences ?? []
+      const linkedin = mergeLinkedInForApply(profile.linkedinUrl, skillsPortfolio?.links?.linkedin)
+      const portfolioUrl = trimApplyField(skillsPortfolio?.links?.portfolio)
+      const cargoAtual = deriveCargoAtualFromExperiences(experiences, preferences?.CargoAlvo)
+      const anos = deriveAnosExperienciaFromExperiences(experiences)
+
+      setApplyData((current) => ({
+        ...current,
+        nome: candidate.nome,
+        email: candidate.email,
+        fone: current.fone || formatBrazilianPhone(profile.fone) || '',
+        cidadeUf: current.cidadeUf || formatCandidateCityUf(profile.cidade, profile.uf),
+        linkedin: current.linkedin || linkedin,
+        portfolio: current.portfolio || portfolioUrl,
+        cargoAtual: current.cargoAtual || cargoAtual,
+        anosExperiencia: current.anosExperiencia || anos,
+      }))
+    })
 
     return () => {
       cancelled = true
@@ -1344,11 +1417,10 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           <div className="modal-backdrop" onClick={() => setSelectedJob(null)}>
             <div className="modal-card application-modal-card" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <div>
-                  <div className="eyebrow">Candidatura rápida</div>
-                  <h3>{selectedJob.titulo}</h3>
-                </div>
-                <button className="ghost-btn" type="button" onClick={() => setSelectedJob(null)}>Fechar</button>
+                <div className="eyebrow">Candidatura rápida</div>
+                <button className="application-modal-close" type="button" onClick={() => setSelectedJob(null)} aria-label="Fechar">
+                  <i className="fas fa-times" aria-hidden="true"></i>
+                </button>
               </div>
               <div className="application-modal-body">
                 <JobDetailsPanel job={selectedJob} />
@@ -1368,7 +1440,16 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                 </div>
                 <div className="grid two">
                   <label><span>Cargo atual</span><input value={applyData.cargoAtual} onChange={(e) => setApplyData((v) => ({ ...v, cargoAtual: e.target.value }))} /></label>
-                  <label><span>Anos de experiência</span><input value={applyData.anosExperiencia} onChange={(e) => setApplyData((v) => ({ ...v, anosExperiencia: e.target.value }))} /></label>
+                  <label>
+                    <span>Anos de experiência</span>
+                    <input
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="Ex.: 5"
+                      value={applyData.anosExperiencia}
+                      onChange={(e) => setApplyData((v) => ({ ...v, anosExperiencia: sanitizeAnosExperienciaInput(e.target.value) }))}
+                    />
+                  </label>
                 </div>
                 <label><span>Observações</span><textarea rows={4} value={applyData.observacoes} onChange={(e) => setApplyData((v) => ({ ...v, observacoes: e.target.value }))} /></label>
                 <label>
@@ -2422,24 +2503,11 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                       {selectedSection === 'lgpd' ?(
                         <div className="profile-section-detail-body">
-                          <RecordForm
-                            fields={[
-                              field('retencaoMeses', lgpd?.retencaoMeses?.toString() ?? ''),
-                              field('compartilhamento', lgpd?.compartilhamento),
-                            ]}
-                            checks={[
-                              check('processarCandidatura', lgpd?.processarCandidatura),
-                              check('permitirContato', lgpd?.permitirContato),
-                              check('bancoTalentos', lgpd?.bancoTalentos),
-                              check('dadosSensiveis', lgpd?.dadosSensiveis),
-                              check('comunicacoes', lgpd?.comunicacoes),
-                            ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, {
-                              ...values,
-                              retencaoMeses: values.retencaoMeses ?Number(values.retencaoMeses) : null,
-                            }, 'Preferências LGPD atualizadas.')}
+                          <CandidateLgpdWorkspaceForm
+                            data={lgpd}
+                            onSubmit={(payload) => void saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, payload, 'Preferências LGPD atualizadas.')}
+                            onOpenReceipt={() => void openLgpdReceipt(authFetch, candidateId)}
                           />
-                          <button className="secondary-btn" type="button" onClick={() => void openLgpdReceipt(authFetch, candidateId)}>Abrir comprovante LGPD</button>
                         </div>
                       ) : null}
 
@@ -2600,32 +2668,9 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                       {selectedSection === 'notif' ?(
                         <div className="profile-section-detail-body">
-                          <RecordForm
-                            fields={[
-                              field('frequencia', notifications?.frequencia),
-                              field('idioma', notifications?.idioma),
-                              field('email', notifications?.email),
-                              field('telefone', notifications?.telefone),
-                              field('silencioAtivo', notifications?.silencioAtivo),
-                              field('silencioInicio', notifications?.silencioInicio),
-                              field('silencioFim', notifications?.silencioFim),
-                              field('silencioPrioridade', notifications?.silencioPrioridade),
-                              field('assinatura', notifications?.assinatura),
-                            ]}
-                            checks={[
-                              check('canalEmail', notifications?.canalEmail),
-                              check('canalWhatsapp', notifications?.canalWhatsapp),
-                              check('canalSms', notifications?.canalSms),
-                              check('canalPush', notifications?.canalPush),
-                              check('permiteContato', notifications?.permiteContato),
-                              check('alertaNovasVagas', notifications?.alertaNovasVagas),
-                              check('alertaAtualizacoes', notifications?.alertaAtualizacoes),
-                              check('alertaEntrevistas', notifications?.alertaEntrevistas),
-                              check('alertaMensagens', notifications?.alertaMensagens),
-                              check('alertaDocumentos', notifications?.alertaDocumentos),
-                              check('alertaLembretes', notifications?.alertaLembretes),
-                            ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, values, 'Notificacoes atualizadas.')}
+                          <CandidateNotificationsWorkspaceForm
+                            data={notifications}
+                            onSubmit={(payload) => void saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'Notificações atualizadas.')}
                           />
                         </div>
                       ) : null}
@@ -2973,7 +3018,11 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             ?String(state.documents.length)
             : section.id === 'referencias' && state.references.length
               ?String(state.references.length)
-            : null,
+              : section.id === 'competencias' && (state.portfolio?.skills?.length ?? 0)
+                ?String(state.portfolio?.skills?.length ?? 0)
+                : section.id === 'credenciais' && (state.portfolio?.certifications?.length ?? 0)
+                  ?String(state.portfolio?.certifications?.length ?? 0)
+                : null,
   }))
 
   return (
@@ -3058,50 +3107,20 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             <CandidateMatchInsightsSection completion={state.completion} matches={state.matches} onSelectSection={selectWorkspaceSection} />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'skills'} id="skills" title="Skills, links e certificações" description="Competências, preferências rápidas e links do portfólio.">
-            <RecordForm
-              fields={[
-                field('WorkModel', state.portfolio?.preferences.workModel),
-                field('Availability', state.portfolio?.preferences.availability),
-                field('Salary', state.portfolio?.preferences.salary),
-                field('Shift', state.portfolio?.preferences.shift),
-                field('Note', state.portfolio?.preferences.note),
-                field('Linkedin', state.portfolio?.links.linkedin),
-                field('Github', state.portfolio?.links.github),
-                field('Portfolio', state.portfolio?.links.portfolio),
-                field('Drive', state.portfolio?.links.drive),
-                field('Tags', state.portfolio?.tags),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, values, 'Preferências e links salvos.')}
-            />
+          <WorkspaceSection active={activeWorkspaceSection === 'skills'} id="skills" title="Portfólio e links" description="Preferências rápidas de trabalho, URLs públicos e tags — visão inicial para recrutadores.">
+            <CandidateSkillsPortfolioWorkspace portfolio={state.portfolio} candidateId={candidateId} saveJson={saveJson} setMessage={setMessage} />
+          </WorkspaceSection>
 
-            <RepeaterSection
-              title="Skills"
-              items={state.portfolio?.skills ?? []}
-              describe={(item) => `${item.tipo}  ${item.nivel}${item.evidencia ?`  ${item.evidencia}` : ''}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills`, values, 'Skill adicionada.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills/${item.id}`, 'Skill removida.')}
-              fields={[
-                { name: 'tipo', label: 'Tipo' },
-                { name: 'nome', label: 'Nome' },
-                { name: 'nivel', label: 'Nível' },
-                { name: 'evidencia', label: 'Evidência' },
-              ]}
-            />
+          <WorkspaceSection active={activeWorkspaceSection === 'competencias'} id="competencias" title="Competências" description="Liste tecnologias, idiomas, metodologias e outras capacidades com nível e evidência.">
+            <div className="sp-workspace nl-form">
+              <SkillsPortfolioRepeater candidateId={candidateId} items={state.portfolio?.skills ?? []} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
+            </div>
+          </WorkspaceSection>
 
-            <RepeaterSection
-              title="Certificações"
-              items={state.portfolio?.certifications ?? []}
-              describe={(item) => `${item.instituicao || 'Instituição livre'}${item.ano ? ` • ${item.ano}` : ''}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications`, values, 'Certificação adicionada.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${item.id}`, 'Certificação removida.')}
-              fields={[
-                { name: 'nome', label: 'Nome' },
-                { name: 'instituicao', label: 'Instituição' },
-                { name: 'ano', label: 'Ano' },
-                { name: 'link', label: 'Link' },
-              ]}
-            />
+          <WorkspaceSection active={activeWorkspaceSection === 'credenciais'} id="credenciais" title="Credenciais" description="Certificações, cursos e credenciais com instituição, período ou link público para validação.">
+            <div className="sp-workspace nl-form">
+              <CertificationsPortfolioRepeater candidateId={candidateId} items={state.portfolio?.certifications ?? []} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
+            </div>
           </WorkspaceSection>
 
           <WorkspaceSection active={activeWorkspaceSection === 'educacao'} id="educacao" title="Educação" description="Nível, área, situação e destaques do seu percurso acadêmico.">
@@ -3178,93 +3197,23 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'agenda'} id="agenda" title="Agenda e disponibilidade" description="Formato de entrevista, janelas preferidas e bloqueios.">
-            <RecordForm
-              fields={[
-                field('formatoEntrevista', state.agenda?.preferences.formatoEntrevista),
-                field('inicioDisponivel', state.agenda?.preferences.inicioDisponivel),
-                field('avisoPrevio', state.agenda?.preferences.avisoPrevio),
-                field('observacoes', state.agenda?.preferences.observacoes, 'textarea'),
-                field('horarioPreferido', state.agenda?.preferences.horarioPreferido),
-                field('fusoHorario', state.agenda?.preferences.fusoHorario),
-              ]}
-              checks={[
-                check('diaSeg', state.agenda?.preferences.diaSeg),
-                check('diaTer', state.agenda?.preferences.diaTer),
-                check('diaQua', state.agenda?.preferences.diaQua),
-                check('diaQui', state.agenda?.preferences.diaQui),
-                check('diaSex', state.agenda?.preferences.diaSex),
-                check('diaSab', state.agenda?.preferences.diaSab),
-                check('diaDom', state.agenda?.preferences.diaDom),
-                check('periodoManha', state.agenda?.preferences.periodoManha),
-                check('periodoTarde', state.agenda?.preferences.periodoTarde),
-                check('periodoNoite', state.agenda?.preferences.periodoNoite),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, values, 'Preferências de agenda salvas.')}
-            />
-            <RepeaterSection
-              title="Bloqueios"
-              items={state.agenda?.blocks ?? []}
-              describe={(item) => `${item.data || 'Data'} • ${item.horario || 'Horário'} • ${item.observacoes || 'Sem observações'}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, values, 'Bloqueio adicionado.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}
-              fields={[
-                { name: 'tipo', label: 'Tipo' },
-                { name: 'titulo', label: 'Título' },
-                { name: 'data', label: 'Data' },
-                { name: 'horario', label: 'Horário' },
-                { name: 'observacoes', label: 'Observações' },
-              ]}
+          <WorkspaceSection active={activeWorkspaceSection === 'agenda'} id="agenda" title="Agenda e disponibilidade" description="Combine disponibilidade para entrevistas com bloqueios quando você não pode ser contactado.">
+            <CandidateAgendaWorkspace agenda={state.agenda} candidateId={candidateId} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
+          </WorkspaceSection>
+
+          <WorkspaceSection active={activeWorkspaceSection === 'notificacoes'} id="notificacoes" title="Notificações" description="Escolha canais, ritmo dos avisos e horários de silêncio.">
+            <CandidateNotificationsWorkspaceForm
+              data={state.notifications}
+              onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'Notificações atualizadas.')}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'notificacoes-lgpd'} id="notificacoes-lgpd" title="Notificações e LGPD" description="Consentimentos, canais e prioridades de contato.">
-            <RecordForm
-              fields={[
-                field('frequencia', state.notifications?.frequencia),
-                field('idioma', state.notifications?.idioma),
-                field('email', state.notifications?.email),
-                field('telefone', state.notifications?.telefone),
-                field('silencioAtivo', state.notifications?.silencioAtivo),
-                field('silencioInicio', state.notifications?.silencioInicio),
-                field('silencioFim', state.notifications?.silencioFim),
-                field('silencioPrioridade', state.notifications?.silencioPrioridade),
-                field('assinatura', state.notifications?.assinatura),
-              ]}
-              checks={[
-                check('canalEmail', state.notifications?.canalEmail),
-                check('canalWhatsapp', state.notifications?.canalWhatsapp),
-                check('canalSms', state.notifications?.canalSms),
-                check('canalPush', state.notifications?.canalPush),
-                check('permiteContato', state.notifications?.permiteContato),
-                check('alertaNovasVagas', state.notifications?.alertaNovasVagas),
-                check('alertaAtualizacoes', state.notifications?.alertaAtualizacoes),
-                check('alertaEntrevistas', state.notifications?.alertaEntrevistas),
-                check('alertaMensagens', state.notifications?.alertaMensagens),
-                check('alertaDocumentos', state.notifications?.alertaDocumentos),
-                check('alertaLembretes', state.notifications?.alertaLembretes),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, values, 'Notificações atualizadas.')}
+          <WorkspaceSection active={activeWorkspaceSection === 'lgpd'} id="lgpd" title="LGPD e privacidade" description="Consentimentos, tratamento de dados e comprovante de preferências (LGPD).">
+            <CandidateLgpdWorkspaceForm
+              data={state.lgpd}
+              onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, payload, 'Preferências LGPD atualizadas.')}
+              onOpenReceipt={() => void openLgpdReceipt(authFetch, candidateId)}
             />
-
-            <RecordForm
-              fields={[
-                field('retencaoMeses', state.lgpd?.retencaoMeses?.toString() ?? ''),
-                field('compartilhamento', state.lgpd?.compartilhamento),
-              ]}
-              checks={[
-                check('processarCandidatura', state.lgpd?.processarCandidatura),
-                check('permitirContato', state.lgpd?.permitirContato),
-                check('bancoTalentos', state.lgpd?.bancoTalentos),
-                check('dadosSensiveis', state.lgpd?.dadosSensiveis),
-                check('comunicacoes', state.lgpd?.comunicacoes),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, {
-                ...values,
-                retencaoMeses: values.retencaoMeses ?Number(values.retencaoMeses) : null,
-              }, 'Preferências LGPD atualizadas.')}
-            />
-            <button className="secondary-btn" type="button" onClick={() => void openLgpdReceipt(authFetch, candidateId)}>Abrir comprovante LGPD</button>
           </WorkspaceSection>
 
           <WorkspaceSection active={activeWorkspaceSection === 'documentos'} id="documentos" title="Documentos" description="Arquivos, comprovantes e anexos importantes do seu perfil.">
@@ -5197,18 +5146,1376 @@ function ReferenceRepeaterSection({
   )
 }
 
+/** Contrato com campo Frequencia (varchar 40) — valores estáveis recomendados. */
+const NOTIFICATION_FREQUENCY_OPTIONS = [
+  { value: 'immediate', label: 'Imediato' },
+  { value: 'daily', label: 'Resumo diário' },
+  { value: 'weekly', label: 'Resumo semanal' },
+  { value: 'urgent', label: 'Somente urgentes' },
+] as const
+
+/** Mantém valores antigos (rótulos em texto) alinhados aos códigos acima quando o candidato já tinha dados salvos. */
+function slugNormNotifications(s: string) {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+const LEGACY_FREQUENCY_TO_CANONICAL: Record<string, (typeof NOTIFICATION_FREQUENCY_OPTIONS)[number]['value']> = {
+  imediato: 'immediate',
+  'resumo diario': 'daily',
+  'resumo semanal': 'weekly',
+  urgentes: 'urgent',
+  'somente urgentes': 'urgent',
+}
+
+function canonicalFrequenciaFromApi(raw: string): string {
+  const t = (raw ?? '').trim()
+  if (!t) return ''
+  const slug = slugNormNotifications(t)
+  const canon =
+    LEGACY_FREQUENCY_TO_CANONICAL[slug] ??
+    LEGACY_FREQUENCY_TO_CANONICAL[t.trim().toLowerCase()] ??
+    LEGACY_FREQUENCY_TO_CANONICAL[t]
+  if (canon) return canon
+  if (NOTIFICATION_FREQUENCY_OPTIONS.some((o) => o.value === t)) return t
+  return t
+}
+
+/**
+ * Silêncio ativo: ver CandidaturaNotificacaoService.EstaDentroSilencio — valores reconhecidos como ligado: true / 1 / on.
+ * Vazio=null respeita início/fim quando preenchidos; "false" e outros desligam pela flag explícita.
+ */
+const SILENCIO_ATIVO_OPTIONS = [
+  { value: '', label: 'Automático (preferência não definida; usa só os horários se preenchidos)' },
+  { value: 'true', label: 'Sim (true)' },
+  { value: 'false', label: 'Não (false) — ignorar horários mesmo preenchidos' },
+] as const
+
+function canonicalSilencioAtivoFromApi(raw: string): string {
+  const t = (raw ?? '').trim()
+  if (!t) return ''
+  const l = t.toLowerCase()
+  if (l === 'true' || l === '1' || l === 'on' || l === 'sim') return 'true'
+  if (l === 'false' || l === '0') return 'false'
+  return t
+}
+
+/** Contrato campo SilencioPrioridade (varchar 20) — apenas metadados; sem lógica adicional na API atual. */
+const SILENCIO_PRIORIDADE_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'urgent', label: 'Só urgentes' },
+  { value: 'all', label: 'Todas' },
+] as const
+
+function canonicalSilencioPrioridadeFromApi(raw: string): string {
+  const t = (raw ?? '').trim()
+  if (!t) return ''
+  const slug = slugNormNotifications(t)
+  if (slug === 'normal' || t === 'normal') return 'normal'
+  if (slug === 'somente urgentes' || slug === 'so urgentes' || t === 'urgent') return 'urgent'
+  if (slug === 'todas' || slug === 'todos' || t === 'all') return 'all'
+  return t
+}
+
+function mergedLabeledOptions(
+  presets: readonly { readonly value: string; readonly label: string }[],
+  current: string,
+  normalize: (raw: string) => string,
+) {
+  const n = normalize((current ?? '').trim())
+  const list = presets.map((o) => ({ value: o.value, label: o.label }))
+  if (!n) return list
+  if (!list.some((o) => o.value === n))
+    list.push({ value: n, label: n.length <= 56 ? `(legado) ${n}` : `(valor legado não listado)` })
+  return list
+}
+
+const NOTIFICATION_LANG_PRESETS = ['pt-BR', 'en-US', 'es-ES'] as const
+
+const LGPD_SHARING_SCOPE_PRESETS = ['Rh', 'RhGestor', 'Interno'] as const
+
+function normalizePortalNotificationsForm(n: PortalNotifications | null) {
+  const d = n ?? ({} as Partial<PortalNotifications>)
+  return {
+    canalEmail: Boolean(d.canalEmail),
+    canalWhatsapp: Boolean(d.canalWhatsapp),
+    canalSms: Boolean(d.canalSms),
+    canalPush: Boolean(d.canalPush),
+    frequencia: canonicalFrequenciaFromApi(asString(d.frequencia)),
+    idioma: asString(d.idioma),
+    email: asString(d.email),
+    telefone: asString(d.telefone),
+    permiteContato: Boolean(d.permiteContato),
+    alertaNovasVagas: Boolean(d.alertaNovasVagas),
+    alertaAtualizacoes: Boolean(d.alertaAtualizacoes),
+    alertaEntrevistas: Boolean(d.alertaEntrevistas),
+    alertaMensagens: Boolean(d.alertaMensagens),
+    alertaDocumentos: Boolean(d.alertaDocumentos),
+    alertaLembretes: Boolean(d.alertaLembretes),
+    silencioAtivo: canonicalSilencioAtivoFromApi(asString(d.silencioAtivo)),
+    silencioInicio: asString(d.silencioInicio),
+    silencioFim: asString(d.silencioFim),
+    silencioPrioridade: canonicalSilencioPrioridadeFromApi(asString(d.silencioPrioridade)),
+    assinatura: asString(d.assinatura),
+  }
+}
+
+function CandidateNotificationsWorkspaceForm({
+  data,
+  onSubmit,
+}: {
+  data: PortalNotifications | null
+  onSubmit: (values: Record<string, string | boolean>) => void | Promise<void>
+}) {
+  const initial = useMemo(() => normalizePortalNotificationsForm(data), [data])
+  const [values, setValues] = useState(initial)
+  useEffect(() => {
+    setValues(initial)
+  }, [initial])
+
+  function setField(name: string, v: string | boolean) {
+    setValues((curr) => ({ ...curr, [name]: v }))
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const payload: Record<string, string | boolean> = {
+      ...values,
+      frequencia: String(values.frequencia).trim().slice(0, 40),
+      silencioAtivo: String(values.silencioAtivo).trim().slice(0, 10),
+      silencioInicio: String(values.silencioInicio).trim().slice(0, 10),
+      silencioFim: String(values.silencioFim).trim().slice(0, 10),
+      silencioPrioridade: String(values.silencioPrioridade).trim().slice(0, 20),
+    }
+    void onSubmit(payload)
+  }
+
+  const freqOptionsMerged = mergedLabeledOptions(NOTIFICATION_FREQUENCY_OPTIONS, String(values.frequencia), canonicalFrequenciaFromApi)
+  const langOptions = mergeEducationSummarySelectOptions(NOTIFICATION_LANG_PRESETS, String(values.idioma))
+  const silencioAtivoMerged = mergedLabeledOptions(SILENCIO_ATIVO_OPTIONS, String(values.silencioAtivo), canonicalSilencioAtivoFromApi)
+  const silencioPrioridadeMerged = mergedLabeledOptions(SILENCIO_PRIORIDADE_OPTIONS, String(values.silencioPrioridade), canonicalSilencioPrioridadeFromApi)
+
+  return (
+    <form className="nl-form" onSubmit={handleSubmit}>
+      <header className="nl-hero nl-hero-muted">
+        <div>
+          <span className="eyebrow">Preferências de comunicação</span>
+          <h4>Controle quando e como quer ser avisado sobre o processo seletivo.</h4>
+          <p>Você pode ajustar canais, frequência e períodos em que prefere não receber mensagens.</p>
+        </div>
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-bell" aria-hidden="true"></i>
+          <span>Preferências aplicadas às comunicações deste portal candidato.</span>
+        </div>
+      </header>
+
+      <section className="nl-card" aria-labelledby="nl-channels-title">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Canais permitidos</span>
+            <strong id="nl-channels-title">Onde podemos falar com você?</strong>
+          </div>
+          <p>Não marque canais que você não usa ou não deseja para evitar ruído.</p>
+        </div>
+        <div className="nl-toggle-grid" role="group" aria-label="Canais permitidos">
+          {[
+            { key: 'canalEmail', title: 'E-mail', desc: 'Convites, retornos e resumos.', iconClass: 'fas fa-envelope' },
+            { key: 'canalWhatsapp', title: 'WhatsApp', desc: 'Alertas rápidos e lembretes.', iconClass: 'fab fa-whatsapp' },
+            { key: 'canalSms', title: 'SMS', desc: 'Avisos curtos quando necessário.', iconClass: 'fas fa-comment-dots' },
+            { key: 'canalPush', title: 'Push / app', desc: 'Notificações no navegador ou aplicativo.', iconClass: 'fas fa-mobile-screen' },
+          ].map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              className={`nl-toggle${values[row.key as keyof typeof values] ? ' is-on' : ''}`}
+              onClick={() => setField(row.key, !Boolean(values[row.key as keyof typeof values]))}
+              aria-pressed={Boolean(values[row.key as keyof typeof values])}
+            >
+              <i className={row.iconClass} aria-hidden="true"></i>
+              <span>{row.title}</span>
+              <small>{row.desc}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="nl-card">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Ritmo das mensagens</span>
+            <strong>Tom e idioma</strong>
+          </div>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field">
+            <span>Frequência dos resumos</span>
+            <select
+              value={canonicalFrequenciaFromApi(String(values.frequencia))}
+              onChange={(e) => setField('frequencia', e.target.value)}
+            >
+              <option value="">— Definir depois —</option>
+              {freqOptionsMerged.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <small className="nl-field-hint">Valores gravados pela API como códigos: immediate · daily · weekly · urgent (até 40 caracteres).</small>
+          </label>
+          <label className="nl-field">
+            <span>Idioma dos avisos</span>
+            <select value={String(values.idioma)} onChange={(e) => setField('idioma', e.target.value)}>
+              <option value="">—</option>
+              {langOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>E-mail principal para alertas</span>
+            <input type="email" autoComplete="email" value={String(values.email)} onChange={(e) => setField('email', e.target.value)} placeholder="voce@exemplo.com" />
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Telefone ou WhatsApp prioritário</span>
+            <input type="tel" autoComplete="tel" value={String(values.telefone)} onChange={(e) => setField('telefone', e.target.value)} placeholder="DDI + DDD + número" />
+          </label>
+        </div>
+      </section>
+
+      <section className="nl-card">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Quiet hours</span>
+            <strong>Horários de silêncio</strong>
+          </div>
+          <p>Evite disparos nos intervalos que não quer ser incomodado (quando configurado).</p>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field nl-field-span-2">
+            <span>Janela de silêncio ativa (SilencioAtivo)</span>
+            <select
+              value={canonicalSilencioAtivoFromApi(String(values.silencioAtivo))}
+              onChange={(e) => setField('silencioAtivo', e.target.value)}
+            >
+              {silencioAtivoMerged.map((opt) => (
+                <option key={`${opt.label}-${opt.value}`} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <small className="nl-field-hint">Servidor aceita até 10 caracteres. Quando aplicável, valores reconhecidos como “ligado” são true, 1 ou on.</small>
+          </label>
+          <label className="nl-field">
+            <span>Início (HH:mm)</span>
+            <input
+              value={String(values.silencioInicio)}
+              onChange={(e) => setField('silencioInicio', e.target.value)}
+              placeholder="22:00"
+              maxLength={10}
+              inputMode="numeric"
+            />
+          </label>
+          <label className="nl-field">
+            <span>Fim (HH:mm)</span>
+            <input
+              value={String(values.silencioFim)}
+              onChange={(e) => setField('silencioFim', e.target.value)}
+              placeholder="07:00"
+              maxLength={10}
+              inputMode="numeric"
+            />
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Prioridade durante o silêncio (SilencioPrioridade)</span>
+            <select
+              value={canonicalSilencioPrioridadeFromApi(String(values.silencioPrioridade))}
+              onChange={(e) => setField('silencioPrioridade', e.target.value)}
+            >
+              {silencioPrioridadeMerged.map((opt) => (
+                <option key={`${opt.label}-${opt.value}`} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <small className="nl-field-hint">Texto livre até 20 caracteres; sugerimos normal · urgent · all.</small>
+          </label>
+        </div>
+      </section>
+
+      <section className="nl-card">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Contato e tipo de alerta</span>
+            <strong>O que quer acompanhar?</strong>
+          </div>
+        </div>
+        <label className="nl-consent-line">
+          <input type="checkbox" checked={Boolean(values.permiteContato)} onChange={(e) => setField('permiteContato', e.target.checked)} />
+          <span>Autorizo o RH a iniciar conversas relacionadas ao meu processo mesmo fora das candidaturas ativas.</span>
+        </label>
+        <div className="nl-alert-grid">
+          {[
+            { key: 'alertaNovasVagas', label: 'Novas vagas alinhadas', hint: 'Sugestões com base em perfil.', icon: 'fa-briefcase' },
+            { key: 'alertaAtualizacoes', label: 'Atualizações do processo', hint: 'Mudanças de etapa e status.', icon: 'fa-arrows-rotate' },
+            { key: 'alertaEntrevistas', label: 'Entrevistas e dinâmicas', hint: 'Convites com data e formato.', icon: 'fa-video' },
+            { key: 'alertaMensagens', label: 'Mensagens diretas', hint: 'Comunicações pessoais do recrutador.', icon: 'fa-comments' },
+            { key: 'alertaDocumentos', label: 'Documentos e formulários', hint: 'Novos formulários solicitados.', icon: 'fa-file-lines' },
+            { key: 'alertaLembretes', label: 'Lembretes e prazos', hint: 'SLA ou entregas pendentes.', icon: 'fa-clock' },
+          ].map((row) => (
+            <label key={row.key} className="nl-chip-check">
+              <input
+                type="checkbox"
+                checked={Boolean(values[row.key as keyof typeof values])}
+                onChange={(e) => setField(row.key, e.target.checked)}
+              />
+              <div>
+                <i className={`fas ${row.icon}`} aria-hidden="true"></i>
+                <strong>{row.label}</strong>
+                <small>{row.hint}</small>
+              </div>
+            </label>
+          ))}
+        </div>
+        <label className="nl-field nl-assinatura">
+          <span>Observações para o rodapé dos e-mails (opcional)</span>
+          <textarea rows={4} value={String(values.assinatura)} onChange={(e) => setField('assinatura', e.target.value)} placeholder="Informações adicionais que podem aparecer na assinatura dos avisos." />
+        </label>
+      </section>
+
+      <button className="primary-btn nl-submit" type="submit">Salvar notificações</button>
+    </form>
+  )
+}
+
+function normalizePortalLgpdForm(lg: PortalLgpd | null) {
+  const x = lg ?? ({} as Partial<PortalLgpd>)
+  return {
+    processarCandidatura: Boolean(x.processarCandidatura),
+    permitirContato: Boolean(x.permitirContato),
+    bancoTalentos: Boolean(x.bancoTalentos),
+    dadosSensiveis: Boolean(x.dadosSensiveis),
+    comunicacoes: Boolean(x.comunicacoes),
+    retencaoMeses: x.retencaoMeses != null ? String(x.retencaoMeses) : '',
+    compartilhamento: asString(x.compartilhamento),
+  }
+}
+
+function CandidateLgpdWorkspaceForm({
+  data,
+  onSubmit,
+  onOpenReceipt,
+}: {
+  data: PortalLgpd | null
+  onSubmit: (payload: {
+    processarCandidatura: boolean
+    permitirContato: boolean
+    bancoTalentos: boolean
+    dadosSensiveis: boolean
+    comunicacoes: boolean
+    retencaoMeses: number | null
+    compartilhamento: string | null
+  }) => void | Promise<void>
+  onOpenReceipt: () => void
+}) {
+  const initial = useMemo(() => normalizePortalLgpdForm(data), [data])
+  const [values, setValues] = useState(initial)
+  useEffect(() => setValues(initial), [initial])
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const months = values.retencaoMeses.trim()
+    void onSubmit({
+      processarCandidatura: values.processarCandidatura,
+      permitirContato: values.permitirContato,
+      bancoTalentos: values.bancoTalentos,
+      dadosSensiveis: values.dadosSensiveis,
+      comunicacoes: values.comunicacoes,
+      retencaoMeses: months ? Number(months) : null,
+      compartilhamento: values.compartilhamento.trim() ? values.compartilhamento.trim() : null,
+    })
+  }
+
+  const scopeOptions = mergeEducationSummarySelectOptions(LGPD_SHARING_SCOPE_PRESETS, String(values.compartilhamento))
+
+  return (
+    <form className="nl-form nl-form-lgpd" onSubmit={handleSubmit}>
+      <header className="nl-hero nl-hero-accent">
+        <div>
+          <span className="eyebrow">Privacidade e consentimento</span>
+          <h4>Você define como seus dados aparecem no processo.</h4>
+          <p>Informações tratadas conforme LGPD para recrutamento, triagem de talentos e comunicações relacionadas ao portal.</p>
+        </div>
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-shield-alt" aria-hidden="true"></i>
+          <span>Revogue ou atualize suas escolhas a qualquer momento.</span>
+        </div>
+      </header>
+
+      <section className="nl-card" aria-labelledby="nl-lgpd-consents-title">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Preferências tratadas pela equipe</span>
+            <strong id="nl-lgpd-consents-title">Uso principal dos dados</strong>
+          </div>
+          <p>Marque apenas o que estiver confortável. Recomendamos ler cada item antes de salvar.</p>
+        </div>
+        <div className="nl-lgpd-grid">
+          {[
+            {
+              key: 'processarCandidatura',
+              title: 'Processar dados da candidatura',
+              desc: 'Permite curadoria do RH nas informações para esta vaga.',
+            },
+            {
+              key: 'permitirContato',
+              title: 'Permitir convites externos',
+              desc: 'Possibilita iniciativas relacionadas quando houver vagas próximas.',
+            },
+            {
+              key: 'bancoTalentos',
+              title: 'Incluir no banco interno',
+              desc: 'Dados ficam disponíveis para vagas futuras similares.',
+            },
+            {
+              key: 'dadosSensiveis',
+              title: 'Declarar dados sensíveis opcionais',
+              desc: 'Quando marcado, usamos apenas para adequações obrigatórias ou informadas por você.',
+            },
+            {
+              key: 'comunicacoes',
+              title: 'Comunicações institucionais',
+              desc: 'Newsletter de carreira, convites pesquisados e convites relacionados ao portal.',
+            },
+          ].map((row) => (
+            <label key={row.key} className="nl-consent-panel">
+              <input
+                type="checkbox"
+                checked={Boolean(values[row.key as keyof typeof values])}
+                onChange={(e) => setValues((curr) => ({ ...curr, [row.key]: e.target.checked }))}
+              />
+              <div>
+                <strong>{row.title}</strong>
+                <p>{row.desc}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="nl-card">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Governança de dados</span>
+            <strong>Retenção e compartilhamento</strong>
+          </div>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field">
+            <span>Prazo de retenção (meses)</span>
+            <input
+              inputMode="numeric"
+              pattern="[0-9]*"
+              min={0}
+              value={values.retencaoMeses}
+              onChange={(e) => setValues((v) => ({ ...v, retencaoMeses: e.target.value }))}
+              placeholder="Ex.: 12"
+            />
+          </label>
+          <label className="nl-field">
+            <span>Escopo de compartilhamento interno</span>
+            <select value={String(values.compartilhamento)} onChange={(e) => setValues((v) => ({ ...v, compartilhamento: e.target.value }))}>
+              <option value="">— Informar quando necessário —</option>
+              {scopeOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <div className="nl-meta-lines nl-field-span-2">
+            {data?.consentidoEmUtc ? (
+              <p><strong>Consentimento registrado:</strong>{' '} {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.consentidoEmUtc))}</p>
+            ) : (
+              <p className="nl-muted-copy">Consentimento será registrado após primeira confirmação nesta tela.</p>
+            )}
+            {data?.revogadoEmUtc ? (
+              <p><strong>Revogações anteriores:</strong>{' '} {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.revogadoEmUtc))}</p>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <div className="nl-actions-row">
+        <button className="primary-btn nl-submit" type="submit">Salvar preferências LGPD</button>
+        <button type="button" className="secondary-btn nl-receipt-btn" onClick={() => onOpenReceipt()}>
+          <i className="fas fa-file-invoice" aria-hidden="true"></i>
+          <span>Ver comprovante LGPD</span>
+        </button>
+      </div>
+    </form>
+  )
+}
+
+const AGENDA_FORMATO_PRESETS = ['Presencial', 'Videochamada', 'Telefone', 'Indiferente'] as const
+const AGENDA_FUSO_PRESETS = ['America/Sao_Paulo', 'America/Fortaleza', 'America/Manaus', 'America/Recife', 'UTC'] as const
+const AGENDA_BLOCK_TIPO_PRESETS = ['Viagem', 'Saúde', 'Estudos', 'Família', 'Trabalho externo', 'Outro'] as const
+
+const AGENDA_WEEKDAY_KEYS = [
+  { key: 'diaSeg', short: 'Seg', label: 'Segunda-feira' },
+  { key: 'diaTer', short: 'Ter', label: 'Terça-feira' },
+  { key: 'diaQua', short: 'Qua', label: 'Quarta-feira' },
+  { key: 'diaQui', short: 'Qui', label: 'Quinta-feira' },
+  { key: 'diaSex', short: 'Sex', label: 'Sexta-feira' },
+  { key: 'diaSab', short: 'Sáb', label: 'Sábado' },
+  { key: 'diaDom', short: 'Dom', label: 'Domingo' },
+] as const
+
+const AGENDA_PERIOD_KEYS = [
+  { key: 'periodoManha', label: 'Manhã', hint: 'Ex.: 08–12h', iconClass: 'fas fa-sun' },
+  { key: 'periodoTarde', label: 'Tarde', hint: 'Ex.: 13–18h', iconClass: 'fas fa-cloud-sun' },
+  { key: 'periodoNoite', label: 'Noite', hint: 'Após 18h', iconClass: 'fas fa-moon' },
+] as const
+
+type AgendaPrefsForm = {
+  formatoEntrevista: string
+  inicioDisponivel: string
+  avisoPrevio: string
+  observacoes: string
+  horarioPreferido: string
+  fusoHorario: string
+  diaSeg: boolean
+  diaTer: boolean
+  diaQua: boolean
+  diaQui: boolean
+  diaSex: boolean
+  diaSab: boolean
+  diaDom: boolean
+  periodoManha: boolean
+  periodoTarde: boolean
+  periodoNoite: boolean
+}
+
+function normalizeAgendaPrefsForm(a: PortalAgenda | null): AgendaPrefsForm {
+  const p = a?.preferences
+  return {
+    formatoEntrevista: p?.formatoEntrevista ?? '',
+    inicioDisponivel: p?.inicioDisponivel ?? '',
+    avisoPrevio: p?.avisoPrevio ?? '',
+    observacoes: p?.observacoes ?? '',
+    horarioPreferido: p?.horarioPreferido ?? '',
+    fusoHorario: p?.fusoHorario ?? '',
+    diaSeg: Boolean(p?.diaSeg),
+    diaTer: Boolean(p?.diaTer),
+    diaQua: Boolean(p?.diaQua),
+    diaQui: Boolean(p?.diaQui),
+    diaSex: Boolean(p?.diaSex),
+    diaSab: Boolean(p?.diaSab),
+    diaDom: Boolean(p?.diaDom),
+    periodoManha: Boolean(p?.periodoManha),
+    periodoTarde: Boolean(p?.periodoTarde),
+    periodoNoite: Boolean(p?.periodoNoite),
+  }
+}
+
+function CandidateAgendaWorkspace({
+  agenda,
+  candidateId,
+  saveJson,
+  removeItem,
+  setMessage,
+}: {
+  agenda: PortalAgenda | null
+  candidateId: string
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  removeItem: (path: string, successText: string) => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const initial = useMemo(() => normalizeAgendaPrefsForm(agenda), [agenda])
+  const [values, setValues] = useState(initial)
+  useEffect(() => {
+    setValues(initial)
+  }, [initial])
+
+  function toggle<K extends keyof AgendaPrefsForm>(key: K) {
+    setValues((v) => ({ ...v, [key]: !Boolean(v[key]) }))
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const payload = {
+      formatoEntrevista: values.formatoEntrevista.trim().slice(0, 40) || null,
+      inicioDisponivel: values.inicioDisponivel.trim().slice(0, 40) || null,
+      avisoPrevio: values.avisoPrevio.trim().slice(0, 40) || null,
+      observacoes: values.observacoes.trim().slice(0, 400) || null,
+      horarioPreferido: values.horarioPreferido.trim().slice(0, 40) || null,
+      fusoHorario: values.fusoHorario.trim().slice(0, 60) || null,
+      diaSeg: Boolean(values.diaSeg),
+      diaTer: Boolean(values.diaTer),
+      diaQua: Boolean(values.diaQua),
+      diaQui: Boolean(values.diaQui),
+      diaSex: Boolean(values.diaSex),
+      diaSab: Boolean(values.diaSab),
+      diaDom: Boolean(values.diaDom),
+      periodoManha: Boolean(values.periodoManha),
+      periodoTarde: Boolean(values.periodoTarde),
+      periodoNoite: Boolean(values.periodoNoite),
+    }
+    void saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, payload, 'Preferências de agenda salvas.')
+  }
+
+  return (
+    <div className="ag-workspace nl-form">
+      <header className="ag-hero nl-hero nl-hero-accent">
+        <div>
+          <span className="eyebrow">Recrutamento</span>
+          <h4>Quando posso participar de entrevistas?</h4>
+          <p>
+            Informe formato preferido, janelas de horário e dias da semana. Isso ajuda o RH a convidar você sem atritos —
+            os bloqueios ficam logo abaixo para dias em que você não pode ser contactado.
+          </p>
+        </div>
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-calendar-check" aria-hidden="true"></i>
+          <span>Você pode ajustar estes dados a qualquer momento; eles não substituem confirmações formais de agenda.</span>
+        </div>
+      </header>
+
+      <form className="nl-card ag-panel" onSubmit={handleSubmit}>
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Preferências</span>
+            <strong>Formato e tempo</strong>
+          </div>
+          <p>Campos opcionais com limite compatível com o cadastro no servidor (até 40 caracteres nos campos curtos).</p>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field">
+            <span>Formato de entrevista</span>
+            <select value={values.formatoEntrevista} onChange={(e) => setValues((v) => ({ ...v, formatoEntrevista: e.target.value }))}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(AGENDA_FORMATO_PRESETS as unknown as readonly string[], values.formatoEntrevista).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field">
+            <span>Início disponível</span>
+            <input value={values.inicioDisponivel} onChange={(e) => setValues((v) => ({ ...v, inicioDisponivel: e.target.value }))} placeholder="Ex.: imediato, em 15 dias" maxLength={40} />
+          </label>
+          <label className="nl-field">
+            <span>Aviso prévio desejado</span>
+            <input value={values.avisoPrevio} onChange={(e) => setValues((v) => ({ ...v, avisoPrevio: e.target.value }))} placeholder="Ex.: 24h, 48h, 1 semana" maxLength={40} />
+          </label>
+          <label className="nl-field">
+            <span>Melhor faixa de horário (texto livre)</span>
+            <input value={values.horarioPreferido} onChange={(e) => setValues((v) => ({ ...v, horarioPreferido: e.target.value }))} placeholder="Ex.: manhãs após 9h, evitar almoço" maxLength={40} />
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Fuso ou referência de horário</span>
+            <select value={values.fusoHorario} onChange={(e) => setValues((v) => ({ ...v, fusoHorario: e.target.value }))}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(AGENDA_FUSO_PRESETS as unknown as readonly string[], values.fusoHorario).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Observações para o RH</span>
+            <textarea rows={3} value={values.observacoes} onChange={(e) => setValues((v) => ({ ...v, observacoes: e.target.value }))} placeholder="Ex.: prefiro encaixes curtos; disponível apenas às quartas para dinâmicas presenciais." maxLength={400} />
+          </label>
+        </div>
+
+        <div className="ag-subsection">
+          <div className="ag-subsection-head">
+            <strong>Dias da semana em que aceita conversas</strong>
+            <p className="nl-muted-copy">Toque para ligar ou desligar cada dia — foco nos dias úteis é comum.</p>
+          </div>
+          <div className="nl-toggle-grid nl-toggle-grid--week" role="group" aria-label="Dias disponíveis para entrevista">
+            {AGENDA_WEEKDAY_KEYS.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                className={`nl-toggle ag-weekday-toggle${values[d.key as keyof AgendaPrefsForm] ? ' is-on' : ''}`}
+                onClick={() => toggle(d.key as keyof AgendaPrefsForm)}
+                aria-pressed={Boolean(values[d.key as keyof AgendaPrefsForm])}
+                title={d.label}
+              >
+                <span>{d.short}</span>
+                <small aria-hidden="true">{d.label}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ag-subsection">
+          <div className="ag-subsection-head">
+            <strong>Períodos preferidos no dia</strong>
+            <p className="nl-muted-copy">Ajuda o RH a encaixar janelas sem sobrepor sua rotina.</p>
+          </div>
+          <div className="nl-toggle-grid nl-toggle-grid--periods" role="group" aria-label="Períodos preferidos">
+            {AGENDA_PERIOD_KEYS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={`nl-toggle${values[p.key as keyof AgendaPrefsForm] ? ' is-on' : ''}`}
+                onClick={() => toggle(p.key as keyof AgendaPrefsForm)}
+                aria-pressed={Boolean(values[p.key as keyof AgendaPrefsForm])}
+              >
+                <i className={p.iconClass} aria-hidden="true"></i>
+                <span>{p.label}</span>
+                <small>{p.hint}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button className="primary-btn ag-save-btn" type="submit">Salvar preferências de agenda</button>
+      </form>
+
+      <AgendaBlocksRepeater blocks={agenda?.blocks ?? []} candidateId={candidateId} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
+    </div>
+  )
+}
+
+function AgendaBlocksRepeater({
+  blocks,
+  candidateId,
+  saveJson,
+  removeItem,
+  setMessage,
+}: {
+  blocks: PortalAgendaBlock[]
+  candidateId: string
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  removeItem: (path: string, successText: string) => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<PortalAgendaBlock | null>(null)
+  const [draft, setDraft] = useState({ tipo: '', titulo: '', data: '', horario: '', observacoes: '' })
+
+  const tipoOpts = useMemo(() => mergeEducationSummarySelectOptions(AGENDA_BLOCK_TIPO_PRESETS as unknown as readonly string[], draft.tipo), [draft.tipo])
+
+  function openCreate() {
+    setEditing(null)
+    setDraft({ tipo: AGENDA_BLOCK_TIPO_PRESETS[0] ?? 'Outro', titulo: '', data: '', horario: '', observacoes: '' })
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalAgendaBlock) {
+    setEditing(item)
+    setDraft({
+      tipo: item.tipo ?? '',
+      titulo: item.titulo ?? '',
+      data: item.data ?? '',
+      horario: item.horario ?? '',
+      observacoes: item.observacoes ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditing(null)
+  }
+
+  return (
+    <section className="nl-card ag-blocks-panel">
+      <div className="nl-card-head">
+        <div>
+          <span className="eyebrow">Indisponibilidade</span>
+          <strong>Bloqueios na agenda</strong>
+        </div>
+        <p>Use para viagens, provas ou qualquer intervalo em que não deve receber convites ou lembretes de entrevista.</p>
+      </div>
+
+      <div className="ag-block-list">
+        {blocks.map((item) => (
+          <article key={item.id} className="ag-block-card">
+            <div>
+              <div className="ag-block-heading">
+                <strong>{item.titulo?.trim() || 'Bloqueio sem título'}</strong>
+                {item.tipo?.trim() ? <span className="sp-badge">{item.tipo}</span> : null}
+              </div>
+              <p className="ag-block-meta">
+                {[item.data, item.horario].filter(Boolean).join(' · ') || 'Data e horário não informados'}
+              </p>
+              {item.observacoes?.trim() ? <p className="ag-block-note">{item.observacoes}</p> : null}
+            </div>
+            <div className="sp-item-actions">
+              <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
+              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {blocks.length === 0 ? (
+          <div className="sp-empty ag-blocks-empty">
+            <i className="fas fa-calendar-xmark" aria-hidden="true"></i>
+            <p>Nenhum bloqueio cadastrado. Adicione quando souber que não poderá ser contactado.</p>
+          </div>
+        ) : null}
+      </div>
+
+      <button type="button" className="secondary-btn ag-add-block-btn" onClick={openCreate}>
+        Adicionar bloqueio
+      </button>
+
+      {modalOpen ? createPortal(
+        <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
+          <div className="workspace-form-modal-card workspace-form-modal-card--agenda" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="workspace-form-modal-header">
+              <h3>{editing ? 'Editar bloqueio' : 'Novo bloqueio'}</h3>
+              <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const titulo = draft.titulo.trim().slice(0, 120)
+                if (!titulo) {
+                  setMessage('Informe um título ou motivo breve para o bloqueio.')
+                  return
+                }
+                const payload = {
+                  tipo: draft.tipo.trim().slice(0, 40) || null,
+                  titulo,
+                  data: draft.data.trim().slice(0, 40) || null,
+                  horario: draft.horario.trim().slice(0, 40) || null,
+                  observacoes: draft.observacoes.trim().slice(0, 400) || null,
+                }
+                if (editing) {
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${editing.id}`, payload, 'Bloqueio atualizado.')
+                } else {
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, payload, 'Bloqueio adicionado.', 'POST')
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label className="nl-field">
+                  <span>Motivo / tipo</span>
+                  <select value={draft.tipo} onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))}>
+                    {tipoOpts.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="nl-field">
+                  <span>Título ou descrição curta</span>
+                  <input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex.: viagem a trabalho" maxLength={120} />
+                </label>
+                <label className="nl-field">
+                  <span>Data ou período</span>
+                  <input value={draft.data} onChange={(e) => setDraft((d) => ({ ...d, data: e.target.value }))} placeholder="Ex.: 2026-05-12 ou semana 12–16/05" maxLength={40} />
+                </label>
+                <label className="nl-field">
+                  <span>Horário ou faixa</span>
+                  <input value={draft.horario} onChange={(e) => setDraft((d) => ({ ...d, horario: e.target.value }))} placeholder="Ex.: manhã inteira, 14–18h" maxLength={40} />
+                </label>
+                <label className="nl-field">
+                  <span>Observações</span>
+                  <textarea rows={3} value={draft.observacoes} onChange={(e) => setDraft((d) => ({ ...d, observacoes: e.target.value }))} maxLength={400} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
+                <button type="submit" className="secondary-btn">{editing ? 'Salvar bloqueio' : 'Adicionar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </section>
+  )
+}
+
+const SKILL_TIPO_PRESETS = ['Tecnologia', 'Idioma', 'Metodologia', 'Soft skill', 'Ferramenta', 'Domínio', 'Outro'] as const
+const SKILL_NIVEL_PRESETS = ['Iniciante', 'Intermediário', 'Avançado', 'Especialista', 'Expert', 'Nativo / bilíngue'] as const
+const PORTFOLIO_SHIFT_PRESETS = [...WORKDAY_OPTIONS]
+
+function spOpenExternalUrl(raw: string, onEmpty?: () => void) {
+  const v = raw.trim()
+  if (!v) {
+    onEmpty?.()
+    return
+  }
+  const href = /^https?:\/\//i.test(v) ? v : `https://${v}`
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
+function CandidateSkillsPortfolioWorkspace({
+  portfolio,
+  candidateId,
+  saveJson,
+  setMessage,
+}: {
+  portfolio: PortalPortfolio | null
+  candidateId: string
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const initialPrefs = useMemo(
+    () => ({
+      workModel: portfolio?.preferences.workModel ?? '',
+      availability: portfolio?.preferences.availability ?? '',
+      salary: portfolio?.preferences.salary ?? '',
+      shift: portfolio?.preferences.shift ?? '',
+      note: portfolio?.preferences.note ?? '',
+      linkedin: portfolio?.links.linkedin ?? '',
+      github: portfolio?.links.github ?? '',
+      portfolioUrl: portfolio?.links.portfolio ?? '',
+      drive: portfolio?.links.drive ?? '',
+      tags: portfolio?.tags ?? '',
+    }),
+    [portfolio],
+  )
+  const [prefs, setPrefs] = useState(initialPrefs)
+  useEffect(() => {
+    setPrefs(initialPrefs)
+  }, [initialPrefs])
+
+  function patchPrefs<K extends keyof typeof initialPrefs>(key: K, value: string) {
+    setPrefs((p) => ({ ...p, [key]: value }))
+  }
+
+  function handleSavePortfolio(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const payload = {
+      workModel: prefs.workModel.trim().slice(0, 40) || null,
+      availability: prefs.availability.trim().slice(0, 40) || null,
+      salary: prefs.salary.trim().slice(0, 40) || null,
+      shift: prefs.shift.trim().slice(0, 40) || null,
+      note: prefs.note.trim().slice(0, 200) || null,
+      linkedin: prefs.linkedin.trim().slice(0, 260) || null,
+      github: prefs.github.trim().slice(0, 260) || null,
+      portfolio: prefs.portfolioUrl.trim().slice(0, 260) || null,
+      drive: prefs.drive.trim().slice(0, 260) || null,
+      tags: prefs.tags.trim().slice(0, 400) || null,
+    }
+    void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, payload, 'Preferências e links salvos.')
+  }
+
+  return (
+    <div className="sp-workspace nl-form">
+      <header className="sp-hero nl-hero nl-hero-accent">
+        <div>
+          <span className="eyebrow">Destaque-se em poucos campos</span>
+          <h4>Portfólio, links e mensagem rápida para recrutadores</h4>
+          <p>
+            Defina modelo de trabalho preferido, onde o RH pode te encontrar na web e palavras-chave do seu perfil.
+            As competências e credenciais detalhadas ficam nos menus próprios à esquerda.
+          </p>
+        </div>
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-circle-info" aria-hidden="true"></i>
+          <span>Links públicos devem iniciar com <code className="sp-code-inline">https://</code> quando possível.</span>
+        </div>
+      </header>
+
+      <form className="sp-panel nl-card" onSubmit={handleSavePortfolio}>
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Visão rápida</span>
+            <strong>Preferências e links do portfólio</strong>
+          </div>
+          <p>Modelo de trabalho, links públicos e tags passam no mesmo salvamento — preencha o que fizer sentido para o seu momento de carreira.</p>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field">
+            <span>Modelo de trabalho</span>
+            <select value={prefs.workModel} onChange={(e) => patchPrefs('workModel', e.target.value)}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(WORK_MODEL_OPTIONS, prefs.workModel).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field">
+            <span>Disponibilidade</span>
+            <select value={prefs.availability} onChange={(e) => patchPrefs('availability', e.target.value)}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(AVAILABILITY_OPTIONS, prefs.availability).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field">
+            <span>Pretensão / faixa breve</span>
+            <input value={prefs.salary} onChange={(e) => patchPrefs('salary', e.target.value)} placeholder="Ex.: R$ 8–10k PJ" maxLength={40} />
+          </label>
+          <label className="nl-field">
+            <span>Jornada / turno preferido</span>
+            <select value={prefs.shift} onChange={(e) => patchPrefs('shift', e.target.value)}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(PORTFOLIO_SHIFT_PRESETS, prefs.shift).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Notas para o RH (opcional)</span>
+            <textarea rows={3} value={prefs.note} onChange={(e) => patchPrefs('note', e.target.value)} placeholder="Ex.: aberto a remoto nacional, disponível para mudança..." maxLength={200} />
+          </label>
+        </div>
+
+        <div className="sp-links-head">
+          <strong>URLs públicos</strong>
+          <p className="nl-muted-copy">Opcionalmente abrimos cada endereço em nova aba para você conferir antes de gravar.</p>
+        </div>
+        <div className="sp-links-grid">
+          <label className="nl-field">
+            <span><i className="fab fa-linkedin" aria-hidden="true"></i> LinkedIn</span>
+            <div className="sp-link-inline-row">
+              <input type="url" inputMode="url" value={prefs.linkedin} onChange={(e) => patchPrefs('linkedin', e.target.value)} placeholder="https://linkedin.com/in/..." />
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.linkedin, () => setMessage('Informe o link do LinkedIn.'))}>Abrir</button>
+            </div>
+          </label>
+          <label className="nl-field">
+            <span><i className="fab fa-github" aria-hidden="true"></i> GitHub</span>
+            <div className="sp-link-inline-row">
+              <input type="url" value={prefs.github} onChange={(e) => patchPrefs('github', e.target.value)} placeholder="https://github.com/..." />
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.github, () => setMessage('Informe o link do GitHub.'))}>Abrir</button>
+            </div>
+          </label>
+          <label className="nl-field">
+            <span><i className="fas fa-briefcase" aria-hidden="true"></i> Portfólio / site</span>
+            <div className="sp-link-inline-row">
+              <input type="url" value={prefs.portfolioUrl} onChange={(e) => patchPrefs('portfolioUrl', e.target.value)} placeholder="https://..." />
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.portfolioUrl, () => setMessage('Informe o URL do portfólio.'))}>Abrir</button>
+            </div>
+          </label>
+          <label className="nl-field">
+            <span><i className="fab fa-google-drive" aria-hidden="true"></i> Drive / pasta</span>
+            <div className="sp-link-inline-row">
+              <input type="url" value={prefs.drive} onChange={(e) => patchPrefs('drive', e.target.value)} placeholder="https://drive.google.com/..." />
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.drive, () => setMessage('Informe o link do Drive.'))}>Abrir</button>
+            </div>
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Palavras-chave (tags)</span>
+            <textarea rows={2} value={prefs.tags} onChange={(e) => patchPrefs('tags', e.target.value)} placeholder="Ex.: React · Node · Scrum · inglês técnico" maxLength={400} />
+          </label>
+        </div>
+        <button className="primary-btn sp-save-prefs-btn" type="submit">Salvar preferências e links</button>
+      </form>
+    </div>
+  )
+}
+
+function SkillsPortfolioRepeater({
+  candidateId,
+  items,
+  saveJson,
+  removeItem,
+  setMessage,
+}: {
+  candidateId: string
+  items: PortalSkill[]
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  removeItem: (path: string, successText: string) => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<PortalSkill | null>(null)
+  const [draft, setDraft] = useState({ tipo: '', nome: '', nivel: '', evidencia: '' })
+
+  const tipoOptions = useMemo(() => mergeEducationSummarySelectOptions(SKILL_TIPO_PRESETS as unknown as readonly string[], draft.tipo), [draft.tipo])
+  const nivelOptions = useMemo(() => mergeEducationSummarySelectOptions(SKILL_NIVEL_PRESETS as unknown as readonly string[], draft.nivel), [draft.nivel])
+
+  function openCreate() {
+    setEditing(null)
+    setDraft({ tipo: SKILL_TIPO_PRESETS[0] ?? '', nome: '', nivel: SKILL_NIVEL_PRESETS[1] ?? 'Intermediário', evidencia: '' })
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalSkill) {
+    setEditing(item)
+    setDraft({
+      tipo: item.tipo,
+      nome: item.nome,
+      nivel: item.nivel,
+      evidencia: item.evidencia ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditing(null)
+  }
+
+  return (
+    <section className="sp-panel nl-card">
+      <div className="nl-card-head">
+        <div>
+          <span className="eyebrow">Competências</span>
+          <strong>Lista de skills</strong>
+        </div>
+        <p>Detalhe tipo, nível e uma evidência (certificação, projeto ou resultado).</p>
+      </div>
+
+      <div className="sp-item-list">
+        {items.map((item) => (
+          <article key={item.id} className="sp-item-card">
+            <div className="sp-item-body">
+              <div className="sp-item-heading">
+                <strong>{item.nome}</strong>
+                <span className="sp-badge">{item.tipo}</span>
+                <span className="sp-badge sp-badge-soft">{item.nivel}</span>
+              </div>
+              {item.evidencia?.trim() ? <p className="sp-item-meta">{item.evidencia}</p> : <p className="sp-item-meta sp-muted">Sem evidência curta cadastrada.</p>}
+            </div>
+            <div className="sp-item-actions">
+              <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
+              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills/${item.id}`, 'Skill removida.')}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ? (
+          <div className="sp-empty">
+            <i className="fas fa-layer-group" aria-hidden="true"></i>
+            <p>Nenhuma skill cadastrada. Comece pela principal tecnologia ou idioma do seu dia a dia.</p>
+          </div>
+        ) : null}
+      </div>
+
+      <button className="secondary-btn sp-add-btn" type="button" onClick={openCreate}>
+        Adicionar competência
+      </button>
+
+      {modalOpen ? createPortal(
+        <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
+          <div className="workspace-form-modal-card workspace-form-modal-card--skills" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="sp-skill-modal-title">
+            <div className="workspace-form-modal-header">
+              <h3 id="sp-skill-modal-title">{editing ? 'Editar competência' : 'Nova competência'}</h3>
+              <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const nome = draft.nome.trim().slice(0, 120)
+                const tipo = draft.tipo.trim().slice(0, 40)
+                const nivel = draft.nivel.trim().slice(0, 40)
+                if (!nome || !tipo || !nivel) {
+                  setMessage('Informe nome, tipo e nível da competência.')
+                  return
+                }
+                const evidencia = draft.evidencia.trim().slice(0, 300) || undefined
+                const payload = { tipo, nome, nivel, evidencia: evidencia ?? null }
+                const pathEditing = `/api/public/portal-candidates/${candidateId}/skills-portfolio/skills/${editing?.id ?? ''}`
+                if (editing) {
+                  void saveJson(pathEditing, payload, 'Competência atualizada.')
+                } else {
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills`, payload, 'Competência adicionada.', 'POST')
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label className="nl-field">
+                  <span>Categoria</span>
+                  <select value={draft.tipo} onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))}>
+                    {tipoOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="nl-field">
+                  <span>Nome da competência</span>
+                  <input value={draft.nome} onChange={(e) => setDraft((d) => ({ ...d, nome: e.target.value }))} placeholder="Ex.: TypeScript · Inglês C1 · Facilitação Agile" maxLength={120} />
+                </label>
+                <label className="nl-field">
+                  <span>Nível</span>
+                  <select value={draft.nivel} onChange={(e) => setDraft((d) => ({ ...d, nivel: e.target.value }))}>
+                    {nivelOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="nl-field">
+                  <span>Evidência (opcional)</span>
+                  <textarea rows={3} value={draft.evidencia} onChange={(e) => setDraft((d) => ({ ...d, evidencia: e.target.value }))} placeholder="Ex.: certificado X, projeto no GitHub, avaliações internas" maxLength={300} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
+                <button type="submit" className="secondary-btn">{editing ? 'Salvar alterações' : 'Adicionar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </section>
+  )
+}
+
+function CertificationsPortfolioRepeater({
+  candidateId,
+  items,
+  saveJson,
+  removeItem,
+  setMessage,
+}: {
+  candidateId: string
+  items: PortalCertification[]
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  removeItem: (path: string, successText: string) => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<PortalCertification | null>(null)
+  const [draft, setDraft] = useState({ nome: '', instituicao: '', ano: '', link: '' })
+
+  function openCreate() {
+    setEditing(null)
+    setDraft({ nome: '', instituicao: '', ano: '', link: '' })
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalCertification) {
+    setEditing(item)
+    setDraft({
+      nome: item.nome,
+      instituicao: item.instituicao ?? '',
+      ano: item.ano ?? '',
+      link: item.link ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditing(null)
+  }
+
+  return (
+    <section className="sp-panel nl-card">
+      <div className="nl-card-head">
+        <div>
+          <span className="eyebrow">Credenciais</span>
+          <strong>Certificações e cursos</strong>
+        </div>
+        <p>Cursos rápidos, certificações oficiais ou treinamentos com link de validação.</p>
+      </div>
+
+      <div className="sp-item-list">
+        {items.map((item) => (
+          <article key={item.id} className="sp-item-card">
+            <div className="sp-item-body">
+              <div className="sp-item-heading">
+                <strong>{item.nome}</strong>
+                {item.ano?.trim() ? <span className="sp-badge sp-badge-soft">{item.ano}</span> : null}
+              </div>
+              <p className="sp-item-meta">{item.instituicao?.trim() || 'Instituição não informada'}</p>
+              {item.link?.trim() ? (
+                <button type="button" className="sp-text-link-btn" onClick={() => spOpenExternalUrl(item.link ?? '')}>
+                  <i className="fas fa-arrow-up-right-from-square"></i>
+                  {' '}Abrir comprovação / link público
+                </button>
+              ) : (
+                <p className="sp-item-meta sp-muted">Sem link de verificação</p>
+              )}
+            </div>
+            <div className="sp-item-actions">
+              <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
+              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${item.id}`, 'Certificação removida.')}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ? (
+          <div className="sp-empty">
+            <i className="fas fa-certificate" aria-hidden="true"></i>
+            <p>Nenhuma certificação cadastrada. Ótimo para destaque em cloud, idiomas ou certificações comportamentais.</p>
+          </div>
+        ) : null}
+      </div>
+
+      <button className="secondary-btn sp-add-btn" type="button" onClick={openCreate}>
+        Adicionar certificação
+      </button>
+
+      {modalOpen ? createPortal(
+        <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
+          <div className="workspace-form-modal-card workspace-form-modal-card--skills" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="workspace-form-modal-header">
+              <h3>{editing ? 'Editar certificação' : 'Nova certificação'}</h3>
+              <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const nome = draft.nome.trim().slice(0, 160)
+                if (!nome) {
+                  setMessage('Informe o nome da certificação ou curso.')
+                  return
+                }
+                const instituicao = draft.instituicao.trim().slice(0, 160) || undefined
+                const ano = draft.ano.trim().slice(0, 10) || undefined
+                const link = draft.link.trim().slice(0, 260) || undefined
+                const payload = { nome, instituicao: instituicao ?? null, ano: ano ?? null, link: link ?? null }
+                if (editing) {
+                  void saveJson(
+                    `/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${editing.id}`,
+                    payload,
+                    'Certificação atualizada.',
+                  )
+                } else {
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications`, payload, 'Certificação adicionada.', 'POST')
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label className="nl-field">
+                  <span>Nome da certificação ou curso</span>
+                  <input value={draft.nome} onChange={(e) => setDraft((d) => ({ ...d, nome: e.target.value }))} maxLength={160} />
+                </label>
+                <label className="nl-field">
+                  <span>Instituição (opcional)</span>
+                  <input value={draft.instituicao} onChange={(e) => setDraft((d) => ({ ...d, instituicao: e.target.value }))} maxLength={160} />
+                </label>
+                <label className="nl-field">
+                  <span>Ano ou validade breve</span>
+                  <input value={draft.ano} onChange={(e) => setDraft((d) => ({ ...d, ano: e.target.value }))} placeholder="Ex.: 2024 ou 06/2025" maxLength={10} />
+                </label>
+                <label className="nl-field">
+                  <span>Link público (opcional)</span>
+                  <input type="url" value={draft.link} onChange={(e) => setDraft((d) => ({ ...d, link: e.target.value }))} placeholder="https://..." maxLength={260} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
+                <button type="submit" className="secondary-btn">{editing ? 'Salvar alterações' : 'Adicionar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </section>
+  )
+}
+
 function RecordForm({
   fields,
   checks,
   onSubmit,
   submitLabel = 'Salvar seção',
   submitButtonClassName = 'primary-btn',
+  formClassName,
 }: {
   fields: { label: string; name: string; value?: string | null; kind?: 'input' | 'textarea' | 'select'; options?: readonly string[]; inputType?: 'text' | 'date' | 'url' | 'email' | 'number' }[]
-  checks?: { name: string; checked?: boolean }[]
+  checks?: { name: string; checked?: boolean; label?: string; hint?: string }[]
   onSubmit: (values: Record<string, string | boolean>) => void
   submitLabel?: string
   submitButtonClassName?: string
+  formClassName?: string
 }) {
   const initial = useMemo(() => {
     const values: Record<string, string | boolean> = {}
@@ -5224,7 +6531,7 @@ function RecordForm({
 
   return (
     <form
-      className="stack-form"
+      className={formClassName ?`stack-form ${formClassName}` : 'stack-form'}
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit(values)
@@ -5257,13 +6564,16 @@ function RecordForm({
       {checks?.length ?(
         <div className="checks-grid">
           {checks.map((checkItem) => (
-            <label key={checkItem.name} className="check-row">
+            <label key={checkItem.name} className={`check-row${checkItem.hint ? ' check-row-rich' : ''}`}>
               <input
                 type="checkbox"
                 checked={Boolean(values[checkItem.name])}
                 onChange={(e) => setValues((v) => ({ ...v, [checkItem.name]: e.target.checked }))}
               />
-              <span>{checkItem.name}</span>
+              <span>
+                {checkItem.label ?? checkItem.name}
+                {checkItem.hint ? <small className="check-hint">{checkItem.hint}</small> : null}
+              </span>
             </label>
           ))}
         </div>
@@ -5387,8 +6697,8 @@ function fieldDate(name: string, value: string | null | undefined, displayLabel:
   return { label: displayLabel, name, value, kind: 'input' as const, inputType: 'date' as const }
 }
 
-function check(name: string, checked?: boolean) {
-  return { name, checked }
+function check(name: string, checked?: boolean, label?: string, hint?: string) {
+  return { name, checked, label, hint }
 }
 
 function formatSalary(min?: number | null, max?: number | null) {
@@ -5657,6 +6967,9 @@ const COMPLETION_SECTION_LABELS: Record<string, string> = {
   testes: 'Testes',
   comp: 'Competências',
   competencias: 'Competências',
+  certs: 'Credenciais',
+  credenciais: 'Credenciais',
+  certificacoes: 'Credenciais',
   formacao: 'Formação',
   educacao: 'Educação',
   exp: 'Experiências',
@@ -5706,17 +7019,20 @@ function getCompletionTargetSection(key: string): WorkspaceSectionId | null {
     pref: 'preferencias',
     preferencias: 'preferencias',
     agenda: 'agenda',
-    comp: 'skills',
-    competencias: 'skills',
+    comp: 'competencias',
+    competencias: 'competencias',
+    certs: 'credenciais',
+    certificacoes: 'credenciais',
+    credenciais: 'credenciais',
     docs: 'documentos',
     documentos: 'documentos',
     refs: 'referencias',
     referencias: 'referencias',
     acess: 'acessibilidade',
     acessibilidade: 'acessibilidade',
-    lgpd: 'notificacoes-lgpd',
-    notif: 'notificacoes-lgpd',
-    notificacoes: 'notificacoes-lgpd',
+    lgpd: 'lgpd',
+    notif: 'notificacoes',
+    notificacoes: 'notificacoes',
   }
   return targets[normalized] ?? null
 }
