@@ -10,16 +10,38 @@ public sealed class OneOnOneService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly IOneOnOneTemplateService _templateService;
 
-    public OneOnOneService(AppDbContext db, ITenantContext tenantContext)
+    public OneOnOneService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IOneOnOneTemplateService templateService)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _templateService = templateService;
     }
 
     public async Task<OneOnOneMeetingResponse> CreateAsync(OneOnOneCreateRequest request, Guid managerId, CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Tenant context required.");
+
+        var subject = request.Subject?.Trim().Length > 0 ? request.Subject.Trim() : null;
+        var notes = request.Notes?.Trim().Length > 0 ? request.Notes.Trim() : null;
+
+        // Entrega 1.2 — Fase 1 Paridade Feedz:
+        // Se template foi informado, e usuário não passou Subject/Notes próprios,
+        // popula com a pauta do template (Notes em markdown).
+        if (request.TemplateId is { } templateId)
+        {
+            var rendered = await _templateService.RenderForMeetingAsync(templateId, ct);
+            if (rendered is var (tplSubject, tplNotes))
+            {
+                subject ??= tplSubject;
+                notes ??= tplNotes;
+            }
+        }
+
         var meeting = new OneOnOneMeeting
         {
             Id = Guid.NewGuid(),
@@ -27,8 +49,8 @@ public sealed class OneOnOneService
             ManagerId = managerId,
             CollaboratorId = request.CollaboratorId,
             MeetingDate = request.MeetingDate,
-            Subject = request.Subject?.Trim().Length > 0 ? request.Subject.Trim() : null,
-            Notes = request.Notes?.Trim().Length > 0 ? request.Notes.Trim() : null,
+            Subject = subject,
+            Notes = notes,
             CreatedAtUtc = DateTimeOffset.UtcNow
         };
         _db.OneOnOneMeetings.Add(meeting);

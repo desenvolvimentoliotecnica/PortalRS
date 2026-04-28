@@ -1,20 +1,26 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BookOpen, Plus, RefreshCw, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { BookOpen, Plus, RefreshCw, CheckCircle2, Clock, AlertTriangle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, { cache: "no-store", ...init });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (res.status === 204) return null as T;
     return res.json();
 }
+
+interface UserOption { userId: string; fullName: string; }
 
 interface PDI {
     id: string;
@@ -39,6 +45,18 @@ export default function GestaoPlanosScreen() {
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
 
+    // Modal Novo/Editar PDI
+    const [modalOpen, setModalOpen] = useState(false);
+    const [editId, setEditId] = useState<string | null>(null);
+    const [formTitle, setFormTitle] = useState("");
+    const [formDescription, setFormDescription] = useState("");
+    const [formTargetUserId, setFormTargetUserId] = useState("");
+    const [formGoals, setFormGoals] = useState<string[]>([""]);
+    const [saving, setSaving] = useState(false);
+
+    // Lista de funcionários (apenas ATIVOS — buscado pelo endpoint mention-users)
+    const [users, setUsers] = useState<UserOption[]>([]);
+
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
@@ -47,7 +65,78 @@ export default function GestaoPlanosScreen() {
         } catch { /* silent */ } finally { setLoading(false); }
     }, []);
 
-    useEffect(() => { void loadData(); }, [loadData]);
+    const loadUsers = useCallback(async () => {
+        try {
+            const data = await fetchJson<UserOption[]>("/api/feedback/celebrations/mention-users?take=500");
+            setUsers(data ?? []);
+        } catch { /* silent */ }
+    }, []);
+
+    useEffect(() => { void loadData(); void loadUsers(); }, [loadData, loadUsers]);
+
+    function openCreate() {
+        setEditId(null);
+        setFormTitle("");
+        setFormDescription("");
+        setFormTargetUserId("");
+        setFormGoals([""]);
+        setModalOpen(true);
+    }
+
+    async function handleSave() {
+        if (!formTitle.trim()) { toast.error("Informe o título do PDI."); return; }
+        setSaving(true);
+        try {
+            const planRes = await fetchJson<{ id: string }>("/api/feedback/plans", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: formTitle.trim(),
+                    description: formDescription.trim() || null,
+                    targetUserId: formTargetUserId || null,
+                }),
+            });
+
+            // Adiciona metas (goals) ao plano recém-criado
+            const validGoals = formGoals.filter(g => g.trim());
+            for (let i = 0; i < validGoals.length; i++) {
+                await apiFetch(`/api/feedback/plans/${planRes.id}/goals`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        description: validGoals[i].trim(),
+                        dueDate: null,
+                        order: i + 1,
+                    }),
+                });
+            }
+
+            toast.success(`PDI criado com ${validGoals.length} meta${validGoals.length !== 1 ? "s" : ""}.`);
+            setModalOpen(false);
+            void loadData();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao salvar PDI.");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function handleDelete(planId: string, title: string) {
+        if (!confirm(`Excluir o PDI "${title}"? Essa ação não pode ser desfeita.`)) return;
+        try {
+            await apiFetch(`/api/feedback/plans/${planId}`, { method: "DELETE" });
+            toast.success("PDI excluído.");
+            void loadData();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao excluir.");
+        }
+    }
+
+    function updateGoal(idx: number, val: string) {
+        const next = [...formGoals];
+        next[idx] = val;
+        setFormGoals(next);
+    }
 
     const filtered = plans.filter((p) => {
         if (statusFilter !== "all" && p.status !== statusFilter) return false;
@@ -80,7 +169,7 @@ export default function GestaoPlanosScreen() {
                     <div className="text-muted-foreground text-sm">Crie e acompanhe PDIs para os membros da equipe.</div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => toast.info("Funcionalidade de criação de PDI em breve.")}>
+                    <Button size="sm" onClick={openCreate}>
                         <Plus className="size-4 mr-1" />Novo PDI
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => void loadData()} disabled={loading}>
@@ -145,13 +234,14 @@ export default function GestaoPlanosScreen() {
                             <TableHead>Status</TableHead>
                             <TableHead>Progresso</TableHead>
                             <TableHead>Prazo</TableHead>
+                            <TableHead className="w-[60px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
                         ) : filtered.length === 0 ? (
-                            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                            <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                                 <BookOpen className="size-8 mx-auto mb-2 text-muted-foreground/30" />
                                 Nenhum plano encontrado.
                             </TableCell></TableRow>
@@ -169,11 +259,109 @@ export default function GestaoPlanosScreen() {
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-sm whitespace-nowrap">{fmtDate(p.dueDate)}</TableCell>
+                                <TableCell>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => void handleDelete(p.id, p.title)}
+                                        title="Excluir PDI"
+                                    >
+                                        <Trash2 className="size-4 text-muted-foreground hover:text-destructive" />
+                                    </Button>
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             </div>
+
+            {/* Modal Novo/Editar PDI */}
+            <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>{editId ? "Editar PDI" : "Novo PDI"}</DialogTitle>
+                        <DialogDescription>
+                            Plano de Desenvolvimento Individual com metas. O responsável pode ser você ou outro colaborador.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Título *</label>
+                            <Input
+                                placeholder="Ex: Desenvolver liderança técnica em 2026"
+                                value={formTitle}
+                                onChange={(e) => setFormTitle(e.target.value)}
+                                maxLength={200}
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Para quem (opcional)</label>
+                            <select
+                                value={formTargetUserId}
+                                onChange={(e) => setFormTargetUserId(e.target.value)}
+                                className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                            >
+                                <option value="">— Meu próprio PDI —</option>
+                                {users.map(u => (
+                                    <option key={u.userId} value={u.userId}>{u.fullName}</option>
+                                ))}
+                            </select>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                                Apenas funcionários ativos. Se vazio, o PDI é seu.
+                            </p>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Descrição (opcional)</label>
+                            <textarea
+                                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                rows={3}
+                                placeholder="Contexto, objetivos gerais..."
+                                value={formDescription}
+                                onChange={(e) => setFormDescription(e.target.value)}
+                                maxLength={2000}
+                            />
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Metas</label>
+                                <Button variant="ghost" size="sm" onClick={() => setFormGoals([...formGoals, ""])}>
+                                    <Plus className="size-3.5 mr-1" /> Adicionar
+                                </Button>
+                            </div>
+                            <div className="space-y-2">
+                                {formGoals.map((g, idx) => (
+                                    <div key={idx} className="flex gap-2">
+                                        <span className="text-xs text-muted-foreground pt-2.5 w-5 text-right shrink-0">{idx + 1}.</span>
+                                        <Input
+                                            placeholder={`Ex: Concluir curso de Power BI até 30/06`}
+                                            value={g}
+                                            onChange={(e) => updateGoal(idx, e.target.value)}
+                                            maxLength={500}
+                                        />
+                                        {formGoals.length > 1 && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setFormGoals(formGoals.filter((_, i) => i !== idx))}
+                                                title="Remover meta"
+                                            >
+                                                <Trash2 className="size-3.5 text-muted-foreground" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
+                        <Button onClick={() => void handleSave()} disabled={saving || !formTitle.trim()}>
+                            {saving ? "Salvando..." : editId ? "Salvar" : "Criar PDI"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </section>
     );
 }

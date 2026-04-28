@@ -30,7 +30,13 @@ public sealed class CelebrationService
         };
         _db.CelebrationPosts.Add(post);
 
-        var mentionedIds = (request.MentionedUserIds ?? Array.Empty<Guid>()).Distinct().ToList();
+        // Defensivo: aceita lista null, vazia ou com nulls dentro (front pode enviar
+        // [null] quando o matching de @menção não casa com nenhum user). Filtra antes.
+        var mentionedIds = (request.MentionedUserIds ?? Array.Empty<Guid?>())
+            .Where(x => x.HasValue && x.Value != Guid.Empty)
+            .Select(x => x!.Value)
+            .Distinct()
+            .ToList();
         if (mentionedIds.Count > 0)
         {
             var validUserIds = await _db.Users
@@ -230,7 +236,13 @@ public sealed class CelebrationService
         };
         _db.CelebrationComments.Add(comment);
 
-        var mentionedIds = (request.MentionedUserIds ?? Array.Empty<Guid>()).Distinct().ToList();
+        // Defensivo: aceita lista null, vazia ou com nulls dentro (front pode enviar
+        // [null] quando o matching de @menção não casa com nenhum user). Filtra antes.
+        var mentionedIds = (request.MentionedUserIds ?? Array.Empty<Guid?>())
+            .Where(x => x.HasValue && x.Value != Guid.Empty)
+            .Select(x => x!.Value)
+            .Distinct()
+            .ToList();
         if (mentionedIds.Count > 0)
         {
             var validUserIds = await _db.Users

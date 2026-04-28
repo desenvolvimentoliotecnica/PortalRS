@@ -36,6 +36,51 @@ public sealed class DevelopmentPlanService
         return await GetByIdAsync(plan.Id, ct) ?? throw new InvalidOperationException("Plan not found after create.");
     }
 
+    /// <summary>
+    /// Cria um plano + goals a partir de sugestão IA/heurística (Entrega 1.4 — Fase 1).
+    /// O gestor já revisou o conteúdo no front antes de chamar.
+    /// </summary>
+    public async Task<DevelopmentPlanResponse> CreateFromSuggestionAsync(
+        PdiCreateFromSuggestionRequest request,
+        Guid ownerUserId,
+        CancellationToken ct)
+    {
+        var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Tenant context required.");
+        if (string.IsNullOrWhiteSpace(request.Title))
+            throw new InvalidOperationException("Título é obrigatório.");
+        if (request.Goals is null || request.Goals.Count == 0)
+            throw new InvalidOperationException("Pelo menos uma meta é obrigatória.");
+
+        var planId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        var plan = new DevelopmentPlan
+        {
+            Id = planId,
+            TenantId = tenantId,
+            OwnerUserId = ownerUserId,
+            TargetUserId = request.TargetUserId,
+            Title = request.Title.Trim(),
+            Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+            Goals = request.Goals
+                .Where(g => !string.IsNullOrWhiteSpace(g.Description))
+                .Select((g, i) => new DevelopmentPlanGoal
+                {
+                    Id = Guid.NewGuid(),
+                    PlanId = planId,
+                    Description = g.Description.Trim(),
+                    DueDate = g.DueDate,
+                    Order = g.Order > 0 ? g.Order : i + 1,
+                }).ToList(),
+        };
+
+        _db.DevelopmentPlans.Add(plan);
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(plan.Id, ct) ?? throw new InvalidOperationException("Plan not found after create.");
+    }
+
     public async Task<DevelopmentPlanResponse?> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Tenant context required.");

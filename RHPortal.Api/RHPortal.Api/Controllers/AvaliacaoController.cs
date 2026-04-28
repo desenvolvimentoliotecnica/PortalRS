@@ -17,17 +17,20 @@ public sealed class AvaliacaoController : ControllerBase
     private readonly IAvaliacaoService _service;
     private readonly IAvaliacaoConviteService _conviteService;
     private readonly IAvaliacaoCalibragemService _calibragemService;
+    private readonly IAvaliacaoTemplateService _templateService;
     private readonly ICurrentUserContext _userContext;
 
     public AvaliacaoController(
         IAvaliacaoService service,
         IAvaliacaoConviteService conviteService,
         IAvaliacaoCalibragemService calibragemService,
+        IAvaliacaoTemplateService templateService,
         ICurrentUserContext userContext)
     {
         _service = service;
         _conviteService = conviteService;
         _calibragemService = calibragemService;
+        _templateService = templateService;
         _userContext = userContext;
     }
 
@@ -153,6 +156,87 @@ public sealed class AvaliacaoController : ControllerBase
     {
         var bytes = await _service.ExportarResultadosCsvAsync(id, ct);
         return File(bytes, "text/csv; charset=utf-8", $"ciclo_{id}_resultados.csv");
+    }
+
+    // ── PDI Auto-gerado (Entrega 1.4 — Fase 1 Paridade Feedz, "a jóia") ──
+
+    /// <summary>
+    /// Sugere um PDI para o funcionário a partir do resultado deste ciclo. Tenta IA e
+    /// cai pra heurística determinística se IA estiver indisponível. Não persiste — é preview.
+    /// O gestor revisa e aplica via POST /api/development-plans/from-suggestion.
+    /// </summary>
+    [HttpGet("ciclos/{cicloId:guid}/sugerir-pdi/{funcionarioId:guid}")]
+    [RequirePermission("desempenho.view")]
+    [ProducesResponseType(typeof(RhPortal.Api.Contracts.Feedback.PdiSuggestionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SugerirPdi(
+        Guid cicloId,
+        Guid funcionarioId,
+        [FromServices] RhPortal.Api.Application.Feedback.IPdiSuggesterService suggester,
+        CancellationToken ct)
+    {
+        var result = await suggester.SuggestForFuncionarioAsync(cicloId, funcionarioId, ct);
+        return result is null ? NotFound(new { message = "Ciclo, funcionário ou respostas não encontrados." }) : Ok(result);
+    }
+
+    // ── Templates (Entrega 1.1 — Fase 1 Paridade Feedz) ──
+
+    /// <summary>Lista os templates de avaliação disponíveis para o tenant (sistema + customizados ativos).</summary>
+    [HttpGet("templates")]
+    [RequirePermission("desempenho.view")]
+    [ProducesResponseType(typeof(IReadOnlyList<AvaliacaoTemplateResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarTemplates([FromQuery] bool incluirInativos, CancellationToken ct) =>
+        Ok(await _templateService.ListAsync(incluirInativos, ct));
+
+    /// <summary>Detalhe de um template (perguntas inclusas).</summary>
+    [HttpGet("templates/{id:guid}")]
+    [RequirePermission("desempenho.view")]
+    [ProducesResponseType(typeof(AvaliacaoTemplateResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTemplate(Guid id, CancellationToken ct)
+    {
+        var result = await _templateService.GetAsync(id, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>Cria um template customizado pelo tenant. [Admin/RH]</summary>
+    [HttpPost("templates")]
+    [RequirePermission("desempenho.ciclos.manage")]
+    [ProducesResponseType(typeof(AvaliacaoTemplateResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CriarTemplate([FromBody] AvaliacaoTemplateCreateRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _templateService.CreateAsync(request, ct);
+            return CreatedAtAction(nameof(GetTemplate), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Cria um ciclo de avaliação a partir de um template existente. [Admin/RH]</summary>
+    [HttpPost("ciclos/from-template")]
+    [RequirePermission("desempenho.ciclos.manage")]
+    [ProducesResponseType(typeof(AvaliacaoCicloResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> CriarCicloFromTemplate([FromBody] AvaliacaoCicloFromTemplateRequest request, CancellationToken ct)
+    {
+        if (_userContext.FuncionarioId is not { } criadoPorId)
+            return Forbid();
+
+        try
+        {
+            var result = await _templateService.CriarCicloFromTemplateAsync(request, criadoPorId, ct);
+            return CreatedAtAction(nameof(GetCiclo), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     // ── Convites ──

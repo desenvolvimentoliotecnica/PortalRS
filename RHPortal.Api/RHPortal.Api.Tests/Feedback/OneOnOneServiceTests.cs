@@ -29,7 +29,14 @@ public sealed class OneOnOneServiceTests
         tenantMock.Setup(x => x.TenantId).Returns(TenantTeste);
 
         var db = new AppDbContext(options, tenantMock.Object);
-        var service = new OneOnOneService(db, tenantMock.Object);
+        // Entrega 1.2: OneOnOneService agora depende de IOneOnOneTemplateService.
+        // Para os testes legados (sem template), basta um mock que retorna null em
+        // RenderForMeetingAsync (ninguém chama a chave de template aqui).
+        var templateMock = new Mock<IOneOnOneTemplateService>();
+        templateMock
+            .Setup(x => x.RenderForMeetingAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ValueTuple<string, string>?)null);
+        var service = new OneOnOneService(db, tenantMock.Object, templateMock.Object);
         return (db, service);
     }
 

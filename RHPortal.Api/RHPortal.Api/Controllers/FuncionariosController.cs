@@ -704,4 +704,100 @@ public sealed class FuncionariosController : ControllerBase
 
         return Ok(result);
     }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Backfill de "shadow Users" para funcionários ATIVOS sem ApplicationUser.
+    //
+    // Por que isso existe:
+    //   No tenant que vem do RM via worker, `Funcionarios` tem milhares de registros
+    //   mas `Users` (Identity) fica vazia/quase-vazia (só popula quando alguém loga).
+    //   Isso quebra todos os seletores de destinatário (Enviar Feedback, 1:1, PDI,
+    //   Celebrações @menção, etc.) que buscam em `Users`.
+    //
+    // O que faz: para cada Funcionario ATIVO sem `UserId`, cria um `ApplicationUser`
+    //   "shadow" reusando o mesmo GUID — sem PasswordHash, então não pode logar via
+    //   Identity. Suficiente para satisfazer FKs (FeedbackItems, OneOnOneMeetings,
+    //   DevelopmentPlans, etc.) e popular dropdowns de destinatário.
+    //
+    // Idempotente: pula funcionários já vinculados ou Users já existentes com mesmo Id.
+    // ─────────────────────────────────────────────────────────────────
+    [HttpPost("backfill-shadow-users")]
+    [RequirePermission("admin.tenant")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> BackfillShadowUsers(
+        [FromServices] AppDbContext db,
+        [FromServices] ITenantContext tenant,
+        CancellationToken ct)
+    {
+        var tenantId = tenant.TenantId
+            ?? throw new InvalidOperationException("Tenant context required.");
+
+        var funcionarios = await db.Funcionarios
+            .IgnoreQueryFilters()
+            .Where(f => f.TenantId == tenantId
+                     && f.Status == RhPortal.Api.Domain.Enums.FuncionarioStatus.Active
+                     && f.UserId == null)
+            .ToListAsync(ct);
+
+        var existingUserIds = await db.Users
+            .IgnoreQueryFilters()
+            .Where(u => u.TenantId == tenantId)
+            .Select(u => u.Id)
+            .ToListAsync(ct);
+        var existingSet = existingUserIds.ToHashSet();
+
+        var now = DateTimeOffset.UtcNow;
+        var created = 0;
+        var skipped = 0;
+
+        foreach (var f in funcionarios)
+        {
+            if (existingSet.Contains(f.Id))
+            {
+                f.UserId = f.Id;
+                skipped++;
+                continue;
+            }
+
+            var name = string.IsNullOrWhiteSpace(f.Name) ? $"Funcionário {f.Id:N}" : f.Name.Trim();
+            var emailRaw = string.IsNullOrWhiteSpace(f.Email)
+                ? $"f-{f.Id:N}@shadow.local"
+                : f.Email.Trim();
+
+            db.Users.Add(new RhPortal.Api.Domain.Entities.ApplicationUser
+            {
+                Id = f.Id,
+                TenantId = tenantId,
+                FullName = name,
+                Email = emailRaw,
+                NormalizedEmail = emailRaw.ToUpperInvariant(),
+                UserName = emailRaw,
+                NormalizedUserName = emailRaw.ToUpperInvariant(),
+                IsActive = true,
+                FuncionarioId = f.Id,
+                EmailConfirmed = false,
+                LockoutEnabled = true,
+                AccessFailedCount = 0,
+                TwoFactorEnabled = false,
+                PhoneNumberConfirmed = false,
+                ConcurrencyStamp = Guid.NewGuid().ToString(),
+                SecurityStamp = Guid.NewGuid().ToString(),
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
+            });
+
+            f.UserId = f.Id;
+            created++;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new
+        {
+            tenantId,
+            funcionariosAtivosSemUser = funcionarios.Count,
+            usersCriados = created,
+            usersJaExistentesLigados = skipped,
+        });
+    }
 }

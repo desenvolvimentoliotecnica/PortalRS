@@ -141,4 +141,33 @@ public sealed class DevelopmentPlansController : ControllerBase
         var deleted = await service.DeleteGoalAsync(planId, goalId, userId, ct);
         return deleted ? NoContent() : NotFound();
     }
+
+    /// <summary>
+    /// Cria um PDI a partir de uma sugestão IA/heurística (Entrega 1.4 — Fase 1 Paridade Feedz).
+    /// O front pega a sugestão via GET /api/avaliacao/ciclos/{cicloId}/sugerir-pdi/{funcionarioId},
+    /// permite o gestor editar, e chama este endpoint para persistir.
+    /// </summary>
+    [RequirePermission("feedback.myplans.view")]
+    [HttpPost("from-suggestion")]
+    [ProducesResponseType(typeof(DevelopmentPlanResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateFromSuggestion(
+        [FromBody] PdiCreateFromSuggestionRequest request,
+        [FromServices] DevelopmentPlanService service,
+        CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdClaim, out var ownerUserId))
+            return Unauthorized();
+
+        try
+        {
+            var plan = await service.CreateFromSuggestionAsync(request, ownerUserId, ct);
+            return CreatedAtAction(nameof(GetById), new { id = plan.Id }, plan);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

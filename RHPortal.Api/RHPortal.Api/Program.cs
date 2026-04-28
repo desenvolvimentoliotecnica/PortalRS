@@ -471,6 +471,12 @@ builder.Services.AddScoped<RhPortal.Api.Application.Metas.IMetaService, RhPortal
 builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoService, RhPortal.Api.Application.Avaliacao.AvaliacaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoConviteService, RhPortal.Api.Application.Avaliacao.AvaliacaoConviteService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoCalibragemService, RhPortal.Api.Application.Avaliacao.AvaliacaoCalibragemService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Avaliacao.IAvaliacaoTemplateService, RhPortal.Api.Application.Avaliacao.AvaliacaoTemplateService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Feedback.IOneOnOneTemplateService, RhPortal.Api.Application.Feedback.OneOnOneTemplateService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Feedback.IFeedbackTemplateService, RhPortal.Api.Application.Feedback.FeedbackTemplateService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Feedback.IPdiSuggesterService, RhPortal.Api.Application.Feedback.PdiSuggesterService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Feedback.ISurveyTemplateService, RhPortal.Api.Application.Feedback.SurveyTemplateService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Feedback.IRenderCoinRewardService, RhPortal.Api.Application.Feedback.RenderCoinRewardService>();
 builder.Services.AddScoped<IColaboradorService, ColaboradorService>();
 builder.Services.Configure<RhPortal.Api.Infrastructure.Storage.AwsOptions>(builder.Configuration.GetSection("Aws"));
 builder.Services.AddScoped<RhPortal.Api.Application.AwsSettings.IAwsSettingsService, RhPortal.Api.Application.AwsSettings.AwsSettingsService>();

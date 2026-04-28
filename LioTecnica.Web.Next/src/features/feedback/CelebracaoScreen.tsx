@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Send, MessageCircle, Heart, RefreshCw, Filter, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -91,19 +91,80 @@ export default function CelebracaoScreen() {
 
     useEffect(() => { void loadFeed(); }, [loadFeed]);
     useEffect(() => {
-        fetchJson<MentionUser[]>("/api/feedback/celebrations/mention-users?take=50")
+        // Carrega TODOS os funcionários ativos (até 500). 50 era pouco — não casava.
+        fetchJson<MentionUser[]>("/api/feedback/celebrations/mention-users?take=500")
             .then(setMentionUsers)
             .catch(() => { });
     }, []);
+
+    // ── Autocomplete de @menção ──────────────────────────────────
+    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const [mentionOpen, setMentionOpen] = useState(false);
+    const [mentionQuery, setMentionQuery] = useState("");
+    const [mentionStartIdx, setMentionStartIdx] = useState(0);
+
+    // Detecta o token "@..." imediatamente antes do caret e abre/atualiza o dropdown.
+    function updateMentionState(text: string, caret: number) {
+        // Procura o último `@` antes do caret
+        let i = caret - 1;
+        while (i >= 0) {
+            const ch = text[i];
+            if (ch === "@") break;
+            // Se cruza um espaço/quebra antes de achar o @, não há menção em curso
+            if (/\s/.test(ch)) { setMentionOpen(false); return; }
+            i--;
+        }
+        if (i < 0) { setMentionOpen(false); return; }
+
+        // O caractere depois do @ não pode ser espaço (caso contrário fechou o token)
+        const query = text.slice(i + 1, caret);
+        if (query.length > 30) { setMentionOpen(false); return; }
+        setMentionStartIdx(i);
+        setMentionQuery(query);
+        setMentionOpen(true);
+    }
+
+    function applyMention(u: MentionUser) {
+        const before = content.slice(0, mentionStartIdx);
+        const after = content.slice(mentionStartIdx + 1 + mentionQuery.length);
+        const inserted = `@${u.fullName} `;
+        const newText = `${before}${inserted}${after}`;
+        setContent(newText);
+        setMentionOpen(false);
+        // Move caret pra logo depois do nome inserido
+        requestAnimationFrame(() => {
+            if (textareaRef.current) {
+                const pos = before.length + inserted.length;
+                textareaRef.current.focus();
+                textareaRef.current.setSelectionRange(pos, pos);
+            }
+        });
+    }
+
+    const filteredMentions = (() => {
+        if (!mentionOpen) return [];
+        const q = mentionQuery.trim().toLowerCase();
+        if (q.length === 0) return mentionUsers.slice(0, 8);
+        return mentionUsers
+            .filter(u => u.fullName.toLowerCase().includes(q))
+            .slice(0, 8);
+    })();
 
     async function handlePost() {
         if (!content.trim()) { toast.error("Escreva algo para celebrar!"); return; }
         setPosting(true);
         try {
-            // Extract mentions from @@name pattern
+            // Extrai menções procurando "@FullName" (ou "@@FullName" legado) no texto.
+            // Match case-insensitive, defensivo contra ids vazios/null.
+            const lower = content.toLowerCase();
             const mentionedUserIds = mentionUsers
-                .filter(u => content.includes(`@@${u.fullName}`) || content.includes(`@${u.fullName}`))
-                .map(u => u.userId);
+                .filter(u => {
+                    if (!u || !u.userId || !u.fullName) return false;
+                    const name = u.fullName.toLowerCase();
+                    return lower.includes("@" + name) || lower.includes("@@" + name);
+                })
+                .map(u => u.userId)
+                .filter((id): id is string => typeof id === "string" && id.length > 0);
 
             await fetchJson("/api/feedback/celebrations", {
                 method: "POST",
@@ -170,15 +231,56 @@ export default function CelebracaoScreen() {
             {/* Post box */}
             <div className="rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur space-y-3">
                 <div className="font-semibold text-sm">Nova publicação</div>
-                <div className="text-muted-foreground text-xs">Digite @@ e o nome para marcar um colaborador.</div>
-                <textarea
-                    className="w-full rounded-lg border border-input bg-background p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    rows={3}
-                    maxLength={MAX_CHARS}
-                    placeholder="O que você quer celebrar? Use @@nome para marcar colegas..."
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                />
+                <div className="text-muted-foreground text-xs">Digite <kbd className="px-1 py-0.5 rounded bg-muted text-[10px] font-mono">@</kbd> e o nome para marcar um colaborador.</div>
+                <div className="relative">
+                    <textarea
+                        ref={textareaRef}
+                        className="w-full rounded-lg border border-input bg-background p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        rows={3}
+                        maxLength={MAX_CHARS}
+                        placeholder="O que você quer celebrar? Digite @ pra marcar colegas..."
+                        value={content}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            setContent(v);
+                            updateMentionState(v, e.target.selectionStart ?? v.length);
+                        }}
+                        onKeyDown={(e) => {
+                            if (mentionOpen && e.key === "Escape") {
+                                setMentionOpen(false);
+                                e.preventDefault();
+                            }
+                            if (mentionOpen && e.key === "Enter" && filteredMentions.length > 0) {
+                                e.preventDefault();
+                                applyMention(filteredMentions[0]);
+                            }
+                        }}
+                        onClick={(e) => updateMentionState(content, (e.currentTarget as HTMLTextAreaElement).selectionStart ?? 0)}
+                        onBlur={() => setTimeout(() => setMentionOpen(false), 150)}
+                    />
+                    {/* Dropdown de autocomplete */}
+                    {mentionOpen && filteredMentions.length > 0 && (
+                        <div className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+                            {filteredMentions.map((u, idx) => (
+                                <button
+                                    key={u.userId}
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); applyMention(u); }}
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2 ${idx === 0 ? "bg-accent/30" : ""}`}
+                                >
+                                    <div className="size-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+                                        {u.fullName.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("")}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="font-medium truncate">{u.fullName}</div>
+                                        {u.email && <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>}
+                                    </div>
+                                    {idx === 0 && <span className="text-[10px] text-muted-foreground">↵</span>}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
                 <div className="flex justify-between items-center">
                     <span className="text-muted-foreground text-xs">{content.length}/{MAX_CHARS}</span>
                     <Button size="sm" onClick={() => void handlePost()} disabled={posting || !content.trim()}>

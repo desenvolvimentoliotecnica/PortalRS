@@ -130,4 +130,42 @@ public sealed class MetasController : ControllerBase
         }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    // ── OKR cascateado (Entrega 1.6 — Fase 1 Paridade Feedz) ──
+
+    /// <summary>Retorna a árvore de metas/OKRs em cascata. Sem rootId, retorna todas as raízes.</summary>
+    [HttpGet("tree")]
+    [ProducesResponseType(typeof(IReadOnlyList<MetaTreeNode>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Tree([FromQuery] Guid? rootId, CancellationToken ct) =>
+        Ok(await _service.ListTreeAsync(rootId, ct));
+
+    /// <summary>Adiciona check-in semanal (status verde/amarelo/vermelho + valor + comentário) a uma meta.</summary>
+    [HttpPost("{id:guid}/checkins")]
+    [ProducesResponseType(typeof(MetaCheckinResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> AddCheckin(
+        Guid id,
+        [FromBody] MetaCheckinCreateRequest request,
+        [FromServices] ICurrentUserContext userContext,
+        CancellationToken ct)
+    {
+        if (userContext.FuncionarioId is not { } criadoPorId)
+            return Unauthorized();
+        try
+        {
+            var checkin = await _service.AddCheckinAsync(id, request, criadoPorId, ct);
+            return CreatedAtAction(nameof(ListCheckins), new { id }, checkin);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Lista os check-ins de uma meta, mais recentes primeiro.</summary>
+    [HttpGet("{id:guid}/checkins")]
+    [ProducesResponseType(typeof(IReadOnlyList<MetaCheckinResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListCheckins(Guid id, CancellationToken ct) =>
+        Ok(await _service.ListCheckinsAsync(id, ct));
 }

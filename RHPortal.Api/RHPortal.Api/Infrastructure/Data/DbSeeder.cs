@@ -140,6 +140,26 @@ public static class DbSeeder
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.MotivoRequisicaoVagaSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
 
+                    // Templates de avaliação prontos (Entrega 1.1 — Fase 1 Paridade Feedz).
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.AvaliacaoTemplateSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+
+                    // Templates de pauta de 1:1 prontos (Entrega 1.2 — Fase 1 Paridade Feedz).
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.OneOnOneTemplateSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+
+                    // Templates de feedback prontos (Entrega 1.3 — Fase 1 Paridade Feedz).
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.FeedbackTemplateSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+
+                    // Templates de Survey (eNPS, Clima, Liderança, Diversidade) — Entrega 1.5.
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.SurveyTemplateSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+
+                    // Catálogo Render Coins (Entrega 1.8) — 6 recompensas seed.
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.RenderCoinRewardSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+
                     // Garante defaults do catálogo de módulos para tenants provisionados antes da
                     // introdução do TenantModules (idempotente).
                     var tenantModuleService = tenantScope.ServiceProvider.GetRequiredService<TenantModuleService>();
