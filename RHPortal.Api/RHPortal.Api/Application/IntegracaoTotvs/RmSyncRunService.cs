@@ -231,18 +231,18 @@ public sealed class RmSyncRunService : IRmSyncRunService
 
     public Task<int?> TriggerRunNowAsync(CancellationToken ct)
     {
-        // Resolve o caminho do projeto worker — configurável via RmSync:WorkerProjectPath,
-        // com fallback razoável a partir do ContentRoot (dev local).
-        var configured = _config["RmSync:WorkerProjectPath"];
-        var workerDir = string.IsNullOrWhiteSpace(configured)
-            ? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "Liotecnica.Integration.RM"))
-            : Path.GetFullPath(configured);
+        // Resolve o caminho do worker. Em container ele é publicado junto da API; no dev local
+        // mantemos fallback para o projeto fonte.
+        var workerDir = ResolveWorkerDirectory(_config["RmSync:WorkerProjectPath"]);
 
         if (!Directory.Exists(workerDir))
         {
             _logger.LogWarning("TriggerRunNow: diretório do worker não encontrado: {Dir}", workerDir);
             throw new DirectoryNotFoundException($"Diretório do worker não encontrado: {workerDir}");
         }
+
+        var workerDll = Path.Combine(workerDir, "Liotecnica.Integration.RM.dll");
+        var workerProject = Path.Combine(workerDir, "Liotecnica.Integration.RM.csproj");
 
         lock (_runNowLock)
         {
@@ -268,13 +268,32 @@ public sealed class RmSyncRunService : IRmSyncRunService
             var psi = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = "run -- sync",
                 WorkingDirectory = workerDir,
                 UseShellExecute = false,
                 RedirectStandardOutput = false,
                 RedirectStandardError = false,
                 CreateNoWindow = true,
             };
+
+            if (File.Exists(workerDll))
+            {
+                psi.ArgumentList.Add("Liotecnica.Integration.RM.dll");
+                psi.ArgumentList.Add("sync");
+            }
+            else if (File.Exists(workerProject))
+            {
+                psi.ArgumentList.Add("run");
+                psi.ArgumentList.Add("--project");
+                psi.ArgumentList.Add(workerProject);
+                psi.ArgumentList.Add("--");
+                psi.ArgumentList.Add("sync");
+            }
+            else
+            {
+                throw new FileNotFoundException(
+                    $"Worker RM não encontrado em {workerDir}. Esperado Liotecnica.Integration.RM.dll ou Liotecnica.Integration.RM.csproj.");
+            }
+
             psi.Environment["DOTNET_ENVIRONMENT"] = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Development";
             psi.Environment["ASPNETCORE_ENVIRONMENT"] = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Development";
 
@@ -286,5 +305,25 @@ public sealed class RmSyncRunService : IRmSyncRunService
             _logger.LogInformation("TriggerRunNow: worker disparado em {Dir} (PID={Pid}).", workerDir, proc.Id);
             return Task.FromResult<int?>(proc.Id);
         }
+    }
+
+    private static string ResolveWorkerDirectory(string? configured)
+    {
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return Path.GetFullPath(configured);
+        }
+
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Liotecnica.Integration.RM"),
+            "/app/Liotecnica.Integration.RM",
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "Liotecnica.Integration.RM")
+        };
+
+        return candidates
+            .Select(Path.GetFullPath)
+            .FirstOrDefault(Directory.Exists)
+            ?? Path.GetFullPath(candidates[^1]);
     }
 }

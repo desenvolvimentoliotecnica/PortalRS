@@ -21,6 +21,9 @@ services:
     # URL pública do candidato (SPA na porta 3050) — sidebar "Portal de Vagas" abre em nova aba.
     environment:
       Navegacao__PortalVagasPublicUrl: ${HMG_PORTAL_VAGAS_URL:-http://10.0.0.80:3050}
+      RmSync__WorkerProjectPath: /app/Liotecnica.Integration.RM
+      Portal__BaseUrl: http://localhost/
+      Portal__TenantId: liotecnica
     env_file:
       - ${HMG_ENV_FILE:-.env.hmg}
     extra_hosts:
