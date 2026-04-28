@@ -117,7 +117,8 @@ jobs:
     name: Deploy via SSH (self-hosted)
     needs: build-and-push
     runs-on: [self-hosted, hmg-deploy]
-    if: github.ref == 'refs/heads/main'
+    # Push em main → deploy; Run workflow manualmente → deploy (qualquer ramo escolhido no dispatch).
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     defaults:
       run:
         shell: bash
