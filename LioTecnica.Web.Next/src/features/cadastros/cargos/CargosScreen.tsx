@@ -375,7 +375,8 @@ export default function CargosScreen() {
             centroCustoId: draft.centroCustoId || null,
             seniority: draft.seniority.trim() || "pleno",
             status: draft.status.toLowerCase() === "inativo" ? "Inactive" : "Active",
-            tipo: draft.tipo.trim() || null,
+            // API: Contract usa property "Type" → JSON camelCase "type" (não "tipo")
+            type: draft.tipo.trim() || null,
             occupationalClassification: draft.occupationalClassification.trim(),
             description: draft.description.trim() || null,
             similarityIndicator: draft.similarityIndicator.trim().slice(0, 1) || null,
@@ -548,7 +549,7 @@ export default function CargosScreen() {
                 name: row.name,
                 centroCustoId: row.centroCustoId || null,
                 seniority: row.seniority || null,
-                tipo: row.tipo || null,
+                type: row.tipo || null,
                 occupationalClassification: row.occupationalClassification || null,
                 description: row.description || null,
                 similarityIndicator: row.similarityIndicator ? row.similarityIndicator.slice(0, 1) : null,
