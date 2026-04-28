@@ -28,6 +28,7 @@ export type EducationSummary = {
   nivel?: string | null;
   areaPrincipal?: string | null;
   situacao?: string | null;
+  dataConclusao?: string | null;
   destaques?: string | null;
 };
 

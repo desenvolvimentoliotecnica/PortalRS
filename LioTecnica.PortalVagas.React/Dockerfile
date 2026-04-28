@@ -2,7 +2,8 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# `npm install` evita falha de `npm ci` quando lock ainda não foi commitado após alterações em package.json
+RUN npm install --no-audit --no-fund
 
 COPY . .
 

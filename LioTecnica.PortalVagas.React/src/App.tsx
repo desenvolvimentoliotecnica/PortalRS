@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { CSSProperties, FormEvent, ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 type AuthCandidate = {
@@ -70,11 +71,40 @@ type PortalPortfolio = {
   tags?: string | null
 }
 type PortalEducationItem = { id: string; curso: string; instituicao?: string | null; tipo?: string | null; status?: string | null; inicio?: string | null; fim?: string | null; observacoes?: string | null; link?: string | null }
-type PortalEducation = { summary: { nivel?: string | null; areaPrincipal?: string | null; situacao?: string | null; destaques?: string | null }; items: PortalEducationItem[] }
+type PortalEducation = {
+  summary: {
+    nivel?: string | null
+    areaPrincipal?: string | null
+    situacao?: string | null
+    dataConclusao?: string | null
+    destaques?: string | null
+  }
+  items: PortalEducationItem[]
+}
 type PortalExperience = { id: string; empresa: string; cargo: string; inicio?: string | null; fim?: string | null; local?: string | null; atividades?: string | null }
 type PortalProject = { id: string; nome: string; periodo?: string | null; descricao?: string | null; link?: string | null; stack?: string | null; destaques?: string | null }
 type PortalExperienceProject = { experiences: PortalExperience[]; projects: PortalProject[] }
-type PortalPreferences = Record<string, string | null | undefined> & { updatedAtUtc?: string | null }
+type PortalPreferences = {
+  CargoAlvo?: string | null
+  Senioridade?: string | null
+  InicioDisponivel?: string | null
+  Resumo?: string | null
+  AreasInteresse?: string | null
+  ModeloTrabalho?: string | null
+  Jornada?: string | null
+  TipoContrato?: string | null
+  Viagens?: string | null
+  Mudanca?: string | null
+  CidadePreferida?: string | null
+  DistanciaMaxKm?: string | null
+  ObsDeslocamento?: string | null
+  PretensaoSalarial?: string | null
+  PretensaoNegociavel?: string | null
+  BeneficiosDesejados?: string | null
+  NaoAbreMaoDe?: string | null
+  UpdatedAtUtc?: string | null
+  updatedAtUtc?: string | null
+}
 type PortalAccessibility = {
   idioma?: string | null
   canal?: string | null
@@ -166,6 +196,21 @@ type PortalJob = {
   salarioMaximo?: number | null
   createdAtUtc: string
   tenantName?: string | null
+  descricaoPublica?: string | null
+  urgente?: boolean
+  aceitaPcd?: boolean
+  quantidadeVagas?: number | null
+  etapas?: Array<{ id?: string; nome?: string | null }>
+}
+
+type PortalApplicationSummary = {
+  id: string
+  candidatoId: string
+  vagaId: string
+  vagaTitulo?: string | null
+  status?: string | number | null
+  etapaMacro?: string | number | null
+  aplicadaEmUtc?: string | null
 }
 
 type WorkspaceState = {
@@ -184,99 +229,272 @@ type WorkspaceState = {
   lgpd: PortalLgpd | null
 }
 
+const WORKSPACE_SECTIONS = [
+  { id: 'perfil-curriculo', label: 'Perfil e currículo', icon: 'fa-user' },
+  { id: 'experiencias', label: 'Experiências', icon: 'fa-briefcase' },
+  { id: 'projetos', label: 'Projetos', icon: 'fa-diagram-project' },
+  { id: 'preferencias', label: 'Preferências de vaga', icon: 'fa-bullseye' },
+  { id: 'agenda', label: 'Agenda e disponibilidade', icon: 'fa-calendar-alt' },
+  { id: 'skills', label: 'Portfólio e links', icon: 'fa-link' },
+  { id: 'competencias', label: 'Competências', icon: 'fa-layer-group' },
+  { id: 'credenciais', label: 'Credenciais', icon: 'fa-certificate' },
+  { id: 'notificacoes', label: 'Notificações', icon: 'fa-bell' },
+  { id: 'lgpd', label: 'LGPD e privacidade', icon: 'fa-shield-alt' },
+  { id: 'educacao', label: 'Educação', icon: 'fa-graduation-cap' },
+  { id: 'cursos-formacoes', label: 'Cursos e formações', icon: 'fa-book-open' },
+  { id: 'documentos', label: 'Documentos', icon: 'fa-paperclip' },
+  { id: 'referencias', label: 'Referências', icon: 'fa-users' },
+  { id: 'acessibilidade', label: 'Acessibilidade', icon: 'fa-universal-access' },
+  { id: 'matches', label: 'Conclusão e aderência', icon: 'fa-chart-line' },
+] as const
+
+type WorkspaceSectionId = (typeof WORKSPACE_SECTIONS)[number]['id']
+
+function normalizeWorkspaceSection(hash: string): WorkspaceSectionId {
+  const cleanHash = hash.replace(/^#/, '')
+  const migrated = cleanHash === 'notificacoes-lgpd' ? 'notificacoes' : cleanHash
+  return WORKSPACE_SECTIONS.some((section) => section.id === migrated)
+    ? migrated as WorkspaceSectionId
+    : 'perfil-curriculo'
+}
+
 type AccessLanguage = 'pt-BR' | 'en-US' | 'es-ES'
+type BrazilianStateOption = { sigla: string; nome: string }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://localhost:7073'
 const DEFAULT_TENANT = (import.meta.env.VITE_DEFAULT_TENANT as string | undefined) ?? 'liotecnica'
 const TENANT_QUERY_KEY = 'tenantId'
 const ACCESS_LANGUAGE_STORAGE_KEY = 'portal-vagas-lang'
 const DEV_PROXY_BASE_URL = ''
+const IBGE_STATES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'
+const IBGE_CITIES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados'
+const FALLBACK_JOB_AREAS = ['Administrativo', 'Comercial', 'Financeiro', 'Operações', 'Recursos Humanos', 'Tecnologia da Informação']
+const SENIORITY_OPTIONS = ['Estágio', 'Trainee', 'Júnior', 'Pleno', 'Sênior', 'Especialista', 'Coordenação', 'Gerência', 'Diretoria']
+const AVAILABILITY_OPTIONS = ['Imediato', 'Até 15 dias', 'Até 30 dias', 'Até 60 dias', 'A combinar']
+const WORK_MODEL_OPTIONS = ['Presencial', 'Híbrido', 'Remoto', 'Indiferente']
+const WORKDAY_OPTIONS = ['Integral', 'Parcial', 'Noturno', 'Escala', 'Flexível', 'A combinar']
+const CONTRACT_OPTIONS = ['CLT', 'PJ', 'Temporário', 'Estágio', 'Trainee', 'A combinar']
+const YES_NO_NEGOTIABLE_OPTIONS = ['Sim', 'Não', 'A combinar']
+const DISTANCE_OPTIONS = ['5', '10', '20', '30', '50', '75', '100']
+const ACCESSIBILITY_LANGUAGE_OPTIONS = ['Português', 'Inglês', 'Espanhol', 'Outro']
+const ACCESSIBILITY_CHANNEL_OPTIONS = ['E-mail', 'WhatsApp', 'Telefone', 'SMS', 'Portal', 'Indiferente']
+const ACCESSIBILITY_TIME_OPTIONS = ['Manhã', 'Tarde', 'Noite', 'Horário comercial', 'A combinar']
+const PCD_IDENTIFICATION_OPTIONS = ['Sim', 'Não', 'Prefiro não informar']
+const PCD_TYPE_OPTIONS = ['Física', 'Auditiva', 'Visual', 'Intelectual', 'Psicossocial', 'Múltipla', 'Outra']
+const BRAZILIAN_STATE_OPTIONS: BrazilianStateOption[] = [
+  { sigla: 'AC', nome: 'Acre' },
+  { sigla: 'AL', nome: 'Alagoas' },
+  { sigla: 'AP', nome: 'Amapá' },
+  { sigla: 'AM', nome: 'Amazonas' },
+  { sigla: 'BA', nome: 'Bahia' },
+  { sigla: 'CE', nome: 'Ceará' },
+  { sigla: 'DF', nome: 'Distrito Federal' },
+  { sigla: 'ES', nome: 'Espírito Santo' },
+  { sigla: 'GO', nome: 'Goiás' },
+  { sigla: 'MA', nome: 'Maranhão' },
+  { sigla: 'MT', nome: 'Mato Grosso' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul' },
+  { sigla: 'MG', nome: 'Minas Gerais' },
+  { sigla: 'PA', nome: 'Pará' },
+  { sigla: 'PB', nome: 'Paraíba' },
+  { sigla: 'PR', nome: 'Paraná' },
+  { sigla: 'PE', nome: 'Pernambuco' },
+  { sigla: 'PI', nome: 'Piauí' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul' },
+  { sigla: 'RO', nome: 'Rondônia' },
+  { sigla: 'RR', nome: 'Roraima' },
+  { sigla: 'SC', nome: 'Santa Catarina' },
+  { sigla: 'SP', nome: 'São Paulo' },
+  { sigla: 'SE', nome: 'Sergipe' },
+  { sigla: 'TO', nome: 'Tocantins' },
+]
 let resolvedApiBaseUrl: string | null = null
 
 const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
   'pt-BR': {
     helpLink: 'Precisa de ajuda?',
+    brandEyebrow: 'Portal de Vagas',
+    brandTitle: 'Construa sua carreira onde a inovação nasce.',
+    brandSubtitle: 'Entre no portal de vagas da Liotécnica para explorar oportunidades, completar seu perfil e acompanhar cada etapa da sua candidatura.',
+    brandBadge: 'Vagas abertas em 2026',
+    secureLogin: 'Conexão segura - LGPD',
+    copyright: '© 2026 Liotécnica Indústria de Alimentos',
+    pillar1Title: '+1.500 colaboradores',
+    pillar1: 'Indústria líder no setor alimentício, presente em todo o Brasil.',
+    pillar2Title: 'Plano de carreira',
+    pillar2: 'Trilhas estruturadas, mentorias e programas de desenvolvimento.',
+    pillar3Title: 'Pacote completo',
+    pillar3: 'Plano de saúde, refeição, Gympass, PLR e auxílio educação.',
     title: 'Acesse sua conta',
-    subtitle: 'Faça o seu login ou crie a sua conta. É simples e rápido.',
-    tenant: 'Tenant',
+    subtitle: 'Acompanhe suas candidaturas, complete seu perfil e descubra vagas que combinam com você.',
+    titleRegister: 'Crie sua conta',
+    subtitleRegister: 'Leva menos de 2 minutos. Você poderá completar seu perfil depois.',
+    tenant: 'Organização',
     email: 'E-mail',
+    emailPlaceholder: 'voce@empresa.com',
     password: 'Senha',
+    passwordPlaceholder: 'Mínimo 8 caracteres',
+    forgot: 'Esqueci minha senha',
+    rememberMe: 'Manter conectado neste dispositivo',
     loginButton: 'Entrar no portal',
-    processing: 'Processando...',
-    createHint: 'Ainda não possui acesso?',
-    createAccess: 'Criar acesso',
-    languageLabel: 'Idioma do perfil',
-    helpTitle: 'Como funciona o processo',
-    helpSubtitle: 'Etapas para acompanhar sua candidatura.',
-    helpStep1: 'Cadastro rápido e perfil único.',
-    helpStep2: 'Triagem e retorno em até 5 dias.',
+    processing: 'Entrando...',
+    creating: 'Criando conta...',
+    createHint: 'Ainda não tem cadastro?',
+    createAccess: 'Criar conta',
+    haveAccount: 'Já tem uma conta?',
+    signIn: 'Entrar',
+    languageLabel: 'Idioma',
+    helpTitle: 'Como funciona o processo seletivo',
+    helpSubtitle: 'Etapas para acompanhar sua candidatura na Liotécnica.',
+    helpStep1: 'Crie seu perfil único e candidate-se às vagas em poucos cliques.',
+    helpStep2: 'Nossa equipe analisa seu perfil e dá retorno em até 5 dias úteis.',
     helpStep3: 'Entrevista com gestor.',
-    helpStep4: 'Proposta e onboarding.',
+    helpStep4: 'Recebimento da oferta, exames e onboarding.',
     close: 'Fechar',
-    registerTitle: 'Criar acesso',
-    registerSubtitle: 'Preencha os dados básicos para entrar no portal.',
     fullName: 'Nome completo',
+    fullNamePlaceholder: 'Como aparece no seu RG',
     phone: 'Telefone',
+    phonePlaceholder: '(11) 99999-9999',
     city: 'Cidade',
+    cityPlaceholder: 'Selecione sua cidade',
     uf: 'UF',
+    ufPlaceholder: 'Selecione a UF',
+    loadingCities: 'Carregando cidades...',
     confirmPassword: 'Confirmar senha',
-    cancel: 'Cancelar',
+    ssoMicrosoft: 'Continuar com Microsoft',
+    ssoGoogle: 'Continuar com Google',
+    unavailable: 'em breve',
+    or: 'ou',
+    termsPrefix: 'Ao continuar, você concorda com os',
+    termsUse: 'Termos de uso',
+    termsAnd: 'e a',
+    privacyPolicy: 'Política de Privacidade',
+    termsSuffix: 'da Liotécnica.',
+    passwordsDontMatch: 'As senhas não conferem.',
   },
   'en-US': {
     helpLink: 'Need help?',
+    brandEyebrow: 'Jobs Portal',
+    brandTitle: 'Build your career where innovation begins.',
+    brandSubtitle: 'Access Liotécnica jobs, complete your profile, and follow every step of your application.',
+    brandBadge: 'Open roles in 2026',
+    secureLogin: 'Secure connection - LGPD',
+    copyright: '© 2026 Liotécnica Food Industries',
+    pillar1Title: '1,500+ employees',
+    pillar1: 'Leading food-industry company, present across Brazil.',
+    pillar2Title: 'Career growth',
+    pillar2: 'Structured tracks, mentorship and development programs.',
+    pillar3Title: 'Full benefits',
+    pillar3: 'Health, meal, Gympass, profit share and education aid.',
     title: 'Access your account',
-    subtitle: 'Log in or create your account. It is simple and fast.',
-    tenant: 'Tenant',
+    subtitle: 'Track applications, complete your profile, and discover roles that fit you.',
+    titleRegister: 'Create your account',
+    subtitleRegister: 'Takes less than 2 minutes. You can complete your profile later.',
+    tenant: 'Organization',
     email: 'Email',
+    emailPlaceholder: 'you@company.com',
     password: 'Password',
+    passwordPlaceholder: 'At least 8 characters',
+    forgot: 'Forgot password',
+    rememberMe: 'Keep me signed in on this device',
     loginButton: 'Enter the portal',
-    processing: 'Processing...',
+    processing: 'Signing in...',
+    creating: 'Creating account...',
     createHint: 'Do not have access yet?',
-    createAccess: 'Create access',
-    languageLabel: 'Profile language',
-    helpTitle: 'How the process works',
-    helpSubtitle: 'Steps to follow your application.',
+    createAccess: 'Create account',
+    haveAccount: 'Already have an account?',
+    signIn: 'Sign in',
+    languageLabel: 'Language',
+    helpTitle: 'How the hiring process works',
+    helpSubtitle: 'Steps to follow your application at Liotécnica.',
     helpStep1: 'Quick signup and a single profile.',
     helpStep2: 'Screening and response within 5 days.',
     helpStep3: 'Interview with the manager.',
     helpStep4: 'Offer and onboarding.',
     close: 'Close',
-    registerTitle: 'Create access',
-    registerSubtitle: 'Fill in the basic data to enter the portal.',
     fullName: 'Full name',
+    fullNamePlaceholder: 'As on your ID',
     phone: 'Phone',
+    phonePlaceholder: '+1 555 000 0000',
     city: 'City',
+    cityPlaceholder: 'Select your city',
     uf: 'State',
+    ufPlaceholder: 'Select state',
+    loadingCities: 'Loading cities...',
     confirmPassword: 'Confirm password',
-    cancel: 'Cancel',
+    ssoMicrosoft: 'Continue with Microsoft',
+    ssoGoogle: 'Continue with Google',
+    unavailable: 'coming soon',
+    or: 'or',
+    termsPrefix: 'By continuing, you agree to Liotécnica',
+    termsUse: 'Terms of Use',
+    termsAnd: 'and',
+    privacyPolicy: 'Privacy Policy',
+    termsSuffix: '',
+    passwordsDontMatch: 'Passwords do not match.',
   },
   'es-ES': {
     helpLink: '¿Necesitas ayuda?',
+    brandEyebrow: 'Portal de Vacantes',
+    brandTitle: 'Construye tu carrera donde nace la innovación.',
+    brandSubtitle: 'Accede al portal de vacantes de Liotécnica para explorar oportunidades, completar tu perfil y seguir tu candidatura.',
+    brandBadge: 'Vacantes abiertas en 2026',
+    secureLogin: 'Conexión segura - LGPD',
+    copyright: '© 2026 Liotécnica Industria de Alimentos',
+    pillar1Title: '+1.500 colaboradores',
+    pillar1: 'Industria líder del sector alimenticio, presente en todo Brasil.',
+    pillar2Title: 'Plan de carrera',
+    pillar2: 'Trayectorias estructuradas, mentorías y programas de desarrollo.',
+    pillar3Title: 'Beneficios completos',
+    pillar3: 'Salud, comida, Gympass, participación en utilidades y apoyo educativo.',
     title: 'Accede a tu cuenta',
-    subtitle: 'Inicia sesión o crea tu cuenta. Es simple y rápido.',
-    tenant: 'Tenant',
+    subtitle: 'Sigue tus candidaturas, completa tu perfil y descubre vacantes para ti.',
+    titleRegister: 'Crea tu cuenta',
+    subtitleRegister: 'Toma menos de 2 minutos. Puedes completar tu perfil después.',
+    tenant: 'Organización',
     email: 'Correo',
+    emailPlaceholder: 'tu@empresa.com',
     password: 'Contraseña',
+    passwordPlaceholder: 'Mínimo 8 caracteres',
+    forgot: 'Olvidé mi contraseña',
+    rememberMe: 'Mantenerme conectado en este dispositivo',
     loginButton: 'Entrar al portal',
-    processing: 'Procesando...',
-    createHint: '¿Aún no tienes acceso?',
-    createAccess: 'Crear acceso',
-    languageLabel: 'Idioma del perfil',
+    processing: 'Entrando...',
+    creating: 'Creando cuenta...',
+    createHint: '¿Aún no tienes cuenta?',
+    createAccess: 'Crear cuenta',
+    haveAccount: '¿Ya tienes cuenta?',
+    signIn: 'Entrar',
+    languageLabel: 'Idioma',
     helpTitle: 'Cómo funciona el proceso',
-    helpSubtitle: 'Pasos para seguir tu candidatura.',
-    helpStep1: 'Registro rápido y perfil único.',
-    helpStep2: 'Filtrado y respuesta en hasta 5 días.',
+    helpSubtitle: 'Pasos para seguir tu candidatura en Liotécnica.',
+    helpStep1: 'Crea tu perfil único y postúlate en pocos clics.',
+    helpStep2: 'Nuestro equipo revisa tu perfil y responde en hasta 5 días hábiles.',
     helpStep3: 'Entrevista con el responsable.',
-    helpStep4: 'Oferta e incorporación.',
+    helpStep4: 'Oferta, exámenes e incorporación.',
     close: 'Cerrar',
-    registerTitle: 'Crear acceso',
-    registerSubtitle: 'Completa los datos básicos para entrar al portal.',
     fullName: 'Nombre completo',
+    fullNamePlaceholder: 'Como en tu documento',
     phone: 'Teléfono',
+    phonePlaceholder: '+34 600 000 000',
     city: 'Ciudad',
+    cityPlaceholder: 'Selecciona tu ciudad',
     uf: 'Estado',
+    ufPlaceholder: 'Selecciona estado',
+    loadingCities: 'Cargando ciudades...',
     confirmPassword: 'Confirmar contraseña',
-    cancel: 'Cancelar',
+    ssoMicrosoft: 'Continuar con Microsoft',
+    ssoGoogle: 'Continuar con Google',
+    unavailable: 'próximamente',
+    or: 'o',
+    termsPrefix: 'Al continuar, aceptas los',
+    termsUse: 'Términos de uso',
+    termsAnd: 'y la',
+    privacyPolicy: 'Política de Privacidad',
+    termsSuffix: 'de Liotécnica.',
+    passwordsDontMatch: 'Las contraseñas no coinciden.',
   },
 }
 
@@ -380,16 +598,16 @@ function PortalApp() {
                     </button>
                     {userMenuOpen ?(
                       <div className="portal-user-dropdown" role="menu">
-                        <button
+                        <Link
                           className="portal-user-dropdown-item"
-                          type="button"
+                          to={withTenant('/candidato', tenantId)}
                           onClick={() => {
-                            setProfileModalOpen(true)
+                            setProfileModalOpen(false)
                             setUserMenuOpen(false)
                           }}
                         >
-                          Ver perfil
-                        </button>
+                          Meu espaço
+                        </Link>
                         <div className="portal-user-dropdown-divider" />
                         <button
                           className="portal-user-dropdown-item danger"
@@ -417,7 +635,18 @@ function PortalApp() {
       {authError ?<div className="toast-banner error">{authError}</div> : null}
       <Routes>
         <Route path="/acesso" element={<AccessPage ctx={authContext} />} />
-        <Route path="/" element={<JobsPage ctx={authContext} />} />
+        <Route
+          path="/"
+          element={
+            initializing ?(
+              <PageLoading label="Validando seu acesso..." />
+            ) : session ?(
+              <JobsPage ctx={authContext} />
+            ) : (
+              <Navigate to={withTenant('/acesso', tenantId)} replace />
+            )
+          }
+        />
         <Route
           path="/candidato"
           element={
@@ -430,6 +659,7 @@ function PortalApp() {
             )
           }
         />
+        <Route path="*" element={<Navigate to={withTenant(session ? '/' : '/acesso', tenantId)} replace />} />
       </Routes>
       {session && profileModalOpen ?(
         <CandidateProfileModal ctx={authContext} onClose={() => setProfileModalOpen(false)} />
@@ -445,13 +675,13 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
   const [error, setError] = useState<string | null>(null)
   const [registerError, setRegisterError] = useState<string | null>(null)
   const [showHelpModal, setShowHelpModal] = useState(false)
-  const [showRegisterModal, setShowRegisterModal] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [language, setLanguage] = useState<AccessLanguage>(() => {
     if (typeof window === 'undefined') return 'pt-BR'
     const stored = window.localStorage.getItem(ACCESS_LANGUAGE_STORAGE_KEY)
     return stored === 'en-US' || stored === 'es-ES' || stored === 'pt-BR' ?stored : 'pt-BR'
   })
-  const [login, setLogin] = useState({ email: '', password: '' })
+  const [login, setLogin] = useState({ email: '', password: '', remember: true })
   const [register, setRegister] = useState({
     nome: '',
     email: '',
@@ -461,12 +691,64 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
     password: '',
     confirmPassword: '',
   })
+  const [ufOptions, setUfOptions] = useState(BRAZILIAN_STATE_OPTIONS)
+  const [cityOptions, setCityOptions] = useState<string[]>([])
+  const [cityLoading, setCityLoading] = useState(false)
   const text = ACCESS_TRANSLATIONS[language]
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     window.localStorage.setItem(ACCESS_LANGUAGE_STORAGE_KEY, language)
   }, [language])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(IBGE_STATES_URL)
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((states) => {
+        if (cancelled) return
+        const normalized = states
+          .map((state) => ({ sigla: state.sigla, nome: state.nome }))
+          .filter((state) => state.sigla && state.nome)
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        if (normalized.length) setUfOptions(normalized)
+      })
+      .catch(() => {
+        if (!cancelled) setUfOptions(BRAZILIAN_STATE_OPTIONS)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!register.uf) {
+      setCityOptions([])
+      setCityLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setCityLoading(true)
+    fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(register.uf)}/municipios?orderBy=nome`)
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((cities) => {
+        if (cancelled) return
+        const names = cities.map((city) => city.nome).filter(Boolean)
+        setCityOptions(names)
+        setRegister((current) => current.cidade && !names.includes(current.cidade) ?{ ...current, cidade: '' } : current)
+      })
+      .catch(() => {
+        if (!cancelled) setCityOptions([])
+      })
+      .finally(() => {
+        if (!cancelled) setCityLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [register.uf])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -497,7 +779,7 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
 
     try {
       if (register.password !== register.confirmPassword) {
-        throw new Error('As senhas não conferem.')
+        throw new Error(text.passwordsDontMatch)
       }
 
       const session = await portalRequest<AuthResponse>(ctx.tenantId, '/api/public/portal-auth/register', {
@@ -513,7 +795,6 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
       })
 
       ctx.setSession(normalizeAuthSession(session, ctx.tenantId))
-      setShowRegisterModal(false)
       navigate(withTenant('/', ctx.tenantId))
     } catch (err) {
       setRegisterError(readError(err))
@@ -524,70 +805,180 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
 
   return (
     <main className="auth-page-shell">
-      <header className="auth-page-header">
-        <div className="auth-page-container auth-page-header-inner">
-          <div className="auth-page-brand-spacer" aria-hidden="true"></div>
-          <button className="auth-page-help" type="button" onClick={() => setShowHelpModal(true)}>
-            {text.helpLink}
-          </button>
+      <aside className="auth-brand-panel">
+        <div className="auth-brand-pattern" aria-hidden="true"></div>
+        <div className="auth-brand-grid" aria-hidden="true"></div>
+
+        <div className="auth-brand-top">
+          <div className="auth-brand-lockup">
+            <img src="/images/logo-liotecnica.png" alt="Liotécnica" />
+          </div>
+          <span className="auth-brand-secure">
+            <i className="fas fa-lock" aria-hidden="true"></i>
+            {text.secureLogin}
+          </span>
         </div>
-      </header>
 
-      <section className="auth-page-body">
-        <div className="auth-page-container auth-page-grid">
-          <form className="auth-card auth-card-main" onSubmit={onSubmit}>
-            <div className="auth-title">
-              <img className="auth-logo-img" src="/images/logo-liotecnica.png" alt="Liotecnica" />
-              <h1>{text.title}</h1>
-              <h2>{text.subtitle}</h2>
+        <div className="auth-brand-content">
+          <span className="auth-brand-badge">
+            <i className="fas fa-sparkles" aria-hidden="true"></i>
+            {text.brandBadge}
+          </span>
+          <h1>{text.brandTitle}</h1>
+          <p>{text.brandSubtitle}</p>
+          <div className="auth-brand-pillars">
+            <div>
+              <span>01</span>
+              <strong>{text.pillar1Title}</strong>
+              <p>{text.pillar1}</p>
             </div>
-
-            <label className="auth-field">
-              <span>{text.tenant}</span>
-              <input value={ctx.tenantId} readOnly />
-            </label>
-
-            <label className="auth-field">
-              <span>{text.email}</span>
-              <input type="email" value={login.email} onChange={(e) => setLogin((v) => ({ ...v, email: e.target.value }))} required />
-            </label>
-            <label className="auth-field">
-              <span>{text.password}</span>
-              <input type="password" value={login.password} onChange={(e) => setLogin((v) => ({ ...v, password: e.target.value }))} required />
-            </label>
-
-            {error ?<div className="inline-alert error auth-inline-alert">{error}</div> : null}
-
-            <button className="auth-submit" type="submit" disabled={pending}>
-              {pending ?text.processing : text.loginButton}
-            </button>
-
-            <div className="auth-links">
-              <span className="auth-note">{text.createHint}</span>
-              <button className="auth-secondary-btn" type="button" onClick={() => setShowRegisterModal(true)}>
-                {text.createAccess}
-              </button>
+            <div>
+              <span>02</span>
+              <strong>{text.pillar2Title}</strong>
+              <p>{text.pillar2}</p>
             </div>
-          </form>
-        </div>
-      </section>
-
-      <footer className="auth-language-footer">
-        <div className="auth-page-container auth-language-inner">
-          <span className="auth-language-label">{text.languageLabel}</span>
-          <div className="language-flags auth-language-flags">
-            <button type="button" className={`auth-flag-btn${language === 'pt-BR' ?' is-active' : ''}`} onClick={() => setLanguage('pt-BR')} title="Português">
-              <img src="/images/flags/flag-br.svg" alt="Português" />
-            </button>
-            <button type="button" className={`auth-flag-btn${language === 'en-US' ?' is-active' : ''}`} onClick={() => setLanguage('en-US')} title="English">
-              <img src="/images/flags/flag-us.svg" alt="English" />
-            </button>
-            <button type="button" className={`auth-flag-btn${language === 'es-ES' ?' is-active' : ''}`} onClick={() => setLanguage('es-ES')} title="Español">
-              <img src="/images/flags/flag-es.svg" alt="Español" />
-            </button>
+            <div>
+              <span>03</span>
+              <strong>{text.pillar3Title}</strong>
+              <p>{text.pillar3}</p>
+            </div>
           </div>
         </div>
-      </footer>
+
+        <footer className="auth-brand-footer">{text.copyright}</footer>
+      </aside>
+
+      <section className="auth-form-panel">
+        <header className="auth-form-header">
+          <div className="auth-language-switch" aria-label={text.languageLabel}>
+            <button type="button" className={language === 'pt-BR' ?'is-active' : ''} onClick={() => setLanguage('pt-BR')}>PT</button>
+            <button type="button" className={language === 'en-US' ?'is-active' : ''} onClick={() => setLanguage('en-US')}>EN</button>
+            <button type="button" className={language === 'es-ES' ?'is-active' : ''} onClick={() => setLanguage('es-ES')}>ES</button>
+          </div>
+          <button className="auth-page-help" type="button" onClick={() => setShowHelpModal(true)}>
+            <i className="fas fa-circle-question" aria-hidden="true"></i>
+            {text.helpLink}
+          </button>
+        </header>
+
+        <div className="auth-form-card">
+          <div className="auth-title">
+            <h1>{authMode === 'register' ?text.titleRegister : text.title}</h1>
+            <h2>{authMode === 'register' ?text.subtitleRegister : text.subtitle}</h2>
+          </div>
+
+          <div className="auth-sso-grid">
+            <button type="button" className="auth-sso-btn" disabled>
+              <i className="fab fa-microsoft" aria-hidden="true"></i>
+              {text.ssoMicrosoft}
+              <span>{text.unavailable}</span>
+            </button>
+            <button type="button" className="auth-sso-btn" disabled>
+              <i className="fab fa-google" aria-hidden="true"></i>
+              {text.ssoGoogle}
+              <span>{text.unavailable}</span>
+            </button>
+          </div>
+
+          <div className="auth-divider">{text.or}</div>
+
+          {authMode === 'login' ?(
+            <form className="auth-card auth-card-main" onSubmit={onSubmit}>
+              <label className="auth-field">
+                <span>{text.email}</span>
+                <input type="email" value={login.email} onChange={(e) => setLogin((v) => ({ ...v, email: e.target.value }))} placeholder={text.emailPlaceholder} required />
+              </label>
+              <label className="auth-field">
+                <span className="auth-field-row">
+                  {text.password}
+                  <button className="auth-link-button is-disabled" type="button" disabled>{text.forgot}</button>
+                </span>
+                <input type="password" value={login.password} onChange={(e) => setLogin((v) => ({ ...v, password: e.target.value }))} placeholder={text.passwordPlaceholder} required />
+              </label>
+              <label className="auth-checkbox">
+                <input type="checkbox" checked={login.remember} onChange={(e) => setLogin((v) => ({ ...v, remember: e.target.checked }))} />
+                <span>{text.rememberMe}</span>
+              </label>
+              {error ?<div className="inline-alert error auth-inline-alert">{error}</div> : null}
+              <button className="auth-submit" type="submit" disabled={pending}>
+                {pending ?text.processing : text.loginButton}
+              </button>
+            </form>
+          ) : (
+            <form className="auth-card auth-card-main" onSubmit={onRegisterSubmit}>
+              <label className="auth-field">
+                <span>{text.fullName}</span>
+                <input value={register.nome} onChange={(e) => setRegister((v) => ({ ...v, nome: e.target.value }))} placeholder={text.fullNamePlaceholder} required />
+              </label>
+              <label className="auth-field">
+                <span>{text.email}</span>
+                <input type="email" value={register.email} onChange={(e) => setRegister((v) => ({ ...v, email: e.target.value }))} placeholder={text.emailPlaceholder} required />
+              </label>
+              <div className="grid two">
+                <label className="auth-field">
+                  <span>{text.phone}</span>
+                  <input inputMode="tel" maxLength={15} value={register.fone} onChange={(e) => setRegister((v) => ({ ...v, fone: formatBrazilianPhone(e.target.value) }))} placeholder={text.phonePlaceholder} required />
+                </label>
+                <label className="auth-field">
+                  <span>{text.uf}</span>
+                  <select value={register.uf} onChange={(e) => setRegister((v) => ({ ...v, uf: e.target.value, cidade: '' }))} required>
+                    <option value="">{text.ufPlaceholder}</option>
+                    {ufOptions.map((state) => (
+                      <option key={state.sigla} value={state.sigla}>{state.sigla} - {state.nome}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="auth-field">
+                <span>{text.city}</span>
+                <select value={register.cidade} onChange={(e) => setRegister((v) => ({ ...v, cidade: e.target.value }))} disabled={!register.uf || cityLoading || cityOptions.length === 0} required>
+                  <option value="">{cityLoading ?text.loadingCities : text.cityPlaceholder}</option>
+                  {cityOptions.map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid two">
+                <label className="auth-field">
+                  <span>{text.password}</span>
+                  <input type="password" value={register.password} onChange={(e) => setRegister((v) => ({ ...v, password: e.target.value }))} placeholder={text.passwordPlaceholder} required />
+                </label>
+                <label className="auth-field">
+                  <span>{text.confirmPassword}</span>
+                  <input type="password" value={register.confirmPassword} onChange={(e) => setRegister((v) => ({ ...v, confirmPassword: e.target.value }))} placeholder={text.passwordPlaceholder} required />
+                </label>
+              </div>
+              {registerError ?<div className="inline-alert error auth-inline-alert">{registerError}</div> : null}
+              <button className="auth-submit" type="submit" disabled={registerPending}>
+                {registerPending ?text.creating : text.createAccess}
+              </button>
+            </form>
+          )}
+
+          <div className="auth-links">
+            <span className="auth-note">{authMode === 'register' ?text.haveAccount : text.createHint}</span>
+            <button
+              className="auth-secondary-btn"
+              type="button"
+              onClick={() => {
+                setAuthMode((value) => value === 'register' ? 'login' : 'register')
+                setError(null)
+                setRegisterError(null)
+              }}
+            >
+              {authMode === 'register' ?text.signIn : text.createAccess}
+            </button>
+          </div>
+
+          <p className="auth-terms">
+            {text.termsPrefix}{' '}
+            <a href="/termos-de-uso" target="_blank" rel="noopener noreferrer">{text.termsUse}</a>{' '}
+            {text.termsAnd}{' '}
+            <a href="/politica-de-privacidade" target="_blank" rel="noopener noreferrer">{text.privacyPolicy}</a>
+            {text.termsSuffix ?` ${text.termsSuffix}` : ''}
+          </p>
+        </div>
+      </section>
 
       {showHelpModal ?(
         <div className="auth-modal-backdrop" onClick={() => setShowHelpModal(false)}>
@@ -616,69 +1007,61 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
         </div>
       ) : null}
 
-      {showRegisterModal ?(
-        <div className="auth-modal-backdrop">
-          <div className="auth-help-modal auth-register-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="auth-help-modal-header">
-              <div>
-                <h2>{text.registerTitle}</h2>
-                <div className="auth-help-modal-subtitle">{text.registerSubtitle}</div>
-              </div>
-              <button type="button" className="auth-modal-close" onClick={() => setShowRegisterModal(false)} aria-label="Fechar">
-                <i className="fas fa-times" aria-hidden="true"></i>
-              </button>
-            </div>
-
-            <form className="auth-register-form" onSubmit={onRegisterSubmit}>
-              <label className="auth-field">
-                <span>{text.fullName}</span>
-                <input value={register.nome} onChange={(e) => setRegister((v) => ({ ...v, nome: e.target.value }))} required />
-              </label>
-              <label className="auth-field">
-                <span>{text.email}</span>
-                <input type="email" value={register.email} onChange={(e) => setRegister((v) => ({ ...v, email: e.target.value }))} required />
-              </label>
-              <div className="grid two">
-                <label className="auth-field">
-                  <span>{text.phone}</span>
-                  <input value={register.fone} onChange={(e) => setRegister((v) => ({ ...v, fone: e.target.value }))} required />
-                </label>
-                <label className="auth-field">
-                  <span>{text.uf}</span>
-                  <input maxLength={2} value={register.uf} onChange={(e) => setRegister((v) => ({ ...v, uf: e.target.value }))} required />
-                </label>
-              </div>
-              <label className="auth-field">
-                <span>{text.city}</span>
-                <input value={register.cidade} onChange={(e) => setRegister((v) => ({ ...v, cidade: e.target.value }))} required />
-              </label>
-              <div className="grid two">
-                <label className="auth-field">
-                  <span>{text.password}</span>
-                  <input type="password" value={register.password} onChange={(e) => setRegister((v) => ({ ...v, password: e.target.value }))} required />
-                </label>
-                <label className="auth-field">
-                  <span>{text.confirmPassword}</span>
-                  <input type="password" value={register.confirmPassword} onChange={(e) => setRegister((v) => ({ ...v, confirmPassword: e.target.value }))} required />
-                </label>
-              </div>
-
-              {registerError ?<div className="inline-alert error auth-inline-alert">{registerError}</div> : null}
-
-              <div className="auth-help-modal-footer auth-register-footer">
-                <button className="auth-secondary-btn auth-modal-cancel" type="button" onClick={() => setShowRegisterModal(false)}>
-                  {text.cancel}
-                </button>
-                <button className="auth-submit auth-modal-primary auth-submit-inline" type="submit" disabled={registerPending}>
-                  {registerPending ?text.processing : text.createAccess}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
     </main>
   )
+}
+
+function trimApplyField(value?: string | null): string {
+  return (value ?? '').trim()
+}
+
+/** LinkedIn pode estar no PUT do perfil (`linkedinUrl`) e/ou em skills-portfolio (`links.linkedin`). */
+function mergeLinkedInForApply(profileLinkedIn?: string | null, portfolioLinkedIn?: string | null): string {
+  const fromProfile = trimApplyField(profileLinkedIn)
+  if (fromProfile) return fromProfile
+  return trimApplyField(portfolioLinkedIn)
+}
+
+function parseExperienceStartDate(value?: string | null): Date | null {
+  const v = trimApplyField(value)
+  if (!v) return null
+  const d = new Date(v.includes('T') ? v : `${v}T12:00:00`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+/** Cargo em experiência sem data de fim, senão a experiência mais recente; por fim “cargo alvo” das preferências. */
+function deriveCargoAtualFromExperiences(experiences: PortalExperience[], cargoAlvo?: string | null): string {
+  if (!experiences.length) return trimApplyField(cargoAlvo)
+  const hasFim = (e: PortalExperience) => trimApplyField(e.fim).length > 0
+  const current = experiences.filter((e) => !hasFim(e))
+  const pool = current.length > 0 ? current : experiences
+  const sorted = [...pool].sort((a, b) => {
+    const tb = parseExperienceStartDate(b.inicio)?.getTime() ?? 0
+    const ta = parseExperienceStartDate(a.inicio)?.getTime() ?? 0
+    return tb - ta
+  })
+  if (sorted[0]?.cargo) return trimApplyField(sorted[0].cargo)
+  return trimApplyField(cargoAlvo)
+}
+
+/** Estimativa a partir da data de início mais antiga nas experiências (campo data do formulário). */
+function deriveAnosExperienciaFromExperiences(experiences: PortalExperience[]): string {
+  const times = experiences
+    .map((e) => parseExperienceStartDate(e.inicio)?.getTime())
+    .filter((t): t is number => t != null && !Number.isNaN(t))
+  if (!times.length) return ''
+  const earliest = Math.min(...times)
+  const years = (Date.now() - earliest) / (365.25 * 24 * 60 * 60 * 1000)
+  const rounded = Math.max(0, Math.min(80, Math.round(years)))
+  return String(rounded)
+}
+
+/** Apenas dígitos; limita a 0–80 (contrato da API). */
+function sanitizeAnosExperienciaInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 3)
+  if (digits === '') return ''
+  const n = Math.min(80, parseInt(digits, 10))
+  return Number.isNaN(n) ? '' : String(n)
 }
 
 function JobsPage({ ctx }: { ctx: AuthContext }) {
@@ -686,11 +1069,17 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
   const [message, setMessage] = useState('Carregando vagas...')
   const [error, setError] = useState<string | null>(null)
   const [jobs, setJobs] = useState<PortalJob[]>([])
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(() => new Set())
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({ q: '', location: '', mode: '', type: '', level: '', area: '', sort: 'recent' })
   const [selectedJob, setSelectedJob] = useState<PortalJob | null>(null)
   const [applyPending, setApplyPending] = useState(false)
   const [applyResult, setApplyResult] = useState<string | null>(null)
+  const [applicationFeedback, setApplicationFeedback] = useState<{
+    type: 'success' | 'error'
+    title: string
+    message: string
+  } | null>(null)
   const [applyData, setApplyData] = useState({
     nome: ctx.session?.candidate.nome ?? '',
     email: ctx.session?.candidate.email ?? '',
@@ -716,10 +1105,10 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           sort: activeFilters.sort,
         })
         for (const [key, value] of Object.entries(activeFilters)) {
-          if (value && key !== 'sort') params.set(key, value)
+          if (value && key !== 'sort' && key !== 'q') params.set(key, value)
         }
         const result = await fetchJson<{ items: PortalJob[] }>(`/api/public/vagas?${params.toString()}`)
-        setJobs(result.items)
+        setJobs(filterJobsBySearch(result.items, activeFilters.q))
         setLoading(false)
         return
       } catch (err) {
@@ -737,7 +1126,94 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
     void loadJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const groupedJobs = useMemo(() => groupJobsByArea(jobs), [jobs])
+  useEffect(() => {
+    const candidate = ctx.session?.candidate
+    if (!candidate) {
+      setAppliedJobIds(new Set())
+      return
+    }
+
+    let cancelled = false
+    fetchJson<PortalApplicationSummary[]>(`/api/public/portal-auth/minhas-candidaturas/${candidate.id}?tenantId=${encodeURIComponent(ctx.tenantId)}`)
+      .then((items) => {
+        if (cancelled) return
+        setAppliedJobIds(new Set(items.map((item) => item.vagaId).filter(Boolean)))
+      })
+      .catch(() => {
+        if (!cancelled) setAppliedJobIds(new Set())
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [ctx.session?.candidate.id, ctx.tenantId])
+  useEffect(() => {
+    const candidate = ctx.session?.candidate
+    if (!selectedJob || !candidate) return
+
+    let cancelled = false
+    setApplyResult(null)
+    setApplyData((current) => ({
+      ...current,
+      nome: candidate.nome,
+      email: candidate.email,
+    }))
+
+    const authFetch = createAuthorizedClient(ctx)
+    const base = `/api/public/portal-candidates/${candidate.id}`
+    void Promise.all([
+      authFetch<PortalProfile>(base).catch(() => null),
+      authFetch<PortalPortfolio>(`${base}/skills-portfolio`).catch(() => null),
+      authFetch<PortalExperienceProject>(`${base}/experience-projects`).catch(() => null),
+      authFetch<PortalPreferences>(`${base}/preferences`).catch(() => null),
+    ]).then(([profile, skillsPortfolio, expProject, preferences]) => {
+      if (cancelled) return
+      if (!profile) {
+        setApplyResult('Não foi possível carregar seus dados básicos. Saia e entre novamente no portal para atualizar sua sessão.')
+        return
+      }
+      const experiences = expProject?.experiences ?? []
+      const linkedin = mergeLinkedInForApply(profile.linkedinUrl, skillsPortfolio?.links?.linkedin)
+      const portfolioUrl = trimApplyField(skillsPortfolio?.links?.portfolio)
+      const cargoAtual = deriveCargoAtualFromExperiences(experiences, preferences?.CargoAlvo)
+      const anos = deriveAnosExperienciaFromExperiences(experiences)
+
+      setApplyData((current) => ({
+        ...current,
+        nome: candidate.nome,
+        email: candidate.email,
+        fone: current.fone || formatBrazilianPhone(profile.fone) || '',
+        cidadeUf: current.cidadeUf || formatCandidateCityUf(profile.cidade, profile.uf),
+        linkedin: current.linkedin || linkedin,
+        portfolio: current.portfolio || portfolioUrl,
+        cargoAtual: current.cargoAtual || cargoAtual,
+        anosExperiencia: current.anosExperiencia || anos,
+      }))
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [ctx.session?.accessToken, ctx.session?.candidate.email, ctx.session?.candidate.id, ctx.session?.candidate.nome, selectedJob?.id])
+  const filterOptions = useMemo(() => ({
+    area: listUniqueJobValues(jobs, (job) => job.area),
+    mode: listUniqueJobValues(jobs, (job) => job.modalidade),
+    type: listUniqueJobValues(jobs, (job) => job.tipoContratacao),
+    level: listUniqueJobValues(jobs, (job) => job.senioridade),
+    location: listUniqueJobValues(jobs, (job) => formatJobLocation(job)).filter((value) => value !== 'Local a definir'),
+  }), [jobs])
+  const activeFilterCount = [filters.location, filters.mode, filters.type, filters.level, filters.area].filter(Boolean).length
+  function openJobApplication(job: PortalJob) {
+    if (appliedJobIds.has(job.id)) {
+      setApplicationFeedback({
+        type: 'success',
+        title: 'Você já se candidatou',
+        message: `Sua candidatura para "${job.titulo}" já está registrada.`,
+      })
+      return
+    }
+    setSelectedJob(job)
+  }
   function clearFilters() {
     const next = { q: '', location: '', mode: '', type: '', level: '', area: '', sort: 'recent' }
     setFilters(next)
@@ -754,7 +1230,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
       form.append('nome', applyData.nome)
       form.append('email', applyData.email)
       form.append('fone', applyData.fone)
-      form.append('cidadeUf', applyData.cidadeUf)
+      form.append('cidadeUf', normalizeCityUfForSubmit(applyData.cidadeUf))
       form.append('linkedin', applyData.linkedin)
       form.append('portfolio', applyData.portfolio)
       form.append('cargoAtual', applyData.cargoAtual)
@@ -774,82 +1250,79 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           throw new Error(await readApiMessage(response))
         }
       })
-      setApplyResult('Candidatura enviada com sucesso.')
+      setAppliedJobIds((current) => new Set(current).add(selectedJob.id))
       setSelectedJob(null)
+      setApplicationFeedback({
+        type: 'success',
+        title: 'Candidatura enviada',
+        message: `Sua candidatura para "${selectedJob.titulo}" foi registrada com sucesso.`,
+      })
     } catch (err) {
-      setApplyResult(readError(err))
+      setSelectedJob(null)
+      setApplicationFeedback({
+        type: 'error',
+        title: 'Não foi possível enviar',
+        message: readError(err),
+      })
     } finally {
       setApplyPending(false)
     }
   }
   return (
     <>
-      <section className="main-header">
-        <div className="portal-container">
-          <h1 className="display-hero">Transforme o Futuro da Alimentação</h1>
-          <p className="lead-copy">Ambiente inovador, tecnologia de ponta e paixão por qualidade.</p>
-        </div>
-      </section>
-      <div className="portal-container search-wrapper">
-        <div className="search-box">
-          <i className="fas fa-search" aria-hidden="true"></i>
-          <input
-            name="q"
-            type="search"
-            placeholder="Buscar por cargo, empresa, tecnologia..."
-            autoComplete="off"
-            value={filters.q}
-            onChange={(e) => setFilters((v) => ({ ...v, q: e.target.value }))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                void loadJobs()
-              }
-            }}
-          />
-          <button className="btn-search" type="button" onClick={() => void loadJobs()}>Buscar</button>
-          <button className="btn-clear" type="button" onClick={clearFilters}>Limpar</button>
-        </div>
-      </div>
-      <button className="back-to-top" type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-        <i className="fas fa-arrow-up" aria-hidden="true"></i>
-        <span>Topo</span>
-      </button>
-      <button className="filters-fab" type="button" onClick={() => setShowFilters((v) => !v)}>
-        <i className="fas fa-sliders-h" aria-hidden="true"></i>
-        <span>Filtros</span>
-      </button>
-      <main className="portal-container portal-main">
-        <div className="results-toolbar">
-          <div className="results-count">
-            <span>{jobs.length}</span> vagas encontradas
+      <section className="jobs-board-hero">
+        <div className="portal-container jobs-board-hero-inner">
+          <div className="jobs-board-heading">
+            <h1>Vagas abertas <em>na Liotécnica</em></h1>
+            <p>{jobs.length} {jobs.length === 1 ? 'oportunidade disponível' : 'oportunidades disponíveis'} · atualizado hoje</p>
           </div>
-          <div className="results-actions">
-            <button className="toolbar-btn toolbar-btn-primary" type="button" onClick={() => setShowFilters((v) => !v)}>
-              Ajustar filtros
+          <div className="jobs-board-controls">
+            <div className="jobs-board-search">
+              <i className="fas fa-search" aria-hidden="true"></i>
+              <input
+                name="q"
+                type="search"
+                placeholder="Buscar por cargo, área ou cidade..."
+                autoComplete="off"
+                value={filters.q}
+                onChange={(e) => setFilters((v) => ({ ...v, q: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void loadJobs()
+                  }
+                }}
+              />
+            </div>
+            <button className="jobs-board-filter-btn" type="button" onClick={() => setShowFilters((v) => !v)}>
+              <i className="fas fa-filter" aria-hidden="true"></i>
+              Filtros
+              {activeFilterCount > 0 ?<span>{activeFilterCount}</span> : null}
             </button>
-            <select className="toolbar-select" value={filters.sort} onChange={(e) => setFilters((v) => ({ ...v, sort: e.target.value }))}>
+            <select className="jobs-board-sort" value={filters.sort} onChange={(e) => setFilters((v) => ({ ...v, sort: e.target.value }))}>
               <option value="recent">Mais recentes</option>
-              <option value="salaryDesc">Faixa salarial (maior primeiro)</option>
+              <option value="salaryDesc">Maior salário</option>
               <option value="companyAsc">Empresa (A-Z)</option>
             </select>
+            <button className="jobs-board-search-btn" type="button" onClick={() => void loadJobs()}>Buscar</button>
           </div>
+          {showFilters ?(
+            <section className="jobs-board-filters">
+              <JobFilterGroup label="Área" options={filterOptions.area} value={filters.area} onChange={(area) => setFilters((v) => ({ ...v, area }))} />
+              <JobFilterGroup label="Localização" options={filterOptions.location} value={filters.location} onChange={(location) => setFilters((v) => ({ ...v, location }))} />
+              <JobFilterGroup label="Modalidade" options={filterOptions.mode} value={filters.mode} onChange={(mode) => setFilters((v) => ({ ...v, mode }))} />
+              <JobFilterGroup label="Contratação" options={filterOptions.type} value={filters.type} onChange={(type) => setFilters((v) => ({ ...v, type }))} />
+              <JobFilterGroup label="Senioridade" options={filterOptions.level} value={filters.level} onChange={(level) => setFilters((v) => ({ ...v, level }))} />
+              <div className="jobs-board-filter-actions">
+                <span>{activeFilterCount} filtro{activeFilterCount === 1 ? '' : 's'} ativo{activeFilterCount === 1 ? '' : 's'}</span>
+                <button type="button" onClick={() => void loadJobs()}>Aplicar filtros</button>
+                <button type="button" onClick={clearFilters}>Limpar todos</button>
+              </div>
+            </section>
+          ) : null}
         </div>
-        {showFilters ?(
-          <section className="react-filters-panel">
-            <div className="react-filters-grid">
-              <input placeholder="Cidade ou UF" value={filters.location} onChange={(e) => setFilters((v) => ({ ...v, location: e.target.value }))} />
-              <input placeholder="Modalidade" value={filters.mode} onChange={(e) => setFilters((v) => ({ ...v, mode: e.target.value }))} />
-              <input placeholder="Contrato" value={filters.type} onChange={(e) => setFilters((v) => ({ ...v, type: e.target.value }))} />
-              <input placeholder="Senioridade" value={filters.level} onChange={(e) => setFilters((v) => ({ ...v, level: e.target.value }))} />
-              <input placeholder="Área" value={filters.area} onChange={(e) => setFilters((v) => ({ ...v, area: e.target.value }))} />
-            </div>
-            <div className="react-filters-actions">
-              <button className="toolbar-btn toolbar-btn-primary" type="button" onClick={() => void loadJobs()}>Aplicar filtros</button>
-              <button className="toolbar-btn" type="button" onClick={clearFilters}>Limpar filtros</button>
-            </div>
-          </section>
-        ) : null}
+      </section>
+      <main className="portal-container jobs-board-main">
         {loading ?(
           <section className="jobs-loading-state">
             <div className="loader-ring" aria-hidden="true"></div>
@@ -867,88 +1340,99 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           </section>
         ) : null}
         {!loading && !error && jobs.length === 0 ?(
-          <section className="empty-state">
+          <section className="jobs-board-empty">
             <h3>Nenhuma vaga encontrada</h3>
             <p>Tente remover alguns filtros ou refinar o texto de busca.</p>
-            <button className="toolbar-btn" type="button" onClick={clearFilters}>Limpar filtros</button>
+            <button type="button" onClick={clearFilters}>Limpar filtros</button>
           </section>
         ) : null}
         {!loading && !error ?(
-          <section className="jobs-sections">
-            {groupedJobs.map((group, groupIndex) => (
-              <section className="job-section" key={group.title}>
-                <div className="job-section-hero" style={{ backgroundImage: `url('${group.image}')` }}>
-                  <div className="job-section-title">
-                    <span>{group.title}</span>
+          <section className="jobs-board-list" aria-label="Vagas abertas">
+            {jobs.map((job) => {
+              const alreadyApplied = appliedJobIds.has(job.id)
+              const tags = buildJobTags(job)
+              const badges = buildJobBadgeValues(job)
+              const isNew = isRecentJob(job.createdAtUtc)
+              return (
+                <article
+                  className={`jobs-board-row${alreadyApplied ? ' is-applied' : ''}`}
+                  key={job.id}
+                  onClick={() => openJobApplication(job)}
+                  role="button"
+                  tabIndex={0}
+                  aria-disabled={alreadyApplied}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      openJobApplication(job)
+                    }
+                  }}
+                >
+                  <div className="jobs-board-row-main">
+                    <div className="jobs-board-pills">
+                      {job.area ?<span className="jobs-board-pill">{job.area}</span> : null}
+                      {badges.slice(0, 3).map((badge) => <span className="jobs-board-pill subtle" key={badge}>{badge}</span>)}
+                      {isNew ?<span className="jobs-board-pill accent">Nova</span> : null}
+                      {alreadyApplied ?(
+                        <span className="jobs-board-pill applied">
+                          <i className="fas fa-check" aria-hidden="true"></i>
+                          Já candidatado
+                        </span>
+                      ) : null}
+                    </div>
+                    <h3>{job.titulo}</h3>
+                    <div className="jobs-board-meta">
+                      <span><i className="fas fa-location-dot" aria-hidden="true"></i>{formatJobLocation(job)}</span>
+                      {job.senioridade ?<span><i className="fas fa-briefcase" aria-hidden="true"></i>{job.senioridade}</span> : null}
+                      <span><i className="fas fa-clock" aria-hidden="true"></i>{formatJobDate(job.createdAtUtc)}</span>
+                    </div>
+                    <div className="jobs-board-tags">
+                      {(tags.length ?tags : ['Perfil geral']).slice(0, 5).map((tag) => (
+                        <span key={tag}>{tag}</span>
+                      ))}
+                    </div>
                   </div>
-                  <span className="job-section-count">{group.jobs.length} vagas</span>
-                </div>
-                <div className="job-grid">
-                  {group.jobs.map((job, jobIndex) => {
-                    const tags = buildJobTags(job)
-                    const badges = buildJobBadgeValues(job)
-                    return (
-                      <article
-                        className="job-card-react"
-                        key={job.id}
-                        onClick={() => setSelectedJob(job)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            setSelectedJob(job)
-                          }
-                        }}
-                      >
-                        <div className="job-hero" style={{ backgroundImage: getJobHeroBackground(groupIndex + jobIndex) }}>
-                          <h3 className="job-title-on-hero">{job.titulo}</h3>
-                          <div className="job-badge-row">
-                            {badges.map((badge) => (
-                              <span className="job-pill-badge" key={badge}>{badge}</span>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="job-card-body">
-                          <div className="job-company">{job.tenantName || 'Liotecnica'}</div>
-                          <div className="job-meta">
-                            <span>{formatJobLocation(job)}</span>
-                            <span className="dot" aria-hidden="true"></span>
-                            <span>{job.area || 'Área em definição'}</span>
-                          </div>
-                          <div className="job-tags-row">
-                            {(tags.length ?tags : ['Perfil geral']).slice(0, 6).map((tag) => (
-                              <span className="job-tag" key={tag}>{tag}</span>
-                            ))}
-                          </div>
-                          <div className="job-salary-line">{formatSalary(job.salarioMinimo, job.salarioMaximo)}</div>
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-              </section>
-            ))}
+                  <div className="jobs-board-row-side">
+                    <strong>{formatSalary(job.salarioMinimo, job.salarioMaximo)}</strong>
+                    <small>{job.quantidadeVagas && job.quantidadeVagas > 1 ?`${job.quantidadeVagas} vagas` : '1 vaga'}</small>
+                  </div>
+                  <button
+                    className="jobs-board-details-btn"
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      openJobApplication(job)
+                    }}
+                    disabled={alreadyApplied}
+                  >
+                    {alreadyApplied ?'Candidatado' : 'Ver detalhes'}
+                    <i className={`fas ${alreadyApplied ? 'fa-check' : 'fa-arrow-right'}`} aria-hidden="true"></i>
+                  </button>
+                </article>
+              )
+            })}
           </section>
         ) : null}
         {selectedJob ?(
           <div className="modal-backdrop" onClick={() => setSelectedJob(null)}>
-            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-card application-modal-card" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <div>
-                  <div className="eyebrow">Candidatura rápida</div>
-                  <h3>{selectedJob.titulo}</h3>
-                </div>
-                <button className="ghost-btn" type="button" onClick={() => setSelectedJob(null)}>Fechar</button>
+                <div className="eyebrow">Candidatura rápida</div>
+                <button className="application-modal-close" type="button" onClick={() => setSelectedJob(null)} aria-label="Fechar">
+                  <i className="fas fa-times" aria-hidden="true"></i>
+                </button>
               </div>
-              <form className="stack-form" onSubmit={submitApplication}>
+              <div className="application-modal-body">
+                <JobDetailsPanel job={selectedJob} />
+                <section className="application-form-panel" aria-label="Formulário de candidatura">
+                  <form className="stack-form" onSubmit={submitApplication}>
                 <div className="grid two">
-                  <label><span>Nome</span><input value={applyData.nome} onChange={(e) => setApplyData((v) => ({ ...v, nome: e.target.value }))} required /></label>
-                  <label><span>E-mail</span><input type="email" value={applyData.email} onChange={(e) => setApplyData((v) => ({ ...v, email: e.target.value }))} required /></label>
+                  <label><span>Nome</span><input value={applyData.nome} onChange={(e) => setApplyData((v) => ({ ...v, nome: e.target.value }))} required readOnly={Boolean(ctx.session)} /></label>
+                  <label><span>E-mail</span><input type="email" value={applyData.email} onChange={(e) => setApplyData((v) => ({ ...v, email: e.target.value }))} required readOnly={Boolean(ctx.session)} /></label>
                 </div>
                 <div className="grid two">
-                  <label><span>Telefone</span><input value={applyData.fone} onChange={(e) => setApplyData((v) => ({ ...v, fone: e.target.value }))} /></label>
-                  <label><span>Cidade / UF</span><input value={applyData.cidadeUf} onChange={(e) => setApplyData((v) => ({ ...v, cidadeUf: e.target.value }))} /></label>
+                  <label><span>Telefone</span><input value={applyData.fone} onChange={(e) => setApplyData((v) => ({ ...v, fone: formatBrazilianPhone(e.target.value) }))} readOnly={Boolean(ctx.session)} /></label>
+                  <label><span>Cidade / UF</span><input value={applyData.cidadeUf} onChange={(e) => setApplyData((v) => ({ ...v, cidadeUf: e.target.value }))} readOnly={Boolean(ctx.session)} /></label>
                 </div>
                 <div className="grid two">
                   <label><span>LinkedIn</span><input value={applyData.linkedin} onChange={(e) => setApplyData((v) => ({ ...v, linkedin: e.target.value }))} /></label>
@@ -956,7 +1440,16 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                 </div>
                 <div className="grid two">
                   <label><span>Cargo atual</span><input value={applyData.cargoAtual} onChange={(e) => setApplyData((v) => ({ ...v, cargoAtual: e.target.value }))} /></label>
-                  <label><span>Anos de experiência</span><input value={applyData.anosExperiencia} onChange={(e) => setApplyData((v) => ({ ...v, anosExperiencia: e.target.value }))} /></label>
+                  <label>
+                    <span>Anos de experiência</span>
+                    <input
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="Ex.: 5"
+                      value={applyData.anosExperiencia}
+                      onChange={(e) => setApplyData((v) => ({ ...v, anosExperiencia: sanitizeAnosExperienciaInput(e.target.value) }))}
+                    />
+                  </label>
                 </div>
                 <label><span>Observações</span><textarea rows={4} value={applyData.observacoes} onChange={(e) => setApplyData((v) => ({ ...v, observacoes: e.target.value }))} /></label>
                 <label>
@@ -965,12 +1458,132 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                 </label>
                 {applyResult ?<div className={`inline-alert ${applyResult.includes('sucesso') ?'success' : 'error'}`}>{applyResult}</div> : null}
                 <button className="primary-btn" type="submit" disabled={applyPending}>{applyPending ?'Enviando...' : 'Enviar candidatura'}</button>
-              </form>
+                  </form>
+                </section>
+              </div>
             </div>
+          </div>
+        ) : null}
+        {applicationFeedback ?(
+          <div className="swal-backdrop" role="presentation" onClick={() => setApplicationFeedback(null)}>
+            <section
+              className={`swal-card ${applicationFeedback.type}`}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="application-feedback-title"
+              aria-describedby="application-feedback-message"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="swal-icon" aria-hidden="true">
+                <i className={`fas ${applicationFeedback.type === 'success' ? 'fa-check' : 'fa-triangle-exclamation'}`}></i>
+              </div>
+              <h3 id="application-feedback-title">{applicationFeedback.title}</h3>
+              <p id="application-feedback-message">{applicationFeedback.message}</p>
+              <button className="primary-btn" type="button" onClick={() => setApplicationFeedback(null)}>
+                Entendi
+              </button>
+            </section>
           </div>
         ) : null}
       </main>
     </>
+  )
+}
+
+function JobFilterGroup({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: string[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="jobs-board-filter-group">
+      <div className="jobs-board-filter-label">{label}</div>
+      <div className="jobs-board-filter-options">
+        {options.length ?options.map((option) => (
+          <label className="jobs-board-check" key={option}>
+            <input
+              type="checkbox"
+              checked={value === option}
+              onChange={() => onChange(value === option ? '' : option)}
+            />
+            <span>{option}</span>
+          </label>
+        )) : (
+          <span className="jobs-board-filter-empty">Sem opções</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function JobDetailsPanel({ job }: { job: PortalJob }) {
+  const tags = buildJobTags(job)
+  const badges = buildJobBadgeValues(job)
+  const etapas = (job.etapas ?? [])
+    .map((etapa) => (etapa.nome || '').trim())
+    .filter(Boolean)
+
+  return (
+    <aside className="application-job-panel" aria-label="Detalhes da vaga">
+      <div className="application-job-hero">
+        <div className="eyebrow">Detalhes da vaga</div>
+        <h4>{job.titulo}</h4>
+        <p>{job.tenantName || 'Liotecnica'}</p>
+      </div>
+
+      <div className="application-job-meta">
+        <DetailItem label="Área" value={job.area || 'Não informado'} />
+        <DetailItem label="Local" value={formatJobLocation(job)} />
+        <DetailItem label="Salário" value={formatSalary(job.salarioMinimo, job.salarioMaximo)} />
+        <DetailItem label="Vagas" value={`${job.quantidadeVagas || 1}`} />
+      </div>
+
+      <div className="application-badge-row">
+        {(badges.length ?badges : ['Perfil geral']).map((badge) => (
+          <span className="job-tag" key={badge}>{badge}</span>
+        ))}
+        {job.aceitaPcd ?<span className="job-tag accent">PCD</span> : null}
+        {job.urgente ?<span className="job-tag urgent">Urgente</span> : null}
+      </div>
+
+      <section className="application-detail-section">
+        <h5>Descrição</h5>
+        <p>{job.descricaoPublica?.trim() || 'Descrição pública não informada para esta vaga.'}</p>
+      </section>
+
+      <section className="application-detail-section">
+        <h5>Tags e responsabilidades</h5>
+        <div className="application-chip-list">
+          {(tags.length ?tags : ['Perfil geral']).map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
+      </section>
+
+      {etapas.length ?(
+        <section className="application-detail-section">
+          <h5>Etapas do processo</h5>
+          <ol className="application-stage-list">
+            {etapas.map((etapa) => <li key={etapa}>{etapa}</li>)}
+          </ol>
+        </section>
+      ) : null}
+    </aside>
+  )
+}
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 
@@ -984,7 +1597,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const authFetch = useMemo(() => createAuthorizedClient(ctx), [ctx])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
   const [profile, setProfile] = useState<PortalProfile | null>(null)
   const [completion, setCompletion] = useState<PortalCompletion | null>(null)
@@ -1090,10 +1702,12 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     ])
 
     let avatarUrl: string | null = null
-    try {
-      avatarUrl = await fetchAuthorizedBlobUrl(ctx, `/api/public/portal-candidates/${candidateId}/avatar`)
-    } catch {
-      avatarUrl = null
+    if (profileData.avatarUrl) {
+      try {
+        avatarUrl = await fetchAuthorizedBlobUrl(ctx, `/api/public/portal-candidates/${candidateId}/avatar`)
+      } catch {
+        avatarUrl = null
+      }
     }
 
     return {
@@ -1128,7 +1742,10 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     setDocuments(snapshot.documents)
     setReferences(snapshot.references)
     setLgpd(snapshot.lgpdData)
-    setAvatarPreview(snapshot.avatarUrl)
+    setAvatarPreview((prev) => {
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return snapshot.avatarUrl
+    })
     setForm({
       nome: snapshot.profileData.nome ?? '',
       email: snapshot.profileData.email ?? '',
@@ -1336,39 +1953,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     setEditingCertId(null)
   }
 
-  async function handleSave() {
-    setSaving(true)
-    setMessage(null)
-    try {
-      const result = await authFetch<PortalProfile>(`/api/public/portal-candidates/${candidateId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          nome: form.nome.trim(),
-          fone: form.fone.trim(),
-          cidade: form.cidade.trim(),
-          uf: form.uf.trim().toUpperCase(),
-          linkedinUrl: profile?.linkedinUrl ?? null,
-          resumoProfissional: profile?.resumoProfissional ?? null,
-        }),
-      })
-      setProfile(result)
-      setForm((current) => ({
-        ...current,
-        nome: result.nome ?? current.nome,
-        email: result.email ?? current.email,
-        fone: result.fone ?? '',
-        cidade: result.cidade ?? '',
-        uf: result.uf ?? '',
-      }))
-      setMessage('Perfil atualizado com sucesso.')
-      await refreshProfileModal({ keepMessage: true })
-    } catch (err) {
-      setMessage(readError(err))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   async function handleResetProfile() {
     if (!window.confirm('Tem certeza que deseja limpar o perfil do candidato?')) return
     setMessage(null)
@@ -1385,34 +1969,63 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const matchesCount = matches.length
   const referencesCount = references.length
 
-  const sectionTiles = [
-    { key: 'perfil', label: 'Perfil', icon: 'fa-user', value: completion?.sections?.perfil ?? completion?.overall ?? 0, kind: 'percent' as const },
-    { key: 'testes', label: 'Testes', icon: 'fa-clipboard-check', value: completion?.sections?.testes ?? 0, kind: 'percent' as const },
-    { key: 'comp', label: 'Competências & Portfólio', icon: 'fa-bolt', value: completion?.sections?.comp ?? 0, kind: 'percent' as const },
-    { key: 'formacao', label: 'Formação & Educação', icon: 'fa-graduation-cap', value: completion?.sections?.formacao ?? 0, kind: 'percent' as const },
-    { key: 'exp', label: 'Experiência & Projetos', icon: 'fa-briefcase', value: completion?.sections?.exp ?? 0, kind: 'percent' as const },
-    { key: 'lgpd', label: 'Privacidade (LGPD)', icon: 'fa-shield-alt', value: completion?.sections?.lgpd ?? 0, kind: 'percent' as const },
-    { key: 'pref', label: 'Preferências / Objetivos', icon: 'fa-bullseye', value: completion?.sections?.pref ?? 0, kind: 'percent' as const },
-    { key: 'docs', label: 'Documentos & Anexos', icon: 'fa-paperclip', value: documents.length, kind: 'count' as const },
-    { key: 'refs', label: 'Referências', icon: 'fa-users', value: referencesCount, kind: 'count' as const },
-    { key: 'acess', label: 'Acessibilidade & Inclusão', icon: 'fa-universal-access', value: completion?.sections?.acess ?? 0, kind: 'percent' as const },
-    { key: 'agenda', label: 'Disponibilidade & Agenda', icon: 'fa-calendar-alt', value: completion?.sections?.agenda ?? 0, kind: 'percent' as const },
-    { key: 'hist', label: 'Histórico de Candidaturas', icon: 'fa-history', value: completion?.sections?.hist ?? 0, kind: 'percent' as const },
-    { key: 'notif', label: 'Notificações & Comunicação', icon: 'fa-bell', value: completion?.sections?.notif ?? 0, kind: 'percent' as const },
-    { key: 'matches', label: 'Vagas sugeridas', icon: 'fa-star', value: matchesCount, kind: 'count' as const },
-    { key: 'clear', label: 'Limpar perfil', icon: 'fa-eraser', value: 0, kind: 'action' as const },
+  const currentRole = portfolio?.preferences.workModel || preferences?.CargoAlvo || 'Perfil em construção'
+  const currentLocation = [form.cidade, form.uf].filter(Boolean).join(', ') || 'Localidade não informada'
+  const linkedinValue = profile?.linkedinUrl || portfolioLinksForm.linkedin || 'Não informado'
+  const clampProgress = (value?: number | null) => Math.max(0, Math.min(100, Math.round(value ?? 0)))
+  const countProgress = (count: number) => (count > 0 ?100 : 0)
+  const sectionProgress = (key: string, fallback = 0) => clampProgress(completion?.sections?.[key] ?? fallback)
+
+  const primarySectionTiles = [
+    { key: 'perfil', label: 'Identidade', sub: 'Dados básicos, avatar e currículo', icon: 'fa-user', value: sectionProgress('perfil', completion?.overall ?? 0), kind: 'percent' as const },
+    { key: 'exp', label: 'Experiência & Projetos', sub: 'Histórico profissional e entregas', icon: 'fa-briefcase', value: sectionProgress('exp', countProgress((experience?.experiences.length ?? 0) + (experience?.projects.length ?? 0))), kind: 'percent' as const },
+    { key: 'formacao', label: 'Formação & Educação', sub: 'Cursos, instituições e destaques', icon: 'fa-graduation-cap', value: sectionProgress('formacao', countProgress(education?.items.length ?? 0)), kind: 'percent' as const },
+    { key: 'comp', label: 'Competências & Portfólio', sub: 'Skills, certificados e links', icon: 'fa-bolt', value: sectionProgress('comp', countProgress((portfolio?.skills.length ?? 0) + (portfolio?.certifications.length ?? 0))), kind: 'percent' as const },
+    { key: 'pref', label: 'Preferências / Objetivos', sub: 'Pretensão, benefícios e prioridades', icon: 'fa-bullseye', value: sectionProgress('pref'), kind: 'percent' as const },
+    { key: 'agenda', label: 'Disponibilidade & Agenda', sub: 'Horários, entrevistas e bloqueios', icon: 'fa-calendar-alt', value: sectionProgress('agenda', countProgress(agenda?.blocks.length ?? 0)), kind: 'percent' as const },
+    { key: 'notif', label: 'Notificações & Comunicação', sub: 'Canais, alertas e frequência', icon: 'fa-bell', value: sectionProgress('notif'), kind: 'percent' as const },
+    { key: 'docs', label: 'Documentos & Anexos', sub: 'Arquivos e comprovantes', icon: 'fa-paperclip', value: documents.length, progress: countProgress(documents.length), kind: 'count' as const },
+    { key: 'refs', label: 'Referências', sub: 'Contatos profissionais', icon: 'fa-users', value: referencesCount, progress: countProgress(referencesCount), kind: 'count' as const },
+    { key: 'acess', label: 'Acessibilidade & Inclusão', sub: 'Preferências e necessidades de apoio', icon: 'fa-universal-access', value: sectionProgress('acess'), kind: 'percent' as const },
+    { key: 'lgpd', label: 'Privacidade / LGPD', sub: 'Consentimentos e retenção de dados', icon: 'fa-shield-alt', value: sectionProgress('lgpd', lgpd?.processarCandidatura ?100 : 0), kind: 'percent' as const },
   ]
 
+  const secondarySectionTiles = [
+    { key: 'testes', label: 'Testes', sub: 'Etapas complementares do RH', icon: 'fa-clipboard-check', value: sectionProgress('testes'), kind: 'percent' as const },
+    { key: 'hist', label: 'Histórico de candidaturas', sub: 'Acompanhamento das inscrições', icon: 'fa-history', value: sectionProgress('hist'), kind: 'percent' as const },
+    { key: 'matches', label: 'Vagas sugeridas', sub: 'Oportunidades com maior aderência', icon: 'fa-star', value: matchesCount, progress: countProgress(matchesCount), kind: 'count' as const },
+    { key: 'clear', label: 'Limpar perfil', sub: 'Remover dados auxiliares do perfil', icon: 'fa-eraser', value: 0, progress: 0, kind: 'action' as const },
+  ]
+
+  const sectionTiles = [...primarySectionTiles, ...secondarySectionTiles]
   const selectedTile = selectedSection ? sectionTiles.find((tile) => tile.key === selectedSection) ?? null : null
+  const tileProgress = (tile: (typeof sectionTiles)[number]) => tile.kind === 'action' ?0 : clampProgress('progress' in tile ?tile.progress : tile.value)
+  const tileStatus = (tile: (typeof sectionTiles)[number]) => {
+    if (tile.kind === 'action') return 'Ação'
+    const progress = tileProgress(tile)
+    if (progress === 100) return 'Completo'
+    if (progress >= 50) return 'Em andamento'
+    if (progress > 0) return 'Iniciado'
+    return 'Pendente'
+  }
 
   return (
     <div className="modal-backdrop profile-modal-backdrop">
       <div className="profile-modal-card" onClick={(event) => event.stopPropagation()}>
         <div>
           <div className="profile-modal-header">
-            <div>
-              <h2 className="profile-modal-title">Meu perfil</h2>
-              <div className="profile-modal-subtitle">Atualize seus dados básicos e acompanhe o preenchimento das seções.</div>
+            <div className="profile-modal-identity">
+              <div className="profile-modal-avatar">
+                {avatarPreview ?(
+                  <img src={avatarPreview} alt={profile?.nome || 'Avatar do candidato'} />
+                ) : (
+                  <span>{getInitials(form.nome || ctx.session?.candidate.nome || 'Candidato')}</span>
+                )}
+              </div>
+              <div>
+                <h2 className="profile-modal-title">{form.nome || ctx.session?.candidate.nome || 'Meu perfil'}</h2>
+                <div className="profile-modal-subtitle">{currentRole} · {currentLocation}</div>
+              </div>
             </div>
             <div className="profile-modal-header-actions">
               <button className="profile-modal-action secondary" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>
@@ -1436,96 +2049,89 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
             ) : (
               <div className={`profile-modal-grid${selectedSection ?' is-detail' : ''}`}>
                 {!selectedSection ?(
-                <section className="profile-left-panel">
-                  <div className="profile-panel-title">Dados do candidato</div>
-
-                  <div className="profile-avatar-panel">
-                    <div className="profile-avatar-circle">
-                      {avatarPreview ?(
-                        <img src={avatarPreview} alt={profile?.nome || 'Avatar do candidato'} />
-                      ) : (
-                        <span>{getInitials(form.nome || ctx.session?.candidate.nome || 'Candidato')}</span>
-                      )}
+                  <section className="profile-overview-panel">
+                    <div className="profile-mini-grid">
+                      <div className="profile-mini-card">
+                        <span>E-mail</span>
+                        <strong>{form.email || 'Não informado'}</strong>
+                      </div>
+                      <div className="profile-mini-card">
+                        <span>Telefone</span>
+                        <strong>{formatBrazilianPhone(form.fone) || 'Não informado'}</strong>
+                      </div>
+                      <div className="profile-mini-card">
+                        <span>LinkedIn</span>
+                        <strong>{linkedinValue}</strong>
+                      </div>
                     </div>
-                    <div className="profile-avatar-meta">
-                      <strong>{form.nome || 'Candidato'}</strong>
-                      <span>{completion?.overall ?? 0}% preenchido</span>
+
+                    <div className="profile-modal-section-heading">
+                      <span>Áreas do perfil</span>
+                      <strong>{clampProgress(completion?.overall)}% completo</strong>
                     </div>
-                  </div>
 
-                  <label className="auth-field">
-                    <span>Nome completo</span>
-                    <input value={form.nome} onChange={(e) => setForm((current) => ({ ...current, nome: e.target.value }))} required />
-                  </label>
-
-                  <label className="auth-field">
-                    <span>E-mail</span>
-                    <input value={form.email} readOnly />
-                  </label>
-
-                  <div className="profile-modal-two-columns">
-                    <label className="auth-field">
-                      <span>Telefone</span>
-                      <input value={form.fone} onChange={(e) => setForm((current) => ({ ...current, fone: e.target.value }))} required />
-                    </label>
-                    <label className="auth-field">
-                      <span>UF</span>
-                      <input value={form.uf} onChange={(e) => setForm((current) => ({ ...current, uf: e.target.value }))} maxLength={2} required />
-                    </label>
-                  </div>
-
-                  <label className="auth-field">
-                    <span>Cidade</span>
-                    <input value={form.cidade} onChange={(e) => setForm((current) => ({ ...current, cidade: e.target.value }))} required />
-                  </label>
-
-                  <div className="profile-panel-note">
-                    <i className="fas fa-shield-alt" aria-hidden="true"></i>
-                    <span>Seus dados são tratados de acordo com a LGPD.</span>
-                  </div>
-                </section>
-                ) : null}
-
-                <section className={`profile-right-panel${selectedSection ?' is-detail' : ''}`}>
-                  {!selectedSection ?(
                     <div className="profile-sections-grid">
-                      {sectionTiles.map((tile) => (
-                        <article
-                          className="profile-section-tile"
-                          key={tile.key}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setSelectedSection(tile.key)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault()
-                              setSelectedSection(tile.key)
-                            }
-                          }}
-                        >
-                          {tile.kind !== 'action' ?(
-                            <div className="profile-section-badge">
-                              {tile.kind === 'percent' ?`${tile.value}%` : tile.value}
+                      {primarySectionTiles.map((tile) => {
+                        const progress = tileProgress(tile)
+                        return (
+                          <button
+                            className="profile-section-tile"
+                            key={tile.key}
+                            type="button"
+                            onClick={() => setSelectedSection(tile.key)}
+                          >
+                            <div className="profile-section-topline">
+                              <span className="profile-section-icon">
+                                <i className={`fas ${tile.icon}`} aria-hidden="true"></i>
+                              </span>
+                              <span className={`profile-section-status${progress === 100 ?' is-complete' : progress > 0 ?' is-started' : ''}`}>
+                                {tileStatus(tile)}
+                              </span>
                             </div>
-                          ) : null}
-                          <div className="profile-section-icon">
-                            <i className={`fas ${tile.icon}`} aria-hidden="true"></i>
-                          </div>
-                          <div className="profile-section-label">{tile.label}</div>
-                        </article>
-                      ))}
+                            <div>
+                              <div className="profile-section-label">{tile.label}</div>
+                              <div className="profile-section-subtitle">{tile.sub}</div>
+                            </div>
+                            <div className="profile-section-progress" aria-hidden="true">
+                              <span style={{ width: `${progress}%` }}></span>
+                            </div>
+                          </button>
+                        )
+                      })}
                     </div>
-                  ) : (
+
+                    <div className="profile-secondary-area">
+                      <div className="profile-modal-section-heading compact">
+                        <span>Ações complementares</span>
+                      </div>
+                      <div className="profile-secondary-grid">
+                        {secondarySectionTiles.map((tile) => (
+                          <button
+                            className={`profile-secondary-tile${tile.kind === 'action' ?' danger' : ''}`}
+                            key={tile.key}
+                            type="button"
+                            onClick={() => setSelectedSection(tile.key)}
+                          >
+                            <i className={`fas ${tile.icon}`} aria-hidden="true"></i>
+                            <span>{tile.label}</span>
+                            {tile.kind !== 'action' ?<strong>{tile.kind === 'percent' ?`${tile.value}%` : tile.value}</strong> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                ) : (
+                  <section className="profile-right-panel is-detail">
                     <div className="profile-section-detail">
                       {selectedSection !== 'comp' ?(
                         <div className="profile-section-detail-head">
                           <div>
                             <div className="profile-section-detail-title">{selectedTile?.label}</div>
-                            <div className="profile-section-detail-subtitle">Detalhes da seção selecionada.</div>
+                            <div className="profile-section-detail-subtitle">{selectedTile?.sub || 'Detalhes da seção selecionada.'}</div>
                           </div>
                           <button className="profile-back-button" type="button" onClick={() => setSelectedSection(null)}>
                             <i className="fas fa-arrow-left" aria-hidden="true"></i>
-                            <span>Voltar às seções</span>
+                            <span>Todas as áreas</span>
                           </button>
                         </div>
                       ) : null}
@@ -1820,32 +2426,41 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                       {selectedSection === 'formacao' ?(
                         <div className="profile-section-detail-body">
-                          <RecordForm
-                            fields={[
-                              field('nivel', education?.summary.nivel),
-                              field('areaPrincipal', education?.summary.areaPrincipal),
-                              field('situacao', education?.summary.situacao),
-                              field('destaques', education?.summary.destaques),
-                            ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
-                          />
-
-                          <RepeaterSection
+                          <div className="subsection-card">
+                            <div className="subsection-head">
+                              <strong>Resumo da formação</strong>
+                            </div>
+                            <RecordForm
+                              fields={[
+                                fieldSelect('nivel', education?.summary.nivel, EDUCATION_SUMMARY_NIVEL_PRESETS, 'Nível'),
+                                field('areaPrincipal', education?.summary.areaPrincipal, 'input', 'Área principal'),
+                                fieldSelect('situacao', education?.summary.situacao, EDUCATION_SUMMARY_SITUACAO_PRESETS, 'Situação'),
+                                fieldDate('dataConclusao', education?.summary.dataConclusao, 'Data de conclusão'),
+                                field('destaques', education?.summary.destaques, 'textarea', 'Destaques'),
+                              ]}
+                              onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
+                              submitLabel="Salvar resumo"
+                              submitButtonClassName="secondary-btn"
+                            />
+                          </div>
+                          <EducationRepeaterSection
                             title="Cursos e formações"
                             items={education?.items ?? []}
-                            describe={(item) => `${item.instituicao || 'Instituição livre'} • ${item.status || 'Status aberto'}`}
-                            fields={[
-                              { name: 'curso', label: 'Curso' },
-                              { name: 'instituicao', label: 'Instituição' },
-                              { name: 'tipo', label: 'Tipo' },
-                              { name: 'status', label: 'Status' },
-                              { name: 'inicio', label: 'Inicio' },
-                              { name: 'fim', label: 'Fim' },
-                              { name: 'observacoes', label: 'Observações' },
-                              { name: 'link', label: 'Link' },
-                            ]}
-                            onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Formacao adicionada.', 'POST')}
-                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Formacao removida.')}
+                            describe={(item) =>
+                              [
+                                item.instituicao || 'Instituição livre',
+                                item.status || 'Status aberto',
+                                [item.inicio, item.fim].filter(Boolean).join(' – '),
+                              ]
+                                .filter((part) => Boolean(part && String(part).trim()))
+                                .join(' • ')
+                            }
+                            onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Formação adicionada.', 'POST')}
+                            onUpdate={(item, values) =>
+                              void saveJson(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, values, 'Formação atualizada.')
+                            }
+                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Formação removida.')}
+                            setAnnouncement={setMessage}
                           />
                         </div>
                       ) : null}
@@ -1888,24 +2503,11 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                       {selectedSection === 'lgpd' ?(
                         <div className="profile-section-detail-body">
-                          <RecordForm
-                            fields={[
-                              field('retencaoMeses', lgpd?.retencaoMeses?.toString() ?? ''),
-                              field('compartilhamento', lgpd?.compartilhamento),
-                            ]}
-                            checks={[
-                              check('processarCandidatura', lgpd?.processarCandidatura),
-                              check('permitirContato', lgpd?.permitirContato),
-                              check('bancoTalentos', lgpd?.bancoTalentos),
-                              check('dadosSensiveis', lgpd?.dadosSensiveis),
-                              check('comunicacoes', lgpd?.comunicacoes),
-                            ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, {
-                              ...values,
-                              retencaoMeses: values.retencaoMeses ?Number(values.retencaoMeses) : null,
-                            }, 'Preferências LGPD atualizadas.')}
+                          <CandidateLgpdWorkspaceForm
+                            data={lgpd}
+                            onSubmit={(payload) => void saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, payload, 'Preferências LGPD atualizadas.')}
+                            onOpenReceipt={() => void openLgpdReceipt(authFetch, candidateId)}
                           />
-                          <button className="secondary-btn" type="button" onClick={() => void openLgpdReceipt(authFetch, candidateId)}>Abrir comprovante LGPD</button>
                         </div>
                       ) : null}
 
@@ -2066,32 +2668,9 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                       {selectedSection === 'notif' ?(
                         <div className="profile-section-detail-body">
-                          <RecordForm
-                            fields={[
-                              field('frequencia', notifications?.frequencia),
-                              field('idioma', notifications?.idioma),
-                              field('email', notifications?.email),
-                              field('telefone', notifications?.telefone),
-                              field('silencioAtivo', notifications?.silencioAtivo),
-                              field('silencioInicio', notifications?.silencioInicio),
-                              field('silencioFim', notifications?.silencioFim),
-                              field('silencioPrioridade', notifications?.silencioPrioridade),
-                              field('assinatura', notifications?.assinatura),
-                            ]}
-                            checks={[
-                              check('canalEmail', notifications?.canalEmail),
-                              check('canalWhatsapp', notifications?.canalWhatsapp),
-                              check('canalSms', notifications?.canalSms),
-                              check('canalPush', notifications?.canalPush),
-                              check('permiteContato', notifications?.permiteContato),
-                              check('alertaNovasVagas', notifications?.alertaNovasVagas),
-                              check('alertaAtualizacoes', notifications?.alertaAtualizacoes),
-                              check('alertaEntrevistas', notifications?.alertaEntrevistas),
-                              check('alertaMensagens', notifications?.alertaMensagens),
-                              check('alertaDocumentos', notifications?.alertaDocumentos),
-                              check('alertaLembretes', notifications?.alertaLembretes),
-                            ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, values, 'Notificacoes atualizadas.')}
+                          <CandidateNotificationsWorkspaceForm
+                            data={notifications}
+                            onSubmit={(payload) => void saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'Notificações atualizadas.')}
                           />
                         </div>
                       ) : null}
@@ -2124,7 +2703,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                           <div className="detail-group">
                             <div className="detail-group-title">Limpar perfil</div>
                             <p className="detail-paragraph">
-                              Use esta a??o para limpar os dados auxiliares do perfil, como no portal .NET.
+                              Use esta ação para limpar os dados auxiliares do perfil, como no portal .NET.
                             </p>
                             <button className="profile-danger-button" type="button" onClick={() => void handleResetProfile()}>
                               <i className="fas fa-eraser" aria-hidden="true"></i>
@@ -2134,8 +2713,8 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         </div>
                       ) : null}
                     </div>
-                  )}
-                </section>
+                  </section>
+                )}
               </div>
             )}
           </div>
@@ -2221,9 +2800,9 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
           ) : null}
 
           <div className="profile-modal-footer">
-            <button className="profile-modal-footer-btn secondary" type="button" onClick={onClose}>Cancelar</button>
-            <button className="profile-modal-footer-btn primary" type="button" onClick={() => void handleSave()} disabled={saving || loading}>
-              {saving ?'Salvando...' : 'Salvar'}
+            <span className="profile-modal-lgpd-note">Suas informações são privadas e protegidas pela LGPD.</span>
+            <button className="profile-modal-footer-btn primary" type="button" onClick={onClose} disabled={loading}>
+              Concluir
             </button>
           </div>
         </div>
@@ -2234,7 +2813,9 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
 function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const candidateId = ctx.session?.candidate.id ?? ''
+  const [activeWorkspaceSection, setActiveWorkspaceSection] = useState<WorkspaceSectionId>(() => normalizeWorkspaceSection(window.location.hash))
   const [state, setState] = useState<WorkspaceState>({
     profile: null,
     completion: null,
@@ -2295,11 +2876,24 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         lgpd,
       })
 
-      try {
-        const url = await fetchAuthorizedBlobUrl(ctx, `/api/public/portal-candidates/${candidateId}/avatar`)
-        setAvatarPreview(url)
-      } catch {
-        setAvatarPreview(null)
+      if (profile.avatarUrl) {
+        try {
+          const url = await fetchAuthorizedBlobUrl(ctx, `/api/public/portal-candidates/${candidateId}/avatar`)
+          setAvatarPreview((prev) => {
+            if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+            return url
+          })
+        } catch {
+          setAvatarPreview((prev) => {
+            if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+            return null
+          })
+        }
+      } else {
+        setAvatarPreview((prev) => {
+          if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+          return null
+        })
       }
     } catch (err) {
       setMessage(readError(err))
@@ -2312,6 +2906,15 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     void refreshWorkspace()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateId])
+
+  useEffect(() => {
+    setActiveWorkspaceSection(normalizeWorkspaceSection(location.hash))
+  }, [location.hash])
+
+  function selectWorkspaceSection(sectionId: WorkspaceSectionId) {
+    setActiveWorkspaceSection(sectionId)
+    window.history.replaceState(null, '', `${location.pathname}${location.search}#${sectionId}`)
+  }
 
   async function saveJson(path: string, payload: unknown, successText: string, method: 'PUT' | 'POST' = 'PUT') {
     try {
@@ -2351,6 +2954,33 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     }
   }
 
+  async function uploadDocument(path: string, tipo: string, observacoes: string, arquivo: File) {
+    const form = new FormData()
+    form.append('Tipo', tipo)
+    form.append('Observacoes', observacoes)
+    form.append('Arquivo', arquivo)
+    try {
+      const response = await fetch(await buildApiUrl(path, ctx.tenantId), {
+        method: 'POST',
+        headers: {
+          'X-Tenant-Id': ctx.tenantId,
+        },
+        body: form,
+      })
+      if (!response.ok) {
+        throw new Error(await readApiMessage(response))
+      }
+      const created = await response.json() as PortalDocument
+      setState((current) => ({
+        ...current,
+        documents: [created, ...current.documents.filter((documentItem) => documentItem.id !== created.id)],
+      }))
+      setMessage('Documento enviado.')
+    } catch (err) {
+      setMessage(readError(err))
+    }
+  }
+
   async function handleLogout() {
     await signOutPortalSession(ctx)
     navigate(withTenant('/acesso', ctx.tenantId))
@@ -2372,409 +3002,894 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     )
   }
 
+  const profileComplete = Math.max(0, Math.min(100, Math.round(state.completion?.overall ?? 0)))
+  const candidateName = state.profile?.nome || ctx.session?.candidate.nome || 'Candidato'
+  const candidateEmail = state.profile?.email || ctx.session?.candidate.email || ''
+  const currentRole = state.portfolio?.preferences.workModel || asString(state.preferences?.CargoAlvo) || 'Perfil em construção'
+  const workspaceNavItems = WORKSPACE_SECTIONS.map((section) => ({
+    ...section,
+    badge: section.id === 'perfil-curriculo'
+      ?`${profileComplete}%`
+      : section.id === 'matches' && state.matches.length
+        ?String(state.matches.length)
+        : section.id === 'cursos-formacoes' && state.education?.items.length
+          ?String(state.education.items.length)
+          : section.id === 'documentos' && state.documents.length
+            ?String(state.documents.length)
+            : section.id === 'referencias' && state.references.length
+              ?String(state.references.length)
+              : section.id === 'competencias' && (state.portfolio?.skills?.length ?? 0)
+                ?String(state.portfolio?.skills?.length ?? 0)
+                : section.id === 'credenciais' && (state.portfolio?.certifications?.length ?? 0)
+                  ?String(state.portfolio?.certifications?.length ?? 0)
+                : null,
+  }))
+
   return (
-    <main className="workspace-shell">
-      <section className="workspace-hero">
-        <div>
-          <div className="eyebrow">Workspace do candidato</div>
-          <h2>{state.profile?.nome || ctx.session?.candidate.nome}</h2>
-          <p>{ctx.session?.candidate.email}  tenant {ctx.tenantId}</p>
-        </div>
-        <div className="workspace-actions">
-          <button className="secondary-btn" type="button" onClick={() => void refreshWorkspace()}>Atualizar tudo</button>
-          <button className="ghost-btn" type="button" onClick={handleLogout}>Sair</button>
-        </div>
-      </section>
-
-      {message ?<div className="toast-banner">{message}</div> : null}
-
-      <section className="summary-grid">
-        <SummaryCard title="Conclus?o do perfil" value={`${state.completion?.overall ?? 0}%`} detail="Score consolidado pelo servi?o de completion" />
-        <SummaryCard title="Job matches" value={String(state.matches.length)} detail="Oportunidades mais aderentes ao seu perfil" />
-        <SummaryCard title="Documentos" value={String(state.documents.length)} detail="Arquivos auxiliares al?m do curr?culo" />
-        <SummaryCard title="Refer?ncias" value={String(state.references.length)} detail="Pessoas que podem endossar sua trajet?ria" />
-      </section>
-
-      <div className="content-grid">
-        <section className="content-column">
-          <WorkspaceSection title="Perfil e curr?culo" description="Dados pessoais, foto, resumo e documentos principais.">
-            <div className="profile-shell">
-              <div className="avatar-plate">
-                {avatarPreview ?<img src={avatarPreview} alt={state.profile?.nome || 'Avatar do candidato'} /> : <span>{getInitials(state.profile?.nome || ctx.session?.candidate.nome || 'Candidato')}</span>}
+    <main className="workspace-shell workspace-view-shell">
+      <div className="workspace-view-grid">
+        <aside className="workspace-sidebar">
+          <section className="workspace-sidebar-card">
+            <div className="workspace-sidebar-profile">
+              <div className="workspace-sidebar-avatar">
+                {avatarPreview ?<img src={avatarPreview} alt={candidateName} /> : <span>{getInitials(candidateName)}</span>}
               </div>
-              <label className="upload-label">
-                Alterar avatar
-                <input type="file" accept="image/*" onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/avatar`, 'arquivo', file, 'Avatar atualizado.')
-                }} />
-              </label>
+              <div>
+                <strong>{candidateName}</strong>
+                <span>{currentRole}</span>
+              </div>
             </div>
+            <div className="workspace-sidebar-progress">
+              <div>
+                <span>Perfil completo</span>
+                <strong>{profileComplete}%</strong>
+              </div>
+              <div className="workspace-sidebar-progress-bar" aria-hidden="true">
+                <span style={{ width: `${profileComplete}%` }}></span>
+              </div>
+              <button className="workspace-sidebar-cta" type="button" onClick={() => selectWorkspaceSection('perfil-curriculo')}>
+                <i className="fas fa-pen" aria-hidden="true"></i>
+                Completar perfil
+              </button>
+            </div>
+          </section>
 
-            <RecordForm
-              fields={[
-                field('Nome', state.profile?.nome),
-                field('Telefone', state.profile?.fone),
-                field('Cidade', state.profile?.cidade),
-                field('UF', state.profile?.uf),
-                field('LinkedIn', state.profile?.linkedinUrl),
-                field('Resumo', state.profile?.resumoProfissional, 'textarea'),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}`, {
-                nome: values.Nome,
-                fone: values.Telefone,
-                cidade: values.Cidade,
-                uf: values.UF,
-                linkedinUrl: values.LinkedIn,
-                resumoProfissional: values.Resumo,
-              }, 'Perfil atualizado.')}
+          <nav className="workspace-sidebar-nav" aria-label="Navegação do meu espaço">
+            {workspaceNavItems.map((item) => (
+              <button
+                className={activeWorkspaceSection === item.id ?'is-active' : ''}
+                type="button"
+                key={item.id}
+                onClick={() => selectWorkspaceSection(item.id)}
+              >
+                <i className={`fas ${item.icon}`} aria-hidden="true"></i>
+                <span>{item.label}</span>
+                {item.badge ?<strong>{item.badge}</strong> : null}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        <section className="workspace-main-pane">
+          <section className="workspace-identity-hero">
+            <div>
+              <div className="eyebrow">Meu espaço</div>
+              <h1>Olá, <em>{candidateName.split(' ')[0]}</em></h1>
+              <p>{candidateEmail}</p>
+            </div>
+            <div className="workspace-actions">
+              <button className="secondary-btn" type="button" onClick={() => void refreshWorkspace()}>Atualizar tudo</button>
+              <button className="ghost-btn" type="button" onClick={handleLogout}>Sair</button>
+            </div>
+          </section>
+
+          {message ?<div className="toast-banner">{message}</div> : null}
+
+          <div className="content-grid workspace-content-grid is-single-section">
+        <section className="content-column">
+          <WorkspaceSection active={activeWorkspaceSection === 'perfil-curriculo'} id="perfil-curriculo" title="Perfil e currículo" description="Dados pessoais, foto, resumo e documentos principais.">
+            <CandidateProfileResumeForm
+              authFetch={authFetch}
+              avatarPreview={avatarPreview}
+              candidateId={candidateId}
+              candidateName={candidateName}
+              profile={state.profile}
+              saveJson={saveJson}
+              setMessage={setMessage}
+              setResumeParsePreview={setResumeParsePreview}
+              uploadFile={uploadFile}
             />
-
-            <div className="toolbar-row">
-              <label className="upload-label">
-                Enviar curr?culo
-                <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'Curr?culo enviado.')
-                }} />
-              </label>
-              <label className="upload-label">
-                Parsear curr?culo
-                <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  const form = new FormData()
-                  form.append('arquivo', file)
-                  void authFetch<Record<string, unknown>>(`/api/public/portal-candidates/${candidateId}/parse-resume`, { method: 'POST', body: form }, false)
-                    .then((result) => setResumeParsePreview(JSON.stringify(result, null, 2)))
-                    .catch((err) => setMessage(readError(err)))
-                }} />
-              </label>
-              <button className="secondary-btn" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>Abrir curr?culo HTML</button>
-              <button className="secondary-btn" type="button" onClick={() => void downloadResumePdf(authFetch, candidateId)}>Baixar PDF gerado</button>
-            </div>
 
             {resumeParsePreview ?<pre className="json-preview">{resumeParsePreview}</pre> : null}
           </WorkspaceSection>
 
-          <WorkspaceSection title="Conclus?o e ader?ncia" description="Diagn?stico autom?tico do perfil e vagas com maior match.">
-            <div className="completion-shell">
-              {Object.entries(state.completion?.sections ?? {}).map(([key, value]) => (
-                <div key={key} className="metric-row">
-                  <span>{key}</span>
-                  <strong>{value}%</strong>
-                </div>
-              ))}
-            </div>
-            {(state.completion?.suggestions ?? []).map((suggestion) => (
-              <article key={`${suggestion.section}-${suggestion.text}`} className="inline-card">
-                <strong>{suggestion.section}</strong>
-                <p>{suggestion.text}</p>
-                <span>{suggestion.impact}</span>
-              </article>
-            ))}
-            <div className="matches-grid">
-              {state.matches.map((match) => (
-                <article key={match.vagaId} className="inline-card">
-                  <strong>{match.title || 'Vaga sem t?tulo'}</strong>
-                  <p>{match.area || '?rea n?o informada'} ? {match.city || 'Cidade'} {match.uf || ''}</p>
-                  <span>Score {match.score}% ? {match.mode || 'Formato flex?vel'}</span>
-                  {match.reason ?<small>{match.reason}</small> : null}
-                </article>
-              ))}
+          <WorkspaceSection active={activeWorkspaceSection === 'matches'} id="matches" title="Conclusão e aderência" description="Diagnóstico automático do perfil e vagas com maior match.">
+            <CandidateMatchInsightsSection completion={state.completion} matches={state.matches} onSelectSection={selectWorkspaceSection} />
+          </WorkspaceSection>
+
+          <WorkspaceSection active={activeWorkspaceSection === 'skills'} id="skills" title="Portfólio e links" description="Preferências rápidas de trabalho, URLs públicos e tags — visão inicial para recrutadores.">
+            <CandidateSkillsPortfolioWorkspace portfolio={state.portfolio} candidateId={candidateId} saveJson={saveJson} setMessage={setMessage} />
+          </WorkspaceSection>
+
+          <WorkspaceSection active={activeWorkspaceSection === 'competencias'} id="competencias" title="Competências" description="Liste tecnologias, idiomas, metodologias e outras capacidades com nível e evidência.">
+            <div className="sp-workspace nl-form">
+              <SkillsPortfolioRepeater candidateId={candidateId} items={state.portfolio?.skills ?? []} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
             </div>
           </WorkspaceSection>
 
-          <WorkspaceSection title="Skills, links e certifica??es" description="Compet?ncias, prefer?ncias r?pidas e links do portf?lio.">
-            <RecordForm
-              fields={[
-                field('WorkModel', state.portfolio?.preferences.workModel),
-                field('Availability', state.portfolio?.preferences.availability),
-                field('Salary', state.portfolio?.preferences.salary),
-                field('Shift', state.portfolio?.preferences.shift),
-                field('Note', state.portfolio?.preferences.note),
-                field('Linkedin', state.portfolio?.links.linkedin),
-                field('Github', state.portfolio?.links.github),
-                field('Portfolio', state.portfolio?.links.portfolio),
-                field('Drive', state.portfolio?.links.drive),
-                field('Tags', state.portfolio?.tags),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, values, 'Prefer?ncias e links salvos.')}
-            />
-
-            <RepeaterSection
-              title="Skills"
-              items={state.portfolio?.skills ?? []}
-              describe={(item) => `${item.tipo}  ${item.nivel}${item.evidencia ?`  ${item.evidencia}` : ''}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills`, values, 'Skill adicionada.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills/${item.id}`, 'Skill removida.')}
-              fields={[
-                { name: 'tipo', label: 'Tipo' },
-                { name: 'nome', label: 'Nome' },
-                { name: 'nivel', label: 'N?vel' },
-                { name: 'evidencia', label: 'Evid?ncia' },
-              ]}
-            />
-
-            <RepeaterSection
-              title="Certifica??es"
-              items={state.portfolio?.certifications ?? []}
-              describe={(item) => `${item.instituicao || 'Institui??o livre'} ${item.ano ?`? ${item.ano}` : ''}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications`, values, 'Certifica??o adicionada.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${item.id}`, 'Certifica??o removida.')}
-              fields={[
-                { name: 'nome', label: 'Nome' },
-                { name: 'instituicao', label: 'Institui??o' },
-                { name: 'ano', label: 'Ano' },
-                { name: 'link', label: 'Link' },
-              ]}
-            />
+          <WorkspaceSection active={activeWorkspaceSection === 'credenciais'} id="credenciais" title="Credenciais" description="Certificações, cursos e credenciais com instituição, período ou link público para validação.">
+            <div className="sp-workspace nl-form">
+              <CertificationsPortfolioRepeater candidateId={candidateId} items={state.portfolio?.certifications ?? []} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
+            </div>
           </WorkspaceSection>
 
-          <WorkspaceSection title="Educa??o" description="Resumo da forma??o e hist?rico acad?mico detalhado.">
-            <RecordForm
-              fields={[
-                field('nivel', state.education?.summary.nivel),
-                field('areaPrincipal', state.education?.summary.areaPrincipal),
-                field('situacao', state.education?.summary.situacao),
-                field('destaques', state.education?.summary.destaques),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
-            />
-            <RepeaterSection
-              title="Cursos e forma??es"
+          <WorkspaceSection active={activeWorkspaceSection === 'educacao'} id="educacao" title="Educação" description="Nível, área, situação e destaques do seu percurso acadêmico.">
+            <div className="subsection-card">
+              <div className="subsection-head">
+                <strong>Resumo da formação</strong>
+              </div>
+              <RecordForm
+                fields={[
+                  fieldSelect('nivel', state.education?.summary.nivel, EDUCATION_SUMMARY_NIVEL_PRESETS, 'Nível'),
+                  field('areaPrincipal', state.education?.summary.areaPrincipal, 'input', 'Área principal'),
+                  fieldSelect('situacao', state.education?.summary.situacao, EDUCATION_SUMMARY_SITUACAO_PRESETS, 'Situação'),
+                  fieldDate('dataConclusao', state.education?.summary.dataConclusao, 'Data de conclusão'),
+                  field('destaques', state.education?.summary.destaques, 'textarea', 'Destaques'),
+                ]}
+                onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
+                submitLabel="Salvar resumo"
+                submitButtonClassName="secondary-btn"
+              />
+            </div>
+          </WorkspaceSection>
+
+          <WorkspaceSection active={activeWorkspaceSection === 'cursos-formacoes'} id="cursos-formacoes" title="Cursos e formações" description="Cursos, instituições, períodos e certificações. Adicione ou edite cada registro.">
+            <EducationRepeaterSection
+              title="Formações registradas"
               items={state.education?.items ?? []}
-              describe={(item) => `${item.instituicao || 'Institui??o livre'} ? ${item.status || 'Status aberto'}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Forma??o adicionada.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Forma??o removida.')}
-              fields={[
-                { name: 'curso', label: 'Curso' },
-                { name: 'instituicao', label: 'Institui??o' },
-                { name: 'tipo', label: 'Tipo' },
-                { name: 'status', label: 'Status' },
-                { name: 'inicio', label: 'In?cio' },
-                { name: 'fim', label: 'Fim' },
-                { name: 'observacoes', label: 'Observa??es' },
-                { name: 'link', label: 'Link' },
-              ]}
+              describe={(item) =>
+                [
+                  item.instituicao || 'Instituição livre',
+                  item.status || 'Status aberto',
+                  [item.inicio, item.fim].filter(Boolean).join(' – '),
+                ]
+                  .filter((part) => Boolean(part && String(part).trim()))
+                  .join(' • ')
+              }
+              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Formação adicionada.', 'POST')}
+              onUpdate={(item, values) =>
+                saveJson(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, values, 'Formação atualizada.')
+              }
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Formação removida.')}
+              setAnnouncement={setMessage}
             />
           </WorkspaceSection>
         </section>
 
         <section className="content-column">
-          <WorkspaceSection title="Experi?ncias e projetos" description="Linha do tempo profissional e cases de entrega.">
-            <RepeaterSection
-              title="Experi?ncias"
+          <WorkspaceSection active={activeWorkspaceSection === 'experiencias'} id="experiencias" title="Experiências" description="Linha do tempo profissional.">
+            <ExperienceRepeaterSection
+              title="Experiências"
               items={state.experience?.experiences ?? []}
-              describe={(item) => `${item.cargo}  ${item.inicio || '?'} a ${item.fim || 'atual'}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences`, values, 'Experi?ncia adicionada.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, 'Experi?ncia removida.')}
-              fields={[
-                { name: 'empresa', label: 'Empresa' },
-                { name: 'cargo', label: 'Cargo' },
-                { name: 'inicio', label: 'In?cio' },
-                { name: 'fim', label: 'Fim' },
-                { name: 'local', label: 'Local / modelo' },
-                { name: 'atividades', label: 'Atividades' },
-              ]}
+              describe={(item) => `${item.cargo} • ${item.inicio || '?'} a ${item.fim || 'atual'}`}
+              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences`, values, 'Experiência adicionada.', 'POST')}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, values, 'Experiência atualizada.')}
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, 'Experiência removida.')}
             />
-            <RepeaterSection
+          </WorkspaceSection>
+
+          <WorkspaceSection active={activeWorkspaceSection === 'projetos'} id="projetos" title="Projetos" description="Cases de entrega, tecnologias e destaques.">
+            <ProjectRepeaterSection
               title="Projetos"
               items={state.experience?.projects ?? []}
-              describe={(item) => `${item.periodo || 'Per?odo livre'} ? ${item.stack || 'Stack aberta'}`}
+              describe={(item) => `${item.periodo || 'Período livre'} • ${item.stack || 'Stack aberta'}`}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/projects`, values, 'Projeto adicionado.', 'POST')}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/projects/${item.id}`, values, 'Projeto atualizado.')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/projects/${item.id}`, 'Projeto removido.')}
-              fields={[
-                { name: 'nome', label: 'Nome' },
-                { name: 'periodo', label: 'Per?odo' },
-                { name: 'descricao', label: 'Descri??o' },
-                { name: 'link', label: 'Link' },
-                { name: 'stack', label: 'Stack' },
-                { name: 'destaques', label: 'Destaques' },
-              ]}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection title="Prefer?ncias de vaga" description="Objetivo profissional, deslocamento, jornada e remunera??o.">
-            <RecordForm
-              fields={[
-                field('CargoAlvo', asString(state.preferences?.CargoAlvo)),
-                field('Senioridade', asString(state.preferences?.Senioridade)),
-                field('InicioDisponivel', asString(state.preferences?.InicioDisponivel)),
-                field('Resumo', asString(state.preferences?.Resumo), 'textarea'),
-                field('AreasInteresse', asString(state.preferences?.AreasInteresse)),
-                field('ModeloTrabalho', asString(state.preferences?.ModeloTrabalho)),
-                field('Jornada', asString(state.preferences?.Jornada)),
-                field('TipoContrato', asString(state.preferences?.TipoContrato)),
-                field('Viagens', asString(state.preferences?.Viagens)),
-                field('Mudanca', asString(state.preferences?.Mudanca)),
-                field('CidadePreferida', asString(state.preferences?.CidadePreferida)),
-                field('DistanciaMaxKm', asString(state.preferences?.DistanciaMaxKm)),
-                field('ObsDeslocamento', asString(state.preferences?.ObsDeslocamento)),
-                field('PretensaoSalarial', asString(state.preferences?.PretensaoSalarial)),
-                field('PretensaoNegociavel', asString(state.preferences?.PretensaoNegociavel)),
-                field('BeneficiosDesejados', asString(state.preferences?.BeneficiosDesejados)),
-                field('NaoAbreMaoDe', asString(state.preferences?.NaoAbreMaoDe)),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'Prefer?ncias salvas.')}
+          <WorkspaceSection active={activeWorkspaceSection === 'preferencias'} id="preferencias" title="Preferências de vaga" description="Objetivo profissional, deslocamento, jornada e remuneração.">
+            <CandidateJobPreferencesForm
+              preferences={state.preferences}
+              tenantId={ctx.tenantId}
+              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'Preferências salvas.')}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection title="Agenda e disponibilidade" description="Formato de entrevista, janelas preferidas e bloqueios.">
-            <RecordForm
-              fields={[
-                field('formatoEntrevista', state.agenda?.preferences.formatoEntrevista),
-                field('inicioDisponivel', state.agenda?.preferences.inicioDisponivel),
-                field('avisoPrevio', state.agenda?.preferences.avisoPrevio),
-                field('observacoes', state.agenda?.preferences.observacoes, 'textarea'),
-                field('horarioPreferido', state.agenda?.preferences.horarioPreferido),
-                field('fusoHorario', state.agenda?.preferences.fusoHorario),
-              ]}
-              checks={[
-                check('diaSeg', state.agenda?.preferences.diaSeg),
-                check('diaTer', state.agenda?.preferences.diaTer),
-                check('diaQua', state.agenda?.preferences.diaQua),
-                check('diaQui', state.agenda?.preferences.diaQui),
-                check('diaSex', state.agenda?.preferences.diaSex),
-                check('diaSab', state.agenda?.preferences.diaSab),
-                check('diaDom', state.agenda?.preferences.diaDom),
-                check('periodoManha', state.agenda?.preferences.periodoManha),
-                check('periodoTarde', state.agenda?.preferences.periodoTarde),
-                check('periodoNoite', state.agenda?.preferences.periodoNoite),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, values, 'Prefer?ncias de agenda salvas.')}
-            />
-            <RepeaterSection
-              title="Bloqueios"
-              items={state.agenda?.blocks ?? []}
-              describe={(item) => `${item.data || 'Data'} ? ${item.horario || 'Hor?rio'} ? ${item.observacoes || 'Sem observa??es'}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, values, 'Bloqueio adicionado.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}
-              fields={[
-                { name: 'tipo', label: 'Tipo' },
-                { name: 'titulo', label: 'T?tulo' },
-                { name: 'data', label: 'Data' },
-                { name: 'horario', label: 'Hor?rio' },
-                { name: 'observacoes', label: 'Observa??es' },
-              ]}
+          <WorkspaceSection active={activeWorkspaceSection === 'agenda'} id="agenda" title="Agenda e disponibilidade" description="Combine disponibilidade para entrevistas com bloqueios quando você não pode ser contactado.">
+            <CandidateAgendaWorkspace agenda={state.agenda} candidateId={candidateId} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
+          </WorkspaceSection>
+
+          <WorkspaceSection active={activeWorkspaceSection === 'notificacoes'} id="notificacoes" title="Notificações" description="Escolha canais, ritmo dos avisos e horários de silêncio.">
+            <CandidateNotificationsWorkspaceForm
+              data={state.notifications}
+              onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'Notificações atualizadas.')}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection title="Notifica??es e LGPD" description="Consentimentos, canais e prioridades de contato.">
-            <RecordForm
-              fields={[
-                field('frequencia', state.notifications?.frequencia),
-                field('idioma', state.notifications?.idioma),
-                field('email', state.notifications?.email),
-                field('telefone', state.notifications?.telefone),
-                field('silencioAtivo', state.notifications?.silencioAtivo),
-                field('silencioInicio', state.notifications?.silencioInicio),
-                field('silencioFim', state.notifications?.silencioFim),
-                field('silencioPrioridade', state.notifications?.silencioPrioridade),
-                field('assinatura', state.notifications?.assinatura),
-              ]}
-              checks={[
-                check('canalEmail', state.notifications?.canalEmail),
-                check('canalWhatsapp', state.notifications?.canalWhatsapp),
-                check('canalSms', state.notifications?.canalSms),
-                check('canalPush', state.notifications?.canalPush),
-                check('permiteContato', state.notifications?.permiteContato),
-                check('alertaNovasVagas', state.notifications?.alertaNovasVagas),
-                check('alertaAtualizacoes', state.notifications?.alertaAtualizacoes),
-                check('alertaEntrevistas', state.notifications?.alertaEntrevistas),
-                check('alertaMensagens', state.notifications?.alertaMensagens),
-                check('alertaDocumentos', state.notifications?.alertaDocumentos),
-                check('alertaLembretes', state.notifications?.alertaLembretes),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, values, 'Notifica??es atualizadas.')}
+          <WorkspaceSection active={activeWorkspaceSection === 'lgpd'} id="lgpd" title="LGPD e privacidade" description="Consentimentos, tratamento de dados e comprovante de preferências (LGPD).">
+            <CandidateLgpdWorkspaceForm
+              data={state.lgpd}
+              onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, payload, 'Preferências LGPD atualizadas.')}
+              onOpenReceipt={() => void openLgpdReceipt(authFetch, candidateId)}
             />
-
-            <RecordForm
-              fields={[
-                field('retencaoMeses', state.lgpd?.retencaoMeses?.toString() ?? ''),
-                field('compartilhamento', state.lgpd?.compartilhamento),
-              ]}
-              checks={[
-                check('processarCandidatura', state.lgpd?.processarCandidatura),
-                check('permitirContato', state.lgpd?.permitirContato),
-                check('bancoTalentos', state.lgpd?.bancoTalentos),
-                check('dadosSensiveis', state.lgpd?.dadosSensiveis),
-                check('comunicacoes', state.lgpd?.comunicacoes),
-              ]}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, {
-                ...values,
-                retencaoMeses: values.retencaoMeses ?Number(values.retencaoMeses) : null,
-              }, 'Prefer?ncias LGPD atualizadas.')}
-            />
-            <button className="secondary-btn" type="button" onClick={() => void openLgpdReceipt(authFetch, candidateId)}>Abrir comprovante LGPD</button>
           </WorkspaceSection>
 
-          <WorkspaceSection title="Documentos, refer?ncias e acessibilidade" description="Toda a camada complementar do perfil do candidato.">
-            <RepeaterSection
+          <WorkspaceSection active={activeWorkspaceSection === 'documentos'} id="documentos" title="Documentos" description="Arquivos, comprovantes e anexos importantes do seu perfil.">
+            <DocumentRepeaterSection
               title="Documentos"
               items={state.documents}
-              describe={(item) => `${item.tipo}  ${item.data || 'Sem data'} ${item.fileName ?` ${item.fileName}` : ''}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/documents`, values, 'Documento salvo.', 'POST')}
+              onUpload={(values) => uploadDocument(`/api/public/portal-candidates/${candidateId}/documents/upload`, values.tipo, values.observacoes, values.arquivo)}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, values, 'Documento atualizado.')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, 'Documento removido.')}
-              fields={[
-                { name: 'tipo', label: 'Tipo' },
-                { name: 'nome', label: 'Nome' },
-                { name: 'link', label: 'Link' },
-                { name: 'data', label: 'Data' },
-                { name: 'observacoes', label: 'Observa??es' },
-                { name: 'fileName', label: 'Nome do arquivo' },
-              ]}
             />
+          </WorkspaceSection>
 
-            <RepeaterSection
-              title="Refer?ncias"
+          <WorkspaceSection active={activeWorkspaceSection === 'referencias'} id="referencias" title="Referências" description="Contatos profissionais que podem apoiar sua trajetória.">
+            <ReferenceRepeaterSection
+              title="Referências"
               items={state.references}
-              describe={(item) => `${item.relacao || 'Rela??o livre'} ? ${item.contato || 'Contato n?o informado'}`}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/references`, {
                 ...values,
                 podeContatar: Boolean(values.podeContatar),
-              }, 'Refer?ncia salva.', 'POST')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, 'Refer?ncia removida.')}
-              fields={[
-                { name: 'nome', label: 'Nome' },
-                { name: 'relacao', label: 'Rela??o' },
-                { name: 'empresa', label: 'Empresa' },
-                { name: 'cargo', label: 'Cargo' },
-                { name: 'contato', label: 'Contato' },
-                { name: 'periodo', label: 'Per?odo' },
-                { name: 'linkedin', label: 'LinkedIn' },
-                { name: 'observacoes', label: 'Observa??es' },
-                { name: 'podeContatar', label: 'Pode contatar?(true/false)' },
-              ]}
+              }, 'Referência salva.', 'POST')}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, {
+                ...values,
+                podeContatar: Boolean(values.podeContatar),
+              }, 'Referência atualizada.')}
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, 'Referência removida.')}
             />
+          </WorkspaceSection>
 
-            <RecordForm
-              fields={[
-                field('idioma', state.accessibility?.idioma),
-                field('canal', state.accessibility?.canal),
-                field('melhorHorario', state.accessibility?.melhorHorario),
-                field('observacoesComunicacao', state.accessibility?.observacoesComunicacao, 'textarea'),
-                field('detalhesNecessidades', state.accessibility?.detalhesNecessidades, 'textarea'),
-                field('pcdIdentificacao', state.accessibility?.pcdIdentificacao),
-                field('pcdTipo', state.accessibility?.pcdTipo),
-                field('pcdComprovacao', state.accessibility?.pcdComprovacao),
-                field('pcdObservacoes', state.accessibility?.pcdObservacoes, 'textarea'),
-              ]}
-              checks={[
-                check('precisaLegendas', state.accessibility?.precisaLegendas),
-                check('precisaInterprete', state.accessibility?.precisaInterprete),
-                check('precisaLeitorTela', state.accessibility?.precisaLeitorTela),
-                check('precisaBaixaEstimulo', state.accessibility?.precisaBaixaEstimulo),
-                check('precisaMobilidade', state.accessibility?.precisaMobilidade),
-                check('precisaTempoExtra', state.accessibility?.precisaTempoExtra),
-                check('consentimentoPcd', state.accessibility?.consentimentoPcd),
-              ]}
+          <WorkspaceSection active={activeWorkspaceSection === 'acessibilidade'} id="acessibilidade" title="Acessibilidade" description="Preferências de comunicação, inclusão e necessidades de acessibilidade.">
+            <CandidateAccessibilityForm
+              accessibility={state.accessibility}
               onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/accessibility`, values, 'Acessibilidade atualizada.')}
             />
           </WorkspaceSection>
         </section>
+          </div>
+        </section>
       </div>
     </main>
+  )
+}
+
+function CandidateMatchInsightsSection({
+  completion,
+  matches,
+  onSelectSection,
+}: {
+  completion: PortalCompletion | null
+  matches: PortalMatchItem[]
+  onSelectSection: (sectionId: WorkspaceSectionId) => void
+}) {
+  const overall = clampCompletionPercent(completion?.overall)
+  const sections = Object.entries(completion?.sections ?? {})
+    .map(([key, value]) => ({ key, label: formatCompletionSectionLabel(key), value: clampCompletionPercent(value) }))
+    .sort((a, b) => a.value - b.value || a.label.localeCompare(b.label, 'pt-BR'))
+  const suggestions = completion?.suggestions ?? []
+  const incompleteSections = sections.filter((section) => section.value < 100).length
+  const topMatch = matches.reduce((best, match) => Math.max(best, clampCompletionPercent(match.score)), 0)
+  const ringStyle = { '--match-score': `${overall}%` } as CSSProperties
+
+  return (
+    <div className="match-insights">
+      <section className="match-insights-hero">
+        <div className="match-score-ring" style={ringStyle} aria-label={`Perfil ${overall}% completo`}>
+          <span>{overall}%</span>
+          <small>perfil</small>
+        </div>
+        <div className="match-insights-copy">
+          <div className="eyebrow">Diagnóstico do candidato</div>
+          <h3>{overall >= 80 ? 'Seu perfil já está bem encaminhado.' : 'Complete os pontos certos para ganhar aderência.'}</h3>
+          <p>
+            Cruzamos a conclusão do seu perfil com as vagas abertas para indicar onde ajustar informações e quais oportunidades parecem mais próximas.
+          </p>
+        </div>
+      </section>
+
+      <div className="match-kpi-grid" aria-label="Resumo de aderência">
+        <article>
+          <span>Perfil completo</span>
+          <strong>{overall}%</strong>
+          <small>{sections.length ? `${sections.length} áreas avaliadas` : 'Aguardando diagnóstico'}</small>
+        </article>
+        <article>
+          <span>Pontos de melhoria</span>
+          <strong>{suggestions.length || incompleteSections}</strong>
+          <small>{suggestions.length ? 'sugestões priorizadas' : 'áreas incompletas'}</small>
+        </article>
+        <article>
+          <span>Melhor aderência</span>
+          <strong>{matches.length ? `${topMatch}%` : '-'}</strong>
+          <small>{matches.length ? `${matches.length} vagas sugeridas` : 'sem vagas sugeridas agora'}</small>
+        </article>
+      </div>
+
+      <section className="match-panel">
+        <div className="match-panel-head">
+          <div>
+            <span className="eyebrow">Mapa de conclusão</span>
+            <h4>Áreas do perfil</h4>
+          </div>
+          <p>Priorize os itens com menor percentual para melhorar a qualidade das recomendações.</p>
+        </div>
+        {sections.length ? (
+          <div className="match-section-grid">
+            {sections.map((section) => {
+              const tone = getCompletionTone(section.value)
+              const targetSection = getCompletionTargetSection(section.key)
+              const cardContent = (
+                <>
+                  <div>
+                    <strong>{section.label}</strong>
+                    <span className="match-status-pill">{tone.label}</span>
+                  </div>
+                  <div className="match-progress-bar" aria-hidden="true">
+                    <span style={{ width: `${section.value}%` }}></span>
+                  </div>
+                  <small>{section.value}% concluído</small>
+                </>
+              )
+              if (targetSection) {
+                return (
+                  <button
+                    className={`match-section-card is-clickable ${tone.className}`}
+                    key={section.key}
+                    type="button"
+                    onClick={() => onSelectSection(targetSection)}
+                    aria-label={`Abrir seção ${section.label}`}
+                  >
+                    {cardContent}
+                  </button>
+                )
+              }
+
+              return (
+                <article className={`match-section-card ${tone.className}`} key={section.key}>
+                  {cardContent}
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="match-empty-state">
+            <strong>Diagnóstico ainda não disponível.</strong>
+            <p>Atualize seu perfil ou tente novamente em alguns instantes para carregar a conclusão.</p>
+          </div>
+        )}
+      </section>
+
+      <div className="match-two-column">
+        <section className="match-panel">
+          <div className="match-panel-head">
+            <div>
+              <span className="eyebrow">Próximas melhorias</span>
+              <h4>Sugestões para aumentar aderência</h4>
+            </div>
+          </div>
+          {suggestions.length ? (
+            <div className="match-suggestion-grid">
+              {suggestions.map((suggestion) => {
+                const impact = formatSuggestionImpact(suggestion.impact)
+                return (
+                  <article className={`match-suggestion-card ${impact.className}`} key={`${suggestion.section}-${suggestion.text}`}>
+                    <span>{impact.label}</span>
+                    <strong>{formatCompletionSectionLabel(suggestion.section)}</strong>
+                    <p>{suggestion.text}</p>
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="match-empty-state compact">
+              <strong>Nenhuma sugestão pendente.</strong>
+              <p>Seu perfil não possui alertas prioritários neste momento.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="match-panel">
+          <div className="match-panel-head">
+            <div>
+              <span className="eyebrow">Vagas sugeridas</span>
+              <h4>Oportunidades com maior match</h4>
+            </div>
+          </div>
+          {matches.length ? (
+            <div className="match-job-grid">
+              {matches.map((match) => {
+                const score = clampCompletionPercent(match.score)
+                return (
+                  <article className="match-job-card" key={match.vagaId}>
+                    <div className="match-job-card-head">
+                      <strong>{match.title || 'Vaga sem título'}</strong>
+                      <span>{score}%</span>
+                    </div>
+                    <p>{formatMatchLocation(match)}</p>
+                    <div className="match-job-tags">
+                      <span>{match.area || 'Área não informada'}</span>
+                      <span>{match.mode || 'Formato flexível'}</span>
+                      {match.level ? <span>{match.level}</span> : null}
+                    </div>
+                    <div className="match-progress-bar" aria-hidden="true">
+                      <span style={{ width: `${score}%` }}></span>
+                    </div>
+                    {match.reason ? <small>{match.reason}</small> : null}
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="match-empty-state compact">
+              <strong>Nenhuma vaga sugerida agora.</strong>
+              <p>Complete preferências, competências e experiências para melhorar o matching.</p>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function CandidateAccessibilityForm({
+  accessibility,
+  onSubmit,
+}: {
+  accessibility: PortalAccessibility | null
+  onSubmit: (values: PortalAccessibility) => void | Promise<void>
+}) {
+  const [form, setForm] = useState<PortalAccessibility>(() => normalizeAccessibility(accessibility))
+
+  useEffect(() => {
+    setForm(normalizeAccessibility(accessibility))
+  }, [accessibility])
+
+  function updateField<K extends keyof PortalAccessibility>(key: K, value: PortalAccessibility[K]) {
+    setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function toggleField<K extends keyof PortalAccessibility>(key: K) {
+    setForm((current) => ({ ...current, [key]: !Boolean(current[key]) as PortalAccessibility[K] }))
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void onSubmit(form)
+  }
+
+  const supportOptions: Array<{ key: keyof PortalAccessibility; title: string; description: string; icon: string }> = [
+    { key: 'precisaLegendas', title: 'Legendas', description: 'Prefiro conteúdos e entrevistas com legenda.', icon: 'fa-closed-captioning' },
+    { key: 'precisaInterprete', title: 'Intérprete', description: 'Preciso de intérprete de Libras ou apoio similar.', icon: 'fa-hands' },
+    { key: 'precisaLeitorTela', title: 'Leitor de tela', description: 'Uso tecnologia assistiva para navegação.', icon: 'fa-eye' },
+    { key: 'precisaBaixaEstimulo', title: 'Baixo estímulo', description: 'Prefiro ambientes com menos ruído e estímulos.', icon: 'fa-volume-low' },
+    { key: 'precisaMobilidade', title: 'Mobilidade', description: 'Preciso de apoio de acesso físico ou deslocamento.', icon: 'fa-wheelchair' },
+    { key: 'precisaTempoExtra', title: 'Tempo extra', description: 'Preciso de mais tempo em testes ou dinâmicas.', icon: 'fa-clock' },
+  ]
+
+  return (
+    <form className="accessibility-form" onSubmit={handleSubmit}>
+      <section className="accessibility-hero-card">
+        <div>
+          <span className="eyebrow">Experiência inclusiva</span>
+          <h3>Conte como podemos conduzir o processo seletivo com mais conforto.</h3>
+          <p>Essas informações ajudam o RH a ajustar comunicação, etapas e recursos de acessibilidade quando necessário.</p>
+        </div>
+        <div className="accessibility-privacy-note">
+          <i className="fas fa-shield-alt" aria-hidden="true"></i>
+          <span>Dados tratados com confidencialidade e usados apenas para apoiar sua candidatura.</span>
+        </div>
+      </section>
+
+      <section className="accessibility-card">
+        <div className="accessibility-card-head">
+          <div>
+            <span className="eyebrow">Comunicação</span>
+            <strong>Como prefere ser contatado?</strong>
+          </div>
+          <p>Escolha idioma, canal e melhor horário para contato.</p>
+        </div>
+        <div className="accessibility-grid">
+          <AccessibilitySelect label="Idioma preferido" value={asString(form.idioma)} options={ACCESSIBILITY_LANGUAGE_OPTIONS} onChange={(value) => updateField('idioma', value)} />
+          <AccessibilitySelect label="Canal preferido" value={asString(form.canal)} options={ACCESSIBILITY_CHANNEL_OPTIONS} onChange={(value) => updateField('canal', value)} />
+          <AccessibilitySelect label="Melhor horário" value={asString(form.melhorHorario)} options={ACCESSIBILITY_TIME_OPTIONS} onChange={(value) => updateField('melhorHorario', value)} />
+          <label className="accessibility-field is-full">
+            <span>Observações de comunicação</span>
+            <textarea rows={4} value={asString(form.observacoesComunicacao)} onChange={(event) => updateField('observacoesComunicacao', event.target.value)} placeholder="Ex.: prefiro mensagens por WhatsApp, evitar ligações pela manhã..." />
+          </label>
+        </div>
+      </section>
+
+      <section className="accessibility-card">
+        <div className="accessibility-card-head">
+          <div>
+            <span className="eyebrow">Apoios necessários</span>
+            <strong>Recursos para entrevistas, testes e etapas online</strong>
+          </div>
+          <p>Marque tudo que ajude a tornar a experiência mais adequada.</p>
+        </div>
+        <div className="accessibility-support-grid">
+          {supportOptions.map((option) => (
+            <button
+              className={`accessibility-support-card${form[option.key] ? ' is-selected' : ''}`}
+              key={option.key}
+              type="button"
+              onClick={() => toggleField(option.key)}
+              aria-pressed={Boolean(form[option.key])}
+            >
+              <i className={`fas ${option.icon}`} aria-hidden="true"></i>
+              <span>{option.title}</span>
+              <small>{option.description}</small>
+            </button>
+          ))}
+        </div>
+        <label className="accessibility-field">
+          <span>Detalhes das necessidades</span>
+          <textarea rows={4} value={asString(form.detalhesNecessidades)} onChange={(event) => updateField('detalhesNecessidades', event.target.value)} placeholder="Descreva adaptações, equipamentos, restrições ou qualquer informação importante." />
+        </label>
+      </section>
+
+      <section className="accessibility-card">
+        <div className="accessibility-card-head">
+          <div>
+            <span className="eyebrow">PCD e inclusão</span>
+            <strong>Informações opcionais sobre deficiência</strong>
+          </div>
+          <p>Preencha somente se fizer sentido para você.</p>
+        </div>
+        <label className="accessibility-consent">
+          <input type="checkbox" checked={form.consentimentoPcd} onChange={() => toggleField('consentimentoPcd')} />
+          <span>Autorizo o uso dessas informações para adaptações no processo seletivo e enquadramento PCD, quando aplicável.</span>
+        </label>
+        <div className="accessibility-grid">
+          <AccessibilitySelect label="Deseja se identificar como PCD?" value={asString(form.pcdIdentificacao)} options={PCD_IDENTIFICATION_OPTIONS} onChange={(value) => updateField('pcdIdentificacao', value)} />
+          <AccessibilitySelect label="Tipo de deficiência" value={asString(form.pcdTipo)} options={PCD_TYPE_OPTIONS} onChange={(value) => updateField('pcdTipo', value)} />
+          <label className="accessibility-field">
+            <span>Comprovação ou laudo</span>
+            <input value={asString(form.pcdComprovacao)} onChange={(event) => updateField('pcdComprovacao', event.target.value)} placeholder="Ex.: tenho laudo disponível, envio quando solicitado..." />
+          </label>
+          <label className="accessibility-field is-full">
+            <span>Observações sobre inclusão</span>
+            <textarea rows={4} value={asString(form.pcdObservacoes)} onChange={(event) => updateField('pcdObservacoes', event.target.value)} placeholder="Inclua informações relevantes para acolhimento, acessibilidade ou adaptações." />
+          </label>
+        </div>
+      </section>
+
+      <button className="primary-btn accessibility-submit" type="submit">Salvar acessibilidade</button>
+    </form>
+  )
+}
+
+function AccessibilitySelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <label className="accessibility-field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">Selecione</option>
+        {options.map((option) => (
+          <option key={option} value={option}>{option}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function CandidateJobPreferencesForm({
+  preferences,
+  tenantId,
+  onSubmit,
+}: {
+  preferences: PortalPreferences | null
+  tenantId: string
+  onSubmit: (values: PortalPreferences) => void | Promise<void>
+}) {
+  const parsedLocation = parsePreferredLocation(preferences?.CidadePreferida)
+  const [form, setForm] = useState({
+    CargoAlvo: asString(preferences?.CargoAlvo),
+    Senioridade: asString(preferences?.Senioridade),
+    InicioDisponivel: asString(preferences?.InicioDisponivel),
+    Resumo: asString(preferences?.Resumo),
+    AreasInteresse: splitPreferenceList(preferences?.AreasInteresse),
+    ModeloTrabalho: asString(preferences?.ModeloTrabalho),
+    Jornada: asString(preferences?.Jornada),
+    TipoContrato: asString(preferences?.TipoContrato),
+    Viagens: asString(preferences?.Viagens),
+    Mudanca: asString(preferences?.Mudanca),
+    CidadePreferida: parsedLocation.cidade,
+    UfPreferida: parsedLocation.uf,
+    DistanciaMaxKm: asString(preferences?.DistanciaMaxKm),
+    ObsDeslocamento: asString(preferences?.ObsDeslocamento),
+    PretensaoSalarial: formatCurrencyInput(asString(preferences?.PretensaoSalarial)),
+    PretensaoNegociavel: asString(preferences?.PretensaoNegociavel),
+    BeneficiosDesejados: asString(preferences?.BeneficiosDesejados),
+    NaoAbreMaoDe: asString(preferences?.NaoAbreMaoDe),
+  })
+  const [areaOptions, setAreaOptions] = useState<string[]>(FALLBACK_JOB_AREAS)
+  const [areaStatus, setAreaStatus] = useState<'loading' | 'ready' | 'fallback'>('loading')
+  const [ufOptions, setUfOptions] = useState(BRAZILIAN_STATE_OPTIONS)
+  const [cityOptions, setCityOptions] = useState<string[]>([])
+  const selectedAreas = form.AreasInteresse
+
+  useEffect(() => {
+    const nextLocation = parsePreferredLocation(preferences?.CidadePreferida)
+    setForm({
+      CargoAlvo: asString(preferences?.CargoAlvo),
+      Senioridade: asString(preferences?.Senioridade),
+      InicioDisponivel: asString(preferences?.InicioDisponivel),
+      Resumo: asString(preferences?.Resumo),
+      AreasInteresse: splitPreferenceList(preferences?.AreasInteresse),
+      ModeloTrabalho: asString(preferences?.ModeloTrabalho),
+      Jornada: asString(preferences?.Jornada),
+      TipoContrato: asString(preferences?.TipoContrato),
+      Viagens: asString(preferences?.Viagens),
+      Mudanca: asString(preferences?.Mudanca),
+      CidadePreferida: nextLocation.cidade,
+      UfPreferida: nextLocation.uf,
+      DistanciaMaxKm: asString(preferences?.DistanciaMaxKm),
+      ObsDeslocamento: asString(preferences?.ObsDeslocamento),
+      PretensaoSalarial: formatCurrencyInput(asString(preferences?.PretensaoSalarial)),
+      PretensaoNegociavel: asString(preferences?.PretensaoNegociavel),
+      BeneficiosDesejados: asString(preferences?.BeneficiosDesejados),
+      NaoAbreMaoDe: asString(preferences?.NaoAbreMaoDe),
+    })
+  }, [preferences])
+
+  useEffect(() => {
+    let cancelled = false
+    portalRequest<{ items: PortalJob[] }>(tenantId, '/api/public/vagas?page=1&pageSize=200')
+      .then((result) => {
+        if (cancelled) return
+        const areas = listUniqueJobValues(result.items ?? [], (job) => job.area)
+        const merged = mergePreferenceOptions(areas.length ?areas : FALLBACK_JOB_AREAS, selectedAreas)
+        setAreaOptions(merged)
+        setAreaStatus(areas.length ?'ready' : 'fallback')
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAreaOptions(mergePreferenceOptions(FALLBACK_JOB_AREAS, selectedAreas))
+          setAreaStatus('fallback')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tenantId, selectedAreas.join('|')])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(IBGE_STATES_URL)
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((states) => {
+        if (cancelled) return
+        const normalized = states
+          .map((state) => ({ sigla: state.sigla, nome: state.nome }))
+          .filter((state) => state.sigla && state.nome)
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        if (normalized.length) setUfOptions(normalized)
+      })
+      .catch(() => {
+        if (!cancelled) setUfOptions(BRAZILIAN_STATE_OPTIONS)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!form.UfPreferida) {
+      setCityOptions([])
+      return
+    }
+
+    let cancelled = false
+    fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(form.UfPreferida)}/municipios?orderBy=nome`)
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((cities) => {
+        if (cancelled) return
+        const names = cities.map((city) => city.nome).filter(Boolean)
+        setCityOptions(names)
+        setForm((current) => current.CidadePreferida && !names.includes(current.CidadePreferida)
+          ?{ ...current, CidadePreferida: '' }
+          : current)
+      })
+      .catch(() => {
+        if (!cancelled) setCityOptions([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [form.UfPreferida])
+
+  function updateField(name: keyof typeof form, value: string) {
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function toggleArea(area: string) {
+    setForm((current) => {
+      const exists = current.AreasInteresse.includes(area)
+      return {
+        ...current,
+        AreasInteresse: exists
+          ?current.AreasInteresse.filter((item) => item !== area)
+          : [...current.AreasInteresse, area],
+      }
+    })
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    const cidadePreferida = [form.CidadePreferida, form.UfPreferida].filter(Boolean).join(' / ')
+    onSubmit({
+      CargoAlvo: form.CargoAlvo.trim(),
+      Senioridade: form.Senioridade,
+      InicioDisponivel: form.InicioDisponivel,
+      Resumo: form.Resumo.trim(),
+      AreasInteresse: joinPreferenceList(form.AreasInteresse),
+      ModeloTrabalho: form.ModeloTrabalho,
+      Jornada: form.Jornada,
+      TipoContrato: form.TipoContrato,
+      Viagens: form.Viagens,
+      Mudanca: form.Mudanca,
+      CidadePreferida: cidadePreferida,
+      DistanciaMaxKm: form.DistanciaMaxKm,
+      ObsDeslocamento: form.ObsDeslocamento.trim(),
+      PretensaoSalarial: form.PretensaoSalarial.trim(),
+      PretensaoNegociavel: form.PretensaoNegociavel,
+      BeneficiosDesejados: form.BeneficiosDesejados.trim(),
+      NaoAbreMaoDe: form.NaoAbreMaoDe.trim(),
+    })
+  }
+
+  return (
+    <form className="job-preferences-form" onSubmit={handleSubmit}>
+      <section className="job-preferences-card">
+        <div className="job-preferences-card-head">
+          <span>Objetivo</span>
+          <strong>Conte para quais vagas você quer ser considerado.</strong>
+        </div>
+        <div className="job-preferences-grid">
+          <PreferenceTextField label="Cargo alvo" value={form.CargoAlvo} onChange={(value) => updateField('CargoAlvo', value)} placeholder="Ex.: Analista Financeiro" />
+          <PreferenceSelectField label="Senioridade" value={form.Senioridade} options={SENIORITY_OPTIONS} onChange={(value) => updateField('Senioridade', value)} />
+          <PreferenceSelectField label="Início disponível" value={form.InicioDisponivel} options={AVAILABILITY_OPTIONS} onChange={(value) => updateField('InicioDisponivel', value)} />
+          <label className="job-preferences-field is-full">
+            <span>Resumo profissional</span>
+            <textarea rows={4} value={form.Resumo} onChange={(event) => updateField('Resumo', event.target.value)} placeholder="Fale brevemente sobre seu objetivo e momento de carreira." />
+          </label>
+        </div>
+      </section>
+
+      <section className="job-preferences-card">
+        <div className="job-preferences-card-head">
+          <span>Áreas e modelo</span>
+          <strong>Preferências para encontrar oportunidades compatíveis.</strong>
+        </div>
+        <div className="job-preferences-field is-full">
+          <span>Áreas de interesse</span>
+          <div className="job-preferences-chip-grid">
+            {areaOptions.map((area) => (
+              <button
+                className={`job-preferences-chip${selectedAreas.includes(area) ?' is-selected' : ''}`}
+                key={area}
+                type="button"
+                onClick={() => toggleArea(area)}
+              >
+                {area}
+              </button>
+            ))}
+          </div>
+          <small>{areaStatus === 'fallback' ?'Usando lista padrão porque não foi possível derivar áreas das vagas agora.' : 'Opções derivadas das vagas abertas do tenant.'}</small>
+        </div>
+        <div className="job-preferences-grid">
+          <PreferenceSelectField label="Modelo de trabalho" value={form.ModeloTrabalho} options={WORK_MODEL_OPTIONS} onChange={(value) => updateField('ModeloTrabalho', value)} />
+          <PreferenceSelectField label="Jornada" value={form.Jornada} options={WORKDAY_OPTIONS} onChange={(value) => updateField('Jornada', value)} />
+          <PreferenceSelectField label="Tipo de contrato" value={form.TipoContrato} options={CONTRACT_OPTIONS} onChange={(value) => updateField('TipoContrato', value)} />
+        </div>
+      </section>
+
+      <section className="job-preferences-card">
+        <div className="job-preferences-card-head">
+          <span>Localidade</span>
+          <strong>Defina deslocamento, viagens e mudança.</strong>
+        </div>
+        <div className="job-preferences-grid">
+          <PreferenceSelectField label="Viagens" value={form.Viagens} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('Viagens', value)} />
+          <PreferenceSelectField label="Mudança" value={form.Mudanca} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('Mudanca', value)} />
+          <label className="job-preferences-field">
+            <span>UF preferida</span>
+            <select value={form.UfPreferida} onChange={(event) => setForm((current) => ({ ...current, UfPreferida: event.target.value, CidadePreferida: '' }))}>
+              <option value="">Selecionar UF</option>
+              {ufOptions.map((state) => (
+                <option key={state.sigla} value={state.sigla}>{state.sigla} - {state.nome}</option>
+              ))}
+            </select>
+          </label>
+          <label className="job-preferences-field">
+            <span>Cidade preferida</span>
+            <select value={form.CidadePreferida} onChange={(event) => updateField('CidadePreferida', event.target.value)} disabled={!form.UfPreferida}>
+              <option value="">{form.UfPreferida ?'Selecionar cidade' : 'Selecione a UF primeiro'}</option>
+              {cityOptions.map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </label>
+          <PreferenceSelectField label="Distância máxima" value={form.DistanciaMaxKm} options={DISTANCE_OPTIONS} onChange={(value) => updateField('DistanciaMaxKm', value)} suffix="km" />
+          <label className="job-preferences-field is-full">
+            <span>Observações de deslocamento</span>
+            <textarea rows={3} value={form.ObsDeslocamento} onChange={(event) => updateField('ObsDeslocamento', event.target.value)} placeholder="Ex.: aceito deslocamento para unidades próximas ao transporte público." />
+          </label>
+        </div>
+      </section>
+
+      <section className="job-preferences-card">
+        <div className="job-preferences-card-head">
+          <span>Remuneração e benefícios</span>
+          <strong>Ajude o RH a entender suas expectativas.</strong>
+        </div>
+        <div className="job-preferences-grid">
+          <PreferenceTextField label="Pretensão salarial" value={form.PretensaoSalarial} onChange={(value) => updateField('PretensaoSalarial', formatCurrencyInput(value))} placeholder="R$ 0,00" inputMode="numeric" />
+          <PreferenceSelectField label="Pretensão negociável" value={form.PretensaoNegociavel} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('PretensaoNegociavel', value)} />
+          <label className="job-preferences-field is-full">
+            <span>Benefícios desejados</span>
+            <textarea rows={3} value={form.BeneficiosDesejados} onChange={(event) => updateField('BeneficiosDesejados', event.target.value)} placeholder="Ex.: plano de saúde, vale alimentação, auxílio educação." />
+          </label>
+          <label className="job-preferences-field is-full">
+            <span>Não abro mão de</span>
+            <textarea rows={3} value={form.NaoAbreMaoDe} onChange={(event) => updateField('NaoAbreMaoDe', event.target.value)} placeholder="Ex.: contrato CLT, modelo híbrido, escala específica." />
+          </label>
+        </div>
+      </section>
+
+      <button className="secondary-btn" type="submit">Salvar preferências</button>
+    </form>
+  )
+}
+
+function PreferenceTextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  inputMode,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'search' | 'email' | 'url'
+}) {
+  return (
+    <label className="job-preferences-field">
+      <span>{label}</span>
+      <input inputMode={inputMode} placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  )
+}
+
+function PreferenceSelectField({
+  label,
+  value,
+  options,
+  onChange,
+  suffix,
+}: {
+  label: string
+  value: string
+  options: string[]
+  onChange: (value: string) => void
+  suffix?: string
+}) {
+  return (
+    <label className="job-preferences-field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">Selecionar</option>
+        {options.map((option) => (
+          <option key={option} value={option}>{suffix ?`${option} ${suffix}` : option}</option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -2871,19 +3986,11 @@ async function fetchJson<T>(url: string) {
   return response.json() as Promise<T>
 }
 
-function SummaryCard({ title, value, detail }: { title: string; value: string; detail: string }) {
-  return (
-    <article className="summary-card">
-      <div className="eyebrow">{title}</div>
-      <strong>{value}</strong>
-      <p>{detail}</p>
-    </article>
-  )
-}
+function WorkspaceSection({ active, id, title, description, children }: { active?: boolean; id?: string; title: string; description: string; children: ReactNode }) {
+  if (!active) return null
 
-function WorkspaceSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
-    <section className="workspace-card">
+    <section className="workspace-card" id={id}>
       <div className="section-head">
         <div>
           <h3>{title}</h3>
@@ -2895,14 +4002,2520 @@ function WorkspaceSection({ title, description, children }: { title: string; des
   )
 }
 
+function CandidateProfileResumeForm({
+  authFetch,
+  avatarPreview,
+  candidateId,
+  candidateName,
+  profile,
+  saveJson,
+  setMessage,
+  setResumeParsePreview,
+  uploadFile,
+}: {
+  authFetch: ReturnType<typeof createAuthorizedClient>
+  avatarPreview: string | null
+  candidateId: string
+  candidateName: string
+  profile: PortalProfile | null
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => Promise<void>
+  setMessage: (message: string | null) => void
+  setResumeParsePreview: (value: string) => void
+  uploadFile: (path: string, fieldName: string, file: File, successText: string) => Promise<void>
+}) {
+  const [form, setForm] = useState({
+    nome: '',
+    fone: '',
+    uf: '',
+    cidade: '',
+    linkedinUrl: '',
+    resumoProfissional: '',
+  })
+  const [ufOptions, setUfOptions] = useState(BRAZILIAN_STATE_OPTIONS)
+  const [cityOptions, setCityOptions] = useState<string[]>([])
+  const [cityLoading, setCityLoading] = useState(false)
+
+  useEffect(() => {
+    setForm({
+      nome: profile?.nome ?? '',
+      fone: formatBrazilianPhone(profile?.fone),
+      uf: (profile?.uf ?? '').toUpperCase(),
+      cidade: profile?.cidade ?? '',
+      linkedinUrl: profile?.linkedinUrl ?? '',
+      resumoProfissional: profile?.resumoProfissional ?? '',
+    })
+  }, [profile])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(IBGE_STATES_URL)
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((states) => {
+        if (cancelled) return
+        const normalized = states
+          .map((state) => ({ sigla: state.sigla, nome: state.nome }))
+          .filter((state) => state.sigla && state.nome)
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        if (normalized.length) setUfOptions(normalized)
+      })
+      .catch(() => {
+        if (!cancelled) setUfOptions(BRAZILIAN_STATE_OPTIONS)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!form.uf) {
+      setCityOptions([])
+      setCityLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setCityLoading(true)
+    fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(form.uf)}/municipios?orderBy=nome`)
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((cities) => {
+        if (cancelled) return
+        setCityOptions(cities.map((city) => city.nome).filter(Boolean))
+      })
+      .catch(() => {
+        if (!cancelled) setCityOptions([])
+      })
+      .finally(() => {
+        if (!cancelled) setCityLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [form.uf])
+
+  const citySelectOptions = form.cidade && !cityOptions.includes(form.cidade)
+    ?[form.cidade, ...cityOptions]
+    : cityOptions
+
+  return (
+    <>
+      <div className="profile-shell">
+        <div className="avatar-plate">
+          {avatarPreview ?<img src={avatarPreview} alt={profile?.nome || candidateName} /> : <span>{getInitials(profile?.nome || candidateName)}</span>}
+        </div>
+        <label className="upload-label">
+          Enviar Foto
+          <input type="file" accept="image/*" onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/avatar`, 'arquivo', file, 'Avatar atualizado.')
+          }} />
+        </label>
+      </div>
+
+      <form
+        className="stack-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void saveJson(`/api/public/portal-candidates/${candidateId}`, {
+            nome: form.nome.trim(),
+            fone: form.fone.trim(),
+            uf: form.uf.trim().toUpperCase(),
+            cidade: form.cidade.trim(),
+            linkedinUrl: form.linkedinUrl.trim(),
+            resumoProfissional: form.resumoProfissional.trim(),
+          }, 'Perfil atualizado.')
+        }}
+      >
+        <label>
+          <span>Nome</span>
+          <input value={form.nome} onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))} />
+        </label>
+        <label>
+          <span>Telefone</span>
+          <input
+            inputMode="tel"
+            placeholder="(11) 99999-9999"
+            value={form.fone}
+            onChange={(event) => setForm((current) => ({ ...current, fone: formatBrazilianPhone(event.target.value) }))}
+          />
+        </label>
+        <label>
+          <span>UF</span>
+          <select
+            value={form.uf}
+            onChange={(event) => setForm((current) => ({ ...current, uf: event.target.value, cidade: '' }))}
+          >
+            <option value="">Selecione a UF</option>
+            {ufOptions.map((state) => (
+              <option key={state.sigla} value={state.sigla}>{state.nome} / {state.sigla}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Cidade</span>
+          <select
+            value={form.cidade}
+            onChange={(event) => setForm((current) => ({ ...current, cidade: event.target.value }))}
+            disabled={!form.uf || cityLoading}
+          >
+            <option value="">{cityLoading ?'Carregando cidades...' : 'Selecione a cidade'}</option>
+            {citySelectOptions.map((city) => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>LinkedIn</span>
+          <input value={form.linkedinUrl} onChange={(event) => setForm((current) => ({ ...current, linkedinUrl: event.target.value }))} />
+        </label>
+        <label>
+          <span>Resumo</span>
+          <textarea rows={4} value={form.resumoProfissional} onChange={(event) => setForm((current) => ({ ...current, resumoProfissional: event.target.value }))} />
+        </label>
+        <button className="primary-btn" type="submit">Salvar seção</button>
+      </form>
+
+      <div className="toolbar-row">
+        <label className="upload-label">
+          Enviar currículo
+          <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'Currículo enviado.')
+          }} />
+        </label>
+        <label className="upload-label">
+          Parsear currículo
+          <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (!file) return
+            const upload = new FormData()
+            upload.append('arquivo', file)
+            void authFetch<Record<string, unknown>>(`/api/public/portal-candidates/${candidateId}/parse-resume`, { method: 'POST', body: upload }, false)
+              .then((result) => setResumeParsePreview(JSON.stringify(result, null, 2)))
+              .catch((err) => setMessage(readError(err)))
+          }} />
+        </label>
+        <button className="secondary-btn" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>Abrir currículo HTML</button>
+        <button className="secondary-btn" type="button" onClick={() => void downloadResumePdf(authFetch, candidateId)}>Baixar PDF gerado</button>
+      </div>
+    </>
+  )
+}
+
+const EDUCATION_TIPO_PRESETS = [
+  'Graduação',
+  'Tecnólogo',
+  'Técnico',
+  'Pós-graduação',
+  'MBA',
+  'Mestrado',
+  'Doutorado',
+  'Curso livre',
+  'Certificação',
+] as const
+
+const EDUCATION_STATUS_PRESETS = ['Concluído', 'Em andamento', 'Cursando', 'Interrompido'] as const
+
+function buildEducationTipoOptions(current?: string | null) {
+  const s = new Set<string>(EDUCATION_TIPO_PRESETS as unknown as string[])
+  if (current?.trim()) s.add(current.trim())
+  return Array.from(s)
+}
+
+function buildEducationStatusOptions(current?: string | null) {
+  const s = new Set<string>(EDUCATION_STATUS_PRESETS as unknown as string[])
+  if (current?.trim()) s.add(current.trim())
+  return Array.from(s)
+}
+
+function EducationRepeaterSection({
+  title,
+  items,
+  describe,
+  onAdd,
+  onUpdate,
+  onDelete,
+  setAnnouncement,
+}: {
+  title: string
+  items: PortalEducationItem[]
+  describe: (item: PortalEducationItem) => string
+  onAdd: (values: Record<string, string>) => void | Promise<void>
+  onUpdate: (item: PortalEducationItem, values: Record<string, string>) => void | Promise<void>
+  onDelete: (item: PortalEducationItem) => void
+  setAnnouncement?: (message: string | null) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalEducationItem | null>(null)
+  const [draft, setDraft] = useState({
+    curso: '',
+    instituicao: '',
+    tipo: '',
+    status: '',
+    inicio: '',
+    fim: '',
+    observacoes: '',
+    link: '',
+  })
+
+  const tipoOptions = useMemo(() => buildEducationTipoOptions(draft.tipo), [draft.tipo])
+  const statusOptions = useMemo(() => buildEducationStatusOptions(draft.status), [draft.status])
+
+  function resetDraft() {
+    setDraft({
+      curso: '',
+      instituicao: '',
+      tipo: '',
+      status: '',
+      inicio: '',
+      fim: '',
+      observacoes: '',
+      link: '',
+    })
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalEducationItem) {
+    setEditingItem(item)
+    setDraft({
+      curso: item.curso ?? '',
+      instituicao: item.instituicao ?? '',
+      tipo: item.tipo ?? '',
+      status: item.status ?? '',
+      inicio: item.inicio ?? '',
+      fim: item.fim ?? '',
+      observacoes: item.observacoes ?? '',
+      link: item.link ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  return (
+    <div className="subsection-card">
+      <div className="subsection-head">
+        <strong>{title}</strong>
+        <span>{items.length} item(ns)</span>
+      </div>
+      <div className="list-shell">
+        {items.map((item) => (
+          <article key={item.id} className="list-item">
+            <div>
+              <strong>{getRepeaterTitle(item as unknown as Record<string, unknown>)}</strong>
+              <p>{describe(item)}</p>
+            </div>
+            <div className="list-item-actions">
+              <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+              <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ? <div className="empty-inline">Nenhum item registrado ainda.</div> : null}
+      </div>
+      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar formação</button>
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ? 'Editar formação' : 'Adicionar formação'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (!draft.curso.trim()) {
+                  setAnnouncement?.('Informe o nome do curso.')
+                  return
+                }
+                const payload = {
+                  curso: draft.curso.trim(),
+                  instituicao: draft.instituicao.trim(),
+                  tipo: draft.tipo.trim(),
+                  status: draft.status.trim(),
+                  inicio: draft.inicio.trim(),
+                  fim: draft.fim.trim(),
+                  observacoes: draft.observacoes.trim(),
+                  link: draft.link.trim(),
+                }
+                if (editingItem) {
+                  void onUpdate(editingItem, payload)
+                } else {
+                  void onAdd(payload)
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Curso</span>
+                  <input
+                    value={draft.curso}
+                    onChange={(event) => setDraft((current) => ({ ...current, curso: event.target.value }))}
+                    placeholder="Ex.: Ciência da Computação"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>Instituição</span>
+                  <input
+                    value={draft.instituicao}
+                    onChange={(event) => setDraft((current) => ({ ...current, instituicao: event.target.value }))}
+                    placeholder="Ex.: universidade, plataforma EAD"
+                  />
+                </label>
+                <div className="project-period-row">
+                  <label>
+                    <span>Tipo</span>
+                    <select
+                      value={draft.tipo}
+                      onChange={(event) => setDraft((current) => ({ ...current, tipo: event.target.value }))}
+                    >
+                      <option value="">—</option>
+                      {tipoOptions.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Status</span>
+                    <select
+                      value={draft.status}
+                      onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
+                    >
+                      <option value="">—</option>
+                      {statusOptions.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="project-period-row">
+                  <label>
+                    <span>Início</span>
+                    <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Fim</span>
+                    <input type="date" value={draft.fim} onChange={(event) => setDraft((current) => ({ ...current, fim: event.target.value }))} />
+                  </label>
+                </div>
+                <label>
+                  <span>Observações</span>
+                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Link</span>
+                  <input
+                    placeholder="https://..."
+                    value={draft.link}
+                    onChange={(event) => setDraft((current) => ({ ...current, link: event.target.value }))}
+                  />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar formação' : 'Adicionar formação'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
+function ExperienceRepeaterSection({
+  title,
+  items,
+  describe,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  title: string
+  items: PortalExperience[]
+  describe: (item: PortalExperience) => string
+  onAdd: (values: Record<string, string>) => void | Promise<void>
+  onUpdate: (item: PortalExperience, values: Record<string, string>) => void | Promise<void>
+  onDelete: (item: PortalExperience) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalExperience | null>(null)
+  const [draft, setDraft] = useState({
+    empresa: '',
+    cargo: '',
+    inicio: '',
+    fim: '',
+    local: '',
+    atividades: '',
+  })
+
+  function resetDraft() {
+    setDraft({
+      empresa: '',
+      cargo: '',
+      inicio: '',
+      fim: '',
+      local: '',
+      atividades: '',
+    })
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalExperience) {
+    setEditingItem(item)
+    setDraft({
+      empresa: item.empresa ?? '',
+      cargo: item.cargo ?? '',
+      inicio: item.inicio ?? '',
+      fim: item.fim ?? '',
+      local: item.local ?? '',
+      atividades: item.atividades ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  return (
+    <div className="subsection-card">
+      <div className="subsection-head">
+        <strong>{title}</strong>
+        <span>{items.length} item(ns)</span>
+      </div>
+      <div className="list-shell">
+        {items.map((item) => (
+          <article key={item.id} className="list-item">
+            <div>
+              <strong>{getRepeaterTitle(item)}</strong>
+              <p>{describe(item)}</p>
+            </div>
+            <div className="list-item-actions">
+              <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+              <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ?<div className="empty-inline">Nenhum item registrado ainda.</div> : null}
+      </div>
+      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar Experiência</button>
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ?'Editar Experiência' : 'Adicionar Experiência'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (editingItem) {
+                  onUpdate(editingItem, draft)
+                } else {
+                  onAdd(draft)
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Empresa</span>
+                  <input value={draft.empresa} onChange={(event) => setDraft((current) => ({ ...current, empresa: event.target.value }))} />
+                </label>
+                <div className="experience-detail-row">
+                  <label>
+                    <span>Cargo</span>
+                    <input value={draft.cargo} onChange={(event) => setDraft((current) => ({ ...current, cargo: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Início</span>
+                    <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Fim</span>
+                    <input type="date" value={draft.fim} onChange={(event) => setDraft((current) => ({ ...current, fim: event.target.value }))} />
+                  </label>
+                </div>
+                <label>
+                  <span>Local / modelo</span>
+                  <input value={draft.local} onChange={(event) => setDraft((current) => ({ ...current, local: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Descrição</span>
+                  <textarea rows={4} value={draft.atividades} onChange={(event) => setDraft((current) => ({ ...current, atividades: event.target.value }))} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ?'Salvar Experiência' : 'Adicionar Experiência'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
+function ProjectRepeaterSection({
+  title,
+  items,
+  describe,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  title: string
+  items: PortalProject[]
+  describe: (item: PortalProject) => string
+  onAdd: (values: Record<string, string>) => void | Promise<void>
+  onUpdate: (item: PortalProject, values: Record<string, string>) => void | Promise<void>
+  onDelete: (item: PortalProject) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalProject | null>(null)
+  const [draft, setDraft] = useState({
+    nome: '',
+    inicio: '',
+    fim: '',
+    descricao: '',
+    link: '',
+    stack: '',
+    destaques: '',
+  })
+
+  function splitPeriod(period?: string | null) {
+    const [start = '', end = ''] = (period ?? '').split(' a ')
+    return {
+      inicio: start.trim(),
+      fim: end.trim() === 'atual' ?'' : end.trim(),
+    }
+  }
+
+  function resetDraft() {
+    setDraft({
+      nome: '',
+      inicio: '',
+      fim: '',
+      descricao: '',
+      link: '',
+      stack: '',
+      destaques: '',
+    })
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalProject) {
+    const period = splitPeriod(item.periodo)
+    setEditingItem(item)
+    setDraft({
+      nome: item.nome ?? '',
+      inicio: period.inicio,
+      fim: period.fim,
+      descricao: item.descricao ?? '',
+      link: item.link ?? '',
+      stack: item.stack ?? '',
+      destaques: item.destaques ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  function buildPeriod() {
+    const start = draft.inicio.trim()
+    const end = draft.fim.trim()
+    if (start && end) return `${start} a ${end}`
+    if (start) return `${start} a atual`
+    return end
+  }
+
+  return (
+    <div className="subsection-card">
+      <div className="subsection-head">
+        <strong>{title}</strong>
+        <span>{items.length} item(ns)</span>
+      </div>
+      <div className="list-shell">
+        {items.map((item) => (
+          <article key={item.id} className="list-item">
+            <div>
+              <strong>{getRepeaterTitle(item)}</strong>
+              <p>{describe(item)}</p>
+            </div>
+            <div className="list-item-actions">
+              <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+              <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ?<div className="empty-inline">Nenhum item registrado ainda.</div> : null}
+      </div>
+      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar Projeto</button>
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ?'Editar Projeto' : 'Adicionar Projeto'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const payload = {
+                  nome: draft.nome,
+                  periodo: buildPeriod(),
+                  descricao: draft.descricao,
+                  link: draft.link,
+                  stack: draft.stack,
+                  destaques: draft.destaques,
+                }
+                if (editingItem) {
+                  onUpdate(editingItem, payload)
+                } else {
+                  onAdd(payload)
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Nome</span>
+                  <input value={draft.nome} onChange={(event) => setDraft((current) => ({ ...current, nome: event.target.value }))} />
+                </label>
+                <div className="project-period-row">
+                  <label>
+                    <span>Início</span>
+                    <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Fim</span>
+                    <input type="date" value={draft.fim} onChange={(event) => setDraft((current) => ({ ...current, fim: event.target.value }))} />
+                  </label>
+                </div>
+                <label>
+                  <span>Descrição</span>
+                  <textarea rows={4} value={draft.descricao} onChange={(event) => setDraft((current) => ({ ...current, descricao: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Link</span>
+                  <input value={draft.link} onChange={(event) => setDraft((current) => ({ ...current, link: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Stack</span>
+                  <textarea rows={4} value={draft.stack} onChange={(event) => setDraft((current) => ({ ...current, stack: event.target.value }))} />
+                </label>
+                <label>
+                  <span>Destaques</span>
+                  <textarea rows={4} value={draft.destaques} onChange={(event) => setDraft((current) => ({ ...current, destaques: event.target.value }))} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ?'Salvar Projeto' : 'Adicionar Projeto'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
+function DocumentRepeaterSection({
+  title,
+  items,
+  onUpload,
+  onUpdate,
+  onDelete,
+}: {
+  title: string
+  items: PortalDocument[]
+  onUpload: (values: { tipo: string; observacoes: string; arquivo: File }) => void | Promise<void>
+  onUpdate: (item: PortalDocument, values: Record<string, string>) => void | Promise<void>
+  onDelete: (item: PortalDocument) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalDocument | null>(null)
+  const [modalError, setModalError] = useState<string | null>(null)
+  const [draft, setDraft] = useState({
+    tipo: '',
+    observacoes: '',
+    arquivo: null as File | null,
+  })
+
+  function resetDraft() {
+    setDraft({
+      tipo: '',
+      observacoes: '',
+      arquivo: null,
+    })
+    setModalError(null)
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalDocument) {
+    setEditingItem(item)
+    setDraft({
+      tipo: item.tipo ?? '',
+      observacoes: item.observacoes ?? '',
+      arquivo: null,
+    })
+    setModalError(null)
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  return (
+    <div className="subsection-card document-section-card">
+      <div className="subsection-head document-section-head">
+        <div>
+          <span className="eyebrow">Central de arquivos</span>
+          <strong>{title}</strong>
+        </div>
+        <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar documento</button>
+      </div>
+
+      <div className="document-list-grid">
+        {items.map((item) => {
+          const displayName = item.fileName || item.nome || 'Documento sem nome'
+          return (
+            <article key={item.id} className="document-card">
+              <div className="document-card-head">
+                <div className="document-icon" aria-hidden="true">
+                  <i className={`fas ${getDocumentIcon(item)}`}></i>
+                </div>
+                <div>
+                  <strong>{displayName}</strong>
+                  <p>{item.tipo || 'Tipo não informado'}</p>
+                </div>
+              </div>
+              <dl className="document-meta-grid">
+                <div>
+                  <dt>Data</dt>
+                  <dd>{formatDocumentDate(item.data) || 'Sem data'}</dd>
+                </div>
+                <div>
+                  <dt>Cadastrado</dt>
+                  <dd>{formatJobDate(item.createdAtUtc)}</dd>
+                </div>
+              </dl>
+              {item.link ? <a className="document-link" href={item.link} target="_blank" rel="noreferrer">Abrir link</a> : null}
+              {item.observacoes ? <p className="document-note">{item.observacoes}</p> : null}
+              <div className="list-item-actions">
+                <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+                <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+              </div>
+            </article>
+          )
+        })}
+        {items.length === 0 ?(
+          <div className="document-empty-state">
+            <i className="fas fa-folder-open" aria-hidden="true"></i>
+            <strong>Nenhum documento cadastrado ainda.</strong>
+            <p>Inclua currículos, certificados, comprovantes ou links relevantes para o seu processo seletivo.</p>
+            <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar primeiro documento</button>
+          </div>
+        ) : null}
+      </div>
+
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ? 'Editar Documento' : 'Adicionar Documento'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid document-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (!draft.tipo.trim()) {
+                  setModalError('Selecione o tipo do documento.')
+                  return
+                }
+                if (editingItem) {
+                  onUpdate(editingItem, {
+                    tipo: draft.tipo,
+                    nome: editingItem.nome || editingItem.fileName || 'Documento',
+                    link: editingItem.link ?? '',
+                    data: editingItem.data ?? '',
+                    observacoes: draft.observacoes,
+                    fileName: editingItem.fileName ?? '',
+                  })
+                } else {
+                  if (!draft.arquivo) {
+                    setModalError('Selecione um arquivo para enviar.')
+                    return
+                  }
+                  onUpload({
+                    tipo: draft.tipo,
+                    observacoes: draft.observacoes,
+                    arquivo: draft.arquivo,
+                  })
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Tipo</span>
+                  <select value={draft.tipo} onChange={(event) => setDraft((current) => ({ ...current, tipo: event.target.value }))}>
+                    <option value="">Selecione</option>
+                    <option value="Currículo">Currículo</option>
+                    <option value="Certificado">Certificado</option>
+                    <option value="Diploma/Declaração">Diploma/Declaração</option>
+                    <option value="Comprovante">Comprovante</option>
+                    <option value="Portfólio">Portfólio</option>
+                    <option value="Outros">Outro</option>
+                  </select>
+                </label>
+                {!editingItem ? (
+                  <label className="document-upload-field">
+                    <span>Arquivo</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={(event) => setDraft((current) => ({ ...current, arquivo: event.target.files?.[0] ?? null }))}
+                    />
+                    <small>{draft.arquivo ? draft.arquivo.name : 'PDF, DOC, DOCX, JPG ou PNG.'}</small>
+                  </label>
+                ) : null}
+                <label>
+                  <span>Observações</span>
+                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Informe contexto, validade, emissor ou qualquer observação importante." />
+                </label>
+                {modalError ? <div className="document-modal-error">{modalError}</div> : null}
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar Documento' : 'Adicionar Documento'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
+function ReferenceRepeaterSection({
+  title,
+  items,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  title: string
+  items: PortalReference[]
+  onAdd: (values: Record<string, string | boolean>) => void | Promise<void>
+  onUpdate: (item: PortalReference, values: Record<string, string | boolean>) => void | Promise<void>
+  onDelete: (item: PortalReference) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<PortalReference | null>(null)
+  const [draft, setDraft] = useState({
+    nome: '',
+    relacao: '',
+    empresa: '',
+    cargo: '',
+    contato: '',
+    periodo: '',
+    linkedin: '',
+    observacoes: '',
+    podeContatar: true,
+  })
+
+  function resetDraft() {
+    setDraft({
+      nome: '',
+      relacao: '',
+      empresa: '',
+      cargo: '',
+      contato: '',
+      periodo: '',
+      linkedin: '',
+      observacoes: '',
+      podeContatar: true,
+    })
+  }
+
+  function openCreate() {
+    setEditingItem(null)
+    resetDraft()
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalReference) {
+    setEditingItem(item)
+    setDraft({
+      nome: item.nome ?? '',
+      relacao: item.relacao ?? '',
+      empresa: item.empresa ?? '',
+      cargo: item.cargo ?? '',
+      contato: item.contato ?? '',
+      periodo: item.periodo ?? '',
+      linkedin: item.linkedin ?? '',
+      observacoes: item.observacoes ?? '',
+      podeContatar: Boolean(item.podeContatar),
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditingItem(null)
+    resetDraft()
+  }
+
+  return (
+    <div className="subsection-card reference-section-card">
+      <div className="subsection-head reference-section-head">
+        <div>
+          <span className="eyebrow">Rede profissional</span>
+          <strong>{title}</strong>
+        </div>
+        <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar referência</button>
+      </div>
+      <div className="reference-list-grid">
+        {items.map((item) => (
+          <article key={item.id} className="reference-card">
+            <div className="reference-card-head">
+              <div className="reference-avatar" aria-hidden="true">{getInitials(item.nome || 'Referência')}</div>
+              <div>
+                <strong>{item.nome || 'Referência sem nome'}</strong>
+                <p>{[item.relacao, item.empresa].filter(Boolean).join(' - ') || 'Relação não informada'}</p>
+              </div>
+            </div>
+            <dl className="reference-meta-grid">
+              <div>
+                <dt>Cargo</dt>
+                <dd>{item.cargo || 'Não informado'}</dd>
+              </div>
+              <div>
+                <dt>Contato</dt>
+                <dd>{item.contato || 'Não informado'}</dd>
+              </div>
+              <div>
+                <dt>Período</dt>
+                <dd>{item.periodo || 'Não informado'}</dd>
+              </div>
+              <div>
+                <dt>Contato permitido</dt>
+                <dd>{item.podeContatar ? 'Sim' : 'Não'}</dd>
+              </div>
+            </dl>
+            {item.linkedin ? <a className="reference-link" href={item.linkedin} target="_blank" rel="noreferrer">LinkedIn</a> : null}
+            {item.observacoes ? <p className="reference-note">{item.observacoes}</p> : null}
+            <div className="list-item-actions">
+              <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
+              <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ?(
+          <div className="reference-empty-state">
+            <i className="fas fa-users" aria-hidden="true"></i>
+            <strong>Nenhuma referência cadastrada ainda.</strong>
+            <p>Adicione contatos profissionais que possam confirmar sua trajetória, projetos ou experiência.</p>
+            <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar primeira referência</button>
+          </div>
+        ) : null}
+      </div>
+      {modalOpen ? createPortal((
+        <div className="workspace-form-modal-backdrop" onClick={closeModal}>
+          <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="workspace-form-modal-header">
+              <h3>{editingItem ? 'Editar Referência' : 'Adicionar Referência'}</h3>
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid reference-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (editingItem) {
+                  onUpdate(editingItem, draft)
+                } else {
+                  onAdd(draft)
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label>
+                  <span>Nome</span>
+                  <input value={draft.nome} onChange={(event) => setDraft((current) => ({ ...current, nome: event.target.value }))} />
+                </label>
+                <div className="reference-detail-row">
+                  <label>
+                    <span>Relação</span>
+                    <input value={draft.relacao} onChange={(event) => setDraft((current) => ({ ...current, relacao: event.target.value }))} placeholder="Ex.: gestor, colega, cliente..." />
+                  </label>
+                  <label>
+                    <span>Empresa</span>
+                    <input value={draft.empresa} onChange={(event) => setDraft((current) => ({ ...current, empresa: event.target.value }))} />
+                  </label>
+                </div>
+                <div className="reference-detail-row">
+                  <label>
+                    <span>Cargo</span>
+                    <input value={draft.cargo} onChange={(event) => setDraft((current) => ({ ...current, cargo: event.target.value }))} />
+                  </label>
+                  <label>
+                    <span>Período</span>
+                    <input value={draft.periodo} onChange={(event) => setDraft((current) => ({ ...current, periodo: event.target.value }))} placeholder="Ex.: 2021 a 2024" />
+                  </label>
+                </div>
+                <label>
+                  <span>Contato</span>
+                  <input value={draft.contato} onChange={(event) => setDraft((current) => ({ ...current, contato: event.target.value }))} placeholder="E-mail, telefone ou WhatsApp" />
+                </label>
+                <label>
+                  <span>LinkedIn</span>
+                  <input value={draft.linkedin} onChange={(event) => setDraft((current) => ({ ...current, linkedin: event.target.value }))} placeholder="https://linkedin.com/in/..." />
+                </label>
+                <label>
+                  <span>Observações</span>
+                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Contexto da relação, melhor forma de contato ou observações importantes." />
+                </label>
+                <label className="reference-consent-row">
+                  <input type="checkbox" checked={draft.podeContatar} onChange={(event) => setDraft((current) => ({ ...current, podeContatar: event.target.checked }))} />
+                  <span>Autorizo contato com esta referência quando necessário.</span>
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
+                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar Referência' : 'Adicionar Referência'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ), document.body) : null}
+    </div>
+  )
+}
+
+/** Contrato com campo Frequencia (varchar 40) — valores estáveis recomendados. */
+const NOTIFICATION_FREQUENCY_OPTIONS = [
+  { value: 'immediate', label: 'Imediato' },
+  { value: 'daily', label: 'Resumo diário' },
+  { value: 'weekly', label: 'Resumo semanal' },
+  { value: 'urgent', label: 'Somente urgentes' },
+] as const
+
+/** Mantém valores antigos (rótulos em texto) alinhados aos códigos acima quando o candidato já tinha dados salvos. */
+function slugNormNotifications(s: string) {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+const LEGACY_FREQUENCY_TO_CANONICAL: Record<string, (typeof NOTIFICATION_FREQUENCY_OPTIONS)[number]['value']> = {
+  imediato: 'immediate',
+  'resumo diario': 'daily',
+  'resumo semanal': 'weekly',
+  urgentes: 'urgent',
+  'somente urgentes': 'urgent',
+}
+
+function canonicalFrequenciaFromApi(raw: string): string {
+  const t = (raw ?? '').trim()
+  if (!t) return ''
+  const slug = slugNormNotifications(t)
+  const canon =
+    LEGACY_FREQUENCY_TO_CANONICAL[slug] ??
+    LEGACY_FREQUENCY_TO_CANONICAL[t.trim().toLowerCase()] ??
+    LEGACY_FREQUENCY_TO_CANONICAL[t]
+  if (canon) return canon
+  if (NOTIFICATION_FREQUENCY_OPTIONS.some((o) => o.value === t)) return t
+  return t
+}
+
+/**
+ * Silêncio ativo: ver CandidaturaNotificacaoService.EstaDentroSilencio — valores reconhecidos como ligado: true / 1 / on.
+ * Vazio=null respeita início/fim quando preenchidos; "false" e outros desligam pela flag explícita.
+ */
+const SILENCIO_ATIVO_OPTIONS = [
+  { value: '', label: 'Automático (preferência não definida; usa só os horários se preenchidos)' },
+  { value: 'true', label: 'Sim (true)' },
+  { value: 'false', label: 'Não (false) — ignorar horários mesmo preenchidos' },
+] as const
+
+function canonicalSilencioAtivoFromApi(raw: string): string {
+  const t = (raw ?? '').trim()
+  if (!t) return ''
+  const l = t.toLowerCase()
+  if (l === 'true' || l === '1' || l === 'on' || l === 'sim') return 'true'
+  if (l === 'false' || l === '0') return 'false'
+  return t
+}
+
+/** Contrato campo SilencioPrioridade (varchar 20) — apenas metadados; sem lógica adicional na API atual. */
+const SILENCIO_PRIORIDADE_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'normal', label: 'Normal' },
+  { value: 'urgent', label: 'Só urgentes' },
+  { value: 'all', label: 'Todas' },
+] as const
+
+function canonicalSilencioPrioridadeFromApi(raw: string): string {
+  const t = (raw ?? '').trim()
+  if (!t) return ''
+  const slug = slugNormNotifications(t)
+  if (slug === 'normal' || t === 'normal') return 'normal'
+  if (slug === 'somente urgentes' || slug === 'so urgentes' || t === 'urgent') return 'urgent'
+  if (slug === 'todas' || slug === 'todos' || t === 'all') return 'all'
+  return t
+}
+
+function mergedLabeledOptions(
+  presets: readonly { readonly value: string; readonly label: string }[],
+  current: string,
+  normalize: (raw: string) => string,
+) {
+  const n = normalize((current ?? '').trim())
+  const list = presets.map((o) => ({ value: o.value, label: o.label }))
+  if (!n) return list
+  if (!list.some((o) => o.value === n))
+    list.push({ value: n, label: n.length <= 56 ? `(legado) ${n}` : `(valor legado não listado)` })
+  return list
+}
+
+const NOTIFICATION_LANG_PRESETS = ['pt-BR', 'en-US', 'es-ES'] as const
+
+const LGPD_SHARING_SCOPE_PRESETS = ['Rh', 'RhGestor', 'Interno'] as const
+
+function normalizePortalNotificationsForm(n: PortalNotifications | null) {
+  const d = n ?? ({} as Partial<PortalNotifications>)
+  return {
+    canalEmail: Boolean(d.canalEmail),
+    canalWhatsapp: Boolean(d.canalWhatsapp),
+    canalSms: Boolean(d.canalSms),
+    canalPush: Boolean(d.canalPush),
+    frequencia: canonicalFrequenciaFromApi(asString(d.frequencia)),
+    idioma: asString(d.idioma),
+    email: asString(d.email),
+    telefone: asString(d.telefone),
+    permiteContato: Boolean(d.permiteContato),
+    alertaNovasVagas: Boolean(d.alertaNovasVagas),
+    alertaAtualizacoes: Boolean(d.alertaAtualizacoes),
+    alertaEntrevistas: Boolean(d.alertaEntrevistas),
+    alertaMensagens: Boolean(d.alertaMensagens),
+    alertaDocumentos: Boolean(d.alertaDocumentos),
+    alertaLembretes: Boolean(d.alertaLembretes),
+    silencioAtivo: canonicalSilencioAtivoFromApi(asString(d.silencioAtivo)),
+    silencioInicio: asString(d.silencioInicio),
+    silencioFim: asString(d.silencioFim),
+    silencioPrioridade: canonicalSilencioPrioridadeFromApi(asString(d.silencioPrioridade)),
+    assinatura: asString(d.assinatura),
+  }
+}
+
+function CandidateNotificationsWorkspaceForm({
+  data,
+  onSubmit,
+}: {
+  data: PortalNotifications | null
+  onSubmit: (values: Record<string, string | boolean>) => void | Promise<void>
+}) {
+  const initial = useMemo(() => normalizePortalNotificationsForm(data), [data])
+  const [values, setValues] = useState(initial)
+  useEffect(() => {
+    setValues(initial)
+  }, [initial])
+
+  function setField(name: string, v: string | boolean) {
+    setValues((curr) => ({ ...curr, [name]: v }))
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const payload: Record<string, string | boolean> = {
+      ...values,
+      frequencia: String(values.frequencia).trim().slice(0, 40),
+      silencioAtivo: String(values.silencioAtivo).trim().slice(0, 10),
+      silencioInicio: String(values.silencioInicio).trim().slice(0, 10),
+      silencioFim: String(values.silencioFim).trim().slice(0, 10),
+      silencioPrioridade: String(values.silencioPrioridade).trim().slice(0, 20),
+    }
+    void onSubmit(payload)
+  }
+
+  const freqOptionsMerged = mergedLabeledOptions(NOTIFICATION_FREQUENCY_OPTIONS, String(values.frequencia), canonicalFrequenciaFromApi)
+  const langOptions = mergeEducationSummarySelectOptions(NOTIFICATION_LANG_PRESETS, String(values.idioma))
+  const silencioAtivoMerged = mergedLabeledOptions(SILENCIO_ATIVO_OPTIONS, String(values.silencioAtivo), canonicalSilencioAtivoFromApi)
+  const silencioPrioridadeMerged = mergedLabeledOptions(SILENCIO_PRIORIDADE_OPTIONS, String(values.silencioPrioridade), canonicalSilencioPrioridadeFromApi)
+
+  return (
+    <form className="nl-form" onSubmit={handleSubmit}>
+      <header className="nl-hero nl-hero-muted">
+        <div>
+          <span className="eyebrow">Preferências de comunicação</span>
+          <h4>Controle quando e como quer ser avisado sobre o processo seletivo.</h4>
+          <p>Você pode ajustar canais, frequência e períodos em que prefere não receber mensagens.</p>
+        </div>
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-bell" aria-hidden="true"></i>
+          <span>Preferências aplicadas às comunicações deste portal candidato.</span>
+        </div>
+      </header>
+
+      <section className="nl-card" aria-labelledby="nl-channels-title">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Canais permitidos</span>
+            <strong id="nl-channels-title">Onde podemos falar com você?</strong>
+          </div>
+          <p>Não marque canais que você não usa ou não deseja para evitar ruído.</p>
+        </div>
+        <div className="nl-toggle-grid" role="group" aria-label="Canais permitidos">
+          {[
+            { key: 'canalEmail', title: 'E-mail', desc: 'Convites, retornos e resumos.', iconClass: 'fas fa-envelope' },
+            { key: 'canalWhatsapp', title: 'WhatsApp', desc: 'Alertas rápidos e lembretes.', iconClass: 'fab fa-whatsapp' },
+            { key: 'canalSms', title: 'SMS', desc: 'Avisos curtos quando necessário.', iconClass: 'fas fa-comment-dots' },
+            { key: 'canalPush', title: 'Push / app', desc: 'Notificações no navegador ou aplicativo.', iconClass: 'fas fa-mobile-screen' },
+          ].map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              className={`nl-toggle${values[row.key as keyof typeof values] ? ' is-on' : ''}`}
+              onClick={() => setField(row.key, !Boolean(values[row.key as keyof typeof values]))}
+              aria-pressed={Boolean(values[row.key as keyof typeof values])}
+            >
+              <i className={row.iconClass} aria-hidden="true"></i>
+              <span>{row.title}</span>
+              <small>{row.desc}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="nl-card">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Ritmo das mensagens</span>
+            <strong>Tom e idioma</strong>
+          </div>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field">
+            <span>Frequência dos resumos</span>
+            <select
+              value={canonicalFrequenciaFromApi(String(values.frequencia))}
+              onChange={(e) => setField('frequencia', e.target.value)}
+            >
+              <option value="">— Definir depois —</option>
+              {freqOptionsMerged.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <small className="nl-field-hint">Valores gravados pela API como códigos: immediate · daily · weekly · urgent (até 40 caracteres).</small>
+          </label>
+          <label className="nl-field">
+            <span>Idioma dos avisos</span>
+            <select value={String(values.idioma)} onChange={(e) => setField('idioma', e.target.value)}>
+              <option value="">—</option>
+              {langOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>E-mail principal para alertas</span>
+            <input type="email" autoComplete="email" value={String(values.email)} onChange={(e) => setField('email', e.target.value)} placeholder="voce@exemplo.com" />
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Telefone ou WhatsApp prioritário</span>
+            <input type="tel" autoComplete="tel" value={String(values.telefone)} onChange={(e) => setField('telefone', e.target.value)} placeholder="DDI + DDD + número" />
+          </label>
+        </div>
+      </section>
+
+      <section className="nl-card">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Quiet hours</span>
+            <strong>Horários de silêncio</strong>
+          </div>
+          <p>Evite disparos nos intervalos que não quer ser incomodado (quando configurado).</p>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field nl-field-span-2">
+            <span>Janela de silêncio ativa (SilencioAtivo)</span>
+            <select
+              value={canonicalSilencioAtivoFromApi(String(values.silencioAtivo))}
+              onChange={(e) => setField('silencioAtivo', e.target.value)}
+            >
+              {silencioAtivoMerged.map((opt) => (
+                <option key={`${opt.label}-${opt.value}`} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <small className="nl-field-hint">Servidor aceita até 10 caracteres. Quando aplicável, valores reconhecidos como “ligado” são true, 1 ou on.</small>
+          </label>
+          <label className="nl-field">
+            <span>Início (HH:mm)</span>
+            <input
+              value={String(values.silencioInicio)}
+              onChange={(e) => setField('silencioInicio', e.target.value)}
+              placeholder="22:00"
+              maxLength={10}
+              inputMode="numeric"
+            />
+          </label>
+          <label className="nl-field">
+            <span>Fim (HH:mm)</span>
+            <input
+              value={String(values.silencioFim)}
+              onChange={(e) => setField('silencioFim', e.target.value)}
+              placeholder="07:00"
+              maxLength={10}
+              inputMode="numeric"
+            />
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Prioridade durante o silêncio (SilencioPrioridade)</span>
+            <select
+              value={canonicalSilencioPrioridadeFromApi(String(values.silencioPrioridade))}
+              onChange={(e) => setField('silencioPrioridade', e.target.value)}
+            >
+              {silencioPrioridadeMerged.map((opt) => (
+                <option key={`${opt.label}-${opt.value}`} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <small className="nl-field-hint">Texto livre até 20 caracteres; sugerimos normal · urgent · all.</small>
+          </label>
+        </div>
+      </section>
+
+      <section className="nl-card">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Contato e tipo de alerta</span>
+            <strong>O que quer acompanhar?</strong>
+          </div>
+        </div>
+        <label className="nl-consent-line">
+          <input type="checkbox" checked={Boolean(values.permiteContato)} onChange={(e) => setField('permiteContato', e.target.checked)} />
+          <span>Autorizo o RH a iniciar conversas relacionadas ao meu processo mesmo fora das candidaturas ativas.</span>
+        </label>
+        <div className="nl-alert-grid">
+          {[
+            { key: 'alertaNovasVagas', label: 'Novas vagas alinhadas', hint: 'Sugestões com base em perfil.', icon: 'fa-briefcase' },
+            { key: 'alertaAtualizacoes', label: 'Atualizações do processo', hint: 'Mudanças de etapa e status.', icon: 'fa-arrows-rotate' },
+            { key: 'alertaEntrevistas', label: 'Entrevistas e dinâmicas', hint: 'Convites com data e formato.', icon: 'fa-video' },
+            { key: 'alertaMensagens', label: 'Mensagens diretas', hint: 'Comunicações pessoais do recrutador.', icon: 'fa-comments' },
+            { key: 'alertaDocumentos', label: 'Documentos e formulários', hint: 'Novos formulários solicitados.', icon: 'fa-file-lines' },
+            { key: 'alertaLembretes', label: 'Lembretes e prazos', hint: 'SLA ou entregas pendentes.', icon: 'fa-clock' },
+          ].map((row) => (
+            <label key={row.key} className="nl-chip-check">
+              <input
+                type="checkbox"
+                checked={Boolean(values[row.key as keyof typeof values])}
+                onChange={(e) => setField(row.key, e.target.checked)}
+              />
+              <div>
+                <i className={`fas ${row.icon}`} aria-hidden="true"></i>
+                <strong>{row.label}</strong>
+                <small>{row.hint}</small>
+              </div>
+            </label>
+          ))}
+        </div>
+        <label className="nl-field nl-assinatura">
+          <span>Observações para o rodapé dos e-mails (opcional)</span>
+          <textarea rows={4} value={String(values.assinatura)} onChange={(e) => setField('assinatura', e.target.value)} placeholder="Informações adicionais que podem aparecer na assinatura dos avisos." />
+        </label>
+      </section>
+
+      <button className="primary-btn nl-submit" type="submit">Salvar notificações</button>
+    </form>
+  )
+}
+
+function normalizePortalLgpdForm(lg: PortalLgpd | null) {
+  const x = lg ?? ({} as Partial<PortalLgpd>)
+  return {
+    processarCandidatura: Boolean(x.processarCandidatura),
+    permitirContato: Boolean(x.permitirContato),
+    bancoTalentos: Boolean(x.bancoTalentos),
+    dadosSensiveis: Boolean(x.dadosSensiveis),
+    comunicacoes: Boolean(x.comunicacoes),
+    retencaoMeses: x.retencaoMeses != null ? String(x.retencaoMeses) : '',
+    compartilhamento: asString(x.compartilhamento),
+  }
+}
+
+function CandidateLgpdWorkspaceForm({
+  data,
+  onSubmit,
+  onOpenReceipt,
+}: {
+  data: PortalLgpd | null
+  onSubmit: (payload: {
+    processarCandidatura: boolean
+    permitirContato: boolean
+    bancoTalentos: boolean
+    dadosSensiveis: boolean
+    comunicacoes: boolean
+    retencaoMeses: number | null
+    compartilhamento: string | null
+  }) => void | Promise<void>
+  onOpenReceipt: () => void
+}) {
+  const initial = useMemo(() => normalizePortalLgpdForm(data), [data])
+  const [values, setValues] = useState(initial)
+  useEffect(() => setValues(initial), [initial])
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const months = values.retencaoMeses.trim()
+    void onSubmit({
+      processarCandidatura: values.processarCandidatura,
+      permitirContato: values.permitirContato,
+      bancoTalentos: values.bancoTalentos,
+      dadosSensiveis: values.dadosSensiveis,
+      comunicacoes: values.comunicacoes,
+      retencaoMeses: months ? Number(months) : null,
+      compartilhamento: values.compartilhamento.trim() ? values.compartilhamento.trim() : null,
+    })
+  }
+
+  const scopeOptions = mergeEducationSummarySelectOptions(LGPD_SHARING_SCOPE_PRESETS, String(values.compartilhamento))
+
+  return (
+    <form className="nl-form nl-form-lgpd" onSubmit={handleSubmit}>
+      <header className="nl-hero nl-hero-accent">
+        <div>
+          <span className="eyebrow">Privacidade e consentimento</span>
+          <h4>Você define como seus dados aparecem no processo.</h4>
+          <p>Informações tratadas conforme LGPD para recrutamento, triagem de talentos e comunicações relacionadas ao portal.</p>
+        </div>
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-shield-alt" aria-hidden="true"></i>
+          <span>Revogue ou atualize suas escolhas a qualquer momento.</span>
+        </div>
+      </header>
+
+      <section className="nl-card" aria-labelledby="nl-lgpd-consents-title">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Preferências tratadas pela equipe</span>
+            <strong id="nl-lgpd-consents-title">Uso principal dos dados</strong>
+          </div>
+          <p>Marque apenas o que estiver confortável. Recomendamos ler cada item antes de salvar.</p>
+        </div>
+        <div className="nl-lgpd-grid">
+          {[
+            {
+              key: 'processarCandidatura',
+              title: 'Processar dados da candidatura',
+              desc: 'Permite curadoria do RH nas informações para esta vaga.',
+            },
+            {
+              key: 'permitirContato',
+              title: 'Permitir convites externos',
+              desc: 'Possibilita iniciativas relacionadas quando houver vagas próximas.',
+            },
+            {
+              key: 'bancoTalentos',
+              title: 'Incluir no banco interno',
+              desc: 'Dados ficam disponíveis para vagas futuras similares.',
+            },
+            {
+              key: 'dadosSensiveis',
+              title: 'Declarar dados sensíveis opcionais',
+              desc: 'Quando marcado, usamos apenas para adequações obrigatórias ou informadas por você.',
+            },
+            {
+              key: 'comunicacoes',
+              title: 'Comunicações institucionais',
+              desc: 'Newsletter de carreira, convites pesquisados e convites relacionados ao portal.',
+            },
+          ].map((row) => (
+            <label key={row.key} className="nl-consent-panel">
+              <input
+                type="checkbox"
+                checked={Boolean(values[row.key as keyof typeof values])}
+                onChange={(e) => setValues((curr) => ({ ...curr, [row.key]: e.target.checked }))}
+              />
+              <div>
+                <strong>{row.title}</strong>
+                <p>{row.desc}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="nl-card">
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Governança de dados</span>
+            <strong>Retenção e compartilhamento</strong>
+          </div>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field">
+            <span>Prazo de retenção (meses)</span>
+            <input
+              inputMode="numeric"
+              pattern="[0-9]*"
+              min={0}
+              value={values.retencaoMeses}
+              onChange={(e) => setValues((v) => ({ ...v, retencaoMeses: e.target.value }))}
+              placeholder="Ex.: 12"
+            />
+          </label>
+          <label className="nl-field">
+            <span>Escopo de compartilhamento interno</span>
+            <select value={String(values.compartilhamento)} onChange={(e) => setValues((v) => ({ ...v, compartilhamento: e.target.value }))}>
+              <option value="">— Informar quando necessário —</option>
+              {scopeOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <div className="nl-meta-lines nl-field-span-2">
+            {data?.consentidoEmUtc ? (
+              <p><strong>Consentimento registrado:</strong>{' '} {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.consentidoEmUtc))}</p>
+            ) : (
+              <p className="nl-muted-copy">Consentimento será registrado após primeira confirmação nesta tela.</p>
+            )}
+            {data?.revogadoEmUtc ? (
+              <p><strong>Revogações anteriores:</strong>{' '} {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.revogadoEmUtc))}</p>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <div className="nl-actions-row">
+        <button className="primary-btn nl-submit" type="submit">Salvar preferências LGPD</button>
+        <button type="button" className="secondary-btn nl-receipt-btn" onClick={() => onOpenReceipt()}>
+          <i className="fas fa-file-invoice" aria-hidden="true"></i>
+          <span>Ver comprovante LGPD</span>
+        </button>
+      </div>
+    </form>
+  )
+}
+
+const AGENDA_FORMATO_PRESETS = ['Presencial', 'Videochamada', 'Telefone', 'Indiferente'] as const
+const AGENDA_FUSO_PRESETS = ['America/Sao_Paulo', 'America/Fortaleza', 'America/Manaus', 'America/Recife', 'UTC'] as const
+const AGENDA_BLOCK_TIPO_PRESETS = ['Viagem', 'Saúde', 'Estudos', 'Família', 'Trabalho externo', 'Outro'] as const
+
+const AGENDA_WEEKDAY_KEYS = [
+  { key: 'diaSeg', short: 'Seg', label: 'Segunda-feira' },
+  { key: 'diaTer', short: 'Ter', label: 'Terça-feira' },
+  { key: 'diaQua', short: 'Qua', label: 'Quarta-feira' },
+  { key: 'diaQui', short: 'Qui', label: 'Quinta-feira' },
+  { key: 'diaSex', short: 'Sex', label: 'Sexta-feira' },
+  { key: 'diaSab', short: 'Sáb', label: 'Sábado' },
+  { key: 'diaDom', short: 'Dom', label: 'Domingo' },
+] as const
+
+const AGENDA_PERIOD_KEYS = [
+  { key: 'periodoManha', label: 'Manhã', hint: 'Ex.: 08–12h', iconClass: 'fas fa-sun' },
+  { key: 'periodoTarde', label: 'Tarde', hint: 'Ex.: 13–18h', iconClass: 'fas fa-cloud-sun' },
+  { key: 'periodoNoite', label: 'Noite', hint: 'Após 18h', iconClass: 'fas fa-moon' },
+] as const
+
+type AgendaPrefsForm = {
+  formatoEntrevista: string
+  inicioDisponivel: string
+  avisoPrevio: string
+  observacoes: string
+  horarioPreferido: string
+  fusoHorario: string
+  diaSeg: boolean
+  diaTer: boolean
+  diaQua: boolean
+  diaQui: boolean
+  diaSex: boolean
+  diaSab: boolean
+  diaDom: boolean
+  periodoManha: boolean
+  periodoTarde: boolean
+  periodoNoite: boolean
+}
+
+function normalizeAgendaPrefsForm(a: PortalAgenda | null): AgendaPrefsForm {
+  const p = a?.preferences
+  return {
+    formatoEntrevista: p?.formatoEntrevista ?? '',
+    inicioDisponivel: p?.inicioDisponivel ?? '',
+    avisoPrevio: p?.avisoPrevio ?? '',
+    observacoes: p?.observacoes ?? '',
+    horarioPreferido: p?.horarioPreferido ?? '',
+    fusoHorario: p?.fusoHorario ?? '',
+    diaSeg: Boolean(p?.diaSeg),
+    diaTer: Boolean(p?.diaTer),
+    diaQua: Boolean(p?.diaQua),
+    diaQui: Boolean(p?.diaQui),
+    diaSex: Boolean(p?.diaSex),
+    diaSab: Boolean(p?.diaSab),
+    diaDom: Boolean(p?.diaDom),
+    periodoManha: Boolean(p?.periodoManha),
+    periodoTarde: Boolean(p?.periodoTarde),
+    periodoNoite: Boolean(p?.periodoNoite),
+  }
+}
+
+function CandidateAgendaWorkspace({
+  agenda,
+  candidateId,
+  saveJson,
+  removeItem,
+  setMessage,
+}: {
+  agenda: PortalAgenda | null
+  candidateId: string
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  removeItem: (path: string, successText: string) => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const initial = useMemo(() => normalizeAgendaPrefsForm(agenda), [agenda])
+  const [values, setValues] = useState(initial)
+  useEffect(() => {
+    setValues(initial)
+  }, [initial])
+
+  function toggle<K extends keyof AgendaPrefsForm>(key: K) {
+    setValues((v) => ({ ...v, [key]: !Boolean(v[key]) }))
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const payload = {
+      formatoEntrevista: values.formatoEntrevista.trim().slice(0, 40) || null,
+      inicioDisponivel: values.inicioDisponivel.trim().slice(0, 40) || null,
+      avisoPrevio: values.avisoPrevio.trim().slice(0, 40) || null,
+      observacoes: values.observacoes.trim().slice(0, 400) || null,
+      horarioPreferido: values.horarioPreferido.trim().slice(0, 40) || null,
+      fusoHorario: values.fusoHorario.trim().slice(0, 60) || null,
+      diaSeg: Boolean(values.diaSeg),
+      diaTer: Boolean(values.diaTer),
+      diaQua: Boolean(values.diaQua),
+      diaQui: Boolean(values.diaQui),
+      diaSex: Boolean(values.diaSex),
+      diaSab: Boolean(values.diaSab),
+      diaDom: Boolean(values.diaDom),
+      periodoManha: Boolean(values.periodoManha),
+      periodoTarde: Boolean(values.periodoTarde),
+      periodoNoite: Boolean(values.periodoNoite),
+    }
+    void saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, payload, 'Preferências de agenda salvas.')
+  }
+
+  return (
+    <div className="ag-workspace nl-form">
+      <header className="ag-hero nl-hero nl-hero-accent">
+        <div>
+          <span className="eyebrow">Recrutamento</span>
+          <h4>Quando posso participar de entrevistas?</h4>
+          <p>
+            Informe formato preferido, janelas de horário e dias da semana. Isso ajuda o RH a convidar você sem atritos —
+            os bloqueios ficam logo abaixo para dias em que você não pode ser contactado.
+          </p>
+        </div>
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-calendar-check" aria-hidden="true"></i>
+          <span>Você pode ajustar estes dados a qualquer momento; eles não substituem confirmações formais de agenda.</span>
+        </div>
+      </header>
+
+      <form className="nl-card ag-panel" onSubmit={handleSubmit}>
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Preferências</span>
+            <strong>Formato e tempo</strong>
+          </div>
+          <p>Campos opcionais com limite compatível com o cadastro no servidor (até 40 caracteres nos campos curtos).</p>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field">
+            <span>Formato de entrevista</span>
+            <select value={values.formatoEntrevista} onChange={(e) => setValues((v) => ({ ...v, formatoEntrevista: e.target.value }))}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(AGENDA_FORMATO_PRESETS as unknown as readonly string[], values.formatoEntrevista).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field">
+            <span>Início disponível</span>
+            <input value={values.inicioDisponivel} onChange={(e) => setValues((v) => ({ ...v, inicioDisponivel: e.target.value }))} placeholder="Ex.: imediato, em 15 dias" maxLength={40} />
+          </label>
+          <label className="nl-field">
+            <span>Aviso prévio desejado</span>
+            <input value={values.avisoPrevio} onChange={(e) => setValues((v) => ({ ...v, avisoPrevio: e.target.value }))} placeholder="Ex.: 24h, 48h, 1 semana" maxLength={40} />
+          </label>
+          <label className="nl-field">
+            <span>Melhor faixa de horário (texto livre)</span>
+            <input value={values.horarioPreferido} onChange={(e) => setValues((v) => ({ ...v, horarioPreferido: e.target.value }))} placeholder="Ex.: manhãs após 9h, evitar almoço" maxLength={40} />
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Fuso ou referência de horário</span>
+            <select value={values.fusoHorario} onChange={(e) => setValues((v) => ({ ...v, fusoHorario: e.target.value }))}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(AGENDA_FUSO_PRESETS as unknown as readonly string[], values.fusoHorario).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Observações para o RH</span>
+            <textarea rows={3} value={values.observacoes} onChange={(e) => setValues((v) => ({ ...v, observacoes: e.target.value }))} placeholder="Ex.: prefiro encaixes curtos; disponível apenas às quartas para dinâmicas presenciais." maxLength={400} />
+          </label>
+        </div>
+
+        <div className="ag-subsection">
+          <div className="ag-subsection-head">
+            <strong>Dias da semana em que aceita conversas</strong>
+            <p className="nl-muted-copy">Toque para ligar ou desligar cada dia — foco nos dias úteis é comum.</p>
+          </div>
+          <div className="nl-toggle-grid nl-toggle-grid--week" role="group" aria-label="Dias disponíveis para entrevista">
+            {AGENDA_WEEKDAY_KEYS.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                className={`nl-toggle ag-weekday-toggle${values[d.key as keyof AgendaPrefsForm] ? ' is-on' : ''}`}
+                onClick={() => toggle(d.key as keyof AgendaPrefsForm)}
+                aria-pressed={Boolean(values[d.key as keyof AgendaPrefsForm])}
+                title={d.label}
+              >
+                <span>{d.short}</span>
+                <small aria-hidden="true">{d.label}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ag-subsection">
+          <div className="ag-subsection-head">
+            <strong>Períodos preferidos no dia</strong>
+            <p className="nl-muted-copy">Ajuda o RH a encaixar janelas sem sobrepor sua rotina.</p>
+          </div>
+          <div className="nl-toggle-grid nl-toggle-grid--periods" role="group" aria-label="Períodos preferidos">
+            {AGENDA_PERIOD_KEYS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={`nl-toggle${values[p.key as keyof AgendaPrefsForm] ? ' is-on' : ''}`}
+                onClick={() => toggle(p.key as keyof AgendaPrefsForm)}
+                aria-pressed={Boolean(values[p.key as keyof AgendaPrefsForm])}
+              >
+                <i className={p.iconClass} aria-hidden="true"></i>
+                <span>{p.label}</span>
+                <small>{p.hint}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button className="primary-btn ag-save-btn" type="submit">Salvar preferências de agenda</button>
+      </form>
+
+      <AgendaBlocksRepeater blocks={agenda?.blocks ?? []} candidateId={candidateId} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
+    </div>
+  )
+}
+
+function AgendaBlocksRepeater({
+  blocks,
+  candidateId,
+  saveJson,
+  removeItem,
+  setMessage,
+}: {
+  blocks: PortalAgendaBlock[]
+  candidateId: string
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  removeItem: (path: string, successText: string) => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<PortalAgendaBlock | null>(null)
+  const [draft, setDraft] = useState({ tipo: '', titulo: '', data: '', horario: '', observacoes: '' })
+
+  const tipoOpts = useMemo(() => mergeEducationSummarySelectOptions(AGENDA_BLOCK_TIPO_PRESETS as unknown as readonly string[], draft.tipo), [draft.tipo])
+
+  function openCreate() {
+    setEditing(null)
+    setDraft({ tipo: AGENDA_BLOCK_TIPO_PRESETS[0] ?? 'Outro', titulo: '', data: '', horario: '', observacoes: '' })
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalAgendaBlock) {
+    setEditing(item)
+    setDraft({
+      tipo: item.tipo ?? '',
+      titulo: item.titulo ?? '',
+      data: item.data ?? '',
+      horario: item.horario ?? '',
+      observacoes: item.observacoes ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditing(null)
+  }
+
+  return (
+    <section className="nl-card ag-blocks-panel">
+      <div className="nl-card-head">
+        <div>
+          <span className="eyebrow">Indisponibilidade</span>
+          <strong>Bloqueios na agenda</strong>
+        </div>
+        <p>Use para viagens, provas ou qualquer intervalo em que não deve receber convites ou lembretes de entrevista.</p>
+      </div>
+
+      <div className="ag-block-list">
+        {blocks.map((item) => (
+          <article key={item.id} className="ag-block-card">
+            <div>
+              <div className="ag-block-heading">
+                <strong>{item.titulo?.trim() || 'Bloqueio sem título'}</strong>
+                {item.tipo?.trim() ? <span className="sp-badge">{item.tipo}</span> : null}
+              </div>
+              <p className="ag-block-meta">
+                {[item.data, item.horario].filter(Boolean).join(' · ') || 'Data e horário não informados'}
+              </p>
+              {item.observacoes?.trim() ? <p className="ag-block-note">{item.observacoes}</p> : null}
+            </div>
+            <div className="sp-item-actions">
+              <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
+              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {blocks.length === 0 ? (
+          <div className="sp-empty ag-blocks-empty">
+            <i className="fas fa-calendar-xmark" aria-hidden="true"></i>
+            <p>Nenhum bloqueio cadastrado. Adicione quando souber que não poderá ser contactado.</p>
+          </div>
+        ) : null}
+      </div>
+
+      <button type="button" className="secondary-btn ag-add-block-btn" onClick={openCreate}>
+        Adicionar bloqueio
+      </button>
+
+      {modalOpen ? createPortal(
+        <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
+          <div className="workspace-form-modal-card workspace-form-modal-card--agenda" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="workspace-form-modal-header">
+              <h3>{editing ? 'Editar bloqueio' : 'Novo bloqueio'}</h3>
+              <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const titulo = draft.titulo.trim().slice(0, 120)
+                if (!titulo) {
+                  setMessage('Informe um título ou motivo breve para o bloqueio.')
+                  return
+                }
+                const payload = {
+                  tipo: draft.tipo.trim().slice(0, 40) || null,
+                  titulo,
+                  data: draft.data.trim().slice(0, 40) || null,
+                  horario: draft.horario.trim().slice(0, 40) || null,
+                  observacoes: draft.observacoes.trim().slice(0, 400) || null,
+                }
+                if (editing) {
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${editing.id}`, payload, 'Bloqueio atualizado.')
+                } else {
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, payload, 'Bloqueio adicionado.', 'POST')
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label className="nl-field">
+                  <span>Motivo / tipo</span>
+                  <select value={draft.tipo} onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))}>
+                    {tipoOpts.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="nl-field">
+                  <span>Título ou descrição curta</span>
+                  <input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex.: viagem a trabalho" maxLength={120} />
+                </label>
+                <label className="nl-field">
+                  <span>Data ou período</span>
+                  <input value={draft.data} onChange={(e) => setDraft((d) => ({ ...d, data: e.target.value }))} placeholder="Ex.: 2026-05-12 ou semana 12–16/05" maxLength={40} />
+                </label>
+                <label className="nl-field">
+                  <span>Horário ou faixa</span>
+                  <input value={draft.horario} onChange={(e) => setDraft((d) => ({ ...d, horario: e.target.value }))} placeholder="Ex.: manhã inteira, 14–18h" maxLength={40} />
+                </label>
+                <label className="nl-field">
+                  <span>Observações</span>
+                  <textarea rows={3} value={draft.observacoes} onChange={(e) => setDraft((d) => ({ ...d, observacoes: e.target.value }))} maxLength={400} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
+                <button type="submit" className="secondary-btn">{editing ? 'Salvar bloqueio' : 'Adicionar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </section>
+  )
+}
+
+const SKILL_TIPO_PRESETS = ['Tecnologia', 'Idioma', 'Metodologia', 'Soft skill', 'Ferramenta', 'Domínio', 'Outro'] as const
+const SKILL_NIVEL_PRESETS = ['Iniciante', 'Intermediário', 'Avançado', 'Especialista', 'Expert', 'Nativo / bilíngue'] as const
+const PORTFOLIO_SHIFT_PRESETS = [...WORKDAY_OPTIONS]
+
+function spOpenExternalUrl(raw: string, onEmpty?: () => void) {
+  const v = raw.trim()
+  if (!v) {
+    onEmpty?.()
+    return
+  }
+  const href = /^https?:\/\//i.test(v) ? v : `https://${v}`
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
+
+function CandidateSkillsPortfolioWorkspace({
+  portfolio,
+  candidateId,
+  saveJson,
+  setMessage,
+}: {
+  portfolio: PortalPortfolio | null
+  candidateId: string
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const initialPrefs = useMemo(
+    () => ({
+      workModel: portfolio?.preferences.workModel ?? '',
+      availability: portfolio?.preferences.availability ?? '',
+      salary: portfolio?.preferences.salary ?? '',
+      shift: portfolio?.preferences.shift ?? '',
+      note: portfolio?.preferences.note ?? '',
+      linkedin: portfolio?.links.linkedin ?? '',
+      github: portfolio?.links.github ?? '',
+      portfolioUrl: portfolio?.links.portfolio ?? '',
+      drive: portfolio?.links.drive ?? '',
+      tags: portfolio?.tags ?? '',
+    }),
+    [portfolio],
+  )
+  const [prefs, setPrefs] = useState(initialPrefs)
+  useEffect(() => {
+    setPrefs(initialPrefs)
+  }, [initialPrefs])
+
+  function patchPrefs<K extends keyof typeof initialPrefs>(key: K, value: string) {
+    setPrefs((p) => ({ ...p, [key]: value }))
+  }
+
+  function handleSavePortfolio(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const payload = {
+      workModel: prefs.workModel.trim().slice(0, 40) || null,
+      availability: prefs.availability.trim().slice(0, 40) || null,
+      salary: prefs.salary.trim().slice(0, 40) || null,
+      shift: prefs.shift.trim().slice(0, 40) || null,
+      note: prefs.note.trim().slice(0, 200) || null,
+      linkedin: prefs.linkedin.trim().slice(0, 260) || null,
+      github: prefs.github.trim().slice(0, 260) || null,
+      portfolio: prefs.portfolioUrl.trim().slice(0, 260) || null,
+      drive: prefs.drive.trim().slice(0, 260) || null,
+      tags: prefs.tags.trim().slice(0, 400) || null,
+    }
+    void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, payload, 'Preferências e links salvos.')
+  }
+
+  return (
+    <div className="sp-workspace nl-form">
+      <header className="sp-hero nl-hero nl-hero-accent">
+        <div>
+          <span className="eyebrow">Destaque-se em poucos campos</span>
+          <h4>Portfólio, links e mensagem rápida para recrutadores</h4>
+          <p>
+            Defina modelo de trabalho preferido, onde o RH pode te encontrar na web e palavras-chave do seu perfil.
+            As competências e credenciais detalhadas ficam nos menus próprios à esquerda.
+          </p>
+        </div>
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-circle-info" aria-hidden="true"></i>
+          <span>Links públicos devem iniciar com <code className="sp-code-inline">https://</code> quando possível.</span>
+        </div>
+      </header>
+
+      <form className="sp-panel nl-card" onSubmit={handleSavePortfolio}>
+        <div className="nl-card-head">
+          <div>
+            <span className="eyebrow">Visão rápida</span>
+            <strong>Preferências e links do portfólio</strong>
+          </div>
+          <p>Modelo de trabalho, links públicos e tags passam no mesmo salvamento — preencha o que fizer sentido para o seu momento de carreira.</p>
+        </div>
+        <div className="nl-fields-grid nl-fields-grid--2">
+          <label className="nl-field">
+            <span>Modelo de trabalho</span>
+            <select value={prefs.workModel} onChange={(e) => patchPrefs('workModel', e.target.value)}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(WORK_MODEL_OPTIONS, prefs.workModel).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field">
+            <span>Disponibilidade</span>
+            <select value={prefs.availability} onChange={(e) => patchPrefs('availability', e.target.value)}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(AVAILABILITY_OPTIONS, prefs.availability).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field">
+            <span>Pretensão / faixa breve</span>
+            <input value={prefs.salary} onChange={(e) => patchPrefs('salary', e.target.value)} placeholder="Ex.: R$ 8–10k PJ" maxLength={40} />
+          </label>
+          <label className="nl-field">
+            <span>Jornada / turno preferido</span>
+            <select value={prefs.shift} onChange={(e) => patchPrefs('shift', e.target.value)}>
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(PORTFOLIO_SHIFT_PRESETS, prefs.shift).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Notas para o RH (opcional)</span>
+            <textarea rows={3} value={prefs.note} onChange={(e) => patchPrefs('note', e.target.value)} placeholder="Ex.: aberto a remoto nacional, disponível para mudança..." maxLength={200} />
+          </label>
+        </div>
+
+        <div className="sp-links-head">
+          <strong>URLs públicos</strong>
+          <p className="nl-muted-copy">Opcionalmente abrimos cada endereço em nova aba para você conferir antes de gravar.</p>
+        </div>
+        <div className="sp-links-grid">
+          <label className="nl-field">
+            <span><i className="fab fa-linkedin" aria-hidden="true"></i> LinkedIn</span>
+            <div className="sp-link-inline-row">
+              <input type="url" inputMode="url" value={prefs.linkedin} onChange={(e) => patchPrefs('linkedin', e.target.value)} placeholder="https://linkedin.com/in/..." />
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.linkedin, () => setMessage('Informe o link do LinkedIn.'))}>Abrir</button>
+            </div>
+          </label>
+          <label className="nl-field">
+            <span><i className="fab fa-github" aria-hidden="true"></i> GitHub</span>
+            <div className="sp-link-inline-row">
+              <input type="url" value={prefs.github} onChange={(e) => patchPrefs('github', e.target.value)} placeholder="https://github.com/..." />
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.github, () => setMessage('Informe o link do GitHub.'))}>Abrir</button>
+            </div>
+          </label>
+          <label className="nl-field">
+            <span><i className="fas fa-briefcase" aria-hidden="true"></i> Portfólio / site</span>
+            <div className="sp-link-inline-row">
+              <input type="url" value={prefs.portfolioUrl} onChange={(e) => patchPrefs('portfolioUrl', e.target.value)} placeholder="https://..." />
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.portfolioUrl, () => setMessage('Informe o URL do portfólio.'))}>Abrir</button>
+            </div>
+          </label>
+          <label className="nl-field">
+            <span><i className="fab fa-google-drive" aria-hidden="true"></i> Drive / pasta</span>
+            <div className="sp-link-inline-row">
+              <input type="url" value={prefs.drive} onChange={(e) => patchPrefs('drive', e.target.value)} placeholder="https://drive.google.com/..." />
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.drive, () => setMessage('Informe o link do Drive.'))}>Abrir</button>
+            </div>
+          </label>
+          <label className="nl-field nl-field-span-2">
+            <span>Palavras-chave (tags)</span>
+            <textarea rows={2} value={prefs.tags} onChange={(e) => patchPrefs('tags', e.target.value)} placeholder="Ex.: React · Node · Scrum · inglês técnico" maxLength={400} />
+          </label>
+        </div>
+        <button className="primary-btn sp-save-prefs-btn" type="submit">Salvar preferências e links</button>
+      </form>
+    </div>
+  )
+}
+
+function SkillsPortfolioRepeater({
+  candidateId,
+  items,
+  saveJson,
+  removeItem,
+  setMessage,
+}: {
+  candidateId: string
+  items: PortalSkill[]
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  removeItem: (path: string, successText: string) => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<PortalSkill | null>(null)
+  const [draft, setDraft] = useState({ tipo: '', nome: '', nivel: '', evidencia: '' })
+
+  const tipoOptions = useMemo(() => mergeEducationSummarySelectOptions(SKILL_TIPO_PRESETS as unknown as readonly string[], draft.tipo), [draft.tipo])
+  const nivelOptions = useMemo(() => mergeEducationSummarySelectOptions(SKILL_NIVEL_PRESETS as unknown as readonly string[], draft.nivel), [draft.nivel])
+
+  function openCreate() {
+    setEditing(null)
+    setDraft({ tipo: SKILL_TIPO_PRESETS[0] ?? '', nome: '', nivel: SKILL_NIVEL_PRESETS[1] ?? 'Intermediário', evidencia: '' })
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalSkill) {
+    setEditing(item)
+    setDraft({
+      tipo: item.tipo,
+      nome: item.nome,
+      nivel: item.nivel,
+      evidencia: item.evidencia ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditing(null)
+  }
+
+  return (
+    <section className="sp-panel nl-card">
+      <div className="nl-card-head">
+        <div>
+          <span className="eyebrow">Competências</span>
+          <strong>Lista de skills</strong>
+        </div>
+        <p>Detalhe tipo, nível e uma evidência (certificação, projeto ou resultado).</p>
+      </div>
+
+      <div className="sp-item-list">
+        {items.map((item) => (
+          <article key={item.id} className="sp-item-card">
+            <div className="sp-item-body">
+              <div className="sp-item-heading">
+                <strong>{item.nome}</strong>
+                <span className="sp-badge">{item.tipo}</span>
+                <span className="sp-badge sp-badge-soft">{item.nivel}</span>
+              </div>
+              {item.evidencia?.trim() ? <p className="sp-item-meta">{item.evidencia}</p> : <p className="sp-item-meta sp-muted">Sem evidência curta cadastrada.</p>}
+            </div>
+            <div className="sp-item-actions">
+              <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
+              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills/${item.id}`, 'Skill removida.')}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ? (
+          <div className="sp-empty">
+            <i className="fas fa-layer-group" aria-hidden="true"></i>
+            <p>Nenhuma skill cadastrada. Comece pela principal tecnologia ou idioma do seu dia a dia.</p>
+          </div>
+        ) : null}
+      </div>
+
+      <button className="secondary-btn sp-add-btn" type="button" onClick={openCreate}>
+        Adicionar competência
+      </button>
+
+      {modalOpen ? createPortal(
+        <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
+          <div className="workspace-form-modal-card workspace-form-modal-card--skills" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="sp-skill-modal-title">
+            <div className="workspace-form-modal-header">
+              <h3 id="sp-skill-modal-title">{editing ? 'Editar competência' : 'Nova competência'}</h3>
+              <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const nome = draft.nome.trim().slice(0, 120)
+                const tipo = draft.tipo.trim().slice(0, 40)
+                const nivel = draft.nivel.trim().slice(0, 40)
+                if (!nome || !tipo || !nivel) {
+                  setMessage('Informe nome, tipo e nível da competência.')
+                  return
+                }
+                const evidencia = draft.evidencia.trim().slice(0, 300) || undefined
+                const payload = { tipo, nome, nivel, evidencia: evidencia ?? null }
+                const pathEditing = `/api/public/portal-candidates/${candidateId}/skills-portfolio/skills/${editing?.id ?? ''}`
+                if (editing) {
+                  void saveJson(pathEditing, payload, 'Competência atualizada.')
+                } else {
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills`, payload, 'Competência adicionada.', 'POST')
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label className="nl-field">
+                  <span>Categoria</span>
+                  <select value={draft.tipo} onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))}>
+                    {tipoOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="nl-field">
+                  <span>Nome da competência</span>
+                  <input value={draft.nome} onChange={(e) => setDraft((d) => ({ ...d, nome: e.target.value }))} placeholder="Ex.: TypeScript · Inglês C1 · Facilitação Agile" maxLength={120} />
+                </label>
+                <label className="nl-field">
+                  <span>Nível</span>
+                  <select value={draft.nivel} onChange={(e) => setDraft((d) => ({ ...d, nivel: e.target.value }))}>
+                    {nivelOptions.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="nl-field">
+                  <span>Evidência (opcional)</span>
+                  <textarea rows={3} value={draft.evidencia} onChange={(e) => setDraft((d) => ({ ...d, evidencia: e.target.value }))} placeholder="Ex.: certificado X, projeto no GitHub, avaliações internas" maxLength={300} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
+                <button type="submit" className="secondary-btn">{editing ? 'Salvar alterações' : 'Adicionar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </section>
+  )
+}
+
+function CertificationsPortfolioRepeater({
+  candidateId,
+  items,
+  saveJson,
+  removeItem,
+  setMessage,
+}: {
+  candidateId: string
+  items: PortalCertification[]
+  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
+  removeItem: (path: string, successText: string) => void | Promise<void>
+  setMessage: (message: string | null) => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<PortalCertification | null>(null)
+  const [draft, setDraft] = useState({ nome: '', instituicao: '', ano: '', link: '' })
+
+  function openCreate() {
+    setEditing(null)
+    setDraft({ nome: '', instituicao: '', ano: '', link: '' })
+    setModalOpen(true)
+  }
+
+  function openEdit(item: PortalCertification) {
+    setEditing(item)
+    setDraft({
+      nome: item.nome,
+      instituicao: item.instituicao ?? '',
+      ano: item.ano ?? '',
+      link: item.link ?? '',
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditing(null)
+  }
+
+  return (
+    <section className="sp-panel nl-card">
+      <div className="nl-card-head">
+        <div>
+          <span className="eyebrow">Credenciais</span>
+          <strong>Certificações e cursos</strong>
+        </div>
+        <p>Cursos rápidos, certificações oficiais ou treinamentos com link de validação.</p>
+      </div>
+
+      <div className="sp-item-list">
+        {items.map((item) => (
+          <article key={item.id} className="sp-item-card">
+            <div className="sp-item-body">
+              <div className="sp-item-heading">
+                <strong>{item.nome}</strong>
+                {item.ano?.trim() ? <span className="sp-badge sp-badge-soft">{item.ano}</span> : null}
+              </div>
+              <p className="sp-item-meta">{item.instituicao?.trim() || 'Instituição não informada'}</p>
+              {item.link?.trim() ? (
+                <button type="button" className="sp-text-link-btn" onClick={() => spOpenExternalUrl(item.link ?? '')}>
+                  <i className="fas fa-arrow-up-right-from-square"></i>
+                  {' '}Abrir comprovação / link público
+                </button>
+              ) : (
+                <p className="sp-item-meta sp-muted">Sem link de verificação</p>
+              )}
+            </div>
+            <div className="sp-item-actions">
+              <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
+              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${item.id}`, 'Certificação removida.')}>Remover</button>
+            </div>
+          </article>
+        ))}
+        {items.length === 0 ? (
+          <div className="sp-empty">
+            <i className="fas fa-certificate" aria-hidden="true"></i>
+            <p>Nenhuma certificação cadastrada. Ótimo para destaque em cloud, idiomas ou certificações comportamentais.</p>
+          </div>
+        ) : null}
+      </div>
+
+      <button className="secondary-btn sp-add-btn" type="button" onClick={openCreate}>
+        Adicionar certificação
+      </button>
+
+      {modalOpen ? createPortal(
+        <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
+          <div className="workspace-form-modal-card workspace-form-modal-card--skills" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="workspace-form-modal-header">
+              <h3>{editing ? 'Editar certificação' : 'Nova certificação'}</h3>
+              <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
+                <i className="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+            <form
+              className="project-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const nome = draft.nome.trim().slice(0, 160)
+                if (!nome) {
+                  setMessage('Informe o nome da certificação ou curso.')
+                  return
+                }
+                const instituicao = draft.instituicao.trim().slice(0, 160) || undefined
+                const ano = draft.ano.trim().slice(0, 10) || undefined
+                const link = draft.link.trim().slice(0, 260) || undefined
+                const payload = { nome, instituicao: instituicao ?? null, ano: ano ?? null, link: link ?? null }
+                if (editing) {
+                  void saveJson(
+                    `/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${editing.id}`,
+                    payload,
+                    'Certificação atualizada.',
+                  )
+                } else {
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications`, payload, 'Certificação adicionada.', 'POST')
+                }
+                closeModal()
+              }}
+            >
+              <div className="workspace-form-modal-body">
+                <label className="nl-field">
+                  <span>Nome da certificação ou curso</span>
+                  <input value={draft.nome} onChange={(e) => setDraft((d) => ({ ...d, nome: e.target.value }))} maxLength={160} />
+                </label>
+                <label className="nl-field">
+                  <span>Instituição (opcional)</span>
+                  <input value={draft.instituicao} onChange={(e) => setDraft((d) => ({ ...d, instituicao: e.target.value }))} maxLength={160} />
+                </label>
+                <label className="nl-field">
+                  <span>Ano ou validade breve</span>
+                  <input value={draft.ano} onChange={(e) => setDraft((d) => ({ ...d, ano: e.target.value }))} placeholder="Ex.: 2024 ou 06/2025" maxLength={10} />
+                </label>
+                <label className="nl-field">
+                  <span>Link público (opcional)</span>
+                  <input type="url" value={draft.link} onChange={(e) => setDraft((d) => ({ ...d, link: e.target.value }))} placeholder="https://..." maxLength={260} />
+                </label>
+              </div>
+              <div className="workspace-form-modal-actions">
+                <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
+                <button type="submit" className="secondary-btn">{editing ? 'Salvar alterações' : 'Adicionar'}</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+    </section>
+  )
+}
+
 function RecordForm({
   fields,
   checks,
   onSubmit,
+  submitLabel = 'Salvar seção',
+  submitButtonClassName = 'primary-btn',
+  formClassName,
 }: {
-  fields: { label: string; name: string; value?: string | null; kind?: 'input' | 'textarea' }[]
-  checks?: { name: string; checked?: boolean }[]
+  fields: { label: string; name: string; value?: string | null; kind?: 'input' | 'textarea' | 'select'; options?: readonly string[]; inputType?: 'text' | 'date' | 'url' | 'email' | 'number' }[]
+  checks?: { name: string; checked?: boolean; label?: string; hint?: string }[]
   onSubmit: (values: Record<string, string | boolean>) => void
+  submitLabel?: string
+  submitButtonClassName?: string
+  formClassName?: string
 }) {
   const initial = useMemo(() => {
     const values: Record<string, string | boolean> = {}
@@ -2918,7 +6531,7 @@ function RecordForm({
 
   return (
     <form
-      className="stack-form"
+      className={formClassName ?`stack-form ${formClassName}` : 'stack-form'}
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit(values)
@@ -2929,26 +6542,43 @@ function RecordForm({
           <span>{fieldItem.label}</span>
           {fieldItem.kind === 'textarea' ?(
             <textarea rows={4} value={String(values[fieldItem.name] ?? '')} onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))} />
+          ) : fieldItem.kind === 'select' && fieldItem.options?.length ?(
+            <select
+              value={String(values[fieldItem.name] ?? '')}
+              onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))}
+            >
+              <option value="">—</option>
+              {mergeEducationSummarySelectOptions(fieldItem.options, String(values[fieldItem.name] ?? '')).map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
           ) : (
-            <input value={String(values[fieldItem.name] ?? '')} onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))} />
+            <input
+              type={fieldItem.inputType ?? 'text'}
+              value={String(values[fieldItem.name] ?? '')}
+              onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))}
+            />
           )}
         </label>
       ))}
       {checks?.length ?(
         <div className="checks-grid">
           {checks.map((checkItem) => (
-            <label key={checkItem.name} className="check-row">
+            <label key={checkItem.name} className={`check-row${checkItem.hint ? ' check-row-rich' : ''}`}>
               <input
                 type="checkbox"
                 checked={Boolean(values[checkItem.name])}
                 onChange={(e) => setValues((v) => ({ ...v, [checkItem.name]: e.target.checked }))}
               />
-              <span>{checkItem.name}</span>
+              <span>
+                {checkItem.label ?? checkItem.name}
+                {checkItem.hint ? <small className="check-hint">{checkItem.hint}</small> : null}
+              </span>
             </label>
           ))}
         </div>
       ) : null}
-      <button className="primary-btn" type="submit">Salvar seção</button>
+      <button className={submitButtonClassName} type="submit">{submitLabel}</button>
     </form>
   )
 }
@@ -3019,12 +6649,56 @@ function PageLoading({ label }: { label: string }) {
   )
 }
 
-function field(label: string, value?: string | null, kind: 'input' | 'textarea' = 'input') {
-  return { label, name: label, value, kind }
+const EDUCATION_SUMMARY_NIVEL_PRESETS = [
+  'Ensino fundamental',
+  'Ensino médio',
+  'Técnico',
+  'Tecnólogo',
+  'Superior (graduação)',
+  'Pós-graduação',
+  'Mestrado',
+  'Doutorado',
+] as const
+
+const EDUCATION_SUMMARY_SITUACAO_PRESETS = [
+  'Cursando',
+  'Concluído',
+  'Incompleto',
+  'Interrompido',
+  'Trancado',
+] as const
+
+function mergeEducationSummarySelectOptions(presets: readonly string[], current: string) {
+  const merged = [...presets]
+  const t = current.trim()
+  if (t && !merged.includes(t)) merged.push(t)
+  return merged
 }
 
-function check(name: string, checked?: boolean) {
-  return { name, checked }
+function field(
+  name: string,
+  value?: string | null,
+  kind: 'input' | 'textarea' = 'input',
+  displayLabel?: string,
+) {
+  return { label: displayLabel ?? name, name, value, kind }
+}
+
+function fieldSelect(
+  name: string,
+  value: string | null | undefined,
+  presets: readonly string[],
+  displayLabel: string,
+) {
+  return { label: displayLabel, name, value, kind: 'select' as const, options: presets }
+}
+
+function fieldDate(name: string, value: string | null | undefined, displayLabel: string) {
+  return { label: displayLabel, name, value, kind: 'input' as const, inputType: 'date' as const }
+}
+
+function check(name: string, checked?: boolean, label?: string, hint?: string) {
+  return { name, checked, label, hint }
 }
 
 function formatSalary(min?: number | null, max?: number | null) {
@@ -3034,24 +6708,77 @@ function formatSalary(min?: number | null, max?: number | null) {
   return fmt.format(min || max || 0)
 }
 
-const JOB_HERO_GRADIENTS = [
-  'linear-gradient(135deg, #1e3a8a, #0ea5e9)',
-  'linear-gradient(135deg, #0f766e, #22c55e)',
-  'linear-gradient(135deg, #7c3aed, #ec4899)',
-  'linear-gradient(135deg, #d97706, #f97316)',
-  'linear-gradient(135deg, #1d4ed8, #38bdf8)',
-  'linear-gradient(135deg, #4f46e5, #6366f1)',
-]
+function formatJobDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Data não informada'
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(date)
+}
 
-const JOB_SECTION_IMAGES = [
-  { match: 'industrial', title: 'Opera??es Industriais', image: 'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'qualidade', title: 'Qualidade & P&D', image: 'https://images.unsplash.com/photo-1582719471384-894fbb16e074?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'logistica', title: 'Log?stica & Supply', image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'rh', title: 'Administrativo & RH', image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'administrativo', title: 'Administrativo & RH', image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'comercial', title: 'Vendas & Marketing', image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1600' },
-  { match: 'marketing', title: 'Vendas & Marketing', image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1600' },
-]
+function isRecentJob(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return false
+  return date.getTime() > Date.now() - 3 * 24 * 60 * 60 * 1000
+}
+
+function formatDocumentDate(value?: string | null) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return formatJobDate(value)
+  return value
+}
+
+function getDocumentIcon(documentItem: PortalDocument) {
+  const text = normalizeSearchText(`${documentItem.tipo} ${documentItem.nome} ${documentItem.fileName ?? ''}`)
+  if (text.includes('pdf')) return 'fa-file-pdf'
+  if (text.includes('curriculo') || text.includes('curriculum')) return 'fa-file-lines'
+  if (text.includes('certificado') || text.includes('diploma')) return 'fa-certificate'
+  if (text.includes('portfolio')) return 'fa-briefcase'
+  if (text.includes('link')) return 'fa-link'
+  return 'fa-file-alt'
+}
+
+function listUniqueJobValues(jobs: PortalJob[], pick: (job: PortalJob) => string | null | undefined) {
+  return Array.from(
+    new Set(
+      jobs
+        .map((job) => (pick(job) || '').trim())
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
+function filterJobsBySearch(jobs: PortalJob[], query: string) {
+  const terms = normalizeSearchText(query).split(/\s+/).filter(Boolean)
+  if (!terms.length) return jobs
+
+  return jobs.filter((job) => {
+    const searchable = normalizeSearchText([
+      job.titulo,
+      job.tenantName,
+      job.area,
+      job.cidade,
+      job.uf,
+      job.modalidade,
+      job.tipoContratacao,
+      job.senioridade,
+      job.descricaoPublica,
+      job.tagsKeywordsRaw,
+      job.tagsStackRaw,
+      job.tagsResponsabilidadesRaw,
+    ].filter(Boolean).join(' '))
+
+    return terms.every((term) => searchable.includes(term))
+  })
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 function parseJobTags(raw: string | null | undefined) {
   if (!raw) return []
@@ -3081,44 +6808,30 @@ function formatJobLocation(job: PortalJob) {
   if (city && uf) return `${city}, ${uf}`
   if (city) return city
   if (uf) return uf
-  return job.modalidade || 'N?o informado'
+  return job.modalidade || 'Local a definir'
 }
 
-function normalizeAreaKey(value: string | null | undefined) {
-  return (value || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+function formatCandidateCityUf(city?: string | null, uf?: string | null) {
+  const normalizedCity = (city || '').trim()
+  const normalizedUf = (uf || '').trim().toUpperCase()
+  if (normalizedCity && normalizedUf) return `${normalizedCity} / ${normalizedUf}`
+  if (normalizedCity) return normalizedCity
+  return normalizedUf
 }
 
-function getJobSectionInfo(area: string | null | undefined) {
-  const key = normalizeAreaKey(area)
-  const match = JOB_SECTION_IMAGES.find((item) => key.includes(item.match))
-  if (match) return match
-  return {
-    title: area || 'Vagas em destaque',
-    image: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=1600',
-  }
+function normalizeCityUfForSubmit(value: string) {
+  const cleaned = value.trim()
+  const slashParts = cleaned.split('/').map((part) => part.trim()).filter(Boolean)
+  if (slashParts.length >= 2) return `${slashParts[0]}, ${slashParts[1].toUpperCase()}`
+  return cleaned
 }
 
-function groupJobsByArea(jobs: PortalJob[]) {
-  const groups = new Map<string, PortalJob[]>()
-  for (const job of jobs) {
-    const info = getJobSectionInfo(job.area)
-    const key = `${info.title}|||${info.image}`
-    const bucket = groups.get(key) ?? []
-    bucket.push(job)
-    groups.set(key, bucket)
-  }
-
-  return Array.from(groups.entries()).map(([key, items]) => {
-    const [title, image] = key.split('|||')
-    return { title, image, jobs: items }
-  })
-}
-
-function getJobHeroBackground(index: number) {
-  return JOB_HERO_GRADIENTS[index % JOB_HERO_GRADIENTS.length]
+function formatBrazilianPhone(value?: string | null) {
+  const digits = (value || '').replace(/\D/g, '').slice(0, 11)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
 function getInitials(name: string) {
@@ -3249,12 +6962,162 @@ function readError(error: unknown) {
   return 'Ocorreu uma falha inesperada.'
 }
 
+const COMPLETION_SECTION_LABELS: Record<string, string> = {
+  perfil: 'Perfil básico',
+  testes: 'Testes',
+  comp: 'Competências',
+  competencias: 'Competências',
+  certs: 'Credenciais',
+  credenciais: 'Credenciais',
+  certificacoes: 'Credenciais',
+  formacao: 'Formação',
+  educacao: 'Educação',
+  exp: 'Experiências',
+  experiencias: 'Experiências',
+  projetos: 'Projetos',
+  lgpd: 'Privacidade e LGPD',
+  pref: 'Preferências',
+  preferencias: 'Preferências',
+  acess: 'Acessibilidade',
+  acessibilidade: 'Acessibilidade',
+  agenda: 'Agenda',
+  hist: 'Histórico',
+  historico: 'Histórico',
+  notif: 'Notificações',
+  notificacoes: 'Notificações',
+  docs: 'Documentos',
+  documentos: 'Documentos',
+  refs: 'Referências',
+  referencias: 'Referências',
+}
+
+function clampCompletionPercent(value?: number | null) {
+  return Math.max(0, Math.min(100, Math.round(Number(value) || 0)))
+}
+
+function formatCompletionSectionLabel(key: string) {
+  const normalized = normalizeSearchText(key).replace(/[^a-z0-9]/g, '')
+  return COMPLETION_SECTION_LABELS[normalized] ?? key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/^./, (letter) => letter.toLocaleUpperCase('pt-BR'))
+}
+
+function getCompletionTargetSection(key: string): WorkspaceSectionId | null {
+  const normalized = normalizeSearchText(key).replace(/[^a-z0-9]/g, '')
+  const targets: Partial<Record<string, WorkspaceSectionId>> = {
+    perfil: 'perfil-curriculo',
+    formacao: 'cursos-formacoes',
+    formacoes: 'cursos-formacoes',
+    cursos: 'cursos-formacoes',
+    cursosformacoes: 'cursos-formacoes',
+    educacao: 'educacao',
+    exp: 'experiencias',
+    experiencias: 'experiencias',
+    projetos: 'projetos',
+    pref: 'preferencias',
+    preferencias: 'preferencias',
+    agenda: 'agenda',
+    comp: 'competencias',
+    competencias: 'competencias',
+    certs: 'credenciais',
+    certificacoes: 'credenciais',
+    credenciais: 'credenciais',
+    docs: 'documentos',
+    documentos: 'documentos',
+    refs: 'referencias',
+    referencias: 'referencias',
+    acess: 'acessibilidade',
+    acessibilidade: 'acessibilidade',
+    lgpd: 'lgpd',
+    notif: 'notificacoes',
+    notificacoes: 'notificacoes',
+  }
+  return targets[normalized] ?? null
+}
+
+function getCompletionTone(value: number) {
+  if (value >= 100) return { label: 'Completo', className: 'is-complete' }
+  if (value >= 70) return { label: 'Bom avanço', className: 'is-good' }
+  if (value >= 40) return { label: 'Em progresso', className: 'is-medium' }
+  return { label: 'Priorizar', className: 'is-low' }
+}
+
+function formatSuggestionImpact(value?: string | null) {
+  const normalized = normalizeSearchText(value ?? '')
+  if (normalized.includes('alto')) return { label: 'Alto impacto', className: 'is-high' }
+  if (normalized.includes('baixo')) return { label: 'Baixo impacto', className: 'is-low' }
+  return { label: 'Médio impacto', className: 'is-medium' }
+}
+
+function formatMatchLocation(match: PortalMatchItem) {
+  const location = [match.city, match.uf].filter(Boolean).join(', ')
+  return [match.area, location].filter(Boolean).join(' - ') || 'Local e área não informados'
+}
+
+function normalizeAccessibility(accessibility: PortalAccessibility | null): PortalAccessibility {
+  return {
+    idioma: asString(accessibility?.idioma),
+    canal: asString(accessibility?.canal),
+    melhorHorario: asString(accessibility?.melhorHorario),
+    observacoesComunicacao: asString(accessibility?.observacoesComunicacao),
+    precisaLegendas: Boolean(accessibility?.precisaLegendas),
+    precisaInterprete: Boolean(accessibility?.precisaInterprete),
+    precisaLeitorTela: Boolean(accessibility?.precisaLeitorTela),
+    precisaBaixaEstimulo: Boolean(accessibility?.precisaBaixaEstimulo),
+    precisaMobilidade: Boolean(accessibility?.precisaMobilidade),
+    precisaTempoExtra: Boolean(accessibility?.precisaTempoExtra),
+    detalhesNecessidades: asString(accessibility?.detalhesNecessidades),
+    consentimentoPcd: Boolean(accessibility?.consentimentoPcd),
+    pcdIdentificacao: asString(accessibility?.pcdIdentificacao),
+    pcdTipo: asString(accessibility?.pcdTipo),
+    pcdComprovacao: asString(accessibility?.pcdComprovacao),
+    pcdObservacoes: asString(accessibility?.pcdObservacoes),
+  }
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
 function asString(value: string | null | undefined) {
   return value ?? ''
+}
+
+function splitPreferenceList(value?: string | null) {
+  return (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function joinPreferenceList(values: string[]) {
+  return values.map((item) => item.trim()).filter(Boolean).join(', ')
+}
+
+function mergePreferenceOptions(base: string[], selected: string[]) {
+  return Array.from(new Set([...base, ...selected].map((item) => item.trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
+
+function parsePreferredLocation(value?: string | null) {
+  const raw = (value ?? '').trim()
+  if (!raw) return { cidade: '', uf: '' }
+  const slashMatch = raw.match(/^(.+?)\s*\/\s*([A-Z]{2})$/i)
+  if (slashMatch) return { cidade: slashMatch[1].trim(), uf: slashMatch[2].trim().toUpperCase() }
+  const commaMatch = raw.match(/^(.+?),\s*([A-Z]{2})$/i)
+  if (commaMatch) return { cidade: commaMatch[1].trim(), uf: commaMatch[2].trim().toUpperCase() }
+  const dashMatch = raw.match(/^(.+?)\s*-\s*([A-Z]{2})$/i)
+  if (dashMatch) return { cidade: dashMatch[1].trim(), uf: dashMatch[2].trim().toUpperCase() }
+  return { cidade: raw, uf: '' }
+}
+
+function formatCurrencyInput(value: string) {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+  const cents = Number(digits) / 100
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents)
 }
 
 async function openResumeHtml(authFetch: ReturnType<typeof createAuthorizedClient>, candidateId: string) {
@@ -3285,17 +7148,3 @@ async function openLgpdReceipt(authFetch: ReturnType<typeof createAuthorizedClie
 }
 
 export default App
-
-
-
-
-
-
-
-
-
-
-
-
-
-

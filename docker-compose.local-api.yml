@@ -1,0 +1,23 @@
+# API local: build a partir do Dockerfile e publica em http://localhost:5056
+# (alinhado ao proxy do Vite em LioTecnica.PortalVagas.React: VITE_DEV_PROXY_TARGET)
+#
+# Uso: na raiz do repositório
+#   docker compose -f docker-compose.local-api.yml up -d --build
+#
+# Opcional: crie .env na raiz com ConnectionStrings (ver documentação) para sobrescrever o banco.
+# O container herda appsettings.Development.json da imagem; use host acessível da rede Docker
+# (ex.: host em rede => IP; Postgres na máquina host => host.docker.internal).
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: RHPortal.Api/Dockerfile
+    image: rhportal-api:local
+    container_name: rhportal-api-local
+    ports:
+      - "5056:80"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

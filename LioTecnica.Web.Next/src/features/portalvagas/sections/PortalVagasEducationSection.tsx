@@ -12,7 +12,7 @@ export default function PortalVagasEducationSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<EducationItem | null>(null);
-  const [summary, setSummary] = useState({ nivel: "", areaPrincipal: "", situacao: "", destaques: "" });
+  const [summary, setSummary] = useState({ nivel: "", areaPrincipal: "", situacao: "", dataConclusao: "", destaques: "" });
   const [itemForm, setItemForm] = useState({
     curso: "",
     instituicao: "",
@@ -35,6 +35,7 @@ export default function PortalVagasEducationSection() {
         nivel: json.summary?.nivel ?? "",
         areaPrincipal: json.summary?.areaPrincipal ?? "",
         situacao: json.summary?.situacao ?? "",
+        dataConclusao: json.summary?.dataConclusao ?? "",
         destaques: json.summary?.destaques ?? "",
       });
     } catch {
@@ -143,6 +144,15 @@ export default function PortalVagasEducationSection() {
           <div>
             <label className="text-xs text-muted-foreground">Situação</label>
             <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={summary.situacao} onChange={(e) => setSummary((s) => ({ ...s, situacao: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Data de conclusão</label>
+            <input
+              type="date"
+              className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+              value={summary.dataConclusao}
+              onChange={(e) => setSummary((s) => ({ ...s, dataConclusao: e.target.value }))}
+            />
           </div>
           <div className="md:col-span-2">
             <label className="text-xs text-muted-foreground">Destaques</label>
