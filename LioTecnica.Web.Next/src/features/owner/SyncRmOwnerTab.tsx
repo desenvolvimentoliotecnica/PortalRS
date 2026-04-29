@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     CheckCircle2,
     XCircle,
@@ -12,6 +12,8 @@ import {
     ChevronRight,
     PlayCircle,
     Loader2,
+    RefreshCw,
+    Terminal,
 } from "lucide-react";
 import {
     Table,
@@ -72,6 +74,12 @@ interface AlertaRow {
     acao: string | null;
 }
 
+interface RmSyncLogResponse {
+    exists: boolean;
+    lastModifiedUtc: string | null;
+    lines: string[];
+}
+
 type StatusFiltro = "all" | "1" | "2" | "3" | "4";
 
 export default function SyncRmOwnerTab() {
@@ -83,6 +91,10 @@ export default function SyncRmOwnerTab() {
     const [resolvendoIds, setResolvendoIds] = useState<Set<string>>(new Set());
     const [disparandoSync, setDisparandoSync] = useState(false);
     const [feedbackSync, setFeedbackSync] = useState<{ tipo: "ok" | "erro"; msg: string } | null>(null);
+    const [logData, setLogData] = useState<RmSyncLogResponse | null>(null);
+    const [logLoading, setLogLoading] = useState(false);
+    const [logError, setLogError] = useState<string | null>(null);
+    const terminalRef = useRef<HTMLDivElement | null>(null);
 
     const { data: tenants = [] } = useApiQuery<TenantRow[]>(
         ["owner", "tenants"],
@@ -98,6 +110,34 @@ export default function SyncRmOwnerTab() {
         ["owner", "integracao", "sync-rm", "alertas", tenantFiltro],
         `/api/owner/integracao/sync-rm/alertas?${alertasParams.toString()}`
     );
+
+    const carregarLog = useCallback(async () => {
+        setLogLoading(true);
+        setLogError(null);
+        try {
+            const res = await apiFetch("/api/owner/integracao/sync-rm/logs?tail=350", { cache: "no-store" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            setLogData((await res.json()) as RmSyncLogResponse);
+        } catch (err) {
+            setLogError(err instanceof Error ? err.message : "Falha ao carregar log.");
+        } finally {
+            setLogLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void carregarLog();
+        const id = setInterval(() => {
+            void carregarLog();
+        }, 3000);
+        return () => clearInterval(id);
+    }, [carregarLog]);
+
+    useEffect(() => {
+        const terminal = terminalRef.current;
+        if (!terminal) return;
+        terminal.scrollTop = terminal.scrollHeight;
+    }, [logData?.lines]);
 
     async function disparaSyncAgora() {
         setDisparandoSync(true);
@@ -116,6 +156,7 @@ export default function SyncRmOwnerTab() {
                 // Refetch após delay para o worker ter tempo de gravar os primeiros runs.
                 setTimeout(() => {
                     queryClient.invalidateQueries({ queryKey: ["owner", "integracao", "sync-rm"] });
+                    void carregarLog();
                     setFeedbackSync(null);
                 }, 15000);
             } else if (res.status === 409) {
@@ -242,6 +283,57 @@ export default function SyncRmOwnerTab() {
             </div>
 
             {/* Alertas de zumbi (Frente C) — banner no topo quando há alertas abertos. */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-4 py-3">
+                    <div className="flex items-center gap-2 text-slate-100">
+                        <Terminal className="size-4" />
+                        <div>
+                            <div className="text-sm font-semibold">Log em tempo real</div>
+                            <div className="text-xs text-slate-400">
+                                {logData?.exists
+                                    ? `Atualizado em ${
+                                          logData.lastModifiedUtc
+                                              ? new Date(logData.lastModifiedUtc).toLocaleString("pt-BR", {
+                                                    day: "2-digit",
+                                                    month: "2-digit",
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                    second: "2-digit",
+                                                })
+                                              : "-"
+                                      }`
+                                    : "Aguardando o worker criar o arquivo de log"}
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => void carregarLog()}
+                        disabled={logLoading}
+                        className="inline-flex h-8 items-center gap-2 rounded-md border border-slate-700 px-2.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-900 disabled:opacity-60"
+                    >
+                        <RefreshCw className={`size-3.5 ${logLoading ? "animate-spin" : ""}`} />
+                        Atualizar
+                    </button>
+                </div>
+                <div
+                    ref={terminalRef}
+                    className="h-72 overflow-auto px-4 py-3 font-mono text-[12px] leading-5 text-slate-200"
+                >
+                    {logError && <div className="text-red-300">Falha ao carregar log: {logError}</div>}
+                    {!logError && !logData?.exists && (
+                        <div className="text-slate-500">Nenhuma linha de log encontrada ainda.</div>
+                    )}
+                    {!logError &&
+                        logData?.exists &&
+                        logData.lines.map((line, index) => (
+                            <div key={`${index}-${line}`} className={getLogLineClass(line)}>
+                                {line || "\u00A0"}
+                            </div>
+                        ))}
+                </div>
+            </div>
+
             {alertas.length > 0 && (
                 <div className="rounded-xl border border-orange-300/60 bg-orange-50 p-3">
                     <button
@@ -504,6 +596,20 @@ export default function SyncRmOwnerTab() {
             </div>
         </div>
     );
+}
+
+function getLogLineClass(line: string) {
+    const normalized = line.toLowerCase();
+    if (normalized.includes("erro") || normalized.includes("error") || normalized.includes("unauthorized")) {
+        return "text-red-300";
+    }
+    if (normalized.includes("conclu") || normalized.includes("sucesso") || normalized.includes("ok")) {
+        return "text-emerald-300";
+    }
+    if (normalized.includes("iniciada") || normalized.includes("sql")) {
+        return "text-cyan-200";
+    }
+    return "text-slate-200";
 }
 
 function KpiCard({

@@ -77,3 +77,9 @@ public sealed record OwnerPainelAlertaRmRow(
 
 /// <summary>Resolução manual de um alerta pelo Owner.</summary>
 public sealed record ResolverAlertaRequest(string? Acao);
+
+/// <summary>Tail do log físico do worker RM para exibição no painel Owner.</summary>
+public sealed record OwnerRmSyncLogResponse(
+    bool Exists,
+    DateTimeOffset? LastModifiedUtc,
+    IReadOnlyList<string> Lines);
