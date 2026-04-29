@@ -41,6 +41,13 @@ const CNH_CATS = ["A", "B", "AB", "C", "D", "E"];
 
 type EnumOption = { code: string; text: string };
 type EnumData = Record<string, EnumOption[]>;
+type DescricaoCargoLookupItem = {
+  id: string;
+  code: string;
+  title: string;
+  displayLabel: string;
+  isTemplate: boolean;
+};
 
 type BeneficioItem = {
   tipo: string; valor: string; recorrencia: string; obrigatorio: boolean; obs: string;
@@ -857,6 +864,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [vagas, setVagas] = useState<{ id: string; titulo: string; codigo: string }[]>([]);
   const [copySearch, setCopySearch] = useState("");
   const [wizardMode, setWizardMode] = useState(false);
+  const [descricaoCargoSearch, setDescricaoCargoSearch] = useState("");
+  const [descricaoCargoOptions, setDescricaoCargoOptions] = useState<DescricaoCargoLookupItem[]>([]);
+  const [loadingDescricaoCargo, setLoadingDescricaoCargo] = useState(false);
   const loaded = useRef(false);
 
   // Histórico da decisão de headcount registrada na solicitação de vaga (read-only).
@@ -876,6 +886,25 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     return s;
   }, [draft]);
 
+  const descricaoCargoListOptions = useMemo(() => {
+    if (!draft.descricaoCargoId || descricaoCargoOptions.some((item) => item.id === draft.descricaoCargoId)) {
+      return descricaoCargoOptions;
+    }
+
+    return [
+      {
+        id: draft.descricaoCargoId,
+        code: draft.descricaoCargoCode,
+        title: draft.descricaoCargoTitle,
+        displayLabel: draft.descricaoCargoCode
+          ? `${draft.descricaoCargoCode} - ${draft.descricaoCargoTitle}`
+          : "Descrição selecionada",
+        isTemplate: true,
+      },
+      ...descricaoCargoOptions,
+    ];
+  }, [descricaoCargoOptions, draft.descricaoCargoCode, draft.descricaoCargoId, draft.descricaoCargoTitle]);
+
   const set = useCallback(<K extends keyof VagaDraft>(key: K, val: VagaDraft[K]) => {
     setDraft((d) => ({ ...d, [key]: val }));
   }, []);
@@ -886,10 +915,54 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     setDraft((d) => ({ ...d, [key]: fn(d[key]) }));
   }, []);
 
+  const selectDescricaoCargo = useCallback((item: DescricaoCargoLookupItem) => {
+    setDraft((d) => ({
+      ...d,
+      descricaoCargoId: item.id,
+      descricaoCargoCode: item.code,
+      descricaoCargoTitle: item.title,
+    }));
+    setDescricaoCargoSearch(item.displayLabel);
+  }, []);
+
+  const clearDescricaoCargo = useCallback(() => {
+    setDraft((d) => ({
+      ...d,
+      descricaoCargoId: "",
+      descricaoCargoCode: "",
+      descricaoCargoTitle: "",
+    }));
+    setDescricaoCargoSearch("");
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handle = window.setTimeout(() => {
+      setLoadingDescricaoCargo(true);
+      const params = new URLSearchParams();
+      params.set("isTemplate", "true");
+      const search = descricaoCargoSearch.trim();
+      if (search) params.set("search", search);
+
+      fetchJson<DescricaoCargoLookupItem[]>(`${BASE}/api/descricoes-cargo/lookup?${params.toString()}`)
+        .then((items) => setDescricaoCargoOptions(Array.isArray(items) ? items : []))
+        .catch(() => {
+          setDescricaoCargoOptions([]);
+          toast.error("Falha ao buscar descrições de cargo.");
+        })
+        .finally(() => setLoadingDescricaoCargo(false));
+    }, 250);
+
+    return () => window.clearTimeout(handle);
+  }, [open, descricaoCargoSearch]);
+
   useEffect(() => {
     if (!open) {
       loaded.current = false;
       setDecisaoRHFeita(null);
+      setDescricaoCargoSearch("");
+      setDescricaoCargoOptions([]);
       return;
     }
     if (loaded.current) return;
@@ -916,6 +989,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       } else {
         const d = { ...emptyDraft(), ...prefill };
         setDraft(d);
+        setDescricaoCargoSearch(d.descricaoCargoCode ? `${d.descricaoCargoCode} - ${d.descricaoCargoTitle}` : "");
       }
     }).catch(() => toast.error("Falha ao carregar dados do formulário."));
   }, [open, vagaId, prefill, defaultTab]);
@@ -1018,6 +1092,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         checagemAntecedentes: pickBool(v.checagemAntecedentes),
         nomeEngessado: pick(v.nomeEngessado),
       });
+      const descricaoCargoCode = pick(v.descricaoCargoCode);
+      const descricaoCargoTitle = pick(v.descricaoCargoTitle);
+      setDescricaoCargoSearch(descricaoCargoCode ? `${descricaoCargoCode} - ${descricaoCargoTitle}` : "");
 
       // Histórico da decisão de headcount (read-only — decisão é feita na criação da solicitação pelo gestor)
       if (v.decisaoRH != null) {
@@ -1600,18 +1677,48 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <Field label="Observações adicionais (opcional)" span="col-span-12"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} placeholder="Outros critérios em texto livre" value={draft.matchingObs} onChange={(e) => set("matchingObs", e.target.value)} /></Field>
 
               <SectionHeader title="Descrição de Cargo (template DNALIO)" description="Vincule uma descrição de cargo — o matching consome as seções estruturadas (Atividades, Competências, Vivências, Requisitos) para calcular score por categoria." />
-              <Field label="Descrição de cargo (ID)" span="col-span-12">
-                <input
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
-                  placeholder="Cole o ID da descrição (cadastrada em /app/descricao-cargo) — opcional"
-                  value={draft.descricaoCargoId}
-                  onChange={(e) => set("descricaoCargoId", e.target.value.trim())}
-                />
-                {draft.descricaoCargoCode && (
-                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1">
-                    Vinculado: {draft.descricaoCargoCode} — {draft.descricaoCargoTitle}
-                  </p>
-                )}
+              <Field label="Descrição de cargo" span="col-span-12">
+                <div className="space-y-2">
+                  <div className="flex flex-col gap-2 md:flex-row">
+                    <input
+                      className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      placeholder="Busque por código ou título da descrição"
+                      value={descricaoCargoSearch}
+                      onChange={(e) => setDescricaoCargoSearch(e.target.value)}
+                    />
+                    {draft.descricaoCargoId && (
+                      <Button type="button" variant="outline" size="sm" onClick={clearDescricaoCargo}>
+                        Limpar vínculo
+                      </Button>
+                    )}
+                  </div>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    size={Math.min(6, Math.max(3, descricaoCargoListOptions.length || 3))}
+                    value={draft.descricaoCargoId}
+                    onChange={(e) => {
+                      const selected = descricaoCargoListOptions.find((item) => item.id === e.target.value);
+                      if (selected) selectDescricaoCargo(selected);
+                    }}
+                  >
+                    {loadingDescricaoCargo ? (
+                      <option value="" disabled>Buscando descrições...</option>
+                    ) : descricaoCargoListOptions.length === 0 ? (
+                      <option value="" disabled>Nenhuma descrição encontrada</option>
+                    ) : (
+                      descricaoCargoListOptions.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.displayLabel}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  {draft.descricaoCargoId && (
+                    <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                      Vinculado: {draft.descricaoCargoCode || "Descrição selecionada"}{draft.descricaoCargoTitle ? ` - ${draft.descricaoCargoTitle}` : ""}
+                    </p>
+                  )}
+                </div>
               </Field>
 
               <SectionHeader title="Pesos do matching (calibragem por vaga)" description="Distribua o peso entre as 7 dimensões — total recomendado: 100." />
