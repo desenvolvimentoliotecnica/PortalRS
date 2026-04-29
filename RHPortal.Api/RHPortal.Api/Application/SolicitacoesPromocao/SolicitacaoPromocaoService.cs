@@ -299,7 +299,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
                     primeiraEtapa.AprovadorId.Value,
                     "Nova solicitação de movimentação para aprovação",
                     $"{nomeSolicitante} solicitou a movimentação de {nomeFuncionario}.",
-                    "/gestao/solicitacoes",
+                    "/gestao/painel-solicitacoes",
                     ct);
             }
         }
@@ -372,7 +372,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
                     proximaEtapa.AprovadorId.Value,
                     "Solicitação de movimentação aguarda sua aprovação",
                     $"Uma etapa anterior foi aprovada. Agora é a etapa \"{proximaEtapa.Label}\" aguardando sua ação.",
-                    "/gestao/solicitacoes",
+                    "/gestao/painel-solicitacoes",
                     ct);
             }
         }
@@ -423,7 +423,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
                 entity.SolicitanteId,
                 "Solicitação de movimentação aprovada",
                 "Sua solicitação de movimentação de pessoal foi aprovada.",
-                "/gestao/solicitacoes",
+                "/gestao/painel-solicitacoes",
                 ct);
 
             var solicitante = await _db.Set<Funcionario>().AsNoTracking()
@@ -479,7 +479,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             entity.SolicitanteId,
             "Solicitação de movimentação reprovada",
             "Sua solicitação de movimentação foi reprovada." + (observacao is not null ? $" Motivo: {observacao}" : ""),
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "warning");
 
@@ -522,7 +522,7 @@ public sealed class SolicitacaoPromocaoService : ISolicitacaoPromocaoService
             entity.SolicitanteId,
             "Ajustes necessários na solicitação de movimentação",
             "Sua solicitação de movimentação de pessoal precisa de ajustes." + (observacao is not null ? $" Observação: {observacao}" : ""),
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "warning");
 

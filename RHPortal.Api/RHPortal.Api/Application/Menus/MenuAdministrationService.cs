@@ -81,6 +81,8 @@ public sealed class MenuAdministrationService
         "feedback.pesquisas.view",
         // Item duplicado/deprecado da sidebar.
         "feedback.myplans.view",
+        "aprovacoes-vaga.view",
+        "solicitacoes-vaga.view",
         "access.manage",
         "menus.manage",
         "audit.view",

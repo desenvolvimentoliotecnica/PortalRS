@@ -94,14 +94,12 @@ public static class NavegacaoManifest
     {
         // ── Principais (destacados, respeitam gate de módulo) ────────────────
         new("nav-dashboard",                "Dashboard",              "/dashboard",                      "layoutdashboard",   "dashboard.view",           Destacado: true, Ordem: 10),
-        new("nav-aprovacoes",               "Minhas Pendências",       "/gestao/aprovacoes",              "checkcheck",        "aprovacoes-vaga.view",     Destacado: true, Ordem: 20),
-        new("nav-solicitacoes",             "Solicitações",            "/gestao/solicitacoes",            "clipboardlist",     "solicitacoes-vaga.view",   Destacado: true, Ordem: 30),
         // Painel de Solicitações — decidido como TRANSVERSAL CORE (Onda 14, 2026-04-20).
         // Justificativa: agregador analítico multi-tipo (Vaga / Promoção / Desligamento /
         // Férias / Benefício / Dependente / Endereço) que cruza R&S, Folha e Cadastros.
         // Mantê-lo em "Gestão de Pessoas" excluiria o gestor que precisa ver pedidos de
         // R&S e Folha; dividi-lo por pacote (opção B3) perderia a visão consolidada.
-        // Fica ao lado de Minhas Pendências/Solicitações como "visão consolidada do RH".
+        // Fica em "Principais" como "visão consolidada do RH".
         new("nav-painel-solicitacoes",      "Painel de Solicitações", "/gestao/painel-solicitacoes",     "gitbranch",         "gestao.dashboard",         Destacado: true, Ordem: 40),
 
         // ── Recrutamento e Seleção (pacote) ──────────────────────────────────

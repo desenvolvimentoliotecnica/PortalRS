@@ -1,5 +1,5 @@
-import AprovacoesScreen from "@/features/gestao/aprovacoes/AprovacoesScreen";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-    return <AprovacoesScreen />;
+    redirect("/dashboard");
 }

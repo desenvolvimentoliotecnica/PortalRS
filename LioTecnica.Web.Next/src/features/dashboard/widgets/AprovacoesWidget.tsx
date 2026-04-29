@@ -31,7 +31,7 @@ export function AprovacoesWidget({
             </span>
           )}
         </div>
-        <Link href="/gestao/solicitacoes?tab=aprovacoes">
+        <Link href="/gestao/painel-solicitacoes">
           <Button variant="ghost" size="sm" className="text-xs h-7 px-2">
             Ver todas →
           </Button>
@@ -68,7 +68,7 @@ export function AprovacoesWidget({
           {pendentes.length > 6 && (
             <div className="pt-1.5 text-center">
               <Link
-                href="/gestao/solicitacoes?tab=aprovacoes"
+                href="/gestao/painel-solicitacoes"
                 className="text-xs text-primary hover:underline"
               >
                 +{pendentes.length - 6} mais

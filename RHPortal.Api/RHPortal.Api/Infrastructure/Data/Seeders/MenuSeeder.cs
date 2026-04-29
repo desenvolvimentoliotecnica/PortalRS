@@ -175,7 +175,7 @@ public static class MenuSeeder
         ("/Desempenho/MinhasAvaliacoes", "bi-journal-check", 51, "desempenho.minhasavaliacoes", false, "Seed.Menu.MinhasAvaliacoes", "desempenho"),
 
         // ── Recrutamento: fluxo linear (ordem = passo no processo) ──
-        ("/Gestao/Solicitacoes", "clipboardlist", 2, "solicitacoes-vaga.view", false, "Seed.Menu.SolicitacoesVaga", null),
+        ("/Gestao/Solicitacoes", "clipboardlist", 2, "solicitacoes-vaga.view", true, "Seed.Menu.SolicitacoesVaga", null),
         ("/Vagas", "bi-briefcase", 3, "vagas.view", false, "Seed.Menu.Vagas", null),
         ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
         ("/Matching", "bi-stars", 5, "matching.view", false, "Seed.Menu.Matching", null),
@@ -184,7 +184,7 @@ public static class MenuSeeder
         ("/Admissao", "usercheck", 8, "admissao.view", false, "Seed.Menu.Admissao", null),
         // ── Itens ocultos no sidebar (mantidos para permissões e rotas legadas) ──
         ("/Agendas", "bi-calendar-event", 9, "agenda.view", false, "Seed.Menu.Agenda", null),
-        ("/Gestao/Aprovacoes", "listchecks", 50, "aprovacoes-vaga.view", false, "Seed.Menu.Aprovacoes", null),
+        ("/Gestao/Aprovacoes", "listchecks", 50, "aprovacoes-vaga.view", true, "Seed.Menu.Aprovacoes", null),
         ("/PortalVagas", "globe", 51, "portalvagas.view", false, "Seed.Menu.PortalVagas", null),
         ("/Talentos", "bi-person-plus", 52, "talentos.view", false, "Seed.Menu.Talentos", null),
         ("/Gestao/Projetos", "clipboardlist", 53, "projetos.view", false, "Seed.Menu.Rodadas", null),

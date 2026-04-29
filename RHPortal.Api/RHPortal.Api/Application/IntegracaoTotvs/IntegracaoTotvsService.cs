@@ -776,7 +776,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
 
         await _workflow.NotifyByFuncionarioIdAsync(
             solicitanteId, titulo, mensagemInApp,
-            "/gestao/solicitacoes", ct,
+            "/gestao/painel-solicitacoes", ct,
             sucesso ? "success" : "warning");
 
         var solicitante = await _db.Set<Funcionario>().AsNoTracking()

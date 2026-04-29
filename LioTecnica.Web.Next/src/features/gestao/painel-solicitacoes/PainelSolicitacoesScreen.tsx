@@ -357,7 +357,7 @@ export default function PainelSolicitacoesScreen() {
                 void fetchAll();
                 return;
             }
-            toast.success("Tarefa assumida! Acesse Minhas Pendências para aprovar.");
+            toast.success("Tarefa assumida.");
             void fetchAll();
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Erro ao assumir.");
