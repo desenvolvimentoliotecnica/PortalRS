@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 
-import { GRID_BREAKPOINTS, GRID_COLS } from "./dashboardLayout";
+import { computeFunilGridHeight, GRID_BREAKPOINTS, GRID_COLS } from "./dashboardLayout";
 import { useDashboardLayout } from "./useDashboardLayout";
 import { WidgetCatalog } from "./WidgetCatalog";
 import { useAuth } from "@/hooks/useAuth";
@@ -329,7 +329,14 @@ export default function DashboardScreen({
     handleLayoutChange,
     toggleWidget,
     resetLayout,
+    ensureFunilMinGridHeight,
   } = useDashboardLayout();
+
+  useEffect(() => {
+    const n = funilConversao?.etapas?.length ?? 0;
+    if (n === 0) return;
+    ensureFunilMinGridHeight(computeFunilGridHeight(n));
+  }, [funilConversao, ensureFunilMinGridHeight]);
 
   const { width: containerWidth, containerRef, mounted: containerMounted } = useContainerWidth();
 
