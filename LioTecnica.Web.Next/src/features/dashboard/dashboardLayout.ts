@@ -51,9 +51,9 @@ export const WIDGET_CATALOG: WidgetMeta[] = [
   {
     id: "funil",
     label: "Funil",
-    description: "Pipeline de recrutamento por etapa",
+    description: "Funil de conversao e KPIs de candidaturas",
     removable: true,
-    defaultLayout: { i: "funil", x: 7, y: 6, w: 5, h: 5, minH: 4, minW: 3 },
+    defaultLayout: { i: "funil", x: 7, y: 6, w: 5, h: 7, minH: 6, minW: 3 },
   },
   {
     id: "aprovacoes",

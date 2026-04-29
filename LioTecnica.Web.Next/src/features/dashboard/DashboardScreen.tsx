@@ -33,7 +33,7 @@ import { LeaderboardWidget } from "./widgets/LeaderboardWidget";
 import { InboxFeedWidget } from "./widgets/InboxFeedWidget";
 import { MeuTimeWidget } from "./widgets/MeuTimeWidget";
 import type {
-  Kpis, Funil, Series, TopMatchRow, PendingItem,
+  Kpis, Funil, FunilConversao, Series, TopMatchRow, PendingItem,
   SlaData, UpcomingAction, MoodStats, PdiItem, LeaderboardEntry, MyBalance,
   MeuTimeData, MeuTimeMembro,
 } from "./dashboardTypes";
@@ -119,6 +119,33 @@ function mapFunil(payload: unknown): Funil {
     triagem: pickNumber(r.triagem, 0),
     entrevista: pickNumber(r.entrevista, 0),
     aprovados: pickNumber(r.aprovados, 0),
+  };
+}
+
+function mapFunilConversao(payload: unknown): FunilConversao | null {
+  const r = asRecord(payload);
+  if (!r) return null;
+
+  const etapasRaw = Array.isArray(r.etapas) ? (r.etapas as unknown[]) : [];
+  const etapas = etapasRaw
+    .map((item) => {
+      const etapa = asRecord(item);
+      if (!etapa) return null;
+      const titulo = pickString(etapa.titulo, "");
+      if (!titulo) return null;
+      const taxaRaw = etapa.taxaConversaoPercent;
+      return {
+        titulo,
+        total: pickNumber(etapa.total, 0),
+        taxaConversaoPercent: taxaRaw == null ? null : pickNumber(taxaRaw, 0),
+      };
+    })
+    .filter(Boolean) as FunilConversao["etapas"];
+
+  return {
+    totalGeral: pickNumber(r.totalGeral, 0),
+    vagaTitulo: pickString(r.vagaTitulo, "") || null,
+    etapas,
   };
 }
 
@@ -245,6 +272,7 @@ export default function DashboardScreen({
 } = {}) {
   const [kpis, setKpis] = useState<Kpis>(() => mapKpis(initialKpis));
   const [funil, setFunil] = useState<Funil>(() => mapFunil(initialFunil));
+  const [funilConversao, setFunilConversao] = useState<FunilConversao | null>(null);
   const [series, setSeries] = useState<Series>(() => mapSeries(initialSeries));
   const [vagas, setVagas] = useState<VagaLookup[]>(() => mapVagas(initialVagas));
   const [areas, setAreas] = useState<AreaLookup[]>(() => mapAreas(initialAreas));
@@ -362,14 +390,16 @@ export default function DashboardScreen({
       fetchJson<unknown>(`/api/dashboard/vagas`),
       fetchJson<unknown>(`/api/dashboard/areas`),
       fetchJson<unknown>(`/api/dashboard/top-matches?minMatch=${DEFAULT_MIN_MATCH}&take=15`),
+      fetchJson<unknown>(`/api/candidaturas/funil`),
     ])
-      .then(([k, f, s, v, a, t]) => {
+      .then(([k, f, s, v, a, t, fc]) => {
         setKpis(mapKpis(k));
         setFunil(mapFunil(f));
         setSeries(mapSeries(s));
         setVagas(mapVagas(v));
         setAreas(mapAreas(a));
         setTopMatches(mapTopMatches(t));
+        setFunilConversao(mapFunilConversao(fc));
       })
       .catch(() => {
         // silent — dashboard will show zero values
@@ -387,18 +417,20 @@ export default function DashboardScreen({
 
   async function refreshAll() {
     try {
-      const [k, f, s, v, a] = await Promise.all([
+      const [k, f, s, v, a, fc] = await Promise.all([
         fetchJson<unknown>(`/api/dashboard/kpis`),
         fetchJson<unknown>(`/api/dashboard/funil`),
         fetchJson<unknown>(`/api/dashboard/recebidos-series?days=14`),
         fetchJson<unknown>(`/api/dashboard/vagas`),
         fetchJson<unknown>(`/api/dashboard/areas`),
+        fetchJson<unknown>(`/api/candidaturas/funil`),
       ]);
       setKpis(mapKpis(k));
       setFunil(mapFunil(f));
       setSeries(mapSeries(s));
       setVagas(mapVagas(v));
       setAreas(mapAreas(a));
+      setFunilConversao(mapFunilConversao(fc));
       toast.success("Dashboard atualizado.");
     } catch {
       toast.error("Falha ao atualizar dashboard.");
@@ -424,12 +456,20 @@ export default function DashboardScreen({
     if (nextVagaId && nextVagaId !== "all") params.set("vagaId", nextVagaId);
     if (nextFrom) params.set("from", new Date(`${nextFrom}T00:00:00Z`).toISOString());
     if (nextTo) params.set("to", new Date(`${nextTo}T23:59:59Z`).toISOString());
+    const funilParams = new URLSearchParams();
+    if (nextVagaId && nextVagaId !== "all") funilParams.set("vagaId", nextVagaId);
+    if (nextFrom) funilParams.set("inicioUtc", new Date(`${nextFrom}T00:00:00Z`).toISOString());
+    if (nextTo) funilParams.set("fimUtc", new Date(`${nextTo}T23:59:59Z`).toISOString());
     try {
-      const rows = await fetchJson<unknown>(`/api/dashboard/top-matches?${params.toString()}`);
+      const [rows, funilRaw] = await Promise.all([
+        fetchJson<unknown>(`/api/dashboard/top-matches?${params.toString()}`),
+        fetchJson<unknown>(`/api/candidaturas/funil${funilParams.toString() ? `?${funilParams.toString()}` : ""}`),
+      ]);
       setTopMatches(mapTopMatches(rows));
-      toast.success("Tabela atualizada.");
+      setFunilConversao(mapFunilConversao(funilRaw));
+      toast.success("Dashboard atualizado.");
     } catch {
-      toast.error("Falha ao carregar top matches.");
+      toast.error("Falha ao carregar os dados filtrados.");
     }
   }
 
@@ -784,7 +824,11 @@ export default function DashboardScreen({
                 removable={true}
                 onRemove={() => toggleWidget("funil", false)}
               >
-                <FunilWidget funil={funil} onOpenFilters={() => setFiltersOpen(true)} />
+                <FunilWidget
+                  funil={funil}
+                  funilConversao={funilConversao}
+                  onOpenFilters={() => setFiltersOpen(true)}
+                />
               </WidgetShell>
             </div>
           )}
