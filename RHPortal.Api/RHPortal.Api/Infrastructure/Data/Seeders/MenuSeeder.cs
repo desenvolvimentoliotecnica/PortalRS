@@ -201,7 +201,7 @@ public static class MenuSeeder
         ("/Turnos", "bi-clock", 88, "turnos.view", false, "Seed.Menu.Turnos", null),
         ("/Nivel-Cargo", "bi-layers", 84, "nivel-cargo.view", false, "Seed.Menu.NivelCargo", null),
         ("/Centros-Custo", "bi-receipt", 89, "centros-custo.view", false, "Seed.Menu.CentrosCusto", null),
-        ("/Unidades-Lotacao", "bi-geo-alt", 90, "unidades-lotacao.view", false, "Seed.Menu.UnidadesLotacao", null),
+        ("/Unidades-Lotacao", "bi-geo-alt", 90, "unidades-lotacao.view", true, "Seed.Menu.UnidadesLotacao", null),
         ("/Admin/Users", "bi-people", 90, "users.read", false, "Seed.Menu.Usuarios", null),
         ("/Admin/Roles", "bi-shield-lock", 91, "roles.manage", false, "Seed.Menu.Perfis", null),
         ("/Admin/Menus", "bi-list-check", 92, "menus.manage", false, "Seed.Menu.Menus", null),
