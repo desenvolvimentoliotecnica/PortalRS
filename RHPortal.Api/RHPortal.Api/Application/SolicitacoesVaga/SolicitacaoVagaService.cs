@@ -1395,7 +1395,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             entity.SolicitanteId,
             "Solicitação de vaga reprovada",
             $"Sua solicitação \"{entity.Titulo}\" foi reprovada." + (observacao is not null ? $" Motivo: {observacao}" : ""),
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "warning");
 
@@ -1447,7 +1447,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             entity.SolicitanteId,
             "Ajustes necessários na solicitação",
             $"Sua solicitação \"{entity.Titulo}\" precisa de ajustes." + (observacao is not null ? $" Observação: {observacao}" : ""),
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "warning");
 
@@ -1787,7 +1787,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             entity.SolicitanteId,
             "Solicitação de vaga reprovada em cascata",
             $"Sua solicitação \"{entity.Titulo}\" foi reprovada automaticamente. {observacao}",
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "warning");
     }
@@ -1835,7 +1835,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             entity.SolicitanteId,
             "Solicitação de vaga cancelada em cascata",
             $"Sua solicitação \"{entity.Titulo}\" foi cancelada automaticamente porque o desligamento vinculado foi cancelado.",
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "info");
     }

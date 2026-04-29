@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRightLeft,
   Bell,
@@ -42,8 +42,16 @@ import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
 import { clearSession, getTenantId, setAccessToken, setTenantId } from "@/lib/session";
 
+const RETIRED_NAVIGATION_PATHS = new Set(["/gestao/aprovacoes", "/gestao/solicitacoes"]);
+
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+function isRetiredNavigationUrl(url: string | null): boolean {
+  if (!url) return false;
+  const normalized = url.replace(/^\/app(?=\/|$)/, "").split("?")[0].replace(/\/+$/, "").toLowerCase();
+  return RETIRED_NAVIGATION_PATHS.has(normalized);
 }
 
 export default function TopbarClient({
@@ -58,7 +66,6 @@ export default function TopbarClient({
   const [mounted, setMounted] = useState(false);
   const [locale, setLocale] = useState("pt-BR");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [pendingApprovals, setPendingApprovals] = useState(0);
 
   /* Centro de Notificações in-app — Entrega 1.9 */
   type NotificationListItem = {
@@ -73,7 +80,7 @@ export default function TopbarClient({
   const [notifications, setNotifications] = useState<NotificationListItem[]>([]);
   const [notifUnread, setNotifUnread] = useState(0);
 
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async () => {
     try {
       const res = await apiFetch("/api/notifications?take=10", { cache: "no-store" });
       if (!res || typeof res !== "object") return;
@@ -81,9 +88,9 @@ export default function TopbarClient({
       setNotifUnread(r.unreadCount ?? 0);
       setNotifications(r.items ?? []);
     } catch {
-      // Silencioso — a aprovação pendente continua funcionando como fallback
+      // Silencioso: o sino de notificações fica vazio se o endpoint falhar.
     }
-  }
+  }, []);
 
   async function markNotifRead(id: string) {
     try {
@@ -95,18 +102,11 @@ export default function TopbarClient({
 
   useEffect(() => {
     if (!me) return;
-    apiFetch("/api/aprovacoes/pendentes/count")
-      .then((res) => {
-        const count = (res as { count?: number }).count ?? 0;
-        setPendingApprovals(count);
-      })
-      .catch(() => {});
-
     void loadNotifications();
     // Poll a cada 60s — versão polling-only (sem SignalR client por simplicidade desta entrega).
     const intervalId = setInterval(loadNotifications, 60_000);
     return () => clearInterval(intervalId);
-  }, [me]);
+  }, [me, loadNotifications]);
 
   /* ─── Actions ─── */
 
@@ -296,10 +296,9 @@ export default function TopbarClient({
                   >
                     <Bell className="size-4" />
                     {(() => {
-                      const totalBadge = notifUnread + pendingApprovals;
-                      return totalBadge > 0 ? (
+                      return notifUnread > 0 ? (
                         <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
-                          {totalBadge > 99 ? "99+" : totalBadge}
+                          {notifUnread > 99 ? "99+" : notifUnread}
                         </span>
                       ) : null;
                     })()}
@@ -314,24 +313,8 @@ export default function TopbarClient({
                         : "Sem novidades"}
                     </div>
                   </div>
-
-                  {/* Aprovações pendentes (banner especial) */}
-                  {pendingApprovals > 0 && (
-                    <Link
-                      href="/gestao/aprovacoes"
-                      className="block border-b px-3 py-2 hover:bg-accent transition-colors"
-                    >
-                      <div className="text-sm font-semibold text-foreground">
-                        {pendingApprovals} {pendingApprovals === 1 ? "aprovação pendente" : "aprovações pendentes"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Clique para revisar e aprovar.
-                      </div>
-                    </Link>
-                  )}
-
                   {/* Lista de notificações reais (do /api/notifications) */}
-                  {notifications.length === 0 && pendingApprovals === 0 ? (
+                  {notifications.length === 0 ? (
                     <div className="py-6 px-3 text-sm text-muted-foreground text-center">
                       Sem notificações recentes.
                     </div>
@@ -368,10 +351,12 @@ export default function TopbarClient({
                           </div>
                         );
 
-                        return n.url ? (
+                        const notificationUrl = isRetiredNavigationUrl(n.url) ? null : n.url;
+
+                        return notificationUrl ? (
                           <Link
                             key={n.id}
-                            href={n.url}
+                            href={notificationUrl}
                             onClick={() => { if (!n.isRead) void markNotifRead(n.id); }}
                             className="block hover:bg-accent/50 transition-colors"
                           >

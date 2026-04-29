@@ -578,10 +578,6 @@ export default function VagasScreen() {
         }
     }
 
-    function openNew() {
-        router.push("/vagas/editar");
-    }
-
     function openEdit(id: string) {
         router.push(`/vagas/editar?id=${encodeURIComponent(id)}`);
     }
@@ -663,22 +659,6 @@ export default function VagasScreen() {
         } finally {
             setApprovalActing(false);
         }
-    }
-
-    function exportJson() {
-        const blob = new Blob(
-            [JSON.stringify({ exportedAt: new Date().toISOString(), vagas: rows }, null, 2)],
-            { type: "application/json" },
-        );
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `vagas-${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        toast.success("Exportação iniciada.");
     }
 
     async function duplicateVaga(id: string) {
@@ -927,21 +907,6 @@ export default function VagasScreen() {
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-2xl font-semibold tracking-tight">Quadro de Vagas</h1>
-                <div className="flex flex-wrap items-center gap-1.5">
-                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={() => void syncList()}>
-                        <RefreshCw className="mr-1 size-3" /> Atualizar
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" onClick={exportJson}>Exportar</Button>
-                    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" asChild>
-                        <label className="cursor-pointer">
-                            Importar
-                            <input className="hidden" type="file" accept="application/json" onChange={(e) => { const file = e.currentTarget.files?.[0]; if (!file) return; file.text().then((text) => { const parsed = JSON.parse(text) as { vagas?: unknown[] }; if (!Array.isArray(parsed?.vagas)) { toast.error("JSON inválido."); return; } Promise.all(parsed.vagas.map((vaga) => fetchJson(`${BASE}/api/vagas`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vaga) }))).then(() => { toast.success("Importação concluída."); void syncList(); }).catch(() => toast.error("Falha ao importar vagas.")); }).catch(() => toast.error("Falha ao ler arquivo.")); e.currentTarget.value = ""; }} />
-                        </label>
-                    </Button>
-                    <Button size="sm" className="h-8" onClick={openNew}>
-                        <Plus className="mr-1 size-3.5" /> Nova Vaga
-                    </Button>
-                </div>
             </div>
 
             {/* Tutorial colapsado */}
@@ -1207,7 +1172,7 @@ export default function VagasScreen() {
                                                     }
                                                     actions={
                                                         rows.length === 0
-                                                            ? [{ label: "Nova Vaga", onClick: openNew, variant: "default" }]
+                                                            ? []
                                                             : [{ label: "Limpar filtros", onClick: () => { setQ(""); setStatus([]); setDateFrom(""); setDateTo(""); setAgingBucket(""); } }]
                                                     }
                                                 />

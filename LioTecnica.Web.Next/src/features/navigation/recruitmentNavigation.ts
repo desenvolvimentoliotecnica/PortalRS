@@ -27,13 +27,10 @@ export const RECRUITMENT_ROUTE_KEYS = {
  */
 /** Itens de 1º nível fora do grupo "Recrutamento" (sem header de módulo).
  *  Painel de Solicitações é o agregador analítico transversal (R&S + Folha +
- *  Cadastros) — decisão de Onda 14 (2026-04-20): mora em "Principais" ao lado
- *  do par workflow Minhas Pendências / Solicitações.
+ *  Cadastros) — decisão de Onda 14 (2026-04-20): mora em "Principais".
  */
 export const PRINCIPAIS_ORDER = [
   RECRUITMENT_ROUTE_KEYS.dashboard,           // Dashboard
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,          // Minhas Pendências
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,        // Solicitações
   RECRUITMENT_ROUTE_KEYS.painelSolicitacoes,  // Painel de Solicitações (visão consolidada RH/gestor)
   RECRUITMENT_ROUTE_KEYS.meuTime,             // Meu Time
 ] as const;
@@ -41,14 +38,12 @@ export const PRINCIPAIS_ORDER = [
 /** Abas MVP do grupo "Recrutamento" — entregáveis prioritários */
 export const RECRUITMENT_MVP_ORDER = [
   RECRUITMENT_ROUTE_KEYS.vagas,            // Vagas
-  RECRUITMENT_ROUTE_KEYS.painelRh,         // Painel RH
   RECRUITMENT_ROUTE_KEYS.candidatos,       // Candidatos
   RECRUITMENT_ROUTE_KEYS.admissao,         // Admissão
 ] as const;
 
 /** Abas secundárias — abaixo do divisor */
 export const RECRUITMENT_SECONDARY_ORDER = [
-  RECRUITMENT_ROUTE_KEYS.matching,         // Matching IA
   RECRUITMENT_ROUTE_KEYS.triagem,          // Pipeline
   RECRUITMENT_ROUTE_KEYS.processoSeletivo, // Processo Seletivo
 ] as const;
@@ -79,14 +74,10 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
 
 export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.dashboard,
-  RECRUITMENT_ROUTE_KEYS.solicitacoes,
-  RECRUITMENT_ROUTE_KEYS.aprovacoes,
   RECRUITMENT_ROUTE_KEYS.vagas,
-  RECRUITMENT_ROUTE_KEYS.painelRh,
   RECRUITMENT_ROUTE_KEYS.portalVagas,
   RECRUITMENT_ROUTE_KEYS.talentos,
   RECRUITMENT_ROUTE_KEYS.candidatos,
-  RECRUITMENT_ROUTE_KEYS.matching,
   RECRUITMENT_ROUTE_KEYS.rodadas,
   RECRUITMENT_ROUTE_KEYS.triagem,
   RECRUITMENT_ROUTE_KEYS.processoSeletivo,

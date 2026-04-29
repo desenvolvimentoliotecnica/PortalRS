@@ -17,8 +17,6 @@ const NAV_MANIFEST: ReadonlyArray<{
 }> = [
     // ── Top-level (outside any group) ──────────────────────────────────
     { id: "nav-dashboard",                 label: "Dashboard",                  href: "/dashboard",                      icon: "layoutdashboard",  permission: "dashboard.view" },
-    { id: "nav-aprovacoes",                label: "Minhas Pendências",           href: "/gestao/aprovacoes",              icon: "checkcheck",       permission: "aprovacoes-vaga.view" },
-    { id: "nav-solicitacoes",              label: "Solicitações",                href: "/gestao/solicitacoes",            icon: "clipboardlist",    permission: "solicitacoes-vaga.view" },
     { id: "nav-painel-solicitacoes",       label: "Painel de Solicitações",      href: "/gestao/painel-solicitacoes",     icon: "gitbranch",        permission: "gestao.dashboard" },
     { id: "nav-agendas",                   label: "Agenda",                     href: "/agendas",                        icon: "calendar",         permission: "agenda.view" },
 
@@ -37,8 +35,6 @@ const NAV_MANIFEST: ReadonlyArray<{
     // ── Recrutamento & Seleção ─────────────────────────────────────────
     { id: "nav-vagas",                     label: "Vagas",                       href: "/vagas",                          icon: "briefcase",        permission: "vagas.view" },
     { id: "nav-candidatos",                label: "Candidatos",                  href: "/candidatos",                     icon: "users",            permission: "candidatos.view" },
-    { id: "nav-painel-rh",                 label: "Painel RH",                   href: "/painel-rh",                      icon: "clipboardcheck",   permission: "entrada.view" },
-    { id: "nav-matching",                  label: "Matching IA",                 href: "/matching",                       icon: "bi-stars",         permission: "matching.view" },
     { id: "nav-triagem",                   label: "Pipeline",                    href: "/triagem",                        icon: "bi-funnel",        permission: "triagem.view" },
     { id: "nav-processo-seletivo",         label: "Processo Seletivo",           href: "/gestao/processo-seletivo",       icon: "listchecks",       permission: "processo-seletivo.view" },
     { id: "nav-admissao",                  label: "Admissão",                    href: "/admissao",                       icon: "usercheck",        permission: "admissao.view" },
@@ -71,7 +67,6 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-centros-custo",             label: "Centros de Custo",            href: "/centros-custo",                  icon: "landmark",         permission: "areas.view" },
     { id: "nav-categorias-salariais",      label: "Categorias Salariais",        href: "/categorias-salariais",           icon: "badge-dollar-sign", permission: "categories.view" },
     { id: "nav-turnos",                    label: "Turnos",                      href: "/turnos",                         icon: "clock",            permission: "areas.view" },
-    { id: "nav-unidades-lotacao",          label: "Unidades de Lotação",         href: "/unidades-lotacao",               icon: "building",         permission: "units.view" },
     { id: "nav-motivos-requisicao",        label: "Motivos de Requisição",       href: "/motivos-requisicao",             icon: "list-checks",      permission: "units.view" },
     { id: "nav-pessoas",                   label: "Pessoas",                     href: "/pessoas",                        icon: "user",             permission: "funcionarios.view" },
     { id: "nav-funcionarios",              label: "Funcionários",                href: "/funcionarios",                   icon: "users",            permission: "funcionarios.view" },
@@ -82,8 +77,6 @@ const NAV_MANIFEST: ReadonlyArray<{
     // ── Admin ──────────────────────────────────────────────────────────
     { id: "nav-admin-users",               label: "Usuários",                    href: "/admin/users",                    icon: "users",             permission: "users.read" },
     { id: "nav-admin-roles",               label: "Perfis (Roles)",              href: "/admin/roles",                    icon: "shield",            permission: "roles.manage" },
-    { id: "nav-configuracao-aprovacoes",   label: "Configuração de Aprovações",  href: "/admin/configuracao-aprovacoes",  icon: "settings2",         permission: "access.manage" },
-    { id: "nav-aprovadores-alternativos",  label: "Aprovadores Alternativos",    href: "/admin/aprovadores-alternativos", icon: "user-check",        permission: "access.manage" },
     { id: "nav-admin-accesses",            label: "Acessos",                     href: "/admin/accesses",                 icon: "bi-shield-lock",    permission: "access.manage" },
     { id: "nav-admin-organograma",         label: "Organograma",                 href: "/admin/organograma",              icon: "bi-diagram-2",      permission: "access.manage" },
 

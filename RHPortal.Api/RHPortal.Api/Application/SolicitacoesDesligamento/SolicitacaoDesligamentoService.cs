@@ -335,7 +335,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                     primeiraEtapa.AprovadorId.Value,
                     "Nova solicitação de desligamento para aprovação",
                     $"{nomeSolicitante} solicitou o desligamento de {nomeFuncionario}.",
-                    "/gestao/solicitacoes",
+                    "/gestao/painel-solicitacoes",
                     ct);
             }
         }
@@ -405,7 +405,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                     proximaEtapa.AprovadorId.Value,
                     "Solicitação de desligamento aguarda sua aprovação",
                     $"Uma etapa anterior foi aprovada. Agora é a etapa \"{proximaEtapa.Label}\" aguardando sua ação.",
-                    "/gestao/solicitacoes",
+                    "/gestao/painel-solicitacoes",
                     ct);
             }
         }
@@ -433,7 +433,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
                 entity.SolicitanteId,
                 "Solicitação de desligamento aprovada",
                 "Sua solicitação de desligamento foi aprovada." + (observacao is not null ? $" Observação: {observacao}" : ""),
-                "/gestao/solicitacoes",
+                "/gestao/painel-solicitacoes",
                 ct);
 
             var solicitante = await _db.Set<Funcionario>().AsNoTracking()
@@ -520,7 +520,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             entity.SolicitanteId,
             "Solicitação de desligamento reprovada",
             "Sua solicitação de desligamento foi reprovada." + (observacao is not null ? $" Motivo: {observacao}" : ""),
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "warning");
 
@@ -573,7 +573,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             entity.SolicitanteId,
             "Ajustes necessários na solicitação de desligamento",
             "Sua solicitação de desligamento precisa de ajustes." + (observacao is not null ? $" Observação: {observacao}" : ""),
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "warning");
 
@@ -793,7 +793,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             entity.SolicitanteId,
             "Solicitação de desligamento reprovada em cascata",
             $"Sua solicitação de desligamento foi reprovada automaticamente. {observacao}",
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "warning");
     }
@@ -828,7 +828,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             entity.SolicitanteId,
             "Solicitação de desligamento cancelada em cascata",
             "Sua solicitação de desligamento foi cancelada automaticamente porque a vaga origem foi cancelada.",
-            "/gestao/solicitacoes",
+            "/gestao/painel-solicitacoes",
             ct,
             "info");
     }

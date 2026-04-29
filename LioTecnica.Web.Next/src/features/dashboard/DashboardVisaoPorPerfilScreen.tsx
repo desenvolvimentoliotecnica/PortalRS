@@ -279,7 +279,7 @@ function SecaoGestor({ data }: { data: DashboardGestorSection }) {
           label="Solicitações equipe"
           value={data.solicitacoesEquipePendentes}
           tone={data.solicitacoesEquipePendentes > 0 ? "warning" : "neutral"}
-          href="/app/gestao/solicitacoes"
+          href="/app/gestao/painel-solicitacoes"
         />
         <KpiCard
           icon={UserCheck}
@@ -293,7 +293,7 @@ function SecaoGestor({ data }: { data: DashboardGestorSection }) {
           label="Aprovações minhas"
           value={data.aprovacoesPendentesMinhas}
           tone={data.aprovacoesPendentesMinhas > 0 ? "warning" : "neutral"}
-          href="/app/gestao/solicitacoes?tab=aprovacoes"
+          href="/app/gestao/painel-solicitacoes"
         />
       </div>
 
@@ -448,7 +448,7 @@ function SecaoRh({ data }: { data: DashboardRhSection }) {
           label="Solicitações vaga"
           value={data.solicitacoesVagaPendentes}
           tone={data.solicitacoesVagaPendentes > 0 ? "warning" : "neutral"}
-          href="/app/gestao/solicitacoes?tab=aprovacoes&tipo=contratacao"
+          href="/app/gestao/painel-solicitacoes"
         />
         <KpiCard
           icon={UserCheck}
@@ -685,7 +685,7 @@ function SecaoDiretor({ data }: { data: DashboardDiretorSection }) {
           label="Solicitações vaga"
           value={data.solicitacoesVagaPendentes}
           tone={data.solicitacoesVagaPendentes > 0 ? "warning" : "neutral"}
-          href="/app/gestao/solicitacoes?tab=aprovacoes&tipo=contratacao"
+          href="/app/gestao/painel-solicitacoes"
         />
         <KpiCard
           icon={UserCheck}

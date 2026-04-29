@@ -94,25 +94,21 @@ public static class NavegacaoManifest
     {
         // ── Principais (destacados, respeitam gate de módulo) ────────────────
         new("nav-dashboard",                "Dashboard",              "/dashboard",                      "layoutdashboard",   "dashboard.view",           Destacado: true, Ordem: 10),
-        new("nav-aprovacoes",               "Minhas Pendências",       "/gestao/aprovacoes",              "checkcheck",        "aprovacoes-vaga.view",     Destacado: true, Ordem: 20),
-        new("nav-solicitacoes",             "Solicitações",            "/gestao/solicitacoes",            "clipboardlist",     "solicitacoes-vaga.view",   Destacado: true, Ordem: 30),
         // Painel de Solicitações — decidido como TRANSVERSAL CORE (Onda 14, 2026-04-20).
         // Justificativa: agregador analítico multi-tipo (Vaga / Promoção / Desligamento /
         // Férias / Benefício / Dependente / Endereço) que cruza R&S, Folha e Cadastros.
         // Mantê-lo em "Gestão de Pessoas" excluiria o gestor que precisa ver pedidos de
         // R&S e Folha; dividi-lo por pacote (opção B3) perderia a visão consolidada.
-        // Fica ao lado de Minhas Pendências/Solicitações como "visão consolidada do RH".
+        // Fica em "Principais" como "visão consolidada do RH".
         new("nav-painel-solicitacoes",      "Painel de Solicitações", "/gestao/painel-solicitacoes",     "gitbranch",         "gestao.dashboard",         Destacado: true, Ordem: 40),
 
         // ── Recrutamento e Seleção (pacote) ──────────────────────────────────
         new("nav-vagas",                    "Vagas",                  "/vagas",                          "briefcase",         "vagas.view",               Ordem: 10),
-        new("nav-painel-rh",                "Painel RH",              "/painel-rh",                      "clipboardcheck",    "entrada.view",             Ordem: 20),
         new("nav-candidatos",               "Candidatos",             "/candidatos",                     "users",             "candidatos.view",          Ordem: 30),
         new("nav-candidaturas",             "Kanban de Candidaturas", "/recrutamento/candidaturas",      "gitbranch",         "candidatos.view",          Ordem: 35),
         // Sessão 31.8 (FASE 3.A) — funil de conversão entre etapas
         new("nav-funil",                    "Funil de Conversão",     "/recrutamento/funil",             "barchart",          "candidatos.view",          Ordem: 36),
         new("nav-admissao",                 "Admissão",               "/admissao",                       "usercheck",         "admissao.view",            Ordem: 40),
-        new("nav-matching",                 "Matching IA",            "/matching",                       "sparkles",          "matching.view",            Ordem: 50),
         // Fase 4 — Chatbot RAG + geração de conteúdo via Ollama (Qwen 2.5 + bge-m3)
         new("nav-assistente-ia",            "Assistente IA",          "/assistente-ia",                  "bot",               "matching.view",            Ordem: 52, OcultarDoOwner: true),
         new("nav-triagem",                  "Triagem",                "/triagem",                        "filter",            "triagem.view",             Ordem: 60),
@@ -161,14 +157,9 @@ public static class NavegacaoManifest
         new("nav-funcoes",                  "Funções",                "/funcoes",                        "list-checks",       "jobpositions.view",        Ordem: 55),
         new("nav-nivel-cargo",              "Níveis de Cargo",        "/nivel-cargo",                    "layers",            "jobpositions.view",        Ordem: 58),
         new("nav-descricao-cargo",          "Descrição de Cargos",    "/descricao-cargo",                "file-text",         "jobpositions.view",        Ordem: 60),
-        // Renomeado: "Eixos de Vaga" → "SLA de Vagas". Conceito continua o mesmo
-        // (agrupador com SLA de fechamento por eixo), mas o label fala diretamente
-        // do que o usuário cadastra. Entidade backend segue chamada EixoVaga.
-        new("nav-sla-vagas",                "SLA de Vagas",           "/sla-vagas",                      "clock",             "vagas.view",               GrupoUiOverride: "cadastros", Ordem: 70),
         new("nav-unidades",                 "Estabelecimentos",       "/unidades",                       "map-pin",           "units.view",               Ordem: 80),
         new("nav-categorias-salariais",     "Categorias Salariais",   "/categorias-salariais",           "badge-dollar-sign", "categories.view",          Ordem: 100),
         new("nav-turnos",                   "Turnos",                 "/turnos",                         "clock",             "areas.view",               Ordem: 110),
-        new("nav-unidades-lotacao",         "Unidades de Lotação",    "/unidades-lotacao",               "building",          "units.view",               Ordem: 120),
         new("nav-pessoas",                  "Pessoas",                "/pessoas",                        "user",              "funcionarios.view",        Ordem: 130),
         new("nav-funcionarios",             "Funcionários",           "/funcionarios",                   "users",             "funcionarios.view",        Ordem: 140),
 
@@ -179,13 +170,7 @@ public static class NavegacaoManifest
         new("nav-admin-organograma",        "Organograma",            "/admin/organograma",              "bi-diagram-2",      "access.manage",            Ordem: 40),
         new("nav-admin-gestores",           "Gestores",               "/admin/gestores",                 "usercheck",         "access.manage",            Ordem: 50),
         new("nav-admin-hierarquia",         "Hierarquia",             "/admin/hierarquia",               "bi-diagram-3",      "access.manage",            Ordem: 60),
-        new("nav-admin-headcount",          "Headcount",              "/admin/configuracoes-headcount",  "users",             "access.manage",            Ordem: 70),
-        new("nav-configuracao-aprovacoes",  "Config. de Aprovações",  "/admin/configuracao-aprovacoes",  "settings2",         "access.manage",            Ordem: 80),
-        new("nav-aprovadores-alternativos", "Aprovadores Alternativos","/admin/aprovadores-alternativos","user-check",        "access.manage",            Ordem: 90),
         new("nav-admin-doc-padrao",         "Documentação Padrão",    "/admin/documentacao-padrao",      "bi-journal-text",   "access.manage",            Ordem: 100),
-        new("nav-admin-menus",              "Menus",                  "/admin/menus",                    "bi-list-check",     "access.manage",            Ordem: 110),
-        new("nav-admin-logs",               "Logs",                   "/admin/logs",                     "bi-journal-text",   "logs.view",                Ordem: 120),
-        new("nav-admin-operational-logs",   "Logs Operacionais",      "/admin/operational-logs",         "activity",          "logs.view",                Ordem: 130),
         new("nav-admin-notif-candidatura",  "Notificações (Candidaturas)", "/administracao/notificacoes-candidatura", "bell-ring", "audit.view",           Ordem: 140),
         new("nav-admin-notif-templates",    "Templates de Notificação",    "/administracao/notificacoes-templates",   "book-template", "audit.view",       Ordem: 145),
 

@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavegacaoSidebar } from "@/features/navigation/NavegacaoSidebarProvider";
 import { isHrefAllowed } from "@/features/navigation/menuPermissions";
 
+const RETIRED_ROUTES = new Set(["/gestao/aprovacoes", "/gestao/solicitacoes"]);
+
 /**
  * Bloqueia acesso direto por URL a rotas fora da allowlist do perfil.
  * A allowlist agora vem do backend (`/api/navegacao/sidebar`), via o
@@ -24,9 +26,16 @@ export function RouteAllowlistGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (authLoading || navLoading || !me) return;
-    if (!visibleHrefs) return; // sem restrição (owner/admin/wildcard)
 
     const normalized = pathname.replace(/^\/app(?=\/|$)/, "") || "/";
+    const normalizedBase = normalized.toLowerCase().replace(/\/+$/, "") || "/";
+    if (RETIRED_ROUTES.has(normalizedBase)) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (!visibleHrefs) return; // sem restrição (owner/admin/wildcard)
+
     if (isHrefAllowed(normalized, visibleHrefs)) return;
 
     router.replace("/dashboard");

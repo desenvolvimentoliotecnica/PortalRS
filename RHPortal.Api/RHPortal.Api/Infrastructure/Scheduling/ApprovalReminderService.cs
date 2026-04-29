@@ -158,7 +158,7 @@ public sealed class ApprovalReminderService : BackgroundService
         {
             await notifications.PublishToUsersAsync(
                 tenantId, new[] { aprovador.UserId.Value },
-                titulo, mensagem, "/gestao/aprovacoes", "warning", ct);
+                titulo, mensagem, "/gestao/painel-solicitacoes", "warning", ct);
         }
 
         if (!string.IsNullOrWhiteSpace(aprovador.Email))
@@ -203,7 +203,7 @@ public sealed class ApprovalReminderService : BackgroundService
         {
             await notifications.PublishToUsersAsync(
                 tenantId, new[] { gestor.UserId.Value },
-                titulo, mensagem, "/gestao/aprovacoes", "warning", ct);
+                titulo, mensagem, "/gestao/painel-solicitacoes", "warning", ct);
         }
 
         if (!string.IsNullOrWhiteSpace(gestor.Email))

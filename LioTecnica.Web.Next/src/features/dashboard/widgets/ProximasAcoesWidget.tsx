@@ -40,7 +40,7 @@ export function ProximasAcoesWidget({
           <div className="text-sm font-semibold">Próximas Ações</div>
           <div className="text-muted-foreground text-xs">Compromissos e deadlines</div>
         </div>
-        <Link href="/app/gestao/solicitacoes" className="text-xs text-primary hover:underline">
+        <Link href="/app/gestao/painel-solicitacoes" className="text-xs text-primary hover:underline">
           Ver todas →
         </Link>
       </div>
