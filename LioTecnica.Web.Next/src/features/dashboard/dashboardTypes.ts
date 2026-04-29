@@ -15,6 +15,18 @@ export type Funil = {
   aprovados: number;
 };
 
+export type FunilConversaoEtapa = {
+  titulo: string;
+  total: number;
+  taxaConversaoPercent: number | null;
+};
+
+export type FunilConversao = {
+  totalGeral: number;
+  vagaTitulo: string | null;
+  etapas: FunilConversaoEtapa[];
+};
+
 export type Series = { labels: string[]; values: number[] };
 
 export type TopMatchRow = {
