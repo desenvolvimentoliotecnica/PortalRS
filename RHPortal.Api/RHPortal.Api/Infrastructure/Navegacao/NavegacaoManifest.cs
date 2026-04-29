@@ -104,7 +104,6 @@ public static class NavegacaoManifest
 
         // ── Recrutamento e Seleção (pacote) ──────────────────────────────────
         new("nav-vagas",                    "Vagas",                  "/vagas",                          "briefcase",         "vagas.view",               Ordem: 10),
-        new("nav-painel-rh",                "Painel RH",              "/painel-rh",                      "clipboardcheck",    "entrada.view",             Ordem: 20),
         new("nav-candidatos",               "Candidatos",             "/candidatos",                     "users",             "candidatos.view",          Ordem: 30),
         new("nav-candidaturas",             "Kanban de Candidaturas", "/recrutamento/candidaturas",      "gitbranch",         "candidatos.view",          Ordem: 35),
         // Sessão 31.8 (FASE 3.A) — funil de conversão entre etapas

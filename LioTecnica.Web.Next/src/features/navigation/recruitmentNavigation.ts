@@ -38,7 +38,6 @@ export const PRINCIPAIS_ORDER = [
 /** Abas MVP do grupo "Recrutamento" — entregáveis prioritários */
 export const RECRUITMENT_MVP_ORDER = [
   RECRUITMENT_ROUTE_KEYS.vagas,            // Vagas
-  RECRUITMENT_ROUTE_KEYS.painelRh,         // Painel RH
   RECRUITMENT_ROUTE_KEYS.candidatos,       // Candidatos
   RECRUITMENT_ROUTE_KEYS.admissao,         // Admissão
 ] as const;
@@ -77,7 +76,6 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
 export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.dashboard,
   RECRUITMENT_ROUTE_KEYS.vagas,
-  RECRUITMENT_ROUTE_KEYS.painelRh,
   RECRUITMENT_ROUTE_KEYS.portalVagas,
   RECRUITMENT_ROUTE_KEYS.talentos,
   RECRUITMENT_ROUTE_KEYS.candidatos,
