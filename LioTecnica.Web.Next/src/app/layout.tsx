@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Render",
+  title: "Portal de RH - Gestão de Pessoas",
   description: "Render — Gestão de RH",
 };
 
