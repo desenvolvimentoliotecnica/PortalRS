@@ -94,6 +94,8 @@ public sealed class PortalVagaSyncService
 
         var pfuncaoToCargo = await LoadPfuncaoCargoLookupAsync(path, ct);
         var pfuncaoToNome = await LoadPfuncaoNomeLookupAsync(path, ct);
+        var pfuncaoDetailByCodigo = await LoadPfuncaoDetailLookupAsync(path, ct);
+        var gestorNomeByChapa = await LoadGestorNomeByChapaAsync(path, ct);
 
         // Índice de VRSVAGAS abertas por CODFUNCAO — para enriquecimento das VREQ.
         // "Aberta" = ATIVO=1 E (DATAFECHAMENTO null ou futura). Mesma regra do sync legado.
@@ -152,30 +154,42 @@ public sealed class PortalVagaSyncService
             var (codCargo, funcaoNome) = ResolveFuncao(codFuncao, pfuncaoToCargo, pfuncaoToNome);
             var titulo = ResolveTitulo(vrsMatch?.Nome, funcaoNome, idReq);
             var dataFechamento = ResolveDataFechamento(status, aum.DataConclusao, aum.DataCancelamento);
+            pfuncaoDetailByCodigo.TryGetValue(codFuncao ?? "", out var pfDetailAum);
+            var gestorAum = ResolveGestorNome(aum.ChapaRequisitante, gestorNomeByChapa);
 
-            items.Add(new
-            {
-                idReqRm = idReq,
-                codVaga = vrsMatch?.CodVaga?.ToString(),
-                titulo,
-                status,
-                dataAbertura = aum.DataAbertura,
-                dataFechamento,
-                quantidade = aum.NumVagas ?? 1,
-                remuneracao = vrsMatch?.Remuneracao,
-                descricao = vrsMatch?.Complemento,
-                experienciasExigidas = vrsMatch?.ExperienciasExigidas,
-                codFuncao,
-                codCargo,
-                funcaoNome,
-                codSecao = aum.CodSecao,
-                codFilial = aum.CodFilial,
-                idHierarquiaDestinoRm = aum.IdHierarquiaDestino,
-                origemTipo = "AumentoQuadro",
-                idReqRmOrigem = idReq,
-                idReqDesligamentoRm = (string?)null,
-                aberta = (bool?)null,
-            });
+            items.Add(MakeRmItem(
+                idReqRm: idReq,
+                codVaga: vrsMatch?.CodVaga?.ToString(),
+                titulo: titulo,
+                status: status,
+                dataAbertura: aum.DataAbertura,
+                dataFechamento: dataFechamento,
+                quantidade: aum.NumVagas ?? 1,
+                remuneracao: vrsMatch?.Remuneracao,
+                descricao: vrsMatch?.Complemento,
+                experienciasExigidas: vrsMatch?.ExperienciasExigidas,
+                experienciasDesejadas: vrsMatch?.ExperienciasDesejadas,
+                codFuncao: codFuncao,
+                codCargo: codCargo,
+                funcaoNome: funcaoNome,
+                codSecao: aum.CodSecao,
+                codFilial: aum.CodFilial,
+                idHierarquiaDestinoRm: aum.IdHierarquiaDestino,
+                origemTipo: "AumentoQuadro",
+                idReqRmOrigem: idReq,
+                idReqDesligamentoRm: null,
+                aberta: null,
+                dataPrevistaInicio: aum.Dataprevista,
+                vlrSalario: aum.VlrSalario,
+                justificativa: aum.Justificativa,
+                codTabelaSalarial: aum.CodTabelaSalarial,
+                codNivelSalarial: aum.CodNivelSalarial,
+                codFaixaSalarial: aum.CodFaixaSalarial,
+                codGrauInstrucao: vrsMatch?.CodGrauInstrucao,
+                complementoGrauInstrucao: vrsMatch?.ComplementoGrauInstrucao,
+                funcaoCbo: pfDetailAum.Cbo,
+                funcaoDescricao: pfDetailAum.Descricao,
+                gestorRequisitanteNome: gestorAum));
             origemCounters["AumentoQuadro"]++;
             statusCounters[status] = statusCounters.GetValueOrDefault(status) + 1;
         }
@@ -196,6 +210,8 @@ public sealed class PortalVagaSyncService
             var (codCargo, funcaoNome) = ResolveFuncao(codFuncao, pfuncaoToCargo, pfuncaoToNome);
             var titulo = ResolveTitulo(vrsMatch?.Nome, funcaoNome, idReq);
             var dataFechamento = ResolveDataFechamento(status, sub.DataConclusao, sub.DataCancelamento);
+            pfuncaoDetailByCodigo.TryGetValue(codFuncao ?? "", out var pfDetailSub);
+            var gestorSub = ResolveGestorNome(sub.ChapaRequisitante, gestorNomeByChapa);
 
             // TIPOREQPAI observado nos dumps:
             //   1 = Desligamento (esperado pela doc original)
@@ -210,29 +226,39 @@ public sealed class PortalVagaSyncService
                 _ => "SubstituicaoDesligamento",
             };
 
-            items.Add(new
-            {
-                idReqRm = idReq,
-                codVaga = vrsMatch?.CodVaga?.ToString(),
-                titulo,
-                status,
-                dataAbertura = sub.DataAbertura,
-                dataFechamento,
-                quantidade = (int?)1,
-                remuneracao = vrsMatch?.Remuneracao,
-                descricao = vrsMatch?.Complemento,
-                experienciasExigidas = vrsMatch?.ExperienciasExigidas,
-                codFuncao,
-                codCargo,
-                funcaoNome,
-                codSecao = sub.CodSecao,
-                codFilial = sub.CodFilial,
-                idHierarquiaDestinoRm = sub.IdHierarquiaDestino,
-                origemTipo,
-                idReqRmOrigem = idReq,
-                idReqDesligamentoRm = origemTipo == "SubstituicaoDesligamento" ? sub.IdReqPai?.ToString() : null,
-                aberta = (bool?)null,
-            });
+            items.Add(MakeRmItem(
+                idReqRm: idReq,
+                codVaga: vrsMatch?.CodVaga?.ToString(),
+                titulo: titulo,
+                status: status,
+                dataAbertura: sub.DataAbertura,
+                dataFechamento: dataFechamento,
+                quantidade: 1,
+                remuneracao: vrsMatch?.Remuneracao,
+                descricao: vrsMatch?.Complemento,
+                experienciasExigidas: vrsMatch?.ExperienciasExigidas,
+                experienciasDesejadas: vrsMatch?.ExperienciasDesejadas,
+                codFuncao: codFuncao,
+                codCargo: codCargo,
+                funcaoNome: funcaoNome,
+                codSecao: sub.CodSecao,
+                codFilial: sub.CodFilial,
+                idHierarquiaDestinoRm: sub.IdHierarquiaDestino,
+                origemTipo: origemTipo,
+                idReqRmOrigem: idReq,
+                idReqDesligamentoRm: origemTipo == "SubstituicaoDesligamento" ? sub.IdReqPai?.ToString() : null,
+                aberta: null,
+                dataPrevistaInicio: sub.Dataprevista,
+                vlrSalario: sub.VlrSalario,
+                justificativa: sub.Justificativa,
+                codTabelaSalarial: sub.CodTabelaSalarial,
+                codNivelSalarial: sub.CodNivelSalarial,
+                codFaixaSalarial: sub.CodFaixaSalarial,
+                codGrauInstrucao: vrsMatch?.CodGrauInstrucao,
+                complementoGrauInstrucao: vrsMatch?.ComplementoGrauInstrucao,
+                funcaoCbo: pfDetailSub.Cbo,
+                funcaoDescricao: pfDetailSub.Descricao,
+                gestorRequisitanteNome: gestorSub));
             origemCounters[origemTipo]++;
             statusCounters[status] = statusCounters.GetValueOrDefault(status) + 1;
         }
@@ -247,30 +273,41 @@ public sealed class PortalVagaSyncService
             var codFuncao = v.CodFuncao?.Trim();
             var (codCargo, funcaoNome) = ResolveFuncao(codFuncao, pfuncaoToCargo, pfuncaoToNome);
             var titulo = ResolveTitulo(v.Nome, funcaoNome, v.CodVaga!.Value.ToString());
+            pfuncaoDetailByCodigo.TryGetValue(codFuncao ?? "", out var pfDetailDir);
 
-            items.Add(new
-            {
-                idReqRm = (string?)null,
-                codVaga = v.CodVaga.Value.ToString(),
-                titulo,
-                status = StatusAberta,
-                dataAbertura = v.DataAbertura,
-                dataFechamento = v.DataFechamento,
-                quantidade = (int?)1,
-                remuneracao = v.Remuneracao,
-                descricao = v.Complemento,
-                experienciasExigidas = v.ExperienciasExigidas,
-                codFuncao,
-                codCargo,
-                funcaoNome,
-                codSecao = (string?)null,
-                codFilial = (int?)null,
-                idHierarquiaDestinoRm = (int?)null,
-                origemTipo = "Direta",
-                idReqRmOrigem = (string?)null,
-                idReqDesligamentoRm = (string?)null,
-                aberta = true,
-            });
+            items.Add(MakeRmItem(
+                idReqRm: null,
+                codVaga: v.CodVaga.Value.ToString(),
+                titulo: titulo,
+                status: StatusAberta,
+                dataAbertura: v.DataAbertura,
+                dataFechamento: v.DataFechamento,
+                quantidade: 1,
+                remuneracao: v.Remuneracao,
+                descricao: v.Complemento,
+                experienciasExigidas: v.ExperienciasExigidas,
+                experienciasDesejadas: v.ExperienciasDesejadas,
+                codFuncao: codFuncao,
+                codCargo: codCargo,
+                funcaoNome: funcaoNome,
+                codSecao: null,
+                codFilial: null,
+                idHierarquiaDestinoRm: null,
+                origemTipo: "Direta",
+                idReqRmOrigem: null,
+                idReqDesligamentoRm: null,
+                aberta: true,
+                dataPrevistaInicio: null,
+                vlrSalario: null,
+                justificativa: null,
+                codTabelaSalarial: null,
+                codNivelSalarial: null,
+                codFaixaSalarial: null,
+                codGrauInstrucao: v.CodGrauInstrucao,
+                complementoGrauInstrucao: v.ComplementoGrauInstrucao,
+                funcaoCbo: pfDetailDir.Cbo,
+                funcaoDescricao: pfDetailDir.Descricao,
+                gestorRequisitanteNome: null));
             origemCounters["Direta"]++;
             statusCounters[StatusAberta] = statusCounters.GetValueOrDefault(StatusAberta) + 1;
         }
@@ -348,6 +385,81 @@ public sealed class PortalVagaSyncService
         _ => null,
     };
 
+    private static string? ResolveGestorNome(string? chapa, Dictionary<string, string> nomePorChapa)
+    {
+        if (string.IsNullOrWhiteSpace(chapa)) return null;
+        return nomePorChapa.TryGetValue(chapa.Trim(), out var n) ? n : null;
+    }
+
+    private static object MakeRmItem(
+        string? idReqRm,
+        string? codVaga,
+        string titulo,
+        short status,
+        DateTime? dataAbertura,
+        DateTime? dataFechamento,
+        int? quantidade,
+        string? remuneracao,
+        string? descricao,
+        string? experienciasExigidas,
+        string? experienciasDesejadas,
+        string? codFuncao,
+        string? codCargo,
+        string? funcaoNome,
+        string? codSecao,
+        int? codFilial,
+        int? idHierarquiaDestinoRm,
+        string origemTipo,
+        string? idReqRmOrigem,
+        string? idReqDesligamentoRm,
+        bool? aberta,
+        DateTime? dataPrevistaInicio,
+        decimal? vlrSalario,
+        string? justificativa,
+        string? codTabelaSalarial,
+        string? codNivelSalarial,
+        string? codFaixaSalarial,
+        int? codGrauInstrucao,
+        string? complementoGrauInstrucao,
+        string? funcaoCbo,
+        string? funcaoDescricao,
+        string? gestorRequisitanteNome) =>
+        new
+        {
+            idReqRm,
+            codVaga,
+            titulo,
+            status,
+            dataAbertura,
+            dataFechamento,
+            quantidade,
+            remuneracao,
+            descricao,
+            experienciasExigidas,
+            experienciasDesejadas,
+            codFuncao,
+            codCargo,
+            funcaoNome,
+            codSecao,
+            codFilial,
+            idHierarquiaDestinoRm,
+            origemTipo,
+            idReqRmOrigem,
+            idReqDesligamentoRm,
+            aberta,
+            dataPrevistaInicio,
+            vlrSalario,
+            justificativa,
+            codTabelaSalarial,
+            codNivelSalarial,
+            codFaixaSalarial,
+            codGrauInstrucao,
+            complementoGrauInstrucao,
+            funcaoCbo,
+            funcaoDescricao,
+            gestorRequisitanteNome,
+        };
+
     private async Task<List<T>> LoadJsonAsync<T>(string path, string fileName, CancellationToken ct)
     {
         var f = Path.Combine(path, fileName);
@@ -376,6 +488,50 @@ public sealed class PortalVagaSyncService
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Nome!.Length).First().Nome!.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>CBO + descrição longa da função (para descrição pública / CBO na vaga).</summary>
+    private async Task<Dictionary<string, (string? Cbo, string? Descricao)>> LoadPfuncaoDetailLookupAsync(string path, CancellationToken ct)
+    {
+        var rows = await LoadJsonAsync<PfuncaoDetailRow>(path, "funcao.json", ct);
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Codigo))
+            .GroupBy(r => r.Codigo!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var best = g.OrderByDescending(x => x.Descricao?.Length ?? 0).First();
+                    var cbo = string.IsNullOrWhiteSpace(best.Cbo) ? null : best.Cbo!.Trim();
+                    var desc = string.IsNullOrWhiteSpace(best.Descricao) ? null : best.Descricao!.Trim();
+                    return (cbo, desc);
+                },
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>CHAPA (PFUNC) → nome (PPESSOA.NOME).</summary>
+    private async Task<Dictionary<string, string>> LoadGestorNomeByChapaAsync(string path, CancellationToken ct)
+    {
+        var pessoaPath = Path.Combine(path, "pessoa.json");
+        var funcPath = Path.Combine(path, "funcionario.json");
+        if (!File.Exists(pessoaPath) || !File.Exists(funcPath))
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var pessoas = await LoadJsonAsync<PessoaNomeRow>(path, "pessoa.json", ct);
+        var codigoToNome = pessoas
+            .Where(p => p.Codigo.HasValue && !string.IsNullOrWhiteSpace(p.Nome))
+            .GroupBy(p => p.Codigo!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Nome!.Trim());
+
+        var nomes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in await LoadJsonAsync<PfuncChapaRow>(path, "funcionario.json", ct))
+        {
+            if (string.IsNullOrWhiteSpace(f.Chapa) || !f.CodPessoa.HasValue) continue;
+            if (!codigoToNome.TryGetValue(f.CodPessoa.Value, out var nome)) continue;
+            nomes[f.Chapa.Trim()] = nome;
+        }
+
+        return nomes;
+    }
+
     private string GetSchemaTablesPath()
     {
         var path = _outputOptions.SchemaTablesPath?.Trim();
@@ -396,6 +552,9 @@ public sealed class PortalVagaSyncService
         [JsonPropertyName("REMUNERACAO")] public string? Remuneracao { get; set; }
         [JsonPropertyName("COMPLEMENTO")] public string? Complemento { get; set; }
         [JsonPropertyName("EXPERIENCIASEXIGIDAS")] public string? ExperienciasExigidas { get; set; }
+        [JsonPropertyName("EXPERIENCIASDESEJADAS")] public string? ExperienciasDesejadas { get; set; }
+        [JsonPropertyName("CODGRAUINSTRUCAO")] public int? CodGrauInstrucao { get; set; }
+        [JsonPropertyName("COMPLEMENTOGRAUINSTRUCAO")] public string? ComplementoGrauInstrucao { get; set; }
     }
 
     private sealed class AumentoQuadroRow
@@ -409,7 +568,14 @@ public sealed class PortalVagaSyncService
         [JsonPropertyName("DATAABERTURA")] public DateTime? DataAbertura { get; set; }
         [JsonPropertyName("DATACONCLUSAO")] public DateTime? DataConclusao { get; set; }
         [JsonPropertyName("DATACANCELAMENTO")] public DateTime? DataCancelamento { get; set; }
+        [JsonPropertyName("DATAPREVISTA")] public DateTime? Dataprevista { get; set; }
         [JsonPropertyName("NUMVAGAS")] public int? NumVagas { get; set; }
+        [JsonPropertyName("JUSTIFICATIVA")] public string? Justificativa { get; set; }
+        [JsonPropertyName("VLRSALARIO")] public decimal? VlrSalario { get; set; }
+        [JsonPropertyName("CODTABELASALARIAL")] public string? CodTabelaSalarial { get; set; }
+        [JsonPropertyName("CODNIVELSALARIAL")] public string? CodNivelSalarial { get; set; }
+        [JsonPropertyName("CODFAIXASALARIAL")] public string? CodFaixaSalarial { get; set; }
+        [JsonPropertyName("CHAPAREQUISITANTE")] public string? ChapaRequisitante { get; set; }
     }
 
     private sealed class SubstituicaoRow
@@ -425,12 +591,40 @@ public sealed class PortalVagaSyncService
         [JsonPropertyName("DATAABERTURA")] public DateTime? DataAbertura { get; set; }
         [JsonPropertyName("DATACONCLUSAO")] public DateTime? DataConclusao { get; set; }
         [JsonPropertyName("DATACANCELAMENTO")] public DateTime? DataCancelamento { get; set; }
+        [JsonPropertyName("DATAPREVISTA")] public DateTime? Dataprevista { get; set; }
+        [JsonPropertyName("JUSTIFICATIVA")] public string? Justificativa { get; set; }
+        [JsonPropertyName("VLRSALARIO")] public decimal? VlrSalario { get; set; }
+        [JsonPropertyName("CODTABELASALARIAL")] public string? CodTabelaSalarial { get; set; }
+        [JsonPropertyName("CODNIVELSALARIAL")] public string? CodNivelSalarial { get; set; }
+        [JsonPropertyName("CODFAIXASALARIAL")] public string? CodFaixaSalarial { get; set; }
+        [JsonPropertyName("CHAPAREQUISITANTE")] public string? ChapaRequisitante { get; set; }
     }
 
     private sealed class PfuncaoRow
     {
         [JsonPropertyName("CODIGO")] public string? Codigo { get; set; }
         [JsonPropertyName("CARGO")] public string? Cargo { get; set; }
+        [JsonPropertyName("NOME")] public string? Nome { get; set; }
+    }
+
+    private sealed class PfuncaoDetailRow
+    {
+        [JsonPropertyName("CODIGO")] public string? Codigo { get; set; }
+        [JsonPropertyName("CARGO")] public string? Cargo { get; set; }
+        [JsonPropertyName("NOME")] public string? Nome { get; set; }
+        [JsonPropertyName("CBO")] public string? Cbo { get; set; }
+        [JsonPropertyName("DESCRICAO")] public string? Descricao { get; set; }
+    }
+
+    private sealed class PfuncChapaRow
+    {
+        [JsonPropertyName("CHAPA")] public string? Chapa { get; set; }
+        [JsonPropertyName("CODPESSOA")] public int? CodPessoa { get; set; }
+    }
+
+    private sealed class PessoaNomeRow
+    {
+        [JsonPropertyName("CODIGO")] public int? Codigo { get; set; }
         [JsonPropertyName("NOME")] public string? Nome { get; set; }
     }
 

@@ -55,6 +55,40 @@ public sealed class VagaSyncRmItem
     /// <summary>Experiência exigida (VRSVAGAS.EXPERIENCIASEXIGIDAS quando enriquecido).</summary>
     public string? ExperienciasExigidas { get; set; }
 
+    /// <summary>Experiência desejada (VRSVAGAS.EXPERIENCIASDESEJADAS).</summary>
+    public string? ExperienciasDesejadas { get; set; }
+
+    /// <summary>Data prevista de início na ocupação (VREQ.DATAPREVISTA).</summary>
+    public DateTime? DataPrevistaInicio { get; set; }
+
+    /// <summary>Salário previsto na requisição (VREQ.VLRSALARIO).</summary>
+    public decimal? VlrSalario { get; set; }
+
+    /// <summary>Justificativa da requisição (VREQ.JUSTIFICATIVA).</summary>
+    public string? Justificativa { get; set; }
+
+    /// <summary>Códigos de faixa salarial no RM (exibição / observação).</summary>
+    public string? CodTabelaSalarial { get; set; }
+
+    public string? CodNivelSalarial { get; set; }
+
+    public string? CodFaixaSalarial { get; set; }
+
+    /// <summary>Grau de instrução exigido (VRSVAGAS.CODGRAUINSTRUCAO).</summary>
+    public int? CodGrauInstrucao { get; set; }
+
+    /// <summary>Complemento do grau (VRSVAGAS.COMPLEMENTOGRAUINSTRUCAO).</summary>
+    public string? ComplementoGrauInstrucao { get; set; }
+
+    /// <summary>CBO da função (PFUNCAO.CBO).</summary>
+    public string? FuncaoCbo { get; set; }
+
+    /// <summary>Descrição da função no RM (PFUNCAO.DESCRICAO) — público sugerido.</summary>
+    public string? FuncaoDescricao { get; set; }
+
+    /// <summary>Nome do requisitante (PPESSOA via PFUNC.CHAPAREQUISITANTE).</summary>
+    public string? GestorRequisitanteNome { get; set; }
+
     /// <summary>Código da função (PFUNCAO.CODIGO).</summary>
     public string? CodFuncao { get; set; }
 
