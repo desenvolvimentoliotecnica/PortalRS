@@ -89,6 +89,9 @@ public sealed class VagaSyncRmItem
     /// <summary>Nome do requisitante (PPESSOA via PFUNC.CHAPAREQUISITANTE).</summary>
     public string? GestorRequisitanteNome { get; set; }
 
+    /// <summary>CHAPA do requisitante no RM (VREQ.CHAPAREQUISITANTE), usada para vincular Funcionario.</summary>
+    public string? GestorRequisitanteChapa { get; set; }
+
     /// <summary>Código da função (PFUNCAO.CODIGO).</summary>
     public string? CodFuncao { get; set; }
 

@@ -173,6 +173,8 @@ namespace RHPortal.Api.Domain.Entities
 
         [StringLength(120)]
         public string? GestorRequisitante { get; set; }      // vagaGestor
+        public Guid? GestorRequisitanteFuncionarioId { get; set; }
+        public Funcionario? GestorRequisitanteFuncionario { get; set; }
         [StringLength(120)]
         public string? RecrutadorResponsavel { get; set; }   // vagaRecrutador
         /// <summary>Opcional: vínculo ao usuário recrutador (futuro).</summary>
