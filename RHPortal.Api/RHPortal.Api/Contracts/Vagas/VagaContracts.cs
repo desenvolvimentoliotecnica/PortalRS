@@ -261,6 +261,7 @@ public sealed record VagaResponse(
     VagaMotivoAbertura? MotivoAbertura,
     VagaOrcamentoAprovado? OrcamentoAprovado,
     string? GestorRequisitante,
+    Guid? GestorRequisitanteFuncionarioId,
     string? RecrutadorResponsavel,
     Guid? RecrutadorResponsavelUserId,
     VagaPrioridade? Prioridade,

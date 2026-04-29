@@ -44,7 +44,7 @@ export function FunilWidget({
       </div>
 
       {hasConversionFunnel ? (
-        <div className="mt-2 flex min-h-0 flex-1 flex-col">
+        <div className="mt-2 flex flex-col">
           <div className="grid grid-cols-2 gap-2">
             {[
               { label: "Total geral", value: funilConversao.totalGeral, tone: "text-neutral-900" },
@@ -65,7 +65,7 @@ export function FunilWidget({
             ))}
           </div>
 
-          <div className="mt-3 space-y-2 overflow-auto pr-1">
+          <div className="mt-3 space-y-2">
             {funilConversao.etapas.map((etapa) => {
               const widthPct = firstStageTotal > 0 ? Math.max(5, (etapa.total / firstStageTotal) * 100) : 0;
               const conversionTone =

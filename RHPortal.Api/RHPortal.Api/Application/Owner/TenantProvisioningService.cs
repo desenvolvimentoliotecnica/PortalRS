@@ -112,8 +112,11 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
             ALTER TABLE "Vagas" ADD COLUMN IF NOT EXISTS "DataAbertura"                  timestamp with time zone NULL;
             ALTER TABLE "Vagas" ADD COLUMN IF NOT EXISTS "SlaDiasMetaFechamento"         integer NULL;
             ALTER TABLE "Vagas" ADD COLUMN IF NOT EXISTS "RecrutadorResponsavelUserId"   uuid NULL;
+            ALTER TABLE "Vagas" ADD COLUMN IF NOT EXISTS "GestorRequisitanteFuncionarioId" uuid NULL;
             CREATE INDEX IF NOT EXISTS "IX_Vagas_RecrutadorResponsavelUserId"
                 ON "Vagas" ("RecrutadorResponsavelUserId");
+            CREATE INDEX IF NOT EXISTS "IX_Vagas_GestorRequisitanteFuncionarioId"
+                ON "Vagas" ("GestorRequisitanteFuncionarioId");
             DO $$ BEGIN
                 IF NOT EXISTS (
                     SELECT 1 FROM information_schema.table_constraints
@@ -123,6 +126,15 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
                         ADD CONSTRAINT "FK_Vagas_Users_RecrutadorResponsavelUserId"
                         FOREIGN KEY ("RecrutadorResponsavelUserId")
                         REFERENCES "Users" ("Id") ON DELETE SET NULL;
+                END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.table_constraints
+                    WHERE constraint_name = 'FK_Vagas_Funcionarios_GestorRequisitanteFuncionarioId'
+                ) THEN
+                    ALTER TABLE "Vagas"
+                        ADD CONSTRAINT "FK_Vagas_Funcionarios_GestorRequisitanteFuncionarioId"
+                        FOREIGN KEY ("GestorRequisitanteFuncionarioId")
+                        REFERENCES "Funcionarios" ("Id") ON DELETE SET NULL;
                 END IF;
             END $$;
             """, ct);

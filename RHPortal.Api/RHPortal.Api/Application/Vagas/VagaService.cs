@@ -743,6 +743,7 @@ public sealed class VagaService : IVagaService
             v.MotivoAbertura,
             v.OrcamentoAprovado,
             v.GestorRequisitante,
+            v.GestorRequisitanteFuncionarioId,
             v.RecrutadorResponsavel,
             v.RecrutadorResponsavelUserId,
             v.Prioridade,

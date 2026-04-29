@@ -107,6 +107,21 @@ export function useDashboardLayout() {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  /** Expande só para cima: garante altura mínima em unidades de grid para o widget funil (todas as breakpoints). */
+  const ensureFunilMinGridHeight = useCallback((minH: number) => {
+    setLayouts((prev) => {
+      const next: ResponsiveLayouts = {};
+      for (const key of Object.keys(prev) as (keyof ResponsiveLayouts)[]) {
+        const layout = prev[key];
+        if (!layout) continue;
+        next[key] = layout.map((item) =>
+          item.i === "funil" ? { ...item, h: Math.max(item.h, minH) } : item,
+        );
+      }
+      return next;
+    });
+  }, []);
+
   return {
     isEditMode,
     setIsEditMode,
@@ -116,5 +131,6 @@ export function useDashboardLayout() {
     handleLayoutChange,
     toggleWidget,
     resetLayout,
+    ensureFunilMinGridHeight,
   };
 }

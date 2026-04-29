@@ -189,7 +189,8 @@ public sealed class PortalVagaSyncService
                 complementoGrauInstrucao: vrsMatch?.ComplementoGrauInstrucao,
                 funcaoCbo: pfDetailAum.Cbo,
                 funcaoDescricao: pfDetailAum.Descricao,
-                gestorRequisitanteNome: gestorAum));
+                gestorRequisitanteNome: gestorAum,
+                gestorRequisitanteChapa: aum.ChapaRequisitante));
             origemCounters["AumentoQuadro"]++;
             statusCounters[status] = statusCounters.GetValueOrDefault(status) + 1;
         }
@@ -258,7 +259,8 @@ public sealed class PortalVagaSyncService
                 complementoGrauInstrucao: vrsMatch?.ComplementoGrauInstrucao,
                 funcaoCbo: pfDetailSub.Cbo,
                 funcaoDescricao: pfDetailSub.Descricao,
-                gestorRequisitanteNome: gestorSub));
+                gestorRequisitanteNome: gestorSub,
+                gestorRequisitanteChapa: sub.ChapaRequisitante));
             origemCounters[origemTipo]++;
             statusCounters[status] = statusCounters.GetValueOrDefault(status) + 1;
         }
@@ -307,7 +309,8 @@ public sealed class PortalVagaSyncService
                 complementoGrauInstrucao: v.ComplementoGrauInstrucao,
                 funcaoCbo: pfDetailDir.Cbo,
                 funcaoDescricao: pfDetailDir.Descricao,
-                gestorRequisitanteNome: null));
+                gestorRequisitanteNome: null,
+                gestorRequisitanteChapa: null));
             origemCounters["Direta"]++;
             statusCounters[StatusAberta] = statusCounters.GetValueOrDefault(StatusAberta) + 1;
         }
@@ -423,7 +426,8 @@ public sealed class PortalVagaSyncService
         string? complementoGrauInstrucao,
         string? funcaoCbo,
         string? funcaoDescricao,
-        string? gestorRequisitanteNome) =>
+        string? gestorRequisitanteNome,
+        string? gestorRequisitanteChapa) =>
         new
         {
             idReqRm,
@@ -458,6 +462,7 @@ public sealed class PortalVagaSyncService
             funcaoCbo,
             funcaoDescricao,
             gestorRequisitanteNome,
+            gestorRequisitanteChapa,
         };
 
     private async Task<List<T>> LoadJsonAsync<T>(string path, string fileName, CancellationToken ct)

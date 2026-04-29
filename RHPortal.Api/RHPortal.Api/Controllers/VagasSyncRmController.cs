@@ -72,6 +72,7 @@ public sealed class VagasSyncRmController : ControllerBase
             .ToDictionaryAsync(x => x.IdHierarquiaRm, x => x.Id, ct);
         var desligamentoByIdReq = await _db.Desligamentos.AsNoTracking().Where(x => x.TenantId == tenantId)
             .ToDictionaryAsync(x => x.IdReqRm, x => x.Id, StringComparer.OrdinalIgnoreCase, ct);
+        var funcionarioByChapa = await BuildFuncionarioByChapaLookupAsync(tenantId, request.Items, ct);
 
         // Vagas existentes por chave preferencial (IdReqRm) e secundária (Codigo).
         // Pós-refactor 2026-04-27: chave primária é IdReqRm; Codigo só é usado para itens
@@ -140,6 +141,8 @@ public sealed class VagasSyncRmController : ControllerBase
                 && desligamentoByIdReq.TryGetValue(item.IdReqDesligamentoRm.Trim(), out var dId))
                 origemDesligamentoId = dId;
 
+            var gestorRequisitanteFuncionarioId = ResolveGestorRequisitanteFuncionarioId(item, funcionarioByChapa);
+
             var titulo = (item.Titulo ?? "").Trim();
             if (string.IsNullOrEmpty(titulo)) titulo = $"Vaga {idReq ?? codVaga}";
             if (titulo.Length > 160) titulo = titulo.Substring(0, 160);
@@ -199,6 +202,8 @@ public sealed class VagasSyncRmController : ControllerBase
                     existing.DataAbertura = dataAberturaRm ?? existing.DataAbertura;
                     existing.Status = statusItem;
                     VagaRmSyncApplicator.ApplyImportFields(existing, item);
+                    if (gestorRequisitanteFuncionarioId.HasValue)
+                        existing.GestorRequisitanteFuncionarioId = gestorRequisitanteFuncionarioId.Value;
                     existing.UpdatedAtUtc = now;
                     existing.CiclosAusenteRm = 0;
                     existing.UltimoCicloRmObservadoUtc = runStartUtc;
@@ -231,6 +236,7 @@ public sealed class VagasSyncRmController : ControllerBase
                     UltimoCicloRmObservadoUtc = runStartUtc,
                 };
                 VagaRmSyncApplicator.ApplyImportFields(fresh, item);
+                fresh.GestorRequisitanteFuncionarioId = gestorRequisitanteFuncionarioId;
                 _db.Vagas.Add(fresh);
                 created++;
             }
@@ -385,6 +391,52 @@ public sealed class VagasSyncRmController : ControllerBase
 
     private static DateTimeOffset? ToUtcOffsetOrNull(DateTime? dt) =>
         dt.HasValue ? new DateTimeOffset(DateTime.SpecifyKind(dt.Value, DateTimeKind.Utc), TimeSpan.Zero) : null;
+
+    private async Task<Dictionary<string, Guid>> BuildFuncionarioByChapaLookupAsync(
+        string tenantId,
+        IEnumerable<VagaSyncRmItem> items,
+        CancellationToken ct)
+    {
+        var chapas = items
+            .Select(i => NormalizeRmChapa(i.GestorRequisitanteChapa))
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (chapas.Count == 0)
+            return new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+
+        var funcionarios = await _db.Funcionarios.AsNoTracking()
+            .Where(f => f.TenantId == tenantId && f.MatriculaRm != null)
+            .Select(f => new { f.Id, f.MatriculaRm })
+            .ToListAsync(ct);
+
+        return funcionarios
+            .Select(f => new { f.Id, Chapa = NormalizeRmChapa(f.MatriculaRm) })
+            .Where(f => f.Chapa is not null && chapas.Contains(f.Chapa, StringComparer.OrdinalIgnoreCase))
+            .GroupBy(f => f.Chapa!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Guid? ResolveGestorRequisitanteFuncionarioId(
+        VagaSyncRmItem item,
+        IReadOnlyDictionary<string, Guid> funcionarioByChapa)
+    {
+        var chapa = NormalizeRmChapa(item.GestorRequisitanteChapa);
+        if (chapa is null)
+            return null;
+
+        return funcionarioByChapa.TryGetValue(chapa, out var funcionarioId)
+            ? funcionarioId
+            : null;
+    }
+
+    private static string? NormalizeRmChapa(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var trimmed = value.Trim();
+        return trimmed.Length == 0 ? null : trimmed;
+    }
 
     private static string? TruncateNullSafe(string? value, int maxLength)
     {
