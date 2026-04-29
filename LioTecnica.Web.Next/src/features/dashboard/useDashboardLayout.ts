@@ -11,8 +11,9 @@ import {
 
 const STORAGE_KEY = "renderrh-dashboard-v1";
 
+/** v2: Funil/Resumo full-width row; migração one-shot a partir de v1 com grid antigo (funil w5 ao lado do resumo). */
 interface PersistedState {
-  version: 1;
+  version: 2;
   layouts: ResponsiveLayouts;
   visibleWidgets: WidgetId[];
 }
@@ -25,9 +26,28 @@ function loadFromStorage(): PersistedState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedState;
-    if (parsed.version !== 1) return null;
-    return parsed;
+    const parsed = JSON.parse(raw) as {
+      version?: number;
+      layouts: ResponsiveLayouts;
+      visibleWidgets: WidgetId[];
+    };
+    const v = parsed.version ?? 1;
+    if (v !== 1 && v !== 2) return null;
+
+    let layouts = parsed.layouts;
+    if (v === 1) {
+      layouts = buildDefaultLayouts();
+    }
+
+    const visibleWidgets = Array.isArray(parsed.visibleWidgets)
+      ? (parsed.visibleWidgets as WidgetId[])
+      : DEFAULT_VISIBLE;
+
+    return {
+      version: 2,
+      layouts,
+      visibleWidgets,
+    };
   } catch {
     return null;
   }
@@ -55,7 +75,7 @@ export function useDashboardLayout() {
   // Persist whenever layouts or visibility changes (only after hydration)
   useEffect(() => {
     if (!isLoaded) return;
-    const state: PersistedState = { version: 1, layouts, visibleWidgets };
+    const state: PersistedState = { version: 2, layouts, visibleWidgets };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [layouts, visibleWidgets, isLoaded]);
 
