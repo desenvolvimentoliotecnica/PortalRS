@@ -5,6 +5,7 @@ using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
+using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -197,6 +198,7 @@ public sealed class VagasSyncRmController : ControllerBase
                     existing.FuncaoNomeRm = funcaoNomeTrim ?? existing.FuncaoNomeRm;
                     existing.DataAbertura = dataAberturaRm ?? existing.DataAbertura;
                     existing.Status = statusItem;
+                    VagaRmSyncApplicator.ApplyImportFields(existing, item);
                     existing.UpdatedAtUtc = now;
                     existing.CiclosAusenteRm = 0;
                     existing.UltimoCicloRmObservadoUtc = runStartUtc;
@@ -228,9 +230,22 @@ public sealed class VagasSyncRmController : ControllerBase
                     UpdatedAtUtc = now,
                     UltimoCicloRmObservadoUtc = runStartUtc,
                 };
+                VagaRmSyncApplicator.ApplyImportFields(fresh, item);
                 _db.Vagas.Add(fresh);
                 created++;
             }
+        }
+
+        var vagasRmSemTipoContratacao = await _db.Vagas
+            .Where(v => v.TenantId == tenantId
+                && v.TipoContratacao == null
+                && (v.IdReqRmOrigem != null || v.Codigo != null))
+            .ToListAsync(ct);
+
+        foreach (var vagaRm in vagasRmSemTipoContratacao)
+        {
+            if (VagaRmSyncApplicator.ApplyCltDefaultForImportedRmVaga(vagaRm))
+                vagaRm.UpdatedAtUtc = now;
         }
 
         await _db.SaveChangesAsync(ct);
