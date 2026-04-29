@@ -143,6 +143,11 @@ public sealed class PessoasController : ControllerBase
 
             var cpf = Trunc(item.Cpf?.Trim(), 14);
             var email = Trunc(item.Email?.Trim().ToLowerInvariant(), 180);
+            if (string.IsNullOrEmpty(cpf) && string.IsNullOrEmpty(email))
+            {
+                skipped++;
+                continue;
+            }
 
             Pessoa? p = null;
             if (!string.IsNullOrEmpty(cpf) && existingByCpf.TryGetValue(cpf, out var byCpf)) p = byCpf;

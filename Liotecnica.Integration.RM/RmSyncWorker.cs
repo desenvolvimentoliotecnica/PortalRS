@@ -23,7 +23,7 @@ public sealed class RmSyncWorker : BackgroundService
     private readonly PortalCategoriaSyncService _categoriaSync;
     private readonly PortalCargoSyncService _cargoSync;
     private readonly PortalUnitSyncService _unitSync;
-    private readonly PortalPessoaSyncService _pessoaSync;
+    private readonly PortalPessoaBulkSyncService _pessoaBulkSync;
     private readonly PortalFuncionarioSyncService _funcionarioSync;
     private readonly PortalVagaSyncService _vagaSync;
     private readonly PortalTalentoSyncService _talentoSync;
@@ -46,7 +46,7 @@ public sealed class RmSyncWorker : BackgroundService
         PortalCategoriaSyncService categoriaSync,
         PortalCargoSyncService cargoSync,
         PortalUnitSyncService unitSync,
-        PortalPessoaSyncService pessoaSync,
+        PortalPessoaBulkSyncService pessoaBulkSync,
         PortalFuncionarioSyncService funcionarioSync,
         PortalVagaSyncService vagaSync,
         PortalTalentoSyncService talentoSync,
@@ -67,7 +67,7 @@ public sealed class RmSyncWorker : BackgroundService
         _categoriaSync = categoriaSync;
         _cargoSync = cargoSync;
         _unitSync = unitSync;
-        _pessoaSync = pessoaSync;
+        _pessoaBulkSync = pessoaBulkSync;
         _funcionarioSync = funcionarioSync;
         _vagaSync = vagaSync;
         _talentoSync = talentoSync;
@@ -200,8 +200,8 @@ public sealed class RmSyncWorker : BackgroundService
             _logWriter.WriteLine("Sync Unidades: ativo no integrador, execução desabilitada (RmSync.SyncUnitsExecute = false).");
         }
 
-        await TrackedSyncAsync("PPESSOA", "Sync Pessoas (pessoa -> api/pessoas)",
-            _pessoaSync.SyncPessoasFromPessoaJsonAsync, ct);
+        await TrackedSyncAsync("PPESSOA", "Sync Pessoas (pessoa -> api/pessoas/bulk)",
+            _pessoaBulkSync.SyncAsync, ct);
 
         await TrackedSyncAsync("PFUNC", "Sync Funcionários (funcionario -> api/funcionarios)",
             _funcionarioSync.SyncFuncionariosFromFuncionarioJsonAsync, ct);
