@@ -13,6 +13,7 @@ import {
     PlayCircle,
     Loader2,
     RefreshCw,
+    Square,
     Terminal,
 } from "lucide-react";
 import {
@@ -90,6 +91,7 @@ export default function SyncRmOwnerTab() {
     const [alertasExpandidos, setAlertasExpandidos] = useState(false);
     const [resolvendoIds, setResolvendoIds] = useState<Set<string>>(new Set());
     const [disparandoSync, setDisparandoSync] = useState(false);
+    const [cancelandoSync, setCancelandoSync] = useState(false);
     const [feedbackSync, setFeedbackSync] = useState<{ tipo: "ok" | "erro"; msg: string } | null>(null);
     const [logData, setLogData] = useState<RmSyncLogResponse | null>(null);
     const [logLoading, setLogLoading] = useState(false);
@@ -174,6 +176,35 @@ export default function SyncRmOwnerTab() {
             setFeedbackSync({ tipo: "erro", msg: err instanceof Error ? err.message : "Falha ao disparar sync." });
         } finally {
             setDisparandoSync(false);
+        }
+    }
+
+    async function interromperSync() {
+        setCancelandoSync(true);
+        setFeedbackSync(null);
+        try {
+            const res = await apiFetch("/api/owner/integracao/sync-rm/cancel", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+            if (res.status === 202) {
+                const body = (await res.json().catch(() => ({}))) as { message?: string };
+                setFeedbackSync({
+                    tipo: "ok",
+                    msg: body.message ?? "Interrupção solicitada. O worker vai parar no próximo ponto seguro.",
+                });
+                setTimeout(() => {
+                    queryClient.invalidateQueries({ queryKey: ["owner", "integracao", "sync-rm"] });
+                    void carregarLog();
+                    setFeedbackSync(null);
+                }, 5000);
+            } else {
+                setFeedbackSync({ tipo: "erro", msg: `Falha HTTP ${res.status}` });
+            }
+        } catch (err) {
+            setFeedbackSync({ tipo: "erro", msg: err instanceof Error ? err.message : "Falha ao solicitar interrupção." });
+        } finally {
+            setCancelandoSync(false);
         }
     }
 
@@ -267,6 +298,19 @@ export default function SyncRmOwnerTab() {
                         <PlayCircle className="size-4" />
                     )}
                     {disparandoSync ? "Disparando..." : "Sincronizar agora"}
+                </button>
+                <button
+                    type="button"
+                    disabled={cancelandoSync}
+                    onClick={interromperSync}
+                    className="inline-flex items-center gap-2 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
+                >
+                    {cancelandoSync ? (
+                        <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                        <Square className="size-4" />
+                    )}
+                    {cancelandoSync ? "Solicitando..." : "Interromper sync"}
                 </button>
                 {feedbackSync && (
                     <span

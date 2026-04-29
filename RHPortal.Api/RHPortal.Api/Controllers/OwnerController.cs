@@ -1442,4 +1442,13 @@ public sealed class OwnerController : ControllerBase
             return StatusCode(503, new { message = ex.Message, hint = "Configure RmSync:WorkerProjectPath no appsettings." });
         }
     }
+
+    /// <summary>Solicita interrupção cooperativa do ciclo RM em execução.</summary>
+    [HttpPost("integracao/sync-rm/cancel")]
+    [ProducesResponseType(typeof(OwnerRmSyncCancelResponse), StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> CancelSyncRm(CancellationToken ct)
+    {
+        var response = await _rmSyncRunService.RequestCancelAsync(ct);
+        return Accepted(response);
+    }
 }

@@ -52,6 +52,7 @@ builder.Services.Configure<OutputOptions>(builder.Configuration.GetSection(Outpu
 builder.Services.Configure<RmSyncOptions>(builder.Configuration.GetSection(RmSyncOptions.SectionName));
 
 builder.Services.AddSingleton<ExtractionLogWriter>();
+builder.Services.AddSingleton<RmSyncCancellationService>();
 builder.Services.AddSingleton<RmDataExtractor>();
 builder.Services.AddSingleton<PortalHierarquiaSyncService>();
 builder.Services.AddSingleton<PortalDesligamentoSyncService>();

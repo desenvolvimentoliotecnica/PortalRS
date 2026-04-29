@@ -243,6 +243,7 @@ public sealed class RmSyncRunService : IRmSyncRunService
 
         var workerDll = Path.Combine(workerDir, "Liotecnica.Integration.RM.dll");
         var workerProject = Path.Combine(workerDir, "Liotecnica.Integration.RM.csproj");
+        ClearCancelRequest();
 
         lock (_runNowLock)
         {
@@ -307,6 +308,20 @@ public sealed class RmSyncRunService : IRmSyncRunService
         }
     }
 
+    public Task<OwnerRmSyncCancelResponse> RequestCancelAsync(CancellationToken ct)
+    {
+        var requestedAt = DateTimeOffset.UtcNow;
+        var path = ResolveCancelRequestPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, $"requestedAtUtc={requestedAt:O}{Environment.NewLine}");
+        _logger.LogInformation("RequestCancel: solicitacao de interrupcao RM registrada em {Path}.", path);
+
+        return Task.FromResult(new OwnerRmSyncCancelResponse(
+            true,
+            requestedAt,
+            "Interrupcao solicitada. O worker vai parar no proximo ponto seguro."));
+    }
+
     private static string ResolveWorkerDirectory(string? configured)
     {
         if (!string.IsNullOrWhiteSpace(configured))
@@ -325,5 +340,38 @@ public sealed class RmSyncRunService : IRmSyncRunService
             .Select(Path.GetFullPath)
             .FirstOrDefault(Directory.Exists)
             ?? Path.GetFullPath(candidates[^1]);
+    }
+
+    private void ClearCancelRequest()
+    {
+        var path = ResolveCancelRequestPath();
+        if (File.Exists(path))
+            File.Delete(path);
+    }
+
+    private string ResolveCancelRequestPath()
+    {
+        var configured = _config["RmSync:WorkerCancelPath"];
+        if (!string.IsNullOrWhiteSpace(configured))
+            return Path.GetFullPath(configured);
+
+        return Path.Combine(ResolveRmSyncLogsDirectory(), "cancel.request");
+    }
+
+    private string ResolveRmSyncLogsDirectory()
+    {
+        var configuredLogPath = _config["RmSync:WorkerLogPath"];
+        if (!string.IsNullOrWhiteSpace(configuredLogPath))
+        {
+            var fullLogPath = Path.GetFullPath(configuredLogPath);
+            return Path.GetDirectoryName(fullLogPath) ?? AppContext.BaseDirectory;
+        }
+
+        var workerPath = _config["RmSync:WorkerProjectPath"];
+        var baseDir = !string.IsNullOrWhiteSpace(workerPath)
+            ? Directory.GetParent(Path.GetFullPath(workerPath))?.FullName
+            : null;
+
+        return Path.Combine(baseDir ?? AppContext.BaseDirectory, "Liotecnica.Integration.RM.Logs");
     }
 }

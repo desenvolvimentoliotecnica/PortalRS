@@ -19,6 +19,7 @@ public sealed class PortalPessoaBulkSyncService
     private readonly RmSyncOptions _syncOptions;
     private readonly IHostEnvironment _env;
     private readonly ExtractionLogWriter _logWriter;
+    private readonly RmSyncCancellationService _cancellation;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -52,7 +53,8 @@ public sealed class PortalPessoaBulkSyncService
         IOptions<OutputOptions> outputOptions,
         IOptions<RmSyncOptions> syncOptions,
         IHostEnvironment env,
-        ExtractionLogWriter logWriter)
+        ExtractionLogWriter logWriter,
+        RmSyncCancellationService cancellation)
     {
         _logger = logger;
         _portalClient = portalClient;
@@ -60,11 +62,13 @@ public sealed class PortalPessoaBulkSyncService
         _syncOptions = syncOptions.Value;
         _env = env;
         _logWriter = logWriter;
+        _cancellation = cancellation;
     }
 
     public async Task SyncAsync(CancellationToken ct = default)
     {
         try { await SyncCoreAsync(ct); }
+        catch (RmSyncCancellationRequestedException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Sync Pessoas (bulk): falha geral.");
@@ -155,6 +159,7 @@ public sealed class PortalPessoaBulkSyncService
         var totalSkipped = 0;
         for (int i = 0; i < items.Count; i += chunkSize)
         {
+            _cancellation.ThrowIfCancellationRequested();
             var chunk = items.Skip(i).Take(chunkSize).ToList();
             var body = new { items = chunk };
             _logWriter.WriteLine($"Sync Pessoas (bulk): chunk {i / chunkSize + 1} ({chunk.Count} itens)");
