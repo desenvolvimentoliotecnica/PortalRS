@@ -191,7 +191,7 @@ public sealed class PortalTalentoSyncService
 
             try
             {
-                var response = await _portalClient.Http.PostAsJsonAsync("api/talentos", BuildPayload(false), JsonOptions, ct);
+                var response = await PostTalentoWithConcurrencyRetryAsync(BuildPayload(false), emailNorm, "POST", ct);
                 if (response.IsSuccessStatusCode)
                 {
                     var createdResp = await response.Content.ReadFromJsonAsync<TalentoResponse>(JsonOptions, ct);
@@ -291,7 +291,7 @@ public sealed class PortalTalentoSyncService
                     else
                     {
                         // Pessoa similar existe mas sem Talento: forçar criação do Talento (regra: todo candidato precisa de Talento antes).
-                        var retryResponse = await _portalClient.Http.PostAsJsonAsync("api/talentos", BuildPayload(true), JsonOptions, ct);
+                        var retryResponse = await PostTalentoWithConcurrencyRetryAsync(BuildPayload(true), emailNorm, "POST forceCreate", ct);
                         if (retryResponse.IsSuccessStatusCode)
                         {
                             var createdResp = await retryResponse.Content.ReadFromJsonAsync<TalentoResponse>(JsonOptions, ct);
@@ -310,7 +310,10 @@ public sealed class PortalTalentoSyncService
                         {
                             errors++;
                             var body = await retryResponse.Content.ReadAsStringAsync(ct);
-                            _logWriter.WriteLine($"Sync Talentos: 409 sem SimilarTalentoId, retry forceCreate falhou Email={email}: {retryResponse.StatusCode} {body}");
+                            if (IsOptimisticConcurrencyBody(body))
+                                _logWriter.WriteLine($"Sync Talentos: concorrencia persistente no POST forceCreate Email={email}; item sera reprocessado no proximo ciclo.");
+                            else
+                                _logWriter.WriteLine($"Sync Talentos: 409 sem SimilarTalentoId, retry forceCreate falhou Email={email}: {retryResponse.StatusCode} {body}");
                         }
                     }
                 }
@@ -318,7 +321,10 @@ public sealed class PortalTalentoSyncService
                 {
                     errors++;
                     var msg = await response.Content.ReadAsStringAsync(ct);
-                    _logWriter.WriteLine($"Sync Talentos: POST falhou Email={email}: {response.StatusCode} {msg}");
+                    if (IsOptimisticConcurrencyBody(msg))
+                        _logWriter.WriteLine($"Sync Talentos: concorrencia persistente no POST Email={email}; item sera reprocessado no proximo ciclo.");
+                    else
+                        _logWriter.WriteLine($"Sync Talentos: POST falhou Email={email}: {response.StatusCode} {msg}");
                     _logger.LogError("Sync Talentos: POST falhou Email={Email} Status={Status} Body={Body}", email, response.StatusCode, msg);
                 }
             }
@@ -331,6 +337,48 @@ public sealed class PortalTalentoSyncService
 
         _logWriter.WriteLine($"Sync Talentos: criados={created}, reutilizados (similar)={reused}, erros={errors}; mapa com {emailToTalentoId.Count} entradas.");
         _logger.LogInformation("Sync Talentos: criados={Created}, reutilizados={Reused}, erros={Errors}", created, reused, errors);
+    }
+
+    private async Task<HttpResponseMessage> PostTalentoWithConcurrencyRetryAsync(
+        object payload,
+        string email,
+        string operation,
+        CancellationToken ct)
+    {
+        const int maxAttempts = 3;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var response = await _portalClient.Http.PostAsJsonAsync("api/talentos", payload, JsonOptions, ct);
+            if (attempt >= maxAttempts || !await IsOptimisticConcurrencyResponseAsync(response, ct))
+                return response;
+
+            response.Dispose();
+            var nextAttempt = attempt + 1;
+            _logWriter.WriteLine($"Sync Talentos: concorrencia transitoria no {operation} Email={email}; tentando novamente ({nextAttempt}/{maxAttempts}).");
+            _logger.LogWarning("Sync Talentos: concorrencia transitoria no {Operation} para {Email}; retry {Attempt}/{MaxAttempts}.", operation, email, nextAttempt, maxAttempts);
+            await Task.Delay(TimeSpan.FromMilliseconds(350 * attempt), ct);
+        }
+
+        throw new InvalidOperationException("Fluxo de retry de talentos terminou sem resposta HTTP.");
+    }
+
+    private static async Task<bool> IsOptimisticConcurrencyResponseAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.StatusCode != System.Net.HttpStatusCode.InternalServerError)
+            return false;
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        return IsOptimisticConcurrencyBody(body);
+    }
+
+    private static bool IsOptimisticConcurrencyBody(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+
+        return body.Contains("expected to affect 1 row", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("optimistic concurrency", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("DbUpdateConcurrencyException", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? GetString(JsonElement row, string prop)

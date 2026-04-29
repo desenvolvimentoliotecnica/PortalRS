@@ -200,8 +200,13 @@ public sealed class RmSyncWorker : BackgroundService
         await TrackedSyncAsync("PSECAO", "Sync Centros de Custo (departamento -> api/centros-custo)",
             _areaSync.SyncAreasFromDepartamentoJsonAsync, ct);
 
-        await TrackedSyncAsync("PFUNCAO", "Sync Funções (PFUNCAO -> api/requisito-categorias)",
-            _categoriaSync.SyncCategoriasFromCargoJsonAsync, ct);
+        await TrackedSyncAsync("PFUNCAO", "Sync Funcoes (PFUNCAO lookup local)",
+            innerCt =>
+            {
+                _logWriter.WriteLine("Sync Funcoes: endpoint legado api/requisito-categorias removido do Portal; PFUNCAO sera usado apenas como lookup para vagas e funcionarios.");
+                _logger.LogInformation("Sync Funcoes: PFUNCAO mantido apenas como lookup local; endpoint api/requisito-categorias nao existe mais.");
+                return Task.CompletedTask;
+            }, ct);
 
         await TrackedSyncAsync("PCARGO", "Sync Cargos (PCARGO -> api/job-positions)",
             _cargoSync.SyncCargosFromCargoJsonAsync, ct);
