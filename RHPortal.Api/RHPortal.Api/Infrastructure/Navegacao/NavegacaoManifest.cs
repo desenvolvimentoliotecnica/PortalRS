@@ -175,7 +175,6 @@ public static class NavegacaoManifest
         new("nav-admin-gestores",           "Gestores",               "/admin/gestores",                 "usercheck",         "access.manage",            Ordem: 50),
         new("nav-admin-hierarquia",         "Hierarquia",             "/admin/hierarquia",               "bi-diagram-3",      "access.manage",            Ordem: 60),
         new("nav-admin-headcount",          "Headcount",              "/admin/configuracoes-headcount",  "users",             "access.manage",            Ordem: 70),
-        new("nav-aprovadores-alternativos", "Aprovadores Alternativos","/admin/aprovadores-alternativos","user-check",        "access.manage",            Ordem: 90),
         new("nav-admin-doc-padrao",         "Documentação Padrão",    "/admin/documentacao-padrao",      "bi-journal-text",   "access.manage",            Ordem: 100),
         new("nav-admin-menus",              "Menus",                  "/admin/menus",                    "bi-list-check",     "access.manage",            Ordem: 110),
         new("nav-admin-logs",               "Logs",                   "/admin/logs",                     "bi-journal-text",   "logs.view",                Ordem: 120),
