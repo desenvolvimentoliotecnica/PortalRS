@@ -178,7 +178,7 @@ public static class MenuSeeder
         ("/Gestao/Solicitacoes", "clipboardlist", 2, "solicitacoes-vaga.view", true, "Seed.Menu.SolicitacoesVaga", null),
         ("/Vagas", "bi-briefcase", 3, "vagas.view", false, "Seed.Menu.Vagas", null),
         ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
-        ("/Matching", "bi-stars", 5, "matching.view", false, "Seed.Menu.Matching", null),
+        ("/Matching", "bi-stars", 5, "matching.view", true, "Seed.Menu.Matching", null),
         ("/Triagem", "bi-funnel", 6, "triagem.view", false, "Seed.Menu.Triagem", null),
         ("/Gestao/Processo-Seletivo", "listchecks", 7, "processo-seletivo.view", false, "Seed.Menu.ProcessoSeletivo", null),
         ("/Admissao", "usercheck", 8, "admissao.view", false, "Seed.Menu.Admissao", null),

@@ -44,7 +44,6 @@ export const RECRUITMENT_MVP_ORDER = [
 
 /** Abas secundárias — abaixo do divisor */
 export const RECRUITMENT_SECONDARY_ORDER = [
-  RECRUITMENT_ROUTE_KEYS.matching,         // Matching IA
   RECRUITMENT_ROUTE_KEYS.triagem,          // Pipeline
   RECRUITMENT_ROUTE_KEYS.processoSeletivo, // Processo Seletivo
 ] as const;
@@ -79,7 +78,6 @@ export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.portalVagas,
   RECRUITMENT_ROUTE_KEYS.talentos,
   RECRUITMENT_ROUTE_KEYS.candidatos,
-  RECRUITMENT_ROUTE_KEYS.matching,
   RECRUITMENT_ROUTE_KEYS.rodadas,
   RECRUITMENT_ROUTE_KEYS.triagem,
   RECRUITMENT_ROUTE_KEYS.processoSeletivo,

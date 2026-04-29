@@ -109,7 +109,6 @@ public static class NavegacaoManifest
         // Sessão 31.8 (FASE 3.A) — funil de conversão entre etapas
         new("nav-funil",                    "Funil de Conversão",     "/recrutamento/funil",             "barchart",          "candidatos.view",          Ordem: 36),
         new("nav-admissao",                 "Admissão",               "/admissao",                       "usercheck",         "admissao.view",            Ordem: 40),
-        new("nav-matching",                 "Matching IA",            "/matching",                       "sparkles",          "matching.view",            Ordem: 50),
         // Fase 4 — Chatbot RAG + geração de conteúdo via Ollama (Qwen 2.5 + bge-m3)
         new("nav-assistente-ia",            "Assistente IA",          "/assistente-ia",                  "bot",               "matching.view",            Ordem: 52, OcultarDoOwner: true),
         new("nav-triagem",                  "Triagem",                "/triagem",                        "filter",            "triagem.view",             Ordem: 60),
