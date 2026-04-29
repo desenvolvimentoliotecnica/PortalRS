@@ -215,7 +215,7 @@ public static class MenuSeeder
         ("/Admin/ApiKeys", "bi-key-fill", 100, "api-keys.manage", false, "Seed.Menu.ApiKeys", null),
         ("/Admin/LocalizationConfig", "bi-translate", 101, "localization-config.manage", false, "Seed.Menu.Idioma", null),
         ("/Admin/Gestores", "bi-people", 102, "admin.gestores.manage", false, "Seed.Menu.GestoresHierarquia", null),
-        ("/Admin/RegrasAprovacaoVaga", "bi-check2-square", 103, "admin.regras-aprovacao.manage", false, "Seed.Menu.RegrasAprovacao", null),
+        ("/Admin/RegrasAprovacaoVaga", "bi-check2-square", 103, "admin.regras-aprovacao.manage", true, "Seed.Menu.RegrasAprovacao", null),
         ("/Admin/Hierarquia", "bi-diagram-2", 104, "admin.hierarquia.manage", false, "Seed.Menu.NiveisHierarquicos", null),
         ("/Owner/AwsSettings", "cloud-upload", 105, "aws-settings.manage", false, "Seed.Menu.ConfigAws", null)
     ];

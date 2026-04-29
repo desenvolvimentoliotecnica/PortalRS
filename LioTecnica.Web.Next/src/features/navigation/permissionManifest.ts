@@ -77,7 +77,6 @@ const NAV_MANIFEST: ReadonlyArray<{
     // ── Admin ──────────────────────────────────────────────────────────
     { id: "nav-admin-users",               label: "Usuários",                    href: "/admin/users",                    icon: "users",             permission: "users.read" },
     { id: "nav-admin-roles",               label: "Perfis (Roles)",              href: "/admin/roles",                    icon: "shield",            permission: "roles.manage" },
-    { id: "nav-configuracao-aprovacoes",   label: "Configuração de Aprovações",  href: "/admin/configuracao-aprovacoes",  icon: "settings2",         permission: "access.manage" },
     { id: "nav-aprovadores-alternativos",  label: "Aprovadores Alternativos",    href: "/admin/aprovadores-alternativos", icon: "user-check",        permission: "access.manage" },
     { id: "nav-admin-accesses",            label: "Acessos",                     href: "/admin/accesses",                 icon: "bi-shield-lock",    permission: "access.manage" },
     { id: "nav-admin-organograma",         label: "Organograma",                 href: "/admin/organograma",              icon: "bi-diagram-2",      permission: "access.manage" },
