@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Search, RefreshCw, Pencil, UserX, Unlock, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Search, RefreshCw, Pencil, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { lookupCep } from "@/lib/cepLookup";
 import { confirmDialog } from "@/lib/confirm-dialog";
@@ -30,8 +30,6 @@ type PessoaListItem = {
   uf: string | null;
   origem: number;
   createdAtUtc: string;
-  estaBloqueado: boolean;
-  bloqueioId: string | null;
 };
 
 type PessoasPagedResponse = {
@@ -135,24 +133,37 @@ function fmtDateTime(iso: string | null | undefined) {
   }
 }
 
+function fmtPhoneBr(phone: string | null | undefined) {
+  const raw = (phone ?? "").trim();
+  if (!raw) return "—";
+
+  let digits = raw.replace(/\D/g, "");
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 9) {
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  }
+  if (digits.length === 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }
+
+  return raw;
+}
+
 function stateLabel(state: string | null | undefined) {
   const s = (state ?? "").toLowerCase();
   if (s === "added") return "Criado";
   if (s === "modified") return "Alterado";
   if (s === "deleted") return "Removido";
   return state || "—";
-}
-
-function blockedBadge(v: boolean) {
-  return v ? (
-    <span className="inline-flex items-center rounded-full bg-red-500/15 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:text-red-400">
-      Sim
-    </span>
-  ) : (
-    <span className="inline-flex items-center rounded-full bg-zinc-400/15 px-2.5 py-0.5 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-      Não
-    </span>
-  );
 }
 
 type TabKey = "dados" | "endereco" | "docs" | "historico";
@@ -201,17 +212,6 @@ export default function PessoasScreen() {
 
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyItems, setHistoryItems] = useState<EntityChangeListItem[]>([]);
-
-  const [blockOpen, setBlockOpen] = useState(false);
-  const [blockTarget, setBlockTarget] = useState<PessoaListItem | null>(null);
-  const [blockMotivo, setBlockMotivo] = useState("");
-  const [blocking, setBlocking] = useState(false);
-
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manualNome, setManualNome] = useState("");
-  const [manualEmail, setManualEmail] = useState("");
-  const [manualMotivo, setManualMotivo] = useState("");
-  const [manualSaving, setManualSaving] = useState(false);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(totalCount / Math.max(1, pageSize))), [totalCount, pageSize]);
 
@@ -347,46 +347,6 @@ export default function PessoasScreen() {
     }
   }
 
-  function openBlock(item: PessoaListItem) {
-    setBlockTarget(item);
-    setBlockMotivo("");
-    setBlockOpen(true);
-  }
-
-  async function confirmBlock() {
-    if (!blockTarget) return;
-    setBlocking(true);
-    try {
-      const motivo = blockMotivo.trim() || null;
-      await fetchJson(`/api/bloqueio-pessoa/block/${encodeURIComponent(blockTarget.id)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ motivo }),
-      });
-      toast.success("Pessoa bloqueada.");
-      setBlockOpen(false);
-      setBlockTarget(null);
-      await syncList();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao bloquear.");
-    } finally {
-      setBlocking(false);
-    }
-  }
-
-  async function unblock(item: PessoaListItem) {
-    const bloqueioId = (item.bloqueioId ?? "").trim();
-    if (!bloqueioId) return;
-    if (!(await confirmDialog({ title: "Desbloquear pessoa", description: `Desbloquear "${item.nome ?? ""}"?`, confirmText: "Desbloquear" }))) return;
-    try {
-      await fetchJson(`/api/bloqueio-pessoa/${encodeURIComponent(bloqueioId)}`, { method: "DELETE" });
-      toast.success("Pessoa desbloqueada.");
-      await syncList();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao desbloquear.");
-    }
-  }
-
   async function deletePessoa(item: PessoaListItem) {
     if (!(await confirmDialog({
       title: "Excluir pessoa",
@@ -399,38 +359,6 @@ export default function PessoasScreen() {
       await syncList();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao excluir pessoa.");
-    }
-  }
-
-  function openManualBlock() {
-    setManualNome("");
-    setManualEmail("");
-    setManualMotivo("");
-    setManualOpen(true);
-  }
-
-  async function confirmManualBlock() {
-    const nome = manualNome.trim();
-    const email = manualEmail.trim();
-    const motivo = manualMotivo.trim() || null;
-    if (!nome || !email) {
-      toast.error("Preencha Nome e E-mail.");
-      return;
-    }
-    setManualSaving(true);
-    try {
-      await fetchJson(`/api/bloqueio-pessoa`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, email, motivo }),
-      });
-      toast.success("Pessoa bloqueada.");
-      setManualOpen(false);
-      await syncList();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao bloquear pessoa.");
-    } finally {
-      setManualSaving(false);
     }
   }
 
@@ -454,10 +382,6 @@ export default function PessoasScreen() {
           >
             <RefreshCw className="mr-1 size-4" />
             Atualizar
-          </Button>
-          <Button size="sm" onClick={openManualBlock}>
-            <UserX className="mr-1 size-4" />
-            Bloquear pessoa
           </Button>
         </div>
       </div>
@@ -499,7 +423,6 @@ export default function PessoasScreen() {
                   {sh("email", "E-mail")}
                   {sh("fone", "Fone")}
                   {sh("cidade", "Cidade / UF")}
-                  <TableHead>Bloqueado</TableHead>
                   {sh("criado", "Criado em")}
                 </>);
               })()}
@@ -509,7 +432,7 @@ export default function PessoasScreen() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   Carregando…
                 </TableCell>
               </TableRow>
@@ -518,29 +441,14 @@ export default function PessoasScreen() {
                 <TableRow key={p.id}>
                   <TableCell className="font-semibold">{p.nome ?? "—"}</TableCell>
                   <TableCell className="text-sm">{p.email ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{p.fone ?? "—"}</TableCell>
+                  <TableCell className="text-sm tabular-nums">{fmtPhoneBr(p.fone)}</TableCell>
                   <TableCell className="text-sm">{[p.cidade, p.uf].filter(Boolean).join(" / ") || "—"}</TableCell>
-                  <TableCell>{blockedBadge(!!p.estaBloqueado)}</TableCell>
                   <TableCell className="text-sm">{fmtDate(p.createdAtUtc)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="outline" size="icon-xs" title="Editar" onClick={() => void openEdit(p.id)}>
                         <Pencil />
                       </Button>
-                      {p.estaBloqueado ? (
-                        <Button
-                          variant="outline"
-                          size="icon-xs"
-                          title="Desbloquear"
-                          onClick={() => void unblock(p)}
-                        >
-                          <Unlock />
-                        </Button>
-                      ) : (
-                        <Button variant="outline" size="icon-xs" title="Bloquear" onClick={() => openBlock(p)}>
-                          <UserX />
-                        </Button>
-                      )}
                       {/* Pessoas com origem=Funcionario vieram do sync TOTVS RM — read-only.
                           API serializa o enum como string ("Funcionario") via JsonStringEnumConverter,
                           mas em alguns endpoints retorna como número (7). Compara ambos. */}
@@ -842,76 +750,6 @@ export default function PessoasScreen() {
         </DialogContent>
       </Dialog>
 
-      {/* ───────────────────────────── Bloquear (motivo) Dialog ───────────────────────────── */}
-      <Dialog
-        open={blockOpen}
-        onOpenChange={(open) => {
-          setBlockOpen(open);
-          if (!open) {
-            setBlockTarget(null);
-            setBlockMotivo("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{blockTarget?.nome ? `Bloquear — ${blockTarget.nome}` : "Bloquear pessoa"}</DialogTitle>
-            <DialogDescription>Informe o motivo do bloqueio (opcional).</DialogDescription>
-          </DialogHeader>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Motivo</label>
-            <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={3} value={blockMotivo} onChange={(e) => setBlockMotivo(e.target.value)} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBlockOpen(false)} disabled={blocking}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void confirmBlock()} disabled={blocking}>
-              {blocking ? "Bloqueando…" : "Bloquear"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ───────────────────────────── Bloqueio manual Dialog ───────────────────────────── */}
-      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Bloquear pessoa</DialogTitle>
-            <DialogDescription>Informe nome e e-mail. Opcionalmente informe o motivo.</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Nome *</label>
-              <Input value={manualNome} onChange={(e) => setManualNome(e.target.value)} placeholder="Nome completo" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">E-mail *</label>
-              <Input value={manualEmail} onChange={(e) => setManualEmail(e.target.value)} placeholder="email@exemplo.com" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Motivo</label>
-              <textarea
-                className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                rows={2}
-                value={manualMotivo}
-                onChange={(e) => setManualMotivo(e.target.value)}
-                placeholder="Opcional"
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setManualOpen(false)} disabled={manualSaving}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void confirmManualBlock()} disabled={manualSaving}>
-              {manualSaving ? "Bloqueando…" : "Bloquear"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }
