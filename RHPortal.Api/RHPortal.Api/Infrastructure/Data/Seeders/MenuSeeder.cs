@@ -204,7 +204,7 @@ public static class MenuSeeder
         ("/Unidades-Lotacao", "bi-geo-alt", 90, "unidades-lotacao.view", true, "Seed.Menu.UnidadesLotacao", null),
         ("/Admin/Users", "bi-people", 90, "users.read", false, "Seed.Menu.Usuarios", null),
         ("/Admin/Roles", "bi-shield-lock", 91, "roles.manage", false, "Seed.Menu.Perfis", null),
-        ("/Admin/Menus", "bi-list-check", 92, "menus.manage", false, "Seed.Menu.Menus", null),
+        ("/Admin/Menus", "bi-list-check", 92, "menus.manage", true, "Seed.Menu.Menus", null),
         ("/Admin/Accesses", "bi-key", 93, "access.manage", false, "Seed.Menu.Acessos", null),
         ("/Admin/Logs", "bi-activity", 94, "audit.view", false, "Seed.Menu.LogsTransacionais", null),
         ("/Admin/OperationalLogs", "bi-journal-text", 95, "logs.view", false, "Seed.Menu.LogsOperacionais", null),

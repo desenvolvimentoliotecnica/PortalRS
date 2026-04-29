@@ -176,7 +176,6 @@ public static class NavegacaoManifest
         new("nav-admin-hierarquia",         "Hierarquia",             "/admin/hierarquia",               "bi-diagram-3",      "access.manage",            Ordem: 60),
         new("nav-admin-headcount",          "Headcount",              "/admin/configuracoes-headcount",  "users",             "access.manage",            Ordem: 70),
         new("nav-admin-doc-padrao",         "Documentação Padrão",    "/admin/documentacao-padrao",      "bi-journal-text",   "access.manage",            Ordem: 100),
-        new("nav-admin-menus",              "Menus",                  "/admin/menus",                    "bi-list-check",     "access.manage",            Ordem: 110),
         new("nav-admin-logs",               "Logs",                   "/admin/logs",                     "bi-journal-text",   "logs.view",                Ordem: 120),
         new("nav-admin-operational-logs",   "Logs Operacionais",      "/admin/operational-logs",         "activity",          "logs.view",                Ordem: 130),
         new("nav-admin-notif-candidatura",  "Notificações (Candidaturas)", "/administracao/notificacoes-candidatura", "bell-ring", "audit.view",           Ordem: 140),
