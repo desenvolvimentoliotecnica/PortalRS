@@ -157,10 +157,6 @@ public static class NavegacaoManifest
         new("nav-funcoes",                  "Funções",                "/funcoes",                        "list-checks",       "jobpositions.view",        Ordem: 55),
         new("nav-nivel-cargo",              "Níveis de Cargo",        "/nivel-cargo",                    "layers",            "jobpositions.view",        Ordem: 58),
         new("nav-descricao-cargo",          "Descrição de Cargos",    "/descricao-cargo",                "file-text",         "jobpositions.view",        Ordem: 60),
-        // Renomeado: "Eixos de Vaga" → "SLA de Vagas". Conceito continua o mesmo
-        // (agrupador com SLA de fechamento por eixo), mas o label fala diretamente
-        // do que o usuário cadastra. Entidade backend segue chamada EixoVaga.
-        new("nav-sla-vagas",                "SLA de Vagas",           "/sla-vagas",                      "clock",             "vagas.view",               GrupoUiOverride: "cadastros", Ordem: 70),
         new("nav-unidades",                 "Estabelecimentos",       "/unidades",                       "map-pin",           "units.view",               Ordem: 80),
         new("nav-categorias-salariais",     "Categorias Salariais",   "/categorias-salariais",           "badge-dollar-sign", "categories.view",          Ordem: 100),
         new("nav-turnos",                   "Turnos",                 "/turnos",                         "clock",             "areas.view",               Ordem: 110),
