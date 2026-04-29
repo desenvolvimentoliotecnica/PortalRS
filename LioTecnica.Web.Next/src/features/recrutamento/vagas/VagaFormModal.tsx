@@ -639,6 +639,11 @@ function EnumSelect({ value, onChange, options, placeholder }: {
 /* ── Tab definitions ─────────────────────────────────────────────────── */
 
 type TabKey = "identificacao" | "horario" | "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos" | "posicao";
+const REMOVED_EDIT_TABS = new Set<TabKey>(["processo", "publicacao", "campos", "posicao"]);
+
+function normalizeEditTab(tab?: TabKey): TabKey {
+  return tab && !REMOVED_EDIT_TABS.has(tab) ? tab : "identificacao";
+}
 
 const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "identificacao", icon: "🪪", label: "Identificação" },
@@ -650,18 +655,13 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "remuneracao", icon: "💰", label: "Remuneração" },
   { key: "requisitos", icon: "✅", label: "Requisitos" },
   { key: "matching", icon: "✨", label: "Filtros matching (IA)" },
-  { key: "processo", icon: "🔀", label: "Processo seletivo" },
-  { key: "publicacao", icon: "📢", label: "Publicação" },
-  { key: "campos", icon: "🧩", label: "Campos personalizados" },
   { key: "candidatos", icon: "👥", label: "Candidatos" },
-  { key: "posicao", icon: "🏢", label: "Posição" },
 ];
 
-const STEPPER_SEQUENCE: TabKey[] = ["identificacao", "horario", "dados", "requisitos", "matching", "publicacao", "campos"];
+const STEPPER_SEQUENCE: TabKey[] = ["identificacao", "horario", "dados", "requisitos", "matching"];
 const STEPPER_LABELS: Record<string, string> = {
   identificacao: "Identificação", horario: "Horário", dados: "Dados básicos",
   requisitos: "Requisitos", matching: "Matching IA",
-  publicacao: "Publicação", campos: "Campos do portal",
 };
 
 /* ── CamposPersonalizadosTab ─────────────────────────────────────────── */
@@ -894,7 +894,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     }
     if (loaded.current) return;
     loaded.current = true;
-    setTab(defaultTab ?? "identificacao");
+    setTab(normalizeEditTab(defaultTab));
     setCopySearch("");
 
     void Promise.all([
@@ -918,7 +918,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         setDraft(d);
       }
     }).catch(() => toast.error("Falha ao carregar dados do formulário."));
-  }, [open, vagaId, prefill]);
+  }, [open, vagaId, prefill, defaultTab]);
 
   async function loadVagaIntoDraft(id: string, eData: EnumData) {
     try {
