@@ -23,12 +23,13 @@ public sealed class RmSyncWorker : BackgroundService
     private readonly PortalCategoriaSyncService _categoriaSync;
     private readonly PortalCargoSyncService _cargoSync;
     private readonly PortalUnitSyncService _unitSync;
-    private readonly PortalPessoaSyncService _pessoaSync;
+    private readonly PortalPessoaBulkSyncService _pessoaBulkSync;
     private readonly PortalFuncionarioSyncService _funcionarioSync;
     private readonly PortalVagaSyncService _vagaSync;
     private readonly PortalTalentoSyncService _talentoSync;
     private readonly PortalCandidatoVagaSyncService _candidatoVagaSync;
     private readonly ExtractionLogWriter _logWriter;
+    private readonly RmSyncCancellationService _cancellation;
     private readonly RmSyncOptions _syncOptions;
 
     public RmSyncWorker(
@@ -46,12 +47,13 @@ public sealed class RmSyncWorker : BackgroundService
         PortalCategoriaSyncService categoriaSync,
         PortalCargoSyncService cargoSync,
         PortalUnitSyncService unitSync,
-        PortalPessoaSyncService pessoaSync,
+        PortalPessoaBulkSyncService pessoaBulkSync,
         PortalFuncionarioSyncService funcionarioSync,
         PortalVagaSyncService vagaSync,
         PortalTalentoSyncService talentoSync,
         PortalCandidatoVagaSyncService candidatoVagaSync,
-        ExtractionLogWriter logWriter)
+        ExtractionLogWriter logWriter,
+        RmSyncCancellationService cancellation)
     {
         _logger = logger;
         _rmOptions = rmOptions.Value;
@@ -67,12 +69,13 @@ public sealed class RmSyncWorker : BackgroundService
         _categoriaSync = categoriaSync;
         _cargoSync = cargoSync;
         _unitSync = unitSync;
-        _pessoaSync = pessoaSync;
+        _pessoaBulkSync = pessoaBulkSync;
         _funcionarioSync = funcionarioSync;
         _vagaSync = vagaSync;
         _talentoSync = talentoSync;
         _candidatoVagaSync = candidatoVagaSync;
         _logWriter = logWriter;
+        _cancellation = cancellation;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -130,6 +133,9 @@ public sealed class RmSyncWorker : BackgroundService
         }
 
         _logWriter.WriteLine("========== Sincronização RM iniciada ==========");
+        _cancellation.ClearRequest();
+        try
+        {
         var areaTable = _schemaOptions.FullTableName(_schemaOptions.AreaTable);
         var departamentoTable = _schemaOptions.FullTableName(_schemaOptions.DepartamentoTable);
         var funcaoTable = _schemaOptions.FullTableName(_schemaOptions.FuncaoTable);
@@ -145,7 +151,12 @@ public sealed class RmSyncWorker : BackgroundService
 
         try
         {
+            _cancellation.ThrowIfCancellationRequested();
             await _extractor.ExtractSchemaAsync(ct);
+        }
+        catch (RmSyncCancellationRequestedException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -162,7 +173,12 @@ public sealed class RmSyncWorker : BackgroundService
 
         try
         {
+            _cancellation.ThrowIfCancellationRequested();
             _newWatermarks = await _extractor.ExtractAndSaveAsync(watermarks, ct);
+        }
+        catch (RmSyncCancellationRequestedException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -200,8 +216,8 @@ public sealed class RmSyncWorker : BackgroundService
             _logWriter.WriteLine("Sync Unidades: ativo no integrador, execução desabilitada (RmSync.SyncUnitsExecute = false).");
         }
 
-        await TrackedSyncAsync("PPESSOA", "Sync Pessoas (pessoa -> api/pessoas)",
-            _pessoaSync.SyncPessoasFromPessoaJsonAsync, ct);
+        await TrackedSyncAsync("PPESSOA", "Sync Pessoas (pessoa -> api/pessoas/bulk)",
+            _pessoaBulkSync.SyncAsync, ct);
 
         await TrackedSyncAsync("PFUNC", "Sync Funcionários (funcionario -> api/funcionarios)",
             _funcionarioSync.SyncFuncionariosFromFuncionarioJsonAsync, ct);
@@ -226,7 +242,12 @@ public sealed class RmSyncWorker : BackgroundService
             {
                 try
                 {
+                    _cancellation.ThrowIfCancellationRequested();
                     await _extractor.ExtractCandidatosPorVagaAsync(ct);
+                }
+                catch (RmSyncCancellationRequestedException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -238,10 +259,14 @@ public sealed class RmSyncWorker : BackgroundService
             {
                 await TrackedSyncAsync("CANDIDATOS_VAGA", "Sync Talentos/Candidatos por vaga", async innerCt =>
                 {
+                    _cancellation.ThrowIfCancellationRequested();
                     await _extractor.ExtractCandidatosPorVagaAsync(innerCt);
+                    _cancellation.ThrowIfCancellationRequested();
                     if (_syncOptions.SyncCandidatosPerfilCv)
                         await _extractor.ExtractCandidatoPerfilAsync(innerCt);
+                    _cancellation.ThrowIfCancellationRequested();
                     var emailToTalentoId = await _talentoSync.SyncTalentosAndGetEmailToIdMapAsync(innerCt);
+                    _cancellation.ThrowIfCancellationRequested();
                     await _candidatoVagaSync.SyncCandidatosFromCandidatoVagaJsonAsync(innerCt, emailToTalentoId);
                 }, ct);
             }
@@ -251,6 +276,18 @@ public sealed class RmSyncWorker : BackgroundService
     }
 
     // Status enum espelha RhPortal.Api.Domain.Enums.RmSyncStatus — sem dependência cruzada.
+        catch (RmSyncCancellationRequestedException)
+        {
+            _logger.LogInformation("Sincronizacao RM interrompida por solicitacao do usuario.");
+            _logWriter.WriteLine("========== Sincronizacao RM interrompida pelo usuario ==========");
+        }
+        finally
+        {
+            _cancellation.ClearRequest();
+        }
+
+    }
+
     private const short StatusSucesso = 2;
     private const short StatusFalha = 3;
 
@@ -280,10 +317,13 @@ public sealed class RmSyncWorker : BackgroundService
             // Para o run, registramos o watermark "novo" (já capturado).
         }
 
+        _cancellation.ThrowIfCancellationRequested();
         var runId = await _portalClient.StartRunAsync(entidade, "full", watermarkAplicado, ct);
         try
         {
+            _cancellation.ThrowIfCancellationRequested();
             await action(ct);
+            _cancellation.ThrowIfCancellationRequested();
             DateTime? watermarkNovo = null;
             if (_newWatermarks != null && _newWatermarks.TryGetValue(entidade, out var wm))
                 watermarkNovo = wm;
@@ -293,6 +333,14 @@ public sealed class RmSyncWorker : BackgroundService
 
             if (RmDataExtractor.IncrementalTables.Contains(entidade) && watermarkNovo.HasValue)
                 await _portalClient.UpdateCheckpointAsync(entidade, watermarkNovo, "Sucesso", ct);
+        }
+        catch (RmSyncCancellationRequestedException ex)
+        {
+            _logger.LogInformation("Sync {Label} interrompido por solicitacao do usuario.", logLabel);
+            _logWriter.WriteLine($"{logLabel}: INTERROMPIDO - {ex.Message}");
+            if (runId.HasValue)
+                await _portalClient.FinishRunAsync(runId.Value, StatusFalha, 0, 0, 0, 0, ex.Message, null, CancellationToken.None);
+            throw;
         }
         catch (Exception ex)
         {

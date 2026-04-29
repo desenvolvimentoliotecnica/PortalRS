@@ -16,8 +16,10 @@ public sealed class PortalPessoaBulkSyncService
     private readonly ILogger<PortalPessoaBulkSyncService> _logger;
     private readonly PortalApiClient _portalClient;
     private readonly OutputOptions _outputOptions;
+    private readonly RmSyncOptions _syncOptions;
     private readonly IHostEnvironment _env;
     private readonly ExtractionLogWriter _logWriter;
+    private readonly RmSyncCancellationService _cancellation;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -49,19 +51,24 @@ public sealed class PortalPessoaBulkSyncService
         ILogger<PortalPessoaBulkSyncService> logger,
         PortalApiClient portalClient,
         IOptions<OutputOptions> outputOptions,
+        IOptions<RmSyncOptions> syncOptions,
         IHostEnvironment env,
-        ExtractionLogWriter logWriter)
+        ExtractionLogWriter logWriter,
+        RmSyncCancellationService cancellation)
     {
         _logger = logger;
         _portalClient = portalClient;
         _outputOptions = outputOptions.Value;
+        _syncOptions = syncOptions.Value;
         _env = env;
         _logWriter = logWriter;
+        _cancellation = cancellation;
     }
 
     public async Task SyncAsync(CancellationToken ct = default)
     {
         try { await SyncCoreAsync(ct); }
+        catch (RmSyncCancellationRequestedException) { throw; }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Sync Pessoas (bulk): falha geral.");
@@ -86,12 +93,26 @@ public sealed class PortalPessoaBulkSyncService
         }
 
         // Filtra: só pessoas que NÃO são funcionárias (CODPESSOA não está em PFUNC.CODPESSOA)
-        var candidatos = pessoas
+        var naoFuncionarios = pessoas
             .Where(p => p.Codigo > 0 && !funcCodPessoas.Contains(p.Codigo))
+            .ToList();
+        var semNome = naoFuncionarios.Count(p => string.IsNullOrWhiteSpace(p.Nome));
+        var candidatosComNome = naoFuncionarios
             .Where(p => !string.IsNullOrWhiteSpace(p.Nome))
             .ToList();
+        var semChaveMinima = candidatosComNome.Count(p =>
+            string.IsNullOrWhiteSpace(p.Cpf) && string.IsNullOrWhiteSpace(p.Email));
+        var candidatos = candidatosComNome
+            .Where(p => !string.IsNullOrWhiteSpace(p.Cpf) || !string.IsNullOrWhiteSpace(p.Email))
+            .ToList();
 
-        _logWriter.WriteLine($"Sync Pessoas (bulk): total PPESSOA={pessoas.Count}, funcionários={funcCodPessoas.Count}, restante (candidatos/ex)={candidatos.Count}");
+        if (_syncOptions.MaxPessoasToSync is int cap && cap > 0 && candidatos.Count > cap)
+        {
+            _logWriter.WriteLine($"Sync Pessoas (bulk): limitando envio a {cap} (de {candidatos.Count}) via RmSync:MaxPessoasToSync.");
+            candidatos = candidatos.Take(cap).ToList();
+        }
+
+        _logWriter.WriteLine($"Sync Pessoas (bulk): total PPESSOA={pessoas.Count}, funcionarios ignorados={funcCodPessoas.Count}, sem nome={semNome}, sem CPF/e-mail={semChaveMinima}, enviados={candidatos.Count}");
 
         if (candidatos.Count == 0) { _logWriter.WriteLine("Sync Pessoas (bulk): nada a enviar."); return; }
 
@@ -138,6 +159,7 @@ public sealed class PortalPessoaBulkSyncService
         var totalSkipped = 0;
         for (int i = 0; i < items.Count; i += chunkSize)
         {
+            _cancellation.ThrowIfCancellationRequested();
             var chunk = items.Skip(i).Take(chunkSize).ToList();
             var body = new { items = chunk };
             _logWriter.WriteLine($"Sync Pessoas (bulk): chunk {i / chunkSize + 1} ({chunk.Count} itens)");
@@ -154,7 +176,7 @@ public sealed class PortalPessoaBulkSyncService
             totalUpdated += result?.Updated ?? 0;
             totalSkipped += result?.Skipped ?? 0;
         }
-        _logWriter.WriteLine($"Sync Pessoas (bulk): OK — criadas={totalCreated}, atualizadas={totalUpdated}, ignoradas={totalSkipped}, total={items.Count}");
+        _logWriter.WriteLine($"Sync Pessoas (bulk): OK - criadas={totalCreated}, atualizadas={totalUpdated}, ignoradas={totalSkipped}, ignoradas antes do envio={semNome + semChaveMinima}, total enviado={items.Count}");
     }
 
     private string GetSchemaTablesPath()

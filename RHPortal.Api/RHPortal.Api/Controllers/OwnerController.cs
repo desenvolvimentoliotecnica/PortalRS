@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
@@ -45,6 +46,7 @@ public sealed class OwnerController : ControllerBase
     private readonly IServiceProvider _scope;
     private readonly IPreAdmissaoService _preAdmissaoService;
     private readonly IRmSyncRunService _rmSyncRunService;
+    private readonly IConfiguration _configuration;
 
     public OwnerController(
         MasterDbContext masterDb,
@@ -52,7 +54,8 @@ public sealed class OwnerController : ControllerBase
         ITenantProvisioningService provisioning,
         IServiceProvider scope,
         IPreAdmissaoService preAdmissaoService,
-        IRmSyncRunService rmSyncRunService)
+        IRmSyncRunService rmSyncRunService,
+        IConfiguration configuration)
     {
         _masterDb = masterDb;
         _ownerAuth = ownerAuth;
@@ -60,6 +63,7 @@ public sealed class OwnerController : ControllerBase
         _scope = scope;
         _preAdmissaoService = preAdmissaoService;
         _rmSyncRunService = rmSyncRunService;
+        _configuration = configuration;
     }
 
     [AllowAnonymous]
@@ -1332,6 +1336,21 @@ public sealed class OwnerController : ControllerBase
         return Ok(aggregated.OrderByDescending(r => r.DetectadoEmUtc).Take(safeLimit).ToList());
     }
 
+    /// <summary>Tail do log físico do worker RM para acompanhar o ciclo sem acessar o servidor por SSH.</summary>
+    [HttpGet("integracao/sync-rm/logs")]
+    [ProducesResponseType(typeof(OwnerRmSyncLogResponse), StatusCodes.Status200OK)]
+    public IActionResult OwnerRmSyncLogs([FromQuery] int tail = 350)
+    {
+        var safeTail = Math.Clamp(tail, 20, 1000);
+        var logPath = ResolveRmSyncLogPath();
+        if (!System.IO.File.Exists(logPath))
+            return Ok(new OwnerRmSyncLogResponse(false, null, Array.Empty<string>()));
+
+        var lastModifiedUtc = System.IO.File.GetLastWriteTimeUtc(logPath);
+        var lines = ReadLastLines(logPath, safeTail);
+        return Ok(new OwnerRmSyncLogResponse(true, lastModifiedUtc, lines));
+    }
+
     /// <summary>Resolve a lista de tenantIds para iterar (filtro específico ou todos os ativos).</summary>
     private async Task<List<string>> ResolveTargetTenantsAsync(string? tenantId, CancellationToken ct)
     {
@@ -1344,6 +1363,43 @@ public sealed class OwnerController : ControllerBase
             .OrderBy(t => t.TenantId)
             .Select(t => t.TenantId)
             .ToListAsync(ct);
+    }
+
+    private string ResolveRmSyncLogPath()
+    {
+        var configured = _configuration["RmSync:WorkerLogPath"];
+        if (!string.IsNullOrWhiteSpace(configured))
+            return Path.GetFullPath(configured);
+
+        var workerPath = _configuration["RmSync:WorkerProjectPath"];
+        var baseDir = !string.IsNullOrWhiteSpace(workerPath)
+            ? Directory.GetParent(Path.GetFullPath(workerPath))?.FullName
+            : null;
+
+        var candidates = new[]
+        {
+            Path.Combine(baseDir ?? AppContext.BaseDirectory, "Liotecnica.Integration.RM.Logs", "extraction.log"),
+            Path.Combine(AppContext.BaseDirectory, "Liotecnica.Integration.RM.Logs", "extraction.log"),
+            "/app/Liotecnica.Integration.RM.Logs/extraction.log",
+        };
+
+        return candidates.FirstOrDefault(System.IO.File.Exists) ?? candidates[0];
+    }
+
+    private static IReadOnlyList<string> ReadLastLines(string path, int tail)
+    {
+        var lines = new Queue<string>(tail);
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+
+        while (reader.ReadLine() is { } line)
+        {
+            if (lines.Count == tail)
+                lines.Dequeue();
+            lines.Enqueue(line);
+        }
+
+        return lines.ToArray();
     }
 
     /// <summary>Resolve manualmente um alerta. Idempotente — alertas já resolvidos retornam 204.</summary>
@@ -1385,5 +1441,14 @@ public sealed class OwnerController : ControllerBase
         {
             return StatusCode(503, new { message = ex.Message, hint = "Configure RmSync:WorkerProjectPath no appsettings." });
         }
+    }
+
+    /// <summary>Solicita interrupção cooperativa do ciclo RM em execução.</summary>
+    [HttpPost("integracao/sync-rm/cancel")]
+    [ProducesResponseType(typeof(OwnerRmSyncCancelResponse), StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> CancelSyncRm(CancellationToken ct)
+    {
+        var response = await _rmSyncRunService.RequestCancelAsync(ct);
+        return Accepted(response);
     }
 }

@@ -54,4 +54,7 @@ public interface IRmSyncRunService
     /// Retorna o PID se conseguiu iniciar; null se já há outro ciclo manual rodando.
     /// </summary>
     Task<int?> TriggerRunNowAsync(CancellationToken ct);
+
+    /// <summary>Solicita interrupção cooperativa do ciclo RM em execução.</summary>
+    Task<OwnerRmSyncCancelResponse> RequestCancelAsync(CancellationToken ct);
 }
