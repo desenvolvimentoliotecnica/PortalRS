@@ -18,6 +18,8 @@ const NAV_MANIFEST: ReadonlyArray<{
     // ── Top-level (outside any group) ──────────────────────────────────
     { id: "nav-dashboard",                 label: "Dashboard",                  href: "/dashboard",                      icon: "layoutdashboard",  permission: "dashboard.view" },
     { id: "nav-painel-solicitacoes",       label: "Painel de Solicitações",      href: "/gestao/painel-solicitacoes",     icon: "gitbranch",        permission: "gestao.dashboard" },
+    { id: "nav-gestao-solicitacoes-vaga",  label: "Solicitações de Vaga",        href: "/gestao/solicitacoes",          icon: "clipboardlist",     permission: "solicitacoes-vaga.view" },
+    { id: "nav-gestao-aprovacoes-vaga",    label: "Aprovações",                   href: "/gestao/aprovacoes",            icon: "listchecks",        permission: "aprovacoes-vaga.view" },
     { id: "nav-agendas",                   label: "Agenda",                     href: "/agendas",                        icon: "calendar",         permission: "agenda.view" },
 
     // ── Colaborador ────────────────────────────────────────────────────
@@ -36,9 +38,13 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-vagas",                     label: "Vagas",                       href: "/vagas",                          icon: "briefcase",        permission: "vagas.view" },
     { id: "nav-candidatos",                label: "Candidatos",                  href: "/candidatos",                     icon: "users",            permission: "candidatos.view" },
     { id: "nav-triagem",                   label: "Pipeline",                    href: "/triagem",                        icon: "bi-funnel",        permission: "triagem.view" },
+    { id: "nav-rh-contrat-triagem",        label: "Contratações — Triagem",      href: "/rh/contratacoes/triagem",        icon: "clipboardlist",      permission: "rh.contratacoes.triagem" },
+    { id: "nav-rh-contrat-selecao",        label: "Contratações — Seleção",       href: "/rh/contratacoes/selecao",        icon: "usercheck",          permission: "rh.contratacoes.selecao" },
+    { id: "nav-rh-contrat-aprovacoes",    label: "Contratações — Aprovações",     href: "/gestao/aprovacoes",            icon: "listchecks",          permission: "gestao.dashboard" },
     { id: "nav-processo-seletivo",         label: "Processo Seletivo",           href: "/gestao/processo-seletivo",       icon: "listchecks",       permission: "processo-seletivo.view" },
     { id: "nav-admissao",                  label: "Admissão",                    href: "/admissao",                       icon: "usercheck",        permission: "admissao.view" },
     { id: "nav-portalvagas",               label: "Portal de Vagas",             href: "/portalvagas",                    icon: "globe",            permission: "portalvagas.view" },
+    { id: "nav-painel-rh",                 label: "Painel RH",                   href: "/painel-rh",                       icon: "layoutdashboard", permission: "entrada.view" },
 
     // ── Gestão de Pessoas & Feedback ───────────────────────────────────
     { id: "nav-gestao-dashboard",          label: "Dashboard Gestão",            href: "/gestao/dashboard",               icon: "layoutdashboard",  permission: "gestao.dashboard" },
@@ -67,6 +73,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-centros-custo",             label: "Centros de Custo",            href: "/centros-custo",                  icon: "landmark",         permission: "areas.view" },
     { id: "nav-categorias-salariais",      label: "Categorias Salariais",        href: "/categorias-salariais",           icon: "badge-dollar-sign", permission: "categories.view" },
     { id: "nav-turnos",                    label: "Turnos",                      href: "/turnos",                         icon: "clock",            permission: "areas.view" },
+    { id: "nav-sla-vagas",                label: "SLA de Vagas",                href: "/sla-vagas",                       icon: "timer",            permission: "vagas.view" },
     { id: "nav-motivos-requisicao",        label: "Motivos de Requisição",       href: "/motivos-requisicao",             icon: "list-checks",      permission: "units.view" },
     { id: "nav-pessoas",                   label: "Pessoas",                     href: "/pessoas",                        icon: "user",             permission: "funcionarios.view" },
     { id: "nav-funcionarios",              label: "Funcionários",                href: "/funcionarios",                   icon: "users",            permission: "funcionarios.view" },
@@ -77,6 +84,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     // ── Admin ──────────────────────────────────────────────────────────
     { id: "nav-admin-users",               label: "Usuários",                    href: "/admin/users",                    icon: "users",             permission: "users.read" },
     { id: "nav-admin-roles",               label: "Perfis (Roles)",              href: "/admin/roles",                    icon: "shield",            permission: "roles.manage" },
+    { id: "nav-admin-logs",                label: "Logs operacionais",           href: "/admin/logs",                     icon: "activity",          permission: "logs.view" },
     { id: "nav-admin-accesses",            label: "Acessos",                     href: "/admin/accesses",                 icon: "bi-shield-lock",    permission: "access.manage" },
     { id: "nav-admin-organograma",         label: "Organograma",                 href: "/admin/organograma",              icon: "bi-diagram-2",      permission: "access.manage" },
 
@@ -84,6 +92,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-admin-ia",                  label: "Configuração de IA",          href: "/admin/ia",                       icon: "brain",             permission: "ai.config" },
     { id: "nav-admin-documentacao-padrao", label: "Documentação Padrão",         href: "/admin/documentacao-padrao",      icon: "file-text",         permission: "access.manage" },
     { id: "nav-admin-requisicoes-rm",        label: "Requisições RM",               href: "/admin/requisicoes-rm",           icon: "clipboardlist",      permission: "access.manage" },
+    { id: "nav-admin-rm-requisicao-status", label: "Status RM ⇄ Requisição",      href: "/admin/rm-requisicao-status",    icon: "arrow-right-left",   permission: "access.manage" },
     { id: "nav-admin-api-keys",            label: "Chaves de API",               href: "/admin/api-keys",                 icon: "bi-key-fill",       permission: "api-keys.manage" },
 ] as const;
 

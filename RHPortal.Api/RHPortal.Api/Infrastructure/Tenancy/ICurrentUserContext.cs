@@ -54,4 +54,7 @@ public interface ICurrentUserContext
 
     /// <summary>E-mail do usuário autenticado (extraído do JWT).</summary>
     string? Email { get; }
+
+    /// <summary>True se existe claim <c>permission</c> com o valor (<c>*</c> concede todas).</summary>
+    bool HasPermission(string permissionKey);
 }

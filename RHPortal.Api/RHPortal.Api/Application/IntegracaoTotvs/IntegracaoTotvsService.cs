@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Application.PreAdmissao;
+using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.IntegracaoTotvs;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -21,6 +22,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
     private readonly IEmailQueueService _emailQueue;
     private readonly ITenantContext _tenantContext;
     private readonly StatusHistoricoService _statusHistorico;
+    private readonly ISolicitacaoVagaRmIntegracaoService _solicitacaoVagaRmIntegracao;
 
     public IntegracaoTotvsService(
         AppDbContext db,
@@ -29,7 +31,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         ApprovalWorkflowHelper workflow,
         IEmailQueueService emailQueue,
         ITenantContext tenantContext,
-        StatusHistoricoService statusHistorico)
+        StatusHistoricoService statusHistorico,
+        ISolicitacaoVagaRmIntegracaoService solicitacaoVagaRmIntegracao)
     {
         _db = db;
         _ocupacaoService = ocupacaoService;
@@ -38,6 +41,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         _emailQueue = emailQueue;
         _tenantContext = tenantContext;
         _statusHistorico = statusHistorico;
+        _solicitacaoVagaRmIntegracao = solicitacaoVagaRmIntegracao;
     }
 
     public async Task<IntegracaoTotvsPainelResponse> ListPainelAsync(IntegracaoTotvsPainelQuery query, CancellationToken ct)
@@ -60,7 +64,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.ApprovedAtUtc,
                     p.IntegracaoResultado,
                     p.IntegracaoMensagem,
-                    p.IntegradaEmUtc
+                    p.IntegradaEmUtc,
+                    null,
+                    null,
+                    null
                 ))
                 .ToListAsync(ct);
             all.AddRange(admissoes);
@@ -83,7 +90,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.ApprovedAtUtc,
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
-                    s.IntegradaEmUtc
+                    s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null
                 ))
                 .ToListAsync(ct);
             all.AddRange(pgtoExtra);
@@ -106,7 +116,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.ApprovedAtUtc,
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
-                    s.IntegradaEmUtc
+                    s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null
                 ))
                 .ToListAsync(ct);
             all.AddRange(desligamentos);
@@ -129,7 +142,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.ApprovedAtUtc,
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
-                    s.IntegradaEmUtc
+                    s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null
                 ))
                 .ToListAsync(ct);
             all.AddRange(promocoes);
@@ -152,7 +168,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.ApprovedAtUtc,
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
-                    s.IntegradaEmUtc
+                    s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null
                 ))
                 .ToListAsync(ct);
             all.AddRange(enderecos);
@@ -175,7 +194,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.ApprovedAtUtc,
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
-                    s.IntegradaEmUtc
+                    s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null
                 ))
                 .ToListAsync(ct);
             all.AddRange(dependentes);
@@ -198,7 +220,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.ApprovedAtUtc,
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
-                    s.IntegradaEmUtc
+                    s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null
                 ))
                 .ToListAsync(ct);
             all.AddRange(beneficios);
@@ -221,7 +246,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.ApprovedAtUtc,
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
-                    s.IntegradaEmUtc
+                    s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null
                 ))
                 .ToListAsync(ct);
             all.AddRange(ferias);
@@ -234,7 +262,14 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 .AsNoTracking()
                 .Include(s => s.Solicitante)
                 .Where(s => s.Status == SolicitacaoStatus.EmIntegracao
-                         || s.Status == SolicitacaoStatus.Concluida)
+                         || s.Status == SolicitacaoStatus.EmProcessoSeletivo
+                         || s.Status == SolicitacaoStatus.Suspensa
+                         || s.Status == SolicitacaoStatus.Concluida
+                         || s.Status == SolicitacaoStatus.ContratacaoConcluida
+                         || s.Status == SolicitacaoStatus.EncerradaSemContratacao
+                         || s.Status == SolicitacaoStatus.PendenteIntegracaoRm
+                         || s.Status == SolicitacaoStatus.ErroIntegracaoRm
+                         || s.Status == SolicitacaoStatus.AguardandoReprocessamentoRm)
                 .Select(s => new IntegracaoTotvsListItem(
                     s.Id,
                     (short)TipoIntegracao.SolicitacaoVaga,
@@ -245,7 +280,10 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.ApprovedAtUtc,
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
-                    s.IntegradaEmUtc
+                    s.IntegradaEmUtc,
+                    s.RmCodStatus,
+                    s.RmUltimaStatusDescricaoRm,
+                    s.RmStatusSyncUltimaMensagem
                 ))
                 .ToListAsync(ct);
             all.AddRange(solicitacoesVaga);
@@ -892,6 +930,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         }
 
         await _db.SaveChangesAsync(ct);
+
+        if (tipo == TipoIntegracao.SolicitacaoVaga)
+            await _solicitacaoVagaRmIntegracao.ExecutarCriacaoRequisicaoRmAsync(id, ct);
     }
 
     public async Task<EfetivarManualResponse> EfetivarManualAsync(

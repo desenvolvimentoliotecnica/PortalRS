@@ -22,6 +22,7 @@ public sealed class CurrentUserContext : ICurrentUserContext
     private VagasDataScope _vagasDataScope;
     private bool _isReadOnly;
     private string? _email;
+    private HashSet<string>? _permissionClaims;
 
     public CurrentUserContext(IHttpContextAccessor httpContextAccessor, AppDbContext db)
     {
@@ -172,5 +173,21 @@ public sealed class CurrentUserContext : ICurrentUserContext
             _isReadOnly = (ProfileAccessMode)am == ProfileAccessMode.ReadOnly;
         else
             _isReadOnly = false;
+
+        _permissionClaims = user
+            .FindAll(PermissionConstants.ClaimType)
+            .Select(c => c.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <inheritdoc />
+    public bool HasPermission(string permissionKey)
+    {
+        if (string.IsNullOrWhiteSpace(permissionKey))
+            return false;
+        EnsureClaimsResolved();
+        if (_permissionClaims is null || _permissionClaims.Count == 0)
+            return false;
+        return _permissionClaims.Contains("*") || _permissionClaims.Contains(permissionKey);
     }
 }

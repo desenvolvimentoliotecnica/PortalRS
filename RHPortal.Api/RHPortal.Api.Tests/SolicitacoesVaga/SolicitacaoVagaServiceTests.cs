@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.Pessoas;
+using RhPortal.Api.Application.PublicApproval;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Contracts.SolicitacoesVaga;
@@ -11,6 +13,7 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 using RHPortal.Api.Domain.Enums;
 using Xunit;
 
@@ -66,14 +69,49 @@ public sealed class SolicitacaoVagaServiceTests
         currentUserMock.Setup(x => x.IsAdmin).Returns(isAdmin);
         currentUserMock.Setup(x => x.VagasDataScope).Returns(VagasDataScope.All);
         currentUserMock.Setup(x => x.UserId).Returns((Guid?)null);
+        currentUserMock.Setup(x => x.HasPermission(It.IsAny<string>())).Returns(false);
 
         var pessoaMock = new Mock<IPessoaService>();
         var workflow = new ApprovalWorkflowHelper(db, tenantMock.Object, notifications);
-        var workflowRHMock = new Mock<RhPortal.Api.Application.WorkflowRH.IWorkflowRHService>();
+
+        var emailMock = new Mock<IEmailQueueService>();
+        emailMock
+            .Setup(e => e.EnqueueRawAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailMessage
+            {
+                Id = Guid.NewGuid(),
+                TenantId = TenantTeste,
+                To = "-",
+                Subject = "-",
+                BodyHtml = "<p>-</p>",
+            });
+
+        var magicMock = new Mock<IMagicLinkService>();
+        magicMock
+            .Setup(m => m.CreateAndSendAsync(
+                It.IsAny<SolicitacaoAprovacaoEtapa>(), It.IsAny<TipoFluxoAprovacao>(), It.IsAny<Guid>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var httpAccessor = new Mock<IHttpContextAccessor>();
+        httpAccessor.Setup(h => h.HttpContext).Returns((HttpContext?)null);
+
+        var serviceProvider = new Mock<IServiceProvider>();
+        var statusHistorico = new StatusHistoricoService(db, tenantMock.Object);
+
+        var rmIntegracaoMock = new Mock<ISolicitacaoVagaRmIntegracaoService>();
+        rmIntegracaoMock
+            .Setup(x => x.ExecutarCriacaoRequisicaoRmAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         var service = new SolicitacaoVagaService(
             db, tenantMock.Object, vagaMock.Object, currentUserMock.Object,
-            pessoaMock.Object, notifications, workflow, workflowRHMock.Object);
+            pessoaMock.Object, notifications, workflow,
+            emailMock.Object, magicMock.Object, httpAccessor.Object, serviceProvider.Object, statusHistorico,
+            rmIntegracaoMock.Object);
 
         return (db, service, vagaMock);
     }
@@ -121,6 +159,85 @@ public sealed class SolicitacaoVagaServiceTests
             TipoSolicitacao = TipoSolicitacaoVaga.VagaNova,
             IsConfidencial = false,
             CentroCustoId = areaId,
+            DecisaoRH = TipoDecisaoHeadcount.SubstituicaoProvisoria,
+            DecisaoRHPrazoMeses = 12,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        db.SolicitacoesVaga.Add(entity);
+        db.SaveChanges();
+        return entity.Id;
+    }
+
+    private static Guid SeedJobPosition(AppDbContext db)
+    {
+        var id = Guid.NewGuid();
+        db.JobPositions.Add(new JobPosition
+        {
+            Id = id,
+            TenantId = TenantTeste,
+            Code = "TST",
+            Name = "Cargo Teste",
+            Status = CargoStatus.Active,
+            Seniority = SeniorityLevel.Pleno,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
+        db.SaveChanges();
+        return id;
+    }
+
+    private static Guid SeedSolicitacaoAumentoQuadroRascunho(
+        AppDbContext db,
+        Guid solicitanteId,
+        Guid jobPositionId,
+        Guid centroCustoId)
+    {
+        var entity = new SolicitacaoVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            SolicitanteId = solicitanteId,
+            Titulo = "Aumento quadro QA",
+            Justificativa = "Justificativa obrigatória para triagem.",
+            QtdPosicoes = 1,
+            Urgencia = SolicitacaoVagaUrgencia.Media,
+            Status = SolicitacaoStatus.Rascunho,
+            TipoSolicitacao = TipoSolicitacaoVaga.AumentoQuadro,
+            IsConfidencial = false,
+            DecisaoRH = TipoDecisaoHeadcount.AumentoDefinitivo,
+            JobPositionId = jobPositionId,
+            CentroCustoId = centroCustoId,
+            MotivoRequisicao = MotivoRequisicaoVaga.ExpansaoBase,
+            RequisitosDetalhadosJson = """{"schemaVersion":1,"orcamento":"previsto"}""",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        db.SolicitacoesVaga.Add(entity);
+        db.SaveChanges();
+        return entity.Id;
+    }
+
+    private static Guid SeedSolicitacaoSubstituicaoParaAprovacao(
+        AppDbContext db,
+        Guid solicitanteId,
+        Guid substituidoId,
+        SolicitacaoStatus status)
+    {
+        var entity = new SolicitacaoVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            SolicitanteId = solicitanteId,
+            Titulo = "Substituição Teste",
+            Justificativa = "Justificativa",
+            QtdPosicoes = 1,
+            Urgencia = SolicitacaoVagaUrgencia.Media,
+            Status = status,
+            TipoSolicitacao = TipoSolicitacaoVaga.Substituicao,
+            SubstituidoFuncionarioId = substituidoId,
+            SubstituidoNome = "Substituído",
+            IsConfidencial = false,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -180,13 +297,16 @@ public sealed class SolicitacaoVagaServiceTests
             Urgencia = SolicitacaoVagaUrgencia.Alta,
             TipoSolicitacao = TipoSolicitacaoVaga.VagaNova,
             IsConfidencial = true,
+            DecisaoRH = TipoDecisaoHeadcount.SubstituicaoProvisoria,
+            DecisaoRHPrazoMeses = 12,
         };
 
         var result = await svc.CreateAsync(request, funcId, CancellationToken.None);
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal("Dev Backend", result.Titulo);
-        Assert.Equal(SolicitacaoStatus.Rascunho, result.Status);
+        // CreateAsync submete automaticamente para PendenteAprovacao quando válido (Submit interno).
+        Assert.Equal(SolicitacaoStatus.PendenteAprovacao, result.Status);
         Assert.Equal(2, result.QtdPosicoes);
         Assert.Equal(funcId, result.SolicitanteId);
         Assert.True(result.IsConfidencial);
@@ -204,6 +324,8 @@ public sealed class SolicitacaoVagaServiceTests
             QtdPosicoes = 0,
             Urgencia = SolicitacaoVagaUrgencia.Baixa,
             TipoSolicitacao = TipoSolicitacaoVaga.VagaNova,
+            DecisaoRH = TipoDecisaoHeadcount.SubstituicaoProvisoria,
+            DecisaoRHPrazoMeses = 12,
         };
 
         var result = await svc.CreateAsync(request, funcId, CancellationToken.None);
@@ -333,8 +455,8 @@ public sealed class SolicitacaoVagaServiceTests
     {
         var (db, svc, _) = CriarServico();
         var funcId = SeedFuncionario(db);
-        // Sem AreaId → não tenta criar Vaga automaticamente
-        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
+        var substId = SeedFuncionario(db);
+        var id = SeedSolicitacaoSubstituicaoParaAprovacao(db, funcId, substId, SolicitacaoStatus.PendenteAprovacao);
         SeedEtapaPendente(db, id, aprovadorId: funcId);
 
         var result = await svc.ApproveAsync(id, "Aprovado com excelência", CancellationToken.None);
@@ -476,5 +598,121 @@ public sealed class SolicitacaoVagaServiceTests
             .IgnoreQueryFilters()
             .FirstAsync(x => x.Id == id);
         Assert.Equal(SolicitacaoStatus.PendenteAprovacao, entity.Status);
+    }
+
+    [Fact]
+    public async Task Submit_AumentoQuadro_ComCamposMinimos_VaiParaPendenteTriagem_SemEtapas()
+    {
+        var (db, svc, _) = CriarServico();
+        var solicitanteUserId = Guid.NewGuid();
+        var funcId = SeedFuncionario(db, solicitanteUserId);
+        var jpId = SeedJobPosition(db);
+        var ccId = Guid.NewGuid();
+        var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, ccId);
+
+        Assert.True(await svc.SubmitAsync(id, CancellationToken.None));
+
+        var entity = await db.SolicitacoesVaga.IgnoreQueryFilters().FirstAsync(x => x.Id == id);
+        Assert.Equal(SolicitacaoStatus.PendenteTriagem, entity.Status);
+        var countEtapas = await db.SolicitacoesAprovacaoEtapa.IgnoreQueryFilters()
+            .CountAsync(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal);
+        Assert.Equal(0, countEtapas);
+    }
+
+    [Fact]
+    public async Task Approve_AumentoQuadro_EmPendenteTriagem_LancaPorFluxoTriagem()
+    {
+        var (db, svc, _) = CriarServico();
+        var funcId = SeedFuncionario(db, Guid.NewGuid());
+        var jpId = SeedJobPosition(db);
+        var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, Guid.NewGuid());
+        await svc.SubmitAsync(id, CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.ApproveAsync(id, null, CancellationToken.None));
+
+        Assert.Contains("triagem", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AumentoQuadro_DevolverTriagem_GestorPodeEditar_ReSubmitVoltaTriagem()
+    {
+        var (db, svc, _) = CriarServico(isAdmin: true);
+        var solicitanteUserId = Guid.NewGuid();
+        var funcId = SeedFuncionario(db, solicitanteUserId);
+        var jpId = SeedJobPosition(db);
+        var ccId = Guid.NewGuid();
+        var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, ccId);
+        await svc.SubmitAsync(id, CancellationToken.None);
+
+        var resp = await svc.DevolverTriagemAoGestorAsync(id, " Falta centro detalhado ", CancellationToken.None);
+        Assert.NotNull(resp);
+        Assert.Equal(SolicitacaoStatus.DevolvidaTriagemGestor, resp!.Status);
+
+        await svc.UpdateAsync(id, new SolicitacaoVagaUpdateRequest
+        {
+            Titulo = "Ajustado",
+            QtdPosicoes = 1,
+            Urgencia = SolicitacaoVagaUrgencia.Media,
+            TipoSolicitacao = TipoSolicitacaoVaga.AumentoQuadro,
+            Justificativa = "Justificativa obrigatória para triagem.",
+            JobPositionId = jpId,
+            CentroCustoId = ccId,
+            MotivoRequisicao = MotivoRequisicaoVaga.ExpansaoBase,
+            DecisaoRH = TipoDecisaoHeadcount.AumentoDefinitivo,
+        }, CancellationToken.None);
+
+        Assert.True(await svc.SubmitAsync(id, CancellationToken.None));
+        var entity = await db.SolicitacoesVaga.IgnoreQueryFilters().FirstAsync(x => x.Id == id);
+        Assert.Equal(SolicitacaoStatus.PendenteTriagem, entity.Status);
+    }
+
+    [Fact]
+    public async Task AumentoQuadro_Encaminhar_CriaEtapasEPendenteAprovacao()
+    {
+        var (db, svc, _) = CriarServico(isAdmin: true);
+        var solicitanteUserId = Guid.NewGuid();
+        var funcId = SeedFuncionario(db, solicitanteUserId);
+        var aprovadorFakeId = SeedFuncionario(db, Guid.NewGuid());
+        db.Set<EtapaConfigAprovacao>().Add(new EtapaConfigAprovacao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            TipoFluxo = TipoFluxoAprovacao.RequisicaoPessoal,
+            Ordem = 1,
+            Label = "Aprovacao",
+            TipoAprovador = TipoAprovador.FuncionarioFixo,
+            FuncionarioFixoId = aprovadorFakeId,
+            Ativo = true,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
+        db.SaveChanges();
+
+        var jpId = SeedJobPosition(db);
+        var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, Guid.NewGuid());
+        await svc.SubmitAsync(id, CancellationToken.None);
+        await svc.IniciarTriagemAsync(id, CancellationToken.None);
+        var resp = await svc.EncaminharTriagemParaAprovacoesAsync(id, CancellationToken.None);
+
+        Assert.NotNull(resp);
+        Assert.Equal(SolicitacaoStatus.PendenteAprovacao, resp!.Status);
+        var etapa = await db.SolicitacoesAprovacaoEtapa.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal);
+        Assert.NotNull(etapa);
+        Assert.Equal(aprovadorFakeId, etapa!.AprovadorId);
+    }
+
+    [Fact]
+    public async Task AumentoQuadro_TriagemReprovar_VaiReprovada()
+    {
+        var (db, svc, _) = CriarServico(isAdmin: true);
+        var funcId = SeedFuncionario(db, Guid.NewGuid());
+        var jpId = SeedJobPosition(db);
+        var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, Guid.NewGuid());
+        await svc.SubmitAsync(id, CancellationToken.None);
+
+        var r = await svc.TriagemReprovarAsync(id, "Não aprovado pela triagem.", CancellationToken.None);
+        Assert.NotNull(r);
+        Assert.Equal(SolicitacaoStatus.Reprovada, r!.Status);
     }
 }

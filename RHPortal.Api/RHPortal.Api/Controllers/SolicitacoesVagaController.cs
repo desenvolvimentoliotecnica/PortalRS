@@ -113,6 +113,215 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>Fluxo aumento de quadro: RH/admin marca início formal da triagem (PendenteTriagem → EmTriagem).</summary>
+    [HttpPost("{id:guid}/triagem/iniciar")]
+    [RequirePermission("rh.contratacoes.triagem")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TriagemIniciar(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.IniciarTriagemAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Fluxo aumento de quadro: triagem devolve ao gestor com observações obrigatórias.</summary>
+    [HttpPost("{id:guid}/triagem/devolver")]
+    [RequirePermission("rh.contratacoes.triagem")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TriagemDevolver(Guid id, [FromBody] SolicitacaoVagaTriagemDevolverRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.DevolverTriagemAoGestorAsync(id, request.Observacao, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Fluxo aumento de quadro: encaminha para a cadeia de aprovações (EmTriagem → PendenteAprovacao + etapas).</summary>
+    [HttpPost("{id:guid}/triagem/encaminhar")]
+    [RequirePermission("rh.contratacoes.triagem")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TriagemEncaminhar(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.EncaminharTriagemParaAprovacoesAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Fluxo aumento de quadro: reprovação interna na triagem (sem etapas de aprovador).</summary>
+    [HttpPost("{id:guid}/triagem/reprovar")]
+    [RequirePermission("rh.contratacoes.triagem")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TriagemReprovar(Guid id, [FromBody] SolicitacaoVagaTriagemReprovarRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.TriagemReprovarAsync(id, request.Motivo, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/selecao/iniciar")]
+    [RequirePermission("rh.contratacoes.selecao")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SelecaoIniciar(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.IniciarProcessoSeletivoAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/selecao/suspender")]
+    [RequirePermission("rh.contratacoes.selecao")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SelecaoSuspender(Guid id, [FromBody] SolicitacaoVagaApprovalRequest? request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.SuspenderSelecaoAsync(id, request?.Observacao, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/selecao/retomar")]
+    [RequirePermission("rh.contratacoes.selecao")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SelecaoRetomar(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.RetomarSelecaoAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/selecao/encerrar-sem-contratacao")]
+    [RequirePermission("rh.contratacoes.selecao")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SelecaoEncerrarSemContratacao(Guid id, [FromBody] SolicitacaoVagaSelecaObservacaoRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.EncerrarSemContratacaoAsync(id, request.Observacao, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id:guid}/selecao/contratacao-concluida")]
+    [RequirePermission("rh.contratacoes.selecao")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SelecaoContratacaoConcluida(Guid id, [FromBody] SolicitacaoVagaApprovalRequest? request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.MarcarContratacaoConcluidaAsync(id, request?.Observacao, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("{id:guid}/indicacoes")]
+    [ProducesResponseType(typeof(IReadOnlyList<SolicitacaoVagaIndicacaoDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListIndicacoes(Guid id, CancellationToken ct)
+    {
+        var items = await _service.ListIndicacoesAsync(id, ct);
+        return Ok(items);
+    }
+
+    [HttpPost("{id:guid}/indicacoes")]
+    [RequirePermission("rh.contratacoes.selecao")]
+    [ProducesResponseType(typeof(SolicitacaoVagaIndicacaoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AddIndicacao(Guid id, [FromBody] SolicitacaoVagaIndicacaoCreateRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.AddIndicacaoAsync(id, request, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}/indicacoes/{indicacaoId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RemoveIndicacao(Guid id, Guid indicacaoId, CancellationToken ct)
+    {
+        try
+        {
+            var ok = await _service.RemoveIndicacaoAsync(id, indicacaoId, ct);
+            return ok ? NoContent() : NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Aprova a solicitação (somente aprovador designado ou Admin).</summary>
     [HttpPost("{id:guid}/approve")]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]

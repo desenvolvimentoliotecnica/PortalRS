@@ -118,7 +118,7 @@ public sealed class NavegacaoSidebarServiceTests
 
         var matching = resp.Grupos
             .SelectMany(g => g.Itens)
-            .FirstOrDefault(i => i.Href == "/matching");
+            .FirstOrDefault(i => i.Href == "/assistente-ia");
 
         Assert.NotNull(matching);
         Assert.False(matching!.Acessivel);
@@ -126,9 +126,10 @@ public sealed class NavegacaoSidebarServiceTests
     }
 
     [Fact]
-    public void Build_ModuloStandaloneDesativado_MarcaComoModuloDesativado()
+    public void Build_ModuloStandaloneDesativado_IgnoraItensPorCompleto()
     {
-        // Relatórios é standalone (sem pacote). Simular desligamento.
+        // Relatórios é standalone (sem pacote). Gate atual: quando o módulo está OFF para o tenant,
+        // o sidebar omite os itens (não aparecem bloqueados) — igual módulos fora do contrato pacoteados.
         var enabled = TodosModulosHabilitados();
         enabled.Remove("relatorios");
 
@@ -141,9 +142,7 @@ public sealed class NavegacaoSidebarServiceTests
             .SelectMany(g => g.Itens)
             .FirstOrDefault(i => i.Href == "/relatorios");
 
-        Assert.NotNull(rel);
-        Assert.False(rel!.Acessivel);
-        Assert.Equal(MotivoBloqueioNav.ModuloDesativado, rel.MotivoBloqueio);
+        Assert.Null(rel);
     }
 
     [Fact]

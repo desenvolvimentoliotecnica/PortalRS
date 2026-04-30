@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoFormPreferred";
+import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
@@ -112,6 +114,11 @@ interface SolicitacaoDetail {
     aprovador3Habilitado?: boolean;
     etapas?: EtapaAprovacaoResponse[];
     etapasFluxo?: { ordem: number; label: string; aprovadorNome: string | null; roleNome: string | null; status: number; dataUtc: string | null; observacao: string | null }[];
+    rmCodStatus?: number | string | null;
+    rmUltimaStatusDescricaoRm?: string | null;
+    rmStatusSyncUltimaMensagem?: string | null;
+    rmUltimaSincronizacaoUtc?: string | null;
+    rmRequisicaoCodigo?: string | null;
 }
 
 type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
@@ -135,29 +142,36 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return (await res.json()) as T;
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+/** Colunas do kanban (rótulo legado; status real vem de `SolicitacaoVagaStatusBadgeEl`). */
+const KANBAN_COL_META: Record<"Rascunho" | "PendenteAprovacao" | "Aprovada" | "Reprovada", { label: string; color: string; icon: React.ElementType }> = {
     "Rascunho": { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
-    "PendenteAprovacao": { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
-    "Aprovada": { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
+    "PendenteAprovacao": { label: "Em andamento", color: "bg-amber-500/15 text-amber-700", icon: Clock },
+    "Aprovada": { label: "Aprovada / avançadas", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
     "Reprovada": { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
-    "AjustesNecessarios": { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
-    "PendenteAprovacaoRh": { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700", icon: Clock },
-    "Cancelada": { label: "Cancelada", color: "bg-zinc-500/15 text-zinc-500", icon: XCircle },
-    "EmIntegracao": { label: "Em Integração", color: "bg-blue-500/15 text-blue-700", icon: Activity },
-    "Concluida": { label: "Concluída", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    "PendenteAprovacaoAumentoHC": { label: "Aguarda Aprovação HC", color: "bg-amber-500/15 text-amber-700", icon: Clock },
-    // fallback numérico para compatibilidade
-    0: { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
-    1: { label: "Pendente", color: "bg-amber-500/15 text-amber-700", icon: Clock },
-    2: { label: "Aprovada", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    3: { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
-    4: { label: "Ajustes", color: "bg-orange-500/15 text-orange-700", icon: AlertTriangle },
-    5: { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700", icon: Clock },
-    6: { label: "Cancelada", color: "bg-zinc-500/15 text-zinc-500", icon: XCircle },
-    7: { label: "Em Integração", color: "bg-blue-500/15 text-blue-700", icon: Activity },
-    8: { label: "Concluída", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    10: { label: "Aguarda Aprovação HC", color: "bg-amber-500/15 text-amber-700", icon: Clock },
 };
+
+const ROW_STATUS_COL_PENDENTE_LIKE = new Set<string>([
+    "PendenteAprovacao", "1",
+    "AjustesNecessarios", "4",
+    "PendenteAprovacaoRh", "5",
+    "EmIntegracao", "7",
+    "PendenteAprovacaoAumentoHC", "10",
+    "PendenteTriagem", "11",
+    "EmTriagem", "12",
+    "DevolvidaTriagemGestor", "13",
+    "PendenteIntegracaoRm", "14",
+    "ErroIntegracaoRm", "15",
+    "AguardandoReprocessamentoRm", "16",
+]);
+
+function rowStatusMatchesKanbanCol(r: SolicitacaoGridRow, col: keyof typeof KANBAN_COL_META): boolean {
+    const s = String(r.status);
+    if (col === "PendenteAprovacao") return ROW_STATUS_COL_PENDENTE_LIKE.has(s);
+    return s === col || (col === "Rascunho" && (s === "0" || s === "Rascunho"))
+        || (col === "Aprovada" && (s === "Aprovada" || s === "2" || s === "Concluida" || s === "8"))
+        || (col === "Reprovada" && (s === "Reprovada" || s === "3"))
+        ;
+}
 
 const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
     "Baixa": { label: "Baixa", color: "bg-sky-500/15 text-sky-700" },
@@ -171,14 +185,7 @@ const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
 };
 
 function statusBadge(status: number | string) {
-    const s = STATUS_MAP[status] ?? STATUS_MAP["Rascunho"];
-    const Icon = s.icon;
-    return (
-        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.color}`}>
-            <Icon className="size-3" />
-            {s.label}
-        </span>
-    );
+    return <SolicitacaoVagaStatusBadgeEl raw={status} />;
 }
 
 function urgenciaBadge(urgencia: number | string) {
@@ -265,6 +272,7 @@ export default function SolicitacoesScreen() {
 function SolicitacoesVagaContent() {
     const { me } = useAuth();
     const router = useRouter();
+    const prefersMobileForm = useMobileSolicitacaoFormPreferred();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
 
     /* ── data ── */
@@ -283,6 +291,9 @@ function SolicitacoesVagaContent() {
     const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.solicitacoes.viewMode", m); };
 
     /* ── form modal ── */
+    const [formReloadNonce, setFormReloadNonce] = useState(0);
+    const bumpFormNonce = () => setFormReloadNonce((n) => n + 1);
+
     const [formOpen, setFormOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [viewId, setViewId] = useState<string | null>(null);
@@ -360,7 +371,9 @@ function SolicitacoesVagaContent() {
     const ATIVAS = new Set([
         "Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh",
         "PendenteAprovacaoAumentoHC", "EmIntegracao",
-        "0", "1", "4", "5", "7", "10",
+        "PendenteTriagem", "EmTriagem", "DevolvidaTriagemGestor",
+        "PendenteIntegracaoRm", "ErroIntegracaoRm", "AguardandoReprocessamentoRm",
+        "0", "1", "4", "5", "7", "10", "11", "12", "13", "14", "15", "16",
     ]);
     const APROVADAS = new Set(["Aprovada", "Concluida", "2", "8"]);
 
@@ -383,8 +396,11 @@ function SolicitacoesVagaContent() {
     const kpis = useMemo(() => {
         const src = rows;
         const total = src.length;
-        const pendentes = src.filter((r) => r.status === 1 || r.status === "PendenteAprovacao").length;
-        const aprovadas = src.filter((r) => r.status === 2 || r.status === "Aprovada").length;
+        const pendentes = src.filter((r) => ROW_STATUS_COL_PENDENTE_LIKE.has(String(r.status))).length;
+        const aprovadas = src.filter((r) => {
+            const s = String(r.status);
+            return s === "Aprovada" || s === "2" || s === "Concluida" || s === "8";
+        }).length;
         const reprovadas = src.filter((r) => r.status === 3 || r.status === "Reprovada").length;
         return { total, pendentes, aprovadas, reprovadas };
     }, [rows]);
@@ -395,6 +411,12 @@ function SolicitacoesVagaContent() {
         setEditId(null);
         setResubmit(false);
         setFormInitialData(null);
+        setCopySourceId(null);
+        if (prefersMobileForm) {
+            router.push("/gestao/solicitacoes/nova");
+            return;
+        }
+        bumpFormNonce();
         setFormOpen(true);
     }
 
@@ -402,7 +424,17 @@ function SolicitacoesVagaContent() {
         setViewId(null);
         setEditId(null);
         setResubmit(false);
-        setFormInitialData({ origemVaga: "nova" });
+        setCopySourceId(null);
+        const initial = { origemVaga: "nova" as const };
+        setFormInitialData(initial);
+        if (prefersMobileForm) {
+            try {
+                sessionStorage.setItem("renderrh.solicitacao.initial", JSON.stringify(initial));
+            } catch { /* ignore */ }
+            router.push("/gestao/solicitacoes/nova");
+            return;
+        }
+        bumpFormNonce();
         setFormOpen(true);
     }
 
@@ -447,6 +479,14 @@ function SolicitacoesVagaContent() {
             setResubmit(false);
             setFormInitialData(initial);
             setCopySourceId(null);
+            if (prefersMobileForm) {
+                try {
+                    sessionStorage.setItem("renderrh.solicitacao.initial", JSON.stringify(initial));
+                } catch { /* ignore */ }
+                router.push("/gestao/solicitacoes/nova");
+                return;
+            }
+            bumpFormNonce();
             setFormOpen(true);
         } catch {
             toast.error("Falha ao carregar dados da vaga.");
@@ -457,6 +497,12 @@ function SolicitacoesVagaContent() {
         setViewId(null);
         setEditId(row.id);
         setResubmit(false);
+        setCopySourceId(null);
+        if (prefersMobileForm) {
+            router.push(`/gestao/solicitacoes/editar?id=${encodeURIComponent(row.id)}`);
+            return;
+        }
+        bumpFormNonce();
         setFormOpen(true);
     }
 
@@ -464,6 +510,12 @@ function SolicitacoesVagaContent() {
         setViewId(null);
         setEditId(row.id);
         setResubmit(true);
+        setCopySourceId(null);
+        if (prefersMobileForm) {
+            router.push(`/gestao/solicitacoes/editar?id=${encodeURIComponent(row.id)}&resubmit=1`);
+            return;
+        }
+        bumpFormNonce();
         setFormOpen(true);
     }
 
@@ -471,6 +523,7 @@ function SolicitacoesVagaContent() {
         setViewId(row.id);
         setEditId(null);
         setResubmit(false);
+        bumpFormNonce();
         setFormOpen(true);
     }
 
@@ -816,7 +869,24 @@ function SolicitacoesVagaContent() {
                                                 </>
                                             )}
                                             {/* Copiar: todas as linhas */}
-                                            <Button variant="outline" size="icon-xs" title="Copiar vaga" onClick={() => { setCopySourceId(r.id); setEditId(null); setViewId(null); setResubmit(false); setFormOpen(true); }}>
+                                            <Button
+                                                variant="outline"
+                                                size="icon-xs"
+                                                title="Copiar vaga"
+                                                onClick={() => {
+                                                    setCopySourceId(r.id);
+                                                    setEditId(null);
+                                                    setViewId(null);
+                                                    setResubmit(false);
+                                                    setFormInitialData(null);
+                                                    if (prefersMobileForm) {
+                                                        router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(r.id)}`);
+                                                        return;
+                                                    }
+                                                    bumpFormNonce();
+                                                    setFormOpen(true);
+                                                }}
+                                            >
                                                 <Copy className="size-3.5" />
                                             </Button>
                                             {/* Acompanhamento: todas as linhas */}
@@ -854,9 +924,9 @@ function SolicitacoesVagaContent() {
                         ) : (
                             <div className="flex gap-4 items-start">
                                 {(["Rascunho", "PendenteAprovacao", "Aprovada", "Reprovada"] as const).map((col) => {
-                                    const meta = STATUS_MAP[col];
+                                    const meta = KANBAN_COL_META[col];
                                     const Icon = meta.icon;
-                                    const colItems = filtered.filter((r) => String(r.status) === col);
+                                    const colItems = filtered.filter((r) => rowStatusMatchesKanbanCol(r, col));
                                     return (
                                         <div key={col} className="w-64 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
                                             <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
@@ -978,6 +1048,7 @@ function SolicitacoesVagaContent() {
                 viewOnly={!!viewId}
                 resubmitAfterSave={resubmit}
                 copySourceId={copySourceId}
+                reloadNonce={formReloadNonce}
             />
 
             {/* ── Timeline Modal ── */}
@@ -1052,6 +1123,25 @@ function SolicitacoesVagaContent() {
                                 </div>
                             )}
 
+                            {(detail.rmRequisicaoCodigo || detail.rmUltimaStatusDescricaoRm || detail.rmCodStatus != null ||
+                                detail.rmStatusSyncUltimaMensagem || detail.rmUltimaSincronizacaoUtc) ? (
+                                <div className="rounded-md border border-muted bg-muted/20 p-3 text-sm space-y-1.5">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Totvs RM (somente leitura)</div>
+                                    {detail.rmRequisicaoCodigo && (
+                                        <div><span className="text-muted-foreground text-xs">Código requisição: </span>{detail.rmRequisicaoCodigo}</div>
+                                    )}
+                                    {(detail.rmCodStatus != null || detail.rmUltimaStatusDescricaoRm) && (
+                                        <div><span className="text-muted-foreground text-xs">Status RM: </span>{detail.rmUltimaStatusDescricaoRm ?? String(detail.rmCodStatus ?? "—")}</div>
+                                    )}
+                                    {detail.rmUltimaSincronizacaoUtc && (
+                                        <div><span className="text-muted-foreground text-xs">Última sync: </span>{formatDate(detail.rmUltimaSincronizacaoUtc)}</div>
+                                    )}
+                                    {detail.rmStatusSyncUltimaMensagem && (
+                                        <div className="text-xs rounded bg-background/80 border border-border/50 p-2 whitespace-pre-wrap">{detail.rmStatusSyncUltimaMensagem}</div>
+                                    )}
+                                </div>
+                                ) : null}
+
                             {detail.aprovador3Habilitado && (
                                 <div className="rounded-md border border-purple-200 bg-purple-50/60 dark:bg-purple-950/20 dark:border-purple-800 p-3 text-sm">
                                     <div className="text-xs font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider mb-1">Etapa de Aprovação RH</div>
@@ -1109,7 +1199,21 @@ function SolicitacoesVagaContent() {
                                     <Button size="sm" onClick={() => void submitForApproval(detail.id)}>
                                         <Send className="size-4" /> Enviar para aprovação
                                     </Button>
-                                    <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); setEditId(detail.id); setFormOpen(true); }}>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setDetailOpen(false);
+                                            if (prefersMobileForm) router.push(`/gestao/solicitacoes/editar?id=${encodeURIComponent(detail.id)}`);
+                                            else {
+                                                bumpFormNonce();
+                                                setEditId(detail.id);
+                                                setCopySourceId(null);
+                                                setResubmit(false);
+                                                setFormOpen(true);
+                                            }
+                                        }}
+                                    >
                                         <Pencil className="size-4" /> Editar
                                     </Button>
                                 </div>
@@ -1117,7 +1221,21 @@ function SolicitacoesVagaContent() {
                             {/* ── Cancelar (pendente) ── */}
                             {(detail.status === 1 || detail.status === "PendenteAprovacao") && (
                                 <div className="flex gap-2">
-                                    <Button size="sm" variant="outline" onClick={() => { setDetailOpen(false); setEditId(detail.id); setResubmit(true); setFormOpen(true); }}>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setDetailOpen(false);
+                                            if (prefersMobileForm) router.push(`/gestao/solicitacoes/editar?id=${encodeURIComponent(detail.id)}&resubmit=1`);
+                                            else {
+                                                bumpFormNonce();
+                                                setEditId(detail.id);
+                                                setCopySourceId(null);
+                                                setResubmit(true);
+                                                setFormOpen(true);
+                                            }
+                                        }}
+                                    >
                                         <Pencil className="size-4" /> Editar e reenviar
                                     </Button>
                                     <Button size="sm" variant="outline" className="text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(detail.id)}>

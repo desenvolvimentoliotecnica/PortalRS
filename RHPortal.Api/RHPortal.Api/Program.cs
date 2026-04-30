@@ -73,6 +73,7 @@ using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Infrastructure.Ai;
 using RhPortal.Api.Infrastructure.Ops;
 using RhPortal.Api.Infrastructure.Rm;
+using RhPortal.Api.Infrastructure.Scheduling;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Swagger;
 using RhPortal.Api.Messaging.Email;
@@ -336,7 +337,23 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager();
 
 builder.Services.Configure<RmConnectionOptions>(builder.Configuration.GetSection(RmConnectionOptions.SectionName));
+builder.Services.Configure<RmSolicitacaoStatusSyncOptions>(
+    builder.Configuration.GetSection(RmSolicitacaoStatusSyncOptions.SectionName));
+builder.Services.AddScoped<ISolicitacaoVagaRmCodStatusSyncService, SolicitacaoVagaRmCodStatusSyncService>();
+builder.Services.AddHostedService<RmSolicitacaoStatusSyncHostedService>();
 builder.Services.AddScoped<IRmRequisicoesReadService, RmRequisicoesReadService>();
+
+builder.Services.Configure<RmRequisicaoCreateOptions>(builder.Configuration.GetSection(RmRequisicaoCreateOptions.SectionName));
+builder.Services.AddScoped<IRmRequisicaoCreateClient>(sp =>
+{
+    var o = sp.GetRequiredService<IOptions<RmRequisicaoCreateOptions>>().Value;
+    var mode = (o.Mode ?? "stub").Trim();
+    if (mode.Equals("disabled", StringComparison.OrdinalIgnoreCase))
+        return new RmRequisicaoCreateDisabledClient();
+
+    return new RmRequisicaoCreateStubClient(sp.GetRequiredService<IOptions<RmRequisicaoCreateOptions>>());
+});
+builder.Services.AddScoped<ISolicitacaoVagaRmIntegracaoService, SolicitacaoVagaRmIntegracaoService>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SlaVagaOptions>(builder.Configuration.GetSection(SlaVagaOptions.SectionName));

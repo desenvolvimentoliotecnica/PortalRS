@@ -37,6 +37,7 @@ public sealed class DocumentacaoPadraoPorCargoTests
         public ProfileVisibilityScope VisibilityScope => ProfileVisibilityScope.FullStructure;
         public VagasDataScope VagasDataScope => VagasDataScope.All;
         public bool IsReadOnly => false;
+        public bool HasPermission(string permissionKey) => false;
     }
 
     private static (AppDbContext Db, DocumentacaoPadraoService Service, FakeCurrentUser User) CriarServico()

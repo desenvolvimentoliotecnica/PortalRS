@@ -1,5 +1,13 @@
 namespace RhPortal.Api.Contracts.Rm;
 
+/// <summary>Leitura pontual de CODSTATUS + descrição por vínculo TIPO|COL|IDREQ.</summary>
+public sealed record RmRequisicaoCodStatusSnapshot(
+    int CodStatusRm,
+    string? StatusDescricao,
+    string TipoRequisicao,
+    int CodColRequisicao,
+    int IdReq);
+
 public sealed class RmRequisicaoListQuery
 {
     public int Page { get; init; } = 1;

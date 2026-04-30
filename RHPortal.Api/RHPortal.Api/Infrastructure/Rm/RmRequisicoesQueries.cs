@@ -330,6 +330,10 @@ Base AS (
 
     internal static string SqlPage => $"{CteAndBase}\nSELECT * FROM Base WHERE {WhereClause} ORDER BY DATAABERTURA DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
 
+    /// <summary>Vínculo portal (TIPO_REQUISICAO|CODCOLREQUISICAO|IDREQ) — um registo.</summary>
+    internal static string SqlCodStatusPorVinculo =>
+        $"{CteAndBase}\nSELECT TOP 1 CODSTATUS, STATUS_DESCRICAO, TIPO_REQUISICAO, CODCOLREQUISICAO, IDREQ FROM Base WHERE TIPO_REQUISICAO = @Tipo AND CODCOLREQUISICAO = @CodCol AND IDREQ = @IdReq;";
+
     private const string WhereClause =
         """
         (@Tipo IS NULL OR TIPO_REQUISICAO = @Tipo)

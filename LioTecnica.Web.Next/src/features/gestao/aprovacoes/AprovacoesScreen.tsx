@@ -26,6 +26,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { usePendencias } from "@/contexts/PendenciasContext";
 import { type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
+import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
 
 import NextStepBanner from "@/components/feedback/NextStepBanner";
 import DesligamentoFormModal from "@/features/gestao/desligamentos/DesligamentoFormModal";
@@ -1230,7 +1231,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         <DetailField label="Solicitante" value={detail.solicitanteNome} />
                                         <DetailField label="Centro de Custo" value={detail.centroCustoNome} />
                                         <DetailField label="Data criação" value={formatDate(detail.createdAtUtc)} />
-                                        <DetailField label="Status" value={statusBadge(Number(detail.status))} />
+                                        <DetailField label="Status" value={<SolicitacaoVagaStatusBadgeEl raw={detail.status} />} />
                                     </div>
                                 </TabsContent>
 

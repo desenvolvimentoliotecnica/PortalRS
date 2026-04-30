@@ -22,6 +22,10 @@ public sealed class SolicitacaoVagaCreateRequest
     [Required, MaxLength(160)]
     public string Titulo { get; set; } = string.Empty;
 
+    /// <remarks>
+    /// RN03 / CMP: se <see cref="TipoSolicitacao"/> for <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>,
+    /// justificativa detalhada deve estar preenchida antes do envio (validação Fase 2 / submissão); rascunhos podem ficar sem texto.
+    /// </remarks>
     [MaxLength(2000)]
     public string? Justificativa { get; set; }
 
@@ -36,6 +40,7 @@ public sealed class SolicitacaoVagaCreateRequest
     // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
     public Guid? VagaId { get; set; }
 
+    /// <remarks>Inclui <see cref="TipoSolicitacaoVaga.AumentoQuadro"/> para o fluxo integrado RN02 ao RM.</remarks>
     // Sprint 1
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
@@ -94,6 +99,7 @@ public sealed class SolicitacaoVagaUpdateRequest
     // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
     public Guid? VagaId { get; set; }
 
+    /// <remarks>Inclui <see cref="TipoSolicitacaoVaga.AumentoQuadro"/> para o fluxo integrado RN02 ao RM.</remarks>
     // Sprint 1
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
@@ -138,6 +144,23 @@ public sealed class SolicitacaoVagaApprovalRequest
 {
     [MaxLength(2000)]
     public string? Observacao { get; set; }
+}
+
+// ── Triagem (fluxo AumentoQuadro — CMP-03 / FLX-02…FLX-04) ──
+
+/// <summary>Devolução da triagem ao gestor para ajustes.</summary>
+public sealed class SolicitacaoVagaTriagemDevolverRequest
+{
+    /// <summary>Texto obrigatório explicando pendências (histórico + campo de observação).</summary>
+    [Required, MaxLength(4000)]
+    public string Observacao { get; set; } = string.Empty;
+}
+
+/// <summary>Reprovação interna na triagem (sem criar etapas de aprovação).</summary>
+public sealed class SolicitacaoVagaTriagemReprovarRequest
+{
+    [Required, MaxLength(4000)]
+    public string Motivo { get; set; } = string.Empty;
 }
 
 // ── Vincular candidato contratado ──
@@ -218,7 +241,13 @@ public sealed record SolicitacaoVagaResponse(
     Guid? DesligamentoVinculadoId,
     // Amarração com candidato contratado (preenchido quando a pré-admissão vinculada à vaga é efetivada)
     Guid? CandidatoContratadoId,
-    string? CandidatoContratadoNome
+    string? CandidatoContratadoNome,
+    /// <summary>CODSTATUS lido do RM na última sincronização (SYN).</summary>
+    short? RmCodStatus,
+    string? RmUltimaStatusDescricaoRm,
+    string? RmStatusSyncUltimaMensagem,
+    DateTimeOffset? RmUltimaSincronizacaoUtc,
+    string? RmRequisicaoCodigo
 );
 
 public sealed record SolicitacaoVagaGridRow(
@@ -238,6 +267,10 @@ public sealed record SolicitacaoVagaGridRow(
     bool IsConfidencial,
     string? SubstituidoNome,
     DateTimeOffset CreatedAtUtc,
+    short? RmCodStatus,
+    string? RmUltimaStatusDescricaoRm,
+    string? RmStatusSyncUltimaMensagem,
+    DateTimeOffset? RmUltimaSincronizacaoUtc,
     string? EtapaPendenteLabel,
     string? EtapaPendenteCom,
     bool EtapaPendenteIsQueue,
@@ -245,3 +278,28 @@ public sealed record SolicitacaoVagaGridRow(
     Guid? EtapaPendenteAssumedByUserId,
     bool EtapaPendenteCanAssume
 );
+
+// ── Indicações internas (SEL‑03) ──
+
+public sealed record SolicitacaoVagaIndicacaoDto(
+    Guid Id,
+    Guid CandidatoId,
+    string? CandidatoNome,
+    string? Observacao,
+    Guid? IndicadoPorUserId,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed class SolicitacaoVagaIndicacaoCreateRequest
+{
+    [Required]
+    public Guid CandidatoId { get; set; }
+
+    [MaxLength(2000)]
+    public string? Observacao { get; set; }
+}
+
+public sealed class SolicitacaoVagaSelecaObservacaoRequest
+{
+    [Required, MaxLength(2000)]
+    public string Observacao { get; set; } = string.Empty;
+}

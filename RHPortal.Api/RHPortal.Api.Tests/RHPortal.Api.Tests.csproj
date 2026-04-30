@@ -36,8 +36,7 @@
     <Compile Remove="Vagas\VagaServiceOperacoesTests.cs" />
     <Compile Remove="Vagas\VagaFaixaSalarialTests.cs" />
     <Compile Remove="Vagas\VagaCarteiraScopeTests.cs" />
-    <!-- SolicitacaoVagaService idem -->
-    <Compile Remove="SolicitacoesVaga\SolicitacaoVagaServiceTests.cs" />
+    <!-- SolicitacaoVagaService: reativado (Fase 2 triagem / construtor alinhado ao serviço). -->
     <!-- FuncionarioUpdateRequest ganhou parâmetro Notes -->
     <Compile Remove="Funcionarios\FuncionarioServiceTests.cs" />
     <!-- TenantModuleService ganhou parâmetro screenService -->
