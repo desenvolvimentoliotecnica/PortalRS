@@ -27,6 +27,7 @@ import {
     Activity,
     Ban,
     Copy,
+    Plus,
 } from "lucide-react";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
@@ -651,7 +652,15 @@ function SolicitacoesVagaContent() {
         <div className="space-y-4">
             {/* ── primary actions ── */}
             <div className="flex flex-wrap items-center gap-3">
-                <Button size="sm" onClick={openVagaPicker} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button
+                    size="sm"
+                    data-testid="btn-nova-posicao"
+                    onClick={() => openNovaPosicao()}
+                >
+                    <Plus className="size-4 mr-1" />
+                    Nova posição
+                </Button>
+                <Button size="sm" variant="outline" onClick={openVagaPicker}>
                     <Briefcase className="size-4 mr-1" />
                     Do Quadro de Vagas
                 </Button>
