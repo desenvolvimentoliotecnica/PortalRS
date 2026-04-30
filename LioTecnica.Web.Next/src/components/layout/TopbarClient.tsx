@@ -42,16 +42,8 @@ import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
 import { clearSession, getTenantId, setAccessToken, setTenantId } from "@/lib/session";
 
-const RETIRED_NAVIGATION_PATHS = new Set(["/gestao/aprovacoes", "/gestao/solicitacoes"]);
-
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-}
-
-function isRetiredNavigationUrl(url: string | null): boolean {
-  if (!url) return false;
-  const normalized = url.replace(/^\/app(?=\/|$)/, "").split("?")[0].replace(/\/+$/, "").toLowerCase();
-  return RETIRED_NAVIGATION_PATHS.has(normalized);
 }
 
 export default function TopbarClient({
@@ -351,7 +343,7 @@ export default function TopbarClient({
                           </div>
                         );
 
-                        const notificationUrl = isRetiredNavigationUrl(n.url) ? null : n.url;
+                        const notificationUrl = n.url?.trim() ? n.url : null;
 
                         return notificationUrl ? (
                           <Link
