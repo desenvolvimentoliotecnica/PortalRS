@@ -2,21 +2,21 @@
 
 ## Current Position
 
-**Phase:** 1 — Planned (Domínio, persistência e auditoria)  
+**Phase:** 1 — Executed (schema + domínio base)  
 **Plan:** [.planning/phases/01-domain-persistence-audit/01-PLAN.md](./phases/01-domain-persistence-audit/01-PLAN.md)  
-**Status:** Plan-phase gerou `01-PLAN.md`; próximo **`$gsd-execute-phase 1`** (ou implementação manual seguindo o plano)  
-**Resume file:** [.planning/phases/01-domain-persistence-audit/01-CONTEXT.md](./phases/01-domain-persistence-audit/01-CONTEXT.md)
+**Summary:** [.planning/phases/01-domain-persistence-audit/01-SUMMARY.md](./phases/01-domain-persistence-audit/01-SUMMARY.md)
 
-**Last activity:** 2026-04-30 — `$gsd-discuss-phase 1` artefatos `01-CONTEXT.md` + `01-DISCUSSION-LOG.md`
+**Status:** Código e migração Fase 1 aplicados no repositório; aplicar `dotnet ef database update` no ambiente dev quando possível.
+
+**Last activity:** 2026-04-30 — `$gsd-execute-phase 1` (execução inline)
 
 ## Accumulated Context
 
-- Repositório brownfield; **já existe** `SolicitacaoVaga` + `StatusHistoricoService` + integração Totvs — Fase 1 confirma **extensão** deste modelo (ver context).
-- `gsd-sdk` não disponível no ambiente; commits manuais em `.planning`.
+- `gsd-sdk`/executors GSD não utilizados; trabalho feito no Cursor com commit convencional recomendado.
 
 ## Project Reference
 
-See: [.planning/PROJECT.md](./PROJECT.md) (updated 2026-04-30)
+See: [.planning/PROJECT.md](./PROJECT.md)
 
 **Core value:** Entrada única e auditável para abertura/acompanhamento de vagas alinhada ao RM.  
-**Current focus:** Plano de implementação Fase 1 após discuss.
+**Current focus:** Iniciar **Fase 2** (workflow API / máquina de estados) — `$gsd-discuss-phase 2` ou `$gsd-plan-phase 2`.

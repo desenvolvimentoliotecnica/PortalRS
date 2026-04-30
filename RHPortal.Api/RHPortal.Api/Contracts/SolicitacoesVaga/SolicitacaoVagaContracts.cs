@@ -22,6 +22,10 @@ public sealed class SolicitacaoVagaCreateRequest
     [Required, MaxLength(160)]
     public string Titulo { get; set; } = string.Empty;
 
+    /// <remarks>
+    /// RN03 / CMP: se <see cref="TipoSolicitacao"/> for <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>,
+    /// justificativa detalhada deve estar preenchida antes do envio (validação Fase 2 / submissão); rascunhos podem ficar sem texto.
+    /// </remarks>
     [MaxLength(2000)]
     public string? Justificativa { get; set; }
 
@@ -36,6 +40,7 @@ public sealed class SolicitacaoVagaCreateRequest
     // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
     public Guid? VagaId { get; set; }
 
+    /// <remarks>Inclui <see cref="TipoSolicitacaoVaga.AumentoQuadro"/> para o fluxo integrado RN02 ao RM.</remarks>
     // Sprint 1
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }
@@ -94,6 +99,7 @@ public sealed class SolicitacaoVagaUpdateRequest
     // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
     public Guid? VagaId { get; set; }
 
+    /// <remarks>Inclui <see cref="TipoSolicitacaoVaga.AumentoQuadro"/> para o fluxo integrado RN02 ao RM.</remarks>
     // Sprint 1
     public TipoSolicitacaoVaga TipoSolicitacao { get; set; } = TipoSolicitacaoVaga.VagaNova;
     public bool IsConfidencial { get; set; }

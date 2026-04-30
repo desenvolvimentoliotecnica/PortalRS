@@ -44,6 +44,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<TalentoCvImportJob> TalentoCvImportJobs => Set<TalentoCvImportJob>();
     public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
     public DbSet<SolicitacaoVaga> SolicitacoesVaga => Set<SolicitacaoVaga>();
+    public DbSet<RmRequisicaoStatusMap> RmRequisicaoStatusMaps => Set<RmRequisicaoStatusMap>();
     public DbSet<SolicitacaoDesligamento> SolicitacoesDesligamento => Set<SolicitacaoDesligamento>();
     public DbSet<SolicitacaoPromocao> SolicitacoesPromocao => Set<SolicitacaoPromocao>();
     public DbSet<SolicitacaoFerias> SolicitacoesFerias => Set<SolicitacaoFerias>();
@@ -1258,6 +1259,20 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.SolicitanteId });
             b.HasIndex(x => x.MotivoRequisicaoId);
+            b.Property(x => x.RequisitosDetalhadosJson).HasColumnType("jsonb");
+            b.Property(x => x.RmRequisicaoCodigo).HasMaxLength(120);
+            b.Property(x => x.FaixaSalarialMin).HasPrecision(18, 2);
+            b.Property(x => x.FaixaSalarialMax).HasPrecision(18, 2);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmRequisicaoStatusMap>(b =>
+        {
+            b.ToTable("RmRequisicaoStatusMaps");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.PortalStatusKey).HasMaxLength(80).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.CodStatusRm }).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

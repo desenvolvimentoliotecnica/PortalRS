@@ -5,6 +5,11 @@ namespace RhPortal.Api.Domain.Entities;
 /// <summary>
 /// Solicitação de abertura de vaga feita por um gestor, sujeita a aprovação do superior da área.
 /// </summary>
+/// <remarks>
+/// ACC-01: escopo/permissões de utilizadores autorizados aplicam-se em <c>SolicitacaoVagaService</c>
+/// (<c>CreateAsync</c>/<c>UpdateAsync</c>), incl. níveis hierárquicos (<c>PermissoesNivelVaga</c>) e bloqueio <c>IsReadOnly</c> —
+/// não apenas por constraints deste schema.
+/// </remarks>
 public sealed class SolicitacaoVaga : ITenantEntity
 {
     public Guid Id { get; set; }
@@ -42,6 +47,10 @@ public sealed class SolicitacaoVaga : ITenantEntity
     public string Titulo { get; set; } = default!;
 
     /// <summary>Justificativa da contratação.</summary>
+    /// <remarks>
+    /// RN03 / CMP: quando <see cref="TipoSolicitacao"/> é <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>,
+    /// justificativa detalhada é obrigatória antes do envio (validação aplicada na Fase 2 / <c>SubmitAsync</c>).
+    /// </remarks>
     public string? Justificativa { get; set; }
 
     /// <summary>Quantidade de posições a preencher.</summary>
@@ -159,4 +168,27 @@ public sealed class SolicitacaoVaga : ITenantEntity
 
     public int TentativasIntegracao { get; set; }
     public DateTimeOffset? UltimaTentativaUtc { get; set; }
+
+    // ── Formulário enriquecido / RM sync (milestones aumento quadro + integração RM) ─────────────
+
+    /// <summary>
+    /// Requisitos técnicos/comportamentais/etc. §7 história — payload JSON versionado (<c>schemaVersion</c> definido na Fase 2).
+    /// </summary>
+    public string? RequisitosDetalhadosJson { get; set; }
+
+    /// <summary>Código da requisição retornado pelo RM.</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(120)]
+    public string? RmRequisicaoCodigo { get; set; }
+
+    /// <summary>Espelho do <c>CODSTATUS</c> da requisição no RM.</summary>
+    public short? RmCodStatus { get; set; }
+
+    /// <summary>Último instante sincronizado com estado da requisição no RM.</summary>
+    public DateTimeOffset? RmUltimaSincronizacaoUtc { get; set; }
+
+    /// <summary>Placeholder faixa salarial (min) — obrigatoriedade/validação no envio pela Fase 2.</summary>
+    public decimal? FaixaSalarialMin { get; set; }
+
+    /// <summary>Placeholder faixa salarial (max).</summary>
+    public decimal? FaixaSalarialMax { get; set; }
 }

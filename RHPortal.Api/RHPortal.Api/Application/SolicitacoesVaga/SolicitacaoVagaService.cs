@@ -105,6 +105,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         _statusHistorico = statusHistorico;
     }
 
+    /// <summary>Vaga nova nominal ou aumento de quadro dedicado — mesmo conjunto de decisão de headcount do gestor na submissão.</summary>
+    private static bool IsFluxoComDecisaoHeadcountGestor(TipoSolicitacaoVaga t) =>
+        t is TipoSolicitacaoVaga.VagaNova or TipoSolicitacaoVaga.AumentoQuadro;
+
     public async Task<IReadOnlyList<SolicitacaoVagaGridRow>> ListAsync(
         SolicitacaoVagaListQuery query, Guid? currentFuncionarioId, CancellationToken ct)
     {
@@ -836,7 +840,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         // Decisão de headcount passou a ser obrigatória na submissão: quem pede a vaga decide
         // o tipo de headcount (consumir existente, provisório ou aumento definitivo).
         // Substituicao pura segue o fluxo de provisório por padrão (sem exigir DecisaoRH explícito).
-        if (entity.TipoSolicitacao == TipoSolicitacaoVaga.VagaNova && !entity.DecisaoRH.HasValue)
+        if (IsFluxoComDecisaoHeadcountGestor(entity.TipoSolicitacao) && !entity.DecisaoRH.HasValue)
             throw new InvalidOperationException("Informe a decisão de headcount antes de submeter a solicitação.");
 
         if (entity.DecisaoRH == TipoDecisaoHeadcount.SubstituicaoProvisoria
@@ -1252,7 +1256,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         switch (acao)
         {
             case AcaoEtapa.CriarVagaRascunho:
-                if (entity.TipoSolicitacao == TipoSolicitacaoVaga.VagaNova)
+                if (IsFluxoComDecisaoHeadcountGestor(entity.TipoSolicitacao))
                 {
                     if (entity.VagaId.HasValue)
                         await ProvisionarHcPendenteAsync(entity, ct);
