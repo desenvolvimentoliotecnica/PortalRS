@@ -2,9 +2,9 @@
 
 ## Current Position
 
-**Phase:** 1 — Context gathered (Domínio, persistência e auditoria)  
-**Plan:** —  
-**Status:** Discuss-phase concluído; próximo passo **`$gsd-plan-phase 1`** (ou revisar `01-CONTEXT.md`)  
+**Phase:** 1 — Planned (Domínio, persistência e auditoria)  
+**Plan:** [.planning/phases/01-domain-persistence-audit/01-PLAN.md](./phases/01-domain-persistence-audit/01-PLAN.md)  
+**Status:** Plan-phase gerou `01-PLAN.md`; próximo **`$gsd-execute-phase 1`** (ou implementação manual seguindo o plano)  
 **Resume file:** [.planning/phases/01-domain-persistence-audit/01-CONTEXT.md](./phases/01-domain-persistence-audit/01-CONTEXT.md)
 
 **Last activity:** 2026-04-30 — `$gsd-discuss-phase 1` artefatos `01-CONTEXT.md` + `01-DISCUSSION-LOG.md`
