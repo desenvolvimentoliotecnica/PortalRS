@@ -241,7 +241,13 @@ public sealed record SolicitacaoVagaResponse(
     Guid? DesligamentoVinculadoId,
     // Amarração com candidato contratado (preenchido quando a pré-admissão vinculada à vaga é efetivada)
     Guid? CandidatoContratadoId,
-    string? CandidatoContratadoNome
+    string? CandidatoContratadoNome,
+    /// <summary>CODSTATUS lido do RM na última sincronização (SYN).</summary>
+    short? RmCodStatus,
+    string? RmUltimaStatusDescricaoRm,
+    string? RmStatusSyncUltimaMensagem,
+    DateTimeOffset? RmUltimaSincronizacaoUtc,
+    string? RmRequisicaoCodigo
 );
 
 public sealed record SolicitacaoVagaGridRow(
@@ -261,6 +267,10 @@ public sealed record SolicitacaoVagaGridRow(
     bool IsConfidencial,
     string? SubstituidoNome,
     DateTimeOffset CreatedAtUtc,
+    short? RmCodStatus,
+    string? RmUltimaStatusDescricaoRm,
+    string? RmStatusSyncUltimaMensagem,
+    DateTimeOffset? RmUltimaSincronizacaoUtc,
     string? EtapaPendenteLabel,
     string? EtapaPendenteCom,
     bool EtapaPendenteIsQueue,
@@ -268,3 +278,28 @@ public sealed record SolicitacaoVagaGridRow(
     Guid? EtapaPendenteAssumedByUserId,
     bool EtapaPendenteCanAssume
 );
+
+// ── Indicações internas (SEL‑03) ──
+
+public sealed record SolicitacaoVagaIndicacaoDto(
+    Guid Id,
+    Guid CandidatoId,
+    string? CandidatoNome,
+    string? Observacao,
+    Guid? IndicadoPorUserId,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed class SolicitacaoVagaIndicacaoCreateRequest
+{
+    [Required]
+    public Guid CandidatoId { get; set; }
+
+    [MaxLength(2000)]
+    public string? Observacao { get; set; }
+}
+
+public sealed class SolicitacaoVagaSelecaObservacaoRequest
+{
+    [Required, MaxLength(2000)]
+    public string Observacao { get; set; } = string.Empty;
+}

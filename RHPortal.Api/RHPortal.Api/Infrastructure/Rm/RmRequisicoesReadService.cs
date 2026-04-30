@@ -49,6 +49,35 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         return new RmRequisicaoListResponse { Items = items, TotalCount = totalCount };
     }
 
+    public async Task<RmRequisicaoCodStatusSnapshot?> TryGetCodStatusByPortalCodigoAsync(string rmRequisicaoCodigo, CancellationToken ct)
+    {
+        if (RmPortalRequisicaoVinculo.IsStub(rmRequisicaoCodigo))
+            return null;
+        if (!RmPortalRequisicaoVinculo.TryParse(rmRequisicaoCodigo, out var tipo, out var codCol, out var idReq))
+            return null;
+
+        var cs = _opts.GetConnectionString();
+        await using var conn = new SqlConnection(cs);
+        await conn.OpenAsync(ct);
+
+        await using var cmd = new SqlCommand(RmRequisicoesQueries.SqlCodStatusPorVinculo, conn);
+        cmd.Parameters.AddWithValue("@Tipo", tipo);
+        cmd.Parameters.AddWithValue("@CodCol", codCol);
+        cmd.Parameters.AddWithValue("@IdReq", idReq);
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct))
+            return null;
+
+        var codStatus = SafeInt(reader, "CODSTATUS") ?? 0;
+        return new RmRequisicaoCodStatusSnapshot(
+            codStatus,
+            SafeString(reader, "STATUS_DESCRICAO"),
+            SafeString(reader, "TIPO_REQUISICAO") ?? tipo,
+            SafeInt(reader, "CODCOLREQUISICAO") ?? codCol,
+            SafeInt(reader, "IDREQ") ?? idReq);
+    }
+
     private static void AddFilterParameters(
         SqlCommand cmd,
         string? tipo,

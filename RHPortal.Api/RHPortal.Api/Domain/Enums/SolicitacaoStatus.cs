@@ -45,4 +45,18 @@ public enum SolicitacaoStatus : short
 
     /// <summary>Marcador explícito de fila de reprocessamento manual/automático pós-erro RM.</summary>
     AguardandoReprocessamentoRm = 16,
+
+    // ── Seleção RH pós‑RM (Fase 6 · SEL‑01…04) ─────────────────────────────────────────────────────
+
+    /// <summary>RM integrado; RH conduz processo seletivo sobre a vaga vinculada.</summary>
+    EmProcessoSeletivo = 17,
+
+    /// <summary>Fluxo de seleção pausado (auditável); retoma para <see cref="EmProcessoSeletivo"/>.</summary>
+    Suspensa = 18,
+
+    /// <summary>Seleção encerrada sem contratação no portal (terminal SEL‑04).</summary>
+    EncerradaSemContratacao = 19,
+
+    /// <summary>Contratação concluída no âmbito da seleção — distinto de <see cref="Concluida"/> (headcount/aprovações).</summary>
+    ContratacaoConcluida = 20,
 }

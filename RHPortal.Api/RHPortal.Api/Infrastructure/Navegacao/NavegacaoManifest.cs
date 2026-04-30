@@ -101,6 +101,8 @@ public static class NavegacaoManifest
         // R&S e Folha; dividi-lo por pacote (opção B3) perderia a visão consolidada.
         // Fica em "Principais" como "visão consolidada do RH".
         new("nav-painel-solicitacoes",      "Painel de Solicitações", "/gestao/painel-solicitacoes",     "gitbranch",         "gestao.dashboard",         Destacado: true, Ordem: 40),
+        new("nav-gestao-solicitacoes-vaga","Solicitações de Vaga",   "/gestao/solicitacoes",            "clipboardlist",     "solicitacoes-vaga.view",   Destacado: true, Ordem: 50),
+        new("nav-gestao-aprovacoes-vaga",  "Aprovações",             "/gestao/aprovacoes",               "listchecks",        "aprovacoes-vaga.view",      Destacado: true, Ordem: 60),
 
         // ── Recrutamento e Seleção (pacote) ──────────────────────────────────
         new("nav-vagas",                    "Vagas",                  "/vagas",                          "briefcase",         "vagas.view",               Ordem: 10),
@@ -114,7 +116,11 @@ public static class NavegacaoManifest
         new("nav-processo-seletivo",        "Processo Seletivo",      "/gestao/processo-seletivo",       "listchecks",        "processo-seletivo.view",   Ordem: 70),
         new("nav-agendas",                  "Agenda",                 "/agendas",                        "calendar",          "agenda.view",              Ordem: 80),
         new("nav-portalvagas",              "Portal de Vagas",        "/portalvagas",                    "globe",             "portalvagas.view",         Ordem: 90, OpenInNewTab: true),
+        new("nav-painel-rh",                "Painel RH",              "/painel-rh",                      "layoutdashboard",    "entrada.view",             Ordem: 92),
         new("nav-talentos",                 "Banco de Talentos",      "/talentos",                       "sparkles",          "candidatos.view",          ModuloKeyOverride: "candidatos", Ordem: 95),
+        new("nav-rh-contrat-triagem",       "Contratações — Triagem",  "/rh/contratacoes/triagem",        "clipboardlist",      "rh.contratacoes.triagem",  Ordem: 96),
+        new("nav-rh-contrat-selecao",       "Contratações — Seleção", "/rh/contratacoes/selecao",        "usercheck",          "rh.contratacoes.selecao",  Ordem: 97),
+        new("nav-rh-contrat-aprovacoes",    "Contratações — Aprovações", "/gestao/aprovacoes",           "listchecks",         "gestao.dashboard",       Ordem: 98),
 
         // ── Gestão de Pessoas (pacote) ───────────────────────────────────────
         // (Painel de Solicitações foi promovido para "Principais" — Onda 14)
@@ -158,18 +164,21 @@ public static class NavegacaoManifest
         new("nav-unidades",                 "Estabelecimentos",       "/unidades",                       "map-pin",           "units.view",               Ordem: 80),
         new("nav-categorias-salariais",     "Categorias Salariais",   "/categorias-salariais",           "badge-dollar-sign", "categories.view",          Ordem: 100),
         new("nav-turnos",                   "Turnos",                 "/turnos",                         "clock",             "areas.view",               Ordem: 110),
+        new("nav-sla-vagas",                "SLA de Vagas",           "/sla-vagas",                      "timer",             "vagas.view",               GrupoUiOverride: "cadastros", Ordem: 115),
         new("nav-pessoas",                  "Pessoas",                "/pessoas",                        "user",              "funcionarios.view",        Ordem: 130),
         new("nav-funcionarios",             "Funcionários",           "/funcionarios",                   "users",             "funcionarios.view",        Ordem: 140),
 
         // ── Administração (core) ─────────────────────────────────────────────
         new("nav-admin-users",              "Usuários",               "/admin/users",                    "users",             "users.read",               Ordem: 10),
         new("nav-admin-roles",              "Perfis (Roles)",         "/admin/roles",                    "shield",            "roles.manage",             Ordem: 20),
+        new("nav-admin-logs",               "Logs operacionais",      "/admin/logs",                     "activity",          "logs.view",                Ordem: 25),
         new("nav-admin-accesses",           "Acessos",                "/admin/accesses",                 "bi-shield-lock",    "access.manage",            Ordem: 30),
         new("nav-admin-organograma",        "Organograma",            "/admin/organograma",              "bi-diagram-2",      "access.manage",            Ordem: 40),
         new("nav-admin-gestores",           "Gestores",               "/admin/gestores",                 "usercheck",         "access.manage",            Ordem: 50),
         new("nav-admin-hierarquia",         "Hierarquia",             "/admin/hierarquia",               "bi-diagram-3",      "access.manage",            Ordem: 60),
         new("nav-admin-doc-padrao",         "Documentação Padrão",    "/admin/documentacao-padrao",      "bi-journal-text",   "access.manage",            Ordem: 100),
         new("nav-admin-requisicoes-rm",     "Requisições RM",         "/admin/requisicoes-rm",           "clipboardlist",    "access.manage",            Ordem: 105),
+        new("nav-admin-rm-requisicao-status", "Status RM ⇄ Requisição", "/admin/rm-requisicao-status",   "arrow-right-left", "access.manage",            Ordem: 106),
         new("nav-admin-notif-candidatura",  "Notificações (Candidaturas)", "/administracao/notificacoes-candidatura", "bell-ring", "audit.view",           Ordem: 140),
         new("nav-admin-notif-templates",    "Templates de Notificação",    "/administracao/notificacoes-templates",   "book-template", "audit.view",       Ordem: 145),
 

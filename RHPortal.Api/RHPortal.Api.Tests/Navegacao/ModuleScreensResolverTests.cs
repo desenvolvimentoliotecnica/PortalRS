@@ -87,7 +87,7 @@ public sealed class ModuleScreensResolverTests
     {
         var telas = ModuleScreensResolver.GetScreensForModule("matching");
         Assert.Single(telas);
-        Assert.Equal("/matching", telas[0].Href);
+        Assert.Equal("/assistente-ia", telas[0].Href);
     }
 
     [Fact]

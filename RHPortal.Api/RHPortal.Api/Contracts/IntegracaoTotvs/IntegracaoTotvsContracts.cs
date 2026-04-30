@@ -21,7 +21,11 @@ public sealed record IntegracaoTotvsListItem(
     DateTimeOffset? ApprovedAtUtc,
     IntegracaoResultado? IntegracaoResultado,
     string? IntegracaoMensagem,
-    DateTimeOffset? IntegradaEmUtc
+    DateTimeOffset? IntegradaEmUtc,
+    /// <summary>Preenchido para <see cref="TipoIntegracao.SolicitacaoVaga"/> após sync SYN.</summary>
+    short? RmCodStatus = null,
+    string? RmUltimaStatusDescricaoRm = null,
+    string? RmStatusSyncUltimaMensagem = null
 );
 
 public sealed record IntegracaoTotvsPainelResponse(

@@ -35,8 +35,16 @@ import {
     TableCell,
 } from "@/components/ui/table";
 
+import Link from "next/link";
 import AcompanhamentoModal, { type AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
+import {
+    normalizeSolicitacaoStatusOrdinal,
+    solicitacaoPainelUnifiedStatusOrdinal,
+    solicitacaoPainelNeedsDelayAttention,
+    solicitacaoPainelShowsEtapaPlaceholder,
+    SolicitacaoVagaStatusBadgeEl,
+} from "@/features/gestao/shared/solicitacaoVagaStatusUi";
 import { useAuth } from "@/hooks/useAuth";
 
 /* ──────────────────────────── types ──────────────────────────── */
@@ -48,7 +56,10 @@ interface UnifiedRow {
     tipo: TipoKey;
     descricao: string;
     solicitante: string;
+    /** Painel KPI / filtro (0–6) — Contratação usa mapeamento a partir da máquina `SolicitacaoStatus`. */
     status: number;
+    /** Ordinal real quando `tipo === contratacao` (triagem / RM inclusos); ausente nos demais tipos. */
+    vagaOrdinal?: number;
     etapaLabel: string | null;
     etapaPendenteCom: string | null;
     etapaPendenteIsQueue: boolean;
@@ -91,40 +102,23 @@ function parseStatus(raw: unknown): number {
     return 0;
 }
 
-// SolicitacaoVagaStatus C# enum: 0=Rascunho,1=PendenteAprovacao,2=Aprovada,3=Reprovada,
-//   4=AjustesNecessarios,5=PendenteAprovacaoRh,6=Cancelada (different from generic STATUS_NAME_MAP)
-const VAGA_STATUS_NAME_MAP: Record<string, number> = {
-    rascunho: 0, pendenteaprovacao: 1, aprovada: 2, reprovada: 3,
-    ajustesnecessarios: 4, pendenteaprovacaorh: 5, cancelada: 6,
-};
-function parseVagaStatus(raw: unknown): number {
-    let v: number;
-    if (typeof raw === "number") {
-        v = raw;
-    } else if (typeof raw === "string") {
-        const n = Number(raw);
-        v = !isNaN(n) ? n : (VAGA_STATUS_NAME_MAP[raw.toLowerCase()] ?? 0);
-    } else {
-        v = 0;
-    }
-    // Remap to generic STATUS_MAP convention (5=Cancelada, 6=AguardaRH)
-    if (v === 5) return 6; // PendenteAprovacaoRh → generic 6
-    if (v === 6) return 5; // Cancelada → generic 5
-    return v;
-}
-
 const TIPO_CFG: Record<TipoKey, TipoCfg> = {
     contratacao: {
         label: "Contratacao", icon: Briefcase, color: "text-violet-600", bgColor: "bg-violet-500/15",
         api: "/api/solicitacoes-vaga", detailApiBase: "/api/solicitacoes-vaga",
-        mapRow: (r) => ({
-            id: s(r, "id"), descricao: s(r, "titulo"), solicitante: s(r, "solicitanteNome"),
-            status: parseVagaStatus(r.status), etapaLabel: r.etapaPendenteLabel as string | null,
-            etapaPendenteCom: r.etapaPendenteCom as string | null,
-            etapaPendenteIsQueue: (r.etapaPendenteIsQueue as boolean) ?? false,
-            etapaPendenteCanAssume: (r.etapaPendenteCanAssume as boolean) ?? false,
-            createdAtUtc: s(r, "createdAtUtc"),
-        }),
+        mapRow: (r) => {
+            const vOrd = normalizeSolicitacaoStatusOrdinal(r.status);
+            return {
+                id: s(r, "id"), descricao: s(r, "titulo"), solicitante: s(r, "solicitanteNome"),
+                status: solicitacaoPainelUnifiedStatusOrdinal(vOrd),
+                vagaOrdinal: vOrd,
+                etapaLabel: r.etapaPendenteLabel as string | null,
+                etapaPendenteCom: r.etapaPendenteCom as string | null,
+                etapaPendenteIsQueue: (r.etapaPendenteIsQueue as boolean) ?? false,
+                etapaPendenteCanAssume: (r.etapaPendenteCanAssume as boolean) ?? false,
+                createdAtUtc: s(r, "createdAtUtc"),
+            };
+        },
     },
     promocao: {
         label: "Movimentacao", icon: TrendingUp, color: "text-teal-600", bgColor: "bg-teal-500/15",
@@ -219,8 +213,12 @@ function diasPendente(createdAtUtc: string): number {
     return Math.floor((Date.now() - new Date(createdAtUtc).getTime()) / 86_400_000);
 }
 
-function atrasoBadge(createdAtUtc: string, status: number) {
-    if (status !== 1 && status !== 6) return null;
+function atrasoBadge(createdAtUtc: string, row: UnifiedRow) {
+    const pendente =
+        row.tipo === "contratacao" && row.vagaOrdinal != null
+            ? solicitacaoPainelNeedsDelayAttention(row.vagaOrdinal)
+            : (row.status === 1 || row.status === 6);
+    if (!pendente) return null;
     const dias = diasPendente(createdAtUtc);
     if (dias < 3) return null;
     const isAlta = dias > 7;
@@ -242,8 +240,11 @@ const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.
     6: { label: "Aguarda RH", color: "bg-purple-500/15 text-purple-700", icon: Clock },
 };
 
-function statusBadge(status: number) {
-    const cfg = STATUS_MAP[(status ?? 0) as StatusKey] ?? STATUS_MAP[0];
+function statusBadge(row: UnifiedRow) {
+    if (row.tipo === "contratacao" && row.vagaOrdinal != null) {
+        return <SolicitacaoVagaStatusBadgeEl raw={row.vagaOrdinal} />;
+    }
+    const cfg = STATUS_MAP[(row.status ?? 0) as StatusKey] ?? STATUS_MAP[0];
     const Icon = cfg.icon;
     return (
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cfg.color}`}>
@@ -401,11 +402,17 @@ export default function PainelSolicitacoesScreen() {
         <section className="space-y-4">
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
+                <div className="min-w-[200px]">
                     <h1 className="text-2xl font-semibold tracking-tight">Painel de Solicitacoes</h1>
                     <div className="text-muted-foreground text-sm mt-0.5">
                         Visao geral de todas as solicitacoes e seus fluxos de aprovacao
                     </div>
+                    <Link
+                        href="/gestao/solicitacoes"
+                        className="text-sm font-medium text-primary hover:underline mt-2 inline-block"
+                    >
+                        Lista completa — contratações / requisições
+                    </Link>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => void fetchAll()}>
                     <RefreshCw className="size-4" />
@@ -525,11 +532,13 @@ export default function PainelSolicitacoesScreen() {
                                         </button>
                                     </TableCell>
                                     <TableCell className="text-sm">{row.solicitante}</TableCell>
-                                    <TableCell>{statusBadge(row.status)}</TableCell>
+                                    <TableCell>{statusBadge(row)}</TableCell>
                                     <TableCell className="text-xs">
                                         {row.etapaLabel ? (
                                             <span className="font-medium">{row.etapaLabel}</span>
-                                        ) : row.status === 1 || row.status === 6 ? (
+                                        ) : (row.tipo === "contratacao" && row.vagaOrdinal != null
+                                            ? solicitacaoPainelShowsEtapaPlaceholder(row.vagaOrdinal)
+                                            : (row.status === 1 || row.status === 6)) ? (
                                             <span className="text-muted-foreground italic">ver etapas</span>
                                         ) : "—"}
                                     </TableCell>
@@ -553,7 +562,7 @@ export default function PainelSolicitacoesScreen() {
                                     <TableCell className="text-sm">
                                         <div className="flex items-center gap-1.5">
                                             {formatDate(row.createdAtUtc)}
-                                            {atrasoBadge(row.createdAtUtc, row.status)}
+                                            {atrasoBadge(row.createdAtUtc, row)}
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">

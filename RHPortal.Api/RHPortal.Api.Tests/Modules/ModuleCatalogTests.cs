@@ -113,6 +113,8 @@ public sealed class ModuleCatalogTests
     [InlineData("aprovacoes-vaga.view", "recrutamento")]
     [InlineData("projetos.view", "recrutamento")]
     [InlineData("processo-seletivo.view", "recrutamento")]
+    [InlineData("rh.contratacoes.triagem", "recrutamento")]
+    [InlineData("rh.contratacoes.selecao", "recrutamento")]
     [InlineData("candidatos.view", "candidatos")]
     [InlineData("triagem.view", "candidatos")]
     [InlineData("matching.view", "matching")]

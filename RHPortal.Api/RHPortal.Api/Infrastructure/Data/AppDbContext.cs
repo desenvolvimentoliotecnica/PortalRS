@@ -44,6 +44,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<TalentoCvImportJob> TalentoCvImportJobs => Set<TalentoCvImportJob>();
     public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
     public DbSet<SolicitacaoVaga> SolicitacoesVaga => Set<SolicitacaoVaga>();
+    public DbSet<SolicitacaoVagaIntegracaoTentativa> SolicitacoesVagaIntegracaoTentativas => Set<SolicitacaoVagaIntegracaoTentativa>();
+    public DbSet<SolicitacaoVagaIndicacao> SolicitacoesVagaIndicacao => Set<SolicitacaoVagaIndicacao>();
     public DbSet<RmRequisicaoStatusMap> RmRequisicaoStatusMaps => Set<RmRequisicaoStatusMap>();
     public DbSet<SolicitacaoDesligamento> SolicitacoesDesligamento => Set<SolicitacaoDesligamento>();
     public DbSet<SolicitacaoPromocao> SolicitacoesPromocao => Set<SolicitacaoPromocao>();
@@ -1261,8 +1263,53 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasIndex(x => x.MotivoRequisicaoId);
             b.Property(x => x.RequisitosDetalhadosJson).HasColumnType("jsonb");
             b.Property(x => x.RmRequisicaoCodigo).HasMaxLength(120);
+            b.Property(x => x.RmStatusSyncUltimaMensagem).HasMaxLength(2000);
+            b.Property(x => x.RmUltimaStatusDescricaoRm).HasMaxLength(240);
             b.Property(x => x.FaixaSalarialMin).HasPrecision(18, 2);
             b.Property(x => x.FaixaSalarialMax).HasPrecision(18, 2);
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SolicitacaoVagaIntegracaoTentativa>(b =>
+        {
+            b.ToTable("SolicitacaoVagaIntegracaoTentativas");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TentativaEmUtc).IsRequired();
+            b.Property(x => x.Sucesso).IsRequired();
+            b.Property(x => x.PayloadResumo).HasMaxLength(8000);
+            b.Property(x => x.MensagemErro).HasMaxLength(2000);
+            b.Property(x => x.CodigoRmRetornado).HasMaxLength(120);
+
+            b.HasOne(x => x.SolicitacaoVaga)
+                .WithMany()
+                .HasForeignKey(x => x.SolicitacaoVagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(x => new { x.TenantId, x.SolicitacaoVagaId });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<SolicitacaoVagaIndicacao>(b =>
+        {
+            b.ToTable("SolicitacaoVagaIndicacoes");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Observacao).HasMaxLength(2000);
+            b.Property(x => x.CreatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.SolicitacaoVaga)
+                .WithMany()
+                .HasForeignKey(x => x.SolicitacaoVagaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany()
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasIndex(x => new { x.TenantId, x.SolicitacaoVagaId });
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

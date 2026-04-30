@@ -186,6 +186,14 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Último instante sincronizado com estado da requisição no RM.</summary>
     public DateTimeOffset? RmUltimaSincronizacaoUtc { get; set; }
 
+    /// <summary>Mensagem do último ciclo de **sync CODSTATUS** (não usar para criação IRM).</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(2000)]
+    public string? RmStatusSyncUltimaMensagem { get; set; }
+
+    /// <summary>Último <c>STATUS_DESCRICAO</c> lido no RM ao sincronizar CODSTATUS.</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(240)]
+    public string? RmUltimaStatusDescricaoRm { get; set; }
+
     /// <summary>Placeholder faixa salarial (min) — obrigatoriedade/validação no envio pela Fase 2.</summary>
     public decimal? FaixaSalarialMin { get; set; }
 

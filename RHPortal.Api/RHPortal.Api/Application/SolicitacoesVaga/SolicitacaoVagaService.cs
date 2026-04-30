@@ -42,9 +42,9 @@ public interface ISolicitacaoVagaService
     Task<SolicitacaoVagaResponse> CopyAsync(Guid sourceId, Guid? solicitanteId, CancellationToken ct);
 
     /// <summary>
-    /// RH/Admin efetiva a requisição aprovada — muda status para EmIntegracao
-    /// e sinaliza ao TOTVS que a vaga deve ser aberta no ERP.
-    /// A confirmação do TOTVS chega via webhook POST /api/integracao-totvs/9/{id}/resultado.
+    /// RH/Admin efetiva a requisição aprovada: tenta criar a requisição no RM (<see cref="ISolicitacaoVagaRmIntegracaoService"/>).
+    /// Em caso de sucesso fica em <see cref="SolicitacaoStatus.EmIntegracao"/>; falhas geram estado de reprocessamento e histórico.
+    /// Confirmação adicional pode chegar pelo webhook POST /api/integracao-totvs/9/{id}/resultado.
     /// </summary>
     Task<SolicitacaoVagaResponse?> EfetivarAsync(Guid id, CancellationToken ct);
 
@@ -65,6 +65,15 @@ public interface ISolicitacaoVagaService
     /// Usado quando a contratação acontece fora do fluxo de pré-admissão (ou para corrigir vínculo).
     /// </summary>
     Task<SolicitacaoVagaResponse?> VincularCandidatoContratadoAsync(Guid id, Guid candidatoId, CancellationToken ct);
+
+    Task<SolicitacaoVagaResponse?> IniciarProcessoSeletivoAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoVagaResponse?> SuspenderSelecaoAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<SolicitacaoVagaResponse?> RetomarSelecaoAsync(Guid id, CancellationToken ct);
+    Task<SolicitacaoVagaResponse?> EncerrarSemContratacaoAsync(Guid id, string observacao, CancellationToken ct);
+    Task<SolicitacaoVagaResponse?> MarcarContratacaoConcluidaAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<IReadOnlyList<SolicitacaoVagaIndicacaoDto>> ListIndicacoesAsync(Guid solicitacaoId, CancellationToken ct);
+    Task<SolicitacaoVagaIndicacaoDto?> AddIndicacaoAsync(Guid solicitacaoId, SolicitacaoVagaIndicacaoCreateRequest request, CancellationToken ct);
+    Task<bool> RemoveIndicacaoAsync(Guid solicitacaoId, Guid indicacaoId, CancellationToken ct);
 }
 
 public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
@@ -81,6 +90,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IServiceProvider _serviceProvider;
     private readonly StatusHistoricoService _statusHistorico;
+    private readonly ISolicitacaoVagaRmIntegracaoService _solicitacaoVagaRmIntegracao;
 
     public SolicitacaoVagaService(
         AppDbContext db,
@@ -94,7 +104,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         IMagicLinkService magicLink,
         IHttpContextAccessor httpContextAccessor,
         IServiceProvider serviceProvider,
-        StatusHistoricoService statusHistorico)
+        StatusHistoricoService statusHistorico,
+        ISolicitacaoVagaRmIntegracaoService solicitacaoVagaRmIntegracao)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -108,6 +119,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         _httpContextAccessor = httpContextAccessor;
         _serviceProvider = serviceProvider;
         _statusHistorico = statusHistorico;
+        _solicitacaoVagaRmIntegracao = solicitacaoVagaRmIntegracao;
     }
 
     /// <summary>Vaga nova nominal ou aumento de quadro dedicado — mesmo conjunto de decisão de headcount do gestor na submissão.</summary>
@@ -126,6 +138,19 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
         else if (!_currentUser.IsAdmin)
         {
+            var listaAmplaRh =
+                (_currentUser.HasPermission("*")
+                 || _currentUser.HasPermission("rh.contratacoes.view")
+                 || _currentUser.HasPermission("rh.contratacoes.triagem")
+                 || _currentUser.HasPermission("rh.contratacoes.selecao"))
+                && query.ApenasMeus != true;
+
+            if (listaAmplaRh)
+            {
+                // Operador RH com permissão explícita — vê todas as solicitações do tenant (filtros query abaixo).
+            }
+            else
+            {
             // Non-admin sees: own requests OR requests with a pending approval step assigned to them
             // (either directly via AprovadorId or via FilaDePerfil role queue)
             var userRoleIds = _currentUser.UserId.HasValue
@@ -160,6 +185,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             else
                 q = q.Where(s => (currentFuncionarioId.HasValue && s.SolicitanteId == currentFuncionarioId.Value)
                     || solicitacaoIdsComEtapaPendente.Contains(s.Id));
+            }
         }
 
         if (query.Statuses is { Length: > 0 })
@@ -193,6 +219,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 AprovadorNome = s.Aprovador != null ? s.Aprovador.Name : (string?)null,
                 CentroCustoNome = s.CentroCusto != null ? s.CentroCusto.Description : (string?)null,
                 s.QtdPosicoes, s.TipoSolicitacao, s.IsConfidencial, s.SubstituidoNome, s.CreatedAtUtc,
+                s.RmCodStatus, s.RmUltimaStatusDescricaoRm, s.RmStatusSyncUltimaMensagem,
+                s.RmUltimaSincronizacaoUtc,
             }).ToListAsync(ct);
 
         var ids = rawRows.Select(r => r.Id).ToList();
@@ -218,6 +246,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 r.Id, r.Titulo, r.Urgencia, r.Status, r.SolicitanteId, r.SolicitanteNome,
                 r.AprovadorId, r.AprovadorNome, r.CentroCustoNome, r.QtdPosicoes,
                 r.TipoSolicitacao, r.IsConfidencial, r.SubstituidoNome, r.CreatedAtUtc,
+                r.RmCodStatus, r.RmUltimaStatusDescricaoRm, r.RmStatusSyncUltimaMensagem,
+                r.RmUltimaSincronizacaoUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,
                 ep?.CanAssume ?? false);
         }).ToList();
@@ -239,6 +269,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (s is null) return null;
+
+        if (!await CanUsuarioVerSolicitacaoVagaAsync(s.SolicitanteId, s.CentroCustoId, s.Id, ct))
+            return null;
 
         // Fetch all etapas for workflow timeline
         var etapas = await _db.SolicitacoesAprovacaoEtapa
@@ -1840,6 +1873,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             or SolicitacaoStatus.Cancelada
             or SolicitacaoStatus.Reprovada
             or SolicitacaoStatus.Concluida
+            or SolicitacaoStatus.ContratacaoConcluida
+            or SolicitacaoStatus.EncerradaSemContratacao
+            or SolicitacaoStatus.EmProcessoSeletivo
+            or SolicitacaoStatus.Suspensa
             or SolicitacaoStatus.EmIntegracao)
             throw new InvalidOperationException("Solicitação não está pendente de aprovação.");
 
@@ -1947,23 +1984,17 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
-        if (entity.Status != SolicitacaoStatus.Aprovada)
-            throw new InvalidOperationException($"Só é possível efetivar solicitações com status 'Aprovada' (atual: {entity.Status}).");
+        static bool PermiteEfetivarOuReprocessar(SolicitacaoStatus st) =>
+            st is SolicitacaoStatus.Aprovada
+                or SolicitacaoStatus.PendenteIntegracaoRm
+                or SolicitacaoStatus.AguardandoReprocessamentoRm
+                or SolicitacaoStatus.ErroIntegracaoRm;
 
-        var statusAnteriorEfetivar = entity.Status.ToString();
-        entity.Status = SolicitacaoStatus.EmIntegracao;
-        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        if (!PermiteEfetivarOuReprocessar(entity.Status))
+            throw new InvalidOperationException(
+                $"Só é possível efetivar/reprocessar a partir de Aprovada ou estados de reprocessamento RM (atual: {entity.Status}).");
 
-        await _statusHistorico.RegistrarAsync(
-            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-            statusAnteriorEfetivar, entity.Status.ToString(), _currentUser, null, ct);
-
-        await _db.SaveChangesAsync(ct);
-
-        // TODO: quando TotvsEndpointUrl estiver configurado em TenantConfiguracao,
-        // enviar o payload da requisição de pessoal ao TOTVS aqui (via ITotvsClient).
-        // A confirmação chega pelo webhook POST /api/integracao-totvs/9/{id}/resultado.
-
+        await _solicitacaoVagaRmIntegracao.ExecutarCriacaoRequisicaoRmAsync(id, ct);
         return await GetByIdAsync(id, ct);
     }
 
@@ -2019,7 +2050,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         // Idempotente: não re-propaga se já está em estado terminal
         if (entity.Status == SolicitacaoStatus.Reprovada ||
             entity.Status == SolicitacaoStatus.Cancelada ||
-            entity.Status == SolicitacaoStatus.Concluida)
+            entity.Status == SolicitacaoStatus.Concluida ||
+            entity.Status == SolicitacaoStatus.ContratacaoConcluida ||
+            entity.Status == SolicitacaoStatus.EncerradaSemContratacao)
             return;
 
         entity.Status = SolicitacaoStatus.Reprovada;
@@ -2071,7 +2104,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         if (entity.Status == SolicitacaoStatus.Reprovada ||
             entity.Status == SolicitacaoStatus.Cancelada ||
-            entity.Status == SolicitacaoStatus.Concluida)
+            entity.Status == SolicitacaoStatus.Concluida ||
+            entity.Status == SolicitacaoStatus.ContratacaoConcluida ||
+            entity.Status == SolicitacaoStatus.EncerradaSemContratacao)
             return;
 
         entity.Status = SolicitacaoStatus.Cancelada;
@@ -2126,6 +2161,256 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         await _db.SaveChangesAsync(ct);
 
         return await GetByIdAsync(id, ct);
+    }
+
+    private async Task<bool> CanUsuarioVerSolicitacaoVagaAsync(Guid solicitanteId, Guid? centroCustoId, Guid solicitacaoId, CancellationToken ct)
+    {
+        if (_currentUser.IsAdmin) return true;
+        if (_currentUser.HasPermission("*")
+            || _currentUser.HasPermission("rh.contratacoes.view")
+            || _currentUser.HasPermission("rh.contratacoes.triagem")
+            || _currentUser.HasPermission("rh.contratacoes.selecao"))
+            return true;
+
+        var currentFuncionarioId = _currentUser.FuncionarioId;
+        if (currentFuncionarioId.HasValue && solicitanteId == currentFuncionarioId.Value)
+            return true;
+
+        var userRoleIds = _currentUser.UserId.HasValue
+            ? await _db.Set<ApplicationUserRole>().AsNoTracking()
+                .Where(ur => ur.UserId == _currentUser.UserId!.Value)
+                .Select(ur => ur.RoleId)
+                .ToListAsync(ct)
+            : new List<Guid>();
+
+        var inEtapa = await _db.SolicitacoesAprovacaoEtapa.AsNoTracking()
+            .AnyAsync(e => e.SolicitacaoId == solicitacaoId
+                           && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                           && e.Status == StatusAprovacao.Pendente
+                           && (
+                               (e.AprovadorId.HasValue && e.AprovadorId == currentFuncionarioId)
+                               || (e.RoleFilaId.HasValue && userRoleIds.Contains(e.RoleFilaId.Value))
+                               || (e.AssumedByUserId.HasValue && e.AssumedByUserId == _currentUser.UserId)
+                           ), ct);
+        if (inEtapa) return true;
+
+        if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.CentroCustoId.HasValue)
+            return centroCustoId == _currentUser.CentroCustoId.Value;
+        if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && currentFuncionarioId.HasValue)
+            return solicitanteId == currentFuncionarioId.Value;
+        return currentFuncionarioId.HasValue && solicitanteId == currentFuncionarioId.Value;
+    }
+
+    private void EnsureUsuarioAutorizadoSelecao()
+    {
+        if (_currentUser.IsAdmin) return;
+        if (_currentUser.HasPermission("*") || _currentUser.HasPermission("rh.contratacoes.selecao"))
+            return;
+        throw new InvalidOperationException("Sem permissão para operações de seleção de contratação (RH).");
+    }
+
+    public async Task<SolicitacaoVagaResponse?> IniciarProcessoSeletivoAsync(Guid id, CancellationToken ct)
+    {
+        EnsureUsuarioAutorizadoSelecao();
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.EmIntegracao)
+            throw new InvalidOperationException("Somente solicitações em integração RM podem iniciar o processo seletivo.");
+
+        if (!entity.VagaId.HasValue)
+            throw new InvalidOperationException("É necessário vínculo com vaga antes de iniciar o processo seletivo.");
+
+        if (entity.IntegracaoResultado != IntegracaoResultado.Sucesso)
+            throw new InvalidOperationException("A integração com o RM precisa estar concluída com sucesso antes do processo seletivo.");
+
+        var prev = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.EmProcessoSeletivo;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            prev, entity.Status.ToString(), _currentUser, null, ct);
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoVagaResponse?> SuspenderSelecaoAsync(Guid id, string? observacao, CancellationToken ct)
+    {
+        EnsureUsuarioAutorizadoSelecao();
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.EmProcessoSeletivo)
+            throw new InvalidOperationException("Somente solicitações em processo seletivo podem ser suspensas.");
+
+        var prev = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.Suspensa;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            prev, entity.Status.ToString(), _currentUser, observacao?.Trim(), ct);
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoVagaResponse?> RetomarSelecaoAsync(Guid id, CancellationToken ct)
+    {
+        EnsureUsuarioAutorizadoSelecao();
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.Suspensa)
+            throw new InvalidOperationException("Somente solicitações suspensas na seleção podem ser retomadas.");
+
+        var prev = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.EmProcessoSeletivo;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            prev, entity.Status.ToString(), _currentUser, null, ct);
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoVagaResponse?> EncerrarSemContratacaoAsync(Guid id, string observacao, CancellationToken ct)
+    {
+        EnsureUsuarioAutorizadoSelecao();
+        var obs = observacao.Trim();
+        if (string.IsNullOrEmpty(obs))
+            throw new InvalidOperationException("Informe o motivo do encerramento sem contratação.");
+
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.EmProcessoSeletivo && entity.Status != SolicitacaoStatus.Suspensa)
+            throw new InvalidOperationException("Encerramento sem contratação só se aplica durante o processo seletivo.");
+
+        var prev = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.EncerradaSemContratacao;
+        entity.ObservacaoAprovador = obs;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            prev, entity.Status.ToString(), _currentUser, obs, ct);
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<SolicitacaoVagaResponse?> MarcarContratacaoConcluidaAsync(Guid id, string? observacao, CancellationToken ct)
+    {
+        EnsureUsuarioAutorizadoSelecao();
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status != SolicitacaoStatus.EmProcessoSeletivo && entity.Status != SolicitacaoStatus.Suspensa)
+            throw new InvalidOperationException("Conclusão de contratação só se aplica durante o processo seletivo.");
+
+        var prev = entity.Status.ToString();
+        entity.Status = SolicitacaoStatus.ContratacaoConcluida;
+        entity.ObservacaoAprovador = string.IsNullOrWhiteSpace(observacao) ? entity.ObservacaoAprovador : observacao.Trim();
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _statusHistorico.RegistrarAsync(
+            TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+            prev, entity.Status.ToString(), _currentUser, observacao?.Trim(), ct);
+
+        await _db.SaveChangesAsync(ct);
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<IReadOnlyList<SolicitacaoVagaIndicacaoDto>> ListIndicacoesAsync(Guid solicitacaoId, CancellationToken ct)
+    {
+        var head = await _db.SolicitacoesVaga.AsNoTracking()
+            .Where(s => s.Id == solicitacaoId)
+            .Select(s => new { s.Id, s.SolicitanteId, s.CentroCustoId })
+            .FirstOrDefaultAsync(ct);
+        if (head is null || !await CanUsuarioVerSolicitacaoVagaAsync(head.SolicitanteId, head.CentroCustoId, head.Id, ct))
+            return Array.Empty<SolicitacaoVagaIndicacaoDto>();
+
+        var rows = await _db.SolicitacoesVagaIndicacao.AsNoTracking()
+            .Where(i => i.SolicitacaoVagaId == solicitacaoId)
+            .OrderByDescending(i => i.CreatedAtUtc)
+            .Join(_db.Candidatos.AsNoTracking(),
+                i => i.CandidatoId,
+                c => c.Id,
+                (i, c) => new SolicitacaoVagaIndicacaoDto(i.Id, i.CandidatoId, c.Nome, i.Observacao, i.IndicadoPorUserId, i.CreatedAtUtc))
+            .ToListAsync(ct);
+
+        return rows;
+    }
+
+    public async Task<SolicitacaoVagaIndicacaoDto?> AddIndicacaoAsync(Guid solicitacaoId, SolicitacaoVagaIndicacaoCreateRequest request, CancellationToken ct)
+    {
+        EnsureUsuarioAutorizadoSelecao();
+
+        var parent = await _db.SolicitacoesVaga.FirstOrDefaultAsync(s => s.Id == solicitacaoId, ct);
+        if (parent is null) return null;
+
+        if (!await CanUsuarioVerSolicitacaoVagaAsync(parent.SolicitanteId, parent.CentroCustoId, parent.Id, ct))
+            throw new InvalidOperationException("Sem acesso a esta solicitação.");
+
+        var candidato = await _db.Candidatos.AsNoTracking()
+            .AnyAsync(c => c.Id == request.CandidatoId, ct);
+        if (!candidato)
+            throw new InvalidOperationException("Candidato não encontrado.");
+
+        var existe = await _db.SolicitacoesVagaIndicacao
+            .AnyAsync(i => i.SolicitacaoVagaId == solicitacaoId && i.CandidatoId == request.CandidatoId, ct);
+        if (existe)
+            throw new InvalidOperationException("Este candidato já foi indicado para esta solicitação.");
+
+        var row = new SolicitacaoVagaIndicacao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = parent.TenantId,
+            SolicitacaoVagaId = solicitacaoId,
+            CandidatoId = request.CandidatoId,
+            Observacao = request.Observacao?.Trim(),
+            IndicadoPorUserId = _currentUser.UserId,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+        };
+
+        _db.SolicitacoesVagaIndicacao.Add(row);
+        await _db.SaveChangesAsync(ct);
+
+        var nome = await _db.Candidatos.AsNoTracking()
+            .Where(c => c.Id == request.CandidatoId)
+            .Select(c => c.Nome)
+            .FirstAsync(ct);
+
+        return new SolicitacaoVagaIndicacaoDto(row.Id, row.CandidatoId, nome, row.Observacao, row.IndicadoPorUserId, row.CreatedAtUtc);
+    }
+
+    public async Task<bool> RemoveIndicacaoAsync(Guid solicitacaoId, Guid indicacaoId, CancellationToken ct)
+    {
+        var row = await _db.SolicitacoesVagaIndicacao
+            .FirstOrDefaultAsync(i => i.Id == indicacaoId && i.SolicitacaoVagaId == solicitacaoId, ct);
+        if (row is null) return false;
+
+        var parent = await _db.SolicitacoesVaga.AsNoTracking()
+            .Where(s => s.Id == solicitacaoId)
+            .Select(s => new { s.SolicitanteId, s.CentroCustoId, s.Id })
+            .FirstOrDefaultAsync(ct);
+        if (parent is null) return false;
+        if (!await CanUsuarioVerSolicitacaoVagaAsync(parent.SolicitanteId, parent.CentroCustoId, parent.Id, ct))
+            return false;
+
+        var podeRh = _currentUser.IsAdmin || _currentUser.HasPermission("*") || _currentUser.HasPermission("rh.contratacoes.selecao");
+        var proprio = _currentUser.UserId.HasValue && row.IndicadoPorUserId == _currentUser.UserId;
+        if (!podeRh && !proprio)
+            throw new InvalidOperationException("Só pode remover indicações criadas pelo próprio usuário ou mediante permissão de seleção RH.");
+
+        _db.SolicitacoesVagaIndicacao.Remove(row);
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 
     private static SolicitacaoVagaResponse MapToResponse(SolicitacaoVaga s, IReadOnlyList<EtapaFluxoInfo>? etapasFluxo = null) => new(
@@ -2184,6 +2469,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.MotivoDesligamentoTexto,
         s.DesligamentoVinculadoId,
         s.CandidatoContratadoId,
-        s.CandidatoContratado?.Nome
+        s.CandidatoContratado?.Nome,
+        s.RmCodStatus,
+        s.RmUltimaStatusDescricaoRm,
+        s.RmStatusSyncUltimaMensagem,
+        s.RmUltimaSincronizacaoUtc,
+        s.RmRequisicaoCodigo
     );
 }

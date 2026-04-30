@@ -69,6 +69,7 @@ public sealed class SolicitacaoVagaServiceTests
         currentUserMock.Setup(x => x.IsAdmin).Returns(isAdmin);
         currentUserMock.Setup(x => x.VagasDataScope).Returns(VagasDataScope.All);
         currentUserMock.Setup(x => x.UserId).Returns((Guid?)null);
+        currentUserMock.Setup(x => x.HasPermission(It.IsAny<string>())).Returns(false);
 
         var pessoaMock = new Mock<IPessoaService>();
         var workflow = new ApprovalWorkflowHelper(db, tenantMock.Object, notifications);
@@ -101,10 +102,16 @@ public sealed class SolicitacaoVagaServiceTests
         var serviceProvider = new Mock<IServiceProvider>();
         var statusHistorico = new StatusHistoricoService(db, tenantMock.Object);
 
+        var rmIntegracaoMock = new Mock<ISolicitacaoVagaRmIntegracaoService>();
+        rmIntegracaoMock
+            .Setup(x => x.ExecutarCriacaoRequisicaoRmAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         var service = new SolicitacaoVagaService(
             db, tenantMock.Object, vagaMock.Object, currentUserMock.Object,
             pessoaMock.Object, notifications, workflow,
-            emailMock.Object, magicMock.Object, httpAccessor.Object, serviceProvider.Object, statusHistorico);
+            emailMock.Object, magicMock.Object, httpAccessor.Object, serviceProvider.Object, statusHistorico,
+            rmIntegracaoMock.Object);
 
         return (db, service, vagaMock);
     }
