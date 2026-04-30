@@ -2,13 +2,14 @@
 
 ## Current Position
 
-**Phase:** 1 — Executed (schema + domínio base)  
-**Plan:** [.planning/phases/01-domain-persistence-audit/01-PLAN.md](./phases/01-domain-persistence-audit/01-PLAN.md)  
-**Summary:** [.planning/phases/01-domain-persistence-audit/01-SUMMARY.md](./phases/01-domain-persistence-audit/01-SUMMARY.md)
+**Phase:** 2 — **Planned** (API workflow pré-RM)  
+**Plan:** [.planning/phases/02-api-workflow-pre-rm/02-PLAN.md](./phases/02-api-workflow-pre-rm/02-PLAN.md)  
+**Context:** [.planning/phases/02-api-workflow-pre-rm/02-CONTEXT.md](./phases/02-api-workflow-pre-rm/02-CONTEXT.md)  
+**Fase anterior (executada):** [.planning/phases/01-domain-persistence-audit/01-SUMMARY.md](./phases/01-domain-persistence-audit/01-SUMMARY.md)
 
-**Status:** Código e migração Fase 1 aplicados no repositório; aplicar `dotnet ef database update` no ambiente dev quando possível.
+**Status:** Plano da Fase 2 versionado em `.planning/`; próximo passo recomendado: `$gsd-execute-phase 2` (ou execução inline equivalente). Fase 1: aplicar `dotnet ef database update` no ambiente dev quando possível.
 
-**Last activity:** 2026-04-30 — `$gsd-execute-phase 1` (execução inline)
+**Last activity:** 2026-04-30 — `$gsd-plan-phase 2` (CONTEXT + PLAN)
 
 ## Accumulated Context
 
@@ -19,4 +20,4 @@
 See: [.planning/PROJECT.md](./PROJECT.md)
 
 **Core value:** Entrada única e auditável para abertura/acompanhamento de vagas alinhada ao RM.  
-**Current focus:** Iniciar **Fase 2** (workflow API / máquina de estados) — `$gsd-discuss-phase 2` ou `$gsd-plan-phase 2`.
+**Current focus:** Executar **Fase 2** conforme [.planning/phases/02-api-workflow-pre-rm/02-PLAN.md](./phases/02-api-workflow-pre-rm/02-PLAN.md).
