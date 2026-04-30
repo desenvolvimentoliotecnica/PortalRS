@@ -5,6 +5,7 @@ using RhPortal.Api.Contracts.Roles;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Security;
 using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Application.Roles;
@@ -129,6 +130,16 @@ public sealed class RoleAdministrationService
         return true;
     }
 
-    // UpdateRoleMenusAsync and GetRoleMenusAsync removed.
-    // Role→permission mapping is code-first via RolePermissionManifest — no DB assignment needed.
+    /// <summary>
+    /// Resolve permissões efetivas para um perfil (manifesto code-first). Não há gravação em DB.
+    /// </summary>
+    public async Task<RoleEffectivePermissionsResponse?> GetEffectivePermissionsAsync(Guid id, CancellationToken ct)
+    {
+        var role = await _roleManager.Roles.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (role is null) return null;
+
+        var keys = RolePermissionManifest.GetPermissions(new[] { role }).ToList();
+        var wildcard = keys.Count == 1 && string.Equals(keys[0], "*", StringComparison.Ordinal);
+        return new RoleEffectivePermissionsResponse(keys, wildcard);
+    }
 }

@@ -97,6 +97,21 @@ public sealed class RolesController : ControllerBase
         return deleted ? NoContent() : NotFound();
     }
 
+    /// <summary>
+    /// Permissões efetivas do perfil (code-first). Substitui o antigo GET /roles/{id}/menus.
+    /// </summary>
+    [RequirePermission("access.manage")]
+    [HttpGet("{id:guid}/effective-permissions")]
+    [ProducesResponseType(typeof(RoleEffectivePermissionsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RoleEffectivePermissionsResponse>> GetEffectivePermissions(
+        [FromRoute] Guid id,
+        [FromServices] RoleAdministrationService service,
+        CancellationToken ct)
+    {
+        var item = await service.GetEffectivePermissionsAsync(id, ct);
+        return item is null ? NotFound() : Ok(item);
+    }
+
     // PUT  {id}/menus  — removed: role→permission mapping is code-first via RolePermissionManifest.
-    // GET  {id}/menus  — removed: no DB assignments to read.
 }

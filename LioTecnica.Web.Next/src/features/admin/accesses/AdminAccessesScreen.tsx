@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-    Search, CheckSquare, XCircle, Save, RefreshCw,
+    Search, RefreshCw,
     LayoutDashboard, Briefcase, Users, Calendar, BarChart3,
-    Shield, Settings, MessageSquare, ChevronDown, ChevronRight, Eye
+    Shield, Settings, MessageSquare, ChevronDown, ChevronRight, Eye, Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +29,9 @@ interface MenuOption {
     isActive: boolean;
 }
 
-interface RoleMenuAssignment {
-    menuId: string;
-    permissionKey: string;
+interface EffectivePermissionsResponse {
+    permissionKeys: string[];
+    isWildcard: boolean;
 }
 
 /* ── Module grouping ── */
@@ -93,11 +93,10 @@ export default function AdminAccessesScreen() {
     const [roles, setRoles] = useState<RoleOption[]>([]);
     const [menus, setMenus] = useState<MenuOption[]>([]);
     const [roleId, setRoleId] = useState("");
-    const [assignments, setAssignments] = useState<RoleMenuAssignment[]>([]);
     const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
+    const [effectiveWildcard, setEffectiveWildcard] = useState(false);
     const [loading, setLoading] = useState(true);
     const [loadingAssignments, setLoadingAssignments] = useState(false);
-    const [saving, setSaving] = useState(false);
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set());
@@ -122,57 +121,34 @@ export default function AdminAccessesScreen() {
 
     useEffect(() => { void loadBase(); }, [loadBase]);
 
-    const loadRoleMenus = useCallback(async (id: string) => {
-        if (!id) { setAssignments([]); setSelectedPermissions(new Set()); return; }
+    const loadRoleEffectivePermissions = useCallback(async (id: string) => {
+        if (!id) {
+            setSelectedPermissions(new Set());
+            setEffectiveWildcard(false);
+            return;
+        }
         setLoadingAssignments(true);
         try {
-            const items = await fetchJson<RoleMenuAssignment[]>(`/api/roles/${id}/menus`);
-            setAssignments(items);
-            setSelectedPermissions(new Set(items.map(a => a.permissionKey)));
+            const res = await fetchJson<EffectivePermissionsResponse>(`/api/roles/${id}/effective-permissions`);
+            setEffectiveWildcard(res.isWildcard);
+            if (res.isWildcard) {
+                setSelectedPermissions(new Set(menus.filter(m => m.permissionKey).map(m => m.permissionKey!)));
+            } else {
+                setSelectedPermissions(new Set(res.permissionKeys ?? []));
+            }
         } catch (err) {
-            console.error("Failed to load role menus", err);
+            console.error("Failed to load effective permissions", err);
             toast.error("Falha ao carregar permissões do perfil.");
+            setSelectedPermissions(new Set());
+            setEffectiveWildcard(false);
         } finally {
             setLoadingAssignments(false);
         }
-    }, []);
+    }, [menus]);
 
     function handleRoleChange(id: string) {
         setRoleId(id);
-        void loadRoleMenus(id);
-    }
-
-    function togglePermission(permKey: string) {
-        setSelectedPermissions(prev => {
-            const next = new Set(prev);
-            if (next.has(permKey)) next.delete(permKey);
-            else next.add(permKey);
-            return next;
-        });
-    }
-
-    function selectAll() {
-        setSelectedPermissions(new Set(menus.filter(m => m.permissionKey).map(m => m.permissionKey!)));
-    }
-
-    function clearAll() {
-        setSelectedPermissions(new Set());
-    }
-
-    // Module group toggle
-    function toggleModule(moduleKey: string) {
-        const moduleMenus = groupedMenus[moduleKey] ?? [];
-        const allSelected = moduleMenus.every(m => selectedPermissions.has(m.permissionKey!));
-        setSelectedPermissions(prev => {
-            const next = new Set(prev);
-            for (const m of moduleMenus) {
-                if (m.permissionKey) {
-                    if (allSelected) next.delete(m.permissionKey);
-                    else next.add(m.permissionKey);
-                }
-            }
-            return next;
-        });
+        void loadRoleEffectivePermissions(id);
     }
 
     function toggleCollapse(moduleKey: string) {
@@ -182,29 +158,6 @@ export default function AdminAccessesScreen() {
             else next.add(moduleKey);
             return next;
         });
-    }
-
-    async function handleSave() {
-        if (!roleId) { toast.error("Selecione um perfil."); return; }
-        setSaving(true);
-        try {
-            const items = Array.from(selectedPermissions).map(perm => {
-                const menu = menus.find(m => m.permissionKey === perm);
-                return { menuId: menu?.id ?? "", permissionKey: perm };
-            }).filter(i => i.menuId);
-
-            await fetchJson(`/api/roles/${roleId}/menus`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ items }),
-            });
-            toast.success("Permissões salvas com sucesso!");
-            void loadRoleMenus(roleId);
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Falha ao salvar permissões.");
-        } finally {
-            setSaving(false);
-        }
     }
 
     const allPermissionKeys = useMemo(() =>
@@ -248,13 +201,6 @@ export default function AdminAccessesScreen() {
         return result;
     }, [groupedMenus, q, statusFilter, selectedPermissions]);
 
-    const hasChanges = useMemo(() => {
-        const original = new Set(assignments.map(a => a.permissionKey));
-        if (original.size !== selectedPermissions.size) return true;
-        for (const p of selectedPermissions) if (!original.has(p)) return true;
-        return false;
-    }, [assignments, selectedPermissions]);
-
     const selectedRole = roles.find(r => r.id === roleId);
 
     // Preview: menus the user would see
@@ -268,23 +214,25 @@ export default function AdminAccessesScreen() {
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h4 className="text-lg font-bold">Controle de Acessos</h4>
-                    <div className="text-muted-foreground text-sm">Atribua menus e permissões para um perfil, organizados por módulo.</div>
+                    <div className="text-muted-foreground text-sm">
+                        Visualização das permissões efetivas por perfil (definidas no código — <span className="font-medium text-foreground">RolePermissionManifest</span>). Não é possível alterar pelo portal.
+                    </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     {roleId && (
-                        <>
-                            <Button variant="outline" size="sm" onClick={selectAll}>
-                                <CheckSquare className="mr-1 size-4" />Selecionar tudo
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={clearAll}>
-                                <XCircle className="mr-1 size-4" />Limpar
-                            </Button>
-                            <Button variant={showPreview ? "default" : "outline"} size="sm" onClick={() => setShowPreview(p => !p)}>
-                                <Eye className="size-4 mr-1" />Preview
-                            </Button>
-                        </>
+                        <Button variant={showPreview ? "default" : "outline"} size="sm" onClick={() => setShowPreview(p => !p)}>
+                            <Eye className="size-4 mr-1" />Preview
+                        </Button>
                     )}
                 </div>
+            </div>
+
+            <div className="flex gap-3 rounded-xl border border-border/50 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                <Info className="size-5 shrink-0 text-primary mt-0.5" aria-hidden />
+                <p>
+                    O botão &quot;Salvar&quot; antigo chamava uma API removida (menús por perfil no banco). Hoje o JWT e a sidebar usam o mapa fixo por tipo/nome de perfil.
+                    Para mudar o que um papel pode fazer, altere o manifesto no backend e faça deploy — ou ajuste o <strong>tipo do perfil</strong> em Admin → Perfis (Roles).
+                </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -293,8 +241,10 @@ export default function AdminAccessesScreen() {
                     <div className="mt-1 text-2xl font-bold text-primary">{allPermissionKeys.length}</div>
                 </div>
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Selecionados</div>
-                    <div className="mt-1 text-2xl font-bold text-emerald-600">{selectedPermissions.size}</div>
+                    <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">No manifesto</div>
+                    <div className="mt-1 text-2xl font-bold text-emerald-600">
+                        {effectiveWildcard ? "∞" : selectedPermissions.size}
+                    </div>
                 </div>
                 <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
                     <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Perfis</div>
@@ -318,7 +268,7 @@ export default function AdminAccessesScreen() {
                         </select>
                     </div>
                     {roleId && (
-                        <Button variant="outline" size="sm" onClick={() => void loadRoleMenus(roleId)} disabled={loadingAssignments}>
+                        <Button variant="outline" size="sm" onClick={() => void loadRoleEffectivePermissions(roleId)} disabled={loadingAssignments}>
                             <RefreshCw className="mr-1 size-4" /> Recarregar
                         </Button>
                     )}
@@ -352,8 +302,6 @@ export default function AdminAccessesScreen() {
                         <>
                             {MODULE_CONFIG.filter(mod => filteredGroupedMenus[mod.key]).map(mod => {
                                 const items = filteredGroupedMenus[mod.key];
-                                const allModSelected = items.every(m => selectedPermissions.has(m.permissionKey!));
-                                const someModSelected = items.some(m => selectedPermissions.has(m.permissionKey!));
                                 const isCollapsed = collapsedModules.has(mod.key);
                                 const Icon = mod.icon;
 
@@ -372,14 +320,6 @@ export default function AdminAccessesScreen() {
                                                     ({items.filter(m => selectedPermissions.has(m.permissionKey!)).length}/{items.length})
                                                 </span>
                                             </div>
-                                            <Button
-                                                variant={allModSelected ? "default" : someModSelected ? "secondary" : "outline"}
-                                                size="sm"
-                                                className="text-xs"
-                                                onClick={(e) => { e.stopPropagation(); toggleModule(mod.key); }}
-                                            >
-                                                {allModSelected ? "Desmarcar Módulo" : "Selecionar Módulo"}
-                                            </Button>
                                         </div>
 
                                         {/* Module Items */}
@@ -391,13 +331,14 @@ export default function AdminAccessesScreen() {
                                                         return (
                                                             <label
                                                                 key={m.id}
-                                                                className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${checked ? "bg-primary/5 border-primary/30" : "border-border/40 hover:bg-muted/30"}`}
+                                                                className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${checked ? "bg-primary/5 border-primary/30" : "border-border/40 opacity-80"} cursor-default`}
                                                             >
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={checked}
-                                                                    onChange={() => togglePermission(m.permissionKey!)}
-                                                                    className="mt-0.5 rounded border-input"
+                                                                    readOnly
+                                                                    disabled
+                                                                    className="mt-0.5 rounded border-input opacity-70"
                                                                 />
                                                                 <div className="min-w-0 flex-1">
                                                                     <div className="font-medium text-sm truncate">
@@ -417,12 +358,9 @@ export default function AdminAccessesScreen() {
                                 );
                             })}
 
-                            <div className="flex justify-end">
-                                <Button onClick={() => void handleSave()} disabled={saving || !hasChanges} className="min-w-[150px]">
-                                    <Save className="size-4 mr-1" />
-                                    {saving ? "Salvando..." : "Salvar Permissões"}
-                                </Button>
-                            </div>
+                            <p className="text-center text-xs text-muted-foreground py-2">
+                                Somente leitura — permissões vêm do manifesto no servidor.
+                            </p>
                         </>
                     )}
                 </div>
@@ -435,7 +373,8 @@ export default function AdminAccessesScreen() {
                             <span className="text-sm font-semibold">Preview da Sidebar</span>
                         </div>
                         <div className="text-xs text-muted-foreground mb-2">
-                            Como <span className="font-medium text-primary">{selectedRole?.name}</span> verá:
+                            Cruzamento manifesto × menus cadastrados — <span className="font-medium text-primary">{selectedRole?.name}</span>
+                            {effectiveWildcard ? " (wildcard — todas as chaves abaixo)" : ""}:
                         </div>
                         <div className="space-y-1 max-h-[60vh] overflow-y-auto">
                             {previewMenus.length === 0 ? (

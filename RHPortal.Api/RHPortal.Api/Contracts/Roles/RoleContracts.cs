@@ -60,3 +60,10 @@ public sealed record RoleMenuAssignmentResponse(
     Guid MenuId,
     string PermissionKey
 );
+
+/// <summary>
+/// Permissões efetivas do perfil segundo o manifesto code-first <c>RolePermissionManifest</c> (sem persistência em RoleMenus).
+/// </summary>
+public sealed record RoleEffectivePermissionsResponse(
+    IReadOnlyList<string> PermissionKeys,
+    bool IsWildcard);
