@@ -66,11 +66,13 @@ public sealed class ApprovalWorkflowHelper
     }
 
     /// <summary>
-    /// Valida que a solicitação pode ser editada (Rascunho ou AjustesNecessarios).
+    /// Valida que a solicitação pode ser editada (Rascunho, AjustesNecessarios ou DevolvidaTriagemGestor no fluxo aumento de quadro).
     /// </summary>
     public static void ValidateCanEdit(SolicitacaoStatus status)
     {
-        if (status != SolicitacaoStatus.Rascunho && status != SolicitacaoStatus.AjustesNecessarios)
+        if (status != SolicitacaoStatus.Rascunho
+            && status != SolicitacaoStatus.AjustesNecessarios
+            && status != SolicitacaoStatus.DevolvidaTriagemGestor)
             throw new InvalidOperationException("Solicitação não pode ser editada no status atual.");
     }
 

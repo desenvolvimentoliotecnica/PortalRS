@@ -146,6 +146,23 @@ public sealed class SolicitacaoVagaApprovalRequest
     public string? Observacao { get; set; }
 }
 
+// ── Triagem (fluxo AumentoQuadro — CMP-03 / FLX-02…FLX-04) ──
+
+/// <summary>Devolução da triagem ao gestor para ajustes.</summary>
+public sealed class SolicitacaoVagaTriagemDevolverRequest
+{
+    /// <summary>Texto obrigatório explicando pendências (histórico + campo de observação).</summary>
+    [Required, MaxLength(4000)]
+    public string Observacao { get; set; } = string.Empty;
+}
+
+/// <summary>Reprovação interna na triagem (sem criar etapas de aprovação).</summary>
+public sealed class SolicitacaoVagaTriagemReprovarRequest
+{
+    [Required, MaxLength(4000)]
+    public string Motivo { get; set; } = string.Empty;
+}
+
 // ── Vincular candidato contratado ──
 
 public sealed record VincularCandidatoRequest(Guid CandidatoId);

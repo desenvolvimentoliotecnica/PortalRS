@@ -113,6 +113,78 @@ public sealed class SolicitacoesVagaController : ControllerBase
         }
     }
 
+    /// <summary>Fluxo aumento de quadro: RH/admin marca início formal da triagem (PendenteTriagem → EmTriagem).</summary>
+    [HttpPost("{id:guid}/triagem/iniciar")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TriagemIniciar(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.IniciarTriagemAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Fluxo aumento de quadro: triagem devolve ao gestor com observações obrigatórias.</summary>
+    [HttpPost("{id:guid}/triagem/devolver")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TriagemDevolver(Guid id, [FromBody] SolicitacaoVagaTriagemDevolverRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.DevolverTriagemAoGestorAsync(id, request.Observacao, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Fluxo aumento de quadro: encaminha para a cadeia de aprovações (EmTriagem → PendenteAprovacao + etapas).</summary>
+    [HttpPost("{id:guid}/triagem/encaminhar")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TriagemEncaminhar(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.EncaminharTriagemParaAprovacoesAsync(id, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Fluxo aumento de quadro: reprovação interna na triagem (sem etapas de aprovador).</summary>
+    [HttpPost("{id:guid}/triagem/reprovar")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> TriagemReprovar(Guid id, [FromBody] SolicitacaoVagaTriagemReprovarRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.TriagemReprovarAsync(id, request.Motivo, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Aprova a solicitação (somente aprovador designado ou Admin).</summary>
     [HttpPost("{id:guid}/approve")]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
