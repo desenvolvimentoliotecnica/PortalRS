@@ -1,0 +1,9 @@
+{
+  "project": {
+    "code": "RENDER-RH",
+    "title": "Voltage RenderRH / Portal RH"
+  },
+  "workflow": {
+    "research_enabled": false
+  }
+}
