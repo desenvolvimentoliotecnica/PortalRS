@@ -72,6 +72,7 @@ using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Infrastructure.Ai;
 using RhPortal.Api.Infrastructure.Ops;
+using RhPortal.Api.Infrastructure.Rm;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Swagger;
 using RhPortal.Api.Messaging.Email;
@@ -333,6 +334,9 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddRoles<ApplicationRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddSignInManager();
+
+builder.Services.Configure<RmConnectionOptions>(builder.Configuration.GetSection(RmConnectionOptions.SectionName));
+builder.Services.AddScoped<IRmRequisicoesReadService, RmRequisicoesReadService>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SlaVagaOptions>(builder.Configuration.GetSection(SlaVagaOptions.SectionName));
