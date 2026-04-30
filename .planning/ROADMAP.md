@@ -1,114 +1,28 @@
-# ROADMAP — Milestone v1.0 · Abertura de vaga — Aumento de quadro + TOTVS RM
+# Roadmap — RenderRH Portal
 
-**Versão roadmap:** inicial (numeração a partir da Fase **1**)  
-**Última revisão:** 2026-04-30  
+## Milestones
 
-## Visão rápida
+- ✅ **v1.0 — Abertura de vaga (aumento de quadro) + TOTVS RM** — Fases **1–6** (entregue **2026-04-30**). Arquivo: [.planning/milestones/v1.0-ROADMAP.md](./milestones/v1.0-ROADMAP.md) · Requisitos: [.planning/milestones/v1.0-REQUIREMENTS.md](./milestones/v1.0-REQUIREMENTS.md)
+- 📋 **Seguinte** — Definir **v1.1+** com `$gsd-new-milestone` (novo `REQUIREMENTS.md` + roadmap vivo).
 
-| # | Fase | Foco principal | Req-IDs associados |
-|---|------|----------------|--------------------|
-| 1 | Domínio, persistência & auditoria | Solicita aggregate, RBAC modelo, enums status, parametrização mapping, AUD | ACC-01, CMP-01, CMP-02, CMP-04, AUD-01 |
-| 2 | API workflow portal | Estados FLX até aprovado SEM RM; validação servidor CMP-03 | CMP-03, FLX-01 … FLX-06 |
-| 3 | Escrita RM & resiliência | Criar requisição, retries, payloads e logs | IRM-01 … IRM-04 |
-| 4 | Sync status RM ⇄ Portal | Jobs/polling, parametri SYN-*, consistência timelines | SYN-01 … SYN-03 |
-| 5 | UI Gestor (Next.js) | Formulários completos UIT-01 alinhados à API | UIT-01 (e cliente para CMP já coberto servidor) |
-| 6 | UI Operações RH + seleção | Triagem/aprov/RH workspaces + SEL (talent+bank internals) UIT-02, SEL-* | UIT-02, SEL-01 … SEL-04 |
+## Progresso v1.0 (checklist)
 
-Cobertura: **25/25** requisitos mapeados (ver [.planning/REQUIREMENTS.md](./REQUIREMENTS.md)).
+| # | Fase | Estado |
+|---|------|--------|
+| 1 | Domínio, persistência & auditoria | ✅ |
+| 2 | API workflow pré-RM | ✅ |
+| 3 | Escrita RM & resiliência | ✅ |
+| 4 | Sync status RM ⇄ Portal | ✅ |
+| 5 | UI Gestor (UIT-01) | ✅ |
+| 6 | UI Operações RH + seleção (UIT-02, SEL) | ✅ |
 
----
+<details>
+<summary>Texto completo das fases v1.0 (snapshot)</summary>
 
-## Fase 1 — Domínio, persistência e auditoria
+Ver ficheiro de arquivo [.planning/milestones/v1.0-ROADMAP.md](./milestones/v1.0-ROADMAP.md) — goals, critérios de sucesso e riscos tal como na revisão final do milestone.
 
-**Goal:** Modelar o agregado de **solicitação de abertura** independente da **Vaga** de recrutamento já existente, com status compatíveis com §8, histórico de eventos (**AUD‑01**) e infraestrutura de **mapping RM** (**SYN‑01 storage** apenas). Enforcement de **ACC‑01** em nível de dados/claims reutilizados do portal.
-
-**Requisitos:** ACC‑01 · CMP‑01 · CMP‑02 · CMP‑04 · AUD‑01 · (SYN‑01 *schema only* pode ser incluído na mesma migração de config.)
-
-**Critérios de sucesso (observáveis):**
-
-1. Migrações multi‑tenant criam todas tabelas necessárias com `IF NOT EXISTS` segundo política projeto.
-2. É possível via teste/integration criar solicitação rascunho com motivo aumento quadro sem campos incompletos críticos.
-3. Histórico de eventos registra criação e saves de rascunho (mínimo audit trail).
+</details>
 
 ---
 
-## Fase 2 — API workflow (pré‑RM)
-
-**Goal:** Implementar máquina de estados servidor para **triagem**, **devolução**, **aprovação**, **reprovação** alinhadas à história até **IRM** ficar disponível apenas após estado “Portal aprovado”.
-
-**Requisitos:** CMP‑03 · FLX‑01 … FLX‑06
-
-**Critérios de sucesso:**
-
-1. Tentativa ilegal criar vínculo RM antes do estado configurado ⇒ rejeição clara (`400/422`).
-2. Transições proibidas (ex.: pular triagem sem permissão) bloqueadas.
-3. Gestor corrige estado **Devolvida** e volta a **Pendente triagem**.
-4. Testes automatizadores cobrem happy path macro itens **6‑11** até imediatamente antes da chamada RM.
-
----
-
-## Fase 3 — Integração RM criação
-
-**Goal:** Após estado aprovador final do portal executor cria chamada configurável (SQL/`WS`/rest **a definir** em research técnico local) aos mesmos dados do RM que hoje apenas lemos.
-
-**Requisitos:** IRM‑01 … IRM‑04
-
-**Critérios de sucesso:**
-
-1. Mock/staging RM confirm `code` persisted e deduplicates retries (`idempotent key`).
-2. Erro sintético força estado **IRM‑03**.
-3. Reprocessamento manual altera estado e faz nova tentativa com log novo (**IRM‑04**).
-
----
-
-## Fase 4 — Sincronismo status RM
-
-**Goal:** Periodicamente ou sob demanda, consultar CODSTATUS atual e aplicar SYN mapping.
-
-**Requisitos:** SYN‑01 · SYN‑02 · SYN‑03
-
-**Critérios de sucesso:**
-
-1. Trocar CODSTATUS fictício atualiza texto amigável em UI API DTO (**SYN‑02**).
-2. `lastSyncedAtUtc` exposto (**SYN‑03**).
-3. Admins atualizam mapa SEM redeploy obrigando migration (usa tabela/seeds).
-
----
-
-## Fase 5 — UI Gestor
-
-**Goal:** Fluxo ponta‑a‑ponta UX gestor completo (**UIT‑01**).
-
-**Critérios de sucesso:**
-
-1. Usabilidade navega todas seções 7.* com validações inline paralelas servidor.
-2. Rascunho persiste navegações / refresh.
-3. E2E manual documentado checklist CA01‑CA06 (parte pré‑RM).
-
----
-
-## Fase 6 — UI Operações RH + seleção estendida
-
-**Goal:** Workspaces filtros statuses + integração com **matching/banco atual** onde possível.
-
-**Requisitos:** UIT‑02 · SEL‑01 … SEL‑04
-
-**Critérios de sucesso:**
-
-1. RH consegue transitar estados SEL sem SQL manual.
-2. Busca compatíveis chama dados existentes de candidatos (ou marca gap controlado MVP).
-3. Encerramentos **Contratação concluída** / outros finais aparecem com histórico.
-
----
-
-## Riscos abertos para discuss‑phase inicial
-
-| Risco | Mitigação proposta |
-|-------|---------------------|
-| Mecânismo oficial RM **gravar** requisição (SQL vs SOAP API) indefinido | Spike curto dentro Fase antes codificação pesada |
-| Divergência `Vaga` público vs solicitações | ~~Resolvido em discuss-phase~~: fluxo novo estende **`SolicitacaoVaga`** (`01-CONTEXT.md` D‑01) |
-| Orçamentos “Consultando orçamento” | Depende parametri CODSTATUS empresa real |
-
----
-
-*Roadmap created: 2026-04-30 — aligned to story CA01‑CA14 and RN01‑RN14.*
+*Roadmap vivo — última atualização: **2026-04-30** após arquivo do milestone **v1.0**.*
