@@ -65,7 +65,7 @@ O RH e os gestores precisam de **uma entrada única, auditável e alinhada ao RM
 |----------|-----------|---------|
 | Manter RM como sistema de record da requisição | Produto oficial continua RM; Portal evita drift | ✓ Planned |
 | Mapeamento `CODSTATUS` configurável por ambiente | Parametrização real diverge entre clientes RM | ✓ Planned |
-| Novo ciclo distinto da `Vaga` recrutamento atual | Estados e dados de solicitação ≠ vaga já publicável | ⚠️ Revisit during Phase 1 design |
+| Ciclo **`SolicitacaoVaga`** (existente) estendido; não duplicar com novo agregado | `Vaga` pública/recrutamento ≠ solicitação gestor→RM — já há entidade própria no código | ✓ Locked (Phase 1 discuss — ver `01-CONTEXT.md`) |
 
 ## Evolution
 

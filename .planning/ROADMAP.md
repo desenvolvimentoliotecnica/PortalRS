@@ -106,7 +106,7 @@ Cobertura: **25/25** requisitos mapeados (ver [.planning/REQUIREMENTS.md](./REQU
 | Risco | Mitigação proposta |
 |-------|---------------------|
 | Mecânismo oficial RM **gravar** requisição (SQL vs SOAP API) indefinido | Spike curto dentro Fase antes codificação pesada |
-| Divergência `Vaga` público atual vs Solicitações | Consolidar nomenclatura de domínios em discussão Fase‑1 nome entidade oficial |
+| Divergência `Vaga` público vs solicitações | ~~Resolvido em discuss-phase~~: fluxo novo estende **`SolicitacaoVaga`** (`01-CONTEXT.md` D‑01) |
 | Orçamentos “Consultando orçamento” | Depende parametri CODSTATUS empresa real |
 
 ---
