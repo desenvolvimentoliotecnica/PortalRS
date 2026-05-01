@@ -138,6 +138,18 @@ function AutocompleteSelect({
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        if (disabled) return;
+        function handleClickOutside(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setOpen(false);
+                setQuery("");
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [disabled]);
+
     const selected = items.find((i) => i.id === value) ?? null;
     const displayText = selected ? (selected.code ? `${selected.code} – ${selected.name}` : selected.name) : "";
 
@@ -155,17 +167,6 @@ function AutocompleteSelect({
               return i.name.toLowerCase().includes(q) || (i.code && i.code.toLowerCase().includes(q));
           })
         : items;
-
-    useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setOpen(false);
-                setQuery("");
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
 
     return (
         <div ref={containerRef} className="relative">
