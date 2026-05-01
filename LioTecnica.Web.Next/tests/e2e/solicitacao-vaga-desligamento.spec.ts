@@ -4,9 +4,9 @@ import { test, expect, type Page } from "@playwright/test";
  * E2E — Solicitação de Vaga com Motivo de Desligamento.
  *
  * Cobre:
- *  1. UI — botão "Nova posição" dentro do modal "Selecionar Vaga do Quadro".
+ *  1. UI — botão "Nova posição" abre o formulário diretamente.
  *  2. UI — bloco de dados do desligamento aparece ao selecionar motivo PedidoDemissao/SemJustaCausa.
- *  3. UI — alerta em vermelho quando "Nova posição" + motivo de desligamento (Gap 3).
+ *  3. UI — motivo de desligamento + nova posição mostra bloco de desligamento (sem alerta de bloqueio).
  *  4. API — criação da vaga com motivo de desligamento JÁ cria a SolicitacaoDesligamento vinculada (bug fix).
  *  5. API — edição da vaga sincroniza o desligamento vinculado (funcionário/data/motivo).
  *  6. API — cascata: reject do desligamento reprova a vaga; reject da vaga reprova o desligamento; cancel da vaga cancela o desligamento.
@@ -124,47 +124,34 @@ function baseRequisicaoBody(funcionarioId: string, stamp: string, motivo: "Pedid
     };
 }
 
-/* ───────────────────────── 1. UI: botão "Nova posição" dentro do picker ───────────────────────── */
+/* ───────────────────────── 1. UI: "Nova posição" abre o formulário ───────────────────────── */
 
-test("UI — botão 'Do Quadro de Vagas' abre picker com botão 'Nova posição' que abre form com origemVaga=nova", async ({ page }) => {
+test("UI — botão 'Nova posição' abre o form (motivo visível)", async ({ page }) => {
     await loginViaUI(page);
     await page.goto(`${FRONT_URL}/app/gestao/solicitacoes`);
 
-    await page.getByRole("button", { name: /Do Quadro de Vagas/i }).click();
-
-    await expect(page.getByRole("heading", { name: /Selecionar Vaga do Quadro/i })).toBeVisible({ timeout: 5_000 });
-    await page.locator('[data-testid="btn-nova-posicao-picker"]').click();
-
-    // Form deve abrir — valida que o select de motivo está na tela
+    await page.locator('[data-testid="btn-nova-posicao"]').click();
     await expect(page.locator('[data-testid="select-motivo-requisicao"]')).toBeVisible({ timeout: 5_000 });
 });
 
-/* ───────────────────────── 2. UI: tela principal NÃO tem botão "Nova Posição" standalone ───────────────────────── */
+/* ───────────────────────── 2. UI: sem picker 'Do Quadro de Vagas' ───────────────────────── */
 
-test("UI — tela de solicitações NÃO tem botão 'Nova Posição' standalone (só acessível via picker)", async ({ page }) => {
+test("UI — tela de solicitações não exibe botão 'Do Quadro de Vagas'", async ({ page }) => {
     await loginViaUI(page);
     await page.goto(`${FRONT_URL}/app/gestao/solicitacoes`);
-
-    // Botão standalone de Nova Posição NÃO deve existir na tela
-    await expect(page.getByRole("button", { name: /^Nova Posi(ç|c)ão$/i })).toHaveCount(0);
-    // Só deve ter o botão "Do Quadro de Vagas"
-    await expect(page.getByRole("button", { name: /Do Quadro de Vagas/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Do Quadro de Vagas/i })).toHaveCount(0);
+    await expect(page.locator('[data-testid="btn-nova-posicao"]')).toBeVisible();
 });
 
-/* ───────────────────────── 3. UI Gap 3: Nova posição (via picker) + desligamento motivo → alerta vermelho ───────────────────────── */
+/* ───────────────────────── 3. UI: motivo de desligamento mostra bloco de dados (não alerta vermelho) ───────────────────────── */
 
-test("UI Gap 3 — Nova posição + motivo de desligamento mostra alerta e bloqueia submit", async ({ page }) => {
+test("UI — Nova posição + motivo de desligamento exibe bloco de desligamento", async ({ page }) => {
     await loginViaUI(page);
     await page.goto(`${FRONT_URL}/app/gestao/solicitacoes`);
 
-    // Abre picker e clica em "Nova Posição" de dentro dele
-    await page.getByRole("button", { name: /Do Quadro de Vagas/i }).click();
-    await expect(page.getByRole("heading", { name: /Selecionar Vaga do Quadro/i })).toBeVisible({ timeout: 5_000 });
-    await page.locator('[data-testid="btn-nova-posicao-picker"]').click();
+    await page.locator('[data-testid="btn-nova-posicao"]').click();
     await expect(page.locator('[data-testid="select-motivo-requisicao"]')).toBeVisible({ timeout: 5_000 });
 
-    // O motivo de requisição agora é parametrizável (FK para MotivosRequisicaoVagaConfig),
-    // então o value de cada option é um GUID — selecionamos pelo label exibido.
     await page.waitForFunction(
         () => {
             const el = document.querySelector<HTMLSelectElement>('[data-testid="select-motivo-requisicao"]');
@@ -173,7 +160,6 @@ test("UI Gap 3 — Nova posição + motivo de desligamento mostra alerta e bloqu
         { timeout: 10_000 },
     );
     const motivoSelect = page.locator('[data-testid="select-motivo-requisicao"]');
-    // Descobre o value (GUID) da opção que tem "Pedido de demissão" como label
     const valuePedidoDemissao = await motivoSelect.evaluate((el) => {
         const select = el as HTMLSelectElement;
         const match = Array.from(select.options).find((o) => /Pedido de demiss/i.test(o.text));
@@ -182,13 +168,8 @@ test("UI Gap 3 — Nova posição + motivo de desligamento mostra alerta e bloqu
     expect(valuePedidoDemissao, "option 'Pedido de demissão' deveria existir no select").toBeTruthy();
     await motivoSelect.selectOption(valuePedidoDemissao);
 
-    // Alerta vermelho aparece, bloco de dados NÃO aparece
-    await expect(page.locator('[data-testid="alerta-nova-posicao-desligamento"]')).toBeVisible();
-    await expect(page.locator('[data-testid="bloco-desligamento"]')).not.toBeVisible();
-
-    // Tenta salvar — deve mostrar toast com mensagem específica
-    await page.getByRole("button", { name: /Solicitar aprovação/i }).click();
-    await expect(page.getByText(/Nova posição não permite motivo de desligamento/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('[data-testid="alerta-nova-posicao-desligamento"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="bloco-desligamento"]')).toBeVisible();
 });
 
 /* ───────────────────────── 4. API: fluxo principal — cria vaga COM desligamento vinculado ───────────────────────── */

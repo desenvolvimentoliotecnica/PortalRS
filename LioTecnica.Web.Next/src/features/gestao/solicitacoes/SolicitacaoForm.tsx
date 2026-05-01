@@ -23,7 +23,8 @@ export interface SolicitacaoDraft {
     qtdPosicoes: number;
     urgencia: number;
     jobPositionId: string | null;
-    origemVaga: "quadro" | "nova";
+    /** Fluxo único de nova posição (sem escolha “do quadro de vagas”). */
+    origemVaga: "nova";
     unitId: string | null;
     aprovadorId: string | null;
     tipoSolicitacao: number;
@@ -205,6 +206,172 @@ function AutocompleteSelect({
     );
 }
 
+const FUNCIONARIO_SEARCH_MIN = 2;
+
+/** Busca no servidor (`/api/lookup/funcionarios?q=`) — evita limite dos primeiros N da lista inteira. */
+function FuncionarioAsyncSelect({
+    value,
+    onChange,
+    placeholder,
+    required,
+    disabled,
+    "data-testid": dataTestId,
+}: {
+    value: string | null;
+    onChange: (id: string | null) => void;
+    placeholder: string;
+    required?: boolean;
+    disabled?: boolean;
+    "data-testid"?: string;
+}) {
+    const [query, setQuery] = useState("");
+    const [open, setOpen] = useState(false);
+    const [items, setItems] = useState<LookupItem[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [resolved, setResolved] = useState<LookupItem | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchGen = useRef(0);
+
+    useEffect(() => {
+        if (!value) {
+            setResolved(null);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const d = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${value}`);
+                if (cancelled) return;
+                const name = String(d?.name ?? "");
+                const codeRaw = d?.matriculaRm ?? d?.cdnFuncionario;
+                const code = codeRaw != null && String(codeRaw).trim() !== "" ? String(codeRaw) : undefined;
+                setResolved({ id: value, name, ...(code ? { code } : {}) });
+            } catch {
+                if (!cancelled) setResolved({ id: value, name: "—" });
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [value]);
+
+    useEffect(() => {
+        if (disabled) return;
+        function handleClickOutside(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setOpen(false);
+                setQuery("");
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [disabled]);
+
+    useEffect(() => {
+        if (disabled || !open) return;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        const q = query.trim();
+        if (q.length < FUNCIONARIO_SEARCH_MIN) {
+            setItems([]);
+            setLoading(false);
+            return;
+        }
+        debounceRef.current = setTimeout(() => {
+            debounceRef.current = null;
+            const gen = ++searchGen.current;
+            (async () => {
+                setLoading(true);
+                try {
+                    const params = new URLSearchParams({
+                        pageSize: "100",
+                        onlyActive: "true",
+                        q,
+                    });
+                    const res = await fetchJson<Record<string, unknown>>(`/api/lookup/funcionarios?${params.toString()}`);
+                    if (gen !== searchGen.current) return;
+                    const raw = Array.isArray((res as Record<string, unknown>)?.items)
+                        ? ((res as Record<string, unknown>).items as Record<string, unknown>[])
+                        : [];
+                    const mapped: LookupItem[] = raw.map((f) => ({
+                        id: String(f.id),
+                        name: String(f.nome ?? ""),
+                    }));
+                    setItems(mapped);
+                } catch {
+                    if (gen === searchGen.current) setItems([]);
+                } finally {
+                    if (gen === searchGen.current) setLoading(false);
+                }
+            })();
+        }, 300);
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [query, open, disabled]);
+
+    const selectedInList = value ? items.find((i) => i.id === value) ?? null : null;
+    const selected = selectedInList ?? (resolved && resolved.id === value ? resolved : null);
+    const displayText = selected ? (selected.code ? `${selected.code} – ${selected.name}` : selected.name) : "";
+
+    if (disabled) {
+        return (
+            <div
+                className="h-9 rounded-md border border-input bg-muted/40 px-3 text-sm flex items-center text-muted-foreground truncate"
+                data-testid={dataTestId}
+            >
+                {displayText || <span className="italic opacity-40">—</span>}
+            </div>
+        );
+    }
+
+    return (
+        <div ref={containerRef} className="relative" data-testid={dataTestId}>
+            <div className="flex gap-1">
+                <input
+                    className={`h-9 flex-1 rounded-md border px-3 text-sm bg-background ${required && !value ? "border-red-400" : "border-input"}`}
+                    placeholder={`Buscar ${placeholder} (nome ou e-mail)…`}
+                    value={open ? query : displayText}
+                    onFocus={() => { setOpen(true); setQuery(""); }}
+                    onChange={(e) => setQuery(e.target.value)}
+                />
+                {value && (
+                    <button type="button" onClick={() => { onChange(null); setQuery(""); setResolved(null); }} className="px-2 text-muted-foreground hover:text-foreground text-xs" tabIndex={-1}>✕</button>
+                )}
+            </div>
+            {open && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-input bg-background shadow-lg max-h-52 overflow-y-auto">
+                    {query.trim().length < FUNCIONARIO_SEARCH_MIN ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                            Digite pelo menos {FUNCIONARIO_SEARCH_MIN} letras do nome ou do e-mail para buscar.
+                        </div>
+                    ) : loading ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">Buscando…</div>
+                    ) : items.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">Nenhum funcionário encontrado.</div>
+                    ) : (
+                        items.slice(0, 80).map((item) => (
+                            <button
+                                key={item.id}
+                                type="button"
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    setResolved({ id: item.id, name: item.name, code: item.code });
+                                    onChange(item.id);
+                                    setOpen(false);
+                                    setQuery("");
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2 ${item.id === value ? "bg-muted font-medium" : ""}`}
+                            >
+                                {item.code && <span className="text-xs text-muted-foreground font-mono w-20 shrink-0 truncate">{item.code}</span>}
+                                <span className="truncate">{item.name}</span>
+                            </button>
+                        ))
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* ──────────────────────────── component ──────────────────────────── */
 
 export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, viewOnly, resubmitAfterSave, copySourceId, initialData, reloadNonce = 0 }: SolicitacaoFormProps) {
@@ -216,9 +383,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [statusCarregado, setStatusCarregado] = useState<string | number | null>(null);
 
     /* ── lookups ── */
-    const [cargos, setCargos] = useState<LookupItem[]>([]);
     const [unidades, setUnidades] = useState<LookupItem[]>([]);
-    const [funcionarios, setFuncionarios] = useState<LookupItem[]>([]);
     const [empresas, setEmpresas] = useState<LookupItem[]>([]);
     const [centrosCusto, setCentrosCusto] = useState<LookupItem[]>([]);
     const [unidadesLotacao, setUnidadesLotacao] = useState<LookupItem[]>([]);
@@ -249,15 +414,13 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         // que sabe se precisa aplicar filtros por vaga/cargo/lotação. Carregar aqui causava race
         // condition que podia sobrescrever a lista filtrada.
         type OptionRes = { id: string; name: string; code?: string };
-        const [cargosRes, unidadesRes, empresasRes, ccRes, lotacaoRes, motivosRes] = await Promise.all([
-            fetchJson<OptionRes[]>("/api/lookup/job-positions").catch(() => []),
+        const [unidadesRes, empresasRes, ccRes, lotacaoRes, motivosRes] = await Promise.all([
             fetchJson<OptionRes[]>("/api/lookup/units").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/empresas").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/centros-custo").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/unidades-lotacao").catch(() => []),
             fetchJson<MotivoLookup[]>("/api/motivos-requisicao-vaga/lookup").catch(() => []),
         ]);
-        setCargos(Array.isArray(cargosRes) ? cargosRes : []);
         setUnidades(Array.isArray(unidadesRes) ? unidadesRes : []);
         setEmpresas(Array.isArray(empresasRes) ? empresasRes : []);
         setCentrosCusto(Array.isArray(ccRes) ? ccRes : []);
@@ -275,42 +438,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         } catch { /* ignore */ }
     }, []);
 
-    /**
-     * Recarrega a lista de funcionários filtrada por Cargo + Lotação + Empresa quando
-     * a origem é "quadro" e algum desses campos muda. Para "nova posição" mantém a lista global.
-     */
-    useEffect(() => {
-        if (!active) return;
-        // Este useEffect é o ÚNICO dono da lista `funcionarios`. Sempre busca:
-        //  - Com filtro de vagaId quando disponível (vaga do quadro selecionada)
-        //  - Com filtros estruturais (jobPosition + lotação) como fallback
-        //  - Sem filtro (pageSize=200) quando for "Nova posição" ou ainda não há dados suficientes
-        const filters: string[] = [];
-        if (draft.origemVaga === "quadro" && draft.vagaId) {
-            filters.push(`vagaId=${encodeURIComponent(draft.vagaId)}`);
-        } else if (draft.origemVaga === "quadro") {
-            if (draft.jobPositionId) filters.push(`jobPositionId=${encodeURIComponent(draft.jobPositionId)}`);
-            if (draft.unidadeLotacaoId) filters.push(`unidadeLotacaoId=${encodeURIComponent(draft.unidadeLotacaoId)}`);
-            if (draft.empresaId) filters.push(`empresaId=${encodeURIComponent(draft.empresaId)}`);
-            if (draft.unitId) filters.push(`unitId=${encodeURIComponent(draft.unitId)}`);
-        }
-        const qs = ["pageSize=200", ...filters].join("&");
-        let cancelled = false;
-        (async () => {
-            try {
-                const res = await fetchJson<Record<string, unknown>>(`/api/lookup/funcionarios?${qs}`);
-                if (cancelled) return;
-                const items = Array.isArray((res as Record<string, unknown>)?.items)
-                    ? ((res as Record<string, unknown>).items as { id: string; nome: string }[]).map((f) => ({ id: f.id, name: f.nome }))
-                    : [];
-                setFuncionarios(items as LookupItem[]);
-            } catch {
-                if (!cancelled) setFuncionarios([]);
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [active, draft.origemVaga, draft.vagaId, draft.jobPositionId, draft.unidadeLotacaoId, draft.empresaId, draft.unitId]);
-
     function parseDraft(d: Record<string, unknown>, titleSuffix = ""): SolicitacaoDraft {
         return {
             titulo: String(d?.titulo ?? "") + titleSuffix,
@@ -318,7 +445,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             qtdPosicoes: Number(d?.qtdPosicoes ?? 1),
             urgencia: (() => { const map: Record<string, number> = { Baixa: 0, Media: 1, Alta: 2, Critica: 3 }; const v = d?.urgencia; return typeof v === "number" ? v : (map[v as string] ?? 1); })(),
             jobPositionId: d?.jobPositionId ? String(d.jobPositionId) : null,
-            origemVaga: d?.jobPositionId ? "quadro" : "nova",
+            origemVaga: "nova",
             unitId: d?.unitId ? String(d.unitId) : null,
             aprovadorId: d?.aprovadorId ? String(d.aprovadorId) : null,
             tipoSolicitacao: (() => { const m: Record<string, number> = { VagaNova: 0, Substituicao: 1 }; const v = d?.tipoSolicitacao; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
@@ -369,7 +496,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 .catch(() => toast.error("Falha ao carregar solicitação."))
                 .finally(() => setLoadingEdit(false));
         } else {
-            setDraft(initialData ? { ...emptyDraft, ...initialData } : { ...emptyDraft });
+            setDraft(
+                initialData
+                    ? { ...emptyDraft, ...initialData, origemVaga: "nova" }
+                    : { ...emptyDraft },
+            );
         }
     }, [active, editId, copySourceId, initialData, loadLookups, reloadNonce]);
 
@@ -430,10 +561,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         const saveIsDesligamentoMotivo = saveMotivoSelecionado
             ? saveMotivoSelecionado.efeitoHeadcount === "Diminui" || saveMotivoSelecionado.efeitoHeadcount === "Ambos"
             : false;
-        if (saveIsDesligamentoMotivo && draft.origemVaga === "nova") {
-            toast.error("Nova posição não permite motivo de desligamento — esta vaga não existe ainda e não há funcionário para desligar. Selecione 'Do quadro de vagas' ou troque o motivo.");
-            return;
-        }
         if (saveIsDesligamentoMotivo) {
             if (!draft.substituidoFuncionarioId) errors.push("Funcionário a desligar");
             if (!draft.dataDesligamento) errors.push("Data de desligamento");
@@ -685,61 +812,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <Section title="Dados da Vaga" />
 
-                                {/* Origem da vaga */}
-                                <div className="col-span-3 flex gap-3">
-                                    {(["quadro", "nova"] as const).map((opt) => (
-                                        <label
-                                            key={opt}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm cursor-pointer select-none transition-colors ${
-                                                draft.origemVaga === opt
-                                                    ? "border-lt-primary bg-lt-primary/10 text-lt-primary font-medium"
-                                                    : "border-input bg-background text-muted-foreground hover:bg-muted/40"
-                                            } ${viewOnly ? "cursor-default pointer-events-none" : ""}`}
-                                        >
-                                            <input
-                                                type="radio"
-                                                className="sr-only"
-                                                name="origemVaga"
-                                                value={opt}
-                                                checked={draft.origemVaga === opt}
-                                                disabled={viewOnly}
-                                                onChange={() => setDraft((d) => ({
-                                                    ...d,
-                                                    origemVaga: opt,
-                                                    jobPositionId: opt === "nova" ? null : d.jobPositionId,
-                                                }))}
-                                            />
-                                            {opt === "quadro" ? "Do quadro de vagas" : "Nova posição"}
-                                        </label>
-                                    ))}
+                                <div className="col-span-2">
+                                    <label className={L}>Título da Vaga *</label>
+                                    <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
                                 </div>
-
-                                {draft.origemVaga === "quadro" && (
-                                    <div className="col-span-2">
-                                        <label className={L}>Cargo do quadro de vagas</label>
-                                        <AutocompleteSelect
-                                            items={cargos}
-                                            value={draft.jobPositionId}
-                                            onChange={(v) => {
-                                                const cargo = v ? cargos.find((c) => c.id === v) : null;
-                                                setDraft((d) => ({
-                                                    ...d,
-                                                    jobPositionId: v,
-                                                    titulo: cargo ? cargo.name : d.titulo,
-                                                }));
-                                            }}
-                                            placeholder="cargo do quadro"
-                                            disabled={viewOnly}
-                                        />
-                                    </div>
-                                )}
-
-                                {draft.origemVaga === "nova" && (
-                                    <div className="col-span-2">
-                                        <label className={L}>Título da Vaga *</label>
-                                        <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
-                                    </div>
-                                )}
 
                                 <div>
                                     <label className={L}>Tipo de Solicitação</label>
@@ -749,17 +825,16 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     </select>
                                 </div>
 
-                                {draft.origemVaga === "quadro" && (
-                                    <div className="col-span-3">
-                                        <label className={L}>Título da Vaga *</label>
-                                        <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
-                                    </div>
-                                )}
-
                                 {draft.tipoSolicitacao === 1 && !isDesligamentoMotivo && (
                                     <div className="col-span-2">
                                         <label className={L}>Funcionário Substituído</label>
-                                        <AutocompleteSelect items={funcionarios} value={draft.substituidoFuncionarioId} onChange={(v) => setDraft((d) => ({ ...d, substituidoFuncionarioId: v }))} placeholder="funcionário substituído" required disabled={viewOnly} />
+                                        <FuncionarioAsyncSelect
+                                            value={draft.substituidoFuncionarioId}
+                                            onChange={(v) => setDraft((d) => ({ ...d, substituidoFuncionarioId: v }))}
+                                            placeholder="funcionário substituído"
+                                            required
+                                            disabled={viewOnly}
+                                        />
                                     </div>
                                 )}
 
@@ -791,18 +866,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     </select>
                                 </div>
 
-                                {isDesligamentoMotivo && draft.origemVaga === "nova" && (
-                                    <div className="col-span-3 rounded-md border border-red-400 bg-red-50 p-3 text-sm text-red-800" data-testid="alerta-nova-posicao-desligamento">
-                                        <b>Não é possível criar desligamento para uma nova posição.</b>
-                                        <div className="mt-1">
-                                            Esta vaga não existe ainda — logo, não há funcionário para desligar.
-                                            Selecione <b>&quot;Do quadro de vagas&quot;</b> acima para vincular um funcionário existente,
-                                            ou escolha outro motivo da requisição.
-                                        </div>
-                                    </div>
-                                )}
-
-                                {isDesligamentoMotivo && draft.origemVaga !== "nova" && (
+                                {isDesligamentoMotivo && (
                                     <div className="col-span-3 rounded-md border border-dashed border-amber-400/70 bg-amber-50/40 p-3" data-testid="bloco-desligamento">
                                         <div className="mb-2 text-xs font-semibold text-amber-800">
                                             Dados do desligamento
@@ -813,19 +877,14 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                         <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                                             <div className="col-span-3">
                                                 <label className={L}>Funcionário a desligar *</label>
-                                                <AutocompleteSelect
-                                                    items={funcionarios}
+                                                <FuncionarioAsyncSelect
                                                     value={draft.substituidoFuncionarioId}
                                                     onChange={(v) => setDraft((d) => ({ ...d, substituidoFuncionarioId: v }))}
-                                                    placeholder={funcionarios.length === 0 ? "nenhum funcionário encontrado para este cargo/lotação" : "funcionário"}
+                                                    placeholder="funcionário"
                                                     required
                                                     disabled={viewOnly}
+                                                    data-testid="select-funcionario-desligamento"
                                                 />
-                                                {funcionarios.length === 0 && (
-                                                    <div className="mt-1 text-[11px] text-muted-foreground" data-testid="hint-funcionario-vazio">
-                                                        Não há funcionários cadastrados com este cargo e lotação.
-                                                    </div>
-                                                )}
                                             </div>
                                             <div>
                                                 <label className={L}>Data de desligamento *</label>
@@ -1021,7 +1080,12 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                             <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                                 <div className="col-span-2">
                                     <label className={L}>Aprovador</label>
-                                    <AutocompleteSelect items={funcionarios} value={draft.aprovadorId} onChange={(v) => setDraft((d) => ({ ...d, aprovadorId: v }))} placeholder="aprovador" disabled={viewOnly} />
+                                    <FuncionarioAsyncSelect
+                                        value={draft.aprovadorId}
+                                        onChange={(v) => setDraft((d) => ({ ...d, aprovadorId: v }))}
+                                        placeholder="aprovador"
+                                        disabled={viewOnly}
+                                    />
                                     {gestorDiretoId && draft.aprovadorId === gestorDiretoId && (
                                         <p className="text-xs text-muted-foreground mt-1">Superior direto detectado automaticamente.</p>
                                     )}
