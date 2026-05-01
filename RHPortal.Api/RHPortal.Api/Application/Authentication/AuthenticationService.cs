@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -52,13 +53,72 @@ public sealed class AuthenticationService
             .Include(u => u.Funcionario!)
                 .ThenInclude(f => f.Unit);
 
-    /// <summary>Empresa: CentroCusto.EmpresaId com fallback em Unit.EmpresaId.</summary>
-    private static (Guid? EmpresaId, Guid? UnitId, Guid? CentroCustoId, Guid? UnidadeLotacaoId) ResolveEstruturaFromFuncionario(
-        Funcionario? f)
+    /// <summary>
+    /// Empresa: CentroCusto.EmpresaId → Unit.EmpresaId → <see cref="Empresa.Code"/> alinhado a
+    /// <see cref="Funcionario.CdnEmpresa"/> (TOTVS). Lotação: vínculo direto ou moda entre funcionários
+    /// ativos do mesmo centro de custo (somente com maioria estrita).
+    /// </summary>
+    private async Task<(Guid? EmpresaId, Guid? UnitId, Guid? CentroCustoId, Guid? UnidadeLotacaoId)> ResolveEstruturaAsync(
+        Funcionario? f,
+        CancellationToken ct)
     {
         if (f is null) return (null, null, null, null);
+
         var empresaId = f.CentroCusto?.EmpresaId ?? f.Unit?.EmpresaId;
-        return (empresaId, f.UnitId, f.CentroCustoId, f.UnidadeLotacaoId);
+        if (!empresaId.HasValue)
+            empresaId = await ResolveEmpresaIdFromFuncionarioCdnAsync(f.TenantId, f.CdnEmpresa, ct);
+
+        Guid? unidadeLotacaoId = f.UnidadeLotacaoId;
+        if (!unidadeLotacaoId.HasValue && f.CentroCustoId.HasValue)
+            unidadeLotacaoId = await InferUnidadeLotacaoPorCentroCustoAsync(f.TenantId, f.CentroCustoId.Value, ct);
+
+        return (empresaId, f.UnitId, f.CentroCustoId, unidadeLotacaoId);
+    }
+
+    private async Task<Guid?> ResolveEmpresaIdFromFuncionarioCdnAsync(string tenantId, string? cdnEmpresa, CancellationToken ct)
+    {
+        var raw = cdnEmpresa?.Trim();
+        if (string.IsNullOrEmpty(raw)) return null;
+
+        foreach (var code in EmpresaCodeLookupVariants(raw))
+        {
+            var id = await _db.Empresas.AsNoTracking()
+                .Where(e => e.TenantId == tenantId && e.IsActive && e.Code == code)
+                .Select(e => (Guid?)e.Id)
+                .FirstOrDefaultAsync(ct);
+            if (id.HasValue) return id;
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> EmpresaCodeLookupVariants(string cdn)
+    {
+        var t = cdn.Trim();
+        yield return t;
+        if (t.Length < 3)
+            yield return t.PadLeft(3, '0');
+        var trimmedZeros = t.TrimStart('0');
+        if (trimmedZeros.Length > 0 && trimmedZeros != t)
+            yield return trimmedZeros;
+    }
+
+    private async Task<Guid?> InferUnidadeLotacaoPorCentroCustoAsync(string tenantId, Guid centroCustoId, CancellationToken ct)
+    {
+        var top = await _db.Funcionarios.AsNoTracking()
+            .Where(x => x.TenantId == tenantId
+                        && x.CentroCustoId == centroCustoId
+                        && x.UnidadeLotacaoId != null
+                        && x.Status == RhPortal.Api.Domain.Enums.FuncionarioStatus.Active)
+            .GroupBy(x => x.UnidadeLotacaoId!.Value)
+            .Select(g => new { Id = g.Key, Cnt = g.Count() })
+            .OrderByDescending(x => x.Cnt)
+            .Take(2)
+            .ToListAsync(ct);
+
+        if (top.Count == 0) return null;
+        if (top.Count == 1) return top[0].Id;
+        return top[0].Cnt > top[1].Cnt ? top[0].Id : null;
     }
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken ct)
@@ -79,7 +139,7 @@ public sealed class AuthenticationService
 
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(user, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
-        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = ResolveEstruturaFromFuncionario(user.Funcionario);
+        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = await ResolveEstruturaAsync(user.Funcionario, ct);
         await _awardPointsService.AwardAsync(
             user.Id,
             GamificationEventTypes.DailyLogin,
@@ -117,7 +177,7 @@ public sealed class AuthenticationService
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
-        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = ResolveEstruturaFromFuncionario(user.Funcionario);
+        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = await ResolveEstruturaAsync(user.Funcionario, ct);
 
         return new CurrentUserResponse(
             UserId: user.Id,
@@ -180,7 +240,7 @@ public sealed class AuthenticationService
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(userWithFuncionario, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
-        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = ResolveEstruturaFromFuncionario(userWithFuncionario.Funcionario);
+        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = await ResolveEstruturaAsync(userWithFuncionario.Funcionario, ct);
         await _awardPointsService.AwardAsync(
             user.Id,
             GamificationEventTypes.DailyLogin,
