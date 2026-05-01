@@ -24,6 +24,12 @@ public sealed record LoginResponse(
     Guid? FuncionarioId,
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     Guid? CentroCustoId,
+    /// <summary>Empresa derivada do CC ou da unidade do funcionário vinculado.</summary>
+    Guid? EmpresaId,
+    /// <summary>Estabelecimento / local (Unit).</summary>
+    Guid? UnitId,
+    /// <summary>Unidade de lotação TOTVS.</summary>
+    Guid? UnidadeLotacaoId,
     ProfileVisibilityScope VisibilityScope,
     VagasDataScope VagasDataScope,
     bool IsReadOnly
@@ -39,6 +45,12 @@ public sealed record CurrentUserResponse(
     Guid? FuncionarioId,
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
     Guid? CentroCustoId,
+    /// <summary>Empresa derivada do CC ou da unidade do funcionário vinculado.</summary>
+    Guid? EmpresaId,
+    /// <summary>Estabelecimento / local (Unit).</summary>
+    Guid? UnitId,
+    /// <summary>Unidade de lotação TOTVS.</summary>
+    Guid? UnidadeLotacaoId,
     ProfileVisibilityScope VisibilityScope,
     VagasDataScope VagasDataScope,
     bool IsReadOnly

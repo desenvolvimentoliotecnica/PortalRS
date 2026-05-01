@@ -222,6 +222,13 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [centrosCusto, setCentrosCusto] = useState<LookupItem[]>([]);
     const [unidadesLotacao, setUnidadesLotacao] = useState<LookupItem[]>([]);
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
+    /** Campos vindos de GET /api/me — bloqueados para não divergir do vínculo do gestor. */
+    const [estruturaLocks, setEstruturaLocks] = useState({
+        empresa: false,
+        unit: false,
+        centroCusto: false,
+        lotacao: false,
+    });
 
     /**
      * Motivos parametrizáveis carregados da tela de cadastro "Motivos de Requisição".
@@ -364,6 +371,42 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             setDraft(initialData ? { ...emptyDraft, ...initialData } : { ...emptyDraft });
         }
     }, [active, editId, copySourceId, initialData, loadLookups, reloadNonce]);
+
+    useEffect(() => {
+        if (!active || viewOnly || editId || copySourceId) {
+            setEstruturaLocks({ empresa: false, unit: false, centroCusto: false, lotacao: false });
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const me = await fetchJson<Record<string, unknown>>("/api/me");
+                const empresaId = me.empresaId != null ? String(me.empresaId) : null;
+                const unitId = me.unitId != null ? String(me.unitId) : null;
+                const centroCustoId = me.centroCustoId != null ? String(me.centroCustoId) : null;
+                const unidadeLotacaoId = me.unidadeLotacaoId != null ? String(me.unidadeLotacaoId) : null;
+                if (cancelled) return;
+                setEstruturaLocks({
+                    empresa: !!empresaId,
+                    unit: !!unitId,
+                    centroCusto: !!centroCustoId,
+                    lotacao: !!unidadeLotacaoId,
+                });
+                setDraft((d) => ({
+                    ...d,
+                    ...(!d.empresaId && empresaId ? { empresaId } : {}),
+                    ...(!d.unitId && unitId ? { unitId } : {}),
+                    ...(!d.centroCustoId && centroCustoId ? { centroCustoId } : {}),
+                    ...(!d.unidadeLotacaoId && unidadeLotacaoId ? { unidadeLotacaoId } : {}),
+                }));
+            } catch {
+                if (!cancelled) {
+                    setEstruturaLocks({ empresa: false, unit: false, centroCusto: false, lotacao: false });
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [active, viewOnly, editId, copySourceId, reloadNonce]);
 
     useEffect(() => {
         if (gestorDiretoId && !editId && !draft.aprovadorId) {
@@ -587,7 +630,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <div className="col-span-2">
                                     <label className={L}>Empresa *</label>
-                                    <AutocompleteSelect items={empresas} value={draft.empresaId} onChange={(v) => setDraft((d) => ({ ...d, empresaId: v }))} placeholder="empresa" required disabled={viewOnly} />
+                                    <AutocompleteSelect items={empresas} value={draft.empresaId} onChange={(v) => setDraft((d) => ({ ...d, empresaId: v }))} placeholder="empresa" required disabled={viewOnly || estruturaLocks.empresa} />
                                 </div>
 
                                 <div>
@@ -602,7 +645,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <div className="col-span-2">
                                     <label className={L}>Local (Unidade) *</label>
-                                    <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="unidade" required disabled={viewOnly} />
+                                    <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="unidade" required disabled={viewOnly || estruturaLocks.unit} />
                                 </div>
 
                                 <div>
@@ -616,7 +659,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <div className="col-span-2">
                                     <label className={L}>Centro de Custo *</label>
-                                    <AutocompleteSelect items={centrosCusto} value={draft.centroCustoId} onChange={(v) => setDraft((d) => ({ ...d, centroCustoId: v }))} placeholder="centro de custo" required disabled={viewOnly} />
+                                    <AutocompleteSelect items={centrosCusto} value={draft.centroCustoId} onChange={(v) => setDraft((d) => ({ ...d, centroCustoId: v }))} placeholder="centro de custo" required disabled={viewOnly || estruturaLocks.centroCusto} />
                                 </div>
 
                                 <div>
@@ -626,7 +669,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <div className="col-span-2">
                                     <label className={L}>Lotação *</label>
-                                    <AutocompleteSelect items={unidadesLotacao} value={draft.unidadeLotacaoId} onChange={(v) => setDraft((d) => ({ ...d, unidadeLotacaoId: v }))} placeholder="lotação" required disabled={viewOnly} />
+                                    <AutocompleteSelect items={unidadesLotacao} value={draft.unidadeLotacaoId} onChange={(v) => setDraft((d) => ({ ...d, unidadeLotacaoId: v }))} placeholder="lotação" required disabled={viewOnly || estruturaLocks.lotacao} />
                                 </div>
 
                                 <div>

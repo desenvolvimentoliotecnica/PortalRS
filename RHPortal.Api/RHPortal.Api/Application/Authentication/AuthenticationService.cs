@@ -44,13 +44,29 @@ public sealed class AuthenticationService
         _awardPointsService = awardPointsService;
     }
 
+    /// <summary>Inclui CentroCusto e Unit para derivar EmpresaId no perfil/me.</summary>
+    private IQueryable<ApplicationUser> UsersWithFuncionarioEstrutura() =>
+        _db.Users
+            .Include(u => u.Funcionario!)
+                .ThenInclude(f => f.CentroCusto)
+            .Include(u => u.Funcionario!)
+                .ThenInclude(f => f.Unit);
+
+    /// <summary>Empresa: CentroCusto.EmpresaId com fallback em Unit.EmpresaId.</summary>
+    private static (Guid? EmpresaId, Guid? UnitId, Guid? CentroCustoId, Guid? UnidadeLotacaoId) ResolveEstruturaFromFuncionario(
+        Funcionario? f)
+    {
+        if (f is null) return (null, null, null, null);
+        var empresaId = f.CentroCusto?.EmpresaId ?? f.Unit?.EmpresaId;
+        return (empresaId, f.UnitId, f.CentroCustoId, f.UnidadeLotacaoId);
+    }
+
     public async Task<LoginResponse?> LoginAsync(LoginRequest request, CancellationToken ct)
     {
         var email = request.Email.Trim();
         if (string.IsNullOrWhiteSpace(email)) return null;
 
-        var user = await _db.Users
-            .Include(u => u.Funcionario)
+        var user = await UsersWithFuncionarioEstrutura()
             .FirstOrDefaultAsync(x => x.Email == email, ct);
         if (user is null || !user.IsActive) return null;
 
@@ -61,12 +77,9 @@ public sealed class AuthenticationService
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
 
-        // DEBUG
-        System.Diagnostics.Debug.WriteLine($"[LOGIN] User: {user.Email} | Roles: [{string.Join(", ", roleNames)}] | Permissions: {permissions.Count}");
-
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(user, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
-        var centroCustoId = user.Funcionario?.CentroCustoId;
+        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = ResolveEstruturaFromFuncionario(user.Funcionario);
         await _awardPointsService.AwardAsync(
             user.Id,
             GamificationEventTypes.DailyLogin,
@@ -85,6 +98,9 @@ public sealed class AuthenticationService
             Permissions: permissions,
             FuncionarioId: user.FuncionarioId,
             CentroCustoId: centroCustoId,
+            EmpresaId: empresaId,
+            UnitId: unitId,
+            UnidadeLotacaoId: unidadeLotacaoId,
             VisibilityScope: visibilityScope,
             VagasDataScope: vagasDataScope,
             IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
@@ -93,8 +109,7 @@ public sealed class AuthenticationService
 
     public async Task<CurrentUserResponse?> GetCurrentUserAsync(Guid userId, CancellationToken ct)
     {
-        var user = await _db.Users
-            .Include(u => u.Funcionario)
+        var user = await UsersWithFuncionarioEstrutura()
             .FirstOrDefaultAsync(x => x.Id == userId, ct);
         if (user is null) return null;
 
@@ -102,7 +117,7 @@ public sealed class AuthenticationService
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
-        var centroCustoId = user.Funcionario?.CentroCustoId;
+        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = ResolveEstruturaFromFuncionario(user.Funcionario);
 
         return new CurrentUserResponse(
             UserId: user.Id,
@@ -113,6 +128,9 @@ public sealed class AuthenticationService
             Permissions: permissions,
             FuncionarioId: user.FuncionarioId,
             CentroCustoId: centroCustoId,
+            EmpresaId: empresaId,
+            UnitId: unitId,
+            UnidadeLotacaoId: unidadeLotacaoId,
             VisibilityScope: visibilityScope,
             VagasDataScope: vagasDataScope,
             IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
@@ -152,8 +170,7 @@ public sealed class AuthenticationService
         if (user is null)
             return null;
 
-        var userWithFuncionario = await _db.Users
-            .Include(u => u.Funcionario)
+        var userWithFuncionario = await UsersWithFuncionarioEstrutura()
             .FirstOrDefaultAsync(x => x.Id == user.Id, ct);
         if (userWithFuncionario is null)
             return null;
@@ -163,7 +180,7 @@ public sealed class AuthenticationService
         var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(userWithFuncionario, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
-        var centroCustoId = userWithFuncionario.Funcionario?.CentroCustoId;
+        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = ResolveEstruturaFromFuncionario(userWithFuncionario.Funcionario);
         await _awardPointsService.AwardAsync(
             user.Id,
             GamificationEventTypes.DailyLogin,
@@ -182,6 +199,9 @@ public sealed class AuthenticationService
             Permissions: permissions,
             FuncionarioId: userWithFuncionario.FuncionarioId,
             CentroCustoId: centroCustoId,
+            EmpresaId: empresaId,
+            UnitId: unitId,
+            UnidadeLotacaoId: unidadeLotacaoId,
             VisibilityScope: visibilityScope,
             VagasDataScope: vagasDataScope,
             IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
