@@ -355,11 +355,11 @@ public sealed class LookupController : ControllerBase
             var like = $"%{q}%";
 
             query = query.Where(x =>
-                EF.Functions.Like(x.Name, like) ||
-                (x.Email != null && EF.Functions.Like(x.Email, like)) ||
-                (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Name, like)) ||
-                (x.CentroCusto != null && EF.Functions.Like(x.CentroCusto.Description, like)) ||
-                (x.Unit != null && EF.Functions.Like(x.Unit.Name, like))
+                EF.Functions.ILike(x.Name, like) ||
+                (x.Email != null && EF.Functions.ILike(x.Email, like)) ||
+                (x.JobPosition != null && EF.Functions.ILike(x.JobPosition.Name, like)) ||
+                (x.CentroCusto != null && EF.Functions.ILike(x.CentroCusto.Description, like)) ||
+                (x.Unit != null && EF.Functions.ILike(x.Unit.Name, like))
             );
         }
 
