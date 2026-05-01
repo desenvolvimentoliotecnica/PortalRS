@@ -199,34 +199,24 @@ test.describe("(B) Vínculo bidirecional vaga↔funcionário", () => {
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   (C) Botão "Nova posição" movido para dentro do picker
+   (C) Nova requisição — apenas fluxo "Nova posição" (sem picker do quadro)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-test.describe("(C) Botão Nova Posição dentro do picker Do Quadro de Vagas", () => {
-    test("C1 — tela principal NÃO tem botão 'Nova Posição' standalone", async ({ page }) => {
+test.describe("(C) Nova posição — ação direta na lista", () => {
+    test("C1 — tela tem botão 'Nova posição' e não oferece 'Do Quadro de Vagas'", async ({ page }) => {
         await loginViaUI(page);
         await page.goto(`${FRONT_URL}/app/gestao/solicitacoes`);
-        await expect(page.getByRole("button", { name: /^Nova Posi(ç|c)ão$/i })).toHaveCount(0);
-        await expect(page.getByRole("button", { name: /Do Quadro de Vagas/i })).toBeVisible();
-        console.log(`  [C1] ✓ Botão standalone não existe; só "Do Quadro de Vagas"`);
+        await expect(page.getByRole("button", { name: /Nova posição/i })).toBeVisible();
+        await expect(page.getByRole("button", { name: /Do Quadro de Vagas/i })).toHaveCount(0);
+        console.log(`  [C1] ✓ Botão "Nova posição" visível; picker do quadro removido`);
     });
 
-    test("C2 — picker tem botão 'Nova posição' no footer", async ({ page }) => {
+    test("C2 — clicar em 'Nova posição' abre o formulário", async ({ page }) => {
         await loginViaUI(page);
         await page.goto(`${FRONT_URL}/app/gestao/solicitacoes`);
-        await page.getByRole("button", { name: /Do Quadro de Vagas/i }).click();
-        await expect(page.getByRole("heading", { name: /Selecionar Vaga do Quadro/i })).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('[data-testid="btn-nova-posicao-picker"]')).toBeVisible();
-        console.log(`  [C2] ✓ Botão "Nova posição" presente no footer do picker`);
-    });
-
-    test("C3 — clicar em 'Nova posição' abre o form com origemVaga=nova", async ({ page }) => {
-        await loginViaUI(page);
-        await page.goto(`${FRONT_URL}/app/gestao/solicitacoes`);
-        await page.getByRole("button", { name: /Do Quadro de Vagas/i }).click();
-        await page.locator('[data-testid="btn-nova-posicao-picker"]').click();
+        await page.locator('[data-testid="btn-nova-posicao"]').click();
         await expect(page.locator('[data-testid="select-motivo-requisicao"]')).toBeVisible({ timeout: 5_000 });
-        console.log(`  [C3] ✓ Form abre com campo motivo-requisição disponível`);
+        console.log(`  [C2] ✓ Form abre com campo motivo-requisição disponível`);
     });
 });
 

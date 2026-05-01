@@ -303,11 +303,6 @@ function SolicitacoesVagaContent() {
     const [formInitialData, setFormInitialData] = useState<Partial<SolicitacaoDraft> | null>(null);
 
     /* ── vaga picker ── */
-    const [vagaPickerOpen, setVagaPickerOpen] = useState(false);
-    const [vagaPickerQ, setVagaPickerQ] = useState("");
-    const [vagaPickerRows, setVagaPickerRows] = useState<Record<string, unknown>[]>([]);
-    const [vagaPickerLoading, setVagaPickerLoading] = useState(false);
-
     /* ── timeline modal ── */
     const [timelineOpen, setTimelineOpen] = useState(false);
     const [timelineSteps, setTimelineSteps] = useState<AprovacaoStep[]>([]);
@@ -407,91 +402,18 @@ function SolicitacoesVagaContent() {
     }, [rows]);
 
     /* ── actions ── */
-    function openNew() {
-        setViewId(null);
-        setEditId(null);
-        setResubmit(false);
-        setFormInitialData(null);
-        setCopySourceId(null);
-        if (prefersMobileForm) {
-            router.push("/gestao/solicitacoes/nova");
-            return;
-        }
-        bumpFormNonce();
-        setFormOpen(true);
-    }
-
     function openNovaPosicao() {
         setViewId(null);
         setEditId(null);
         setResubmit(false);
         setCopySourceId(null);
-        const initial = { origemVaga: "nova" as const };
-        setFormInitialData(initial);
+        setFormInitialData(null);
         if (prefersMobileForm) {
-            try {
-                sessionStorage.setItem("renderrh.solicitacao.initial", JSON.stringify(initial));
-            } catch { /* ignore */ }
             router.push("/gestao/solicitacoes/nova");
             return;
         }
         bumpFormNonce();
         setFormOpen(true);
-    }
-
-    function openVagaPicker() {
-        setVagaPickerQ("");
-        setVagaPickerRows([]);
-        setVagaPickerOpen(true);
-        loadVagaPickerRows("");
-    }
-
-    async function loadVagaPickerRows(q: string) {
-        setVagaPickerLoading(true);
-        try {
-            const params = new URLSearchParams({ pageSize: "40" });
-            if (q.trim()) params.set("q", q.trim());
-            const res = await fetchJson<unknown>(`/api/vagas?${params.toString()}`);
-            const items: unknown[] = Array.isArray(res) ? res : Array.isArray((res as Record<string, unknown>)?.items) ? ((res as Record<string, unknown>).items as unknown[]) : [];
-            setVagaPickerRows(items as Record<string, unknown>[]);
-        } catch {
-            setVagaPickerRows([]);
-        } finally {
-            setVagaPickerLoading(false);
-        }
-    }
-
-    async function selectVagaFromPicker(vagaId: string) {
-        setVagaPickerOpen(false);
-        try {
-            const v = await fetchJson<Record<string, unknown>>(`/api/vagas/${vagaId}`);
-            const initial: Partial<SolicitacaoDraft> = {
-                origemVaga: "quadro",
-                vagaId: vagaId,
-                titulo: String(v.titulo ?? v.name ?? ""),
-                jobPositionId: v.jobPositionId ? String(v.jobPositionId) : null,
-                unitId: v.unitId ? String(v.unitId) : null,
-                centroCustoId: v.centroCustoId ? String(v.centroCustoId) : null,
-                unidadeLotacaoId: v.unidadeLotacaoId ? String(v.unidadeLotacaoId) : null,
-                empresaId: v.empresaId ? String(v.empresaId) : null,
-            };
-            setViewId(null);
-            setEditId(null);
-            setResubmit(false);
-            setFormInitialData(initial);
-            setCopySourceId(null);
-            if (prefersMobileForm) {
-                try {
-                    sessionStorage.setItem("renderrh.solicitacao.initial", JSON.stringify(initial));
-                } catch { /* ignore */ }
-                router.push("/gestao/solicitacoes/nova");
-                return;
-            }
-            bumpFormNonce();
-            setFormOpen(true);
-        } catch {
-            toast.error("Falha ao carregar dados da vaga.");
-        }
     }
 
     function openEdit(row: SolicitacaoGridRow) {
@@ -659,10 +581,6 @@ function SolicitacoesVagaContent() {
                 >
                     <Plus className="size-4 mr-1" />
                     Nova posição
-                </Button>
-                <Button size="sm" variant="outline" onClick={openVagaPicker}>
-                    <Briefcase className="size-4 mr-1" />
-                    Do Quadro de Vagas
                 </Button>
                 <div className="ml-auto flex items-center gap-2">
                     <Button
@@ -971,81 +889,6 @@ function SolicitacoesVagaContent() {
                     </div>
                 )}
             </div>
-
-            {/* ── Vaga Picker Dialog ── */}
-            <Dialog open={vagaPickerOpen} onOpenChange={(v) => { if (!v) setVagaPickerOpen(false); }}>
-                <DialogContent className="sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>Selecionar Vaga do Quadro</DialogTitle>
-                        <DialogDescription>Busque e selecione uma vaga para pré-preencher a requisição.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-3">
-                        <Input
-                            placeholder="Buscar vaga…"
-                            value={vagaPickerQ}
-                            onChange={(e) => {
-                                setVagaPickerQ(e.target.value);
-                                void loadVagaPickerRows(e.target.value);
-                            }}
-                            autoFocus
-                        />
-                        <div className="max-h-72 overflow-y-auto divide-y divide-border rounded-md border border-input">
-                            {vagaPickerLoading ? (
-                                <div className="py-6 text-center text-sm text-muted-foreground">Carregando…</div>
-                            ) : vagaPickerRows.length === 0 ? (
-                                <div className="py-6 text-center text-sm text-muted-foreground">Nenhuma vaga encontrada.</div>
-                            ) : (
-                                vagaPickerRows.map((v) => {
-                                    const id = String(v.id ?? "");
-                                    const titulo = String(v.titulo ?? v.name ?? "—");
-                                    const area = String(v.centroCustoNome ?? "");
-                                    const status = String(v.status ?? "");
-                                    const autorizado = Number(v.headcountAutorizado ?? 1);
-                                    const ocupado = Number(v.headcountOcupado ?? 0);
-                                    const disponiveis = autorizado - ocupado;
-                                    return (
-                                        <button
-                                            key={id}
-                                            type="button"
-                                            onClick={() => void selectVagaFromPicker(id)}
-                                            className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors"
-                                        >
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="font-medium text-sm">{titulo}</div>
-                                                <span className={`shrink-0 mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                                    disponiveis > 0
-                                                        ? "bg-green-100 text-green-700"
-                                                        : "bg-amber-100 text-amber-700"
-                                                }`}>
-                                                    {disponiveis > 0
-                                                        ? `${disponiveis} disponível${disponiveis > 1 ? "is" : ""}`
-                                                        : "Sem vagas"}
-                                                </span>
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {[area, status].filter(Boolean).join(" · ")}
-                                                <span className="ml-2 text-muted-foreground/70">{ocupado}/{autorizado} ocupados</span>
-                                            </div>
-                                        </button>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                    <DialogFooter className="gap-2 sm:gap-2">
-                        <Button variant="outline" onClick={() => setVagaPickerOpen(false)}>Cancelar</Button>
-                        <Button
-                            data-testid="btn-nova-posicao-picker"
-                            onClick={() => {
-                                setVagaPickerOpen(false);
-                                openNovaPosicao();
-                            }}
-                        >
-                            Nova posição
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             {/* ── Form Modal ── */}
             <SolicitacaoFormModal
