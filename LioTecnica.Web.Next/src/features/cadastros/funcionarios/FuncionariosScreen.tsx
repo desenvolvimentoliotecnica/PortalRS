@@ -7,6 +7,7 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import { apiFetch } from "@/lib/api";
 import { getScreenCache, setScreenCache } from "@/lib/screenCache";
+import { useAuth } from "@/hooks/useAuth";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -354,6 +355,12 @@ function FilterAutocomplete({
 
 /* ---------- component ---------- */
 export default function FuncionariosScreen() {
+    const { me } = useAuth();
+    const isOwnerUser = useMemo(
+        () => !!me?.roles.some((r) => r.toLowerCase() === "owner"),
+        [me?.roles],
+    );
+
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<FuncItem[]>([]);
     const [q, setQ] = useState("");
@@ -1068,10 +1075,10 @@ export default function FuncionariosScreen() {
                                 { k: "historico", label: "Histórico" },
                             ] as const
                         ).map((t) => {
-                            // Funcionários importados (RM/Datasul) são read-only — fonte da verdade está no ERP.
+                            // Importados (RM/Datasul): somente Owner pode editar no Portal; demais perfis ficam read-only.
                             const isImported = !!detailData?.matriculaRm
                                 || (!!detailData?.cdnFuncionario && !!detailData?.cdnEmpresa && !!detailData?.cdnEstab);
-                            const blockEdit = t.k === "editar" && isImported;
+                            const blockEdit = t.k === "editar" && isImported && !isOwnerUser;
                             return (
                             <Button
                                 key={t.k}
@@ -1084,7 +1091,7 @@ export default function FuncionariosScreen() {
                                     else setDetailTab(t.k);
                                 }}
                                 disabled={detailLoading || blockEdit}
-                                title={blockEdit ? "Funcionário importado do ERP — somente leitura." : undefined}
+                                title={blockEdit ? "Funcionário importado do ERP — apenas usuários Owner podem editar aqui." : undefined}
                             >
                                 {t.k === "editar" && <Pencil className="size-3 mr-1" />}
                                 {t.label}
