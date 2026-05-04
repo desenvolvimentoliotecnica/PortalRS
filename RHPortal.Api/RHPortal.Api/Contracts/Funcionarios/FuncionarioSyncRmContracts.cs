@@ -7,11 +7,19 @@ namespace RhPortal.Api.Contracts.Funcionarios;
 ///   - CodFuncao → JobPositionId (via PFUNCAO.CARGO → PCARGO.CODIGO)
 ///   - CodFilial → UnitId (lookup por Code)
 ///   - IdHierarquiaDestinoRm → HierarquiaId (lookup por IdHierarquiaRm)
+///   - ChapaGestorDireto (opcional) — chapa do líder em <c>PFUNCLIDERHRPLATFORM.CHAPALIDER</c> (preferência <c>MASTER=1</c>);
+///     o endpoint resolve para <c>Funcionario.GestorDiretoId</c> por <c>MatriculaRm</c>.
 /// </summary>
 public sealed class FuncionarioSyncRmItem
 {
     /// <summary>PFUNC.CHAPA (ex.: "00000581").</summary>
     public string Chapa { get; set; } = default!;
+
+    /// <summary>
+    /// Chapa do gestor direto no RM (<c>PFUNCLIDERHRPLATFORM.CHAPALIDER</c>, líder principal <c>MASTER=1</c> quando existir).
+    /// Quando ausente ou nula, o sync <strong>não altera</strong> <c>GestorDiretoId</c> no Portal.
+    /// </summary>
+    public string? ChapaGestorDireto { get; set; }
 
     /// <summary>Nome do funcionário (vem de PPESSOA via PFUNC.CODPESSOA).</summary>
     public string Nome { get; set; } = default!;

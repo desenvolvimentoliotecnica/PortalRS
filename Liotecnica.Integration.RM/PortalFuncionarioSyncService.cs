@@ -19,7 +19,9 @@ namespace Liotecnica.Integration.RM;
 ///    <c>PFUNC.CODFUNCAO → PFUNCAO.CARGO</c> (= código do PCARGO no Portal).
 /// 5. JOIN in-memory com <c>transf_promocao.json</c> (VREQTRANSFPROMOCAO) pra obter
 ///    a última hierarquia destino aprovada por CHAPA (38% dos ativos têm).
-/// 6. Envia bulk com chaves crus (códigos RM) — endpoint resolve FKs internamente.
+/// 6. JOIN com <c>pfunc_lider_hrplatform.json</c> (<c>PFUNCLIDERHRPLATFORM</c>): <c>CHAPALIDER</c> do líder
+///    principal (<c>MASTER=1</c> quando existir) → campo <c>chapaGestorDireto</c> no bulk (Portal grava <c>GestorDiretoId</c>).
+/// 7. Envia bulk com chaves crus (códigos RM) — endpoint resolve FKs internamente.
 /// </summary>
 public sealed class PortalFuncionarioSyncService
 {
@@ -36,6 +38,12 @@ public sealed class PortalFuncionarioSyncService
         PropertyNameCaseInsensitive = true,
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
         Converters = { new NumberOrStringConverter() },
+    };
+
+    /// <summary>Serialização do bulk de funcionários: omite <c>null</c> para o Portal não interpretar como "limpar gestor".</summary>
+    private static readonly JsonSerializerOptions BulkPostJsonOptions = new(JsonOptions)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     /// <summary>Lê string ou número e devolve como string. PPESSOA tem NIT/TITULOELEITOR/etc como number puro.</summary>
@@ -106,6 +114,7 @@ public sealed class PortalFuncionarioSyncService
         var pfuncaoCargoByCodigo = await LoadPfuncaoCargoLookupAsync(path, ct);
         var pfuncaoNomeByCodigo = await LoadPfuncaoNomeLookupAsync(path, ct);
         var ultimaHierarquiaByChapa = await LoadUltimaHierarquiaPorChapaAsync(path, ct);
+        var chapaGestorPorColigadaEChapa = await LoadChapaGestorDiretoPorColigadaEChapaAsync(path, ct);
 
         // 2026-04-26: trazemos TODOS os PFUNC (ativos + desligados/inativos) pra:
         //   - Vincular Desligamento.FuncionarioId mesmo de quem saiu (CODSITUACAO=D)
@@ -135,6 +144,11 @@ public sealed class PortalFuncionarioSyncService
             if (ultimaHierarquiaByChapa.TryGetValue(r.Chapa!.Trim(), out var hier))
                 idHierarquiaDestino = hier;
 
+            var colFunc = r.CodColigada ?? 1;
+            var chapaGestorDireto = chapaGestorPorColigadaEChapa.TryGetValue($"{colFunc}|{r.Chapa!.Trim()}", out var gl)
+                ? gl
+                : null;
+
             var nome = (pessoa?.Nome ?? "").Trim();
             if (nome.Length > 160) nome = nome.Substring(0, 160);
 
@@ -156,6 +170,7 @@ public sealed class PortalFuncionarioSyncService
                 idHierarquiaDestinoRm = idHierarquiaDestino,
                 codPessoa = r.CodPessoa,
                 codColigada = r.CodColigada,
+                chapaGestorDireto = chapaGestorDireto,
                 // ── LUC-122: cadastro pessoal completo de PPESSOA ─────────
                 apelido = pessoa?.Apelido?.Trim(),
                 sexo = pessoa?.Sexo?.Trim(),
@@ -200,7 +215,7 @@ public sealed class PortalFuncionarioSyncService
         var body = new { items };
         _logWriter.WriteLine($"Sync Funcionários: enviando {items.Count} funcionários ativos para api/funcionarios/sync-rm/bulk");
 
-        var resp = await _portalClient.Http.PostAsJsonAsync("api/funcionarios/sync-rm/bulk", body, JsonOptions, ct);
+        var resp = await _portalClient.Http.PostAsJsonAsync("api/funcionarios/sync-rm/bulk", body, BulkPostJsonOptions, ct);
         if (!resp.IsSuccessStatusCode)
         {
             var msg = await resp.Content.ReadAsStringAsync(ct);
@@ -251,6 +266,49 @@ public sealed class PortalFuncionarioSyncService
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Nome!.Length).First().Nome!.Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Lê <c>pfunc_lider_hrplatform.json</c> (PFUNCLIDERHRPLATFORM): CHAPA → CHAPALIDER do líder principal (<c>MASTER=1</c> quando existir).
+    /// Chave: <c>"{CODCOLIGADA}|{CHAPA}"</c> alinhada ao PFUNC do mesmo funcionário.
+    /// </summary>
+    private static async Task<Dictionary<string, string>> LoadChapaGestorDiretoPorColigadaEChapaAsync(string path, CancellationToken ct)
+    {
+        var file = Path.Combine(path, "pfunc_lider_hrplatform.json");
+        if (!File.Exists(file))
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var json = await File.ReadAllTextAsync(file, ct);
+        var rows = JsonSerializer.Deserialize<List<PfuncLiderHrPlatformRow>>(json, JsonOptions) ?? new();
+        // Por (coligada, chapa func): preferir MASTER=1; senão qualquer linha com CHAPALIDER válido.
+        var bestLider = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var bestPrio = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.Chapa) || string.IsNullOrWhiteSpace(row.ChapaLider))
+                continue;
+            var chf = row.Chapa.Trim();
+            var lid = row.ChapaLider.Trim();
+            if (chf.Equals(lid, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var col = row.CodColigada ?? 1;
+            var key = $"{col}|{chf}";
+            var prio = row.IsMasterPrincipal ? 2 : 1;
+            if (!bestLider.TryGetValue(key, out _))
+            {
+                bestLider[key] = lid;
+                bestPrio[key] = prio;
+            }
+            else if (prio > bestPrio[key])
+            {
+                bestLider[key] = lid;
+                bestPrio[key] = prio;
+            }
+        }
+
+        return bestLider;
+    }
+
     private async Task<Dictionary<string, int>> LoadUltimaHierarquiaPorChapaAsync(string path, CancellationToken ct)
     {
         var file = Path.Combine(path, "transf_promocao.json");
@@ -275,6 +333,24 @@ public sealed class PortalFuncionarioSyncService
             return Path.IsPathRooted(path) ? path : Path.GetFullPath(path);
         var contentRoot = _env.ContentRootPath ?? AppContext.BaseDirectory;
         return Path.GetFullPath(Path.Combine(contentRoot, "..", "Liotecnica.Integration.RM.Schema.Tables"));
+    }
+
+    private sealed class PfuncLiderHrPlatformRow
+    {
+        [JsonPropertyName("CODCOLIGADA")]
+        public int? CodColigada { get; set; }
+
+        [JsonPropertyName("CHAPA")]
+        public string? Chapa { get; set; }
+
+        [JsonPropertyName("CHAPALIDER")]
+        public string? ChapaLider { get; set; }
+
+        /// <summary>1 = líder principal quando há vários vínculos (RM <c>SMALLINT</c>).</summary>
+        [JsonPropertyName("MASTER")]
+        public int? Master { get; set; }
+
+        public bool IsMasterPrincipal => Master == 1;
     }
 
     private sealed class PfuncRow

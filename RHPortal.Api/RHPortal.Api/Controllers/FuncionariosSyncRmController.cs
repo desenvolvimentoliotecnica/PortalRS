@@ -126,6 +126,30 @@ public sealed class FuncionariosSyncRmController : ControllerBase
             .GroupBy(f => f.MatriculaRm!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First());
 
+        // Matrícula RM (CHAPA) → entidade para resolver GestorDiretoId a partir de ChapaGestorDireto (inclui criadas neste batch).
+        var matriculaToFuncionario = new Dictionary<string, Funcionario>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in funcByMatricula.Values)
+        {
+            if (!string.IsNullOrWhiteSpace(f.MatriculaRm))
+                matriculaToFuncionario[f.MatriculaRm.Trim()] = f;
+        }
+
+        static void ApplyGestorDiretoRm(
+            Funcionario emp,
+            FuncionarioSyncRmItem it,
+            Dictionary<string, Funcionario> byMatricula)
+        {
+            if (string.IsNullOrWhiteSpace(it.ChapaGestorDireto))
+                return;
+            var gch = it.ChapaGestorDireto.Trim();
+            if (!byMatricula.TryGetValue(gch, out var gest) || gest.Id == emp.Id)
+            {
+                emp.GestorDiretoId = null;
+                return;
+            }
+            emp.GestorDiretoId = gest.Id;
+        }
+
         var now = DateTimeOffset.UtcNow;
         var created = 0;
         var updated = 0;
@@ -259,7 +283,7 @@ public sealed class FuncionariosSyncRmController : ControllerBase
             }
             else
             {
-                _db.Funcionarios.Add(new Funcionario
+                var novo = new Funcionario
                 {
                     Id = Guid.NewGuid(),
                     TenantId = tenantId,
@@ -287,9 +311,20 @@ public sealed class FuncionariosSyncRmController : ControllerBase
                     Headcount = 1,
                     CreatedAtUtc = now,
                     UpdatedAtUtc = now,
-                });
+                };
+                _db.Funcionarios.Add(novo);
+                matriculaToFuncionario[chapa] = novo;
                 created++;
             }
+        }
+
+        // Gestor direto (CHAPALIDER): segunda passagem — o líder pode vir depois no payload do mesmo batch.
+        foreach (var item in ativos)
+        {
+            var ch = item.Chapa.Trim();
+            if (!matriculaToFuncionario.TryGetValue(ch, out var emp))
+                continue;
+            ApplyGestorDiretoRm(emp, item, matriculaToFuncionario);
         }
 
         // Salva em chunks pra não sobrecarregar a transação (637 rows é OK, mas defensivo)
