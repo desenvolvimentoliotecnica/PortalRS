@@ -113,6 +113,24 @@ public sealed class LookupController : ControllerBase
     }
 
     /// <summary>
+    /// Códigos TOTVS (cdn_estab) já usados no tenant — para selects de colaborador.
+    /// </summary>
+    [HttpGet("estabelecimentos-datasul")]
+    [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<string>>> EstabelecimentosDatasul(CancellationToken ct)
+    {
+        var codes = await _db.Funcionarios.AsNoTracking()
+            .Where(f => f.CdnEstab != null && f.CdnEstab != "")
+            .Select(f => f.CdnEstab!.Trim())
+            .Distinct()
+            .OrderBy(x => x.Length)
+            .ThenBy(x => x)
+            .ToListAsync(ct);
+
+        return Ok(codes);
+    }
+
+    /// <summary>
     /// Lista centros de custo ativos e vigentes (para dropdowns).
     /// </summary>
     [HttpGet("centros-custo")]

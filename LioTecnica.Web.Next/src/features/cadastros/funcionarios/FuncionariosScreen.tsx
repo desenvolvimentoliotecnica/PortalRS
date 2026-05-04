@@ -57,6 +57,14 @@ type TimelineEvent =
     | { kind: "movimentacao"; key: string; occurredAt: string; data: MovimentacaoItem }
     | { kind: "admissao"; key: string; occurredAt: string; dataAdmissao: string };
 
+const EDIT_SELECT_CLASS = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
+
+function labelFromOptionResponse(o: { code?: string; name?: string }): string {
+    const code = (o.code ?? "").trim();
+    const name = (o.name ?? "").trim();
+    return code && name ? `${code} - ${name}` : name || code || "—";
+}
+
 interface FuncItem {
     id: string;
     nome: string;
@@ -136,6 +144,19 @@ interface FuncDetail {
 }
 
 interface LookupOption { id: string; label: string; }
+
+/** Opções carregadas uma vez para o formulário de edição (selects). */
+interface EditFormOptions {
+    units: LookupOption[];
+    jobPositions: LookupOption[];
+    nivelHierarquicos: LookupOption[];
+    requisitoCategorias: LookupOption[];
+    unidadesLotacao: LookupOption[];
+    centrosCusto: LookupOption[];
+    empresas: { code: string; label: string }[];
+    estabelecimentos: string[];
+}
+
 interface EditForm {
     name: string;
     email: string;
@@ -379,7 +400,7 @@ export default function FuncionariosScreen() {
 
     const EMPTY_EDIT_FORM: EditForm = { name: "", email: "", phone: "", status: "Active", headcount: 1, unitId: "", unitLabel: "", areaId: "", areaLabel: "", jobPositionId: "", jobPositionLabel: "", requisitoCategoriaId: "", requisitoCategoriaLabel: "", gestorDiretoId: "", gestorDiretoLabel: "", nivelHierarquicoId: "", nivelHierarquicoLabel: "", unidadeLotacaoId: "", unidadeLotacaoLabel: "", centroCustoId: "", centroCustoLabel: "", cdnFuncionario: "", cdnEmpresa: "", cdnEstab: "", dataAdmissao: "", dataNascimento: "", sexo: "", notes: "" };
     const [editForm, setEditForm] = useState<EditForm>(EMPTY_EDIT_FORM);
-    const [editOptions, setEditOptions] = useState<{ units: LookupOption[]; areas: LookupOption[]; jobPositions: LookupOption[]; nivelHierarquicos: LookupOption[]; requisitoCategorias: LookupOption[] } | null>(null);
+    const [editOptions, setEditOptions] = useState<EditFormOptions | null>(null);
     const [editOptionsLoading, setEditOptionsLoading] = useState(false);
     const [editSaving, setEditSaving] = useState(false);
 
@@ -520,56 +541,11 @@ export default function FuncionariosScreen() {
         return Array.isArray(items) ? items.map((o) => ({ id: String(o.id), label: o.displayLabel ?? "" })) : [];
     }, []);
 
-    /* Edit form autocomplete callbacks */
-    const fetchEditUnits = useCallback(async (search: string) => {
-        const opts = editOptions?.units ?? [];
-        const lower = search.toLowerCase();
-        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
-    }, [editOptions?.units]);
-
-    const fetchEditAreas = useCallback(async (search: string) => {
-        const opts = editOptions?.areas ?? [];
-        const lower = search.toLowerCase();
-        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
-    }, [editOptions?.areas]);
-
-    const fetchEditJobPositions = useCallback(async (search: string) => {
-        const opts = editOptions?.jobPositions ?? [];
-        const lower = search.toLowerCase();
-        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
-    }, [editOptions?.jobPositions]);
-
-    const fetchEditRequisitoCategorias = useCallback(async (search: string) => {
-        const opts = editOptions?.requisitoCategorias ?? [];
-        const lower = search.toLowerCase();
-        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
-    }, [editOptions?.requisitoCategorias]);
-
-    const fetchEditNivelHierarquico = useCallback(async (search: string) => {
-        const opts = editOptions?.nivelHierarquicos ?? [];
-        const lower = search.toLowerCase();
-        return lower ? opts.filter((o) => o.label.toLowerCase().includes(lower)) : opts;
-    }, [editOptions?.nivelHierarquicos]);
-
     const fetchEditGestorDireto = useCallback(async (search: string) => {
         const params = new URLSearchParams({ onlyActive: "true", pageSize: "30" });
         if (search) params.set("q", search);
         const res = await fetchJson<{ items?: { id: string; nome: string }[] }>(`/api/lookup/funcionarios?${params}`);
         return (res?.items ?? []).map((o) => ({ id: String(o.id), label: o.nome }));
-    }, []);
-
-    const fetchEditUnidadeLotacao = useCallback(async (search: string) => {
-        const params = new URLSearchParams();
-        if (search) params.set("search", search);
-        const items = await fetchJson<{ id: string; displayLabel: string }[]>(`/api/unidades-lotacao/lookup?${params}`);
-        return Array.isArray(items) ? items.map((o) => ({ id: String(o.id), label: o.displayLabel ?? "" })) : [];
-    }, []);
-
-    const fetchEditCentroCusto = useCallback(async (search: string) => {
-        const params = new URLSearchParams();
-        if (search) params.set("search", search);
-        const items = await fetchJson<{ id: string; displayLabel: string }[]>(`/api/centros-custo/lookup?${params}`);
-        return Array.isArray(items) ? items.map((o) => ({ id: String(o.id), label: o.displayLabel ?? "" })) : [];
     }, []);
 
     /* Detail */
@@ -660,6 +636,9 @@ export default function FuncionariosScreen() {
     function closeDetail() { setDetailId(null); setDetailData(null); setHistoryItems([]); setMovimentacoesItems([]); setDetailTab("dados"); setEditForm(EMPTY_EDIT_FORM); }
 
     async function enterEditMode(data: FuncDetail) {
+        const centroCustoLabel = data.centroCustoDescricao
+            ? (data.centroCustoCode ? `${data.centroCustoCode} - ${data.centroCustoDescricao}` : data.centroCustoDescricao)
+            : "";
         setEditForm({
             name: data.name,
             email: data.email ?? "",
@@ -667,13 +646,13 @@ export default function FuncionariosScreen() {
             status: data.status,
             headcount: data.headcount,
             unitId: data.unitId ?? "", unitLabel: data.unitName ?? "",
-            areaId: data.areaId ?? "", areaLabel: data.areaName ?? "",
+            areaId: data.areaId ?? data.centroCustoId ?? "", areaLabel: data.areaName ?? centroCustoLabel,
             jobPositionId: data.jobPositionId ?? "", jobPositionLabel: data.jobPositionName ? (data.jobPositionCode ? `${data.jobPositionCode} - ${data.jobPositionName}` : data.jobPositionName) : "",
             requisitoCategoriaId: data.requisitoCategoriaId ?? "", requisitoCategoriaLabel: data.requisitoCategoriaName ?? "",
             gestorDiretoId: data.gestorDiretoId ?? "", gestorDiretoLabel: data.gestorDiretoNome ?? "",
             nivelHierarquicoId: data.nivelHierarquicoId ?? "", nivelHierarquicoLabel: data.nivelHierarquicoNome ?? "",
             unidadeLotacaoId: data.unidadeLotacaoId ?? "", unidadeLotacaoLabel: data.unidadeLotacaoDescricao ? (data.unidadeLotacaoCode ? `${data.unidadeLotacaoCode} - ${data.unidadeLotacaoDescricao}` : data.unidadeLotacaoDescricao) : "",
-            centroCustoId: data.centroCustoId ?? "", centroCustoLabel: data.centroCustoDescricao ? (data.centroCustoCode ? `${data.centroCustoCode} - ${data.centroCustoDescricao}` : data.centroCustoDescricao) : "",
+            centroCustoId: data.centroCustoId ?? "", centroCustoLabel: centroCustoLabel,
             cdnFuncionario: data.cdnFuncionario ?? "",
             cdnEmpresa: data.cdnEmpresa ?? "",
             cdnEstab: data.cdnEstab ?? "",
@@ -686,19 +665,31 @@ export default function FuncionariosScreen() {
         if (!editOptions) {
             setEditOptionsLoading(true);
             try {
-                const [units, areas, jobPositions, nivelHierarquicos, requisitoCategorias] = await Promise.all([
+                const mapOpts = (rows: { id: string; code?: string; name?: string }[] | null | undefined): LookupOption[] =>
+                    (rows ?? []).map((x) => ({ id: String(x.id), label: labelFromOptionResponse(x) }));
+
+                const [units, jobPositions, nivelHierarquicos, requisitoCategorias, unidadesLot, centrosCusto, empresas, estabs] = await Promise.all([
                     fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/units"),
-                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/areas"),
                     fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/job-positions"),
                     fetchJson<{ id: string; nome: string }[]>("/api/niveis-hierarquicos"),
                     fetchJson<{ id: string; code: string; name: string }[]>("/api/requisito-categorias"),
+                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/unidades-lotacao"),
+                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/centros-custo"),
+                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/empresas"),
+                    fetchJson<string[]>("/api/lookup/estabelecimentos-datasul"),
                 ]);
                 setEditOptions({
-                    units: (units ?? []).map((u) => ({ id: String(u.id), label: u.code ? `${u.code} - ${u.name}` : u.name })),
-                    areas: (areas ?? []).map((a) => ({ id: String(a.id), label: a.name })),
-                    jobPositions: (jobPositions ?? []).map((j) => ({ id: String(j.id), label: j.code ? `${j.code} - ${j.name}` : j.name })),
+                    units: mapOpts(units),
+                    jobPositions: mapOpts(jobPositions),
                     nivelHierarquicos: (nivelHierarquicos ?? []).map((n) => ({ id: String(n.id), label: n.nome })),
-                    requisitoCategorias: (requisitoCategorias ?? []).map((r) => ({ id: String(r.id), label: r.code ? `${r.code} - ${r.name}` : r.name })),
+                    requisitoCategorias: mapOpts(requisitoCategorias),
+                    unidadesLotacao: mapOpts(unidadesLot),
+                    centrosCusto: mapOpts(centrosCusto),
+                    empresas: (empresas ?? []).map((e) => {
+                        const code = String(e.code ?? "").trim();
+                        return { code, label: labelFromOptionResponse(e) };
+                    }),
+                    estabelecimentos: (Array.isArray(estabs) ? estabs : []).map((s) => String(s).trim()).filter(Boolean),
                 });
             } catch {
                 toast.error("Falha ao carregar opções de edição.");
@@ -719,7 +710,6 @@ export default function FuncionariosScreen() {
                 status: editForm.status,
                 headcount: editForm.headcount,
                 unitId: editForm.unitId || null,
-                areaId: editForm.areaId || null,
                 jobPositionId: editForm.jobPositionId || null,
                 requisitoCategoriaId: editForm.requisitoCategoriaId || null,
                 notes: editForm.notes.trim() || null,
@@ -1258,19 +1248,83 @@ export default function FuncionariosScreen() {
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Unidade</label>
-                                            <FilterAutocomplete fetchOptions={fetchEditUnits} value={editForm.unitId} initialLabel={editForm.unitLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, unitId: id, unitLabel: label }))} placeholder="Buscar unidade…" />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.unitId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    const label = (editOptions?.units ?? []).find((o) => o.id === id)?.label ?? "";
+                                                    setEditForm((f) => ({ ...f, unitId: id, unitLabel: label }));
+                                                }}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.units ?? []).map((o) => (
+                                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                                ))}
+                                                {editForm.unitId && !(editOptions?.units ?? []).some((o) => o.id === editForm.unitId) ? (
+                                                    <option value={editForm.unitId}>{editForm.unitLabel || editForm.unitId}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Área</label>
-                                            <FilterAutocomplete fetchOptions={fetchEditAreas} value={editForm.areaId} initialLabel={editForm.areaLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, areaId: id, areaLabel: label }))} placeholder="Buscar área…" />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.areaId || editForm.centroCustoId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    const label = (editOptions?.centrosCusto ?? []).find((o) => o.id === id)?.label ?? "";
+                                                    setEditForm((f) => ({ ...f, areaId: id, areaLabel: label, centroCustoId: id, centroCustoLabel: label }));
+                                                }}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.centrosCusto ?? []).map((o) => (
+                                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                                ))}
+                                                {(editForm.areaId || editForm.centroCustoId) && !(editOptions?.centrosCusto ?? []).some((o) => o.id === (editForm.centroCustoId || editForm.areaId)) ? (
+                                                    <option value={editForm.centroCustoId || editForm.areaId}>{editForm.centroCustoLabel || editForm.areaLabel || editForm.centroCustoId}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Cargo</label>
-                                            <FilterAutocomplete fetchOptions={fetchEditJobPositions} value={editForm.jobPositionId} initialLabel={editForm.jobPositionLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, jobPositionId: id, jobPositionLabel: label }))} placeholder="Buscar cargo…" />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.jobPositionId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    const label = (editOptions?.jobPositions ?? []).find((o) => o.id === id)?.label ?? "";
+                                                    setEditForm((f) => ({ ...f, jobPositionId: id, jobPositionLabel: label }));
+                                                }}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.jobPositions ?? []).map((o) => (
+                                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                                ))}
+                                                {editForm.jobPositionId && !(editOptions?.jobPositions ?? []).some((o) => o.id === editForm.jobPositionId) ? (
+                                                    <option value={editForm.jobPositionId}>{editForm.jobPositionLabel || editForm.jobPositionId}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Função</label>
-                                            <FilterAutocomplete fetchOptions={fetchEditRequisitoCategorias} value={editForm.requisitoCategoriaId} initialLabel={editForm.requisitoCategoriaLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, requisitoCategoriaId: id, requisitoCategoriaLabel: label }))} placeholder="Buscar função…" />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.requisitoCategoriaId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    const label = (editOptions?.requisitoCategorias ?? []).find((o) => o.id === id)?.label ?? "";
+                                                    setEditForm((f) => ({ ...f, requisitoCategoriaId: id, requisitoCategoriaLabel: label }));
+                                                }}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.requisitoCategorias ?? []).map((o) => (
+                                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                                ))}
+                                                {editForm.requisitoCategoriaId && !(editOptions?.requisitoCategorias ?? []).some((o) => o.id === editForm.requisitoCategoriaId) ? (
+                                                    <option value={editForm.requisitoCategoriaId}>{editForm.requisitoCategoriaLabel || editForm.requisitoCategoriaId}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -1287,7 +1341,23 @@ export default function FuncionariosScreen() {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Nível Hierárquico</label>
-                                            <FilterAutocomplete fetchOptions={fetchEditNivelHierarquico} value={editForm.nivelHierarquicoId} initialLabel={editForm.nivelHierarquicoLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, nivelHierarquicoId: id, nivelHierarquicoLabel: label }))} placeholder="Buscar nível…" />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.nivelHierarquicoId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    const label = (editOptions?.nivelHierarquicos ?? []).find((o) => o.id === id)?.label ?? "";
+                                                    setEditForm((f) => ({ ...f, nivelHierarquicoId: id, nivelHierarquicoLabel: label }));
+                                                }}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.nivelHierarquicos ?? []).map((o) => (
+                                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                                ))}
+                                                {editForm.nivelHierarquicoId && !(editOptions?.nivelHierarquicos ?? []).some((o) => o.id === editForm.nivelHierarquicoId) ? (
+                                                    <option value={editForm.nivelHierarquicoId}>{editForm.nivelHierarquicoLabel || editForm.nivelHierarquicoId}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -1300,11 +1370,43 @@ export default function FuncionariosScreen() {
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Unidade de Lotação</label>
-                                            <FilterAutocomplete fetchOptions={fetchEditUnidadeLotacao} value={editForm.unidadeLotacaoId} initialLabel={editForm.unidadeLotacaoLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, unidadeLotacaoId: id, unidadeLotacaoLabel: label }))} placeholder="Buscar unidade de lotação…" />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.unidadeLotacaoId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    const label = (editOptions?.unidadesLotacao ?? []).find((o) => o.id === id)?.label ?? "";
+                                                    setEditForm((f) => ({ ...f, unidadeLotacaoId: id, unidadeLotacaoLabel: label }));
+                                                }}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.unidadesLotacao ?? []).map((o) => (
+                                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                                ))}
+                                                {editForm.unidadeLotacaoId && !(editOptions?.unidadesLotacao ?? []).some((o) => o.id === editForm.unidadeLotacaoId) ? (
+                                                    <option value={editForm.unidadeLotacaoId}>{editForm.unidadeLotacaoLabel || editForm.unidadeLotacaoId}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Centro de Custo</label>
-                                            <FilterAutocomplete fetchOptions={fetchEditCentroCusto} value={editForm.centroCustoId} initialLabel={editForm.centroCustoLabel} onChange={(id, label) => setEditForm((f) => ({ ...f, centroCustoId: id, centroCustoLabel: label }))} placeholder="Buscar centro de custo…" />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.centroCustoId || editForm.areaId}
+                                                onChange={(e) => {
+                                                    const id = e.target.value;
+                                                    const label = (editOptions?.centrosCusto ?? []).find((o) => o.id === id)?.label ?? "";
+                                                    setEditForm((f) => ({ ...f, areaId: id, areaLabel: label, centroCustoId: id, centroCustoLabel: label }));
+                                                }}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.centrosCusto ?? []).map((o) => (
+                                                    <option key={o.id} value={o.id}>{o.label}</option>
+                                                ))}
+                                                {(editForm.centroCustoId || editForm.areaId) && !(editOptions?.centrosCusto ?? []).some((o) => o.id === (editForm.centroCustoId || editForm.areaId)) ? (
+                                                    <option value={editForm.centroCustoId || editForm.areaId}>{editForm.centroCustoLabel || editForm.areaLabel || editForm.centroCustoId}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -1321,11 +1423,35 @@ export default function FuncionariosScreen() {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Empresa</label>
-                                            <Input className="font-mono" value={editForm.cdnEmpresa} onChange={(e) => setEditForm((f) => ({ ...f, cdnEmpresa: e.target.value }))} placeholder="cdn_empresa" maxLength={3} />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.cdnEmpresa.trim()}
+                                                onChange={(e) => setEditForm((f) => ({ ...f, cdnEmpresa: e.target.value }))}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.empresas ?? []).map((e) => (
+                                                    <option key={e.code} value={e.code}>{e.label}</option>
+                                                ))}
+                                                {editForm.cdnEmpresa.trim() && !(editOptions?.empresas ?? []).some((e) => e.code === editForm.cdnEmpresa.trim()) ? (
+                                                    <option value={editForm.cdnEmpresa.trim()}>{`${editForm.cdnEmpresa.trim()} (atual)`}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-muted-foreground mb-1">Estabelecimento</label>
-                                            <Input className="font-mono" value={editForm.cdnEstab} onChange={(e) => setEditForm((f) => ({ ...f, cdnEstab: e.target.value }))} placeholder="cdn_estab" maxLength={5} />
+                                            <select
+                                                className={EDIT_SELECT_CLASS}
+                                                value={editForm.cdnEstab.trim()}
+                                                onChange={(e) => setEditForm((f) => ({ ...f, cdnEstab: e.target.value }))}
+                                            >
+                                                <option value="">— Não informado —</option>
+                                                {(editOptions?.estabelecimentos ?? []).map((code) => (
+                                                    <option key={code} value={code}>{code}</option>
+                                                ))}
+                                                {editForm.cdnEstab.trim() && !(editOptions?.estabelecimentos ?? []).includes(editForm.cdnEstab.trim()) ? (
+                                                    <option value={editForm.cdnEstab.trim()}>{`${editForm.cdnEstab.trim()} (atual)`}</option>
+                                                ) : null}
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
