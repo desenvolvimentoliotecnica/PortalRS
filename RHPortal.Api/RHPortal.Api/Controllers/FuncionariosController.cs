@@ -81,6 +81,33 @@ public sealed class FuncionariosController : ControllerBase
         return Ok(await handler.HandleAsync(query, ct));
     }
 
+    /// <summary>
+    /// Lista distinct de funcionários que aparecem como <c>GestorDireto</c> de alguém — para dropdown de filtro na UI.
+    /// </summary>
+    [HttpGet("gestores-opcoes")]
+    [ProducesResponseType(typeof(IReadOnlyList<GestorOpcaoResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<GestorOpcaoResponse>>> ListGestoresOpcoes(
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var gestorIds = await db.Funcionarios.AsNoTracking()
+            .Where(f => f.GestorDiretoId != null)
+            .Select(f => f.GestorDiretoId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (gestorIds.Count == 0)
+            return Ok(Array.Empty<GestorOpcaoResponse>());
+
+        var list = await db.Funcionarios.AsNoTracking()
+            .Where(g => gestorIds.Contains(g.Id))
+            .OrderBy(g => g.Name)
+            .Select(g => new GestorOpcaoResponse(g.Id, g.Name))
+            .ToListAsync(ct);
+
+        return Ok(list);
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(FuncionarioResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

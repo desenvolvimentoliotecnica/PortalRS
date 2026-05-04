@@ -64,7 +64,8 @@ public sealed class FuncionarioService : IFuncionarioService
                 (x.JobPosition != null && EF.Functions.Like(x.JobPosition.Code, like)) ||
                 (x.CdnFuncionario != null && EF.Functions.Like(x.CdnFuncionario, like)) ||
                 (x.CdnEmpresa != null && EF.Functions.Like(x.CdnEmpresa, like)) ||
-                (x.CdnEstab != null && EF.Functions.Like(x.CdnEstab, like)));
+                (x.CdnEstab != null && EF.Functions.Like(x.CdnEstab, like)) ||
+                (x.GestorDireto != null && EF.Functions.Like(x.GestorDireto.Name, like)));
         }
 
         if (query.Status.HasValue)
@@ -128,6 +129,9 @@ public sealed class FuncionarioService : IFuncionarioService
             "unidadelotacao" => asc
                 ? q.OrderBy(x => x.UnidadeLotacao != null ? x.UnidadeLotacao.Code : "").ThenBy(x => x.Name)
                 : q.OrderByDescending(x => x.UnidadeLotacao != null ? x.UnidadeLotacao.Code : "").ThenByDescending(x => x.Name),
+            "gestor" or "gestordireto" => asc
+                ? q.OrderBy(x => x.GestorDireto != null ? x.GestorDireto.Name : "").ThenBy(x => x.Name)
+                : q.OrderByDescending(x => x.GestorDireto != null ? x.GestorDireto.Name : "").ThenByDescending(x => x.Name),
             "centrocusto" => asc
                 ? q.OrderBy(x => x.CentroCusto != null ? x.CentroCusto.Code : "").ThenBy(x => x.Name)
                 : q.OrderByDescending(x => x.CentroCusto != null ? x.CentroCusto.Code : "").ThenByDescending(x => x.Name),

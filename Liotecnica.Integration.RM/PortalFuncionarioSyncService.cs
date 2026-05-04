@@ -23,7 +23,8 @@ namespace Liotecnica.Integration.RM;
 ///    principal (<c>MASTER=1</c> quando existir) → campo <c>chapaGestorDireto</c> no bulk (Portal grava <c>GestorDiretoId</c>).
 /// 7. Fallback quando (6) não cobre: <c>view_pfunc_hierarquia.json</c> (<c>VWPFUNCHIERARQUIA.CODUSUARIOCHEFE</c>) +
 ///    <c>gusuario.json</c> (<c>GUSUARIO</c>) + e-mail em <c>pessoa.json</c> → chapa do gestor em <c>funcionario.json</c>.
-///    Registros de (6) têm prioridade sobre o fallback.
+///    Registros de (6) têm prioridade sobre o fallback. Se a view tiver mais de um <c>CODUSUARIOCHEFE</c> por
+///    funcionário, usa o <b>menor</b> login (ordinal, case-insensitive) que resolva para chapa — desempate estável.
 /// 8. Envia bulk com chaves crus (códigos RM) — endpoint resolve FKs internamente.
 /// </summary>
 public sealed class PortalFuncionarioSyncService
@@ -398,11 +399,18 @@ public sealed class PortalFuncionarioSyncService
         var viewJson = await File.ReadAllTextAsync(viewFile, ct);
         var viewRows = JsonSerializer.Deserialize<List<ViewPfuncHierarquiaGestorRow>>(viewJson, JsonOptions) ?? new();
 
+        // VWPFUNCHIERARQUIA pode devolver 2+ linhas por (coligada,chapa) com CODUSUARIOCHEFE distintos.
+        // Ordena pelo login do chefe e grava só a primeira resolução válida → menor CODUSUARIOCHEFE (case-insensitive).
+        var viewOrdered = viewRows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Chapa) && !string.IsNullOrWhiteSpace(r.CodUsuarioChefe))
+            .OrderBy(r => r.CodColigada ?? 0)
+            .ThenBy(r => r.Chapa!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => NormalizeUsuarioKey(r.CodUsuarioChefe), StringComparer.OrdinalIgnoreCase);
+
         var resultado = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var row in viewRows)
+        foreach (var row in viewOrdered)
         {
-            if (string.IsNullOrWhiteSpace(row.Chapa) || string.IsNullOrWhiteSpace(row.CodUsuarioChefe)) continue;
-            var empChapa = row.Chapa.Trim();
+            var empChapa = row.Chapa!.Trim();
 
             var col = row.CodColigada ?? 1;
             var uChef = NormalizeUsuarioKey(row.CodUsuarioChefe);
@@ -415,6 +423,9 @@ public sealed class PortalFuncionarioSyncService
                 continue;
 
             var empKey = $"{col}|{empChapa}";
+            if (resultado.ContainsKey(empKey))
+                continue;
+
             resultado[empKey] = chapaGestor;
         }
 
