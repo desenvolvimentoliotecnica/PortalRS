@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import { cn } from "@/lib/utils";
+
 interface TabsContextValue {
   value: string;
   onChange: (v: string) => void;
@@ -57,5 +59,5 @@ export function TabsTrigger({ value, children, className = "" }: { value: string
 export function TabsContent({ value, children, className = "" }: { value: string; children: React.ReactNode; className?: string }) {
   const ctx = React.useContext(TabsContext);
   if (ctx.value !== value) return null;
-  return <div className={`mt-3 ${className}`}>{children}</div>;
+  return <div className={cn("mt-3", className)}>{children}</div>;
 }
