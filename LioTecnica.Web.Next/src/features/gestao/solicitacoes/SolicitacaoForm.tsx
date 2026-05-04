@@ -723,10 +723,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     );
 
     return (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
                 {/* Banner de motivo de reprovação / observação do aprovador */}
                 {!loadingEdit && observacaoAprovador && (
-                    <div className={`rounded-md border px-3 py-2 text-sm ${
+                    <div className={`shrink-0 rounded-md border px-3 py-2 text-sm ${
                         statusCarregado === "Reprovada" || statusCarregado === 3
                             ? "bg-red-500/10 border-red-400/40 text-red-800 dark:text-red-300"
                             : "bg-amber-500/10 border-amber-400/40 text-amber-800 dark:text-amber-300"
@@ -739,19 +739,20 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 )}
 
                 {loadingEdit ? (
-                    <div className="flex items-center justify-center py-12">
+                    <div className="flex min-h-[10rem] flex-1 flex-col items-center justify-center">
                         <div className="border-lt-primary h-6 w-6 animate-spin rounded-full border-4 border-t-transparent" />
                     </div>
                 ) : (
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-1">
-                        <TabsList className="mb-4">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
+                        <TabsList className="mb-2 shrink-0 border-b border-border/60 pb-2">
                             <TabsTrigger value="identificacao">Identificação</TabsTrigger>
                             <TabsTrigger value="horario">Horário</TabsTrigger>
                             <TabsTrigger value="aprovacao">Aprovação</TabsTrigger>
                         </TabsList>
 
+                        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-4 pb-1 [scrollbar-gutter:stable]">
                         {/* ══════════════ TAB 1 — Identificação + Dados da Vaga ══════════════ */}
-                        <TabsContent value="identificacao">
+                        <TabsContent value="identificacao" className="mt-0">
                             <div className="grid grid-cols-3 gap-x-4 gap-y-3">
 
                                 <Section title="Identificação" />
@@ -1062,7 +1063,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         </TabsContent>
 
                         {/* ══════════════ TAB 3 — Horário ══════════════ */}
-                        <TabsContent value="horario">
+                        <TabsContent value="horario" className="mt-0">
                             <div className="space-y-2">
                                 <p className="text-xs text-muted-foreground">
                                     Selecione a escala na lista ou preencha manualmente os horários por dia da semana.
@@ -1076,7 +1077,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         </TabsContent>
 
                         {/* ══════════════ TAB 4 — Aprovação ══════════════ */}
-                        <TabsContent value="aprovacao">
+                        <TabsContent value="aprovacao" className="mt-0">
                             <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                                 <div className="col-span-2">
                                     <label className={L}>Aprovador</label>
@@ -1095,10 +1096,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 </div>
                             </div>
                         </TabsContent>
+                        </div>
                     </Tabs>
                 )}
 
-                <div className="flex flex-wrap justify-end gap-2 mt-4 pt-3 border-t border-border">
+                <div className="mt-0 flex shrink-0 flex-wrap justify-end gap-2 border-t border-border bg-background pt-3">
                     {viewOnly ? (
                         <Button variant="outline" type="button" onClick={onCancel}>Fechar</Button>
                     ) : (
@@ -1110,6 +1112,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         </>
                     )}
                 </div>
-        </>
+        </div>
     );
 }

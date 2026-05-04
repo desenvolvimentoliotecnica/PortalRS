@@ -20,13 +20,13 @@ interface Props extends Omit<SolicitacaoFormProps, "active" | "onCancel" | "onSu
 export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave, copySourceId, initialData, reloadNonce }: Props) {
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-            <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto flex flex-col">
-                <DialogHeader>
+            <DialogContent className="flex max-h-[92vh] flex-col gap-0 overflow-hidden p-6 sm:max-w-5xl">
+                <DialogHeader className="shrink-0 space-y-0 pb-3 pr-8">
                     <DialogTitle className="text-base font-semibold">
                         {viewOnly ? "Visualizar Requisição de Pessoal" : copySourceId ? "Copiar Requisição de Pessoal" : editId ? "Editar Requisição de Pessoal" : "Requisição de Pessoal"}
                     </DialogTitle>
                 </DialogHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                     <SolicitacaoForm
                         active={open}
                         editId={editId}
