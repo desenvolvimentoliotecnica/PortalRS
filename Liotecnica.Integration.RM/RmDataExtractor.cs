@@ -544,6 +544,7 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
             (_schemaOptions.FullTableName(_schemaOptions.HierarquiaColigadaExternaTable), "hierarquia_coligada_externa", _schemaOptions.HierarquiaColigadaExternaTable),
             (_schemaOptions.FullTableName("VQUADHIERARQUIA"), "quadrante_hierarquia", "VQUADHIERARQUIA"),
             (_schemaOptions.FullTableName("PFUNCLIDERHRPLATFORM"), "pfunc_lider_hrplatform", "PFUNCLIDERHRPLATFORM"),
+            (_schemaOptions.FullTableName("GUSUARIO"), "gusuario", "GUSUARIO"),
             (_schemaOptions.FullTableName("VWPFUNCHIERARQUIA"), "view_pfunc_hierarquia", "VWPFUNCHIERARQUIA"),
             (_schemaOptions.FullTableName("PFHSTSAL"), "historico_salarial", "PFHSTSAL"),
             (_schemaOptions.FullTableName("XPESSOAFISICA"), "pessoa_fisica", "XPESSOAFISICA"),
