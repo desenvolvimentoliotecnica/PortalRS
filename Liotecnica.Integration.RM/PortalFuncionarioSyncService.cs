@@ -21,7 +21,10 @@ namespace Liotecnica.Integration.RM;
 ///    a última hierarquia destino aprovada por CHAPA (38% dos ativos têm).
 /// 6. JOIN com <c>pfunc_lider_hrplatform.json</c> (<c>PFUNCLIDERHRPLATFORM</c>): <c>CHAPALIDER</c> do líder
 ///    principal (<c>MASTER=1</c> quando existir) → campo <c>chapaGestorDireto</c> no bulk (Portal grava <c>GestorDiretoId</c>).
-/// 7. Envia bulk com chaves crus (códigos RM) — endpoint resolve FKs internamente.
+/// 7. Fallback quando (6) não cobre: <c>view_pfunc_hierarquia.json</c> (<c>VWPFUNCHIERARQUIA.CODUSUARIOCHEFE</c>) +
+///    <c>gusuario.json</c> (<c>GUSUARIO</c>) + e-mail em <c>pessoa.json</c> → chapa do gestor em <c>funcionario.json</c>.
+///    Registros de (6) têm prioridade sobre o fallback.
+/// 8. Envia bulk com chaves crus (códigos RM) — endpoint resolve FKs internamente.
 /// </summary>
 public sealed class PortalFuncionarioSyncService
 {
@@ -114,7 +117,11 @@ public sealed class PortalFuncionarioSyncService
         var pfuncaoCargoByCodigo = await LoadPfuncaoCargoLookupAsync(path, ct);
         var pfuncaoNomeByCodigo = await LoadPfuncaoNomeLookupAsync(path, ct);
         var ultimaHierarquiaByChapa = await LoadUltimaHierarquiaPorChapaAsync(path, ct);
-        var chapaGestorPorColigadaEChapa = await LoadChapaGestorDiretoPorColigadaEChapaAsync(path, ct);
+        var chapaGestorPorColigadaEChapa = await MergeGestorDiretoMapsAsync(
+            path,
+            pfuncRows,
+            pessoaByCodigo,
+            ct);
 
         // 2026-04-26: trazemos TODOS os PFUNC (ativos + desligados/inativos) pra:
         //   - Vincular Desligamento.FuncionarioId mesmo de quem saiu (CODSITUACAO=D)
@@ -309,6 +316,123 @@ public sealed class PortalFuncionarioSyncService
         return bestLider;
     }
 
+    /// <summary>
+    /// Mescla gestor direto: <c>PFUNCLIDERHRPLATFORM</c> (prioridade) + fallback
+    /// <c>VWPFUNCHIERARQUIA.CODUSUARIOCHEFE</c> resolvido via <c>GUSUARIO</c> + e-mail <c>PPESSOA</c> + <c>PFUNC</c>.
+    /// </summary>
+    private async Task<Dictionary<string, string>> MergeGestorDiretoMapsAsync(
+        string path,
+        List<PfuncRow> todasPfuncRows,
+        Dictionary<int, PessoaRow> pessoaByCodigo,
+        CancellationToken ct)
+    {
+        var fromHrPlatform = await LoadChapaGestorDiretoPorColigadaEChapaAsync(path, ct);
+        var fromViewUsuario = await LoadChapaGestorDiretoViaViewUsuarioChefeAsync(path, todasPfuncRows, pessoaByCodigo, ct);
+
+        var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in fromViewUsuario)
+            merged[kv.Key] = kv.Value;
+        foreach (var kv in fromHrPlatform)
+            merged[kv.Key] = kv.Value;
+
+        if (fromViewUsuario.Count > 0 || fromHrPlatform.Count > 0)
+            _logWriter.WriteLine($"Gestor direto: PFUNCLIDERHRPLATFORM={fromHrPlatform.Count} chaves; fallback VWPFUNCHIERARQUIA+GUSUARIO={fromViewUsuario.Count} chaves (HR Platform sobrescreve em empate). Total mesclado={merged.Count}.");
+
+        return merged;
+    }
+
+    /// <summary>
+    /// Fallback quando <c>PFUNCLIDERHRPLATFORM</c> está vazio/incompleto: usa <c>CODUSUARIOCHEFE</c> na view,
+    /// amarra a <c>GUSUARIO</c> por login, <c>PPESSOA</c> por e-mail e <c>PFUNC</c> para obter a chapa do chefe
+    /// (apenas vínculos com <c>CODSITUACAO</c> ativo A/F/P no cadastro do gestor).
+    /// </summary>
+    private static async Task<Dictionary<string, string>> LoadChapaGestorDiretoViaViewUsuarioChefeAsync(
+        string path,
+        List<PfuncRow> todasPfuncRows,
+        Dictionary<int, PessoaRow> pessoaByCodigo,
+        CancellationToken ct)
+    {
+        var gusuFile = Path.Combine(path, "gusuario.json");
+        var viewFile = Path.Combine(path, "view_pfunc_hierarquia.json");
+        if (!File.Exists(gusuFile) || !File.Exists(viewFile))
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var gusuJson = await File.ReadAllTextAsync(gusuFile, ct);
+        var gusuRows = JsonSerializer.Deserialize<List<GUsuarioRow>>(gusuJson, JsonOptions) ?? new();
+        if (gusuRows.Count == 0)
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var emailNormToCodPessoa = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in pessoaByCodigo.Values)
+        {
+            if (p.Codigo is null || string.IsNullOrWhiteSpace(p.Email)) continue;
+            var k = NormalizeEmailKey(p.Email);
+            if (k.Length == 0) continue;
+            if (!emailNormToCodPessoa.ContainsKey(k))
+                emailNormToCodPessoa[k] = p.Codigo.Value;
+        }
+
+        // (codColigada|codUsuarioNormalizado) -> chapa do gestor no PFUNC
+        var chapaGestorPorColigadaEUsuario = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var gu in gusuRows)
+        {
+            if (string.IsNullOrWhiteSpace(gu.CodUsuario) || string.IsNullOrWhiteSpace(gu.Email)) continue;
+            if (!emailNormToCodPessoa.TryGetValue(NormalizeEmailKey(gu.Email), out var codPessoa)) continue;
+            var uKey = NormalizeUsuarioKey(gu.CodUsuario);
+            if (uKey.Length == 0) continue;
+
+            foreach (var pf in todasPfuncRows)
+            {
+                if (pf.CodPessoa != codPessoa || string.IsNullOrWhiteSpace(pf.Chapa)) continue;
+                var sit = (pf.CodSituacao ?? "").Trim().ToUpperInvariant();
+                if (sit is not ("A" or "F" or "P")) continue;
+                var col = pf.CodColigada ?? 1;
+                var mapKey = $"{col}|{uKey}";
+                chapaGestorPorColigadaEUsuario[mapKey] = pf.Chapa.Trim();
+            }
+        }
+
+        if (chapaGestorPorColigadaEUsuario.Count == 0)
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var viewJson = await File.ReadAllTextAsync(viewFile, ct);
+        var viewRows = JsonSerializer.Deserialize<List<ViewPfuncHierarquiaGestorRow>>(viewJson, JsonOptions) ?? new();
+
+        var resultado = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in viewRows)
+        {
+            if (string.IsNullOrWhiteSpace(row.Chapa) || string.IsNullOrWhiteSpace(row.CodUsuarioChefe)) continue;
+            var empChapa = row.Chapa.Trim();
+
+            var col = row.CodColigada ?? 1;
+            var uChef = NormalizeUsuarioKey(row.CodUsuarioChefe);
+            if (uChef.Length == 0) continue;
+
+            if (!chapaGestorPorColigadaEUsuario.TryGetValue($"{col}|{uChef}", out var chapaGestor))
+                continue;
+
+            if (chapaGestor.Equals(empChapa, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var empKey = $"{col}|{empChapa}";
+            resultado[empKey] = chapaGestor;
+        }
+
+        return resultado;
+    }
+
+    private static string NormalizeEmailKey(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return string.Empty;
+        return email.Trim().ToLowerInvariant();
+    }
+
+    private static string NormalizeUsuarioKey(string? codUsuario)
+    {
+        if (string.IsNullOrWhiteSpace(codUsuario)) return string.Empty;
+        return codUsuario.Trim().ToLowerInvariant();
+    }
+
     private async Task<Dictionary<string, int>> LoadUltimaHierarquiaPorChapaAsync(string path, CancellationToken ct)
     {
         var file = Path.Combine(path, "transf_promocao.json");
@@ -333,6 +457,29 @@ public sealed class PortalFuncionarioSyncService
             return Path.IsPathRooted(path) ? path : Path.GetFullPath(path);
         var contentRoot = _env.ContentRootPath ?? AppContext.BaseDirectory;
         return Path.GetFullPath(Path.Combine(contentRoot, "..", "Liotecnica.Integration.RM.Schema.Tables"));
+    }
+
+    /// <summary>Mínimo de <c>GUSUARIO</c> para resolver chefe → chapa via e-mail.</summary>
+    private sealed class GUsuarioRow
+    {
+        [JsonPropertyName("CODUSUARIO")]
+        public string? CodUsuario { get; set; }
+
+        [JsonPropertyName("EMAIL")]
+        public string? Email { get; set; }
+    }
+
+    /// <summary>Colunas necessárias de <c>VWPFUNCHIERARQUIA</c> para o fallback de gestor.</summary>
+    private sealed class ViewPfuncHierarquiaGestorRow
+    {
+        [JsonPropertyName("CODCOLIGADA")]
+        public int? CodColigada { get; set; }
+
+        [JsonPropertyName("CHAPA")]
+        public string? Chapa { get; set; }
+
+        [JsonPropertyName("CODUSUARIOCHEFE")]
+        public string? CodUsuarioChefe { get; set; }
     }
 
     private sealed class PfuncLiderHrPlatformRow
