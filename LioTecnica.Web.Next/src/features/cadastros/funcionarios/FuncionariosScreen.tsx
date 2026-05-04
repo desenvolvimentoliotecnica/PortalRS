@@ -94,6 +94,8 @@ interface FuncItem {
     hierarquiaDescricao?: string;
     codSituacaoRm?: string;
     situacaoRmDescricao?: string;
+    gestorDiretoId?: string;
+    gestorDiretoNome?: string;
 }
 
 interface FuncDetail {
@@ -396,6 +398,9 @@ export default function FuncionariosScreen() {
     const [statusFilter, setStatusFilter] = useState("all");
     const [lotacaoFilter, setLotacaoFilter] = useState("");
     const [centroCustoFilter, setCentroCustoFilter] = useState("");
+    /** Filtro por gestor direto (Guid do Funcionário gestor); vazio = todos. */
+    const [gestorFilter, setGestorFilter] = useState("");
+    const [gestorOpcoes, setGestorOpcoes] = useState<{ id: string; nome: string }[]>([]);
     const [deleteTarget, setDeleteTarget] = useState<FuncItem | null>(null);
 
     const [detailId, setDetailId] = useState<string | null>(null);
@@ -441,7 +446,7 @@ export default function FuncionariosScreen() {
         return () => window.removeEventListener("renderrh:openFuncionario", handler);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const syncList = useCallback(async (opts: { page: number; pageSize: number; search?: string; status?: string; sort?: string; dir?: string; lotacao?: string; centroCusto?: string }) => {
+    const syncList = useCallback(async (opts: { page: number; pageSize: number; search?: string; status?: string; sort?: string; dir?: string; lotacao?: string; centroCusto?: string; gestorDiretoId?: string }) => {
         const nextPage = opts.page;
         const nextPageSize = opts.pageSize;
         const nextSearch = (opts.search ?? "").trim();
@@ -458,6 +463,7 @@ export default function FuncionariosScreen() {
         if (opts.dir) params.set("dir", opts.dir);
         if (opts.lotacao) params.set("unidadeLotacaoId", opts.lotacao);
         if (opts.centroCusto) params.set("centroCustoId", opts.centroCusto);
+        if (opts.gestorDiretoId) params.set("gestorDiretoId", opts.gestorDiretoId);
         const payload = await fetchJson<FuncListPayload>(`/api/funcionarios?${params.toString()}`);
         const mapped: FuncItem[] = (Array.isArray(payload?.items) ? payload.items : []).map((i) => ({
             id: String(i.id ?? ""),
@@ -487,6 +493,8 @@ export default function FuncionariosScreen() {
             hierarquiaDescricao: i.hierarquiaDescricao ? String(i.hierarquiaDescricao) : undefined,
             codSituacaoRm: i.codSituacaoRm ? String(i.codSituacaoRm) : undefined,
             situacaoRmDescricao: i.situacaoRmDescricao ? String(i.situacaoRmDescricao) : undefined,
+            gestorDiretoId: i.gestorDiretoId ? String(i.gestorDiretoId) : undefined,
+            gestorDiretoNome: i.gestorDiretoNome ? String(i.gestorDiretoNome) : undefined,
         }));
         setRows(mapped);
         setScreenCache("/funcionarios", mapped);
@@ -504,7 +512,7 @@ export default function FuncionariosScreen() {
         } else {
             setLoading(true);
         }
-        syncList({ page: 1, pageSize, search: q, status: statusFilter })
+        syncList({ page: 1, pageSize, search: q, status: statusFilter, gestorDiretoId: gestorFilter || undefined })
             .catch((e) => { console.error("Funcionários – load error", e); toast.error(`Falha ao carregar: ${e instanceof Error ? e.message : "erro"}`); })
             .finally(() => { if (alive) setLoading(false); });
 
@@ -513,9 +521,20 @@ export default function FuncionariosScreen() {
     }, [syncList]);
 
     useEffect(() => {
+        let alive = true;
+        fetchJson<{ id: string; nome: string }[]>("/api/funcionarios/gestores-opcoes")
+            .then((list) => {
+                if (!alive || !Array.isArray(list)) return;
+                setGestorOpcoes(list.map((x) => ({ id: String(x.id ?? ""), nome: String(x.nome ?? "") })));
+            })
+            .catch(() => { /* sem opções se falhar */ });
+        return () => { alive = false; };
+    }, []);
+
+    useEffect(() => {
         const id = setTimeout(() => {
             setLoading(true);
-            syncList({ page: 1, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter })
+            syncList({ page: 1, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter, gestorDiretoId: gestorFilter || undefined })
                 .catch((e) => {
                     console.error("Funcionários – filter load error", e);
                     toast.error(`Falha ao aplicar filtros: ${e instanceof Error ? e.message : "erro"}`);
@@ -523,7 +542,7 @@ export default function FuncionariosScreen() {
                 .finally(() => setLoading(false));
         }, 350);
         return () => clearTimeout(id);
-    }, [q, statusFilter, lotacaoFilter, centroCustoFilter, pageSize, sort, dir, syncList]);
+    }, [q, statusFilter, lotacaoFilter, centroCustoFilter, gestorFilter, pageSize, sort, dir, syncList]);
 
     /* KPIs */
     const kpis = useMemo(() => {
@@ -755,7 +774,7 @@ export default function FuncionariosScreen() {
             setDetailData(mapped);
             setDetailTab("dados");
             toast.success("Funcionário atualizado com sucesso.");
-            void syncList({ page, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter });
+            void syncList({ page, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter, gestorDiretoId: gestorFilter || undefined });
         } catch (e) {
             toast.error(`Falha ao salvar: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
@@ -771,7 +790,7 @@ export default function FuncionariosScreen() {
             toast.success("Funcionário excluído.");
             setDeleteTarget(null);
             const targetPage = totalItems > 1 && rows.length === 1 && page > 1 ? page - 1 : page;
-            await syncList({ page: targetPage, pageSize, search: q, status: statusFilter });
+            await syncList({ page: targetPage, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter, gestorDiretoId: gestorFilter || undefined });
         } catch { toast.error("Falha ao excluir."); }
     }
 
@@ -859,7 +878,7 @@ export default function FuncionariosScreen() {
             );
             setImportResult({ created: result.created, updated: result.updated, errors: result.skipped + result.errors.length, warnings: result.warnings ?? [] });
             setLoading(true);
-            await syncList({ page: 1, pageSize, search: q, status: statusFilter });
+            await syncList({ page: 1, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter, gestorDiretoId: gestorFilter || undefined });
         } catch (e) {
             toast.error(`Falha na importação: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
@@ -870,11 +889,11 @@ export default function FuncionariosScreen() {
 
     const exportTsv = () => {
         const csv = [
-            ["Matrícula", "Empresa", "Estab", "Nome", "Email", "Telefone", "Unid. Lotação", "Centro de Custo", "Cargo", "Status"].join("\t"),
+            ["Matrícula", "Empresa", "Estab", "Nome", "Email", "Telefone", "Gestor", "Centro de Custo", "Cargo", "Status"].join("\t"),
             ...rows.map((f) => [
                 f.cdnFuncionario || "", f.cdnEmpresa || "", f.cdnEstab || "",
                 f.nome, f.email || "", f.telefone || "",
-                f.unidade, f.centroCustoNome, f.cargo, f.status,
+                f.gestorDiretoNome || "", f.centroCustoNome, f.cargo, f.status,
             ].join("\t")),
         ].join("\n");
         const link = document.createElement("a");
@@ -896,7 +915,7 @@ export default function FuncionariosScreen() {
                         <Upload className="size-4" /><span className="hidden sm:inline ml-1">Importar</span>
                     </Button>
                     <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileSelect} />
-                    <Button variant="outline" size="sm" onClick={() => { setLoading(true); syncList({ page: 1, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter }).catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
+                    <Button variant="outline" size="sm" onClick={() => { setLoading(true); syncList({ page: 1, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter, gestorDiretoId: gestorFilter || undefined }).catch(() => toast.error("Falha.")).finally(() => setLoading(false)); }}>
                         <RefreshCw className="size-4" /><span className="hidden sm:inline ml-1">Atualizar</span>
                     </Button>
                 </div>
@@ -931,6 +950,17 @@ export default function FuncionariosScreen() {
                             <option value="ativo">Ativo</option>
                             <option value="inativo">Inativo</option>
                             <option value="com_erro">⚠ Com erro</option>
+                        </select>
+                        <select
+                            className="h-9 min-w-[200px] max-w-[280px] rounded-md border border-input bg-background px-3 text-sm truncate"
+                            title="Filtrar por gestor direto"
+                            value={gestorFilter}
+                            onChange={(e) => setGestorFilter(e.target.value)}
+                        >
+                            <option value="">Todos os gestores</option>
+                            {gestorOpcoes.map((g) => (
+                                <option key={g.id} value={g.id}>{g.nome}</option>
+                            ))}
                         </select>
                         <div className="w-[200px]">
                             <FilterAutocomplete
@@ -974,7 +1004,7 @@ export default function FuncionariosScreen() {
                                 };
                                 return (<>
                                     {sortHead("funcionario", "Nome / Email")}
-                                    {sortHead("unidadelotacao", "Lotação")}
+                                    {sortHead("gestor", "Gestor")}
                                     {sortHead("centrocusto", "Centro de Custo")}
                                     {sortHead("status", "Status")}
                                 </>);
@@ -984,7 +1014,7 @@ export default function FuncionariosScreen() {
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Carregando…</TableCell></TableRow>
                         ) : rows.length ? rows.map((f) => (
                             <TableRow key={f.id}>
                                 <TableCell className="font-mono text-sm text-muted-foreground">{f.cdnEmpresa || "—"}</TableCell>
@@ -1020,7 +1050,9 @@ export default function FuncionariosScreen() {
                                     </div>
                                     <div className="text-muted-foreground text-xs">{f.email || "—"}</div>
                                 </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">{f.unidade ? (f.unidadeLotacaoCode ? `${f.unidadeLotacaoCode} - ${f.unidade}` : f.unidade) : "—"}</TableCell>
+                                <TableCell className="text-sm text-muted-foreground max-w-[220px] truncate" title={f.gestorDiretoNome || undefined}>
+                                    {f.gestorDiretoNome?.trim() || "—"}
+                                </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">{f.centroCustoDescricao ? (f.centroCustoCode ? `${f.centroCustoCode} - ${f.centroCustoDescricao}` : f.centroCustoDescricao) : "—"}</TableCell>
                                 <TableCell>{statusBadge(f.status)}</TableCell>
                                 <TableCell className="text-right">
@@ -1043,7 +1075,7 @@ export default function FuncionariosScreen() {
                                 </TableCell>
                             </TableRow>
                         )) : (
-                            <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nenhum funcionário encontrado.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhum funcionário encontrado.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
@@ -1057,14 +1089,14 @@ export default function FuncionariosScreen() {
                     onPageChange={(nextPage) => {
                         if (nextPage === page || nextPage < 1 || nextPage > totalPages) return;
                         setLoading(true);
-                        syncList({ page: nextPage, pageSize, search: q, status: statusFilter })
+                        syncList({ page: nextPage, pageSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter, gestorDiretoId: gestorFilter || undefined })
                             .catch(() => toast.error("Falha ao carregar página."))
                             .finally(() => setLoading(false));
                     }}
                     onPageSizeChange={(nextPageSize) => {
                         const safeSize = Number.isFinite(nextPageSize) ? Math.min(100, Math.max(10, Math.trunc(nextPageSize))) : 20;
                         setLoading(true);
-                        syncList({ page: 1, pageSize: safeSize, search: q, status: statusFilter })
+                        syncList({ page: 1, pageSize: safeSize, search: q, status: statusFilter, sort, dir, lotacao: lotacaoFilter, centroCusto: centroCustoFilter, gestorDiretoId: gestorFilter || undefined })
                             .catch(() => toast.error("Falha ao alterar página."))
                             .finally(() => setLoading(false));
                     }}
