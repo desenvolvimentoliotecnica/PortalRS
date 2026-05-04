@@ -46,6 +46,12 @@ public sealed class SolicitacaoVaga : ITenantEntity
     /// <summary>Título descritivo (pode diferir do cargo).</summary>
     public string Titulo { get; set; } = default!;
 
+    /// <summary>Código da função RM (PFUNCAO) desejada — copiado para <see cref="Vaga.CodFuncaoRm"/> ao materializar a vaga.</summary>
+    public string? CodFuncaoRm { get; set; }
+
+    /// <summary>Nome da função no RM (PFUNCAO.NOME).</summary>
+    public string? FuncaoNomeRm { get; set; }
+
     /// <summary>Justificativa da contratação.</summary>
     /// <remarks>
     /// RN03 / CMP: quando <see cref="TipoSolicitacao"/> é <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>,

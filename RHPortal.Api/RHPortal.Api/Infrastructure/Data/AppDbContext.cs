@@ -1221,6 +1221,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.Property(x => x.Titulo).HasMaxLength(160).IsRequired();
+            b.Property(x => x.CodFuncaoRm).HasMaxLength(20);
+            b.Property(x => x.FuncaoNomeRm).HasMaxLength(160);
             b.Property(x => x.Justificativa).HasMaxLength(2000);
             b.Property(x => x.ObservacaoAprovador).HasMaxLength(2000);
             b.Property(x => x.QtdPosicoes);

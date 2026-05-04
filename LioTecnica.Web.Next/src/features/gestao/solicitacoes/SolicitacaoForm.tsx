@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -42,6 +42,9 @@ export interface SolicitacaoDraft {
     unidadeLotacaoId: string | null;
     /** Vaga pré-vinculada quando solicitação é criada a partir do painel de vagas */
     vagaId: string | null;
+    /** Função RM (PFUNCAO) — lista filtrada pelo centro de custo da solicitação. */
+    codFuncaoRm: string | null;
+    funcaoNomeRm: string | null;
     // Dados do desligamento (só preenchem quando motivoRequisicao ∈ {1, 2})
     dataDesligamento: string | null; // yyyy-MM-dd
     tipoAvisoPrevioDesligamento: number | null; // 0=Indenizado, 1=Trabalhado, 2=Dispensado
@@ -108,6 +111,8 @@ const emptyDraft: SolicitacaoDraft = {
     centroCustoId: null,
     unidadeLotacaoId: null,
     vagaId: null,
+    codFuncaoRm: null,
+    funcaoNomeRm: null,
     dataDesligamento: null,
     tipoAvisoPrevioDesligamento: null,
     diasAvisoPrevioDesligamento: 30,
@@ -204,6 +209,17 @@ function AutocompleteSelect({
             )}
         </div>
     );
+}
+
+/** Compõe id estável para AutocompleteSelect (codigo + nome da função RM). */
+function funcaoRmOptionId(codigo: string, nome: string | null | undefined) {
+    return `${codigo}\t${nome ?? ""}`;
+}
+
+function parseFuncaoRmOptionId(id: string): { codigo: string; nome: string | null } {
+    const tab = id.indexOf("\t");
+    if (tab < 0) return { codigo: id, nome: null };
+    return { codigo: id.slice(0, tab), nome: id.slice(tab + 1) || null };
 }
 
 const FUNCIONARIO_SEARCH_MIN = 2;
@@ -403,6 +419,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     type MotivoLookup = { id: string; codigo: string; nome: string; efeitoHeadcount: "Aumenta" | "Diminui" | "Ambos" };
     const [motivos, setMotivos] = useState<MotivoLookup[]>([]);
 
+    type FuncaoRmRow = { codigo?: string | null; nome?: string | null };
+    const [funcoesRmItems, setFuncoesRmItems] = useState<LookupItem[]>([]);
+    const [funcoesRmLoading, setFuncoesRmLoading] = useState(false);
+
     const motivoSelecionado = motivos.find((m) => m.id === draft.motivoRequisicaoId) ?? null;
     // "Diminui" e "Ambos" implicam desligamento vinculado (sai alguém do quadro).
     const isDesligamentoMotivo = motivoSelecionado
@@ -461,6 +481,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             centroCustoId: d?.centroCustoId ? String(d.centroCustoId) : null,
             unidadeLotacaoId: d?.unidadeLotacaoId ? String(d.unidadeLotacaoId) : null,
             vagaId: d?.vagaId ? String(d.vagaId) : null,
+            codFuncaoRm: d?.codFuncaoRm != null && String(d.codFuncaoRm).trim() !== "" ? String(d.codFuncaoRm) : null,
+            funcaoNomeRm: d?.funcaoNomeRm != null && String(d.funcaoNomeRm).trim() !== "" ? String(d.funcaoNomeRm) : null,
             dataDesligamento: d?.dataDesligamento ? String(d.dataDesligamento).slice(0, 10) : null,
             tipoAvisoPrevioDesligamento: (() => { const m: Record<string, number> = { Indenizado: 0, Trabalhado: 1, Dispensado: 2 }; const v = d?.tipoAvisoPrevioDesligamento; return v == null ? null : typeof v === "number" ? v : (m[v as string] ?? null); })(),
             diasAvisoPrevioDesligamento: d?.diasAvisoPrevioDesligamento != null ? Number(d.diasAvisoPrevioDesligamento) : 30,
@@ -546,6 +568,58 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         }
     }, [gestorDiretoId, editId, draft.aprovadorId]);
 
+    useEffect(() => {
+        if (!active || !draft.centroCustoId) {
+            setFuncoesRmItems([]);
+            setFuncoesRmLoading(false);
+            return;
+        }
+        const cc = draft.centroCustoId;
+        let cancelled = false;
+        const t = setTimeout(() => {
+            (async () => {
+                setFuncoesRmLoading(true);
+                try {
+                    const rows = await fetchJson<FuncaoRmRow[]>(
+                        `/api/funcoes?centroCustoId=${encodeURIComponent(cc)}`,
+                    );
+                    if (cancelled) return;
+                    const mapped: LookupItem[] = (Array.isArray(rows) ? rows : []).map((r) => {
+                        const code = String(r.codigo ?? "");
+                        const name = String(r.nome ?? "");
+                        return {
+                            id: funcaoRmOptionId(code, name),
+                            code,
+                            name: name || code,
+                        };
+                    });
+                    setFuncoesRmItems(mapped);
+                } catch {
+                    if (!cancelled) setFuncoesRmItems([]);
+                } finally {
+                    if (!cancelled) setFuncoesRmLoading(false);
+                }
+            })();
+        }, 280);
+        return () => {
+            cancelled = true;
+            clearTimeout(t);
+        };
+    }, [active, draft.centroCustoId]);
+
+    const funcoesRmSelectItems = useMemo(() => {
+        const cod = draft.codFuncaoRm;
+        if (!cod) return funcoesRmItems;
+        const nome = draft.funcaoNomeRm ?? "";
+        const id = funcaoRmOptionId(cod, nome);
+        if (funcoesRmItems.some((i) => i.id === id)) return funcoesRmItems;
+        return [{ id, code: cod, name: nome || cod }, ...funcoesRmItems];
+    }, [funcoesRmItems, draft.codFuncaoRm, draft.funcaoNomeRm]);
+
+    const funcaoRmSelectValue = draft.codFuncaoRm
+        ? funcaoRmOptionId(draft.codFuncaoRm, draft.funcaoNomeRm)
+        : null;
+
     async function save() {
         if (viewOnly) return;
         const errors: string[] = [];
@@ -585,6 +659,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         setSaving(true);
         const payload = {
             titulo: draft.titulo.trim(),
+            codFuncaoRm: draft.codFuncaoRm?.trim() || null,
+            funcaoNomeRm: draft.funcaoNomeRm?.trim() || null,
             justificativa: draft.justificativa.trim() || null,
             qtdPosicoes: Math.max(draft.qtdPosicoes, 1),
             urgencia: (["Baixa", "Media", "Alta", "Critica"][draft.urgencia] ?? "Media"),
@@ -625,7 +701,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             const blob = (errs ? Object.keys(errs) : Object.keys(body)).join("|").toLowerCase();
             if (/escala|horario|horário/i.test(blob)) return "horario";
             if (/aprovador/i.test(blob)) return "aprovacao";
-            if (/titulo|empresa|unidade|motivo|justificativa|cargo|quadro|substituid|headcount|decisao/i.test(blob)) return "identificacao";
+            if (/titulo|empresa|unidade|motivo|justificativa|cargo|quadro|substituid|headcount|decisao|funcao|codfuncao/i.test(blob)) return "identificacao";
             return null;
         }
 
@@ -788,7 +864,18 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <div className="col-span-2">
                                     <label className={L}>Centro de Custo *</label>
-                                    <AutocompleteSelect items={centrosCusto} value={draft.centroCustoId} onChange={(v) => setDraft((d) => ({ ...d, centroCustoId: v }))} placeholder="centro de custo" required disabled={viewOnly || estruturaLocks.centroCusto} />
+                                    <AutocompleteSelect
+                                        items={centrosCusto}
+                                        value={draft.centroCustoId}
+                                        onChange={(v) => setDraft((d) => ({
+                                            ...d,
+                                            centroCustoId: v,
+                                            ...(v !== d.centroCustoId ? { codFuncaoRm: null, funcaoNomeRm: null } : {}),
+                                        }))}
+                                        placeholder="centro de custo"
+                                        required
+                                        disabled={viewOnly || estruturaLocks.centroCusto}
+                                    />
                                 </div>
 
                                 <div>
@@ -816,6 +903,36 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 <div className="col-span-2">
                                     <label className={L}>Título da Vaga *</label>
                                     <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
+                                    <label className={`${L} mt-2`}>Função (RM)</label>
+                                    <AutocompleteSelect
+                                        items={funcoesRmSelectItems}
+                                        value={funcaoRmSelectValue}
+                                        onChange={(id) => {
+                                            if (!id) {
+                                                setDraft((d) => ({ ...d, codFuncaoRm: null, funcaoNomeRm: null }));
+                                                return;
+                                            }
+                                            const { codigo, nome } = parseFuncaoRmOptionId(id);
+                                            setDraft((d) => ({
+                                                ...d,
+                                                codFuncaoRm: codigo || null,
+                                                funcaoNomeRm: nome,
+                                            }));
+                                        }}
+                                        placeholder="função"
+                                        disabled={viewOnly || !draft.centroCustoId}
+                                    />
+                                    {funcoesRmLoading && draft.centroCustoId && (
+                                        <p className="text-xs text-muted-foreground mt-1">Carregando funções…</p>
+                                    )}
+                                    {!funcoesRmLoading && draft.centroCustoId && funcoesRmItems.length === 0 && !draft.codFuncaoRm && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Nenhuma função encontrada para este centro de custo (importe/sync RM ou verifique colaboradores com função no CC).
+                                        </p>
+                                    )}
+                                    {!draft.centroCustoId && (
+                                        <p className="text-xs text-muted-foreground mt-1">Selecione o centro de custo para listar funções.</p>
+                                    )}
                                 </div>
 
                                 <div>
