@@ -22,6 +22,12 @@ public sealed class SolicitacaoVagaCreateRequest
     [Required, MaxLength(160)]
     public string Titulo { get; set; } = string.Empty;
 
+    [MaxLength(20)]
+    public string? CodFuncaoRm { get; set; }
+
+    [MaxLength(160)]
+    public string? FuncaoNomeRm { get; set; }
+
     /// <remarks>
     /// RN03 / CMP: se <see cref="TipoSolicitacao"/> for <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>,
     /// justificativa detalhada deve estar preenchida antes do envio (validação Fase 2 / submissão); rascunhos podem ficar sem texto.
@@ -98,6 +104,12 @@ public sealed class SolicitacaoVagaUpdateRequest
 
     // Vaga pré-vinculada (quando solicitação é criada a partir do painel de vagas)
     public Guid? VagaId { get; set; }
+
+    [MaxLength(20)]
+    public string? CodFuncaoRm { get; set; }
+
+    [MaxLength(160)]
+    public string? FuncaoNomeRm { get; set; }
 
     /// <remarks>Inclui <see cref="TipoSolicitacaoVaga.AumentoQuadro"/> para o fluxo integrado RN02 ao RM.</remarks>
     // Sprint 1
@@ -184,6 +196,8 @@ public sealed record EtapaFluxoInfo(
 public sealed record SolicitacaoVagaResponse(
     Guid Id,
     string Titulo,
+    string? CodFuncaoRm,
+    string? FuncaoNomeRm,
     string? Justificativa,
     int QtdPosicoes,
     SolicitacaoVagaUrgencia Urgencia,

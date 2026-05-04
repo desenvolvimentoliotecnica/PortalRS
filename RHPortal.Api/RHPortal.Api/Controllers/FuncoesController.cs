@@ -19,15 +19,22 @@ public sealed class FuncoesController : ControllerBase
     private readonly AppDbContext _db;
     public FuncoesController(AppDbContext db) { _db = db; }
 
-    /// <summary>Lista funções únicas com quantidade de funcionários ativos e total.</summary>
+    /// <summary>
+    /// Lista funções únicas com quantidade de funcionários ativos e total.
+    /// Opcionalmente restringe aos colaboradores do <paramref name="centroCustoId"/> (requisição de pessoal / seção).
+    /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(List<FuncaoListItem>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<FuncaoListItem>>> List(
         [FromQuery] string? q,
+        [FromQuery] Guid? centroCustoId,
         CancellationToken ct)
     {
         var baseQuery = _db.Funcionarios.AsNoTracking()
             .Where(f => f.CodFuncaoRm != null);
+
+        if (centroCustoId.HasValue && centroCustoId.Value != Guid.Empty)
+            baseQuery = baseQuery.Where(f => f.CentroCustoId == centroCustoId.Value);
 
         var grouped = await baseQuery
             .GroupBy(f => new { f.CodFuncaoRm, f.FuncaoNomeRm })

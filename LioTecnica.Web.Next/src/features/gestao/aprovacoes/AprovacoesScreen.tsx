@@ -74,6 +74,8 @@ interface EtapaFluxoInfo {
 interface SolicitacaoDetail {
     id: string;
     titulo: string;
+    codFuncaoRm?: string | null;
+    funcaoNomeRm?: string | null;
     justificativa: string | null;
     qtdPosicoes: number;
     urgencia: number;
@@ -1211,6 +1213,16 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
 
                                         <SectionDivider title="Dados da Vaga" />
                                         <div className="sm:col-span-3"><DetailField label="Título da Vaga" value={<span className="font-semibold">{detail.titulo}</span>} /></div>
+                                        <div className="sm:col-span-3">
+                                            <DetailField
+                                                label="Função (RM)"
+                                                value={
+                                                    detail.codFuncaoRm
+                                                        ? `${detail.codFuncaoRm}${detail.funcaoNomeRm ? ` — ${detail.funcaoNomeRm}` : ""}`
+                                                        : "—"
+                                                }
+                                            />
+                                        </div>
                                         <DetailField label="Cargo" value={detail.jobPositionName} />
                                         <DetailField label="Tipo de Solicitação" value={enumLabel(TIPO_SOLICITACAO_MAP, detail.tipoSolicitacao)} />
                                         <DetailField label="Substituído" value={detail.tipoSolicitacao === 1 ? detail.substituidoNome : "—"} />

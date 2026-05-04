@@ -386,6 +386,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             JobPositionId = request.JobPositionId,
             UnitId = request.UnitId,
             Titulo = request.Titulo,
+            CodFuncaoRm = request.CodFuncaoRm,
+            FuncaoNomeRm = request.FuncaoNomeRm,
             Justificativa = request.Justificativa,
             QtdPosicoes = Math.Max(request.QtdPosicoes, 1),
             Urgencia = request.Urgencia,
@@ -608,6 +610,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             CentroCustoId = source.CentroCustoId,
             UnidadeLotacaoId = source.UnidadeLotacaoId,
             Titulo = $"{source.Titulo} (cópia)",
+            CodFuncaoRm = source.CodFuncaoRm,
+            FuncaoNomeRm = source.FuncaoNomeRm,
             Justificativa = source.Justificativa,
             QtdPosicoes = source.QtdPosicoes,
             Urgencia = source.Urgencia,
@@ -739,6 +743,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         }
 
         entity.Titulo = request.Titulo;
+        entity.CodFuncaoRm = request.CodFuncaoRm;
+        entity.FuncaoNomeRm = request.FuncaoNomeRm;
         entity.Justificativa = request.Justificativa;
         entity.QtdPosicoes = Math.Max(request.QtdPosicoes, 1);
         entity.Urgencia = request.Urgencia;
@@ -1611,6 +1617,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             Id = vagaId,
             TenantId = tenantId,
             Titulo = entity.Titulo,
+            CodFuncaoRm = entity.CodFuncaoRm,
+            FuncaoNomeRm = entity.FuncaoNomeRm,
             Status = VagaStatus.Rascunho,
             QuantidadeVagas = entity.QtdPosicoes,
             DescricaoInterna = entity.Justificativa,
@@ -2416,6 +2424,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     private static SolicitacaoVagaResponse MapToResponse(SolicitacaoVaga s, IReadOnlyList<EtapaFluxoInfo>? etapasFluxo = null) => new(
         s.Id,
         s.Titulo,
+        s.CodFuncaoRm,
+        s.FuncaoNomeRm,
         s.Justificativa,
         s.QtdPosicoes,
         s.Urgencia,
