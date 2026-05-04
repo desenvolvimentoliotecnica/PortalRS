@@ -55,8 +55,9 @@ public sealed class AuthenticationService
 
     /// <summary>
     /// Empresa: CentroCusto.EmpresaId → Unit.EmpresaId → <see cref="Empresa.Code"/> alinhado a
-    /// <see cref="Funcionario.CdnEmpresa"/> (TOTVS). Lotação: vínculo direto ou moda entre funcionários
-    /// ativos do mesmo centro de custo (somente com maioria estrita).
+    /// <see cref="Funcionario.CdnEmpresa"/> (TOTVS).
+    /// Lotação: vínculo direto → moda no mesmo centro de custo → lotação onde o colaborador é responsável
+    /// (<see cref="UnidadeLotacao.OwnerFuncionarioId"/>, alinhado a <c>/api/gestao/meu-time</c>) → moda entre subordinados diretos.
     /// </summary>
     private async Task<(Guid? EmpresaId, Guid? UnitId, Guid? CentroCustoId, Guid? UnidadeLotacaoId)> ResolveEstruturaAsync(
         Funcionario? f,
@@ -71,6 +72,10 @@ public sealed class AuthenticationService
         Guid? unidadeLotacaoId = f.UnidadeLotacaoId;
         if (!unidadeLotacaoId.HasValue && f.CentroCustoId.HasValue)
             unidadeLotacaoId = await InferUnidadeLotacaoPorCentroCustoAsync(f.TenantId, f.CentroCustoId.Value, ct);
+        if (!unidadeLotacaoId.HasValue)
+            unidadeLotacaoId = await ResolveUnidadeLotacaoPorResponsabilidadeAsync(f.Id, f.TenantId, ct);
+        if (!unidadeLotacaoId.HasValue)
+            unidadeLotacaoId = await InferUnidadeLotacaoPorSubordinadosDiretosAsync(f.Id, f.TenantId, ct);
 
         return (empresaId, f.UnitId, f.CentroCustoId, unidadeLotacaoId);
     }
@@ -110,6 +115,38 @@ public sealed class AuthenticationService
                         && x.CentroCustoId == centroCustoId
                         && x.UnidadeLotacaoId != null
                         && x.Status == RhPortal.Api.Domain.Enums.FuncionarioStatus.Active)
+            .GroupBy(x => x.UnidadeLotacaoId!.Value)
+            .Select(g => new { Id = g.Key, Cnt = g.Count() })
+            .OrderByDescending(x => x.Cnt)
+            .Take(2)
+            .ToListAsync(ct);
+
+        if (top.Count == 0) return null;
+        if (top.Count == 1) return top[0].Id;
+        return top[0].Cnt > top[1].Cnt ? top[0].Id : null;
+    }
+
+    /// <summary>
+    /// Gestores costumam ver o time por <see cref="UnidadeLotacao.OwnerFuncionarioId"/> sem ter o próprio
+    /// <see cref="Funcionario.UnidadeLotacaoId"/> preenchido no cadastro.
+    /// </summary>
+    private async Task<Guid?> ResolveUnidadeLotacaoPorResponsabilidadeAsync(Guid funcionarioId, string tenantId, CancellationToken ct)
+    {
+        return await _db.UnidadesLotacao.AsNoTracking()
+            .Where(u => u.TenantId == tenantId && u.IsActive && u.OwnerFuncionarioId == funcionarioId)
+            .OrderBy(u => u.Level)
+            .ThenBy(u => u.Code)
+            .Select(u => (Guid?)u.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<Guid?> InferUnidadeLotacaoPorSubordinadosDiretosAsync(Guid gestorFuncionarioId, string tenantId, CancellationToken ct)
+    {
+        var top = await _db.Funcionarios.AsNoTracking()
+            .Where(x => x.TenantId == tenantId
+                        && x.Status == RhPortal.Api.Domain.Enums.FuncionarioStatus.Active
+                        && x.GestorDiretoId == gestorFuncionarioId
+                        && x.UnidadeLotacaoId != null)
             .GroupBy(x => x.UnidadeLotacaoId!.Value)
             .Select(g => new { Id = g.Key, Cnt = g.Count() })
             .OrderByDescending(x => x.Cnt)
