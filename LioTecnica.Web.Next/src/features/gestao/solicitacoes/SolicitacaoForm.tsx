@@ -422,6 +422,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     type FuncaoRmRow = { codigo?: string | null; nome?: string | null };
     const [funcoesRmItems, setFuncoesRmItems] = useState<LookupItem[]>([]);
     const [funcoesRmLoading, setFuncoesRmLoading] = useState(false);
+    /** Funcionário gestor da requisição: subordinados diretos (`GestorDiretoId`) definem a lista de funções RM. */
+    const [requisitanteFuncionarioId, setRequisitanteFuncionarioId] = useState<string | null>(null);
 
     const motivoSelecionado = motivos.find((m) => m.id === draft.motivoRequisicaoId) ?? null;
     // "Diminui" e "Ambos" implicam desligamento vinculado (sai alguém do quadro).
@@ -429,7 +431,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         ? motivoSelecionado.efeitoHeadcount === "Diminui" || motivoSelecionado.efeitoHeadcount === "Ambos"
         : false;
 
-    const loadLookups = useCallback(async () => {
+    const loadLookups = useCallback(async (opts?: { setRequisitanteFromMe?: boolean }) => {
         // Lookup de funcionários NÃO é carregado aqui — é responsabilidade do useEffect abaixo,
         // que sabe se precisa aplicar filtros por vaga/cargo/lotação. Carregar aqui causava race
         // condition que podia sobrescrever a lista filtrada.
@@ -450,6 +452,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         try {
             const meRes = await fetchJson<Record<string, unknown>>("/api/me");
             const myFuncId = meRes?.funcionarioId as string | null;
+            if (opts?.setRequisitanteFromMe && myFuncId)
+                setRequisitanteFuncionarioId(myFuncId);
             if (myFuncId) {
                 const funcRes = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${myFuncId}`);
                 const gdId = funcRes?.gestorDiretoId as string | null;
@@ -501,7 +505,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     useEffect(() => {
         if (!active) return;
         setActiveTab("identificacao");
-        loadLookups();
+        setRequisitanteFuncionarioId(null);
+        loadLookups({ setRequisitanteFromMe: !editId });
 
         setObservacaoAprovador(null);
         setStatusCarregado(null);
@@ -511,6 +516,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             fetchJson<Record<string, unknown>>(`${API}/${sourceId}`)
                 .then((d) => {
                     setDraft(parseDraft(d, copySourceId ? " (cópia)" : ""));
+                    if (editId && d?.solicitanteId)
+                        setRequisitanteFuncionarioId(String(d.solicitanteId));
                     setObservacaoAprovador(d?.observacaoAprovador ? String(d.observacaoAprovador) : null);
                     const s = d?.status;
                     setStatusCarregado(typeof s === "string" || typeof s === "number" ? s : null);
@@ -569,19 +576,19 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     }, [gestorDiretoId, editId, draft.aprovadorId]);
 
     useEffect(() => {
-        if (!active || !draft.centroCustoId) {
+        if (!active || !requisitanteFuncionarioId) {
             setFuncoesRmItems([]);
             setFuncoesRmLoading(false);
             return;
         }
-        const cc = draft.centroCustoId;
+        const gestorId = requisitanteFuncionarioId;
         let cancelled = false;
         const t = setTimeout(() => {
             (async () => {
                 setFuncoesRmLoading(true);
                 try {
                     const rows = await fetchJson<FuncaoRmRow[]>(
-                        `/api/funcoes?centroCustoId=${encodeURIComponent(cc)}`,
+                        `/api/funcoes?gestorFuncionarioId=${encodeURIComponent(gestorId)}`,
                     );
                     if (cancelled) return;
                     const mapped: LookupItem[] = (Array.isArray(rows) ? rows : []).map((r) => {
@@ -605,7 +612,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             cancelled = true;
             clearTimeout(t);
         };
-    }, [active, draft.centroCustoId]);
+    }, [active, requisitanteFuncionarioId]);
 
     const funcoesRmSelectItems = useMemo(() => {
         const cod = draft.codFuncaoRm;
@@ -867,11 +874,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     <AutocompleteSelect
                                         items={centrosCusto}
                                         value={draft.centroCustoId}
-                                        onChange={(v) => setDraft((d) => ({
-                                            ...d,
-                                            centroCustoId: v,
-                                            ...(v !== d.centroCustoId ? { codFuncaoRm: null, funcaoNomeRm: null } : {}),
-                                        }))}
+                                        onChange={(v) => setDraft((d) => ({ ...d, centroCustoId: v }))}
                                         placeholder="centro de custo"
                                         required
                                         disabled={viewOnly || estruturaLocks.centroCusto}
@@ -920,18 +923,20 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             }));
                                         }}
                                         placeholder="função"
-                                        disabled={viewOnly || !draft.centroCustoId}
+                                        disabled={viewOnly || !requisitanteFuncionarioId}
                                     />
-                                    {funcoesRmLoading && draft.centroCustoId && (
-                                        <p className="text-xs text-muted-foreground mt-1">Carregando funções…</p>
+                                    {funcoesRmLoading && requisitanteFuncionarioId && (
+                                        <p className="text-xs text-muted-foreground mt-1">Carregando funções da equipe…</p>
                                     )}
-                                    {!funcoesRmLoading && draft.centroCustoId && funcoesRmItems.length === 0 && !draft.codFuncaoRm && (
+                                    {!funcoesRmLoading && requisitanteFuncionarioId && funcoesRmItems.length === 0 && !draft.codFuncaoRm && (
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            Nenhuma função encontrada para este centro de custo (importe/sync RM ou verifique colaboradores com função no CC).
+                                            Nenhuma função RM entre colaboradores que se reportam diretamente ao requisitante (confira vínculo de gestor e import/sync RM).
                                         </p>
                                     )}
-                                    {!draft.centroCustoId && (
-                                        <p className="text-xs text-muted-foreground mt-1">Selecione o centro de custo para listar funções.</p>
+                                    {!requisitanteFuncionarioId && !loadingEdit && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Lista funções RM dos colaboradores ativos que têm o requisitante como gestor direto (cadastro + import/sync RM).
+                                        </p>
                                     )}
                                 </div>
 
