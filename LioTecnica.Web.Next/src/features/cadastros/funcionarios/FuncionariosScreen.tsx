@@ -110,8 +110,9 @@ interface FuncDetail {
     jobPositionId?: string;
     jobPositionName?: string;
     jobPositionCode?: string;
-    requisitoCategoriaId?: string;
-    requisitoCategoriaName?: string;
+    /** Função no RM (PFUNC.CODFUNCAO / PFUNCAO.NOME). */
+    codFuncaoRm?: string;
+    funcaoNomeRm?: string;
     notes?: string;
     createdAtUtc: string;
     updatedAtUtc: string;
@@ -150,7 +151,6 @@ interface EditFormOptions {
     units: LookupOption[];
     jobPositions: LookupOption[];
     nivelHierarquicos: LookupOption[];
-    requisitoCategorias: LookupOption[];
     unidadesLotacao: LookupOption[];
     centrosCusto: LookupOption[];
     empresas: { code: string; label: string }[];
@@ -167,7 +167,6 @@ interface EditForm {
     unitId: string; unitLabel: string;
     areaId: string; areaLabel: string;
     jobPositionId: string; jobPositionLabel: string;
-    requisitoCategoriaId: string; requisitoCategoriaLabel: string;
     // hierarquia
     gestorDiretoId: string; gestorDiretoLabel: string;
     nivelHierarquicoId: string; nivelHierarquicoLabel: string;
@@ -232,6 +231,15 @@ async function fetchJson<T>(url: string, init?: RequestInit, timeoutMs?: number)
     }
     if (res.status === 204) return null as T;
     return (await res.json()) as T;
+}
+
+/** GET JSON sem propagar erro (404, rede, etc.) — usado para montar selects do formulário de edição. */
+async function fetchJsonSafe<T>(url: string): Promise<T | null> {
+    try {
+        return await fetchJson<T>(url);
+    } catch {
+        return null;
+    }
 }
 
 function missingFieldsTooltip(f: FuncItem): string {
@@ -398,7 +406,7 @@ export default function FuncionariosScreen() {
     const [historyItems, setHistoryItems] = useState<EntityChangeListItem[]>([]);
     const [movimentacoesItems, setMovimentacoesItems] = useState<MovimentacaoItem[]>([]);
 
-    const EMPTY_EDIT_FORM: EditForm = { name: "", email: "", phone: "", status: "Active", headcount: 1, unitId: "", unitLabel: "", areaId: "", areaLabel: "", jobPositionId: "", jobPositionLabel: "", requisitoCategoriaId: "", requisitoCategoriaLabel: "", gestorDiretoId: "", gestorDiretoLabel: "", nivelHierarquicoId: "", nivelHierarquicoLabel: "", unidadeLotacaoId: "", unidadeLotacaoLabel: "", centroCustoId: "", centroCustoLabel: "", cdnFuncionario: "", cdnEmpresa: "", cdnEstab: "", dataAdmissao: "", dataNascimento: "", sexo: "", notes: "" };
+    const EMPTY_EDIT_FORM: EditForm = { name: "", email: "", phone: "", status: "Active", headcount: 1, unitId: "", unitLabel: "", areaId: "", areaLabel: "", jobPositionId: "", jobPositionLabel: "", gestorDiretoId: "", gestorDiretoLabel: "", nivelHierarquicoId: "", nivelHierarquicoLabel: "", unidadeLotacaoId: "", unidadeLotacaoLabel: "", centroCustoId: "", centroCustoLabel: "", cdnFuncionario: "", cdnEmpresa: "", cdnEstab: "", dataAdmissao: "", dataNascimento: "", sexo: "", notes: "" };
     const [editForm, setEditForm] = useState<EditForm>(EMPTY_EDIT_FORM);
     const [editOptions, setEditOptions] = useState<EditFormOptions | null>(null);
     const [editOptionsLoading, setEditOptionsLoading] = useState(false);
@@ -589,8 +597,8 @@ export default function FuncionariosScreen() {
             jobPositionId: d.jobPositionId ? String(d.jobPositionId) : undefined,
             jobPositionName: d.jobPositionName ? String(d.jobPositionName) : undefined,
             jobPositionCode: d.jobPositionCode ? String(d.jobPositionCode) : undefined,
-            requisitoCategoriaId: d.requisitoCategoriaId ? String(d.requisitoCategoriaId) : undefined,
-            requisitoCategoriaName: d.requisitoCategoriaName ? String(d.requisitoCategoriaName) : undefined,
+            codFuncaoRm: d.codFuncaoRm ? String(d.codFuncaoRm) : undefined,
+            funcaoNomeRm: d.funcaoNomeRm ? String(d.funcaoNomeRm) : undefined,
             notes: d.notes ? String(d.notes) : undefined,
             createdAtUtc: String(d.createdAtUtc ?? ""),
             updatedAtUtc: String(d.updatedAtUtc ?? ""),
@@ -648,7 +656,6 @@ export default function FuncionariosScreen() {
             unitId: data.unitId ?? "", unitLabel: data.unitName ?? "",
             areaId: data.areaId ?? data.centroCustoId ?? "", areaLabel: data.areaName ?? centroCustoLabel,
             jobPositionId: data.jobPositionId ?? "", jobPositionLabel: data.jobPositionName ? (data.jobPositionCode ? `${data.jobPositionCode} - ${data.jobPositionName}` : data.jobPositionName) : "",
-            requisitoCategoriaId: data.requisitoCategoriaId ?? "", requisitoCategoriaLabel: data.requisitoCategoriaName ?? "",
             gestorDiretoId: data.gestorDiretoId ?? "", gestorDiretoLabel: data.gestorDiretoNome ?? "",
             nivelHierarquicoId: data.nivelHierarquicoId ?? "", nivelHierarquicoLabel: data.nivelHierarquicoNome ?? "",
             unidadeLotacaoId: data.unidadeLotacaoId ?? "", unidadeLotacaoLabel: data.unidadeLotacaoDescricao ? (data.unidadeLotacaoCode ? `${data.unidadeLotacaoCode} - ${data.unidadeLotacaoDescricao}` : data.unidadeLotacaoDescricao) : "",
@@ -668,23 +675,30 @@ export default function FuncionariosScreen() {
                 const mapOpts = (rows: { id: string; code?: string; name?: string }[] | null | undefined): LookupOption[] =>
                     (rows ?? []).map((x) => ({ id: String(x.id), label: labelFromOptionResponse(x) }));
 
-                const [units, jobPositions, nivelHierarquicos, requisitoCategorias, unidadesLot, centrosCusto, empresas, estabs] = await Promise.all([
-                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/units"),
-                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/job-positions"),
-                    fetchJson<{ id: string; nome: string }[]>("/api/niveis-hierarquicos"),
-                    fetchJson<{ id: string; code: string; name: string }[]>("/api/requisito-categorias"),
-                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/unidades-lotacao"),
-                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/centros-custo"),
-                    fetchJson<{ id: string; code: string; name: string }[]>("/api/lookup/empresas"),
-                    fetchJson<string[]>("/api/lookup/estabelecimentos-datasul"),
+                const [units, jobPositions, nivelHierarquicos, unidadesLot, centrosCusto, empresas, estabs] = await Promise.all([
+                    fetchJsonSafe<{ id: string; code: string; name: string }[]>("/api/lookup/units"),
+                    fetchJsonSafe<{ id: string; code: string; name: string }[]>("/api/lookup/job-positions"),
+                    fetchJsonSafe<Record<string, unknown>[]>("/api/niveis-hierarquicos"),
+                    fetchJsonSafe<{ id: string; code: string; name: string }[]>("/api/lookup/unidades-lotacao"),
+                    fetchJsonSafe<{ id: string; code: string; name: string }[]>("/api/lookup/centros-custo"),
+                    fetchJsonSafe<{ id: string; code: string; name: string }[]>("/api/lookup/empresas"),
+                    fetchJsonSafe<string[]>("/api/lookup/estabelecimentos-datasul"),
                 ]);
+
+                const nivelOpts: LookupOption[] = (nivelHierarquicos ?? [])
+                    .map((n) => {
+                        const id = String(n.id ?? "");
+                        const nome = typeof n.nome === "string" ? n.nome : typeof n.Nome === "string" ? n.Nome : "";
+                        return { id, label: nome };
+                    })
+                    .filter((o) => o.id.length > 0);
+
                 setEditOptions({
-                    units: mapOpts(units),
-                    jobPositions: mapOpts(jobPositions),
-                    nivelHierarquicos: (nivelHierarquicos ?? []).map((n) => ({ id: String(n.id), label: n.nome })),
-                    requisitoCategorias: mapOpts(requisitoCategorias),
-                    unidadesLotacao: mapOpts(unidadesLot),
-                    centrosCusto: mapOpts(centrosCusto),
+                    units: mapOpts(units ?? []),
+                    jobPositions: mapOpts(jobPositions ?? []),
+                    nivelHierarquicos: nivelOpts,
+                    unidadesLotacao: mapOpts(unidadesLot ?? []),
+                    centrosCusto: mapOpts(centrosCusto ?? []),
                     empresas: (empresas ?? []).map((e) => {
                         const code = String(e.code ?? "").trim();
                         return { code, label: labelFromOptionResponse(e) };
@@ -693,6 +707,15 @@ export default function FuncionariosScreen() {
                 });
             } catch {
                 toast.error("Falha ao carregar opções de edição.");
+                setEditOptions({
+                    units: [],
+                    jobPositions: [],
+                    nivelHierarquicos: [],
+                    unidadesLotacao: [],
+                    centrosCusto: [],
+                    empresas: [],
+                    estabelecimentos: [],
+                });
             } finally {
                 setEditOptionsLoading(false);
             }
@@ -711,7 +734,6 @@ export default function FuncionariosScreen() {
                 headcount: editForm.headcount,
                 unitId: editForm.unitId || null,
                 jobPositionId: editForm.jobPositionId || null,
-                requisitoCategoriaId: editForm.requisitoCategoriaId || null,
                 notes: editForm.notes.trim() || null,
                 gestorDiretoId: editForm.gestorDiretoId || null,
                 nivelHierarquicoId: editForm.nivelHierarquicoId || null,
@@ -1139,7 +1161,7 @@ export default function FuncionariosScreen() {
                                     <div><dt className="text-xs font-medium text-muted-foreground">Unidade</dt><dd className="mt-0.5 text-sm">{detailData.unitName || "—"}</dd></div>
                                     <div><dt className="text-xs font-medium text-muted-foreground">Área</dt><dd className="mt-0.5 text-sm">{detailData.areaName || "—"}</dd></div>
                                     <div><dt className="text-xs font-medium text-muted-foreground">Cargo</dt><dd className="mt-0.5 text-sm">{detailData.jobPositionName ? (detailData.jobPositionCode ? `${detailData.jobPositionCode} - ${detailData.jobPositionName}` : detailData.jobPositionName) : "—"}</dd></div>
-                                    <div><dt className="text-xs font-medium text-muted-foreground">Função</dt><dd className="mt-0.5 text-sm">{detailData.requisitoCategoriaName || "—"}</dd></div>
+                                    <div><dt className="text-xs font-medium text-muted-foreground">Função (RM)</dt><dd className="mt-0.5 text-sm">{detailData.funcaoNomeRm || detailData.codFuncaoRm ? `${detailData.funcaoNomeRm ?? "—"}${detailData.codFuncaoRm ? ` (${detailData.codFuncaoRm})` : ""}` : "—"}</dd></div>
                                 </dl>
                             </div>
 
@@ -1306,25 +1328,14 @@ export default function FuncionariosScreen() {
                                                 ) : null}
                                             </select>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Função</label>
-                                            <select
-                                                className={EDIT_SELECT_CLASS}
-                                                value={editForm.requisitoCategoriaId}
-                                                onChange={(e) => {
-                                                    const id = e.target.value;
-                                                    const label = (editOptions?.requisitoCategorias ?? []).find((o) => o.id === id)?.label ?? "";
-                                                    setEditForm((f) => ({ ...f, requisitoCategoriaId: id, requisitoCategoriaLabel: label }));
-                                                }}
-                                            >
-                                                <option value="">— Não informado —</option>
-                                                {(editOptions?.requisitoCategorias ?? []).map((o) => (
-                                                    <option key={o.id} value={o.id}>{o.label}</option>
-                                                ))}
-                                                {editForm.requisitoCategoriaId && !(editOptions?.requisitoCategorias ?? []).some((o) => o.id === editForm.requisitoCategoriaId) ? (
-                                                    <option value={editForm.requisitoCategoriaId}>{editForm.requisitoCategoriaLabel || editForm.requisitoCategoriaId}</option>
-                                                ) : null}
-                                            </select>
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-xs font-medium text-muted-foreground mb-1">Função (RM)</label>
+                                            <p className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                                                {detailData?.funcaoNomeRm || detailData?.codFuncaoRm
+                                                    ? `${detailData.funcaoNomeRm ?? "—"}${detailData.codFuncaoRm ? ` (${detailData.codFuncaoRm})` : ""}`
+                                                    : "—"}
+                                            </p>
+                                            <p className="mt-1 text-[11px] text-muted-foreground">Vinda do TOTVS RM (CODFUNCAO); não editável neste formulário.</p>
                                         </div>
                                     </div>
                                 </div>
