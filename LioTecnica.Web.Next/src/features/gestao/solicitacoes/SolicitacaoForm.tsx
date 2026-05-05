@@ -422,6 +422,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [unidadesLotacao, setUnidadesLotacao] = useState<LookupItem[]>([]);
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
     const [requisitanteNomeExibicao, setRequisitanteNomeExibicao] = useState<string | null>(null);
+    const [requisitanteMatriculaExibicao, setRequisitanteMatriculaExibicao] = useState<string | null>(null);
     const [superiorNomeExibicao, setSuperiorNomeExibicao] = useState<string | null>(null);
     const [superiorMatriculaExibicao, setSuperiorMatriculaExibicao] = useState<string | null>(null);
     const [superiorCarregando, setSuperiorCarregando] = useState(false);
@@ -537,6 +538,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         setActiveTab("identificacao");
         setRequisitanteFuncionarioId(null);
         setRequisitanteNomeExibicao(null);
+        setRequisitanteMatriculaExibicao(null);
         setGestorDiretoId(null);
         loadLookups({ setRequisitanteFromMe: !editId && !copySourceId });
 
@@ -548,7 +550,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             fetchJson<Record<string, unknown>>(`${API}/${sourceId}`)
                 .then((d) => {
                     setDraft(parseDraft(d, copySourceId ? " (cópia)" : ""));
-                    if (editId && d?.solicitanteId)
+                    if (d?.solicitanteId)
                         setRequisitanteFuncionarioId(String(d.solicitanteId));
                     const sn = d?.solicitanteNome != null ? String(d.solicitanteNome).trim() : "";
                     if (sn) {
@@ -653,6 +655,25 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             cancelled = true;
         };
     }, [active, draft.aprovadorId]);
+
+    useEffect(() => {
+        if (!active || !requisitanteFuncionarioId?.trim()) {
+            setRequisitanteMatriculaExibicao(null);
+            return;
+        }
+        let cancelled = false;
+        void fetchJson<Record<string, unknown>>(`/api/funcionarios/${requisitanteFuncionarioId.trim()}`)
+            .then((f) => {
+                if (cancelled) return;
+                setRequisitanteMatriculaExibicao(f?.matriculaRm != null ? String(f.matriculaRm) : null);
+            })
+            .catch(() => {
+                if (!cancelled) setRequisitanteMatriculaExibicao(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [active, requisitanteFuncionarioId]);
 
     useEffect(() => {
         if (!active || !requisitanteFuncionarioId) {
@@ -1318,6 +1339,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     <p className="text-sm font-semibold text-foreground leading-snug break-words">
                                         {requisitanteNomeExibicao ?? "—"}
                                     </p>
+                                    {!!requisitanteMatriculaExibicao?.trim() && (
+                                        <p className="mt-1 font-mono text-xs text-muted-foreground">{requisitanteMatriculaExibicao}</p>
+                                    )}
                                 </div>
 
                                 {gestorDiretoId && draft.aprovadorId === gestorDiretoId && (
