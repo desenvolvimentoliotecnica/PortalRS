@@ -113,7 +113,15 @@ public sealed class SolicitacaoVaga : ITenantEntity
     public bool DisponibilidadeViagens { get; set; }
 
     /// <summary>Escala de trabalho (ex: Comercial, Turno A/B, 12x36).</summary>
+    /// <remarks>
+    /// Quando <see cref="TurnoId"/> está preenchido, costuma espelhar o rótulo do turno (<c>Código — Descrição</c>);
+    /// registros antigos podem guardar apenas JSON/texto livre da grade semanal legada.
+    /// </remarks>
     public string? EscalaTrabalho { get; set; }
+
+    /// <summary>Turno cadastrado em <see cref="Turno"/> — fonte oficial do horário na requisição (Fase 1/2).</summary>
+    public Guid? TurnoId { get; set; }
+    public Turno? Turno { get; set; }
 
     // ── Decisão de headcount (escolhida pelo gestor na criação) ──
 

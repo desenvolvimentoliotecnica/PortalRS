@@ -574,6 +574,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.StartTime).HasMaxLength(5);
             b.Property(x => x.EndTime).HasMaxLength(5);
             b.Property(x => x.Notes).HasMaxLength(500);
+            b.Property(x => x.GradeHorarioJson).HasColumnType("text");
 
             b.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
             b.HasIndex(x => x.IsActive);
@@ -1259,6 +1260,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .WithMany()
                 .HasForeignKey(x => x.MotivoRequisicaoId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(x => x.Turno)
+                .WithMany()
+                .HasForeignKey(x => x.TurnoId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.SolicitanteId });

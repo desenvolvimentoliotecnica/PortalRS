@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
+import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
 interface Item {
   id: string;
@@ -25,6 +26,8 @@ interface Item {
   startTime?: string;
   endTime?: string;
   notes?: string;
+  /** JSON da grade (HorarioEditor). */
+  gradeHorarioJson?: string | null;
   isActive: boolean;
   createdAtUtc: string;
   updatedAtUtc: string;
@@ -39,6 +42,8 @@ interface Draft {
   startTime: string;
   endTime: string;
   notes: string;
+  /** Mesmo formato que solicitação / HorarioEditor. */
+  gradeHorarioJson: string;
   isActive: boolean;
   unidadeLotacaoId: string;
 }
@@ -74,7 +79,40 @@ function statusBadge(active: boolean) {
   );
 }
 
-const emptyDraft: Draft = { code: "", description: "", startTime: "", endTime: "", notes: "", isActive: true, unidadeLotacaoId: "" };
+const emptyDraft: Draft = {
+  code: "",
+  description: "",
+  startTime: "",
+  endTime: "",
+  notes: "",
+  gradeHorarioJson: "",
+  isActive: true,
+  unidadeLotacaoId: "",
+};
+
+function gradeJsonFromItem(item: Item): string {
+  const a = item as unknown as Record<string, unknown>;
+  const v = item.gradeHorarioJson ?? a.gradeHorarioJson ?? a.GradeHorarioJson;
+  return v != null && String(v).trim() !== "" ? String(v) : "";
+}
+
+/** Lê entrada/saída da segunda-feira na grade para preencher início/fim simples (TOTVS). */
+function deriveStartEndFromGradeJson(json: string): { start: string; end: string } | null {
+  const t = json?.trim();
+  if (!t) return null;
+  try {
+    const p = JSON.parse(t) as {
+      grid?: { entrada?: Record<string, string>; saida?: Record<string, string> };
+    };
+    const ent = p?.grid?.entrada?.seg?.trim();
+    const sai = p?.grid?.saida?.seg?.trim();
+    if (!ent || !sai) return null;
+    const strip = (s: string) => (s.length >= 5 ? s.slice(0, 5) : s);
+    return { start: strip(ent), end: strip(sai) };
+  } catch {
+    return null;
+  }
+}
 
 export default function TurnoCadastroScreen() {
   const [loading, setLoading] = useState(true);
@@ -166,6 +204,7 @@ export default function TurnoCadastroScreen() {
         startTime: draft.startTime?.trim() || null,
         endTime: draft.endTime?.trim() || null,
         notes: draft.notes?.trim() || null,
+        gradeHorarioJson: draft.gradeHorarioJson?.trim() || null,
         isActive: draft.isActive,
         unidadeLotacaoId: draft.unidadeLotacaoId || null,
       };
@@ -347,7 +386,20 @@ export default function TurnoCadastroScreen() {
                 <TableCell>{statusBadge(item.isActive)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => { setDraft({ id: item.id, code: item.code, description: item.description, startTime: item.startTime || "", endTime: item.endTime || "", notes: item.notes || "", isActive: item.isActive, unidadeLotacaoId: item.unidadeLotacaoId || "" }); setEditOpen(true); }}>
+                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => {
+                      setDraft({
+                        id: item.id,
+                        code: item.code,
+                        description: item.description,
+                        startTime: item.startTime || "",
+                        endTime: item.endTime || "",
+                        notes: item.notes || "",
+                        gradeHorarioJson: gradeJsonFromItem(item),
+                        isActive: item.isActive,
+                        unidadeLotacaoId: item.unidadeLotacaoId || "",
+                      });
+                      setEditOpen(true);
+                    }}>
                       <Pencil />
                     </Button>
                     <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(item)}>
@@ -367,10 +419,12 @@ export default function TurnoCadastroScreen() {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{draft.id ? "Editar turno" : "Novo turno"}</DialogTitle>
-            <DialogDescription>Preencha os dados do turno de trabalho.</DialogDescription>
+            <DialogDescription>
+              Dados para integração (início/fim) e, opcionalmente, a grade semanal detalhada (mesmo editor das solicitações de vaga).
+            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -381,17 +435,54 @@ export default function TurnoCadastroScreen() {
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Descrição *</label>
               <Input placeholder="Ex: Manhã" value={draft.description} onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} maxLength={120} />
             </div>
-            <div>
+            <div className="space-y-1">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Início (HH:mm)</label>
               <Input placeholder="08:00" value={draft.startTime} onChange={(e) => setDraft((d) => ({ ...d, startTime: e.target.value }))} maxLength={5} />
             </div>
-            <div>
+            <div className="space-y-1">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Fim (HH:mm)</label>
-              <Input placeholder="17:00" value={draft.endTime} onChange={(e) => setDraft((d) => ({ ...d, endTime: e.target.value }))} maxLength={5} />
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-end">
+                <Input className="flex-1" placeholder="17:00" value={draft.endTime} onChange={(e) => setDraft((d) => ({ ...d, endTime: e.target.value }))} maxLength={5} />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={() => {
+                    const x = deriveStartEndFromGradeJson(draft.gradeHorarioJson);
+                    if (!x) {
+                      toast.error("Preencha a grade com entrada e saída na segunda-feira.");
+                      return;
+                    }
+                    setDraft((d) => ({ ...d, startTime: x.start, endTime: x.end }));
+                    toast.success("Início e fim atualizados a partir da grade.");
+                  }}
+                >
+                  Da grade (2ª)
+                </Button>
+              </div>
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Observações</label>
               <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="..." value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} maxLength={500} rows={3} />
+            </div>
+            <div className="sm:col-span-2 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-medium text-muted-foreground">Grade semanal</label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setDraft((d) => ({ ...d, gradeHorarioJson: "" }))}
+                >
+                  Limpar grade
+                </Button>
+              </div>
+              <HorarioEditor
+                value={draft.gradeHorarioJson}
+                onChange={(v) => setDraft((d) => ({ ...d, gradeHorarioJson: v }))}
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>

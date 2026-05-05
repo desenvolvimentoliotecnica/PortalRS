@@ -31,6 +31,12 @@ public sealed class Turno : ITenantEntity
     [System.ComponentModel.DataAnnotations.MaxLength(500)]
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// JSON da grade semanal (mesmo formato que <c>HorarioEditor</c>: <c>{ "escala": string, "grid": { ... } }</c>).
+    /// Complementa Início/Fim para visualização detalhada no portal; integração TOTVS pode continuar usando só horários simples.
+    /// </summary>
+    public string? GradeHorarioJson { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     /// <summary>
