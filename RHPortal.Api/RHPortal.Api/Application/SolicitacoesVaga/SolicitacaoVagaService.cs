@@ -263,6 +263,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(x => x.Empresa)
             .Include(x => x.CentroCusto)
             .Include(x => x.UnidadeLotacao)
+            .Include(x => x.Turno)
+                .ThenInclude(t => t!.UnidadeLotacao)
             .Include(x => x.DecisaoRHRevisadoPor)
             .Include(x => x.CandidatoContratado)
             .Include(x => x.Motivo)
@@ -405,7 +407,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             Motivo = motivoConfig, // só para permitir que IsMotivoDesligamento/ResolverTipoDesligamento leiam o efeito sem ir no DB
             CnhObrigatoria = request.CnhObrigatoria,
             DisponibilidadeViagens = request.DisponibilidadeViagens,
-            EscalaTrabalho = request.EscalaTrabalho,
             EmpresaId = request.EmpresaId,
             CentroCustoId = request.CentroCustoId,
             UnidadeLotacaoId = request.UnidadeLotacaoId,
@@ -424,6 +425,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
+
+        await AplicarTurnoOuEscalaLegadaAsync(entity, request.TurnoId, request.EscalaTrabalho, ct);
 
         ValidarCamposDesligamento(entity);
 
@@ -545,6 +548,61 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             throw new InvalidOperationException("Informe a data de desligamento.");
     }
 
+    private async Task AplicarTurnoOuEscalaLegadaAsync(
+        SolicitacaoVaga entity, Guid? turnoId, string? escalaTrabalhoRequest, CancellationToken ct)
+    {
+        if (turnoId.HasValue)
+        {
+            var turno = await ResolverEValidarTurnoAsync(turnoId, entity.UnidadeLotacaoId, ct);
+            entity.TurnoId = turno!.Id;
+            entity.EscalaTrabalho = SnapshotEscalaFromTurno(turno);
+            return;
+        }
+
+        entity.TurnoId = null;
+        entity.EscalaTrabalho = escalaTrabalhoRequest;
+    }
+
+    private async Task<Turno?> ResolverEValidarTurnoAsync(Guid? turnoId, Guid? unidadeLotacaoId, CancellationToken ct)
+    {
+        if (!turnoId.HasValue)
+            return null;
+
+        var t = await _db.Turnos.AsNoTracking()
+            .Include(x => x.UnidadeLotacao)
+            .FirstOrDefaultAsync(x => x.Id == turnoId.Value, ct);
+
+        if (t is null)
+            throw new InvalidOperationException("Turno não encontrado.");
+
+        if (!t.IsActive)
+            throw new InvalidOperationException("O turno selecionado está inativo.");
+
+        if (t.UnidadeLotacaoId.HasValue && t.UnidadeLotacaoId != unidadeLotacaoId)
+        {
+            var ulNome = t.UnidadeLotacao?.Description?.Trim();
+            throw new InvalidOperationException(
+                string.IsNullOrEmpty(ulNome)
+                    ? "O turno selecionado não é compatível com a lotação informada nesta solicitação."
+                    : $"O turno selecionado é específico da lotação \"{ulNome}\" e não se aplica à lotação desta solicitação.");
+        }
+
+        return t;
+    }
+
+    private static string? SnapshotEscalaFromTurno(Turno t)
+    {
+        var code = (t.Code ?? "").Trim();
+        var desc = (t.Description ?? "").Trim();
+        if (code.Length == 0 && desc.Length == 0)
+            return null;
+        if (desc.Length == 0)
+            return code;
+        if (code.Length == 0)
+            return desc;
+        return $"{code} — {desc}";
+    }
+
     private async Task CriarDesligamentoVinculadoAsync(SolicitacaoVaga vaga, CancellationToken ct)
     {
         if (!IsMotivoDesligamento(vaga)) return;
@@ -623,8 +681,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             TipoContrato = source.TipoContrato,
             PrazoDias = source.PrazoDias,
             MotivoRequisicao = source.MotivoRequisicao,
+            MotivoRequisicaoId = source.MotivoRequisicaoId,
             CnhObrigatoria = source.CnhObrigatoria,
             DisponibilidadeViagens = source.DisponibilidadeViagens,
+            TurnoId = source.TurnoId,
             EscalaTrabalho = source.EscalaTrabalho,
             // Decisão de headcount — copia pro rascunho, gestor pode alterar antes de submeter
             DecisaoRH = source.DecisaoRH,
@@ -781,13 +841,14 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         entity.CnhObrigatoria = request.CnhObrigatoria;
         entity.DisponibilidadeViagens = request.DisponibilidadeViagens;
-        entity.EscalaTrabalho = request.EscalaTrabalho;
         entity.EmpresaId = request.EmpresaId;
         entity.CentroCustoId = request.CentroCustoId;
         entity.UnidadeLotacaoId = request.UnidadeLotacaoId;
         // Vaga pré-vinculada: só atualiza se ainda estiver no rascunho (sem aprovação)
         if (request.VagaId.HasValue && !entity.VagaId.HasValue)
             entity.VagaId = request.VagaId;
+
+        await AplicarTurnoOuEscalaLegadaAsync(entity, request.TurnoId, request.EscalaTrabalho, ct);
 
         // Dados desligamento (limpa quando motivo não é de desligamento)
         if (ehDesligamentoUpd)
@@ -895,6 +956,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         entity.DecisaoRHRevisadoPorId ??= entity.SolicitanteId;
         entity.DecisaoRHEmUtc ??= DateTimeOffset.UtcNow;
+
+        if (!entity.TurnoId.HasValue && string.IsNullOrWhiteSpace(entity.EscalaTrabalho))
+            throw new InvalidOperationException("Informe o turno de trabalho ou a escala (formato legado) antes de submeter.");
 
         var statusAnteriorSubmit = entity.Status.ToString();
 
@@ -1632,6 +1696,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             ExigeCnh = entity.CnhObrigatoria,
             DisponibilidadeParaViagens = entity.DisponibilidadeViagens,
             TipoContratacao = tipoContratacao,
+            TurnoId = entity.TurnoId,
             EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(entity.EscalaTrabalho) ? null : entity.EscalaTrabalho,
             HeadcountPendente = headcountPendente,
             PesoCompetencia = 40,
@@ -2456,6 +2521,13 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.CnhObrigatoria,
         s.DisponibilidadeViagens,
         s.EscalaTrabalho,
+        s.TurnoId,
+        s.Turno?.Code,
+        s.Turno?.Description,
+        s.Turno?.StartTime,
+        s.Turno?.EndTime,
+        s.Turno?.Notes,
+        s.Turno?.UnidadeLotacao?.Description,
         s.EmpresaId,
         s.Empresa?.Description,
         s.CentroCustoId,

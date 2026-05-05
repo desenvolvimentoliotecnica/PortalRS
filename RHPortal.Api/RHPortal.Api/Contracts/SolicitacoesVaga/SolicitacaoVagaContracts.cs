@@ -64,6 +64,11 @@ public sealed class SolicitacaoVagaCreateRequest
 
     public bool CnhObrigatoria { get; set; }
     public bool DisponibilidadeViagens { get; set; }
+
+    /// <summary>Turno cadastrado (opcional). Quando preenchido, a API deriva <see cref="EscalaTrabalho"/> como rótulo do turno.</summary>
+    public Guid? TurnoId { get; set; }
+
+    /// <summary>Texto livre ou JSON legado; usado apenas quando <see cref="TurnoId"/> é null.</summary>
     public string? EscalaTrabalho { get; set; }
     public Guid? EmpresaId { get; set; }
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
@@ -129,6 +134,11 @@ public sealed class SolicitacaoVagaUpdateRequest
 
     public bool CnhObrigatoria { get; set; }
     public bool DisponibilidadeViagens { get; set; }
+
+    /// <summary>Turno cadastrado (opcional). Quando preenchido, a API deriva <see cref="EscalaTrabalho"/> como rótulo do turno.</summary>
+    public Guid? TurnoId { get; set; }
+
+    /// <summary>Texto livre ou JSON legado; usado apenas quando <see cref="TurnoId"/> é null.</summary>
     public string? EscalaTrabalho { get; set; }
     public Guid? EmpresaId { get; set; }
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>
@@ -230,6 +240,13 @@ public sealed record SolicitacaoVagaResponse(
     bool CnhObrigatoria,
     bool DisponibilidadeViagens,
     string? EscalaTrabalho,
+    Guid? TurnoId,
+    string? TurnoCode,
+    string? TurnoDescription,
+    string? TurnoStartTime,
+    string? TurnoEndTime,
+    string? TurnoNotes,
+    string? TurnoUnidadeLotacaoNome,
     Guid? EmpresaId,
     string? EmpresaNome,
     /// <summary>Centro de custo — absorveu Area em 31.2.</summary>

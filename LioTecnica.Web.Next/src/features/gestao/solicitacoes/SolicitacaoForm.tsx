@@ -37,6 +37,9 @@ export interface SolicitacaoDraft {
     motivoRequisicaoId: string | null;
     cnhObrigatoria: boolean;
     disponibilidadeViagens: boolean;
+    /** Turno do cadastro TOTVS (preferencial). */
+    turnoId: string | null;
+    /** Texto/JSON legado quando não há turno vinculado. */
     escalaTrabalho: string;
     empresaId: string | null;
     centroCustoId: string | null;
@@ -107,6 +110,7 @@ const emptyDraft: SolicitacaoDraft = {
     motivoRequisicaoId: null,
     cnhObrigatoria: false,
     disponibilidadeViagens: false,
+    turnoId: null,
     escalaTrabalho: "",
     empresaId: null,
     centroCustoId: null,
@@ -444,6 +448,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     type FuncaoRmRow = { codigo?: string | null; nome?: string | null };
     const [funcoesRmItems, setFuncoesRmItems] = useState<LookupItem[]>([]);
     const [funcoesRmLoading, setFuncoesRmLoading] = useState(false);
+    const [turnoLookupItems, setTurnoLookupItems] = useState<LookupItem[]>([]);
+    const [turnosLookupLoading, setTurnosLookupLoading] = useState(false);
+    const [turnoDetalhe, setTurnoDetalhe] = useState<Record<string, unknown> | null>(null);
     /** Funcionário gestor da requisição: subordinados diretos (`GestorDiretoId`) definem a lista de funções RM. */
     const [requisitanteFuncionarioId, setRequisitanteFuncionarioId] = useState<string | null>(null);
 
@@ -511,6 +518,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             motivoRequisicaoId: d?.motivoRequisicaoId ? String(d.motivoRequisicaoId) : null,
             cnhObrigatoria: Boolean(d?.cnhObrigatoria),
             disponibilidadeViagens: Boolean(d?.disponibilidadeViagens),
+            turnoId: (() => {
+                const r = d?.turnoId ?? d?.TurnoId;
+                return r != null && String(r).trim() !== "" ? String(r) : null;
+            })(),
             escalaTrabalho: String(d?.escalaTrabalho ?? ""),
             empresaId: d?.empresaId ? String(d.empresaId) : null,
             centroCustoId: d?.centroCustoId ? String(d.centroCustoId) : null,
@@ -676,6 +687,69 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     }, [active, requisitanteFuncionarioId]);
 
     useEffect(() => {
+        if (!active) {
+            setTurnoDetalhe(null);
+            return;
+        }
+        const id = draft.turnoId?.trim();
+        if (!id) {
+            setTurnoDetalhe(null);
+            return;
+        }
+        let cancelled = false;
+        void fetchJson<Record<string, unknown>>(`/api/turnos/${encodeURIComponent(id)}`)
+            .then((d) => {
+                if (!cancelled) setTurnoDetalhe(d);
+            })
+            .catch(() => {
+                if (!cancelled) setTurnoDetalhe(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [active, draft.turnoId]);
+
+    useEffect(() => {
+        if (!active) {
+            setTurnoLookupItems([]);
+            return;
+        }
+        let cancelled = false;
+        setTurnosLookupLoading(true);
+        const q = draft.unidadeLotacaoId
+            ? `/api/turnos/lookup?includeGlobals=true&unidadeLotacaoId=${encodeURIComponent(draft.unidadeLotacaoId)}`
+            : "/api/turnos/lookup?includeGlobals=true";
+        void fetchJson<Record<string, unknown>[]>(q)
+            .then((rows) => {
+                if (cancelled) return;
+                const arr = Array.isArray(rows) ? rows : [];
+                setTurnoLookupItems(
+                    arr
+                        .map((x) => ({
+                            id: String(x.id ?? x.Id ?? ""),
+                            code: String(x.code ?? x.Code ?? ""),
+                            name:
+                                String(
+                                    x.displayLabel
+                                    ?? x.DisplayLabel
+                                    ?? `${String(x.code ?? x.Code ?? "")} – ${String(x.description ?? x.Description ?? "")}`,
+                                ).trim() || "—",
+                        }))
+                        .filter((x) => x.id.length > 0),
+                );
+            })
+            .catch(() => {
+                if (!cancelled) setTurnoLookupItems([]);
+            })
+            .finally(() => {
+                if (!cancelled) setTurnosLookupLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [active, draft.unidadeLotacaoId]);
+
+    useEffect(() => {
         if (!active || !requisitanteFuncionarioId) {
             setFuncoesRmItems([]);
             setFuncoesRmLoading(false);
@@ -727,6 +801,15 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         ? funcaoRmOptionId(draft.codFuncaoRm, draft.funcaoNomeRm)
         : null;
 
+    const turnoSelectItems = useMemo(() => {
+        const id = draft.turnoId?.trim();
+        if (!id) return turnoLookupItems;
+        if (turnoLookupItems.some((i) => i.id === id)) return turnoLookupItems;
+        const code = String(turnoDetalhe?.code ?? turnoDetalhe?.Code ?? "").trim();
+        const name = String(turnoDetalhe?.description ?? turnoDetalhe?.Description ?? "").trim();
+        return [{ id, code: code || "—", name: name || "Turno" }, ...turnoLookupItems];
+    }, [turnoLookupItems, draft.turnoId, turnoDetalhe]);
+
     async function save() {
         if (viewOnly) return;
         const errors: string[] = [];
@@ -758,6 +841,12 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             errors.push("Justificativa (obrigatória para aumento definitivo de headcount)");
             setActiveTab("identificacao");
         }
+        const temTurno = !!draft.turnoId?.trim();
+        const temEscalaLegada = !!(draft.escalaTrabalho || "").trim();
+        if (!temTurno && !temEscalaLegada) {
+            errors.push("Turno (cadastro) ou horário legado");
+            setActiveTab("horario");
+        }
         if (errors.length > 0) {
             toast.error(`Campos obrigatórios: ${errors.join(", ")}.`);
             return;
@@ -782,7 +871,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             motivoRequisicaoId: draft.motivoRequisicaoId,
             cnhObrigatoria: draft.cnhObrigatoria,
             disponibilidadeViagens: draft.disponibilidadeViagens,
-            escalaTrabalho: draft.escalaTrabalho || null,
+            turnoId: draft.turnoId || null,
+            escalaTrabalho: draft.turnoId ? null : (draft.escalaTrabalho?.trim() || null),
             empresaId: draft.empresaId,
             centroCustoId: draft.centroCustoId,
             unidadeLotacaoId: draft.unidadeLotacaoId,
@@ -806,7 +896,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 ? (body.errors as Record<string, unknown>)
                 : null;
             const blob = (errs ? Object.keys(errs) : Object.keys(body)).join("|").toLowerCase();
-            if (/escala|horario|horário/i.test(blob)) return "horario";
+            if (/escala|horario|horário|turno/i.test(blob)) return "horario";
             if (/aprovador/i.test(blob)) return "aprovacao";
             if (/titulo|empresa|unidade|motivo|justificativa|cargo|quadro|substituid|headcount|decisao|funcao|codfuncao/i.test(blob)) return "identificacao";
             return null;
@@ -1286,15 +1376,94 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                         {/* ══════════════ TAB 3 — Horário ══════════════ */}
                         <TabsContent value="horario" className="mt-0">
-                            <div className="space-y-2">
+                            <div className="space-y-4">
                                 <p className="text-xs text-muted-foreground">
-                                    Selecione a escala na lista ou preencha manualmente os horários por dia da semana.
+                                    Escolha um turno cadastrado (integração TOTVS). Registros antigos só com texto livre permanecem visíveis como legado até migrarem para um turno.
                                 </p>
-                                <HorarioEditor
-                                    value={draft.escalaTrabalho}
-                                    onChange={(v) => setDraft((d) => ({ ...d, escalaTrabalho: v }))}
-                                    readonly={viewOnly}
-                                />
+
+                                {!draft.unidadeLotacaoId && (
+                                    <p className="text-xs text-amber-700 dark:text-amber-500">
+                                        Informe a lotação na aba anterior para filtrar turnos globais e da unidade.
+                                    </p>
+                                )}
+
+                                <div>
+                                    <label className="text-sm font-medium">Turno</label>
+                                    <AutocompleteSelect
+                                        items={turnoSelectItems}
+                                        value={draft.turnoId}
+                                        onChange={(id) =>
+                                            setDraft((d) => ({
+                                                ...d,
+                                                turnoId: id,
+                                                escalaTrabalho: id ? "" : d.escalaTrabalho,
+                                            }))}
+                                        placeholder={turnosLookupLoading ? "Carregando turnos…" : "turno"}
+                                        disabled={viewOnly || turnosLookupLoading}
+                                    />
+                                </div>
+
+                                {draft.turnoId && turnoDetalhe && (
+                                    <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
+                                        <p className="font-medium text-foreground">
+                                            {String(turnoDetalhe.code ?? turnoDetalhe.Code ?? "")} — {String(turnoDetalhe.description ?? turnoDetalhe.Description ?? "")}
+                                        </p>
+                                        {(turnoDetalhe.startTime != null || turnoDetalhe.StartTime != null
+                                            || turnoDetalhe.endTime != null || turnoDetalhe.EndTime != null) && (
+                                            <p className="text-muted-foreground">
+                                                {String(turnoDetalhe.startTime ?? turnoDetalhe.StartTime ?? "—")}
+                                                {" "}
+                                                às
+                                                {" "}
+                                                {String(turnoDetalhe.endTime ?? turnoDetalhe.EndTime ?? "—")}
+                                            </p>
+                                        )}
+                                        {(turnoDetalhe.unidadeLotacaoNome != null || turnoDetalhe.UnidadeLotacaoNome != null) && (
+                                            <p className="text-muted-foreground">
+                                                Lotação do turno:{" "}
+                                                {String(turnoDetalhe.unidadeLotacaoNome ?? turnoDetalhe.UnidadeLotacaoNome ?? "")}
+                                            </p>
+                                        )}
+                                        {(turnoDetalhe.notes != null || turnoDetalhe.Notes != null) && String(turnoDetalhe.notes ?? turnoDetalhe.Notes ?? "").trim() !== "" && (
+                                            <p className="text-muted-foreground text-xs whitespace-pre-wrap">
+                                                {String(turnoDetalhe.notes ?? turnoDetalhe.Notes ?? "")}
+                                            </p>
+                                        )}
+                                        {(() => {
+                                            const gj = String(turnoDetalhe.gradeHorarioJson ?? turnoDetalhe.GradeHorarioJson ?? "").trim();
+                                            return gj ? (
+                                                <div className="pt-2 space-y-1">
+                                                    <p className="text-xs font-medium text-muted-foreground">Grade semanal (cadastro)</p>
+                                                    <HorarioEditor value={gj} readonly />
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                    </div>
+                                )}
+
+                                {!draft.turnoId && !viewOnly && (
+                                    <div>
+                                        <label className="text-sm font-medium">Horário legado (texto livre / JSON antigo)</label>
+                                        <textarea
+                                            className="mt-1 w-full rounded-md border border-input bg-background p-2 text-xs font-mono placeholder:text-muted-foreground resize-y min-h-[100px]"
+                                            value={draft.escalaTrabalho}
+                                            onChange={(e) => setDraft((d) => ({ ...d, escalaTrabalho: e.target.value }))}
+                                            placeholder="Use apenas se ainda não existir turno cadastrado para esta posição. Prefira selecionar um turno."
+                                            maxLength={8000}
+                                        />
+                                    </div>
+                                )}
+
+                                {!draft.turnoId && viewOnly && (draft.escalaTrabalho || "").trim() !== "" && (
+                                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+                                        <p className="text-xs font-medium text-amber-800 dark:text-amber-400">
+                                            Horário legado (formato antigo)
+                                        </p>
+                                        <pre className="text-xs whitespace-pre-wrap break-words max-h-40 overflow-y-auto bg-background/80 rounded p-2 border border-border">
+                                            {draft.escalaTrabalho}
+                                        </pre>
+                                    </div>
+                                )}
                             </div>
                         </TabsContent>
 

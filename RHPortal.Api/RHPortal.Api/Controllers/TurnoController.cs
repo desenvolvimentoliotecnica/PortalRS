@@ -60,7 +60,8 @@ public sealed class TurnoController : ControllerBase
                 x.Id, x.Code, x.Description, x.StartTime, x.EndTime, x.Notes,
                 x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
                 x.UnidadeLotacaoId,
-                x.UnidadeLotacao != null ? x.UnidadeLotacao.Description : null))
+                x.UnidadeLotacao != null ? x.UnidadeLotacao.Description : null,
+                x.GradeHorarioJson))
             .ToListAsync(ct);
 
         Response.Headers["X-Total-Count"] = total.ToString();
@@ -99,7 +100,9 @@ public sealed class TurnoController : ControllerBase
             .Select(x => new TurnoLookupItem(
                 x.Id, x.Code, x.Description,
                 $"{x.Code} - {x.Description}",
-                x.UnidadeLotacaoId))
+                x.UnidadeLotacaoId,
+                x.StartTime,
+                x.EndTime))
             .ToListAsync(ct);
 
         return Ok(items);
@@ -120,7 +123,8 @@ public sealed class TurnoController : ControllerBase
                 x.Id, x.Code, x.Description, x.StartTime, x.EndTime, x.Notes,
                 x.IsActive, x.CreatedAtUtc, x.UpdatedAtUtc,
                 x.UnidadeLotacaoId,
-                x.UnidadeLotacao != null ? x.UnidadeLotacao.Description : null))
+                x.UnidadeLotacao != null ? x.UnidadeLotacao.Description : null,
+                x.GradeHorarioJson))
             .FirstOrDefaultAsync(ct);
 
         return item is null ? NotFound() : Ok(item);
@@ -151,6 +155,7 @@ public sealed class TurnoController : ControllerBase
             StartTime = string.IsNullOrWhiteSpace(request.StartTime) ? null : request.StartTime.Trim(),
             EndTime = string.IsNullOrWhiteSpace(request.EndTime) ? null : request.EndTime.Trim(),
             Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
+            GradeHorarioJson = string.IsNullOrWhiteSpace(request.GradeHorarioJson) ? null : request.GradeHorarioJson.Trim(),
             IsActive = request.IsActive,
             UnidadeLotacaoId = request.UnidadeLotacaoId
         };
@@ -170,7 +175,7 @@ public sealed class TurnoController : ControllerBase
         var response = new TurnoResponse(
             entity.Id, entity.Code, entity.Description, entity.StartTime, entity.EndTime,
             entity.Notes, entity.IsActive, entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.UnidadeLotacaoId, unidadeNome);
+            entity.UnidadeLotacaoId, unidadeNome, entity.GradeHorarioJson);
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, response);
     }
 
@@ -203,6 +208,7 @@ public sealed class TurnoController : ControllerBase
         entity.StartTime = string.IsNullOrWhiteSpace(request.StartTime) ? null : request.StartTime.Trim();
         entity.EndTime = string.IsNullOrWhiteSpace(request.EndTime) ? null : request.EndTime.Trim();
         entity.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+        entity.GradeHorarioJson = string.IsNullOrWhiteSpace(request.GradeHorarioJson) ? null : request.GradeHorarioJson.Trim();
         entity.IsActive = request.IsActive;
         entity.UnidadeLotacaoId = request.UnidadeLotacaoId;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -221,7 +227,7 @@ public sealed class TurnoController : ControllerBase
         return Ok(new TurnoResponse(
             entity.Id, entity.Code, entity.Description, entity.StartTime, entity.EndTime,
             entity.Notes, entity.IsActive, entity.CreatedAtUtc, entity.UpdatedAtUtc,
-            entity.UnidadeLotacaoId, unidadeNome));
+            entity.UnidadeLotacaoId, unidadeNome, entity.GradeHorarioJson));
     }
 
     [HttpDelete("{id:guid}")]
