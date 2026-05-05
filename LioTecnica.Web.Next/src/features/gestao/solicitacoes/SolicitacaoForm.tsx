@@ -1377,16 +1377,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         {/* ══════════════ TAB 3 — Horário ══════════════ */}
                         <TabsContent value="horario" className="mt-0">
                             <div className="space-y-4">
-                                <p className="text-xs text-muted-foreground">
-                                    Escolha um turno cadastrado (integração TOTVS). Registros antigos só com texto livre permanecem visíveis como legado até migrarem para um turno.
-                                </p>
-
-                                {!draft.unidadeLotacaoId && (
-                                    <p className="text-xs text-amber-700 dark:text-amber-500">
-                                        Informe a lotação na aba anterior para filtrar turnos globais e da unidade.
-                                    </p>
-                                )}
-
                                 <div>
                                     <label className="text-sm font-medium">Turno</label>
                                     <AutocompleteSelect
