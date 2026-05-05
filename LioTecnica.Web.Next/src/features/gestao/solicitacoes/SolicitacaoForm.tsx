@@ -216,6 +216,14 @@ function funcaoRmOptionId(codigo: string, nome: string | null | undefined) {
     return `${codigo}\t${nome ?? ""}`;
 }
 
+/** Valor persistido em <c>Titulo</c> na API: nome da função RM, ou código se o nome vier vazio. */
+function tituloFromFuncaoRm(cod: string | null | undefined, nome: string | null | undefined): string {
+    const n = (nome ?? "").trim();
+    const c = (cod ?? "").trim();
+    const base = n || c;
+    return base.length > 160 ? base.slice(0, 160) : base;
+}
+
 function parseFuncaoRmOptionId(id: string): { codigo: string; nome: string | null } {
     const tab = id.indexOf("\t");
     if (tab < 0) return { codigo: id, nome: null };
@@ -463,8 +471,14 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     }, []);
 
     function parseDraft(d: Record<string, unknown>, titleSuffix = ""): SolicitacaoDraft {
+        const codFuncaoRm = d?.codFuncaoRm != null && String(d.codFuncaoRm).trim() !== "" ? String(d.codFuncaoRm) : null;
+        const funcaoNomeRm = d?.funcaoNomeRm != null && String(d.funcaoNomeRm).trim() !== "" ? String(d.funcaoNomeRm) : null;
+        const tituloRm = tituloFromFuncaoRm(codFuncaoRm, funcaoNomeRm);
+        const tituloLegado = String(d?.titulo ?? "").trim();
+        const titulo = `${tituloRm || tituloLegado}${titleSuffix}`.slice(0, 160);
+
         return {
-            titulo: String(d?.titulo ?? "") + titleSuffix,
+            titulo,
             justificativa: String(d?.justificativa ?? ""),
             qtdPosicoes: Number(d?.qtdPosicoes ?? 1),
             urgencia: (() => { const map: Record<string, number> = { Baixa: 0, Media: 1, Alta: 2, Critica: 3 }; const v = d?.urgencia; return typeof v === "number" ? v : (map[v as string] ?? 1); })(),
@@ -485,8 +499,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             centroCustoId: d?.centroCustoId ? String(d.centroCustoId) : null,
             unidadeLotacaoId: d?.unidadeLotacaoId ? String(d.unidadeLotacaoId) : null,
             vagaId: d?.vagaId ? String(d.vagaId) : null,
-            codFuncaoRm: d?.codFuncaoRm != null && String(d.codFuncaoRm).trim() !== "" ? String(d.codFuncaoRm) : null,
-            funcaoNomeRm: d?.funcaoNomeRm != null && String(d.funcaoNomeRm).trim() !== "" ? String(d.funcaoNomeRm) : null,
+            codFuncaoRm,
+            funcaoNomeRm,
             dataDesligamento: d?.dataDesligamento ? String(d.dataDesligamento).slice(0, 10) : null,
             tipoAvisoPrevioDesligamento: (() => { const m: Record<string, number> = { Indenizado: 0, Trabalhado: 1, Dispensado: 2 }; const v = d?.tipoAvisoPrevioDesligamento; return v == null ? null : typeof v === "number" ? v : (m[v as string] ?? null); })(),
             diasAvisoPrevioDesligamento: d?.diasAvisoPrevioDesligamento != null ? Number(d.diasAvisoPrevioDesligamento) : 30,
@@ -630,7 +644,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     async function save() {
         if (viewOnly) return;
         const errors: string[] = [];
-        if (!draft.titulo.trim()) errors.push("Título");
+        if (!draft.codFuncaoRm?.trim()) errors.push("Título da Vaga / Função");
         if (!draft.empresaId) errors.push("Empresa");
         if (!draft.unitId) errors.push("Local (Unidade)");
         if (!draft.centroCustoId) errors.push("Centro de Custo");
@@ -665,7 +679,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
         setSaving(true);
         const payload = {
-            titulo: draft.titulo.trim(),
+            titulo: tituloFromFuncaoRm(draft.codFuncaoRm, draft.funcaoNomeRm),
             codFuncaoRm: draft.codFuncaoRm?.trim() || null,
             funcaoNomeRm: draft.funcaoNomeRm?.trim() || null,
             justificativa: draft.justificativa.trim() || null,
@@ -904,15 +918,13 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 <Section title="Dados da Vaga" />
 
                                 <div className="col-span-2">
-                                    <label className={L}>Título da Vaga *</label>
-                                    <Input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex: Analista de RH Pleno" maxLength={160} disabled={viewOnly} />
-                                    <label className={`${L} mt-2`}>Função (RM)</label>
+                                    <label className={L}>Título da Vaga / Função *</label>
                                     <AutocompleteSelect
                                         items={funcoesRmSelectItems}
                                         value={funcaoRmSelectValue}
                                         onChange={(id) => {
                                             if (!id) {
-                                                setDraft((d) => ({ ...d, codFuncaoRm: null, funcaoNomeRm: null }));
+                                                setDraft((d) => ({ ...d, codFuncaoRm: null, funcaoNomeRm: null, titulo: "" }));
                                                 return;
                                             }
                                             const { codigo, nome } = parseFuncaoRmOptionId(id);
@@ -920,9 +932,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                                 ...d,
                                                 codFuncaoRm: codigo || null,
                                                 funcaoNomeRm: nome,
+                                                titulo: tituloFromFuncaoRm(codigo || null, nome),
                                             }));
                                         }}
-                                        placeholder="função"
+                                        placeholder="função RM"
+                                        required={!viewOnly}
                                         disabled={viewOnly || !requisitanteFuncionarioId}
                                     />
                                     {funcoesRmLoading && requisitanteFuncionarioId && (
