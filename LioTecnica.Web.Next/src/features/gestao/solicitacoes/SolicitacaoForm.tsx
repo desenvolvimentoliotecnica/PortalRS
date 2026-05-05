@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -224,6 +225,14 @@ function tituloFromFuncaoRm(cod: string | null | undefined, nome: string | null 
     return base.length > 160 ? base.slice(0, 160) : base;
 }
 
+function iniciaisNome(nome: string | null | undefined): string {
+    const n = (nome ?? "").trim();
+    if (!n) return "?";
+    const partes = n.split(/\s+/).filter(Boolean);
+    if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+    return `${partes[0][0] ?? ""}${partes[partes.length - 1][0] ?? ""}`.toUpperCase() || "?";
+}
+
 function parseFuncaoRmOptionId(id: string): { codigo: string; nome: string | null } {
     const tab = id.indexOf("\t");
     if (tab < 0) return { codigo: id, nome: null };
@@ -412,6 +421,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [centrosCusto, setCentrosCusto] = useState<LookupItem[]>([]);
     const [unidadesLotacao, setUnidadesLotacao] = useState<LookupItem[]>([]);
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
+    const [requisitanteNomeExibicao, setRequisitanteNomeExibicao] = useState<string | null>(null);
+    const [superiorNomeExibicao, setSuperiorNomeExibicao] = useState<string | null>(null);
+    const [superiorMatriculaExibicao, setSuperiorMatriculaExibicao] = useState<string | null>(null);
+    const [superiorCarregando, setSuperiorCarregando] = useState(false);
     /** Campos vindos de GET /api/me — bloqueados para não divergir do vínculo do gestor. */
     const [estruturaLocks, setEstruturaLocks] = useState({
         empresa: false,
@@ -462,6 +475,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             const myFuncId = meRes?.funcionarioId as string | null;
             if (opts?.setRequisitanteFromMe && myFuncId)
                 setRequisitanteFuncionarioId(myFuncId);
+            const meNome = meRes?.fullName != null ? String(meRes.fullName).trim() : "";
+            if (opts?.setRequisitanteFromMe && meNome)
+                setRequisitanteNomeExibicao(meNome);
             if (myFuncId) {
                 const funcRes = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${myFuncId}`);
                 const gdId = funcRes?.gestorDiretoId as string | null;
@@ -520,7 +536,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         if (!active) return;
         setActiveTab("identificacao");
         setRequisitanteFuncionarioId(null);
-        loadLookups({ setRequisitanteFromMe: !editId });
+        setRequisitanteNomeExibicao(null);
+        setGestorDiretoId(null);
+        loadLookups({ setRequisitanteFromMe: !editId && !copySourceId });
 
         setObservacaoAprovador(null);
         setStatusCarregado(null);
@@ -532,6 +550,17 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                     setDraft(parseDraft(d, copySourceId ? " (cópia)" : ""));
                     if (editId && d?.solicitanteId)
                         setRequisitanteFuncionarioId(String(d.solicitanteId));
+                    const sn = d?.solicitanteNome != null ? String(d.solicitanteNome).trim() : "";
+                    if (sn) {
+                        setRequisitanteNomeExibicao(sn);
+                    } else if (d?.solicitanteId) {
+                        void fetchJson<Record<string, unknown>>(`/api/funcionarios/${String(d.solicitanteId)}`)
+                            .then((f) => {
+                                const n = f?.name != null ? String(f.name).trim() : "";
+                                if (n) setRequisitanteNomeExibicao(n);
+                            })
+                            .catch(() => { /* ignore */ });
+                    }
                     setObservacaoAprovador(d?.observacaoAprovador ? String(d.observacaoAprovador) : null);
                     const s = d?.status;
                     setStatusCarregado(typeof s === "string" || typeof s === "number" ? s : null);
@@ -588,6 +617,42 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             setDraft((d) => ({ ...d, aprovadorId: gestorDiretoId }));
         }
     }, [gestorDiretoId, editId, draft.aprovadorId]);
+
+    useEffect(() => {
+        if (!active) {
+            setSuperiorNomeExibicao(null);
+            setSuperiorMatriculaExibicao(null);
+            setSuperiorCarregando(false);
+            return;
+        }
+        const id = draft.aprovadorId?.trim();
+        if (!id) {
+            setSuperiorNomeExibicao(null);
+            setSuperiorMatriculaExibicao(null);
+            setSuperiorCarregando(false);
+            return;
+        }
+        let cancelled = false;
+        setSuperiorCarregando(true);
+        void fetchJson<Record<string, unknown>>(`/api/funcionarios/${id}`)
+            .then((f) => {
+                if (cancelled) return;
+                setSuperiorNomeExibicao(f?.name != null ? String(f.name) : null);
+                setSuperiorMatriculaExibicao(f?.matriculaRm != null ? String(f.matriculaRm) : null);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setSuperiorNomeExibicao(null);
+                    setSuperiorMatriculaExibicao(null);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setSuperiorCarregando(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [active, draft.aprovadorId]);
 
     useEffect(() => {
         if (!active || !requisitanteFuncionarioId) {
@@ -1212,25 +1277,70 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                             </div>
                         </TabsContent>
 
-                        {/* ══════════════ TAB 4 — Aprovação ══════════════ */}
+                        {/* ══════════════ TAB 4 — Aprovação (fluxo visual superior → requisitante) ══════════════ */}
                         <TabsContent value="aprovacao" className="mt-0">
-                            <div className="grid grid-cols-3 gap-x-4 gap-y-3">
-                                <div className="col-span-2">
-                                    <label className={L}>Aprovador</label>
+                            <div className="flex flex-col items-center px-2 py-4 sm:py-8">
+                                <p className="text-center text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
+                                    A solicitação é analisada primeiro pelo superior direto; abaixo você enxerga onde se posiciona neste fluxo.
+                                </p>
+
+                                <div className="w-full max-w-sm rounded-2xl border border-border/80 bg-card shadow-sm px-5 py-5 text-center">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                                        Superior direto (aprovador)
+                                    </p>
+                                    <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-primary/35 bg-gradient-to-b from-primary/10 to-primary/5 text-base font-bold text-primary tabular-nums">
+                                        {superiorCarregando ? (
+                                            <span className="size-5 animate-pulse rounded-full bg-primary/25" aria-hidden />
+                                        ) : (
+                                            iniciaisNome(superiorNomeExibicao)
+                                        )}
+                                    </div>
+                                    <p className="text-sm font-semibold text-foreground leading-snug break-words">
+                                        {superiorCarregando ? "Carregando…" : (superiorNomeExibicao ?? (draft.aprovadorId ? "—" : "Ainda não definido"))}
+                                    </p>
+                                    {!!superiorMatriculaExibicao?.trim() && !superiorCarregando && (
+                                        <p className="mt-1 font-mono text-xs text-muted-foreground">{superiorMatriculaExibicao}</p>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col items-center py-3" aria-hidden>
+                                    <span className="h-6 w-px bg-border" />
+                                    <ArrowDown className="size-5 text-muted-foreground/90" strokeWidth={2.2} />
+                                </div>
+
+                                <div className="w-full max-w-sm rounded-2xl border border-dashed border-primary/25 bg-muted/30 px-5 py-5 text-center">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                                        Requisitante
+                                    </p>
+                                    <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-muted-foreground/25 bg-background text-base font-bold text-muted-foreground">
+                                        {iniciaisNome(requisitanteNomeExibicao)}
+                                    </div>
+                                    <p className="text-sm font-semibold text-foreground leading-snug break-words">
+                                        {requisitanteNomeExibicao ?? "—"}
+                                    </p>
+                                </div>
+
+                                {gestorDiretoId && draft.aprovadorId === gestorDiretoId && (
+                                    <p className="mt-6 max-w-sm text-center text-xs text-muted-foreground">
+                                        Superior direto detectado automaticamente a partir do seu cadastro no portal.
+                                    </p>
+                                )}
+                            </div>
+
+                            {!gestorDiretoId && !viewOnly && (
+                                <div className="mx-auto mt-2 max-w-lg border-t border-border pt-6 pb-2">
+                                    <label className={L}>Definir aprovador</label>
                                     <FuncionarioAsyncSelect
                                         value={draft.aprovadorId}
                                         onChange={(v) => setDraft((d) => ({ ...d, aprovadorId: v }))}
                                         placeholder="aprovador"
                                         disabled={viewOnly}
                                     />
-                                    {gestorDiretoId && draft.aprovadorId === gestorDiretoId && (
-                                        <p className="text-xs text-muted-foreground mt-1">Superior direto detectado automaticamente.</p>
-                                    )}
-                                    {!gestorDiretoId && (
-                                        <p className="text-xs text-amber-600 mt-1">Sem gestor direto cadastrado. Selecione manualmente.</p>
-                                    )}
+                                    <p className="text-xs text-amber-600 mt-2">
+                                        Sem gestor direto cadastrado no seu perfil. Escolha quem deve receber esta solicitação.
+                                    </p>
                                 </div>
-                            </div>
+                            )}
                         </TabsContent>
                         </div>
                     </Tabs>
