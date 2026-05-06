@@ -237,6 +237,7 @@ class DeployRunner:
         self.sha = ""
         self.archive_path: Path | None = None
         self.changed_files: list[str] = []
+        self.changed_files_reliable = False
         self.services_to_build: list[str] = list(ALL_SERVICES)
 
     def deploy(self) -> None:
@@ -424,6 +425,8 @@ fi
         if self.deploy_mode == "full":
             return list(ALL_SERVICES), "modo completo selecionado"
         if not files:
+            if self.changed_files_reliable:
+                return [], "nenhuma mudanca de runtime detectada"
             return list(ALL_SERVICES), "sem SHA anterior ou sem lista de mudancas confiavel"
 
         build: set[str] = set()
@@ -463,6 +466,7 @@ fi
 set -euo pipefail
 STATE_PATH={shlex.quote(state_path)}
 if [[ -f "$STATE_PATH" ]]; then
+  export STATE_PATH
   python3 - <<'PY'
 import json, os
 with open(os.environ["STATE_PATH"], "r", encoding="utf-8") as fh:
@@ -473,8 +477,17 @@ else
   true
 fi
 """
-        _, output = ssh.run(script, "ler ultimo SHA publicado", check=False)
-        previous_sha = output.strip().splitlines()[-1].strip() if output.strip() else ""
+        self.changed_files_reliable = False
+        code, output = ssh.run(script, "ler ultimo SHA publicado", check=False)
+        previous_sha = ""
+        if code == 0:
+            for line in reversed(output.strip().splitlines()):
+                value = line.strip()
+                if len(value) == 40 and all(char in "0123456789abcdefABCDEF" for char in value):
+                    previous_sha = value
+                    break
+        else:
+            self.log.warn("Nao foi possivel ler deploy-state.json anterior; usando build completo.")
         if previous_sha:
             self.log.info(f"Ultimo SHA registrado no servidor: {previous_sha}")
             code, diff_output = self._run_local(
@@ -485,11 +498,13 @@ fi
             )
             if code == 0:
                 self.changed_files = [line.strip() for line in diff_output.splitlines() if line.strip()]
+                self.changed_files_reliable = True
             else:
                 self.log.warn("Nao foi possivel calcular diff local; usando build completo.")
                 self.changed_files = []
         else:
-            self.log.warn("Nenhum deploy-state.json anterior encontrado; usando build completo.")
+            if code == 0:
+                self.log.warn("Nenhum deploy-state.json anterior encontrado; usando build completo.")
             self.changed_files = []
 
         self.services_to_build, reason = self._service_plan_from_files(self.changed_files)
