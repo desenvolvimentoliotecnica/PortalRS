@@ -43,7 +43,6 @@ export interface SolicitacaoDraft {
     escalaTrabalho: string;
     empresaId: string | null;
     centroCustoId: string | null;
-    unidadeLotacaoId: string | null;
     /** Vaga pré-vinculada quando solicitação é criada a partir do painel de vagas */
     vagaId: string | null;
     /** Função RM (PFUNCAO) — lista filtrada pelo centro de custo da solicitação. */
@@ -114,7 +113,6 @@ const emptyDraft: SolicitacaoDraft = {
     escalaTrabalho: "",
     empresaId: null,
     centroCustoId: null,
-    unidadeLotacaoId: null,
     vagaId: null,
     codFuncaoRm: null,
     funcaoNomeRm: null,
@@ -423,7 +421,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [unidades, setUnidades] = useState<LookupItem[]>([]);
     const [empresas, setEmpresas] = useState<LookupItem[]>([]);
     const [centrosCusto, setCentrosCusto] = useState<LookupItem[]>([]);
-    const [unidadesLotacao, setUnidadesLotacao] = useState<LookupItem[]>([]);
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
     const [requisitanteNomeExibicao, setRequisitanteNomeExibicao] = useState<string | null>(null);
     const [requisitanteMatriculaExibicao, setRequisitanteMatriculaExibicao] = useState<string | null>(null);
@@ -435,7 +432,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         empresa: false,
         unit: false,
         centroCusto: false,
-        lotacao: false,
     });
 
     /**
@@ -465,17 +461,15 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         // que sabe se precisa aplicar filtros por vaga/cargo/lotação. Carregar aqui causava race
         // condition que podia sobrescrever a lista filtrada.
         type OptionRes = { id: string; name: string; code?: string };
-        const [unidadesRes, empresasRes, ccRes, lotacaoRes, motivosRes] = await Promise.all([
+        const [unidadesRes, empresasRes, ccRes, motivosRes] = await Promise.all([
             fetchJson<OptionRes[]>("/api/lookup/units").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/empresas").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/centros-custo").catch(() => []),
-            fetchJson<OptionRes[]>("/api/lookup/unidades-lotacao").catch(() => []),
             fetchJson<MotivoLookup[]>("/api/motivos-requisicao-vaga/lookup").catch(() => []),
         ]);
         setUnidades(Array.isArray(unidadesRes) ? unidadesRes : []);
         setEmpresas(Array.isArray(empresasRes) ? empresasRes : []);
         setCentrosCusto(Array.isArray(ccRes) ? ccRes : []);
-        setUnidadesLotacao(Array.isArray(lotacaoRes) ? lotacaoRes : []);
         setMotivos(Array.isArray(motivosRes) ? motivosRes : []);
 
         try {
@@ -525,7 +519,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             escalaTrabalho: String(d?.escalaTrabalho ?? ""),
             empresaId: d?.empresaId ? String(d.empresaId) : null,
             centroCustoId: d?.centroCustoId ? String(d.centroCustoId) : null,
-            unidadeLotacaoId: d?.unidadeLotacaoId ? String(d.unidadeLotacaoId) : null,
             vagaId: d?.vagaId ? String(d.vagaId) : null,
             codFuncaoRm,
             funcaoNomeRm,
@@ -591,7 +584,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
     useEffect(() => {
         if (!active || viewOnly || editId || copySourceId) {
-            setEstruturaLocks({ empresa: false, unit: false, centroCusto: false, lotacao: false });
+            setEstruturaLocks({ empresa: false, unit: false, centroCusto: false });
             return;
         }
         let cancelled = false;
@@ -601,24 +594,21 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 const empresaId = me.empresaId != null ? String(me.empresaId) : null;
                 const unitId = me.unitId != null ? String(me.unitId) : null;
                 const centroCustoId = me.centroCustoId != null ? String(me.centroCustoId) : null;
-                const unidadeLotacaoId = me.unidadeLotacaoId != null ? String(me.unidadeLotacaoId) : null;
                 if (cancelled) return;
                 setEstruturaLocks({
                     empresa: !!empresaId,
                     unit: !!unitId,
                     centroCusto: !!centroCustoId,
-                    lotacao: !!unidadeLotacaoId,
                 });
                 setDraft((d) => ({
                     ...d,
                     ...(!d.empresaId && empresaId ? { empresaId } : {}),
                     ...(!d.unitId && unitId ? { unitId } : {}),
                     ...(!d.centroCustoId && centroCustoId ? { centroCustoId } : {}),
-                    ...(!d.unidadeLotacaoId && unidadeLotacaoId ? { unidadeLotacaoId } : {}),
                 }));
             } catch {
                 if (!cancelled) {
-                    setEstruturaLocks({ empresa: false, unit: false, centroCusto: false, lotacao: false });
+                    setEstruturaLocks({ empresa: false, unit: false, centroCusto: false });
                 }
             }
         })();
@@ -716,9 +706,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         }
         let cancelled = false;
         setTurnosLookupLoading(true);
-        const q = draft.unidadeLotacaoId
-            ? `/api/turnos/lookup?includeGlobals=true&unidadeLotacaoId=${encodeURIComponent(draft.unidadeLotacaoId)}`
-            : "/api/turnos/lookup?includeGlobals=true";
+        const q = "/api/turnos/lookup?includeGlobals=true&globalsOnly=true";
         void fetchJson<Record<string, unknown>[]>(q)
             .then((rows) => {
                 if (cancelled) return;
@@ -747,7 +735,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         return () => {
             cancelled = true;
         };
-    }, [active, draft.unidadeLotacaoId]);
+    }, [active]);
 
     useEffect(() => {
         if (!active || !requisitanteFuncionarioId) {
@@ -817,7 +805,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         if (!draft.empresaId) errors.push("Empresa");
         if (!draft.unitId) errors.push("Local (Unidade)");
         if (!draft.centroCustoId) errors.push("Centro de Custo");
-        if (!draft.unidadeLotacaoId) errors.push("Lotação");
         if (!draft.motivoRequisicaoId) errors.push("Motivo da Requisição");
         // isDesligamentoMotivo é derivado do efeito do motivo selecionado (fora deste escopo, no render).
         // Recalcula localmente para usar sem depender da referência externa.
@@ -875,7 +862,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             escalaTrabalho: draft.turnoId ? null : (draft.escalaTrabalho?.trim() || null),
             empresaId: draft.empresaId,
             centroCustoId: draft.centroCustoId,
-            unidadeLotacaoId: draft.unidadeLotacaoId,
+            unidadeLotacaoId: null,
             vagaId: draft.vagaId || null,
             dataDesligamento: saveIsDesligamentoMotivo ? draft.dataDesligamento : null,
             tipoAvisoPrevioDesligamento: saveIsDesligamentoMotivo && draft.tipoAvisoPrevioDesligamento !== null
@@ -898,7 +885,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             const blob = (errs ? Object.keys(errs) : Object.keys(body)).join("|").toLowerCase();
             if (/escala|horario|horário|turno/i.test(blob)) return "horario";
             if (/aprovador/i.test(blob)) return "aprovacao";
-            if (/titulo|empresa|unidade|motivo|justificativa|cargo|quadro|substituid|headcount|decisao|funcao|codfuncao/i.test(blob)) return "identificacao";
+            if (/titulo|empresa|unidade|motivo|justificativa|cargo|quadro|substituid|headcount|decisao|funcao|codfuncao|lotacao/i.test(blob)) return "identificacao";
             return null;
         }
 
@@ -1071,24 +1058,20 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     />
                                 </div>
 
-                                <div>
-                                    <label className={L}>Qtd. Posições</label>
-                                    <Input type="number" min={1} value={draft.qtdPosicoes} onChange={(e) => setDraft((d) => ({ ...d, qtdPosicoes: Math.max(1, Number(e.target.value)) }))} disabled={viewOnly} />
-                                </div>
-
-                                <div className="col-span-2">
-                                    <label className={L}>Lotação *</label>
-                                    <AutocompleteSelect items={unidadesLotacao} value={draft.unidadeLotacaoId} onChange={(v) => setDraft((d) => ({ ...d, unidadeLotacaoId: v }))} placeholder="lotação" required disabled={viewOnly || estruturaLocks.lotacao} />
-                                </div>
-
-                                <div>
-                                    <label className={L}>Urgência</label>
-                                    <select className={S} value={draft.urgencia} onChange={(e) => setDraft((d) => ({ ...d, urgencia: Number(e.target.value) }))} disabled={viewOnly}>
-                                        <option value={0}>Baixa</option>
-                                        <option value={1}>Média</option>
-                                        <option value={2}>Alta</option>
-                                        <option value={3}>Crítica</option>
-                                    </select>
+                                <div className="flex flex-col gap-3">
+                                    <div>
+                                        <label className={L}>Qtd. Posições</label>
+                                        <Input type="number" min={1} value={draft.qtdPosicoes} onChange={(e) => setDraft((d) => ({ ...d, qtdPosicoes: Math.max(1, Number(e.target.value)) }))} disabled={viewOnly} />
+                                    </div>
+                                    <div>
+                                        <label className={L}>Urgência</label>
+                                        <select className={S} value={draft.urgencia} onChange={(e) => setDraft((d) => ({ ...d, urgencia: Number(e.target.value) }))} disabled={viewOnly}>
+                                            <option value={0}>Baixa</option>
+                                            <option value={1}>Média</option>
+                                            <option value={2}>Alta</option>
+                                            <option value={3}>Crítica</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <Section title="Dados da Vaga" />
