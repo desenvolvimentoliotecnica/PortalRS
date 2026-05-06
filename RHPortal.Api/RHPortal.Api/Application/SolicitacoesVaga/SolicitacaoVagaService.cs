@@ -422,12 +422,18 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             DecisaoRH = request.DecisaoRH,
             DecisaoRHPrazoMeses = request.DecisaoRHPrazoMeses,
             DecisaoRHPrazoDataAlvo = request.DecisaoRHPrazoDataAlvo,
+            FaixaSalarialMin = request.FaixaSalarialMin,
+            FaixaSalarialMax = request.FaixaSalarialMax,
+            RequisitosDetalhadosJson = string.IsNullOrWhiteSpace(request.RequisitosDetalhadosJson)
+                ? null
+                : request.RequisitosDetalhadosJson.Trim(),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
 
         await AplicarTurnoOuEscalaLegadaAsync(entity, request.TurnoId, request.EscalaTrabalho, ct);
 
+        ValidarFaixaSalarialProposta(entity.FaixaSalarialMin, entity.FaixaSalarialMax);
         ValidarCamposDesligamento(entity);
 
         _db.SolicitacoesVaga.Add(entity);
@@ -695,6 +701,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             DecisaoRH = source.DecisaoRH,
             DecisaoRHPrazoMeses = source.DecisaoRHPrazoMeses,
             DecisaoRHPrazoDataAlvo = source.DecisaoRHPrazoDataAlvo,
+            FaixaSalarialMin = source.FaixaSalarialMin,
+            FaixaSalarialMax = source.FaixaSalarialMax,
+            RequisitosDetalhadosJson = source.RequisitosDetalhadosJson,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -879,6 +888,13 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         entity.DecisaoRH = request.DecisaoRH;
         entity.DecisaoRHPrazoMeses = request.DecisaoRHPrazoMeses;
         entity.DecisaoRHPrazoDataAlvo = request.DecisaoRHPrazoDataAlvo;
+        entity.FaixaSalarialMin = request.FaixaSalarialMin;
+        entity.FaixaSalarialMax = request.FaixaSalarialMax;
+        entity.RequisitosDetalhadosJson = string.IsNullOrWhiteSpace(request.RequisitosDetalhadosJson)
+            ? null
+            : request.RequisitosDetalhadosJson.Trim();
+
+        ValidarFaixaSalarialProposta(entity.FaixaSalarialMin, entity.FaixaSalarialMax);
 
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
@@ -2561,6 +2577,15 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.RmUltimaStatusDescricaoRm,
         s.RmStatusSyncUltimaMensagem,
         s.RmUltimaSincronizacaoUtc,
-        s.RmRequisicaoCodigo
+        s.RmRequisicaoCodigo,
+        s.FaixaSalarialMin,
+        s.FaixaSalarialMax,
+        s.RequisitosDetalhadosJson
     );
+
+    private static void ValidarFaixaSalarialProposta(decimal? min, decimal? max)
+    {
+        if (min.HasValue && max.HasValue && min.Value > max.Value)
+            throw new InvalidOperationException("Faixa salarial inválida: o valor mínimo não pode ser maior que o máximo.");
+    }
 }

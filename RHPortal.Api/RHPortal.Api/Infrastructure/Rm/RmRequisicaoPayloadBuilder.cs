@@ -30,6 +30,14 @@ public static class RmRequisicaoPayloadBuilder
         if (string.IsNullOrWhiteSpace(s.Titulo))
             throw new InvalidOperationException(
                 "Título da solicitação é obrigatório antes do envio ao RM.");
+
+        if (!s.FaixaSalarialMin.HasValue || !s.FaixaSalarialMax.HasValue)
+            throw new InvalidOperationException(
+                "Informe a faixa salarial (valores mínimo e máximo) antes do envio ao RM.");
+
+        if (s.FaixaSalarialMin!.Value > s.FaixaSalarialMax!.Value)
+            throw new InvalidOperationException(
+                "Faixa salarial inválida: o mínimo não pode ser maior que o máximo antes do envio ao RM.");
     }
 
     /// <returns>JSON compacto; truncar antes de gravar na entidade de tentativa se necessário.</returns>
@@ -55,7 +63,8 @@ public static class RmRequisicaoPayloadBuilder
             Substituicao = s.TipoSolicitacao == TipoSolicitacaoVaga.Substituicao,
             MotivoDesligamentoTextoApprox = mdLen > 400 ? 400 : mdLen,
             RequisitosJsonBytes = requisitosLen,
-            FaixaDeclarada = s.FaixaSalarialMin.HasValue || s.FaixaSalarialMax.HasValue,
+            FaixaSalarialMin = s.FaixaSalarialMin,
+            FaixaSalarialMax = s.FaixaSalarialMax,
             s.CnhObrigatoria,
             s.DisponibilidadeViagens,
             EscalaTrabalhoDeclarada = !string.IsNullOrWhiteSpace(s.EscalaTrabalho),

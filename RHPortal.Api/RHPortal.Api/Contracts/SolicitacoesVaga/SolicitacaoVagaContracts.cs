@@ -89,6 +89,19 @@ public sealed class SolicitacaoVagaCreateRequest
     public TipoDecisaoHeadcount? DecisaoRH { get; set; }
     public int? DecisaoRHPrazoMeses { get; set; }
     public DateTimeOffset? DecisaoRHPrazoDataAlvo { get; set; }
+
+    /// <summary>Proposta salarial — piso da faixa (espelho RM / negociação).</summary>
+    public decimal? FaixaSalarialMin { get; set; }
+
+    /// <summary>Proposta salarial — teto da faixa.</summary>
+    public decimal? FaixaSalarialMax { get; set; }
+
+    /// <summary>
+    /// Requisitos adicionais (JSON objeto com <c>schemaVersion</c>). Obrigatório no envio quando
+    /// <see cref="TipoSolicitacao"/> é <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>.
+    /// </summary>
+    [MaxLength(120_000)]
+    public string? RequisitosDetalhadosJson { get; set; }
 }
 
 public sealed class SolicitacaoVagaUpdateRequest
@@ -158,6 +171,19 @@ public sealed class SolicitacaoVagaUpdateRequest
     public TipoDecisaoHeadcount? DecisaoRH { get; set; }
     public int? DecisaoRHPrazoMeses { get; set; }
     public DateTimeOffset? DecisaoRHPrazoDataAlvo { get; set; }
+
+    /// <summary>Proposta salarial — piso da faixa (espelho RM / negociação).</summary>
+    public decimal? FaixaSalarialMin { get; set; }
+
+    /// <summary>Proposta salarial — teto da faixa.</summary>
+    public decimal? FaixaSalarialMax { get; set; }
+
+    /// <summary>
+    /// Requisitos adicionais (JSON objeto com <c>schemaVersion</c>). Obrigatório no envio quando
+    /// <see cref="TipoSolicitacao"/> é <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>.
+    /// </summary>
+    [MaxLength(120_000)]
+    public string? RequisitosDetalhadosJson { get; set; }
 }
 
 // ── Approval actions ──
@@ -278,7 +304,10 @@ public sealed record SolicitacaoVagaResponse(
     string? RmUltimaStatusDescricaoRm,
     string? RmStatusSyncUltimaMensagem,
     DateTimeOffset? RmUltimaSincronizacaoUtc,
-    string? RmRequisicaoCodigo
+    string? RmRequisicaoCodigo,
+    decimal? FaixaSalarialMin,
+    decimal? FaixaSalarialMax,
+    string? RequisitosDetalhadosJson
 );
 
 public sealed record SolicitacaoVagaGridRow(

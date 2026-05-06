@@ -252,7 +252,7 @@ export default function TopbarClient({
 
           {/* Brand title */}
           <span className="text-sm font-semibold text-lt-primary tracking-[0.18em] uppercase whitespace-nowrap hidden sm:inline">
-            Render
+            Portal de RH
           </span>
         </div>
 
