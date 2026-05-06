@@ -75,9 +75,16 @@ public sealed class TurnoController : ControllerBase
         CancellationToken ct,
         [FromQuery] string? search,
         [FromQuery] Guid? unidadeLotacaoId,
-        [FromQuery] bool includeGlobals = true)
+        [FromQuery] bool includeGlobals = true,
+        // globalsOnly=true: só turnos sem UnidadeLotacaoId (requisição sem lotação informada).
+        [FromQuery] bool globalsOnly = false)
     {
         var query = db.Turnos.AsNoTracking().Where(x => x.IsActive);
+
+        if (globalsOnly)
+        {
+            query = query.Where(x => x.UnidadeLotacaoId == null);
+        }
 
         if (unidadeLotacaoId.HasValue)
         {

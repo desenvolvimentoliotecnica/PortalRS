@@ -578,6 +578,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (!t.IsActive)
             throw new InvalidOperationException("O turno selecionado está inativo.");
 
+        // Sem lotação na solicitação: só turnos globais (cadastro não amarra UnidadeLotacaoId).
+        if (t.UnidadeLotacaoId.HasValue && !unidadeLotacaoId.HasValue)
+            throw new InvalidOperationException(
+                "Este turno é exclusivo de uma unidade de lotação no cadastro. Na requisição use um turno global ou informe apenas a escala legada.");
+
         if (t.UnidadeLotacaoId.HasValue && t.UnidadeLotacaoId != unidadeLotacaoId)
         {
             var ulNome = t.UnidadeLotacao?.Description?.Trim();
@@ -666,7 +671,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             UnitId = source.UnitId,
             EmpresaId = source.EmpresaId,
             CentroCustoId = source.CentroCustoId,
-            UnidadeLotacaoId = source.UnidadeLotacaoId,
+            UnidadeLotacaoId = null,
             Titulo = $"{source.Titulo} (cópia)",
             CodFuncaoRm = source.CodFuncaoRm,
             FuncaoNomeRm = source.FuncaoNomeRm,
@@ -1164,8 +1169,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 .AnyAsync(f => f.Id == entity.SolicitanteId && f.UserId != null && f.Status == FuncionarioStatus.Active, ct))
             throw new InvalidOperationException("O gestor solicitante precisa estar vinculado a um usuário ativo.");
 
-        if (!(entity.UnidadeLotacaoId.HasValue || entity.UnitId.HasValue || entity.CentroCustoId.HasValue || entity.EmpresaId.HasValue))
-            throw new InvalidOperationException("Informe ao menos empresa, centro de custo, unidade ou lotação.");
+        if (!(entity.UnitId.HasValue || entity.CentroCustoId.HasValue || entity.EmpresaId.HasValue))
+            throw new InvalidOperationException("Informe ao menos empresa, centro de custo ou unidade (local).");
 
         if (!entity.JobPositionId.HasValue)
             throw new InvalidOperationException("Informe o cargo da vaga (JobPositionId).");
