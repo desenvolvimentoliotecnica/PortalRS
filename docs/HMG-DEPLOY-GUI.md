@@ -14,6 +14,23 @@ sem depender do GitHub Actions.
 
 As imagens ficam locais no Docker do servidor. A ferramenta nao faz push para GHCR.
 
+## Modos de deploy
+
+- **Inteligente**: compara a `main` atual com o ultimo SHA registrado no servidor
+  e builda somente os servicos afetados. Servicos sem mudanca sao retagueados a
+  partir da imagem em execucao para que a stack inteira suba com a tag do SHA novo.
+- **Completo**: builda API, Web Next, Portal Vagas e RHPortal.Ai sempre. Use quando
+  houver duvida, mudanca grande ou erro de cache.
+
+Regras principais do modo inteligente:
+
+- `RHPortal.Api/**`, `Liotecnica.Integration.RM/**` ou `Liotecnica.Integration.RM.Schema/**`
+  buildam a API.
+- `LioTecnica.Web.Next/**` builda o Portal Admin.
+- `LioTecnica.PortalVagas.React/**` builda o Portal de Vagas.
+- `RHPortal.Ai/**` builda o RHPortal.Ai.
+- Dockerfiles, `.dockerignore`, compose ou arquivos globais relevantes forcam deploy completo.
+
 ## Como rodar em modo desenvolvimento
 
 ```powershell
@@ -76,6 +93,18 @@ containers em:
 O botao Rollback tenta voltar para essas imagens anteriores. Ele nao rebuilda
 codigo e so continua se todas as imagens anteriores ainda existirem no Docker
 do servidor.
+
+## Performance
+
+A raiz do repo possui `.dockerignore` para reduzir o contexto enviado ao Docker.
+A ferramenta tambem extrai o snapshot atual em:
+
+```text
+/home/administrator/rh-deploys/current-src
+```
+
+Isso evita depender de Git no servidor e melhora o reaproveitamento de cache em
+comparacao com um diretorio novo a cada SHA.
 
 ## Observacao sobre RHPortal.Ai
 

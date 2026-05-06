@@ -37,6 +37,19 @@ CONTAINERS = [
     "rhportal-portal-vagas",
     "rhportal-ai",
 ]
+SERVICE_TO_CONTAINER = {
+    "api": "rhportal-api",
+    "web-next": "rhportal-web-next",
+    "portal-vagas": "rhportal-portal-vagas",
+    "ai": "rhportal-ai",
+}
+SERVICE_LABELS = {
+    "api": "API",
+    "web-next": "Portal Admin (Web Next)",
+    "portal-vagas": "Portal de Vagas",
+    "ai": "RHPortal.Ai",
+}
+ALL_SERVICES = list(SERVICE_TO_CONTAINER)
 
 
 DEFAULT_CONFIG = {
@@ -214,13 +227,17 @@ class DeployRunner:
         log: EventLog,
         set_progress: Callable[[int, str], None],
         ask_yes_no: Callable[[str, str], bool],
+        deploy_mode: str = "smart",
     ):
         self.cfg = cfg
         self.log = log
         self.set_progress = set_progress
         self.ask_yes_no = ask_yes_no
+        self.deploy_mode = deploy_mode
         self.sha = ""
         self.archive_path: Path | None = None
+        self.changed_files: list[str] = []
+        self.services_to_build: list[str] = list(ALL_SERVICES)
 
     def deploy(self) -> None:
         started = time.monotonic()
@@ -232,6 +249,8 @@ class DeployRunner:
             with SshSession(self.cfg, self.log) as ssh:
                 self.set_progress(25, "Preflight remoto")
                 self._remote_preflight(ssh)
+                self.set_progress(30, "Planejando build")
+                self._remote_plan_build(ssh)
                 self.set_progress(35, "Upload do snapshot")
                 self._upload_and_extract(ssh)
                 self.set_progress(50, "Build remoto")
@@ -395,53 +414,179 @@ fi
             if not proceed:
                 raise DeployError("Deploy cancelado pelo usuario.", "Configure o ~/.env.hmg ou confirme o alerta.")
 
+    def _service_plan_from_files(self, files: list[str]) -> tuple[list[str], str]:
+        if self.deploy_mode == "full":
+            return list(ALL_SERVICES), "modo completo selecionado"
+        if not files:
+            return list(ALL_SERVICES), "sem SHA anterior ou sem lista de mudancas confiavel"
+
+        build: set[str] = set()
+        full_reasons: list[str] = []
+        for path in files:
+            p = path.replace("\\", "/")
+            if p.startswith(("RHPortal.Api/", "Liotecnica.Integration.RM/", "Liotecnica.Integration.RM.Schema/")):
+                build.add("api")
+            elif p.startswith("LioTecnica.Web.Next/"):
+                build.add("web-next")
+            elif p.startswith("LioTecnica.PortalVagas.React/"):
+                build.add("portal-vagas")
+            elif p.startswith("RHPortal.Ai/"):
+                build.add("ai")
+            elif p in {
+                "docker-compose.hmg.yml",
+                ".dockerignore",
+                "global.json",
+                "LioTecnica.sln",
+            } or p.endswith("Dockerfile") or p.endswith(".dockerignore"):
+                full_reasons.append(p)
+            elif p.startswith((".github/", "__scripts__/deploy/", "docs/", ".planning/")):
+                continue
+            else:
+                full_reasons.append(p)
+
+        if full_reasons:
+            return list(ALL_SERVICES), "mudancas compartilhadas/de infraestrutura: " + ", ".join(full_reasons[:5])
+        if not build:
+            return [], "nenhuma mudanca de runtime detectada"
+        ordered = [svc for svc in ALL_SERVICES if svc in build]
+        return ordered, "mudancas por caminho"
+
+    def _remote_plan_build(self, ssh: SshSession) -> None:
+        state_path = f"{self.cfg.remote_deploy_dir.rstrip('/')}/deploy-state.json"
+        script = f"""
+set -euo pipefail
+STATE_PATH={shlex.quote(state_path)}
+if [[ -f "$STATE_PATH" ]]; then
+  python3 - <<'PY'
+import json, os
+with open(os.environ["STATE_PATH"], "r", encoding="utf-8") as fh:
+    state = json.load(fh)
+print(state.get("target_sha") or "")
+PY
+else
+  true
+fi
+"""
+        _, output = ssh.run(script, "ler ultimo SHA publicado", check=False)
+        previous_sha = output.strip().splitlines()[-1].strip() if output.strip() else ""
+        if previous_sha:
+            self.log.info(f"Ultimo SHA registrado no servidor: {previous_sha}")
+            code, diff_output = self._run_local(
+                ["git", "diff", "--name-only", f"{previous_sha}..origin/{BRANCH}"],
+                self.cfg.repo_path,
+                "diff desde ultimo deploy",
+                check=False,
+            )
+            if code == 0:
+                self.changed_files = [line.strip() for line in diff_output.splitlines() if line.strip()]
+            else:
+                self.log.warn("Nao foi possivel calcular diff local; usando build completo.")
+                self.changed_files = []
+        else:
+            self.log.warn("Nenhum deploy-state.json anterior encontrado; usando build completo.")
+            self.changed_files = []
+
+        self.services_to_build, reason = self._service_plan_from_files(self.changed_files)
+        if self.changed_files:
+            self.log.info("Arquivos alterados desde ultimo deploy:")
+            for path in self.changed_files[:80]:
+                self.log.info(f"  - {path}")
+            if len(self.changed_files) > 80:
+                self.log.info(f"  ... +{len(self.changed_files) - 80} arquivos")
+        if self.services_to_build:
+            labels = ", ".join(SERVICE_LABELS[s] for s in self.services_to_build)
+            self.log.ok(f"Servicos que serao buildados: {labels} ({reason}).")
+        else:
+            self.log.ok(f"Nenhum servico precisa rebuild ({reason}). Vou apenas retaguear/subir a stack se necessario.")
+
     def _upload_and_extract(self, ssh: SshSession) -> None:
         if not self.archive_path:
             raise DeployError("Snapshot local nao encontrado.")
         remote_dir = f"{self.cfg.remote_deploy_dir.rstrip('/')}/{self.sha}"
         remote_archive = f"{remote_dir}/source.tar.gz"
+        current_src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
         ssh.upload(self.archive_path, remote_archive, lambda sent, total: self.set_progress(35, "Upload do snapshot"))
         script = f"""
 set -euo pipefail
 REMOTE_DIR={shlex.quote(remote_dir)}
+CURRENT_SRC={shlex.quote(current_src)}
 rm -rf "$REMOTE_DIR/src"
 mkdir -p "$REMOTE_DIR/src"
 tar -xzf "$REMOTE_DIR/source.tar.gz" -C "$REMOTE_DIR/src"
 test -f "$REMOTE_DIR/src/docker-compose.hmg.yml"
+rm -rf "$CURRENT_SRC"
+mkdir -p "$CURRENT_SRC"
+tar -xzf "$REMOTE_DIR/source.tar.gz" -C "$CURRENT_SRC"
+test -f "$CURRENT_SRC/docker-compose.hmg.yml"
 mkdir -p {shlex.quote(self.cfg.remote_deploy_dir.rstrip('/') + '/current-compose')}
-cp "$REMOTE_DIR/src/docker-compose.hmg.yml" {shlex.quote(self.cfg.remote_deploy_dir.rstrip('/') + '/current-compose/docker-compose.hmg.yml')}
-echo "Snapshot extraido em $REMOTE_DIR/src"
+cp "$CURRENT_SRC/docker-compose.hmg.yml" {shlex.quote(self.cfg.remote_deploy_dir.rstrip('/') + '/current-compose/docker-compose.hmg.yml')}
+echo "Snapshot extraido em $CURRENT_SRC"
 """
         ssh.run(script, "extrair snapshot")
 
     def _remote_build(self, ssh: SshSession) -> None:
-        src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/{self.sha}/src"
+        src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
+        services = " ".join(self.services_to_build)
         script = f"""
 set -euo pipefail
 cd {shlex.quote(src)}
 TAG={shlex.quote(self.sha)}
 PREFIX={shlex.quote(IMAGE_PREFIX)}
-echo "==> Build API $TAG"
-docker build -f RHPortal.Api/Dockerfile -t "$PREFIX/rhportal-api:$TAG" .
-echo "==> Build Web Next $TAG"
-docker build -f LioTecnica.Web.Next/Dockerfile \\
-  --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.cfg.api_base)} \\
-  --build-arg NEXT_PUBLIC_PORTAL_ORIGIN={shlex.quote(self.cfg.admin_base)} \\
-  -t "$PREFIX/rhportal-web-next:$TAG" .
-echo "==> Build Portal Vagas $TAG"
-docker build -f LioTecnica.PortalVagas.React/Dockerfile \\
-  --build-arg VITE_API_BASE_URL={shlex.quote(self.cfg.api_base)} \\
-  --build-arg VITE_DEFAULT_TENANT={shlex.quote(self.cfg.tenant)} \\
-  -t "$PREFIX/rhportal-portal-vagas:$TAG" LioTecnica.PortalVagas.React
-echo "==> Build AI $TAG"
-docker build -f RHPortal.Ai/Dockerfile -t "$PREFIX/rhportal-ai:$TAG" .
+SERVICES={shlex.quote(services)}
+echo "Servicos selecionados para build: ${{SERVICES:-nenhum}}"
+for svc in $SERVICES; do
+  case "$svc" in
+    api)
+      echo "==> Build API $TAG"
+      docker build -f RHPortal.Api/Dockerfile -t "$PREFIX/rhportal-api:$TAG" .
+      ;;
+    web-next)
+      echo "==> Build Web Next $TAG"
+      docker build -f LioTecnica.Web.Next/Dockerfile \\
+        --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.cfg.api_base)} \\
+        --build-arg NEXT_PUBLIC_PORTAL_ORIGIN={shlex.quote(self.cfg.admin_base)} \\
+        -t "$PREFIX/rhportal-web-next:$TAG" .
+      ;;
+    portal-vagas)
+      echo "==> Build Portal Vagas $TAG"
+      docker build -f LioTecnica.PortalVagas.React/Dockerfile \\
+        --build-arg VITE_API_BASE_URL={shlex.quote(self.cfg.api_base)} \\
+        --build-arg VITE_DEFAULT_TENANT={shlex.quote(self.cfg.tenant)} \\
+        -t "$PREFIX/rhportal-portal-vagas:$TAG" LioTecnica.PortalVagas.React
+      ;;
+    ai)
+      echo "==> Build AI $TAG"
+      docker build -f RHPortal.Ai/Dockerfile -t "$PREFIX/rhportal-ai:$TAG" .
+      ;;
+    *)
+      echo "Servico desconhecido: $svc" >&2
+      exit 44
+      ;;
+  esac
+done
+echo "==> Garantindo tag $TAG para servicos reaproveitados"
+for cname in {' '.join(CONTAINERS)}; do
+  target="$PREFIX/$cname:$TAG"
+  if docker image inspect "$target" >/dev/null 2>&1; then
+    echo "OK: $target existe"
+    continue
+  fi
+  current="$(docker inspect "$cname" --format '{{{{.Config.Image}}}}' 2>/dev/null || true)"
+  if [[ -n "$current" ]] && docker image inspect "$current" >/dev/null 2>&1; then
+    echo "Retagueando $current -> $target"
+    docker tag "$current" "$target"
+  else
+    echo "Nao ha imagem atual para reaproveitar em $cname; faca deploy completo." >&2
+    exit 45
+  fi
+done
 echo "==> Imagens criadas"
 docker images "$PREFIX/*" --format 'table {{{{.Repository}}}}\\t{{{{.Tag}}}}\\t{{{{.CreatedSince}}}}\\t{{{{.Size}}}}' | grep "$TAG" || true
 """
         ssh.run(script, "build das imagens Docker")
 
     def _remote_up(self, ssh: SshSession) -> None:
-        src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/{self.sha}/src"
+        src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
         state_path = f"{self.cfg.remote_deploy_dir.rstrip('/')}/deploy-state.json"
         script = f"""
 set -euo pipefail
@@ -593,6 +738,7 @@ class DeployGui(tk.Tk):
         self.queue: queue.Queue[tuple[Any, ...]] = queue.Queue()
         self.worker: threading.Thread | None = None
         self.current_sha = ""
+        self.mode_var = tk.StringVar(value="smart")
         self.config_data = self._load_config()
         self._build_ui()
         self.after(100, self._process_queue)
@@ -658,6 +804,8 @@ class DeployGui(tk.Tk):
         actions.pack(fill=tk.X, pady=(10, 6))
         self.deploy_btn = ttk.Button(actions, text="Deploy main", command=self._start_deploy)
         self.deploy_btn.pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Radiobutton(actions, text="Inteligente", variable=self.mode_var, value="smart").pack(side=tk.LEFT, padx=6)
+        ttk.Radiobutton(actions, text="Completo", variable=self.mode_var, value="full").pack(side=tk.LEFT, padx=6)
         self.rollback_btn = ttk.Button(actions, text="Rollback", command=self._start_rollback)
         self.rollback_btn.pack(side=tk.LEFT, padx=6)
         ttk.Button(actions, text="Copiar logs", command=self._copy_logs).pack(side=tk.LEFT, padx=6)
@@ -746,6 +894,7 @@ class DeployGui(tk.Tk):
             logger,
             lambda value, text: self.queue.put(("progress", value, text)),
             self._ask_yes_no_threadsafe,
+            deploy_mode=self.mode_var.get(),
         )
         target = runner.deploy if action == "deploy" else runner.rollback
         self.worker = threading.Thread(target=self._worker_wrapper, args=(target,), daemon=True)
