@@ -412,14 +412,7 @@ fi
         _, output = ssh.run(script, "preflight remoto")
         if "__AI_ENV_MISSING__" in output:
             self.log.warn("RHPortal.Ai pode ficar unhealthy: DATABASE_URL ou OPENAI_API_KEY ausentes.")
-            proceed = self.ask_yes_no(
-                "Variaveis do RHPortal.Ai ausentes",
-                "DATABASE_URL ou OPENAI_API_KEY nao foram encontradas em ~/.env.hmg.\n\n"
-                "A API e os portais podem subir, mas o health agregado deve ficar 503 por causa do AI.\n\n"
-                "Deseja continuar mesmo assim?",
-            )
-            if not proceed:
-                raise DeployError("Deploy cancelado pelo usuario.", "Configure o ~/.env.hmg ou confirme o alerta.")
+            self.log.warn("Continuando automaticamente; a validacao final destacara o health 503 se ele ocorrer.")
 
     def _service_plan_from_files(self, files: list[str]) -> tuple[list[str], str]:
         if self.deploy_mode == "full":
@@ -569,7 +562,7 @@ build_cached() {{
       --progress=plain \\
       --load \\
       --cache-from "type=local,src=$cache_dir" \\
-      --cache-to "type=local,dest=$cache_dir.new,mode=max" \\
+      --cache-to "type=local,dest=$cache_dir.new,mode=min" \\
       "$@"
     rm -rf "$cache_dir.old"
     if [[ -d "$cache_dir.new" ]]; then

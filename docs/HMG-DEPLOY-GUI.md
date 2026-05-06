@@ -114,12 +114,13 @@ persistente por servico em:
 ```
 
 Esse cache acelera `dotnet restore`, `pnpm install`, `npm install` e `pip install`
-entre deploys. Para um rebuild totalmente limpo, use o modo **Completo** e, se
-necessario, remova manualmente esse diretorio de cache no servidor.
+entre deploys. A exportacao usa `mode=min` para reduzir o tempo gasto gravando
+cache apos cada build. Para um rebuild totalmente limpo, use o modo **Completo**
+e, se necessario, remova manualmente esse diretorio de cache no servidor.
 
 ## Observacao sobre RHPortal.Ai
 
 Se `DATABASE_URL` ou `OPENAI_API_KEY` nao estiverem presentes em `~/.env.hmg`,
 o container `rhportal-ai` pode ficar `unhealthy` e o endpoint agregado da API
-`/health` pode retornar `503`. A GUI mostra esse caso como alerta antes do
-deploy e tambem na validacao final.
+`/health` pode retornar `503`. A GUI mostra esse caso como alerta, continua
+automaticamente e destaca o `503` novamente na validacao final.
