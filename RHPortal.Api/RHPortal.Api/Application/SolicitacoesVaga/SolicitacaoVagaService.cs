@@ -793,11 +793,21 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         return funcionario.Id;
     }
 
+    private void EnsureCurrentUserIsSolicitanteOuAdmin(SolicitacaoVaga entity)
+    {
+        if (_currentUser.IsAdmin) return;
+        if (_currentUser.FuncionarioId.HasValue && entity.SolicitanteId == _currentUser.FuncionarioId.Value)
+            return;
+        throw new InvalidOperationException("Somente o solicitante pode alterar ou enviar esta solicitação.");
+    }
+
     public async Task<SolicitacaoVagaResponse?> UpdateAsync(
         Guid id, SolicitacaoVagaUpdateRequest request, CancellationToken ct)
     {
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
+
+        EnsureCurrentUserIsSolicitanteOuAdmin(entity);
 
         // Draft, AjustesNecessarios, devolução da triagem ou PendenteAprovacao (este último volta a rascunho).
         if (entity.Status != SolicitacaoStatus.Rascunho &&
@@ -961,6 +971,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     {
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
+
+        EnsureCurrentUserIsSolicitanteOuAdmin(entity);
 
         ApprovalWorkflowHelper.ValidateCanEdit(entity.Status);
 
@@ -1947,6 +1959,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     {
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
+
+        EnsureCurrentUserIsSolicitanteOuAdmin(entity);
 
         if (entity.Status != SolicitacaoStatus.Rascunho)
             throw new InvalidOperationException("Só é possível excluir solicitações em rascunho.");

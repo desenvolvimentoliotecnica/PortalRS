@@ -1147,14 +1147,15 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <Section title="Identificação" />
 
-                                <div className="col-span-3">
-                                    <label className={L}>{LB.empresa}</label>
-                                    <AutocompleteSelect items={empresas} value={draft.empresaId} onChange={(v) => setDraft((d) => ({ ...d, empresaId: v }))} placeholder="empresa" required disabled={viewOnly || estruturaLocks.empresa} />
-                                </div>
-
-                                <div className="col-span-3">
-                                    <label className={L}>{LB.filial}</label>
-                                    <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="filial" required disabled={viewOnly || estruturaLocks.unit} />
+                                <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                                    <div>
+                                        <label className={L}>{LB.empresa}</label>
+                                        <AutocompleteSelect items={empresas} value={draft.empresaId} onChange={(v) => setDraft((d) => ({ ...d, empresaId: v }))} placeholder="empresa" required disabled={viewOnly || estruturaLocks.empresa} />
+                                    </div>
+                                    <div>
+                                        <label className={L}>{LB.filial}</label>
+                                        <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="filial" required disabled={viewOnly || estruturaLocks.unit} />
+                                    </div>
                                 </div>
 
                                 <div className="col-span-3">
@@ -1187,53 +1188,54 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <Section title={LB.secaoTituloReq} />
 
-                                <div className="col-span-2">
-                                    <label className={L}>{LB.funcao}</label>
-                                    <AutocompleteSelect
-                                        items={funcoesRmSelectItems}
-                                        value={funcaoRmSelectValue}
-                                        onChange={(id) => {
-                                            if (!id) {
-                                                setDraft((d) => ({ ...d, codFuncaoRm: null, funcaoNomeRm: null, titulo: "" }));
-                                                return;
-                                            }
-                                            const { codigo, nome } = parseFuncaoRmOptionId(id);
-                                            setDraft((d) => ({
-                                                ...d,
-                                                codFuncaoRm: codigo || null,
-                                                funcaoNomeRm: nome,
-                                                titulo: tituloFromFuncaoRm(codigo || null, nome),
-                                            }));
-                                        }}
-                                        placeholder="função RM"
-                                        required={!viewOnly}
-                                        disabled={viewOnly || !requisitanteFuncionarioId}
-                                    />
-                                    {funcoesRmLoading && requisitanteFuncionarioId && (
-                                        <p className="text-xs text-muted-foreground mt-1">Carregando funções da equipe…</p>
-                                    )}
-                                    {!funcoesRmLoading && requisitanteFuncionarioId && funcoesRmItems.length === 0 && !draft.codFuncaoRm && (
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Nenhuma função RM entre colaboradores que se reportam diretamente ao requisitante (confira vínculo de gestor e import/sync RM).
-                                        </p>
-                                    )}
-                                    {!requisitanteFuncionarioId && !loadingEdit && (
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Lista funções RM dos colaboradores ativos que têm o requisitante como gestor direto (cadastro + import/sync RM).
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="col-span-3">
-                                    <label className={L}>{draft.tipoSolicitacao === 2 ? LB.cargoObrig : LB.cargoOpcional}</label>
-                                    <AutocompleteSelect
-                                        items={jobPositionSelectItems}
-                                        value={draft.jobPositionId}
-                                        onChange={(v) => setDraft((d) => ({ ...d, jobPositionId: v, jobPositionName: null }))}
-                                        placeholder="cargo"
-                                        required={draft.tipoSolicitacao === 2}
-                                        disabled={viewOnly}
-                                    />
+                                <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3 items-start">
+                                    <div>
+                                        <label className={L}>{LB.funcao}</label>
+                                        <AutocompleteSelect
+                                            items={funcoesRmSelectItems}
+                                            value={funcaoRmSelectValue}
+                                            onChange={(id) => {
+                                                if (!id) {
+                                                    setDraft((d) => ({ ...d, codFuncaoRm: null, funcaoNomeRm: null, titulo: "" }));
+                                                    return;
+                                                }
+                                                const { codigo, nome } = parseFuncaoRmOptionId(id);
+                                                setDraft((d) => ({
+                                                    ...d,
+                                                    codFuncaoRm: codigo || null,
+                                                    funcaoNomeRm: nome,
+                                                    titulo: tituloFromFuncaoRm(codigo || null, nome),
+                                                }));
+                                            }}
+                                            placeholder="função RM"
+                                            required={!viewOnly}
+                                            disabled={viewOnly || !requisitanteFuncionarioId}
+                                        />
+                                        {funcoesRmLoading && requisitanteFuncionarioId && (
+                                            <p className="text-xs text-muted-foreground mt-1">Carregando funções da equipe…</p>
+                                        )}
+                                        {!funcoesRmLoading && requisitanteFuncionarioId && funcoesRmItems.length === 0 && !draft.codFuncaoRm && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Nenhuma função RM entre colaboradores que se reportam diretamente ao requisitante (confira vínculo de gestor e import/sync RM).
+                                            </p>
+                                        )}
+                                        {!requisitanteFuncionarioId && !loadingEdit && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Lista funções RM dos colaboradores ativos que têm o requisitante como gestor direto (cadastro + import/sync RM).
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className={L}>{draft.tipoSolicitacao === 2 ? LB.cargoObrig : LB.cargoOpcional}</label>
+                                        <AutocompleteSelect
+                                            items={jobPositionSelectItems}
+                                            value={draft.jobPositionId}
+                                            onChange={(v) => setDraft((d) => ({ ...d, jobPositionId: v, jobPositionName: null }))}
+                                            placeholder="cargo"
+                                            required={draft.tipoSolicitacao === 2}
+                                            disabled={viewOnly}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div
@@ -1280,40 +1282,70 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     )}
                                 </div>
 
-                                <div>
-                                    <label className={L}>{LB.tipoSolicitacao}</label>
-                                    <select
-                                        className={S}
-                                        value={draft.tipoSolicitacao}
-                                        onChange={(e) => {
-                                            const v = Number(e.target.value);
-                                            setDraft((d) => ({
-                                                ...d,
-                                                tipoSolicitacao: v,
-                                                substituidoFuncionarioId: v === 2 ? null : d.substituidoFuncionarioId,
-                                                requisitosDetalhadosJson:
-                                                    v === 2 && !(d.requisitosDetalhadosJson || "").trim()
-                                                        ? DEFAULT_REQUISITOS_JSON_AUMENTO_QUADRO
-                                                        : v !== 2
-                                                            ? ""
-                                                            : d.requisitosDetalhadosJson,
-                                            }));
-                                        }}
-                                        disabled={viewOnly}
-                                    >
-                                        <option value={0}>Vaga nova</option>
-                                        <option value={1}>Substituição</option>
-                                        <option value={2}>Aumento de quadro</option>
-                                    </select>
-                                    {draft.tipoSolicitacao === 2 && (
-                                        <p className="text-[11px] text-muted-foreground mt-1">
-                                            Esta opção vai para triagem RH antes das aprovações de requisição.
-                                        </p>
-                                    )}
+                                <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3 items-start">
+                                    <div>
+                                        <label className={L}>{LB.tipoSolicitacao}</label>
+                                        <select
+                                            className={S}
+                                            value={draft.tipoSolicitacao}
+                                            onChange={(e) => {
+                                                const v = Number(e.target.value);
+                                                setDraft((d) => ({
+                                                    ...d,
+                                                    tipoSolicitacao: v,
+                                                    substituidoFuncionarioId: v === 2 ? null : d.substituidoFuncionarioId,
+                                                    requisitosDetalhadosJson:
+                                                        v === 2 && !(d.requisitosDetalhadosJson || "").trim()
+                                                            ? DEFAULT_REQUISITOS_JSON_AUMENTO_QUADRO
+                                                            : v !== 2
+                                                                ? ""
+                                                                : d.requisitosDetalhadosJson,
+                                                }));
+                                            }}
+                                            disabled={viewOnly}
+                                        >
+                                            <option value={0}>Vaga nova</option>
+                                            <option value={1}>Substituição</option>
+                                            <option value={2}>Aumento de quadro</option>
+                                        </select>
+                                        {draft.tipoSolicitacao === 2 && (
+                                            <p className="text-[11px] text-muted-foreground mt-1">
+                                                Esta opção vai para triagem RH antes das aprovações de requisição.
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className={L}>{LB.motivo}</label>
+                                        <select
+                                            className={S}
+                                            value={draft.motivoRequisicaoId ?? ""}
+                                            onChange={(e) => {
+                                                const id = e.target.value || null;
+                                                const efeito = motivos.find((m) => m.id === id)?.efeitoHeadcount ?? null;
+                                                const isDesl = efeito === "Diminui" || efeito === "Ambos";
+                                                setDraft((d) => ({
+                                                    ...d,
+                                                    motivoRequisicaoId: id,
+                                                    // Desligamento (Diminui/Ambos) implica Substituicao (RM).
+                                                    tipoSolicitacao: isDesl ? 1 : d.tipoSolicitacao,
+                                                    requisitosDetalhadosJson: isDesl ? "" : d.requisitosDetalhadosJson,
+                                                }));
+                                            }}
+                                            disabled={viewOnly || motivos.length === 0}
+                                            data-testid="select-motivo-requisicao"
+                                        >
+                                            <option value="">
+                                                {motivos.length === 0 ? "Carregando motivos..." : "Selecione..."}
+                                            </option>
+                                            {motivos.map((m) => (
+                                                <option key={m.id} value={m.id}>{m.nome}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
 
                                 {draft.tipoSolicitacao === 1 && !isDesligamentoMotivo && (
-                                    <div className="col-span-2">
+                                    <div className="col-span-3">
                                         <label className={L}>Funcionário Substituído</label>
                                         <FuncionarioAsyncSelect
                                             value={draft.substituidoFuncionarioId}
@@ -1324,35 +1356,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                         />
                                     </div>
                                 )}
-
-                                <div className="col-span-3">
-                                    <label className={L}>{LB.motivo}</label>
-                                    <select
-                                        className={S}
-                                        value={draft.motivoRequisicaoId ?? ""}
-                                        onChange={(e) => {
-                                            const id = e.target.value || null;
-                                            const efeito = motivos.find((m) => m.id === id)?.efeitoHeadcount ?? null;
-                                            const isDesl = efeito === "Diminui" || efeito === "Ambos";
-                                            setDraft((d) => ({
-                                                ...d,
-                                                motivoRequisicaoId: id,
-                                                // Desligamento (Diminui/Ambos) implica Substituicao (RM).
-                                                tipoSolicitacao: isDesl ? 1 : d.tipoSolicitacao,
-                                                requisitosDetalhadosJson: isDesl ? "" : d.requisitosDetalhadosJson,
-                                            }));
-                                        }}
-                                        disabled={viewOnly || motivos.length === 0}
-                                        data-testid="select-motivo-requisicao"
-                                    >
-                                        <option value="">
-                                            {motivos.length === 0 ? "Carregando motivos..." : "Selecione..."}
-                                        </option>
-                                        {motivos.map((m) => (
-                                            <option key={m.id} value={m.id}>{m.nome}</option>
-                                        ))}
-                                    </select>
-                                </div>
 
                                 {isDesligamentoMotivo && (
                                     <div className="col-span-3 rounded-md border border-dashed border-amber-400/70 bg-amber-50/40 p-3" data-testid="bloco-desligamento">

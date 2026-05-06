@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoFormPreferred";
 import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useHasPermission, useIsAdminOrOwner } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
     Search,
@@ -77,6 +77,19 @@ interface SolicitacaoGridRow {
     createdAtUtc: string;
     etapaPendenteLabel: string | null;
     etapaPendenteCom: string | null;
+    /** Aprovador da etapa pendente (workflow) — melhor que `aprovadorId` legado na linha. */
+    etapaPendenteAprovadorId?: string | null;
+}
+
+function isStatusAprovadaOuConcluida(status: number | string): boolean {
+    const s = String(status);
+    return s === "Aprovada" || s === "2" || s === "Concluida" || s === "8";
+}
+
+function dedupeSolicitacoesPorId(items: SolicitacaoGridRow[]): SolicitacaoGridRow[] {
+    const m = new Map<string, SolicitacaoGridRow>();
+    for (const r of items) m.set(r.id, r);
+    return [...m.values()];
 }
 
 interface SolicitacaoDetail {
@@ -275,6 +288,11 @@ function SolicitacoesVagaContent() {
     const router = useRouter();
     const prefersMobileForm = useMobileSolicitacaoFormPreferred();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
+    const isAdminOrOwner = useIsAdminOrOwner();
+    const rhListaAmpla =
+        useHasPermission("rh.contratacoes.view")
+        || useHasPermission("rh.contratacoes.triagem")
+        || useHasPermission("rh.contratacoes.selecao");
 
     /* ── data ── */
     const [loading, setLoading] = useState(true);
@@ -314,6 +332,14 @@ function SolicitacoesVagaContent() {
     const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
 
+    const detailObservadorRh = useMemo(() => {
+        if (!detail) return false;
+        return rhListaAmpla
+            && !isAdminOrOwner
+            && !!(myFuncionarioId && detail.solicitanteId !== myFuncionarioId)
+            && !isStatusAprovadaOuConcluida(detail.status);
+    }, [detail, rhListaAmpla, isAdminOrOwner, myFuncionarioId]);
+
     /* ── delete confirm ── */
     const [deleteTarget, setDeleteTarget] = useState<SolicitacaoGridRow | null>(null);
 
@@ -326,6 +352,13 @@ function SolicitacoesVagaContent() {
 
     /* ── resolve meu funcionarioId para filtrar aprovações ── */
     const [myFuncionarioId, setMyFuncionarioId] = useState<string | null>(null);
+
+    const isRhObservadorRow = useCallback((r: SolicitacaoGridRow) => {
+        if (!rhListaAmpla || isAdminOrOwner) return false;
+        if (!myFuncionarioId) return false;
+        if (r.solicitanteId === myFuncionarioId) return false;
+        return !isStatusAprovadaOuConcluida(r.status);
+    }, [rhListaAmpla, isAdminOrOwner, myFuncionarioId]);
 
     /* ── data loading ── */
     const syncList = useCallback(async () => {
@@ -345,14 +378,35 @@ function SolicitacoesVagaContent() {
             fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true`),
             fetchJson<SolicitacaoGridRow[]>(API).catch(() => []),
         ]);
-        setRows(Array.isArray(myData) ? myData : []);
         const allItems = Array.isArray(allData) ? allData : [];
+        const mine = Array.isArray(myData) ? myData : [];
+
+        let nextRows: SolicitacaoGridRow[];
+        if (rhListaAmpla) {
+            nextRows = allItems;
+        } else {
+            const isPendente = (s: number | string) => s === 1 || s === "PendenteAprovacao";
+            const precisoAprovar = funcId
+                ? allItems.filter((r) => {
+                    if (!isPendente(r.status)) return false;
+                    const ep = r.etapaPendenteAprovadorId ?? r.aprovadorId;
+                    return ep === funcId;
+                })
+                : [];
+            nextRows = dedupeSolicitacoesPorId([...mine, ...precisoAprovar]);
+        }
+        setRows(nextRows);
+
         const isPendente = (s: number | string) => s === 1 || s === "PendenteAprovacao";
         const pending = funcId
-            ? allItems.filter((r) => isPendente(r.status) && r.aprovadorId === funcId)
+            ? allItems.filter((r) => {
+                if (!isPendente(r.status)) return false;
+                const ep = r.etapaPendenteAprovadorId ?? r.aprovadorId;
+                return ep === funcId;
+            })
             : allItems.filter((r) => isPendente(r.status));
         setPendingRows(pending);
-    }, [myFuncionarioId]);
+    }, [myFuncionarioId, rhListaAmpla]);
 
     useEffect(() => {
         let alive = true;
@@ -697,7 +751,7 @@ function SolicitacoesVagaContent() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -740,86 +794,99 @@ function SolicitacoesVagaContent() {
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                            {/* Rascunho: editar, enviar, excluir */}
-                                            {(r.status === 0 || r.status === "Rascunho") && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                        <Send />
-                                                    </Button>
-                                                    <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
-                                                        <Trash2 />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* AjustesNecessarios: editar, enviar */}
-                                            {(r.status === 4 || r.status === "AjustesNecessarios") && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                        <Send />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Pendente: editar e reenviar + cancelar */}
-                                            {(r.status === 1 || r.status === "PendenteAprovacao") && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
-                                                        <Ban />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Aprovada/Reprovada: apenas visualizar */}
-                                            {(r.status === 2 || r.status === "Aprovada" ||
-                                              r.status === 3 || r.status === "Reprovada") && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* AguardaRH / AguardaHC: visualizar + cancelar se sem movimentação */}
-                                            {(r.status === 5 || r.status === "PendenteAprovacaoRh" ||
-                                              r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
+                                            {isRhObservadorRow(r) ? (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
                                                         <Eye />
                                                     </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
-                                                        <Ban />
+                                                    <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
+                                                        <Activity />
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* Rascunho: editar, enviar, excluir */}
+                                                    {(r.status === 0 || r.status === "Rascunho") && (
+                                                        <>
+                                                            <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
+                                                                <Pencil />
+                                                            </Button>
+                                                            <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
+                                                                <Send />
+                                                            </Button>
+                                                            <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
+                                                                <Trash2 />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                    {/* AjustesNecessarios: editar, enviar */}
+                                                    {(r.status === 4 || r.status === "AjustesNecessarios") && (
+                                                        <>
+                                                            <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
+                                                                <Pencil />
+                                                            </Button>
+                                                            <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
+                                                                <Send />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                    {/* Pendente: editar e reenviar + cancelar */}
+                                                    {(r.status === 1 || r.status === "PendenteAprovacao") && (
+                                                        <>
+                                                            <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
+                                                                <Pencil />
+                                                            </Button>
+                                                            <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
+                                                                <Ban />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                    {/* Aprovada/Reprovada: apenas visualizar */}
+                                                    {(r.status === 2 || r.status === "Aprovada" ||
+                                                      r.status === 3 || r.status === "Reprovada") && (
+                                                        <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                            <Eye />
+                                                        </Button>
+                                                    )}
+                                                    {/* AguardaRH / AguardaHC: visualizar + cancelar se sem movimentação */}
+                                                    {(r.status === 5 || r.status === "PendenteAprovacaoRh" ||
+                                                      r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
+                                                        <>
+                                                            <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
+                                                                <Eye />
+                                                            </Button>
+                                                            <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
+                                                                <Ban />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                    {/* Copiar: todas as linhas */}
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon-xs"
+                                                        title="Copiar vaga"
+                                                        onClick={() => {
+                                                            setCopySourceId(r.id);
+                                                            setEditId(null);
+                                                            setViewId(null);
+                                                            setResubmit(false);
+                                                            setFormInitialData(null);
+                                                            if (prefersMobileForm) {
+                                                                router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(r.id)}`);
+                                                                return;
+                                                            }
+                                                            bumpFormNonce();
+                                                            setFormOpen(true);
+                                                        }}
+                                                    >
+                                                        <Copy className="size-3.5" />
+                                                    </Button>
+                                                    {/* Acompanhamento: todas as linhas */}
+                                                    <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
+                                                        <Activity />
                                                     </Button>
                                                 </>
                                             )}
-                                            {/* Copiar: todas as linhas */}
-                                            <Button
-                                                variant="outline"
-                                                size="icon-xs"
-                                                title="Copiar vaga"
-                                                onClick={() => {
-                                                    setCopySourceId(r.id);
-                                                    setEditId(null);
-                                                    setViewId(null);
-                                                    setResubmit(false);
-                                                    setFormInitialData(null);
-                                                    if (prefersMobileForm) {
-                                                        router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(r.id)}`);
-                                                        return;
-                                                    }
-                                                    bumpFormNonce();
-                                                    setFormOpen(true);
-                                                }}
-                                            >
-                                                <Copy className="size-3.5" />
-                                            </Button>
-                                            {/* Acompanhamento: todas as linhas */}
-                                            <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
-                                                <Activity />
-                                            </Button>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -925,6 +992,11 @@ function SolicitacoesVagaContent() {
                         </div>
                     ) : detail ? (
                         <div className="space-y-4">
+                            {detailObservadorRh && (
+                                <div className="rounded-md border border-sky-200 bg-sky-50/70 dark:bg-sky-950/25 dark:border-sky-800 px-3 py-2 text-xs text-sky-900 dark:text-sky-100">
+                                    Visualização RH — a requisição ainda não está aprovada; você pode apenas consultar.
+                                </div>
+                            )}
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <div className="text-xs text-muted-foreground uppercase">Título</div>
@@ -1045,8 +1117,8 @@ function SolicitacoesVagaContent() {
                                 </div>
                             )}
 
-                            {/* ── Submit action (only for Rascunho or Ajustes) ── */}
-                            {(detail.status === 0 || detail.status === "Rascunho") && (
+                            {/* ── Submit action (only for Rascunho ou Ajustes — não para observador RH) ── */}
+                            {(detail.status === 0 || detail.status === "Rascunho") && !detailObservadorRh && (
                                 <div className="flex gap-2">
                                     <Button size="sm" onClick={() => void submitForApproval(detail.id)}>
                                         <Send className="size-4" /> Enviar para aprovação
@@ -1070,8 +1142,8 @@ function SolicitacoesVagaContent() {
                                     </Button>
                                 </div>
                             )}
-                            {/* ── Cancelar (pendente) ── */}
-                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && (
+                            {/* ── Cancelar / editar (pendente) — não para observador RH ── */}
+                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && !detailObservadorRh && (
                                 <div className="flex gap-2">
                                     <Button
                                         size="sm"
