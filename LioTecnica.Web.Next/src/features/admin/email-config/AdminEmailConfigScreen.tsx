@@ -17,6 +17,8 @@ interface EmailConfig {
     smtpEnableSsl: boolean;
     smtpFromAddress: string | null;
     smtpFromName: string | null;
+    smtpUseTestRedirect?: boolean;
+    smtpTestRedirectAddress?: string | null;
     imapHost: string | null;
     imapPort: number;
     imapUserName: string | null;
@@ -29,6 +31,8 @@ const EMPTY: EmailConfig = {
     provider: "smtp",
     smtpHost: "", smtpPort: 587, smtpUserName: "", smtpPassword: "", smtpEnableSsl: true,
     smtpFromAddress: "", smtpFromName: "",
+    smtpUseTestRedirect: false,
+    smtpTestRedirectAddress: "",
     imapHost: "", imapPort: 993, imapUserName: "", imapPassword: "", imapEnableSsl: true, imapFolder: "INBOX",
 };
 
@@ -154,6 +158,23 @@ export default function AdminEmailConfigScreen() {
                 <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.smtpEnableSsl} onChange={e => upd("smtpEnableSsl", e.target.checked)} className="rounded border-input" /> Usar SSL</label>
                     <Button variant="outline" size="sm" onClick={() => void testSmtp()} disabled={testingSmtp}><TestTube className="size-4 mr-1" />{testingSmtp ? "Testando..." : "Testar SMTP"}</Button>
+                </div>
+                <div className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+                    <div className="text-sm font-medium text-amber-900 dark:text-amber-100">Modo teste SMTP (homologação)</div>
+                    <p className="text-xs text-muted-foreground">
+                        Quando ativo, <strong>todos</strong> os e-mails enfileirados pelo sistema (magic link, recrutadores, reprovações etc.) são enviados apenas para o endereço abaixo;
+                        o destinatário original aparece no assunto e no corpo.
+                    </p>
+                    <label className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={config.smtpUseTestRedirect ?? false} onChange={e => upd("smtpUseTestRedirect", e.target.checked)} className="rounded border-input" />
+                        Redirecionar todo envio SMTP para e-mail de teste
+                    </label>
+                    {(config.smtpUseTestRedirect ?? false) && (
+                        <div className="space-y-1 max-w-md">
+                            <label className="text-xs font-medium text-muted-foreground">E-mail de teste (único destinatário)</label>
+                            <Input value={config.smtpTestRedirectAddress ?? ""} onChange={e => upd("smtpTestRedirectAddress", e.target.value)} placeholder="qa@suaempresa.com" type="email" />
+                        </div>
+                    )}
                 </div>
             </div>
 

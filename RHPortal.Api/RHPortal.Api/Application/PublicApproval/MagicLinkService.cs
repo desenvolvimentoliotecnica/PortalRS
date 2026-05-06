@@ -3,6 +3,7 @@ using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.PublicApproval;
@@ -12,14 +13,20 @@ public sealed class MagicLinkService : IMagicLinkService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IEmailQueueService _emailQueue;
+    private readonly ISolicitacaoVagaRecrutadorNotifier _solicitacaoVagaRecrutadorNotifier;
 
     private static readonly TimeSpan TokenTtl = TimeSpan.FromHours(72);
 
-    public MagicLinkService(AppDbContext db, ITenantContext tenantContext, IEmailQueueService emailQueue)
+    public MagicLinkService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IEmailQueueService emailQueue,
+        ISolicitacaoVagaRecrutadorNotifier solicitacaoVagaRecrutadorNotifier)
     {
         _db = db;
         _tenantContext = tenantContext;
         _emailQueue = emailQueue;
+        _solicitacaoVagaRecrutadorNotifier = solicitacaoVagaRecrutadorNotifier;
     }
 
     // ── Token generation ──────────────────────────────────────────────
@@ -171,6 +178,10 @@ public sealed class MagicLinkService : IMagicLinkService
         link.UserAgent = userAgent;
 
         await _db.SaveChangesAsync(ct);
+
+        if (acao == MagicLinkAcao.Aprovar && link.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal)
+            await _solicitacaoVagaRecrutadorNotifier.NotifyFinalizadaAsync(link.SolicitacaoId, ct);
+
         return MagicLinkResultado.Sucesso;
     }
 

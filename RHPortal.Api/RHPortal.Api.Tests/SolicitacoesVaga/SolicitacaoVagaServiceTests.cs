@@ -30,7 +30,7 @@ public sealed class SolicitacaoVagaServiceTests
 
     // ── factory ──────────────────────────────────────────────────────────────
 
-    private static (AppDbContext Db, SolicitacaoVagaService Service, Mock<IVagaService> VagaMock)
+    private static (AppDbContext Db, SolicitacaoVagaService Service, Mock<IVagaService> VagaMock, Mock<IEmailQueueService> EmailMock)
         CriarServico(bool isReadOnly = false, bool isAdmin = true)
     {
         var appOptions = new DbContextOptionsBuilder<AppDbContext>()
@@ -107,13 +107,53 @@ public sealed class SolicitacaoVagaServiceTests
             .Setup(x => x.ExecutarCriacaoRequisicaoRmAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        var recruiterNotifier = new SolicitacaoVagaRecrutadorNotifier(db, emailMock.Object);
+
         var service = new SolicitacaoVagaService(
             db, tenantMock.Object, vagaMock.Object, currentUserMock.Object,
             pessoaMock.Object, notifications, workflow,
             emailMock.Object, magicMock.Object, httpAccessor.Object, serviceProvider.Object, statusHistorico,
-            rmIntegracaoMock.Object);
+            rmIntegracaoMock.Object, recruiterNotifier);
 
-        return (db, service, vagaMock);
+        return (db, service, vagaMock, emailMock);
+    }
+
+    private static void SeedUsuarioRecrutador(AppDbContext db, string email)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var roleId = Guid.NewGuid();
+        db.Set<ApplicationRole>().Add(new ApplicationRole
+        {
+            Id = roleId,
+            TenantId = TenantTeste,
+            Name = "Recrutador",
+            NormalizedName = "RECRUTADOR",
+            Description = "",
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+        });
+        var userId = Guid.NewGuid();
+        db.Users.Add(new ApplicationUser
+        {
+            Id = userId,
+            TenantId = TenantTeste,
+            Email = email,
+            UserName = email,
+            NormalizedEmail = email.ToUpperInvariant(),
+            NormalizedUserName = email.ToUpperInvariant(),
+            EmailConfirmed = true,
+            FullName = "Recrutador Teste",
+            IsActive = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+        });
+        db.Set<ApplicationUserRole>().Add(new ApplicationUserRole
+        {
+            UserId = userId,
+            RoleId = roleId,
+            TenantId = TenantTeste,
+        });
+        db.SaveChanges();
     }
 
     /// <summary>Seed de um Funcionario mínimo válido no DB.</summary>
@@ -161,6 +201,7 @@ public sealed class SolicitacaoVagaServiceTests
             CentroCustoId = areaId,
             DecisaoRH = TipoDecisaoHeadcount.SubstituicaoProvisoria,
             DecisaoRHPrazoMeses = 12,
+            EscalaTrabalho = "5x2",
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -210,6 +251,7 @@ public sealed class SolicitacaoVagaServiceTests
             CentroCustoId = centroCustoId,
             MotivoRequisicao = MotivoRequisicaoVaga.ExpansaoBase,
             RequisitosDetalhadosJson = """{"schemaVersion":1,"orcamento":"previsto"}""",
+            EscalaTrabalho = "5x2",
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -238,6 +280,7 @@ public sealed class SolicitacaoVagaServiceTests
             SubstituidoFuncionarioId = substituidoId,
             SubstituidoNome = "Substituído",
             IsConfidencial = false,
+            EscalaTrabalho = "5x2",
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -269,7 +312,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Create_UsuarioReadOnly_LancaInvalidOperationException()
     {
-        var (db, svc, _) = CriarServico(isReadOnly: true);
+        var (db, svc, _, _) = CriarServico(isReadOnly: true);
         var funcId = SeedFuncionario(db);
 
         var request = new SolicitacaoVagaCreateRequest
@@ -287,7 +330,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Create_ComSolicitanteIdExistente_CriaEmRascunho()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
 
         var request = new SolicitacaoVagaCreateRequest
@@ -299,6 +342,7 @@ public sealed class SolicitacaoVagaServiceTests
             IsConfidencial = true,
             DecisaoRH = TipoDecisaoHeadcount.SubstituicaoProvisoria,
             DecisaoRHPrazoMeses = 12,
+            EscalaTrabalho = "5x2",
         };
 
         var result = await svc.CreateAsync(request, funcId, CancellationToken.None);
@@ -315,7 +359,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Create_QtdPosicoesMenorQueUm_NormalizaParaUm()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
 
         var request = new SolicitacaoVagaCreateRequest
@@ -326,6 +370,7 @@ public sealed class SolicitacaoVagaServiceTests
             TipoSolicitacao = TipoSolicitacaoVaga.VagaNova,
             DecisaoRH = TipoDecisaoHeadcount.SubstituicaoProvisoria,
             DecisaoRHPrazoMeses = 12,
+            EscalaTrabalho = "5x2",
         };
 
         var result = await svc.CreateAsync(request, funcId, CancellationToken.None);
@@ -338,7 +383,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Update_EmRascunho_AtualizaDados()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho);
 
@@ -363,7 +408,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Update_EmStatusAprovada_LancaInvalidOperationException()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Aprovada);
 
@@ -385,7 +430,7 @@ public sealed class SolicitacaoVagaServiceTests
     public async Task Submit_RascunhoComAprovadorIdFallback_TransicionaParaPendenteAprovacao()
     {
         // Configuração explícita de etapa fixa para garantir aprovador resolvido
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var aprovadorFakeId = SeedFuncionario(db, Guid.NewGuid());
         db.Set<EtapaConfigAprovacao>().Add(new EtapaConfigAprovacao
@@ -421,7 +466,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Submit_SemNenhumAprovadorConfigurado_CriaEtapaPendenteSemAprovador()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         // Sem AprovadorId, sem GestorDireto, sem RegraAprovacao
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho, aprovadorId: null);
@@ -440,7 +485,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Submit_StatusPendenteAprovacao_LancaInvalidOperationException()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
 
@@ -448,12 +493,47 @@ public sealed class SolicitacaoVagaServiceTests
             () => svc.SubmitAsync(id, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Submit_DisparaEmailParaRecrutadores_QuandoHaPerfilRecrutador()
+    {
+        var (db, svc, _, emailMock) = CriarServico();
+        SeedUsuarioRecrutador(db, "recrutador@teste.com");
+        var funcId = SeedFuncionario(db);
+        var aprovadorFakeId = SeedFuncionario(db, Guid.NewGuid());
+        db.Set<EtapaConfigAprovacao>().Add(new EtapaConfigAprovacao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            TipoFluxo = TipoFluxoAprovacao.RequisicaoPessoal,
+            Ordem = 1,
+            Label = "Aprovacao",
+            TipoAprovador = TipoAprovador.FuncionarioFixo,
+            FuncionarioFixoId = aprovadorFakeId,
+            Ativo = true,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
+        db.SaveChanges();
+        var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho,
+            aprovadorId: aprovadorFakeId);
+
+        Assert.True(await svc.SubmitAsync(id, CancellationToken.None));
+
+        emailMock.Verify(e => e.EnqueueRawAsync(
+            "recrutador@teste.com",
+            It.Is<string>(s => s.StartsWith("Nova requisição de vaga enviada", StringComparison.Ordinal)),
+            It.Is<string>(html => html.Contains($"/rs/solicitacoes/{id}", StringComparison.Ordinal)),
+            null,
+            true,
+            "SolicitacaoVagaRecrutadores",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     // ── Aprovação ─────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task Approve_StatusPendenteAprovacao_TransicionaParaAprovada()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var substId = SeedFuncionario(db);
         var id = SeedSolicitacaoSubstituicaoParaAprovacao(db, funcId, substId, SolicitacaoStatus.PendenteAprovacao);
@@ -468,9 +548,31 @@ public sealed class SolicitacaoVagaServiceTests
     }
 
     [Fact]
+    public async Task Approve_Substituicao_DisparaEmailFinalizadaParaRecrutadores()
+    {
+        var (db, svc, _, emailMock) = CriarServico();
+        SeedUsuarioRecrutador(db, "recrutador-final@teste.com");
+        var funcId = SeedFuncionario(db);
+        var substId = SeedFuncionario(db);
+        var id = SeedSolicitacaoSubstituicaoParaAprovacao(db, funcId, substId, SolicitacaoStatus.PendenteAprovacao);
+        SeedEtapaPendente(db, id, aprovadorId: funcId);
+
+        await svc.ApproveAsync(id, null, CancellationToken.None);
+
+        emailMock.Verify(e => e.EnqueueRawAsync(
+            "recrutador-final@teste.com",
+            It.Is<string>(s => s.StartsWith("Requisição de vaga finalizada", StringComparison.Ordinal)),
+            It.IsAny<string>(),
+            null,
+            true,
+            "SolicitacaoVagaRecrutadores",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Approve_IdInexistente_RetornaNull()
     {
-        var (_, svc, _) = CriarServico();
+        var (_, svc, _, _) = CriarServico();
 
         var result = await svc.ApproveAsync(Guid.NewGuid(), null, CancellationToken.None);
 
@@ -480,7 +582,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Approve_StatusRascunho_LancaInvalidOperationException()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho);
 
@@ -493,7 +595,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Reject_StatusPendenteAprovacao_TransicionaParaReprovada()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
 
@@ -507,7 +609,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Reject_StatusRascunho_LancaInvalidOperationException()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho);
 
@@ -520,7 +622,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task RequestChanges_StatusPendenteAprovacao_TransicionaParaAjustesNecessarios()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
 
@@ -534,7 +636,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task RequestChanges_StatusAprovada_LancaInvalidOperationException()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Aprovada);
 
@@ -547,7 +649,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Delete_EmRascunho_RemoveERetornaTrue()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Rascunho);
 
@@ -561,7 +663,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Delete_NaoEmRascunho_LancaInvalidOperationException()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.Aprovada);
 
@@ -572,7 +674,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Delete_IdInexistente_RetornaFalse()
     {
-        var (_, svc, _) = CriarServico();
+        var (_, svc, _, _) = CriarServico();
 
         var result = await svc.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
 
@@ -585,7 +687,7 @@ public sealed class SolicitacaoVagaServiceTests
     public async Task Submit_StatusAjustesNecessarios_TransicionaParaPendenteAprovacao()
     {
         // Após solicitação de ajustes, o solicitante resubmete e deve funcionar
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var aprovadorId = Guid.NewGuid();
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.AjustesNecessarios,
@@ -603,7 +705,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Submit_AumentoQuadro_ComCamposMinimos_VaiParaPendenteTriagem_SemEtapas()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var solicitanteUserId = Guid.NewGuid();
         var funcId = SeedFuncionario(db, solicitanteUserId);
         var jpId = SeedJobPosition(db);
@@ -622,7 +724,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task Approve_AumentoQuadro_EmPendenteTriagem_LancaPorFluxoTriagem()
     {
-        var (db, svc, _) = CriarServico();
+        var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db, Guid.NewGuid());
         var jpId = SeedJobPosition(db);
         var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, Guid.NewGuid());
@@ -637,7 +739,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task AumentoQuadro_DevolverTriagem_GestorPodeEditar_ReSubmitVoltaTriagem()
     {
-        var (db, svc, _) = CriarServico(isAdmin: true);
+        var (db, svc, _, _) = CriarServico(isAdmin: true);
         var solicitanteUserId = Guid.NewGuid();
         var funcId = SeedFuncionario(db, solicitanteUserId);
         var jpId = SeedJobPosition(db);
@@ -660,6 +762,8 @@ public sealed class SolicitacaoVagaServiceTests
             CentroCustoId = ccId,
             MotivoRequisicao = MotivoRequisicaoVaga.ExpansaoBase,
             DecisaoRH = TipoDecisaoHeadcount.AumentoDefinitivo,
+            EscalaTrabalho = "5x2",
+            RequisitosDetalhadosJson = """{"schemaVersion":1,"orcamento":"previsto"}""",
         }, CancellationToken.None);
 
         Assert.True(await svc.SubmitAsync(id, CancellationToken.None));
@@ -670,7 +774,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task AumentoQuadro_Encaminhar_CriaEtapasEPendenteAprovacao()
     {
-        var (db, svc, _) = CriarServico(isAdmin: true);
+        var (db, svc, _, _) = CriarServico(isAdmin: true);
         var solicitanteUserId = Guid.NewGuid();
         var funcId = SeedFuncionario(db, solicitanteUserId);
         var aprovadorFakeId = SeedFuncionario(db, Guid.NewGuid());
@@ -705,7 +809,7 @@ public sealed class SolicitacaoVagaServiceTests
     [Fact]
     public async Task AumentoQuadro_TriagemReprovar_VaiReprovada()
     {
-        var (db, svc, _) = CriarServico(isAdmin: true);
+        var (db, svc, _, _) = CriarServico(isAdmin: true);
         var funcId = SeedFuncionario(db, Guid.NewGuid());
         var jpId = SeedJobPosition(db);
         var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, Guid.NewGuid());

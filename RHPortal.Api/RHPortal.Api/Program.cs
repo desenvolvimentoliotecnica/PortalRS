@@ -461,6 +461,7 @@ builder.Services.AddScoped<IAuthorizationHandler, ModuleAuthorizationHandler>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IJobPositionService, JobPositionService>();
 builder.Services.AddScoped<IFuncionarioService, FuncionarioService>();
+builder.Services.AddScoped<ISolicitacaoVagaRecrutadorNotifier, SolicitacaoVagaRecrutadorNotifier>();
 builder.Services.AddScoped<ISolicitacaoVagaService, SolicitacaoVagaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Vagas.IVagaPipelineService, RhPortal.Api.Application.Vagas.VagaPipelineService>();
 builder.Services.AddScoped<RhPortal.Api.Application.PublicApproval.IMagicLinkService, RhPortal.Api.Application.PublicApproval.MagicLinkService>();
