@@ -33,6 +33,13 @@
 # Export de imagens Docker para deploy (tar grande)
 __scripts__/deploy/out/
 
+# Artefatos locais da GUI de deploy HMG
+__scripts__/deploy/gui/build/
+__scripts__/deploy/gui/dist/
+__scripts__/deploy/gui/logs/
+__scripts__/deploy/gui/*.spec
+__scripts__/deploy/gui/deploy_gui_config.json
+
 # Arquivos problemáticos no Windows
 nul
 **/nul
