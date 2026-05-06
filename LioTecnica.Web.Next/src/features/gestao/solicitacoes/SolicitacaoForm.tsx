@@ -24,6 +24,11 @@ export interface SolicitacaoDraft {
     qtdPosicoes: number;
     urgencia: number;
     jobPositionId: string | null;
+    /** Nome do cargo vindo do GET (quando não está na lista lookup). */
+    jobPositionName: string | null;
+    /** Faixa proposta — texto livre; convertido para decimal no submit. */
+    faixaSalarialMin: string;
+    faixaSalarialMax: string;
     /** Fluxo único de nova posição (sem escolha “do quadro de vagas”). */
     origemVaga: "nova";
     unitId: string | null;
@@ -58,6 +63,8 @@ export interface SolicitacaoDraft {
     decisaoRH: number | null; // 1=SubstituicaoProvisoria, 2=AumentoDefinitivo, 3=ConsumirHeadcountExistente
     decisaoRHPrazoMeses: number | null;
     decisaoRHPrazoDataAlvo: string | null; // ISO datetime
+    /** JSON objeto — obrigatório para envio quando `tipoSolicitacao === AumentoQuadro`. */
+    requisitosDetalhadosJson: string;
 }
 
 export interface SolicitacaoFormProps {
@@ -98,6 +105,9 @@ const emptyDraft: SolicitacaoDraft = {
     qtdPosicoes: 1,
     urgencia: 1,
     jobPositionId: null,
+    jobPositionName: null,
+    faixaSalarialMin: "",
+    faixaSalarialMax: "",
     origemVaga: "nova",
     unitId: null,
     aprovadorId: null,
@@ -124,6 +134,59 @@ const emptyDraft: SolicitacaoDraft = {
     decisaoRH: null,
     decisaoRHPrazoMeses: 3,
     decisaoRHPrazoDataAlvo: null,
+    requisitosDetalhadosJson: "",
+};
+
+/** Parse valores monetários do GET (number ou string); edição usa string local. */
+function moneyFieldFromApi(raw: unknown): string {
+    if (raw == null) return "";
+    if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+    return String(raw).trim();
+}
+
+/** Converte entrada BR (vírgula ou ponto) em número ou null se vazio. */
+function parseDecimalBrInput(s: string): number | null {
+    const t = s.trim().replace(/\s/g, "").replace(",", ".");
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+}
+
+/** Valida o mesmo formato exigido em `EnsureCamposMinimosEnvioAumentoQuadroAsync`. */
+function parseRequisitosJsonForSubmit(raw: string): { ok: true; json: string } | { ok: false; message: string } {
+    const t = raw.trim();
+    if (t.length < 8) return { ok: false, message: "Requisitos detalhados (JSON): informe um objeto JSON (mín. 8 caracteres)." };
+    try {
+        const o = JSON.parse(t) as unknown;
+        if (o === null || typeof o !== "object" || Array.isArray(o)) {
+            return { ok: false, message: "Requisitos detalhados devem ser um objeto JSON { ... }, não lista ou texto solto." };
+        }
+        const json = JSON.stringify(o);
+        if (json.trim().length < 8) return { ok: false, message: "Requisitos detalhados (JSON) incompletos." };
+        return { ok: true, json };
+    } catch {
+        return { ok: false, message: "Requisitos detalhados: JSON inválido (verifique vírgulas e aspas)." };
+    }
+}
+
+/** Moldura inicial editável compatível com a validação na API (`schemaVersion`). */
+const DEFAULT_REQUISITOS_JSON_AUMENTO_QUADRO = `{\n  "schemaVersion": 1,\n  "orcamento": "previsto"\n}`;
+
+/** Rótulos próximos ao RM (TOTVS) para mesma linguagem nas telas. */
+const LB = {
+    empresa: "Empresa *",
+    filial: "Filial *",
+    secao: "Seção *",
+    funcao: "Função *",
+    cargoOpcional: "Cargo",
+    cargoObrig: "Cargo *",
+    faixaMin: "Proposta faixa salarial — mín. *",
+    faixaMax: "Proposta faixa salarial — máx. *",
+    tipoSolicitacao: "Tipo de solicitação",
+    motivo: "Motivo *",
+    justificativa: "Justificativa",
+    justificativaObrig: "Justificativa *",
+    secaoTituloReq: "Dados da requisição",
 };
 
 /* ──────────────────────────── AutocompleteSelect ──────────────────────────── */
@@ -440,6 +503,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
      */
     type MotivoLookup = { id: string; codigo: string; nome: string; efeitoHeadcount: "Aumenta" | "Diminui" | "Ambos" };
     const [motivos, setMotivos] = useState<MotivoLookup[]>([]);
+    const [cargosLookup, setCargosLookup] = useState<LookupItem[]>([]);
 
     type FuncaoRmRow = { codigo?: string | null; nome?: string | null };
     const [funcoesRmItems, setFuncoesRmItems] = useState<LookupItem[]>([]);
@@ -461,16 +525,18 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         // que sabe se precisa aplicar filtros por vaga/cargo/lotação. Carregar aqui causava race
         // condition que podia sobrescrever a lista filtrada.
         type OptionRes = { id: string; name: string; code?: string };
-        const [unidadesRes, empresasRes, ccRes, motivosRes] = await Promise.all([
+        const [unidadesRes, empresasRes, ccRes, motivosRes, cargosRes] = await Promise.all([
             fetchJson<OptionRes[]>("/api/lookup/units").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/empresas").catch(() => []),
             fetchJson<OptionRes[]>("/api/lookup/centros-custo").catch(() => []),
             fetchJson<MotivoLookup[]>("/api/motivos-requisicao-vaga/lookup").catch(() => []),
+            fetchJson<OptionRes[]>("/api/lookup/job-positions").catch(() => []),
         ]);
         setUnidades(Array.isArray(unidadesRes) ? unidadesRes : []);
         setEmpresas(Array.isArray(empresasRes) ? empresasRes : []);
         setCentrosCusto(Array.isArray(ccRes) ? ccRes : []);
         setMotivos(Array.isArray(motivosRes) ? motivosRes : []);
+        setCargosLookup(Array.isArray(cargosRes) ? cargosRes : []);
 
         try {
             const meRes = await fetchJson<Record<string, unknown>>("/api/me");
@@ -501,10 +567,17 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             qtdPosicoes: Number(d?.qtdPosicoes ?? 1),
             urgencia: (() => { const map: Record<string, number> = { Baixa: 0, Media: 1, Alta: 2, Critica: 3 }; const v = d?.urgencia; return typeof v === "number" ? v : (map[v as string] ?? 1); })(),
             jobPositionId: d?.jobPositionId ? String(d.jobPositionId) : null,
+            jobPositionName: d?.jobPositionName != null && String(d.jobPositionName).trim() !== "" ? String(d.jobPositionName).trim() : null,
+            faixaSalarialMin: moneyFieldFromApi(d?.faixaSalarialMin ?? d?.FaixaSalarialMin),
+            faixaSalarialMax: moneyFieldFromApi(d?.faixaSalarialMax ?? d?.FaixaSalarialMax),
             origemVaga: "nova",
             unitId: d?.unitId ? String(d.unitId) : null,
             aprovadorId: d?.aprovadorId ? String(d.aprovadorId) : null,
-            tipoSolicitacao: (() => { const m: Record<string, number> = { VagaNova: 0, Substituicao: 1 }; const v = d?.tipoSolicitacao; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
+            tipoSolicitacao: (() => {
+                const m: Record<string, number> = { VagaNova: 0, Substituicao: 1, AumentoQuadro: 2 };
+                const v = d?.tipoSolicitacao;
+                return typeof v === "number" ? v : (m[v as string] ?? 0);
+            })(),
             isConfidencial: Boolean(d?.isConfidencial),
             substituidoFuncionarioId: d?.substituidoFuncionarioId ? String(d.substituidoFuncionarioId) : null,
             tipoContrato: (() => { const m: Record<string, number> = { CLT: 0, Estagio: 1, Aprendiz: 2, Temporario: 3 }; const v = d?.tipoContrato; return typeof v === "number" ? v : (m[v as string] ?? 0); })(),
@@ -534,6 +607,12 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             })(),
             decisaoRHPrazoMeses: d?.decisaoRHPrazoMeses != null ? Number(d.decisaoRHPrazoMeses) : 3,
             decisaoRHPrazoDataAlvo: d?.decisaoRHPrazoDataAlvo ? String(d.decisaoRHPrazoDataAlvo) : null,
+            requisitosDetalhadosJson: (() => {
+                const raw = d?.requisitosDetalhadosJson ?? d?.RequisitosDetalhadosJson;
+                if (typeof raw === "string") return raw;
+                if (raw != null && typeof raw === "object") return JSON.stringify(raw, null, 2);
+                return "";
+            })(),
         };
     }
 
@@ -798,14 +877,25 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         return [{ id, code: code || "—", name: name || "Turno" }, ...turnoLookupItems];
     }, [turnoLookupItems, draft.turnoId, turnoDetalhe]);
 
+    const jobPositionSelectItems = useMemo(() => {
+        const id = draft.jobPositionId?.trim();
+        if (!id) return cargosLookup;
+        if (cargosLookup.some((i) => i.id === id)) return cargosLookup;
+        const name = draft.jobPositionName?.trim() || "Cargo";
+        return [{ id, code: undefined, name }, ...cargosLookup];
+    }, [cargosLookup, draft.jobPositionId, draft.jobPositionName]);
+
+    const exigeDecisaoHeadcountGestor = draft.tipoSolicitacao === 0 || draft.tipoSolicitacao === 2;
+
     async function save() {
         if (viewOnly) return;
         const errors: string[] = [];
-        if (!draft.codFuncaoRm?.trim()) errors.push("Título da Vaga / Função");
+        if (!draft.codFuncaoRm?.trim()) errors.push("Função");
         if (!draft.empresaId) errors.push("Empresa");
-        if (!draft.unitId) errors.push("Local (Unidade)");
-        if (!draft.centroCustoId) errors.push("Centro de Custo");
-        if (!draft.motivoRequisicaoId) errors.push("Motivo da Requisição");
+        if (!draft.unitId) errors.push("Filial");
+        if (!draft.centroCustoId) errors.push("Seção");
+        if (!draft.motivoRequisicaoId) errors.push("Motivo");
+        if (draft.tipoSolicitacao === 2 && !draft.jobPositionId?.trim()) errors.push("Cargo");
         // isDesligamentoMotivo é derivado do efeito do motivo selecionado (fora deste escopo, no render).
         // Recalcula localmente para usar sem depender da referência externa.
         const saveMotivoSelecionado = motivos.find((m) => m.id === draft.motivoRequisicaoId) ?? null;
@@ -816,23 +906,48 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             if (!draft.substituidoFuncionarioId) errors.push("Funcionário a desligar");
             if (!draft.dataDesligamento) errors.push("Data de desligamento");
         }
-        // VagaNova exige decisão de headcount antes de submeter.
+        // Vaga nova e aumento de quadro exigem decisão de headcount antes de submeter.
         // Substituição pura (sem desligamento vinculado) não exige — provisório é default.
-        const isVagaNova = draft.tipoSolicitacao === 0;
-        if (isVagaNova && !draft.decisaoRH) errors.push("Decisão de headcount");
+        const fluxoDecisaoHcGestor = draft.tipoSolicitacao === 0 || draft.tipoSolicitacao === 2;
+        if (fluxoDecisaoHcGestor && !draft.decisaoRH) errors.push("Decisão de headcount");
         if (draft.decisaoRH === 1) {
             // Substituição provisória: exige prazo
             if (!draft.decisaoRHPrazoMeses || draft.decisaoRHPrazoMeses < 1) errors.push("Prazo da substituição provisória (meses)");
         }
-        if (isVagaNova && draft.decisaoRH === 2 && !draft.justificativa.trim()) {
+        if (draft.tipoSolicitacao === 2 && !draft.justificativa.trim()) {
+            errors.push("Justificativa (obrigatória no aumento de quadro)");
+            setActiveTab("identificacao");
+        }
+        if (draft.tipoSolicitacao !== 2 && fluxoDecisaoHcGestor && draft.decisaoRH === 2 && !draft.justificativa.trim()) {
             errors.push("Justificativa (obrigatória para aumento definitivo de headcount)");
             setActiveTab("identificacao");
         }
         const temTurno = !!draft.turnoId?.trim();
         const temEscalaLegada = !!(draft.escalaTrabalho || "").trim();
         if (!temTurno && !temEscalaLegada) {
-            errors.push("Turno (cadastro) ou horário legado");
+            errors.push("Turno ou horário legado");
             setActiveTab("horario");
+        }
+        const faixaMinNum = parseDecimalBrInput(draft.faixaSalarialMin);
+        const faixaMaxNum = parseDecimalBrInput(draft.faixaSalarialMax);
+        if (faixaMinNum == null || faixaMaxNum == null) {
+            errors.push("Proposta faixa salarial (mínimo e máximo)");
+            setActiveTab("identificacao");
+        }
+        if (faixaMinNum != null && faixaMaxNum != null && faixaMinNum > faixaMaxNum) {
+            toast.error("Faixa salarial inválida: o mínimo não pode ser maior que o máximo.");
+            setActiveTab("identificacao");
+            return;
+        }
+        let requisitosDetalhadosPayload: string | null = null;
+        if (draft.tipoSolicitacao === 2) {
+            const pr = parseRequisitosJsonForSubmit(draft.requisitosDetalhadosJson);
+            if (!pr.ok) {
+                toast.error(pr.message);
+                setActiveTab("identificacao");
+                return;
+            }
+            requisitosDetalhadosPayload = pr.json;
         }
         if (errors.length > 0) {
             toast.error(`Campos obrigatórios: ${errors.join(", ")}.`);
@@ -840,6 +955,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         }
 
         setSaving(true);
+        const tipoSolicitacaoStr = (["VagaNova", "Substituicao", "AumentoQuadro"][draft.tipoSolicitacao] ?? "VagaNova") as
+            | "VagaNova"
+            | "Substituicao"
+            | "AumentoQuadro";
         const payload = {
             titulo: tituloFromFuncaoRm(draft.codFuncaoRm, draft.funcaoNomeRm),
             codFuncaoRm: draft.codFuncaoRm?.trim() || null,
@@ -850,7 +969,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             jobPositionId: draft.jobPositionId || null,
             unitId: draft.unitId,
             aprovadorId: draft.aprovadorId || null,
-            tipoSolicitacao: (["VagaNova", "Substituicao"][draft.tipoSolicitacao] ?? "VagaNova"),
+            tipoSolicitacao: tipoSolicitacaoStr,
             isConfidencial: draft.isConfidencial,
             substituidoFuncionarioId: draft.tipoSolicitacao === 1 ? (draft.substituidoFuncionarioId || null) : null,
             tipoContrato: (["CLT", "Estagio", "Aprendiz", "Temporario"][draft.tipoContrato] ?? "CLT"),
@@ -876,6 +995,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 : null,
             decisaoRHPrazoMeses: draft.decisaoRH === 1 ? draft.decisaoRHPrazoMeses : null,
             decisaoRHPrazoDataAlvo: draft.decisaoRH === 1 ? draft.decisaoRHPrazoDataAlvo : null,
+            faixaSalarialMin: faixaMinNum,
+            faixaSalarialMax: faixaMaxNum,
+            requisitosDetalhadosJson: requisitosDetalhadosPayload,
         };
 
         function hintTabFromMvcKeys(body: Record<string, unknown>): "identificacao" | "horario" | "aprovacao" | null {
@@ -885,7 +1007,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             const blob = (errs ? Object.keys(errs) : Object.keys(body)).join("|").toLowerCase();
             if (/escala|horario|horário|turno/i.test(blob)) return "horario";
             if (/aprovador/i.test(blob)) return "aprovacao";
-            if (/titulo|empresa|unidade|motivo|justificativa|cargo|quadro|substituid|headcount|decisao|funcao|codfuncao|lotacao/i.test(blob)) return "identificacao";
+            if (/titulo|empresa|unidade|filial|motivo|justificativa|cargo|quadro|substituid|headcount|decisao|funcao|codfuncao|lotacao|requisitos|json/i.test(blob)) return "identificacao";
             return null;
         }
 
@@ -919,7 +1041,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 }
                 if (resubmitAfterSave) {
                     await fetchJson(`${API}/${editId}/submit`, { method: "POST" });
-                    toast.success("Solicitação atualizada e reenviada para aprovação!");
+                    toast.success(
+                        draft.tipoSolicitacao === 2
+                            ? "Solicitação atualizada e reenviada para triagem RH!"
+                            : "Solicitação atualizada e reenviada para aprovação!",
+                    );
                 } else {
                     toast.success("Solicitação atualizada.");
                 }
@@ -954,7 +1080,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 if (created?.id) {
                     const submitRes = await apiFetch(`${API}/${created.id}/submit`, { method: "POST" });
                     if (submitRes.ok || submitRes.status === 204) {
-                        toast.success("Solicitação criada e enviada para aprovação!");
+                        toast.success(
+                            tipoSolicitacaoStr === "AumentoQuadro"
+                                ? "Solicitação criada e encaminhada para triagem RH!"
+                                : "Solicitação criada e enviada para aprovação!",
+                        );
                     } else {
                         toast.success("Solicitação criada (envie manualmente para aprovação).");
                     }
@@ -1018,7 +1148,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 <Section title="Identificação" />
 
                                 <div className="col-span-2">
-                                    <label className={L}>Empresa *</label>
+                                    <label className={L}>{LB.empresa}</label>
                                     <AutocompleteSelect items={empresas} value={draft.empresaId} onChange={(v) => setDraft((d) => ({ ...d, empresaId: v }))} placeholder="empresa" required disabled={viewOnly || estruturaLocks.empresa} />
                                 </div>
 
@@ -1033,8 +1163,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 </div>
 
                                 <div className="col-span-2">
-                                    <label className={L}>Local (Unidade) *</label>
-                                    <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="unidade" required disabled={viewOnly || estruturaLocks.unit} />
+                                    <label className={L}>{LB.filial}</label>
+                                    <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="filial" required disabled={viewOnly || estruturaLocks.unit} />
                                 </div>
 
                                 <div>
@@ -1047,12 +1177,12 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 </div>
 
                                 <div className="col-span-2">
-                                    <label className={L}>Centro de Custo *</label>
+                                    <label className={L}>{LB.secao}</label>
                                     <AutocompleteSelect
                                         items={centrosCusto}
                                         value={draft.centroCustoId}
                                         onChange={(v) => setDraft((d) => ({ ...d, centroCustoId: v }))}
-                                        placeholder="centro de custo"
+                                        placeholder="seção"
                                         required
                                         disabled={viewOnly || estruturaLocks.centroCusto}
                                     />
@@ -1074,10 +1204,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     </div>
                                 </div>
 
-                                <Section title="Dados da Vaga" />
+                                <Section title={LB.secaoTituloReq} />
 
                                 <div className="col-span-2">
-                                    <label className={L}>Título da Vaga / Função *</label>
+                                    <label className={L}>{LB.funcao}</label>
                                     <AutocompleteSelect
                                         items={funcoesRmSelectItems}
                                         value={funcaoRmSelectValue}
@@ -1113,12 +1243,71 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     )}
                                 </div>
 
+                                <div className="col-span-2">
+                                    <label className={L}>{draft.tipoSolicitacao === 2 ? LB.cargoObrig : LB.cargoOpcional}</label>
+                                    <AutocompleteSelect
+                                        items={jobPositionSelectItems}
+                                        value={draft.jobPositionId}
+                                        onChange={(v) => setDraft((d) => ({ ...d, jobPositionId: v, jobPositionName: null }))}
+                                        placeholder="cargo"
+                                        required={draft.tipoSolicitacao === 2}
+                                        disabled={viewOnly}
+                                    />
+                                </div>
+
+                                <div className="flex flex-col gap-3">
+                                    <div>
+                                        <label className={L}>{LB.faixaMin}</label>
+                                        <Input
+                                            inputMode="decimal"
+                                            placeholder="Ex.: 3500 ou 3500,50"
+                                            value={draft.faixaSalarialMin}
+                                            onChange={(e) => setDraft((d) => ({ ...d, faixaSalarialMin: e.target.value }))}
+                                            disabled={viewOnly}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={L}>{LB.faixaMax}</label>
+                                        <Input
+                                            inputMode="decimal"
+                                            placeholder="Ex.: 5000"
+                                            value={draft.faixaSalarialMax}
+                                            onChange={(e) => setDraft((d) => ({ ...d, faixaSalarialMax: e.target.value }))}
+                                            disabled={viewOnly}
+                                        />
+                                    </div>
+                                </div>
+
                                 <div>
-                                    <label className={L}>Tipo de Solicitação</label>
-                                    <select className={S} value={draft.tipoSolicitacao} onChange={(e) => setDraft((d) => ({ ...d, tipoSolicitacao: Number(e.target.value) }))} disabled={viewOnly}>
-                                        <option value={0}>Vaga Nova</option>
+                                    <label className={L}>{LB.tipoSolicitacao}</label>
+                                    <select
+                                        className={S}
+                                        value={draft.tipoSolicitacao}
+                                        onChange={(e) => {
+                                            const v = Number(e.target.value);
+                                            setDraft((d) => ({
+                                                ...d,
+                                                tipoSolicitacao: v,
+                                                substituidoFuncionarioId: v === 2 ? null : d.substituidoFuncionarioId,
+                                                requisitosDetalhadosJson:
+                                                    v === 2 && !(d.requisitosDetalhadosJson || "").trim()
+                                                        ? DEFAULT_REQUISITOS_JSON_AUMENTO_QUADRO
+                                                        : v !== 2
+                                                            ? ""
+                                                            : d.requisitosDetalhadosJson,
+                                            }));
+                                        }}
+                                        disabled={viewOnly}
+                                    >
+                                        <option value={0}>Vaga nova</option>
                                         <option value={1}>Substituição</option>
+                                        <option value={2}>Aumento de quadro</option>
                                     </select>
+                                    {draft.tipoSolicitacao === 2 && (
+                                        <p className="text-[11px] text-muted-foreground mt-1">
+                                            Esta opção vai para triagem RH antes das aprovações de requisição.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {draft.tipoSolicitacao === 1 && !isDesligamentoMotivo && (
@@ -1135,7 +1324,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 )}
 
                                 <div className="col-span-3">
-                                    <label className={L}>Motivo da Requisição *</label>
+                                    <label className={L}>{LB.motivo}</label>
                                     <select
                                         className={S}
                                         value={draft.motivoRequisicaoId ?? ""}
@@ -1146,8 +1335,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             setDraft((d) => ({
                                                 ...d,
                                                 motivoRequisicaoId: id,
-                                                // Desligamento (Diminui/Ambos) implica Substituicao: fica visível o campo de funcionário.
+                                                // Desligamento (Diminui/Ambos) implica Substituicao (RM).
                                                 tipoSolicitacao: isDesl ? 1 : d.tipoSolicitacao,
+                                                requisitosDetalhadosJson: isDesl ? "" : d.requisitosDetalhadosJson,
                                             }));
                                         }}
                                         disabled={viewOnly || motivos.length === 0}
@@ -1248,13 +1438,15 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     </div>
                                 )}
 
-                                {/* Decisão de headcount — obrigatória para VagaNova (substituição usa provisório por default) */}
-                                {draft.tipoSolicitacao === 0 && (
+                                {/* Decisão de headcount — VagaNova e AumentoQuadro (substituição usa provisório por default) */}
+                                {exigeDecisaoHeadcountGestor && (
                                     <div className="col-span-3 rounded-md border border-dashed border-sky-400/70 bg-sky-50/40 p-3" data-testid="bloco-decisao-hc">
                                         <div className="mb-2 text-xs font-semibold text-sky-800">
                                             Decisão de headcount *
                                             <span className="ml-2 font-normal text-[11px] text-sky-700/80">
-                                                Como esta vaga afeta o quadro? Escolha antes de enviar para aprovação.
+                                                {draft.tipoSolicitacao === 2
+                                                    ? "Como esta vaga afeta o quadro? Defina antes de enviar para triagem RH."
+                                                    : "Como esta vaga afeta o quadro? Escolha antes de enviar para aprovação."}
                                             </span>
                                         </div>
                                         <div className="space-y-2">
@@ -1343,7 +1535,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 </div>
 
                                 <div className="col-span-3">
-                                    <label className={L}>Justificativa</label>
+                                    <label className={L}>
+                                        {draft.tipoSolicitacao === 2 ? LB.justificativaObrig : LB.justificativa}
+                                    </label>
                                     <textarea
                                         className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground resize-none disabled:bg-muted/40 disabled:text-muted-foreground disabled:cursor-default"
                                         rows={3}
@@ -1354,6 +1548,26 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                         disabled={viewOnly}
                                     />
                                 </div>
+
+                                {draft.tipoSolicitacao === 2 && (
+                                    <div className="col-span-3">
+                                        <label className={L}>Requisitos detalhados * (JSON objeto)</label>
+                                        <textarea
+                                            className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground resize-none font-mono disabled:bg-muted/40 disabled:text-muted-foreground disabled:cursor-default"
+                                            rows={8}
+                                            value={draft.requisitosDetalhadosJson}
+                                            onChange={(e) => setDraft((d) => ({ ...d, requisitosDetalhadosJson: e.target.value }))}
+                                            placeholder={'Ex.: { "schemaVersion": 1, "orcamento": "previsto" }'}
+                                            spellCheck={false}
+                                            disabled={viewOnly}
+                                        />
+                                        <p className="text-[11px] text-muted-foreground mt-1">
+                                            Objetivo JSON válido (<code className="text-xs">{`{}`}</code> com dados versionados —
+                                            ex.: <code className="text-xs">schemaVersion</code>
+                                            ); necessário para o envio ao RM após triagem.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </TabsContent>
 
