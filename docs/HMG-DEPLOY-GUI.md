@@ -106,6 +106,17 @@ A ferramenta tambem extrai o snapshot atual em:
 Isso evita depender de Git no servidor e melhora o reaproveitamento de cache em
 comparacao com um diretorio novo a cada SHA.
 
+Quando `docker buildx` estiver disponivel no servidor, a ferramenta usa cache
+persistente por servico em:
+
+```text
+/home/administrator/rh-deploys/build-cache/
+```
+
+Esse cache acelera `dotnet restore`, `pnpm install`, `npm install` e `pip install`
+entre deploys. Para um rebuild totalmente limpo, use o modo **Completo** e, se
+necessario, remova manualmente esse diretorio de cache no servidor.
+
 ## Observacao sobre RHPortal.Ai
 
 Se `DATABASE_URL` ou `OPENAI_API_KEY` nao estiverem presentes em `~/.env.hmg`,

@@ -375,6 +375,12 @@ echo "Usuario: $(whoami)"
 command -v docker
 docker --version
 docker compose version
+if docker buildx version >/dev/null 2>&1; then
+  docker buildx version
+  echo "OK: docker buildx disponivel"
+else
+  echo "WARN: docker buildx indisponivel; cache persistente avancado sera desativado"
+fi
 command -v tar
 command -v python3
 df -h /home /var/lib/docker 2>/dev/null || df -h /
@@ -532,31 +538,59 @@ set -euo pipefail
 cd {shlex.quote(src)}
 TAG={shlex.quote(self.sha)}
 PREFIX={shlex.quote(IMAGE_PREFIX)}
+DEPLOY_ROOT={shlex.quote(self.cfg.remote_deploy_dir.rstrip('/'))}
 SERVICES={shlex.quote(services)}
+export DOCKER_BUILDKIT=1
+mkdir -p "$DEPLOY_ROOT/build-cache"
+build_cached() {{
+  svc="$1"
+  shift
+  cache_dir="$DEPLOY_ROOT/build-cache/$svc"
+  mkdir -p "$cache_dir"
+  if docker buildx version >/dev/null 2>&1; then
+    echo "Cache BuildKit: $cache_dir"
+    rm -rf "$cache_dir.new"
+    docker buildx build \\
+      --progress=plain \\
+      --load \\
+      --cache-from "type=local,src=$cache_dir" \\
+      --cache-to "type=local,dest=$cache_dir.new,mode=max" \\
+      "$@"
+    rm -rf "$cache_dir.old"
+    if [[ -d "$cache_dir.new" ]]; then
+      mv "$cache_dir" "$cache_dir.old" 2>/dev/null || true
+      mv "$cache_dir.new" "$cache_dir"
+      rm -rf "$cache_dir.old"
+    fi
+  else
+    echo "Build sem buildx/cache persistente para $svc"
+    docker build "$@"
+  fi
+}}
 echo "Servicos selecionados para build: ${{SERVICES:-nenhum}}"
 for svc in $SERVICES; do
   case "$svc" in
     api)
       echo "==> Build API $TAG"
-      docker build -f RHPortal.Api/Dockerfile -t "$PREFIX/rhportal-api:$TAG" .
+      build_cached api -f RHPortal.Api/Dockerfile -t "$PREFIX/rhportal-api:$TAG" .
       ;;
     web-next)
       echo "==> Build Web Next $TAG"
-      docker build -f LioTecnica.Web.Next/Dockerfile \\
+      build_cached web-next -f LioTecnica.Web.Next/Dockerfile \\
         --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.cfg.api_base)} \\
         --build-arg NEXT_PUBLIC_PORTAL_ORIGIN={shlex.quote(self.cfg.admin_base)} \\
         -t "$PREFIX/rhportal-web-next:$TAG" .
       ;;
     portal-vagas)
       echo "==> Build Portal Vagas $TAG"
-      docker build -f LioTecnica.PortalVagas.React/Dockerfile \\
+      build_cached portal-vagas -f LioTecnica.PortalVagas.React/Dockerfile \\
         --build-arg VITE_API_BASE_URL={shlex.quote(self.cfg.api_base)} \\
         --build-arg VITE_DEFAULT_TENANT={shlex.quote(self.cfg.tenant)} \\
         -t "$PREFIX/rhportal-portal-vagas:$TAG" LioTecnica.PortalVagas.React
       ;;
     ai)
       echo "==> Build AI $TAG"
-      docker build -f RHPortal.Ai/Dockerfile -t "$PREFIX/rhportal-ai:$TAG" .
+      build_cached ai -f RHPortal.Ai/Dockerfile -t "$PREFIX/rhportal-ai:$TAG" .
       ;;
     *)
       echo "Servico desconhecido: $svc" >&2

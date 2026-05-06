@@ -1147,36 +1147,17 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <Section title="Identificação" />
 
-                                <div className="col-span-2">
+                                <div className="col-span-3">
                                     <label className={L}>{LB.empresa}</label>
                                     <AutocompleteSelect items={empresas} value={draft.empresaId} onChange={(v) => setDraft((d) => ({ ...d, empresaId: v }))} placeholder="empresa" required disabled={viewOnly || estruturaLocks.empresa} />
                                 </div>
 
-                                <div>
-                                    <label className={L}>Tipo de Contrato</label>
-                                    <select className={S} value={draft.tipoContrato} onChange={(e) => setDraft((d) => ({ ...d, tipoContrato: Number(e.target.value), prazoDias: null }))} disabled={viewOnly}>
-                                        <option value={0}>CLT</option>
-                                        <option value={1}>Estágio</option>
-                                        <option value={2}>Aprendiz</option>
-                                        <option value={3}>Temporário</option>
-                                    </select>
-                                </div>
-
-                                <div className="col-span-2">
+                                <div className="col-span-3">
                                     <label className={L}>{LB.filial}</label>
                                     <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="filial" required disabled={viewOnly || estruturaLocks.unit} />
                                 </div>
 
-                                <div>
-                                    {draft.tipoContrato !== 0 ? (
-                                        <>
-                                            <label className={L}>Prazo (dias)</label>
-                                            <Input type="number" min={1} value={draft.prazoDias ?? ""} onChange={(e) => setDraft((d) => ({ ...d, prazoDias: e.target.value ? Number(e.target.value) : null }))} placeholder="Ex: 180" disabled={viewOnly} />
-                                        </>
-                                    ) : <div />}
-                                </div>
-
-                                <div className="col-span-2">
+                                <div className="col-span-3">
                                     <label className={L}>{LB.secao}</label>
                                     <AutocompleteSelect
                                         items={centrosCusto}
@@ -1188,7 +1169,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     />
                                 </div>
 
-                                <div className="flex flex-col gap-3">
+                                <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3">
                                     <div>
                                         <label className={L}>Qtd. Posições</label>
                                         <Input type="number" min={1} value={draft.qtdPosicoes} onChange={(e) => setDraft((d) => ({ ...d, qtdPosicoes: Math.max(1, Number(e.target.value)) }))} disabled={viewOnly} />
@@ -1243,7 +1224,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     )}
                                 </div>
 
-                                <div className="col-span-2">
+                                <div className="col-span-3">
                                     <label className={L}>{draft.tipoSolicitacao === 2 ? LB.cargoObrig : LB.cargoOpcional}</label>
                                     <AutocompleteSelect
                                         items={jobPositionSelectItems}
@@ -1255,7 +1236,13 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     />
                                 </div>
 
-                                <div className="flex flex-col gap-3">
+                                <div
+                                    className={
+                                        draft.tipoContrato !== 0
+                                            ? "col-span-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4"
+                                            : "col-span-3 grid grid-cols-3 gap-x-4 gap-y-3"
+                                    }
+                                >
                                     <div>
                                         <label className={L}>{LB.faixaMin}</label>
                                         <Input
@@ -1276,6 +1263,21 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             disabled={viewOnly}
                                         />
                                     </div>
+                                    <div>
+                                        <label className={L}>Tipo de Contrato</label>
+                                        <select className={S} value={draft.tipoContrato} onChange={(e) => setDraft((d) => ({ ...d, tipoContrato: Number(e.target.value), prazoDias: null }))} disabled={viewOnly}>
+                                            <option value={0}>CLT</option>
+                                            <option value={1}>Estágio</option>
+                                            <option value={2}>Aprendiz</option>
+                                            <option value={3}>Temporário</option>
+                                        </select>
+                                    </div>
+                                    {draft.tipoContrato !== 0 && (
+                                        <div>
+                                            <label className={L}>Prazo (dias)</label>
+                                            <Input type="number" min={1} value={draft.prazoDias ?? ""} onChange={(e) => setDraft((d) => ({ ...d, prazoDias: e.target.value ? Number(e.target.value) : null }))} placeholder="Ex: 180" disabled={viewOnly} />
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div>
