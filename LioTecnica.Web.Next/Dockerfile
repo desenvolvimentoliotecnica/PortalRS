@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # ====== build ======
 FROM node:20-alpine AS build
 WORKDIR /app
@@ -8,14 +9,17 @@ ARG NEXT_PUBLIC_PORTAL_ORIGIN=""
 
 ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 ENV NEXT_PUBLIC_PORTAL_ORIGIN=$NEXT_PUBLIC_PORTAL_ORIGIN
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Instala dependências (cache layer)
 COPY LioTecnica.Web.Next/package.json LioTecnica.Web.Next/pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile --ignore-scripts
+RUN --mount=type=cache,id=rhportal-web-pnpm,target=/root/.local/share/pnpm/store \
+    corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
 # Copia source e faz o build estático
 COPY LioTecnica.Web.Next/ ./
-RUN npm run build
+RUN --mount=type=cache,id=rhportal-web-next,target=/app/.next/cache \
+    npm run build
 
 # ====== runtime ======
 FROM nginx:1.27-alpine AS final
