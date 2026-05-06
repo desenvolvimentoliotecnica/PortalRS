@@ -332,6 +332,8 @@ function SolicitacoesVagaContent() {
     const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
 
+    const [myFuncionarioId, setMyFuncionarioId] = useState<string | null>(null);
+
     const detailObservadorRh = useMemo(() => {
         if (!detail) return false;
         return rhListaAmpla
@@ -351,8 +353,6 @@ function SolicitacoesVagaContent() {
     const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
 
     /* ── resolve meu funcionarioId para filtrar aprovações ── */
-    const [myFuncionarioId, setMyFuncionarioId] = useState<string | null>(null);
-
     const isRhObservadorRow = useCallback((r: SolicitacaoGridRow) => {
         if (!rhListaAmpla || isAdminOrOwner) return false;
         if (!myFuncionarioId) return false;
