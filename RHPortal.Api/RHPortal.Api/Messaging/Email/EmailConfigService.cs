@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
@@ -16,6 +17,8 @@ public sealed class EmailConfigDto
     public string? SmtpPassword { get; set; }
     public string? SmtpFromName { get; set; }
     public string? SmtpFromAddress { get; set; }
+    public bool SmtpUseTestRedirect { get; set; }
+    public string? SmtpTestRedirectAddress { get; set; }
     public string? ImapHost { get; set; }
     public int ImapPort { get; set; } = 993;
     public bool ImapEnableSsl { get; set; } = true;
@@ -33,6 +36,8 @@ public sealed class EmailConfigView
     public bool SmtpHasPassword { get; set; }
     public string? SmtpFromName { get; set; }
     public string? SmtpFromAddress { get; set; }
+    public bool SmtpUseTestRedirect { get; set; }
+    public string? SmtpTestRedirectAddress { get; set; }
     public string? ImapHost { get; set; }
     public int ImapPort { get; set; } = 993;
     public bool ImapEnableSsl { get; set; } = true;
@@ -97,6 +102,8 @@ public sealed class EmailConfigService : IEmailConfigService
                 : TryDecrypt(entity.SmtpPasswordEncrypted, "SMTP"),
             SmtpFromName = entity.SmtpFromName,
             SmtpFromAddress = entity.SmtpFromAddress,
+            SmtpUseTestRedirect = entity.SmtpUseTestRedirect,
+            SmtpTestRedirectAddress = entity.SmtpTestRedirectAddress,
             ImapHost = entity.ImapHost,
             ImapPort = entity.ImapPort,
             ImapEnableSsl = entity.ImapEnableSsl,
@@ -109,6 +116,21 @@ public sealed class EmailConfigService : IEmailConfigService
 
     public async Task<EmailConfigView> SaveAsync(EmailConfigDto dto, CancellationToken ct)
     {
+        if (dto.SmtpUseTestRedirect)
+        {
+            var addr = dto.SmtpTestRedirectAddress?.Trim();
+            if (string.IsNullOrWhiteSpace(addr))
+                throw new InvalidOperationException("Informe o e-mail de redirecionamento quando o modo teste SMTP estiver ativo.");
+            try
+            {
+                _ = new MailAddress(addr);
+            }
+            catch (FormatException)
+            {
+                throw new InvalidOperationException("E-mail de redirecionamento SMTP (modo teste) inválido.");
+            }
+        }
+
         var entity = await FindConfigAsync(ct, tracking: true);
         var now = DateTimeOffset.UtcNow;
         if (entity is null)
@@ -131,6 +153,8 @@ public sealed class EmailConfigService : IEmailConfigService
         entity.SmtpUserName = dto.SmtpUserName?.Trim();
         entity.SmtpFromName = dto.SmtpFromName?.Trim();
         entity.SmtpFromAddress = dto.SmtpFromAddress?.Trim();
+        entity.SmtpUseTestRedirect = dto.SmtpUseTestRedirect;
+        entity.SmtpTestRedirectAddress = dto.SmtpUseTestRedirect ? dto.SmtpTestRedirectAddress?.Trim() : null;
         entity.ImapHost = dto.ImapHost?.Trim();
         entity.ImapPort = dto.ImapPort;
         entity.ImapEnableSsl = dto.ImapEnableSsl;
@@ -206,6 +230,8 @@ public sealed class EmailConfigService : IEmailConfigService
             SmtpHasPassword = !string.IsNullOrWhiteSpace(entity.SmtpPasswordEncrypted),
             SmtpFromName = entity.SmtpFromName,
             SmtpFromAddress = entity.SmtpFromAddress,
+            SmtpUseTestRedirect = entity.SmtpUseTestRedirect,
+            SmtpTestRedirectAddress = entity.SmtpTestRedirectAddress,
             ImapHost = entity.ImapHost,
             ImapPort = entity.ImapPort,
             ImapEnableSsl = entity.ImapEnableSsl,

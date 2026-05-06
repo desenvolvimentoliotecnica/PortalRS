@@ -28,6 +28,12 @@ public sealed class EmailConfig : ITenantEntity
     [MaxLength(200)]
     public string? SmtpFromAddress { get; set; }
 
+    /// <summary>Quando true, todos os envios SMTP são redirecionados para <see cref="SmtpTestRedirectAddress"/>.</summary>
+    public bool SmtpUseTestRedirect { get; set; }
+
+    [MaxLength(200)]
+    public string? SmtpTestRedirectAddress { get; set; }
+
     [MaxLength(200)]
     public string? ImapHost { get; set; }
 

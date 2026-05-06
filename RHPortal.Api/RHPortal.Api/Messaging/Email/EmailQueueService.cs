@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -35,17 +36,20 @@ public sealed class EmailQueueService : IEmailQueueService
     private readonly ITenantContext _tenantContext;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IStringLocalizer<InfrastructureMessages> _localizer;
+    private readonly IEmailConfigService _emailConfig;
 
     public EmailQueueService(
         AppDbContext db,
         ITenantContext tenantContext,
         IHttpContextAccessor httpContextAccessor,
-        IStringLocalizer<InfrastructureMessages> localizer)
+        IStringLocalizer<InfrastructureMessages> localizer,
+        IEmailConfigService emailConfig)
     {
         _db = db;
         _tenantContext = tenantContext;
         _httpContextAccessor = httpContextAccessor;
         _localizer = localizer;
+        _emailConfig = emailConfig;
     }
 
     public async Task<EmailMessage> EnqueueTemplateAsync(
@@ -67,6 +71,8 @@ public sealed class EmailQueueService : IEmailQueueService
         var subject = EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
         var body = EmailTemplateRenderer.Render(template.BodyHtml, tokens);
 
+        (to, subject, body, _) = await ApplySmtpTestRedirectAsync(to, subject, body, null, ct);
+
         var message = BuildMessage(to, subject, body, null, isSystem, source);
         message.TemplateId = template.Id;
         message.TemplateName = template.Name;
@@ -87,10 +93,34 @@ public sealed class EmailQueueService : IEmailQueueService
         string? source,
         CancellationToken ct)
     {
+        (to, subject, bodyHtml, bodyText) = await ApplySmtpTestRedirectAsync(to, subject, bodyHtml, bodyText, ct);
+
         var message = BuildMessage(to, subject, bodyHtml, bodyText, isSystem, source);
         _db.EmailMessages.Add(message);
         await _db.SaveChangesAsync(ct);
         return message;
+    }
+
+    private async Task<(string To, string Subject, string BodyHtml, string? BodyText)> ApplySmtpTestRedirectAsync(
+        string to,
+        string subject,
+        string bodyHtml,
+        string? bodyText,
+        CancellationToken ct)
+    {
+        var cfg = await _emailConfig.GetEntityAsync(ct);
+        if (cfg is null || !cfg.SmtpUseTestRedirect || string.IsNullOrWhiteSpace(cfg.SmtpTestRedirectAddress))
+            return (to, subject, bodyHtml, bodyText);
+
+        var redirect = cfg.SmtpTestRedirectAddress.Trim();
+        var originalTo = to.Trim();
+        var prefix = $"[TEST → era {originalTo}] ";
+        var banner =
+            "<p style=\"color:#666;font-size:12px;margin:0 0 12px 0\"><strong>[Modo teste SMTP]</strong> Destinatário original: <code>" +
+            WebUtility.HtmlEncode(originalTo) + "</code></p>";
+        var newHtml = banner + bodyHtml;
+        var newText = $"[Modo teste SMTP] Destinatário original: {originalTo}\n\n" + (bodyText ?? "");
+        return (redirect, prefix + subject.Trim(), newHtml, newText);
     }
 
     private EmailMessage BuildMessage(string to, string subject, string bodyHtml, string? bodyText, bool isSystem, string? source)

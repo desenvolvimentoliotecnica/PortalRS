@@ -91,6 +91,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     private readonly IServiceProvider _serviceProvider;
     private readonly StatusHistoricoService _statusHistorico;
     private readonly ISolicitacaoVagaRmIntegracaoService _solicitacaoVagaRmIntegracao;
+    private readonly ISolicitacaoVagaRecrutadorNotifier _recruiterNotifier;
 
     public SolicitacaoVagaService(
         AppDbContext db,
@@ -105,7 +106,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         IHttpContextAccessor httpContextAccessor,
         IServiceProvider serviceProvider,
         StatusHistoricoService statusHistorico,
-        ISolicitacaoVagaRmIntegracaoService solicitacaoVagaRmIntegracao)
+        ISolicitacaoVagaRmIntegracaoService solicitacaoVagaRmIntegracao,
+        ISolicitacaoVagaRecrutadorNotifier recruiterNotifier)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -120,6 +122,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         _serviceProvider = serviceProvider;
         _statusHistorico = statusHistorico;
         _solicitacaoVagaRmIntegracao = solicitacaoVagaRmIntegracao;
+        _recruiterNotifier = recruiterNotifier;
     }
 
     /// <summary>Vaga nova nominal ou aumento de quadro dedicado — mesmo conjunto de decisão de headcount do gestor na submissão.</summary>
@@ -1016,6 +1019,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
             await _db.SaveChangesAsync(ct);
             await NotificarNovaTriagemRHAsync(entity, ct);
+            await _recruiterNotifier.NotifyNovaEnviadaAsync(entity, ct);
             return true;
         }
 
@@ -1029,6 +1033,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var primeiraEtapa = await MontarEtapasRequisicaoPessoalEAvancoProcessoAsync(entity, ct);
         await _db.SaveChangesAsync(ct);
         await NotificarPrimeiraEtapaSeAprovadorDiretoAsync(entity, primeiraEtapa, ct);
+        await _recruiterNotifier.NotifyNovaEnviadaAsync(entity, ct);
 
         return true;
     }
@@ -1458,6 +1463,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     $"O aumento de headcount para \"{entity.Titulo}\" foi aprovado pela Diretoria.",
                     $"/rs/solicitacoes/{entity.Id}",
                     ct);
+
+                await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
             }
             else if (entity.TipoSolicitacao == TipoSolicitacaoVaga.Substituicao)
             {
@@ -1481,6 +1488,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     $"Sua solicitação \"{entity.Titulo}\" foi aprovada.",
                     $"/rs/solicitacoes/{entity.Id}",
                     ct);
+
+                await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
             }
             else
             {
@@ -1559,6 +1568,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     $"Sua solicitação \"{entity.Titulo}\" foi aprovada com provisório até {expiresAt:dd/MM/yyyy}.",
                     $"/rs/solicitacoes/{entity.Id}",
                     ct);
+
+                await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
                 break;
             }
 
@@ -1588,6 +1599,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     $"\"{entity.Titulo}\" utilizará headcount já autorizado.",
                     $"/rs/solicitacoes/{entity.Id}",
                     ct);
+
+                await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
                 break;
             }
 
@@ -2431,6 +2444,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             prev, entity.Status.ToString(), _currentUser, observacao?.Trim(), ct);
 
         await _db.SaveChangesAsync(ct);
+
+        await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
+
         return await GetByIdAsync(id, ct);
     }
 
