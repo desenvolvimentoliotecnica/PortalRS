@@ -19,13 +19,11 @@ namespace Liotecnica.Integration.RM;
 ///    <c>PFUNC.CODFUNCAO → PFUNCAO.CARGO</c> (= código do PCARGO no Portal).
 /// 5. JOIN in-memory com <c>transf_promocao.json</c> (VREQTRANSFPROMOCAO) pra obter
 ///    a última hierarquia destino aprovada por CHAPA (38% dos ativos têm).
-/// 6. JOIN com <c>pfunc_lider_hrplatform.json</c> (<c>PFUNCLIDERHRPLATFORM</c>): <c>CHAPALIDER</c> do líder
-///    principal (<c>MASTER=1</c> quando existir) → campo <c>chapaGestorDireto</c> no bulk (Portal grava <c>GestorDiretoId</c>).
-/// 7. Fallback quando (6) não cobre: <c>view_pfunc_hierarquia.json</c> (<c>VWPFUNCHIERARQUIA.CODUSUARIOCHEFE</c>) +
-///    <c>gusuario.json</c> (<c>GUSUARIO</c>) + e-mail em <c>pessoa.json</c> → chapa do gestor em <c>funcionario.json</c>.
-///    Registros de (6) têm prioridade sobre o fallback. Se a view tiver mais de um <c>CODUSUARIOCHEFE</c> por
-///    funcionário, usa o <b>menor</b> login (ordinal, case-insensitive) que resolva para chapa — desempate estável.
-/// 8. Envia bulk com chaves crus (códigos RM) — endpoint resolve FKs internamente.
+/// 6. Gestor direto — prioridade: <c>gestor_hierarquia_posicao.json</c> (VHIERARQUIAPOSICAO/chefe por hierarquia superior,
+///    mesma regra da consulta SQL do portal) quando <c>RmSync:UseGestorHierarquiaPosicao</c> está true e o arquivo existe;
+///    senão <c>pfunc_lider_hrplatform.json</c> (<c>PFUNCLIDERHRPLATFORM</c>) + fallback <c>VWPFUNCHIERARQUIA</c> + <c>GUSUARIO</c>.
+///    Com arquivo de posição, o bulk envia <c>aplicarGestorDiretoInformado=true</c> (topo ⇒ chapa gestor nula limpa FK no Portal).
+/// 7. Envia bulk com chaves crus — endpoint resolve FKs internamente.
 /// </summary>
 public sealed class PortalFuncionarioSyncService
 {
@@ -118,6 +116,7 @@ public sealed class PortalFuncionarioSyncService
         var pfuncaoCargoByCodigo = await LoadPfuncaoCargoLookupAsync(path, ct);
         var pfuncaoNomeByCodigo = await LoadPfuncaoNomeLookupAsync(path, ct);
         var ultimaHierarquiaByChapa = await LoadUltimaHierarquiaPorChapaAsync(path, ct);
+        var gestorHierarquiaPosicao = await LoadGestorHierarquiaPosicaoMapAsync(path, ct);
         var chapaGestorPorColigadaEChapa = await MergeGestorDiretoMapsAsync(
             path,
             pfuncRows,
@@ -153,9 +152,34 @@ public sealed class PortalFuncionarioSyncService
                 idHierarquiaDestino = hier;
 
             var colFunc = r.CodColigada ?? 1;
-            var chapaGestorDireto = chapaGestorPorColigadaEChapa.TryGetValue($"{colFunc}|{r.Chapa!.Trim()}", out var gl)
-                ? gl
-                : null;
+            var kHp = GestorHpKey(colFunc, r.Chapa!.Trim());
+
+            string? chapaGestorDireto;
+            int? codColigadaGestorDireto;
+            bool aplicarGestorDiretoInformado;
+            if (gestorHierarquiaPosicao.TryGetValue(kHp, out var hpRes))
+            {
+                aplicarGestorDiretoInformado = true;
+                if (hpRes.TopoDaHierarquia)
+                {
+                    chapaGestorDireto = null;
+                    codColigadaGestorDireto = null;
+                }
+                else
+                {
+                    // Topologia !Topo exige chapa do gestor preenchida no JSON; defensivo se arquivo estiver inconsistente.
+                    chapaGestorDireto = hpRes.ChapaGestor?.Trim();
+                    codColigadaGestorDireto = hpRes.CodColigadaGestor;
+                }
+            }
+            else
+            {
+                aplicarGestorDiretoInformado = false;
+                chapaGestorDireto = chapaGestorPorColigadaEChapa.TryGetValue($"{colFunc}|{r.Chapa!.Trim()}", out var gl)
+                    ? gl
+                    : null;
+                codColigadaGestorDireto = null;
+            }
 
             var nome = (pessoa?.Nome ?? "").Trim();
             if (nome.Length > 160) nome = nome.Substring(0, 160);
@@ -179,6 +203,8 @@ public sealed class PortalFuncionarioSyncService
                 codPessoa = r.CodPessoa,
                 codColigada = r.CodColigada,
                 chapaGestorDireto = chapaGestorDireto,
+                codColigadaGestorDireto = codColigadaGestorDireto,
+                aplicarGestorDiretoInformado = aplicarGestorDiretoInformado,
                 // ── LUC-122: cadastro pessoal completo de PPESSOA ─────────
                 apelido = pessoa?.Apelido?.Trim(),
                 sexo = pessoa?.Sexo?.Trim(),
@@ -337,9 +363,96 @@ public sealed class PortalFuncionarioSyncService
             merged[kv.Key] = kv.Value;
 
         if (fromViewUsuario.Count > 0 || fromHrPlatform.Count > 0)
-            _logWriter.WriteLine($"Gestor direto: PFUNCLIDERHRPLATFORM={fromHrPlatform.Count} chaves; fallback VWPFUNCHIERARQUIA+GUSUARIO={fromViewUsuario.Count} chaves (HR Platform sobrescreve em empate). Total mesclado={merged.Count}.");
+            _logWriter.WriteLine($"Gestor direto (legado PFUNCLIDER/view): PFUNCLIDERHRPLATFORM={fromHrPlatform.Count} chaves; fallback VWPFUNCHIERARQUIA+GUSUARIO={fromViewUsuario.Count} chaves (HR Platform sobrescreve em empate). Total mesclado={merged.Count}.");
 
         return merged;
+    }
+
+    private sealed record GestorHpResolved(bool TopoDaHierarquia, int? CodColigadaGestor, string? ChapaGestor);
+
+    private static string GestorHpKey(int codColigadaFunc, string chapaFuncTrim) =>
+        $"{codColigadaFunc}|{chapaFuncTrim}";
+
+    /// <summary>
+    /// Índice (CODCOLIGADA posição funcionário × CHAPA) → gestor por <c>VPOSICAO</c> do cargo superior ou topo.
+    /// </summary>
+    private async Task<Dictionary<string, GestorHpResolved>> LoadGestorHierarquiaPosicaoMapAsync(string path, CancellationToken ct)
+    {
+        if (!_syncOptions.UseGestorHierarquiaPosicao)
+            return new Dictionary<string, GestorHpResolved>(StringComparer.OrdinalIgnoreCase);
+
+        var file = Path.Combine(path, "gestor_hierarquia_posicao.json");
+        if (!File.Exists(file))
+        {
+            _logWriter.WriteLine("Gestor hierarquia posição: gestor_hierarquia_posicao.json ausente — usando PFUNCLIDER/view apenas.");
+            return new Dictionary<string, GestorHpResolved>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(file, ct);
+            var rows = JsonSerializer.Deserialize<List<GestorHpJsonDto>>(json,
+                new JsonSerializerOptions(JsonOptions) { PropertyNameCaseInsensitive = true }) ?? [];
+            var map = new Dictionary<string, GestorHpResolved>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows)
+            {
+                if (string.IsNullOrWhiteSpace(row.ChapaFunc))
+                    continue;
+                var codCol = NormalizeCodColigadaJson(row.CodColigadaFunc);
+                var chTrim = row.ChapaFunc.Trim();
+                var key = GestorHpKey(codCol, chTrim);
+                if (string.IsNullOrWhiteSpace(row.ChapaGestor))
+                    map[key] = new GestorHpResolved(TopoDaHierarquia: true, null, null);
+                else
+                    map[key] = new GestorHpResolved(
+                        TopoDaHierarquia: false,
+                        NormalizeCodColigadaNullableEl(row.CodColigadaGestor),
+                        row.ChapaGestor.Trim());
+            }
+
+            _logWriter.WriteLine($"Gestor hierarquia posição: {map.Count} chaves indexadas desde gestor_hierarquia_posicao.json.");
+            return map;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao ler gestor_hierarquia_posicao.json.");
+            _logWriter.WriteLine($"Gestor hierarquia posição: ERRO lendo JSON — {ex.Message}. Fallback PFUNCLIDER/view.");
+            return new Dictionary<string, GestorHpResolved>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static int NormalizeCodColigadaJson(JsonElement el)
+    {
+        if (el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var i))
+            return i;
+        var s = el.ValueKind switch
+        {
+            JsonValueKind.String => el.GetString(),
+            JsonValueKind.Number => el.ToString(),
+            _ => null,
+        };
+        return int.TryParse(s?.Trim(), out var k) ? k : 1;
+    }
+
+    private static int? NormalizeCodColigadaNullableEl(JsonElement el)
+    {
+        if (el.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        if (el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var i))
+            return i;
+        var s = el.ValueKind == JsonValueKind.String ? el.GetString() : el.ToString();
+        return int.TryParse(s?.Trim(), out var k) ? k : null;
+    }
+
+    /// <remarks>Representa uma linha de <c>gestor_hierarquia_posicao.json</c>; tipos relaxados porque o arquivo veio de ADO.NET → JSON.</remarks>
+    private sealed class GestorHpJsonDto
+    {
+        public JsonElement CodColigadaFunc { get; set; }
+        public string? ChapaFunc { get; set; }
+
+        /// <summary>CODCOLFUNCIONARIO do gestor (VPOSICAO ocupante).</summary>
+        public JsonElement CodColigadaGestor { get; set; }
+        public string? ChapaGestor { get; set; }
     }
 
     /// <summary>
