@@ -101,6 +101,14 @@ public sealed class TotvsGestorHierarchySyncRunner
         if (alvos.Count == 0)
         {
             handle.AddLine("Nenhum funcionário ativo com MatriculaRm (CHAPA) preenchida.");
+            var totalAtivos = await _db.Funcionarios.AsNoTracking()
+                .CountAsync(f => f.Status == FuncionarioStatus.Active, ct);
+            handle.AddLine(
+                $"Diagnóstico tenant DB: funcionários Active={totalAtivos} " +
+                $"(esta rotina só chama Totvs quando MatriculaRm vem da integração PFUNC/sync-rm)." +
+                (totalAtivos == 0
+                    ? " Nenhum ativo no tenant — revise cadastro/sync."
+                    : " Há ativos mas sem MatriculaRm — rode o worker de sync RM contra esta API/base ou associe MatriculaRm."));
             handle.CompleteSuccess();
             return;
         }
