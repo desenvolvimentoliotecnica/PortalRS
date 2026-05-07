@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Funcionarios.Handlers;
 using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Application.Owner;
+using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Units.Handlers;
@@ -47,6 +48,7 @@ public sealed class OwnerController : ControllerBase
     private readonly IPreAdmissaoService _preAdmissaoService;
     private readonly IRmSyncRunService _rmSyncRunService;
     private readonly IConfiguration _configuration;
+    private readonly ITotvsGestorHierarchyOwnerService _totvsGestorHierarchyOwner;
 
     public OwnerController(
         MasterDbContext masterDb,
@@ -55,7 +57,8 @@ public sealed class OwnerController : ControllerBase
         IServiceProvider scope,
         IPreAdmissaoService preAdmissaoService,
         IRmSyncRunService rmSyncRunService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ITotvsGestorHierarchyOwnerService totvsGestorHierarchyOwner)
     {
         _masterDb = masterDb;
         _ownerAuth = ownerAuth;
@@ -64,6 +67,7 @@ public sealed class OwnerController : ControllerBase
         _preAdmissaoService = preAdmissaoService;
         _rmSyncRunService = rmSyncRunService;
         _configuration = configuration;
+        _totvsGestorHierarchyOwner = totvsGestorHierarchyOwner;
     }
 
     [AllowAnonymous]
@@ -1450,5 +1454,80 @@ public sealed class OwnerController : ControllerBase
     {
         var response = await _rmSyncRunService.RequestCancelAsync(ct);
         return Accepted(response);
+    }
+
+    /// <summary>Config da consulta Totvs RM para preencher <c>GestorDiretoId</c> funcionário a funcionário.</summary>
+    [HttpGet("integracao/gestor-rm/settings")]
+    [ProducesResponseType(typeof(TotvsGestorHierarchySettingsView), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTotvsGestorHierarchySettings([FromQuery] string tenantId, CancellationToken ct)
+    {
+        if (!TenantIdPattern.IsMatch(tenantId ?? ""))
+            return BadRequest(new { message = "tenantId inválido." });
+        var row = await _totvsGestorHierarchyOwner.GetSettingsAsync(tenantId.Trim(), ct);
+        return row is null ? NotFound() : Ok(row);
+    }
+
+    /// <summary>Salva URL (com placeholders), usuário e senha Totvs para sync de gestor.</summary>
+    [HttpPut("integracao/gestor-rm/settings")]
+    [ProducesResponseType(typeof(TotvsGestorHierarchySettingsView), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<TotvsGestorHierarchySettingsView>> SaveTotvsGestorHierarchySettings(
+        [FromBody] TotvsGestorHierarchySettingsSaveRequest request,
+        CancellationToken ct)
+    {
+        if (!TenantIdPattern.IsMatch(request?.TenantId ?? ""))
+            return BadRequest(new { message = "tenantId inválido." });
+        try
+        {
+            var saved = await _totvsGestorHierarchyOwner.SaveSettingsAsync(request, ct);
+            return Ok(saved);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Inicia sincronização em background (consulta funcionário por funcionário).</summary>
+    [HttpPost("integracao/gestor-rm/run")]
+    [ProducesResponseType(typeof(TotvsGestorHierarchyRunStartResponse), StatusCodes.Status202Accepted)]
+    public async Task<ActionResult<TotvsGestorHierarchyRunStartResponse>> StartTotvsGestorHierarchySync(
+        [FromQuery] string tenantId,
+        CancellationToken ct)
+    {
+        if (!TenantIdPattern.IsMatch(tenantId ?? ""))
+            return BadRequest(new { message = "tenantId inválido." });
+        try
+        {
+            var cfg = await _totvsGestorHierarchyOwner.GetSettingsAsync(tenantId.Trim(), ct);
+            if (cfg is null || !cfg.PasswordConfigured)
+                return BadRequest(new { message = "Configure e salve URL, usuário e senha antes de executar." });
+        }
+        catch
+        {
+            return BadRequest(new { message = "Não foi possível validar a configuração." });
+        }
+
+        var r = await _totvsGestorHierarchyOwner.StartSyncAsync(tenantId.Trim(), ct);
+        return Accepted(r);
+    }
+
+    /// <summary>Estado e log (tail) de uma execução.</summary>
+    [HttpGet("integracao/gestor-rm/run/{runId:guid}")]
+    [ProducesResponseType(typeof(TotvsGestorHierarchyRunDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<TotvsGestorHierarchyRunDto> GetTotvsGestorHierarchyRun(Guid runId)
+    {
+        var dto = _totvsGestorHierarchyOwner.GetRun(runId);
+        return dto is null ? NotFound() : Ok(dto);
+    }
+
+    /// <summary>Cancela execução cooperativa.</summary>
+    [HttpPost("integracao/gestor-rm/run/{runId:guid}/cancel")]
+    public IActionResult CancelTotvsGestorHierarchyRun(Guid runId)
+    {
+        var ok = _totvsGestorHierarchyOwner.RequestCancel(runId);
+        return ok ? Accepted(new { message = "Cancelamento solicitado." }) : NotFound(new { message = "Execução não encontrada ou já finalizada." });
     }
 }

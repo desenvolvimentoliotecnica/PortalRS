@@ -19,6 +19,7 @@ public sealed class MasterDbContext : DbContext
     public DbSet<TenantModule> TenantModules => Set<TenantModule>();
     public DbSet<TenantPackage> TenantPackages => Set<TenantPackage>();
     public DbSet<TenantScreen> TenantScreens => Set<TenantScreen>();
+    public DbSet<TenantTotvsGestorHierarchySettings> TenantTotvsGestorHierarchySettings => Set<TenantTotvsGestorHierarchySettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -184,6 +185,25 @@ public sealed class MasterDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
 
             b.HasIndex(x => new { x.TenantId, x.NavItemId }).IsUnique();
+        });
+
+        modelBuilder.Entity<TenantTotvsGestorHierarchySettings>(b =>
+        {
+            b.ToTable("TenantTotvsGestorHierarchySettings");
+            b.HasKey(x => x.TenantId);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.ConsultaUrlTemplate).HasMaxLength(2048).IsRequired();
+            b.Property(x => x.HttpUser).HasMaxLength(200).IsRequired();
+            b.Property(x => x.PasswordEncrypted);
+            b.Property(x => x.DefaultCodColigada).IsRequired().HasDefaultValue(1);
+            b.Property(x => x.DelayMsBetweenRequests).IsRequired().HasDefaultValue(250);
+            b.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            b.HasOne(x => x.Tenant)
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

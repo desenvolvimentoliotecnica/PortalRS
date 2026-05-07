@@ -267,6 +267,15 @@ builder.Services.AddScoped<NotificationPublisher>();
 
 // Email messaging (queue + SMTP/IMAP)
 builder.Services.AddSingleton<ISecretProtector, AesSecretProtector>();
+builder.Services.AddSingleton<RhPortal.Api.Application.Owner.TotvsGestorHierarchyRunRegistry>();
+builder.Services.AddScoped<RhPortal.Api.Application.Owner.TotvsGestorHierarchySyncRunner>();
+builder.Services.AddScoped<RhPortal.Api.Application.Owner.ITotvsGestorHierarchyOwnerService,
+    RhPortal.Api.Application.Owner.TotvsGestorHierarchyOwnerService>();
+builder.Services.AddHttpClient("totvsGestorHierarchy", client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(3);
+});
+
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
 builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
