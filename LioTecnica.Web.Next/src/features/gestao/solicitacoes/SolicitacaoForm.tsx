@@ -26,7 +26,7 @@ export interface SolicitacaoDraft {
     jobPositionId: string | null;
     /** Nome do cargo vindo do GET (quando não está na lista lookup). */
     jobPositionName: string | null;
-    /** Faixa proposta — texto livre; convertido para decimal no submit. */
+    /** Faixa proposta — máscara moeda BRL (ex.: R$ 3.500,00); convertida para decimal no submit. */
     faixaSalarialMin: string;
     faixaSalarialMax: string;
     /** Fluxo único de nova posição (sem escolha “do quadro de vagas”). */
@@ -137,19 +137,101 @@ const emptyDraft: SolicitacaoDraft = {
     requisitosDetalhadosJson: "",
 };
 
-/** Parse valores monetários do GET (number ou string); edição usa string local. */
-function moneyFieldFromApi(raw: unknown): string {
-    if (raw == null) return "";
-    if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
-    return String(raw).trim();
+const MAX_BRL_CENT_DIGITS = 15;
+
+/** Exibe valor a partir de string só com dígitos (centavos implícitos: últimos 2 = decimais). */
+function formatBrlCurrencyFromDigits(digits: string): string {
+    const d = digits.replace(/\D/g, "").slice(0, MAX_BRL_CENT_DIGITS);
+    if (!d) return "";
+    const cents = parseInt(d, 10);
+    if (!Number.isFinite(cents)) return "";
+    return new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(cents / 100);
 }
 
-/** Converte entrada BR (vírgula ou ponto) em número ou null se vazio. */
-function parseDecimalBrInput(s: string): number | null {
-    const t = s.trim().replace(/\s/g, "").replace(",", ".");
+/** Converte campo mascarado (R$ … ou só dígitos) em decimal. */
+function parseBrlCurrencyInput(masked: string): number | null {
+    const digits = (masked || "").replace(/\D/g, "");
+    if (!digits) return null;
+    const cents = parseInt(digits, 10);
+    return Number.isFinite(cents) ? cents / 100 : null;
+}
+
+/** Converte texto legado (API / Excel) para decimal — aceita BR e invariante simples. */
+function parseLegacyDecimalString(s: string): number | null {
+    const t = s.trim().replace(/\s/g, "");
     if (!t) return null;
+    if (/,/.test(t) && /\./.test(t)) {
+        const normalized = t.replace(/\./g, "").replace(",", ".");
+        const n = Number(normalized);
+        return Number.isFinite(n) ? n : null;
+    }
+    if (/,/.test(t)) {
+        const n = Number(t.replace(",", "."));
+        return Number.isFinite(n) ? n : null;
+    }
     const n = Number(t);
     return Number.isFinite(n) ? n : null;
+}
+
+/** Parse valores monetários do GET (number ou string legada) para máscara BRL. */
+function moneyFieldFromApi(raw: unknown): string {
+    if (raw == null) return "";
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+        return formatBrlCurrencyFromDigits(String(Math.round(raw * 100)));
+    }
+    const s = String(raw).trim();
+    if (!s) return "";
+    if (/R\$/i.test(s)) {
+        const d = s.replace(/\D/g, "");
+        return d ? formatBrlCurrencyFromDigits(d) : "";
+    }
+    const legacyNum = parseLegacyDecimalString(s);
+    if (legacyNum != null) {
+        return formatBrlCurrencyFromDigits(String(Math.round(legacyNum * 100)));
+    }
+    const digitsOnly = s.replace(/\D/g, "");
+    return digitsOnly ? formatBrlCurrencyFromDigits(digitsOnly) : "";
+}
+
+/** Alias semântico para submit (somente dígitos da máscara → decimal). */
+function parseDecimalBrInput(s: string): number | null {
+    return parseBrlCurrencyInput(s);
+}
+
+/** Colagem: aceita valor já mascarado, decimal BR/invariante, ou só dígitos como reais inteiros. */
+function applyPastedMoneyToField(t: string): string | null {
+    const trimmed = t.trim();
+    if (!trimmed) return null;
+    if (/R\$/i.test(trimmed)) {
+        const d = trimmed.replace(/\D/g, "");
+        return d ? formatBrlCurrencyFromDigits(d) : null;
+    }
+    const legacy = parseLegacyDecimalString(trimmed);
+    if (legacy != null && legacy >= 0) {
+        return formatBrlCurrencyFromDigits(String(Math.round(legacy * 100)));
+    }
+    const digits = trimmed.replace(/\D/g, "");
+    if (!digits) return null;
+    const intReais = parseInt(digits, 10);
+    if (!Number.isFinite(intReais) || intReais < 0) return null;
+    return formatBrlCurrencyFromDigits(String(intReais * 100));
+}
+
+/** Bloqueia teclas que não sejam dígito (atalhos Ctrl/Cmd + V/A/C/X etc. continuam liberados). */
+function blockNonDigitMoneyKeys(e: React.KeyboardEvent<HTMLInputElement>): void {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const nav = [
+        "Backspace", "Delete", "Tab", "Escape", "Enter",
+        "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End",
+    ];
+    if (nav.includes(e.key)) return;
+    if (e.key.length === 1 && /\d/.test(e.key)) return;
+    e.preventDefault();
 }
 
 /** Valida o mesmo formato exigido em `EnsureCamposMinimosEnvioAumentoQuadroAsync`. */
@@ -652,12 +734,13 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 })
                 .catch(() => toast.error("Falha ao carregar solicitação."))
                 .finally(() => setLoadingEdit(false));
+        } else if (initialData) {
+            const merged: SolicitacaoDraft = { ...emptyDraft, ...initialData, origemVaga: "nova" };
+            merged.faixaSalarialMin = moneyFieldFromApi(merged.faixaSalarialMin ?? "");
+            merged.faixaSalarialMax = moneyFieldFromApi(merged.faixaSalarialMax ?? "");
+            setDraft(merged);
         } else {
-            setDraft(
-                initialData
-                    ? { ...emptyDraft, ...initialData, origemVaga: "nova" }
-                    : { ...emptyDraft },
-            );
+            setDraft({ ...emptyDraft });
         }
     }, [active, editId, copySourceId, initialData, loadLookups, reloadNonce]);
 
@@ -1248,20 +1331,80 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     <div>
                                         <label className={L}>{LB.faixaMin}</label>
                                         <Input
-                                            inputMode="decimal"
-                                            placeholder="Ex.: 3500 ou 3500,50"
+                                            type="text"
+                                            inputMode="numeric"
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            spellCheck={false}
+                                            placeholder="R$ 0,00"
+                                            title="Digite apenas números; o valor é montado em reais com centavos (ex.: para R$ 5.000,00 digite 500000)."
+                                            className="tabular-nums"
                                             value={draft.faixaSalarialMin}
-                                            onChange={(e) => setDraft((d) => ({ ...d, faixaSalarialMin: e.target.value }))}
+                                            onKeyDown={blockNonDigitMoneyKeys}
+                                            onChange={(e) =>
+                                                setDraft((d) => ({
+                                                    ...d,
+                                                    faixaSalarialMin: formatBrlCurrencyFromDigits(e.target.value.replace(/\D/g, "")),
+                                                }))
+                                            }
+                                            onCompositionEnd={(e) => {
+                                                const v = formatBrlCurrencyFromDigits(e.currentTarget.value.replace(/\D/g, ""));
+                                                setDraft((d) => ({ ...d, faixaSalarialMin: v }));
+                                            }}
+                                            onPaste={(e) => {
+                                                const formatted = applyPastedMoneyToField(e.clipboardData.getData("text"));
+                                                if (formatted != null) {
+                                                    e.preventDefault();
+                                                    setDraft((d) => ({ ...d, faixaSalarialMin: formatted }));
+                                                }
+                                            }}
+                                            onDrop={(e) => {
+                                                const formatted = applyPastedMoneyToField(e.dataTransfer.getData("text/plain"));
+                                                if (formatted != null) {
+                                                    e.preventDefault();
+                                                    setDraft((d) => ({ ...d, faixaSalarialMin: formatted }));
+                                                }
+                                            }}
                                             disabled={viewOnly}
                                         />
                                     </div>
                                     <div>
                                         <label className={L}>{LB.faixaMax}</label>
                                         <Input
-                                            inputMode="decimal"
-                                            placeholder="Ex.: 5000"
+                                            type="text"
+                                            inputMode="numeric"
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            spellCheck={false}
+                                            placeholder="R$ 0,00"
+                                            title="Digite apenas números; o valor é montado em reais com centavos (ex.: para R$ 5.000,00 digite 500000)."
+                                            className="tabular-nums"
                                             value={draft.faixaSalarialMax}
-                                            onChange={(e) => setDraft((d) => ({ ...d, faixaSalarialMax: e.target.value }))}
+                                            onKeyDown={blockNonDigitMoneyKeys}
+                                            onChange={(e) =>
+                                                setDraft((d) => ({
+                                                    ...d,
+                                                    faixaSalarialMax: formatBrlCurrencyFromDigits(e.target.value.replace(/\D/g, "")),
+                                                }))
+                                            }
+                                            onCompositionEnd={(e) => {
+                                                const v = formatBrlCurrencyFromDigits(e.currentTarget.value.replace(/\D/g, ""));
+                                                setDraft((d) => ({ ...d, faixaSalarialMax: v }));
+                                            }}
+                                            onPaste={(e) => {
+                                                const formatted = applyPastedMoneyToField(e.clipboardData.getData("text"));
+                                                if (formatted != null) {
+                                                    e.preventDefault();
+                                                    setDraft((d) => ({ ...d, faixaSalarialMax: formatted }));
+                                                }
+                                            }}
+                                            onDrop={(e) => {
+                                                const formatted = applyPastedMoneyToField(e.dataTransfer.getData("text/plain"));
+                                                if (formatted != null) {
+                                                    e.preventDefault();
+                                                    setDraft((d) => ({ ...d, faixaSalarialMax: formatted }));
+                                                }
+                                            }}
                                             disabled={viewOnly}
                                         />
                                     </div>
