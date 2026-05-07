@@ -13,7 +13,14 @@ public sealed record HierarquiaResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc);
 
-/// <summary>Nó da árvore de hierarquia (com children recursivos).</summary>
+/// <summary>Colaboradores exibidos no organograma (vínculo <c>Funcionario.HierarquiaId</c> = nó).</summary>
+public sealed record HierarquiaTreeFuncionarioSummary(
+    Guid Id,
+    string Nome,
+    string? MatriculaRm,
+    string? CargoOuFuncao);
+
+/// <summary>Nó da árvore de hierarquia (funcionários do nó + children recursivos).</summary>
 public sealed record HierarquiaTreeNode(
     Guid Id,
     int IdHierarquiaRm,
@@ -21,6 +28,7 @@ public sealed record HierarquiaTreeNode(
     string? Estrutura,
     int? IdNivelHierarquiaRm,
     bool IsActive,
+    IReadOnlyList<HierarquiaTreeFuncionarioSummary> Funcionarios,
     IReadOnlyList<HierarquiaTreeNode> Children);
 
 /// <summary>Body do upsert (idempotente por IdHierarquiaRm).</summary>

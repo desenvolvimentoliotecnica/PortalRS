@@ -1,17 +1,27 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { RefreshCw, ChevronRight, ChevronDown, Network, Loader2 } from "lucide-react";
+import { RefreshCw, ChevronRight, ChevronDown, Network, Loader2, Users } from "lucide-react";
 
 /**
  * Componente que renderiza o organograma TOTVS RM (VHIERARQUIA) como árvore navegável.
- * Consome GET /api/hierarquias/tree e exibe nodes hierárquicos com expansão.
+ * Consome GET /api/hierarquias/tree e exibe nodes hierárquicos com expansão e colaboradores por nó.
  *
  * Diferente do OrganogramaCanvas (React Flow / Datasul), aqui é simples e textual —
  * focado nos dados sincronizados pelo worker Liotecnica.Integration.RM.
  */
+
+const FUNCIONARIOS_PREVIEW_CAP = 15;
+
+interface HierarquiaTreeFuncionarioSummary {
+    id: string;
+    nome: string;
+    matriculaRm?: string | null;
+    cargoOuFuncao?: string | null;
+}
 
 interface HierarquiaTreeNode {
     id: string;
@@ -20,7 +30,17 @@ interface HierarquiaTreeNode {
     estrutura?: string | null;
     idNivelHierarquiaRm?: number | null;
     isActive: boolean;
+    funcionarios?: HierarquiaTreeFuncionarioSummary[];
     children: HierarquiaTreeNode[];
+}
+
+function funcionarioMatchesTerm(f: HierarquiaTreeFuncionarioSummary, term: string): boolean {
+    if (!term) return true;
+    const t = term.toLowerCase();
+    if (f.nome.toLowerCase().includes(t)) return true;
+    if (f.matriculaRm?.toLowerCase().includes(t)) return true;
+    if (f.cargoOuFuncao?.toLowerCase().includes(t)) return true;
+    return false;
 }
 
 const NIVEL_COLORS: Record<number, string> = {
@@ -43,25 +63,40 @@ function HierarquiaTreeNodeRow({
     expandedIds,
     onToggle,
     depth,
+    searchNorm,
 }: {
     node: HierarquiaTreeNode;
     expandedIds: Set<string>;
     onToggle: (id: string) => void;
     depth: number;
+    searchNorm: string;
 }) {
+    const [showAllEmployees, setShowAllEmployees] = useState(false);
     const isExpanded = expandedIds.has(node.id);
+    const funcRaw = node.funcionarios ?? [];
+    const funcFiltered = searchNorm
+        ? funcRaw.filter((f) => funcionarioMatchesTerm(f, searchNorm))
+        : funcRaw;
+    const funcCountTotal = funcRaw.length;
+    const needsCap = funcFiltered.length > FUNCIONARIOS_PREVIEW_CAP;
+    const funcDisplayed =
+        showAllEmployees || !needsCap ? funcFiltered : funcFiltered.slice(0, FUNCIONARIOS_PREVIEW_CAP);
+
     const hasChildren = node.children.length > 0;
+    const hasFuncionarios = funcFiltered.length > 0;
+    const hasExpandableContent = hasChildren || hasFuncionarios;
     const colorCls = colorForLevel(node.idNivelHierarquiaRm ?? depth + 1);
 
     return (
         <>
             <div
-                className="flex items-center gap-2 py-1.5 hover:bg-slate-50 cursor-pointer rounded transition-colors"
+                aria-expanded={hasExpandableContent ? isExpanded : undefined}
+                className={`flex items-center gap-2 py-1.5 rounded transition-colors ${hasExpandableContent ? "hover:bg-slate-50 cursor-pointer" : ""}`}
                 style={{ paddingLeft: `${depth * 24}px` }}
-                onClick={() => hasChildren && onToggle(node.id)}
+                onClick={() => hasExpandableContent && onToggle(node.id)}
             >
                 <span className="w-5 h-5 flex items-center justify-center text-slate-400 shrink-0">
-                    {hasChildren ? (
+                    {hasExpandableContent ? (
                         isExpanded ? (
                             <ChevronDown className="size-4" />
                         ) : (
@@ -78,10 +113,72 @@ function HierarquiaTreeNodeRow({
                     {node.idHierarquiaRm}
                 </span>
                 <span className="font-medium text-sm text-slate-800 truncate">{node.descricao}</span>
+                {funcCountTotal > 0 && (
+                    <span
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0 flex items-center gap-0.5"
+                        title="Colaboradores vinculados a este nó (HierarquiaId)"
+                    >
+                        <Users className="size-3 opacity-70" />
+                        {funcCountTotal}
+                    </span>
+                )}
                 {node.estrutura && (
-                    <span className="text-xs text-slate-400 ml-auto font-mono">{node.estrutura}</span>
+                    <span className="text-xs text-slate-400 ml-auto font-mono truncate max-w-[40%]">
+                        {node.estrutura}
+                    </span>
                 )}
             </div>
+
+            {isExpanded && hasFuncionarios && (
+                <div
+                    className="border-l border-slate-200 py-1 space-y-0.5 pl-3"
+                    style={{ marginLeft: `${12 + depth * 24}px` }}
+                >
+                    <div
+                        className={
+                            needsCap && showAllEmployees
+                                ? "max-h-64 overflow-y-auto pr-1 space-y-0.5"
+                                : "space-y-0.5"
+                        }
+                    >
+                        {funcDisplayed.map((f) => (
+                            <div
+                                key={f.id}
+                                className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-sm py-0.5 px-1 rounded hover:bg-slate-50"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <Link
+                                    href={`/funcionarios/perfil?id=${f.id}`}
+                                    className="font-medium text-blue-700 hover:underline"
+                                >
+                                    {f.nome}
+                                </Link>
+                                {f.matriculaRm && (
+                                    <span className="text-xs text-slate-500 font-mono">Chapa {f.matriculaRm}</span>
+                                )}
+                                {f.cargoOuFuncao && (
+                                    <span className="text-xs text-slate-500 truncate max-w-full">{f.cargoOuFuncao}</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    {needsCap && (
+                        <button
+                            type="button"
+                            className="text-xs text-blue-600 hover:underline mt-1"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAllEmployees((v) => !v);
+                            }}
+                        >
+                            {showAllEmployees
+                                ? "Mostrar menos"
+                                : `Mostrar mais (${funcFiltered.length - FUNCIONARIOS_PREVIEW_CAP} restantes)`}
+                        </button>
+                    )}
+                </div>
+            )}
+
             {isExpanded && hasChildren && (
                 <div>
                     {node.children.map((child) => (
@@ -91,6 +188,7 @@ function HierarquiaTreeNodeRow({
                             expandedIds={expandedIds}
                             onToggle={onToggle}
                             depth={depth + 1}
+                            searchNorm={searchNorm}
                         />
                     ))}
                 </div>
@@ -104,15 +202,16 @@ export default function HierarquiaTotvsTree() {
     const [loading, setLoading] = useState(true);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [search, setSearch] = useState("");
+    const [includeInactiveFuncionarios, setIncludeInactiveFuncionarios] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await apiFetch("/api/hierarquias/tree", { cache: "no-store" });
+            const qs = includeInactiveFuncionarios ? "?includeInactiveFuncionarios=true" : "";
+            const res = await apiFetch(`/api/hierarquias/tree${qs}`, { cache: "no-store" });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data: HierarquiaTreeNode[] = await res.json();
             setTree(data);
-            // Expandir as raízes por default
             setExpandedIds(new Set(data.map((n) => n.id)));
         } catch (err) {
             console.error("Erro hierarquias:", err);
@@ -121,11 +220,13 @@ export default function HierarquiaTotvsTree() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [includeInactiveFuncionarios]);
 
     useEffect(() => {
         load();
     }, [load]);
+
+    const searchNorm = useMemo(() => search.trim().toLowerCase(), [search]);
 
     const handleToggle = useCallback((id: string) => {
         setExpandedIds((prev) => {
@@ -140,7 +241,9 @@ export default function HierarquiaTotvsTree() {
         const allIds = new Set<string>();
         const collect = (nodes: HierarquiaTreeNode[]) => {
             nodes.forEach((n) => {
-                allIds.add(n.id);
+                const hasKids = n.children.length > 0;
+                const hasFuncs = (n.funcionarios?.length ?? 0) > 0;
+                if (hasKids || hasFuncs) allIds.add(n.id);
                 collect(n.children);
             });
         };
@@ -152,12 +255,11 @@ export default function HierarquiaTotvsTree() {
         setExpandedIds(new Set());
     }, []);
 
-    // Busca: expandir caminhos onde algum nó bate
     const filteredTree = useMemo(() => {
-        if (!search.trim()) return tree;
-        const term = search.toLowerCase().trim();
+        if (!searchNorm) return tree;
         const matches = (node: HierarquiaTreeNode): boolean => {
-            if (node.descricao.toLowerCase().includes(term)) return true;
+            if (node.descricao.toLowerCase().includes(searchNorm)) return true;
+            if ((node.funcionarios ?? []).some((f) => funcionarioMatchesTerm(f, searchNorm))) return true;
             return node.children.some(matches);
         };
         const filter = (nodes: HierarquiaTreeNode[]): HierarquiaTreeNode[] => {
@@ -166,27 +268,40 @@ export default function HierarquiaTotvsTree() {
                 .map((n) => ({ ...n, children: filter(n.children) }));
         };
         return filter(tree);
-    }, [tree, search]);
+    }, [tree, searchNorm]);
 
-    // Auto-expandir resultados de busca
     useEffect(() => {
-        if (!search.trim()) return;
+        if (!searchNorm) return;
         const ids = new Set<string>();
         const collect = (nodes: HierarquiaTreeNode[]) => {
             nodes.forEach((n) => {
-                ids.add(n.id);
+                const hasKids = n.children.length > 0;
+                const hasFuncs = (n.funcionarios?.length ?? 0) > 0;
+                if (hasKids || hasFuncs) ids.add(n.id);
                 collect(n.children);
             });
         };
         collect(filteredTree);
         setExpandedIds(ids);
-    }, [search, filteredTree]);
+    }, [searchNorm, filteredTree]);
 
     const totalNodes = useMemo(() => {
         let count = 0;
         const walk = (ns: HierarquiaTreeNode[]) => {
             ns.forEach((n) => {
                 count++;
+                walk(n.children);
+            });
+        };
+        walk(tree);
+        return count;
+    }, [tree]);
+
+    const totalColaboradores = useMemo(() => {
+        let count = 0;
+        const walk = (ns: HierarquiaTreeNode[]) => {
+            ns.forEach((n) => {
+                count += n.funcionarios?.length ?? 0;
                 walk(n.children);
             });
         };
@@ -208,22 +323,34 @@ export default function HierarquiaTotvsTree() {
             <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-500">
                 <Network className="size-8 text-slate-300" />
                 <p className="text-sm">Nenhuma hierarquia sincronizada ainda.</p>
-                <p className="text-xs">Verifique se o worker <code className="font-mono">Liotecnica.Integration.RM</code> está rodando.</p>
+                <p className="text-xs">
+                    Verifique se o worker <code className="font-mono">Liotecnica.Integration.RM</code> está rodando.
+                </p>
             </div>
         );
     }
 
     return (
         <div className="space-y-3">
-            <div className="flex items-center gap-3 px-3 py-2 border-b border-slate-200">
+            <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-slate-200">
                 <input
                     type="text"
-                    placeholder="Buscar hierarquia..."
-                    className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded outline-none focus:border-blue-400"
+                    placeholder="Buscar hierarquia ou colaborador..."
+                    className="flex-1 min-w-[160px] px-3 py-1.5 text-sm border border-slate-300 rounded outline-none focus:border-blue-400"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer shrink-0">
+                    <input
+                        type="checkbox"
+                        checked={includeInactiveFuncionarios}
+                        onChange={(e) => setIncludeInactiveFuncionarios(e.target.checked)}
+                        className="rounded border-slate-300"
+                    />
+                    Inativos no organograma
+                </label>
                 <button
+                    type="button"
                     onClick={expandAll}
                     className="text-xs px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50"
                     title="Expandir tudo"
@@ -231,6 +358,7 @@ export default function HierarquiaTotvsTree() {
                     Expandir tudo
                 </button>
                 <button
+                    type="button"
                     onClick={collapseAll}
                     className="text-xs px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50"
                     title="Recolher tudo"
@@ -238,15 +366,16 @@ export default function HierarquiaTotvsTree() {
                     Recolher
                 </button>
                 <button
-                    onClick={load}
+                    type="button"
+                    onClick={() => load()}
                     className="text-xs px-3 py-1.5 border border-slate-300 rounded hover:bg-slate-50 flex items-center gap-1"
                     title="Recarregar"
                 >
                     <RefreshCw className="size-3" />
                     Atualizar
                 </button>
-                <span className="text-xs text-slate-500 ml-auto">
-                    {totalNodes} hierarquias
+                <span className="text-xs text-slate-500 ml-auto whitespace-nowrap">
+                    {totalNodes} hierarquias · {totalColaboradores} colaboradores neste grafo
                 </span>
             </div>
 
@@ -258,6 +387,7 @@ export default function HierarquiaTotvsTree() {
                         expandedIds={expandedIds}
                         onToggle={handleToggle}
                         depth={0}
+                        searchNorm={searchNorm}
                     />
                 ))}
                 {filteredTree.length === 0 && search.trim() && (

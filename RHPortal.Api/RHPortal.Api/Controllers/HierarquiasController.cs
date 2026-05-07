@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Hierarquias;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -11,7 +12,7 @@ namespace RhPortal.Api.Controllers;
 /// Hierarquia / organograma sincronizado do TOTVS RM (<c>VHIERARQUIA</c>).
 ///
 /// - <c>GET /api/hierarquias</c> — lista flat (todos os nós do tenant)
-/// - <c>GET /api/hierarquias/tree</c> — árvore (nodes + children recursivos)
+/// - <c>GET /api/hierarquias/tree</c> — árvore (nodes + funcionários por nó + children recursivos)
 /// - <c>POST /api/hierarquias/bulk</c> — bulk upsert (consumido pelo worker, autenticado X-Api-Key ou JWT)
 ///
 /// Funcionários e Vagas referenciam <c>HierarquiaId</c> derivada de movimentos:
@@ -55,12 +56,45 @@ public sealed class HierarquiasController : ControllerBase
 
     [HttpGet("tree")]
     [ProducesResponseType(typeof(List<HierarquiaTreeNode>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<HierarquiaTreeNode>>> Tree(CancellationToken ct)
+    public async Task<ActionResult<List<HierarquiaTreeNode>>> Tree(
+        CancellationToken ct,
+        [FromQuery] bool includeInactiveFuncionarios = false)
     {
+        var tenantId = _tenantContext.TenantId;
+
         var all = await _db.Hierarquias.AsNoTracking()
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && x.TenantId == tenantId)
             .OrderBy(x => x.Estrutura)
             .ToListAsync(ct);
+
+        var funcQuery = _db.Funcionarios.AsNoTracking()
+            .Where(f => f.TenantId == tenantId && f.HierarquiaId != null);
+        if (!includeInactiveFuncionarios)
+            funcQuery = funcQuery.Where(f => f.Status == FuncionarioStatus.Active);
+
+        var funcProj = await funcQuery
+            .OrderBy(f => f.Name)
+            .Select(f => new
+            {
+                HierarquiaId = f.HierarquiaId!.Value,
+                f.Id,
+                f.Name,
+                f.MatriculaRm,
+                CargoOuFuncao = f.FuncaoNomeRm ?? (f.JobPosition != null ? f.JobPosition.Name : null),
+            })
+            .ToListAsync(ct);
+
+        var funcionariosPorNodo = funcProj
+            .GroupBy(x => x.HierarquiaId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<HierarquiaTreeFuncionarioSummary>)g
+                    .Select(x => new HierarquiaTreeFuncionarioSummary(x.Id, x.Name, x.MatriculaRm, x.CargoOuFuncao))
+                    .ToList());
+
+        static IReadOnlyList<HierarquiaTreeFuncionarioSummary> ListaFunc(Guid nodeId,
+            IReadOnlyDictionary<Guid, IReadOnlyList<HierarquiaTreeFuncionarioSummary>> map) =>
+            map.TryGetValue(nodeId, out var ls) ? ls : Array.Empty<HierarquiaTreeFuncionarioSummary>();
 
         // Index por Id pra resolver children sem múltiplos passes
         var byParent = all
@@ -75,6 +109,7 @@ public sealed class HierarquiasController : ControllerBase
             node.Estrutura,
             node.IdNivelHierarquiaRm,
             node.IsActive,
+            ListaFunc(node.Id, funcionariosPorNodo),
             byParent.TryGetValue(node.Id, out var kids)
                 ? kids.Select(Build).ToList()
                 : (IReadOnlyList<HierarquiaTreeNode>)Array.Empty<HierarquiaTreeNode>());
