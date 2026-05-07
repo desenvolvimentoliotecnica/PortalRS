@@ -12,6 +12,9 @@ namespace RhPortal.Api.Application.IntegracaoTotvs;
 
 public sealed class RmSyncRunService : IRmSyncRunService
 {
+    private const int MinWorkerCycleMinutes = 1;
+    private const int MaxWorkerCycleMinutes = 24 * 60;
+
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IConfiguration _config;
@@ -320,6 +323,72 @@ public sealed class RmSyncRunService : IRmSyncRunService
             true,
             requestedAt,
             "Interrupcao solicitada. O worker vai parar no proximo ponto seguro."));
+    }
+
+    public async Task<RmWorkerCycleSettingsResponse> GetWorkerCycleSettingsAsync(CancellationToken ct)
+    {
+        var tid = (_tenantContext.TenantId ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(tid))
+            throw new InvalidOperationException("TenantId não definido no contexto.");
+
+        var row = await _db.RmWorkerCycleSettings
+            .FirstOrDefaultAsync(x => x.Id == RmWorkerCycleSettings.SingletonRowId, ct);
+
+        if (row is null)
+        {
+            row = new RmWorkerCycleSettings
+            {
+                Id = RmWorkerCycleSettings.SingletonRowId,
+                TenantId = tid,
+                IntervalMinutes = 5,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+            };
+            _db.RmWorkerCycleSettings.Add(row);
+            await _db.SaveChangesAsync(ct);
+            return new RmWorkerCycleSettingsResponse(row.IntervalMinutes);
+        }
+
+        if (row.IntervalMinutes < MinWorkerCycleMinutes)
+        {
+            row.IntervalMinutes = 5;
+            row.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return new RmWorkerCycleSettingsResponse(row.IntervalMinutes);
+    }
+
+    public async Task<RmWorkerCycleSettingsResponse> PutWorkerCycleSettingsAsync(int intervalMinutes, CancellationToken ct)
+    {
+        var tid = (_tenantContext.TenantId ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(tid))
+            throw new InvalidOperationException("TenantId não definido no contexto.");
+
+        var clamped = Math.Clamp(intervalMinutes, MinWorkerCycleMinutes, MaxWorkerCycleMinutes);
+
+        var row = await _db.RmWorkerCycleSettings
+            .FirstOrDefaultAsync(x => x.Id == RmWorkerCycleSettings.SingletonRowId, ct);
+
+        if (row is null)
+        {
+            row = new RmWorkerCycleSettings
+            {
+                Id = RmWorkerCycleSettings.SingletonRowId,
+                TenantId = tid,
+                IntervalMinutes = clamped,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+            };
+            _db.RmWorkerCycleSettings.Add(row);
+        }
+        else
+        {
+            row.TenantId = tid;
+            row.IntervalMinutes = clamped;
+            row.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return new RmWorkerCycleSettingsResponse(row.IntervalMinutes);
     }
 
     private static string ResolveWorkerDirectory(string? configured)

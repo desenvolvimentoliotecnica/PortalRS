@@ -57,4 +57,10 @@ public interface IRmSyncRunService
 
     /// <summary>Solicita interrupção cooperativa do ciclo RM em execução.</summary>
     Task<OwnerRmSyncCancelResponse> RequestCancelAsync(CancellationToken ct);
+
+    /// <summary>Lê ou cria o intervalo entre ciclos do worker (padrão 5 min) no tenant atual.</summary>
+    Task<RmWorkerCycleSettingsResponse> GetWorkerCycleSettingsAsync(CancellationToken ct);
+
+    /// <summary>Persiste o intervalo entre ciclos (1–1440 min) no tenant atual.</summary>
+    Task<RmWorkerCycleSettingsResponse> PutWorkerCycleSettingsAsync(int intervalMinutes, CancellationToken ct);
 }

@@ -89,3 +89,9 @@ public sealed record OwnerRmSyncCancelResponse(
     bool Requested,
     DateTimeOffset RequestedAtUtc,
     string Message);
+
+/// <summary>Intervalo entre ciclos do worker RM (persistido no tenant DB).</summary>
+public sealed record RmWorkerCycleSettingsResponse(int IntervalMinutes);
+
+/// <summary>Atualização do intervalo entre ciclos (Owner UI).</summary>
+public sealed record UpdateRmWorkerCycleSettingsRequest(int IntervalMinutes);
