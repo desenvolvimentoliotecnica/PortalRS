@@ -3,6 +3,7 @@ using RhPortal.Api.Contracts.Owner;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Security;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.Owner;
 
@@ -119,6 +120,7 @@ public sealed class TotvsGestorHierarchyOwnerService : ITotvsGestorHierarchyOwne
         _ = Task.Run(async () =>
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().SetTenantId(tid);
             var runner = scope.ServiceProvider.GetRequiredService<TotvsGestorHierarchySyncRunner>();
             try
             {
