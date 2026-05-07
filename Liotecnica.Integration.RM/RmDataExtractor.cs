@@ -595,8 +595,112 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
                 _logger.LogWarning(ex, "Falha ao extrair tabela {Table}", fullTableName);
             }
         }
+        await TryExtractGestorHierarquiaPosicaoSnapshotAsync(connection, outputDir, ct);
+
         _logWriter.WriteLine("--- Extração de dados concluída ---");
         return newWatermarks;
+    }
+
+    /// <summary>
+    /// Extrai vínculos funcionário → gestor direto segundo a hierarquia de posição RM
+    /// (<c>VHIERARQUIAPOSICAO</c>, <c>VHIERARQUIA</c>, <c>VPOSICAO</c>, mesma álgebra da consulta SQL do portal / consultoria).
+    /// Grava <c>gestor_hierarquia_posicao.json</c>; linhas sem chefe (~topo) vêm com <c>ChapaGestor</c>/<c>CodColigadaGestor</c> nulos.
+    /// </summary>
+    private async Task TryExtractGestorHierarquiaPosicaoSnapshotAsync(SqlConnection connection, string outputDir, CancellationToken ct)
+    {
+        _logWriter.WriteLine("--- Extração gestor_hierarquia_posicao iniciada ---");
+        try
+        {
+            var sql = BuildGestorHierarquiaPosicaoSnapshotSql();
+            var rows = await QueryToListLongTimeoutAsync(connection, sql, 480, ct);
+            var path = Path.Combine(outputDir, "gestor_hierarquia_posicao.json");
+            await File.WriteAllTextAsync(path, JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true }), ct);
+            _logWriter.WriteLine($"gestor_hierarquia_posicao.json: {rows.Count} linhas gravadas.");
+            _logger.LogInformation("Gestor hierarquia posição: {Count} linhas → {Path}", rows.Count, path);
+        }
+        catch (Exception ex)
+        {
+            _logWriter.WriteLine($"gestor_hierarquia_posicao: ERRO (sync de funcionários usa fallback PFUNCLIDER/view) — {ex.Message}");
+            _logger.LogWarning(ex, "Falha ao extrair gestor_hierarquia_posicao.json");
+        }
+        _logWriter.WriteLine("--- Extração gestor_hierarquia_posicao finalizada ---");
+    }
+
+    private string BuildGestorHierarquiaPosicaoSnapshotSql()
+    {
+        var vhp = _schemaOptions.FullTableName("VHIERARQUIAPOSICAO");
+        var vh = _schemaOptions.FullTableName(_schemaOptions.HierarquiaTable);
+        var vp = _schemaOptions.FullTableName("VPOSICAO");
+        var pfunc = _schemaOptions.FullTableName(_schemaOptions.FuncionarioTable);
+
+        // Mesma estrutura da consulta do consultor: chefe pela hierarquia superior + posição ocupada (STATUS=1).
+        return $@"
+SELECT DISTINCT
+       emp.CODCOLIGADA     AS CodColigadaFunc,
+       emp.CHAPAFUNCIONARIO AS ChapaFunc,
+       boss.CODCOLFUNCIONARIO AS CodColigadaGestor,
+       boss.CHAPAFUNCIONARIO  AS ChapaGestor
+FROM (
+         SELECT VHIERARQUIAPOSICAO.CODCOLIGADA,
+                VPOSICAO_EMP.CHAPAFUNCIONARIO,
+                VHIERARQUIA.IDHIERARQUIASUPERIOR
+         FROM {vhp} AS VHIERARQUIAPOSICAO
+                  INNER JOIN {vh} AS VHIERARQUIA
+                             ON VHIERARQUIAPOSICAO.CODCOLIGADA = VHIERARQUIA.CODCOLIGADA
+                                 AND VHIERARQUIAPOSICAO.IDHIERARQUIA = VHIERARQUIA.IDHIERARQUIA
+                  INNER JOIN {vp} AS VPOSICAO_EMP
+                             ON VPOSICAO_EMP.CODCOLIGADA = VHIERARQUIAPOSICAO.CODCOLIGADA
+                                 AND VPOSICAO_EMP.IDPOSICAO = VHIERARQUIAPOSICAO.CODPOSICAO
+                  LEFT JOIN {pfunc} AS PFUNC_EMP
+                            ON PFUNC_EMP.CODCOLIGADA = VPOSICAO_EMP.CODCOLFUNCIONARIO
+                                AND PFUNC_EMP.CHAPA = VPOSICAO_EMP.CHAPAFUNCIONARIO
+         WHERE VHIERARQUIAPOSICAO.STATUS = 1
+           AND (PFUNC_EMP.CODSITUACAO IS NULL OR PFUNC_EMP.CODSITUACAO NOT IN ('C', 'D'))
+     ) AS emp
+         OUTER APPLY (
+    SELECT TOP (1)
+           VPOSICAO_BOSS.CODCOLFUNCIONARIO,
+           VPOSICAO_BOSS.CHAPAFUNCIONARIO
+    FROM {vh} AS VH_SUP
+             INNER JOIN {vhp} AS VHP_SUP
+                        ON VHP_SUP.CODCOLIGADA = VH_SUP.CODCOLIGADA
+                            AND VHP_SUP.IDHIERARQUIA = VH_SUP.IDHIERARQUIA
+             INNER JOIN {vp} AS VPOSICAO_BOSS
+                        ON VPOSICAO_BOSS.CODCOLIGADA = VHP_SUP.CODCOLIGADA
+                            AND VPOSICAO_BOSS.IDPOSICAO = VHP_SUP.CODPOSICAO
+             INNER JOIN {pfunc} AS PFUNC_BOSS
+                        ON PFUNC_BOSS.CODCOLIGADA = VPOSICAO_BOSS.CODCOLFUNCIONARIO
+                            AND PFUNC_BOSS.CHAPA = VPOSICAO_BOSS.CHAPAFUNCIONARIO
+    WHERE VH_SUP.CODCOLIGADA = emp.CODCOLIGADA
+      AND VH_SUP.IDHIERARQUIA = emp.IDHIERARQUIASUPERIOR
+      AND VHP_SUP.STATUS = 1
+) AS boss
+";
+    }
+
+    private static async Task<List<Dictionary<string, object?>>> QueryToListLongTimeoutAsync(
+        SqlConnection connection,
+        string sql,
+        int commandTimeoutSeconds,
+        CancellationToken ct)
+    {
+        var rows = new List<Dictionary<string, object?>>();
+        var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.CommandTimeout = commandTimeoutSeconds;
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < reader.FieldCount; i++)
+            {
+                var name = reader.GetName(i);
+                var value = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                row[name] = value;
+            }
+            rows.Add(row);
+        }
+        return rows;
     }
 
     /// <summary>Encontra o maior valor de <c>RECMODIFIEDON</c> no batch lido (case-insensitive).</summary>

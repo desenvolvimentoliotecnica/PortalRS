@@ -46,6 +46,12 @@ public sealed class RmSyncOptions
     /// <summary>Se definido, limita quantos funcionários (PFUNC) são enviados via api/funcionarios/sync-rm/bulk. Null = sem limite (envia todos os ativos, ~637 na Liotécnica).</summary>
     public int? MaxFuncionariosToSync { get; set; }
 
+    /// <summary>
+    /// Quando true (padrão), usa <c>gestor_hierarquia_posicao.json</c> (VHIERARQUIAPOSICAO + chefe pela hierarquia superior)
+    /// como fonte prioritária de <c>chapaGestorDireto</c> no bulk; caso contrário mantém apenas PFUNCLIDERHRPLATFORM / view legacy.
+    /// </summary>
+    public bool UseGestorHierarquiaPosicao { get; set; } = true;
+
     /// <summary>Se definido, processa apenas este e-mail (ex.: claytonhamada@gmail.com para validar um talento/candidato). Null = todos.</summary>
     public string? SyncOnlyEmail { get; set; }
 }

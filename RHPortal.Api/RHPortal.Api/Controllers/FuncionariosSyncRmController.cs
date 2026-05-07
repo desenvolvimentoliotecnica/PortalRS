@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -134,20 +135,64 @@ public sealed class FuncionariosSyncRmController : ControllerBase
                 matriculaToFuncionario[f.MatriculaRm.Trim()] = f;
         }
 
+        static int ResolveCodColigadaRm(string? cdnEmpresa, int fallbackColigadaEmpregado)
+        {
+            if (string.IsNullOrWhiteSpace(cdnEmpresa))
+                return fallbackColigadaEmpregado;
+            var t = cdnEmpresa.Trim();
+            return int.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : fallbackColigadaEmpregado;
+        }
+
+        /// <summary>Resolve gestor no batch atual por matrícula; opcionalmente filtra pela coligada do gestor (&quot;CDN&quot;) no Portal.</summary>
+        static Funcionario? ResolveGestorNoBatch(
+            IEnumerable<Funcionario> batchFuncionarios,
+            string chapaGestor,
+            int? codColigadaGestorRm,
+            int fallbackColEmpregadoRm)
+        {
+            var lista = batchFuncionarios
+                .Where(f => f.MatriculaRm != null
+                            && string.Equals(f.MatriculaRm.Trim(), chapaGestor, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (lista.Count == 0)
+                return null;
+            if (codColigadaGestorRm is int cg && cg > 0)
+            {
+                var colMatch = lista.FirstOrDefault(f => ResolveCodColigadaRm(f.CdnEmpresa, fallbackColEmpregadoRm) == cg);
+                if (colMatch is not null)
+                    return colMatch;
+            }
+            return lista[0];
+        }
+
         static void ApplyGestorDiretoRm(
             Funcionario emp,
             FuncionarioSyncRmItem it,
-            Dictionary<string, Funcionario> byMatricula)
+            IReadOnlyCollection<Funcionario> batchFuncionariosParaGestor)
         {
-            if (string.IsNullOrWhiteSpace(it.ChapaGestorDireto))
+            var colEmpRm = it.CodColigada ?? 1;
+
+            if (!it.AplicarGestorDiretoInformado)
+            {
+                if (string.IsNullOrWhiteSpace(it.ChapaGestorDireto))
+                    return;
+                var gh = it.ChapaGestorDireto.Trim();
+                var gest = ResolveGestorNoBatch(batchFuncionariosParaGestor, gh, it.CodColigadaGestorDireto, colEmpRm);
+                emp.GestorDiretoId = gest == null || gest.Id == emp.Id ? null : gest.Id;
                 return;
-            var gch = it.ChapaGestorDireto.Trim();
-            if (!byMatricula.TryGetValue(gch, out var gest) || gest.Id == emp.Id)
+            }
+
+            // Hierarquia de posição (bulk): sem chefe ⇒ topo ⇒ limpa FK; com chefe ⇒ só atualiza se o gestor existe no Portal neste ciclo (evita zerar vínculos por falta de inclusão da chapa no batch).
+            if (string.IsNullOrWhiteSpace(it.ChapaGestorDireto))
             {
                 emp.GestorDiretoId = null;
                 return;
             }
-            emp.GestorDiretoId = gest.Id;
+
+            var gDir = ResolveGestorNoBatch(batchFuncionariosParaGestor, it.ChapaGestorDireto.Trim(), it.CodColigadaGestorDireto, colEmpRm);
+            if (gDir is null || gDir.Id == emp.Id)
+                return;
+            emp.GestorDiretoId = gDir.Id;
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -318,13 +363,14 @@ public sealed class FuncionariosSyncRmController : ControllerBase
             }
         }
 
-        // Gestor direto (CHAPALIDER): segunda passagem — o líder pode vir depois no payload do mesmo batch.
+        // Gestor direto — segunda passagem (hierarquia de posição e/ou CHAPALIDER). O vínculo é entre matrículas do batch atual.
+        var batchParaGestor = matriculaToFuncionario.Values.ToList();
         foreach (var item in ativos)
         {
             var ch = item.Chapa.Trim();
             if (!matriculaToFuncionario.TryGetValue(ch, out var emp))
                 continue;
-            ApplyGestorDiretoRm(emp, item, matriculaToFuncionario);
+            ApplyGestorDiretoRm(emp, item, batchParaGestor);
         }
 
         // Salva em chunks pra não sobrecarregar a transação (637 rows é OK, mas defensivo)

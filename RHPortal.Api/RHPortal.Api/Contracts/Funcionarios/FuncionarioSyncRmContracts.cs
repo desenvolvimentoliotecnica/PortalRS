@@ -7,19 +7,27 @@ namespace RhPortal.Api.Contracts.Funcionarios;
 ///   - CodFuncao → JobPositionId (via PFUNCAO.CARGO → PCARGO.CODIGO)
 ///   - CodFilial → UnitId (lookup por Code)
 ///   - IdHierarquiaDestinoRm → HierarquiaId (lookup por IdHierarquiaRm)
-///   - ChapaGestorDireto (opcional) — chapa do líder em <c>PFUNCLIDERHRPLATFORM.CHAPALIDER</c> (preferência <c>MASTER=1</c>);
-///     o endpoint resolve para <c>Funcionario.GestorDiretoId</c> por <c>MatriculaRm</c>.
+///   - ChapaGestorDireto — chapa do gestor RM; opcionalmente com <see cref="CodColigadaGestorDireto"/> para desambiguar multi-coligada.
+///     Com <see cref="AplicarGestorDiretoInformado"/> true (fonte VHIERARQUIAPOSICAO/chefe por posição ou override explícito),
+///     <c>GestorDiretoId</c> pode ser zerado quando a chapa vier nula (topo da hierarquia). Com false (comportamento legado),
+///     chapa nula não altera o gestor já gravado no Portal.
 /// </summary>
 public sealed class FuncionarioSyncRmItem
 {
     /// <summary>PFUNC.CHAPA (ex.: "00000581").</summary>
     public string Chapa { get; set; } = default!;
 
-    /// <summary>
-    /// Chapa do gestor direto no RM (<c>PFUNCLIDERHRPLATFORM.CHAPALIDER</c>, líder principal <c>MASTER=1</c> quando existir).
-    /// Quando ausente ou nula, o sync <strong>não altera</strong> <c>GestorDiretoId</c> no Portal.
-    /// </summary>
+    /// <summary>Chapa do gestor direto no RM (<c>VPOSICAO.CHAPAFUNCIONARIO</c> do cargo superior ou PFUNCLIDER legado).</summary>
     public string? ChapaGestorDireto { get; set; }
+
+    /// <summary><c>VPOSICAO.CODCOLFUNCIONARIO</c> do gestor (multi-coligada). Null = apenas <see cref="ChapaGestorDireto"/> na resolução.</summary>
+    public int? CodColigadaGestorDireto { get; set; }
+
+    /// <summary>
+    /// True quando o worker indica resultado explícito da hierarquia de posição / bulk: permite limpar gestor quando
+    /// <see cref="ChapaGestorDireto"/> é nula (topo). Default false preserva comportamento anterior (omitir gestor não altera FK).
+    /// </summary>
+    public bool AplicarGestorDiretoInformado { get; set; }
 
     /// <summary>Nome do funcionário (vem de PPESSOA via PFUNC.CODPESSOA).</summary>
     public string Nome { get; set; } = default!;
