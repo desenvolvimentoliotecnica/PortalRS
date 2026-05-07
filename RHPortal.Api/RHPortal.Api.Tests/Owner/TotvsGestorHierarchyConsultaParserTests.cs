@@ -14,6 +14,9 @@ public sealed class TotvsGestorHierarchyConsultaParserTests
     private const string Topo =
         """[{"Coligada":1,"Cód. Posição":1,"Chapa":"00000004","Funcionário":"JULIO SCHWARTZMAN"}]""";
 
+    private const string TopoJsonNullChefe =
+        """[{"Coligada":1,"Cód. Posição":1,"Chapa":"00000004","Funcionário":"JULIO SCHWARTZMAN","Chefe Superior":null}]""";
+
     [Fact]
     public void Parse_ComChefe_ExtraiChapaColigada()
     {
@@ -28,6 +31,14 @@ public sealed class TotvsGestorHierarchyConsultaParserTests
     public void Parse_SemCampoTopo_Identifica()
     {
         var r = TotvsGestorHierarchyConsultaParser.Parse(Topo);
+        Assert.Equal(TotvsGestorHierarchyConsultaParseKind.SemChefeTopo, r.Kind);
+        Assert.Null(r.ChefeChapa);
+    }
+
+    [Fact]
+    public void Parse_ChefeSuperiorJsonNull_EhTopo()
+    {
+        var r = TotvsGestorHierarchyConsultaParser.Parse(TopoJsonNullChefe);
         Assert.Equal(TotvsGestorHierarchyConsultaParseKind.SemChefeTopo, r.Kind);
         Assert.Null(r.ChefeChapa);
     }
