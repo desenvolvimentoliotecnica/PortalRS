@@ -28,6 +28,7 @@ public static class TotvsGestorHierarchyConsultaParser
 
     /// <summary>
     /// Aceita array JSON na raiz ou um objeto com propriedade <c>data</c> (array).
+    /// Alinhado à consulta RM (VHIERARQUIAPOSICAO / chefe concatenado como texto em <c>Chefe Superior</c>).
     /// </summary>
     public static TotvsGestorHierarchyConsultaParseResult Parse(string json)
     {
@@ -82,7 +83,14 @@ public static class TotvsGestorHierarchyConsultaParser
                     {
                         JsonValueKind.String => p.Value.GetString(),
                         JsonValueKind.Number => p.Value.GetRawText(),
-                        _ => p.Value.GetRawText(),
+                        JsonValueKind.Null => null,
+                        JsonValueKind.Undefined => null,
+                        _ => p.Value.ValueKind switch
+                        {
+                            JsonValueKind.True => bool.TrueString,
+                            JsonValueKind.False => bool.FalseString,
+                            _ => p.Value.GetRawText(),
+                        },
                     };
                 }
             }
