@@ -17,6 +17,7 @@ namespace RhPortal.Api.Controllers;
 ///   - Recebe array com códigos crus do RM (CHAPA + CODSECAO + CODCARGO + CODFILIAL + IDHIERARQUIADESTINO).
 ///   - Filtra ativos (<c>CodSituacao IN ('A','F','P')</c>) — desligados não viram Funcionario.
 ///   - Resolve FKs internamente via lookup tables em memória (uma query por entidade-mestre).
+///   - Hierarquia: <c>IdHierarquiaOrganogramaRm</c> (posição) com precedência sobre <c>IdHierarquiaDestinoRm</c> (promoção).
 ///   - Upsert idempotente por <c>(TenantId, MatriculaRm)</c>.
 ///
 /// Diferente do <c>FuncionariosController.Create</c> que requer dados já resolvidos.
@@ -52,6 +53,7 @@ public sealed class FuncionariosSyncRmController : ControllerBase
         var tenantId = _tenantContext.TenantId;
         var total = request.Items.Count;
         var runStartUtc = DateTimeOffset.UtcNow;
+        var organogramaRmSemNoPortal = 0;
 
         // 2026-04-26: aceita TODOS funcionários (ativos + desligados/inativos).
         // Status é mapeado: A,F,P → Active(1); demais (D=Desligado, I=Inativo, etc.) → Inactive(2).
@@ -223,7 +225,16 @@ public sealed class FuncionariosSyncRmController : ControllerBase
             }
 
             Guid? hierarquiaId = null;
-            if (item.IdHierarquiaDestinoRm.HasValue && hierarquiaByIdRm.TryGetValue(item.IdHierarquiaDestinoRm.Value, out var hId))
+            if (item.IdHierarquiaOrganogramaRm.HasValue && item.IdHierarquiaOrganogramaRm.Value > 0)
+            {
+                if (hierarquiaByIdRm.TryGetValue(item.IdHierarquiaOrganogramaRm.Value, out var hOrg))
+                    hierarquiaId = hOrg;
+                else
+                    organogramaRmSemNoPortal++;
+            }
+
+            if (hierarquiaId is null && item.IdHierarquiaDestinoRm.HasValue
+                                     && hierarquiaByIdRm.TryGetValue(item.IdHierarquiaDestinoRm.Value, out var hId))
                 hierarquiaId = hId;
 
             // ─── Pessoa: cria/atualiza com TODO o cadastro pessoal LUC-122 ───
@@ -380,6 +391,10 @@ public sealed class FuncionariosSyncRmController : ControllerBase
         // e Status=Active que NÃO foram observados neste ciclo são candidatos. Threshold default 3.
         if (request.Items.Count > 0)
             await DetectarZumbisFuncionariosAsync(tenantId, runStartUtc, ct);
+
+        if (organogramaRmSemNoPortal > 0)
+            warnings.Add(
+                $"{organogramaRmSemNoPortal} item(ns) com IdHierarquiaOrganogramaRm sem nó correspondente em Hierarquias (usado IdHierarquiaDestinoRm quando existir).");
 
         return Ok(new FuncionarioSyncRmBulkResponse(created, updated, skipped, skippedInactive, total, warnings));
     }

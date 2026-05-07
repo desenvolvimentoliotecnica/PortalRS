@@ -6,7 +6,7 @@ namespace RhPortal.Api.Contracts.Funcionarios;
 ///   - CodSecao → CentroCustoId (lookup por Code)
 ///   - CodFuncao → JobPositionId (via PFUNCAO.CARGO → PCARGO.CODIGO)
 ///   - CodFilial → UnitId (lookup por Code)
-///   - IdHierarquiaDestinoRm → HierarquiaId (lookup por IdHierarquiaRm)
+///   - IdHierarquiaOrganogramaRm (VHIERARQUIAPOSICAO por posição) → HierarquiaId quando resolvido; senão IdHierarquiaDestinoRm (promoção)
 ///   - ChapaGestorDireto — chapa do gestor RM; opcionalmente com <see cref="CodColigadaGestorDireto"/> para desambiguar multi-coligada.
 ///     Com <see cref="AplicarGestorDiretoInformado"/> true (fonte VHIERARQUIAPOSICAO/chefe por posição ou override explícito),
 ///     <c>GestorDiretoId</c> pode ser zerado quando a chapa vier nula (topo da hierarquia). Com false (comportamento legado),
@@ -67,6 +67,9 @@ public sealed class FuncionarioSyncRmItem
 
     /// <summary>Última VREQTRANSFPROMOCAO.IDHIERARQUIADESTINO aprovada — resolve para HierarquiaId. Null = sem promoção registrada.</summary>
     public int? IdHierarquiaDestinoRm { get; set; }
+
+    /// <summary><c>VHIERARQUIAPOSICAO.IDHIERARQUIA</c> do ocupante (organograma por posição). Tem precedência sobre <see cref="IdHierarquiaDestinoRm"/> no endpoint.</summary>
+    public int? IdHierarquiaOrganogramaRm { get; set; }
 
     /// <summary>PPESSOA.CODIGO (chave pra resolver PessoaId no Portal).</summary>
     public int? CodPessoa { get; set; }
