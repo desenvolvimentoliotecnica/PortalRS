@@ -7,7 +7,7 @@ public sealed class TotvsGestorHierarchyConsultaParserTests
 {
     private const string ComChefe = """
 [
-    {"Coligada":1,"Cód. Posição":25,"Chapa":"00000086","Funcionário":"IVANETE VIEIRA DIAS","Hierarquia Superior":4,"Chefe Superior":"Chefe Hierarquia Superior: 574 - Coligada Chefe: 1 - Chapa:00000595 - Nome: ADRIANO VITOR DOS SANTOS"}
+    {"Coligada":1,"Cód. Posição":25,"Chapa":"00000086","Funcionário":"IVANETE VIEIRA DIAS","ID Hierarquia":912,"Hierarquia Superior":4,"Chefe Superior":"Chefe Hierarquia Superior: 574 - Coligada Chefe: 1 - Chapa:00000595 - Nome: ADRIANO VITOR DOS SANTOS"}
 ]
 """;
 
@@ -25,6 +25,7 @@ public sealed class TotvsGestorHierarchyConsultaParserTests
         Assert.Equal(1, r.ChefeColigada);
         Assert.Equal("00000595", r.ChefeChapa);
         Assert.Contains("ADRIANO", r.ChefeNomeRaw ?? "", StringComparison.Ordinal);
+        Assert.Equal(912, r.IdHierarquiaRm);
     }
 
     [Fact]
@@ -33,6 +34,7 @@ public sealed class TotvsGestorHierarchyConsultaParserTests
         var r = TotvsGestorHierarchyConsultaParser.Parse(Topo);
         Assert.Equal(TotvsGestorHierarchyConsultaParseKind.SemChefeTopo, r.Kind);
         Assert.Null(r.ChefeChapa);
+        Assert.Null(r.IdHierarquiaRm);
     }
 
     [Fact]
@@ -41,6 +43,16 @@ public sealed class TotvsGestorHierarchyConsultaParserTests
         var r = TotvsGestorHierarchyConsultaParser.Parse(TopoJsonNullChefe);
         Assert.Equal(TotvsGestorHierarchyConsultaParseKind.SemChefeTopo, r.Kind);
         Assert.Null(r.ChefeChapa);
+        Assert.Null(r.IdHierarquiaRm);
+    }
+
+    [Fact]
+    public void Parse_TopoComIdHierarquia_ExtraiId()
+    {
+        const string topoComId = """[{"Coligada":1,"Chapa":"00000004","Funcionário":"X","ID Hierarquia":500}]""";
+        var r = TotvsGestorHierarchyConsultaParser.Parse(topoComId);
+        Assert.Equal(TotvsGestorHierarchyConsultaParseKind.SemChefeTopo, r.Kind);
+        Assert.Equal(500, r.IdHierarquiaRm);
     }
 
     [Fact]

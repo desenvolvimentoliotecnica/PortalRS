@@ -118,6 +118,11 @@ public sealed class TotvsGestorHierarchySyncRunner
         var defaultCol = Math.Max(1, settings.DefaultCodColigada);
         var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{settings.HttpUser.Trim()}:{pass}"));
 
+        var hierPorRm = await _db.Hierarquias
+            .AsNoTracking()
+            .Where(h => h.TenantId == tenantId)
+            .ToDictionaryAsync(h => h.IdHierarquiaRm, h => h.Id, ct);
+
         var i = 0;
         foreach (var row in alvos)
         {
@@ -163,20 +168,53 @@ public sealed class TotvsGestorHierarchySyncRunner
 
             var parsed = TotvsGestorHierarchyConsultaParser.Parse(body);
 
-            Guid? novoGestorId = null;
+            var emp = await _db.Funcionarios.FirstOrDefaultAsync(f => f.Id == row.Id, ct);
+            if (emp is null)
+            {
+                handle.AddLine($"FUNCIONARIO_NAO_ENCONTRADO id={row.Id} chapa={chapaNorm}");
+                i++;
+                handle.Tick(i);
+                await Throttle(delay, ct);
+                continue;
+            }
+
+            var changed = false;
+            if (parsed.IdHierarquiaRm is int hir && hir > 0)
+            {
+                if (hierPorRm.TryGetValue(hir, out var hid))
+                {
+                    if (emp.HierarquiaId != hid)
+                    {
+                        emp.HierarquiaId = hid;
+                        changed = true;
+                    }
+                }
+                else
+                {
+                    handle.AddLine($"HIERARQUIA_RM idRM={hir} chapa={chapaNorm} sem linha em Hierarquias (sync VHIERARQUIA).");
+                }
+            }
 
             switch (parsed.Kind)
             {
                 case TotvsGestorHierarchyConsultaParseKind.SemChefeTopo:
-                    novoGestorId = null;
+                    if (emp.GestorDiretoId is not null)
+                    {
+                        emp.GestorDiretoId = null;
+                        changed = true;
+                    }
+
                     handle.AddLine($"TOPO sem chefe RM chapa={chapaNorm}");
                     break;
+
                 case TotvsGestorHierarchyConsultaParseKind.ChefeIdentificado:
                 {
                     var gChapa = TotvsGestorHierarchyConsultaParser.NormalizeChapa(parsed.ChefeChapa);
                     if (gChapa is null)
                     {
                         handle.AddLine($"PARSE CHEFE SEM CHAPA chapa_FUNC={chapaNorm} texto={Truncate(parsed.RawChefeSuperiorText)}");
+                        if (changed)
+                            await SaveGestorHierarchyRowAsync(emp, row.Id, handle, ct);
                         i++;
                         handle.Tick(i);
                         await Throttle(delay, ct);
@@ -204,6 +242,8 @@ public sealed class TotvsGestorHierarchySyncRunner
                     {
                         handle.AddLine(
                             $"GESTOR_RM_NAO_LOCALIZADO chapa_sub={chapaNorm} gestor_RM_chapa={gChapa} coligada_RM={parsed.ChefeColigada?.ToString() ?? "?"} nome_RM={Truncate(parsed.ChefeNomeRaw)} — GestorDiretoId não alterado.");
+                        if (changed)
+                            await SaveGestorHierarchyRowAsync(emp, row.Id, handle, ct);
                         i++;
                         handle.Tick(i);
                         await Throttle(delay, ct);
@@ -213,43 +253,41 @@ public sealed class TotvsGestorHierarchySyncRunner
                     if (bossId.Value == row.Id)
                     {
                         handle.AddLine($"AUTO_GESTOR_IGNORADO chapa={chapaNorm}");
+                        if (changed)
+                            await SaveGestorHierarchyRowAsync(emp, row.Id, handle, ct);
                         i++;
                         handle.Tick(i);
                         await Throttle(delay, ct);
                         continue;
                     }
 
-                    novoGestorId = bossId;
+                    if (emp.GestorDiretoId != bossId)
+                    {
+                        emp.GestorDiretoId = bossId;
+                        changed = true;
+                    }
+
                     handle.AddLine($"OK chapa={chapaNorm} → gestorChapaRM={gChapa} portalGestorId={bossId.Value:D}");
                     break;
                 }
+
                 default:
                     handle.AddLine($"PARSE_INCERTO chapa={chapaNorm} raw={Truncate(body)}");
-                    i++;
-                    handle.Tick(i);
-                    await Throttle(delay, ct);
-                    continue;
+                    break;
             }
 
-            var emp = await _db.Funcionarios.FirstOrDefaultAsync(f => f.Id == row.Id, ct);
-            if (emp is null)
+            if (changed)
             {
-                i++;
-                handle.Tick(i);
-                await Throttle(delay, ct);
-                continue;
-            }
-
-            emp.GestorDiretoId = novoGestorId;
-            emp.UpdatedAtUtc = DateTimeOffset.UtcNow;
-            try
-            {
-                await _db.SaveChangesAsync(ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Erro salvando GestorDiretoId para {EmpId}", row.Id);
-                handle.AddLine($"SAVE_FAIL id={row.Id}: {ex.Message}");
+                emp.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                try
+                {
+                    await _db.SaveChangesAsync(ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Erro salvando gestor/hierarquia para {EmpId}", row.Id);
+                    handle.AddLine($"SAVE_FAIL id={row.Id}: {ex.Message}");
+                }
             }
 
             i++;
@@ -259,6 +297,20 @@ public sealed class TotvsGestorHierarchySyncRunner
 
         handle.AddLine($"Fim — processados={i}");
         handle.CompleteSuccess();
+    }
+
+    private async Task SaveGestorHierarchyRowAsync(Funcionario emp, Guid empId, TotvsGestorHierarchyRunHandle handle, CancellationToken ct)
+    {
+        emp.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro salvando gestor/hierarquia para {EmpId}", empId);
+            handle.AddLine($"SAVE_FAIL id={empId}: {ex.Message}");
+        }
     }
 
     internal static int ResolveCodColigada(string? cdnEmpresa, int fallback)

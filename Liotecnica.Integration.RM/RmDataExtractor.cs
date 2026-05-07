@@ -596,6 +596,7 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
             }
         }
         await TryExtractGestorHierarquiaPosicaoSnapshotAsync(connection, outputDir, ct);
+        await TryExtractFuncionarioHierarquiaOrganogramaSnapshotAsync(connection, outputDir, ct);
 
         _logWriter.WriteLine("--- Extração de dados concluída ---");
         return newWatermarks;
@@ -624,6 +625,57 @@ WHERE (v.DATAABERTURA IS NULL OR TRY_CAST(v.DATAABERTURA AS DATE) <= @hoje)
             _logger.LogWarning(ex, "Falha ao extrair gestor_hierarquia_posicao.json");
         }
         _logWriter.WriteLine("--- Extração gestor_hierarquia_posicao finalizada ---");
+    }
+
+    /// <summary>
+    /// Nó de organograma do funcionário pela posição ocupada: <c>VHIERARQUIAPOSICAO.IDHIERARQUIA</c> (par com <c>Hierarquias.IdHierarquiaRm</c> no Portal).
+    /// Grava <c>funcionario_hierarquia_organograma.json</c>.
+    /// </summary>
+    private async Task TryExtractFuncionarioHierarquiaOrganogramaSnapshotAsync(SqlConnection connection, string outputDir, CancellationToken ct)
+    {
+        _logWriter.WriteLine("--- Extração funcionario_hierarquia_organograma iniciada ---");
+        try
+        {
+            var sql = BuildFuncionarioHierarquiaOrganogramaSnapshotSql();
+            var rows = await QueryToListLongTimeoutAsync(connection, sql, 480, ct);
+            var path = Path.Combine(outputDir, "funcionario_hierarquia_organograma.json");
+            await File.WriteAllTextAsync(path, JsonSerializer.Serialize(rows, new JsonSerializerOptions { WriteIndented = true }), ct);
+            _logWriter.WriteLine($"funcionario_hierarquia_organograma.json: {rows.Count} linhas gravadas.");
+            _logger.LogInformation("Hierarquia organograma posição: {Count} linhas → {Path}", rows.Count, path);
+        }
+        catch (Exception ex)
+        {
+            _logWriter.WriteLine($"funcionario_hierarquia_organograma: ERRO — {ex.Message}");
+            _logger.LogWarning(ex, "Falha ao extrair funcionario_hierarquia_organograma.json");
+        }
+        _logWriter.WriteLine("--- Extração funcionario_hierarquia_organograma finalizada ---");
+    }
+
+    private string BuildFuncionarioHierarquiaOrganogramaSnapshotSql()
+    {
+        var vhp = _schemaOptions.FullTableName("VHIERARQUIAPOSICAO");
+        var vh = _schemaOptions.FullTableName(_schemaOptions.HierarquiaTable);
+        var vp = _schemaOptions.FullTableName("VPOSICAO");
+        var pfunc = _schemaOptions.FullTableName(_schemaOptions.FuncionarioTable);
+
+        return $@"
+SELECT DISTINCT
+       VHIERARQUIAPOSICAO.CODCOLIGADA AS CodColigadaFunc,
+       VPOSICAO_EMP.CHAPAFUNCIONARIO AS ChapaFunc,
+       VHIERARQUIAPOSICAO.IDHIERARQUIA AS IdHierarquiaRm
+FROM {vhp} AS VHIERARQUIAPOSICAO
+         INNER JOIN {vh} AS VHIERARQUIA
+                    ON VHIERARQUIAPOSICAO.CODCOLIGADA = VHIERARQUIA.CODCOLIGADA
+                        AND VHIERARQUIAPOSICAO.IDHIERARQUIA = VHIERARQUIA.IDHIERARQUIA
+         INNER JOIN {vp} AS VPOSICAO_EMP
+                    ON VPOSICAO_EMP.CODCOLIGADA = VHIERARQUIAPOSICAO.CODCOLIGADA
+                        AND VPOSICAO_EMP.IDPOSICAO = VHIERARQUIAPOSICAO.CODPOSICAO
+         LEFT JOIN {pfunc} AS PFUNC_EMP
+                   ON PFUNC_EMP.CODCOLIGADA = VPOSICAO_EMP.CODCOLFUNCIONARIO
+                       AND PFUNC_EMP.CHAPA = VPOSICAO_EMP.CHAPAFUNCIONARIO
+WHERE VHIERARQUIAPOSICAO.STATUS = 1
+  AND (PFUNC_EMP.CODSITUACAO IS NULL OR PFUNC_EMP.CODSITUACAO NOT IN ('C', 'D'))
+";
     }
 
     private string BuildGestorHierarquiaPosicaoSnapshotSql()

@@ -19,6 +19,8 @@ namespace Liotecnica.Integration.RM;
 ///    <c>PFUNC.CODFUNCAO → PFUNCAO.CARGO</c> (= código do PCARGO no Portal).
 /// 5. JOIN in-memory com <c>transf_promocao.json</c> (VREQTRANSFPROMOCAO) pra obter
 ///    a última hierarquia destino aprovada por CHAPA (38% dos ativos têm).
+/// 5b. Nó do organograma por posição — <c>funcionario_hierarquia_organograma.json</c> (IDHIERARQUIA da VHIERARQUIAPOSICAO)
+///    quando <c>RmSync:UseHierarquiaOrganogramaPosicao</c> está true; o bulk envia <c>idHierarquiaOrganogramaRm</c> (precedência sobre promoção no API).
 /// 6. Gestor direto — prioridade: <c>gestor_hierarquia_posicao.json</c> (VHIERARQUIAPOSICAO/chefe por hierarquia superior,
 ///    mesma regra da consulta SQL do portal) quando <c>RmSync:UseGestorHierarquiaPosicao</c> está true e o arquivo existe;
 ///    senão <c>pfunc_lider_hrplatform.json</c> (<c>PFUNCLIDERHRPLATFORM</c>) + fallback <c>VWPFUNCHIERARQUIA</c> + <c>GUSUARIO</c>.
@@ -116,6 +118,7 @@ public sealed class PortalFuncionarioSyncService
         var pfuncaoCargoByCodigo = await LoadPfuncaoCargoLookupAsync(path, ct);
         var pfuncaoNomeByCodigo = await LoadPfuncaoNomeLookupAsync(path, ct);
         var ultimaHierarquiaByChapa = await LoadUltimaHierarquiaPorChapaAsync(path, ct);
+        var hierarquiaOrganogramaPorColChapa = await LoadFuncionarioHierarquiaOrganogramaMapAsync(path, ct);
         var gestorHierarquiaPosicao = await LoadGestorHierarquiaPosicaoMapAsync(path, ct);
         var chapaGestorPorColigadaEChapa = await MergeGestorDiretoMapsAsync(
             path,
@@ -153,6 +156,10 @@ public sealed class PortalFuncionarioSyncService
 
             var colFunc = r.CodColigada ?? 1;
             var kHp = GestorHpKey(colFunc, r.Chapa!.Trim());
+            int? idHierarquiaOrganogramaRm = null;
+            if (_syncOptions.UseHierarquiaOrganogramaPosicao
+                && hierarquiaOrganogramaPorColChapa.TryGetValue(kHp, out var idOrgRm))
+                idHierarquiaOrganogramaRm = idOrgRm;
 
             string? chapaGestorDireto;
             int? codColigadaGestorDireto;
@@ -200,6 +207,7 @@ public sealed class PortalFuncionarioSyncService
                 funcaoNome = !string.IsNullOrWhiteSpace(r.CodFuncao) && pfuncaoNomeByCodigo.TryGetValue(r.CodFuncao.Trim(), out var fn) ? fn : null,
                 codFilial = r.CodFilial,
                 idHierarquiaDestinoRm = idHierarquiaDestino,
+                idHierarquiaOrganogramaRm = idHierarquiaOrganogramaRm,
                 codPessoa = r.CodPessoa,
                 codColigada = r.CodColigada,
                 chapaGestorDireto = chapaGestorDireto,
@@ -419,6 +427,75 @@ public sealed class PortalFuncionarioSyncService
             _logWriter.WriteLine($"Gestor hierarquia posição: ERRO lendo JSON — {ex.Message}. Fallback PFUNCLIDER/view.");
             return new Dictionary<string, GestorHpResolved>(StringComparer.OrdinalIgnoreCase);
         }
+    }
+
+    /// <summary>
+    /// Índice (CODCOLIGADA × CHAPA) → <c>VHIERARQUIAPOSICAO.IDHIERARQUIA</c> do ocupante da posição (organograma RM).
+    /// </summary>
+    private async Task<Dictionary<string, int>> LoadFuncionarioHierarquiaOrganogramaMapAsync(string path, CancellationToken ct)
+    {
+        if (!_syncOptions.UseHierarquiaOrganogramaPosicao)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var file = Path.Combine(path, "funcionario_hierarquia_organograma.json");
+        if (!File.Exists(file))
+        {
+            _logWriter.WriteLine("Hierarquia organograma: funcionario_hierarquia_organograma.json ausente — só IdHierarquiaDestinoRm no bulk.");
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(file, ct);
+            var rows = JsonSerializer.Deserialize<List<OrganogramaHpJsonDto>>(json,
+                new JsonSerializerOptions(JsonOptions) { PropertyNameCaseInsensitive = true }) ?? [];
+            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows)
+            {
+                if (string.IsNullOrWhiteSpace(row.ChapaFunc))
+                    continue;
+                var idRm = ReadPositiveInt32FromJsonEl(row.IdHierarquiaRm);
+                if (!idRm.HasValue || idRm.Value <= 0)
+                    continue;
+                var codCol = NormalizeCodColigadaJson(row.CodColigadaFunc);
+                var key = GestorHpKey(codCol, row.ChapaFunc.Trim());
+                map[key] = idRm.Value;
+            }
+
+            _logWriter.WriteLine($"Hierarquia organograma: {map.Count} chaves desde funcionario_hierarquia_organograma.json.");
+            return map;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao ler funcionario_hierarquia_organograma.json.");
+            _logWriter.WriteLine($"Hierarquia organograma: ERRO lendo JSON — {ex.Message}.");
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <remarks>Linha de <c>funcionario_hierarquia_organograma.json</c> (ADO → JSON).</remarks>
+    private sealed class OrganogramaHpJsonDto
+    {
+        public JsonElement CodColigadaFunc { get; set; }
+        public string? ChapaFunc { get; set; }
+        public JsonElement IdHierarquiaRm { get; set; }
+    }
+
+    private static int? ReadPositiveInt32FromJsonEl(JsonElement el)
+    {
+        if (el.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        if (el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var i))
+            return i;
+        var s = el.ValueKind switch
+        {
+            JsonValueKind.String => el.GetString(),
+            JsonValueKind.Number => el.ToString(),
+            _ => null,
+        };
+        return int.TryParse(s?.Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var k)
+            ? k
+            : null;
     }
 
     private static int NormalizeCodColigadaJson(JsonElement el)

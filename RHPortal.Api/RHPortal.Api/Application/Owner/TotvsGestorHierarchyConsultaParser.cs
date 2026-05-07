@@ -17,7 +17,8 @@ public readonly record struct TotvsGestorHierarchyConsultaParseResult(
     int? ChefeColigada,
     string? ChefeChapa,
     string? ChefeNomeRaw,
-    string? RawChefeSuperiorText);
+    string? RawChefeSuperiorText,
+    int? IdHierarquiaRm);
 
 public static class TotvsGestorHierarchyConsultaParser
 {
@@ -33,7 +34,7 @@ public static class TotvsGestorHierarchyConsultaParser
     public static TotvsGestorHierarchyConsultaParseResult Parse(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
-            return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, null);
+            return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, null, null);
 
         try
         {
@@ -43,11 +44,13 @@ public static class TotvsGestorHierarchyConsultaParser
                 root = dataEl;
 
             if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() == 0)
-                return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, null);
+                return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, null, null);
 
             var first = root[0];
             if (first.ValueKind != JsonValueKind.Object)
-                return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, null);
+                return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, null, null);
+
+            var idHierRm = GetIntPropCaseInsensitive(first, "ID Hierarquia", "IDHIERARQUIA", "Id Hierarquia", "IdHierarquiaRm", "ID Hierarquia RM");
 
             string? chefeTexto = GetStringPropCaseInsensitive(first, "Chefe Superior", "chefe superior");
             if (!string.IsNullOrWhiteSpace(chefeTexto))
@@ -55,19 +58,19 @@ public static class TotvsGestorHierarchyConsultaParser
                 var col = MatchInt(ColigadaChefeRx, chefeTexto);
                 var chapa = NormalizeChapa(MatchStr(ChapaChefeRx, chefeTexto));
                 var nomeRaw = MatchNome(NomeChefeRx, chefeTexto);
-                return new(TotvsGestorHierarchyConsultaParseKind.ChefeIdentificado, col, chapa, nomeRaw, chefeTexto);
+                return new(TotvsGestorHierarchyConsultaParseKind.ChefeIdentificado, col, chapa, nomeRaw, chefeTexto, idHierRm);
             }
 
             // Topo: vem Chapa + Funcionário sem chefe
             if (GetStringPropCaseInsensitive(first, "Chapa", "chapa") is { } chapaSelf
                 && GetStringPropCaseInsensitive(first, "Funcionário", "funcionário", "Funcionario") != null)
-                return new(TotvsGestorHierarchyConsultaParseKind.SemChefeTopo, null, null, null, null);
+                return new(TotvsGestorHierarchyConsultaParseKind.SemChefeTopo, null, null, null, null, idHierRm);
 
-            return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, chefeTexto);
+            return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, chefeTexto, idHierRm);
         }
         catch (JsonException)
         {
-            return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, null);
+            return new(TotvsGestorHierarchyConsultaParseKind.Indeterminado, null, null, null, null, null);
         }
     }
 
@@ -93,6 +96,26 @@ public static class TotvsGestorHierarchyConsultaParser
                         },
                     };
                 }
+            }
+        }
+        return null;
+    }
+
+    private static int? GetIntPropCaseInsensitive(JsonElement obj, params string[] names)
+    {
+        foreach (var p in obj.EnumerateObject())
+        {
+            foreach (var n in names)
+            {
+                if (!string.Equals(p.Name, n, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                return p.Value.ValueKind switch
+                {
+                    JsonValueKind.Number when p.Value.TryGetInt32(out var i) => i,
+                    JsonValueKind.String => int.TryParse(p.Value.GetString()?.Trim(), out var j) ? j : null,
+                    JsonValueKind.Null => null,
+                    _ => null,
+                };
             }
         }
         return null;

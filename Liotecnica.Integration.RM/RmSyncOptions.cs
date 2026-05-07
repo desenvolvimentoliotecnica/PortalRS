@@ -52,6 +52,12 @@ public sealed class RmSyncOptions
     /// </summary>
     public bool UseGestorHierarquiaPosicao { get; set; } = true;
 
+    /// <summary>
+    /// Quando true (padrão), usa <c>funcionario_hierarquia_organograma.json</c> (VHIERARQUIAPOSICAO.IDHIERARQUIA por posição)
+    /// como <c>IdHierarquiaOrganogramaRm</c> no bulk, com precedência sobre VREQTRANSFPROMOCAO no endpoint.
+    /// </summary>
+    public bool UseHierarquiaOrganogramaPosicao { get; set; } = true;
+
     /// <summary>Se definido, processa apenas este e-mail (ex.: claytonhamada@gmail.com para validar um talento/candidato). Null = todos.</summary>
     public string? SyncOnlyEmail { get; set; }
 }
