@@ -73,6 +73,36 @@ public sealed class PortalApiClient
 
     private sealed record TenantModuleStatusDto(string Key, bool IsEnabled);
 
+    /// <summary>Minutos quando a API está indisponível — alinhado ao padrão do Portal.</summary>
+    private const int DefaultRmWorkerCycleMinutes = 5;
+
+    /// <summary>
+    /// Lê intervalo entre ciclos configurado no tenant (persistido no Portal). Fallback 5 min se falhar.
+    /// </summary>
+    public async Task<int> GetWorkerCycleIntervalMinutesAsync(CancellationToken ct)
+    {
+        try
+        {
+            var resp = await _http.GetAsync("api/integracao-totvs/rm-worker-cycle", ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("GET rm-worker-cycle falhou: {Status} — usando {Fallback} min.", (int)resp.StatusCode, DefaultRmWorkerCycleMinutes);
+                return DefaultRmWorkerCycleMinutes;
+            }
+            var dto = await resp.Content.ReadFromJsonAsync<RmWorkerCycleDto>(cancellationToken: ct);
+            if (dto is null || dto.IntervalMinutes < 1)
+                return DefaultRmWorkerCycleMinutes;
+            return Math.Clamp(dto.IntervalMinutes, 1, 1440);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro ao ler intervalo rm-worker-cycle — usando {Fallback} min.", DefaultRmWorkerCycleMinutes);
+            return DefaultRmWorkerCycleMinutes;
+        }
+    }
+
+    private sealed record RmWorkerCycleDto(int IntervalMinutes);
+
     /// <summary>
     /// Cria um <c>RmSyncRun</c> com status InProgress para a entidade informada e devolve o Id.
     /// Defensivo: em caso de falha de rede/HTTP, devolve <c>null</c> para que o sync continue

@@ -80,10 +80,11 @@ public sealed class RmSyncWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var interval = _syncOptions.IntervalMinutes < 1 ? 5 : _syncOptions.IntervalMinutes;
-        _logger.LogInformation("RmSyncWorker iniciado. Tabelas: {Tables}. Ciclo a cada {Minutes} min.",
-            string.Join(", ", RmTableNames.All), interval);
-        _logWriter.WriteLine($"Worker iniciado. Intervalo entre ciclos: {interval} min.");
+        var intervalMinutes = await _portalClient.GetWorkerCycleIntervalMinutesAsync(stoppingToken);
+        _logger.LogInformation(
+            "RmSyncWorker iniciado. Tabelas: {Tables}. Intervalo ~{Minutes} min (lido do Portal; fallback 5 se indisponível).",
+            string.Join(", ", RmTableNames.All), intervalMinutes);
+        _logWriter.WriteLine($"Worker iniciado. Intervalo entre ciclos: {intervalMinutes} min (valor do Portal).");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -102,9 +103,11 @@ public sealed class RmSyncWorker : BackgroundService
             }
 
             if (stoppingToken.IsCancellationRequested) break;
-            _logger.LogInformation("Próximo ciclo em {Minutes} min.", interval);
-            _logWriter.WriteLine($"Aguardando próximo ciclo em {interval} min.");
-            await Task.Delay(TimeSpan.FromMinutes(interval), stoppingToken);
+
+            intervalMinutes = await _portalClient.GetWorkerCycleIntervalMinutesAsync(stoppingToken);
+            _logger.LogInformation("Próximo ciclo em {Minutes} min.", intervalMinutes);
+            _logWriter.WriteLine($"Aguardando próximo ciclo em {intervalMinutes} min.");
+            await Task.Delay(TimeSpan.FromMinutes(intervalMinutes), stoppingToken);
         }
 
         _logWriter.WriteLine("Worker encerrado.");

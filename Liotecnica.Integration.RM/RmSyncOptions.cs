@@ -7,9 +7,6 @@ public sealed class RmSyncOptions
 {
     public const string SectionName = "RmSync";
 
-    /// <summary>Intervalo em minutos entre cada ciclo completo de sincronização. Padrão: 5.</summary>
-    public int IntervalMinutes { get; set; } = 5;
-
     /// <summary>Se true, unidades/estabelecimentos (GFILIAL) estão ativas no integrador. Padrão: true.</summary>
     public bool SyncUnits { get; set; } = true;
 

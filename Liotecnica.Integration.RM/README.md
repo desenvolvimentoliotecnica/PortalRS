@@ -33,7 +33,7 @@ Assim fica rastreável onde estão as tabelas e colunas incluídas neste process
 
 - **Rm**: connection string ou Server/Database/UserId/Password (ex.: svr-sql-hmg / 172.19.30.7, CORPORERM_HMG, rm/rm).
 - **RmSchema**: opcional; sobrescreve nomes de tabelas/schema (ex.: VagaTable = VRSVAGAS ou VVAGA).
-- **RmSync**: IntervalMinutes, SyncVagas, SyncVagasOnly; **VagaDefaultAreaCode** e **VagaDefaultDepartmentCode** para usar exatamente a Área e o Departamento já cadastrados no sync de vagas.
+- **RmSync**: intervalo entre ciclos é configurado no Portal (aba Owner Integração RM, persistido por tenant — padrão 5 min). **SyncVagas**, **SyncVagasOnly**; **VagaDefaultAreaCode** e **VagaDefaultDepartmentCode** para usar exatamente a Área e o Departamento já cadastrados no sync de vagas.
 - **Portal**: BaseUrl da API, TenantId e **ApiKey** (criar a chave no portal em Admin/ApiKeys para o tenant; não commitar). Com a chave, o worker envia o departamento (RM) como área para `api/areas`.
 
 ## Execução

@@ -1456,6 +1456,54 @@ public sealed class OwnerController : ControllerBase
         return Accepted(response);
     }
 
+    /// <summary>Intervalo entre ciclos do worker RM persistido no banco tenant (padrão 5).</summary>
+    [HttpGet("integracao/sync-rm/worker-cycle")]
+    [ProducesResponseType(typeof(RmWorkerCycleSettingsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetWorkerCycleRmSync([FromQuery] string tenantId, CancellationToken ct)
+    {
+        if (!TenantIdPattern.IsMatch(tenantId ?? ""))
+            return BadRequest(new { message = "Informe tenantId válido na query." });
+        try
+        {
+            using var scope = _scope.CreateScope();
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().SetTenantId(tenantId.Trim());
+            var svc = scope.ServiceProvider.GetRequiredService<IRmSyncRunService>();
+            return Ok(await svc.GetWorkerCycleSettingsAsync(ct));
+        }
+        catch (Exception ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+
+    /// <summary>Altera intervalo entre ciclos do worker RM (1–1440 min) para o tenant indicado.</summary>
+    [HttpPut("integracao/sync-rm/worker-cycle")]
+    [ProducesResponseType(typeof(RmWorkerCycleSettingsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> PutWorkerCycleRmSync(
+        [FromQuery] string tenantId,
+        [FromBody] UpdateRmWorkerCycleSettingsRequest? body,
+        CancellationToken ct)
+    {
+        if (!TenantIdPattern.IsMatch(tenantId ?? ""))
+            return BadRequest(new { message = "Informe tenantId válido na query." });
+        if (body is null)
+            return BadRequest(new { message = "Body obrigatório." });
+        try
+        {
+            using var scope = _scope.CreateScope();
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().SetTenantId(tenantId.Trim());
+            var svc = scope.ServiceProvider.GetRequiredService<IRmSyncRunService>();
+            var saved = await svc.PutWorkerCycleSettingsAsync(body.IntervalMinutes, ct);
+            return Ok(saved);
+        }
+        catch (Exception ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+
     /// <summary>Config da consulta Totvs RM para preencher <c>GestorDiretoId</c> funcionário a funcionário.</summary>
     [HttpGet("integracao/gestor-rm/settings")]
     [ProducesResponseType(typeof(TotvsGestorHierarchySettingsView), StatusCodes.Status200OK)]

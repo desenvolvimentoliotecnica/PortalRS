@@ -83,6 +83,10 @@ interface RmSyncLogResponse {
 
 type StatusFiltro = "all" | "1" | "2" | "3" | "4";
 
+type WorkerCycleResponse = {
+    intervalMinutes: number;
+};
+
 export default function SyncRmOwnerTab() {
     const queryClient = useQueryClient();
     const [tenantFiltro, setTenantFiltro] = useState<string>("");
@@ -97,6 +101,9 @@ export default function SyncRmOwnerTab() {
     const [logLoading, setLogLoading] = useState(false);
     const [logError, setLogError] = useState<string | null>(null);
     const terminalRef = useRef<HTMLDivElement | null>(null);
+    const [intervalDraft, setIntervalDraft] = useState(5);
+    const [workerCycleSaveMsg, setWorkerCycleSaveMsg] = useState<string | null>(null);
+    const [workerCycleSaving, setWorkerCycleSaving] = useState(false);
 
     const { data: tenants = [] } = useApiQuery<TenantRow[]>(
         ["owner", "tenants"],
@@ -112,6 +119,23 @@ export default function SyncRmOwnerTab() {
         ["owner", "integracao", "sync-rm", "alertas", tenantFiltro],
         `/api/owner/integracao/sync-rm/alertas?${alertasParams.toString()}`
     );
+
+    const workerCycleUrl = tenantFiltro
+        ? `/api/owner/integracao/sync-rm/worker-cycle?tenantId=${encodeURIComponent(tenantFiltro)}`
+        : "/api/owner/integracao/sync-rm/worker-cycle?tenantId=_";
+    const {
+        data: workerCycleResp,
+        isLoading: workerCycleLoading,
+        error: workerCycleErr,
+    } = useApiQuery<WorkerCycleResponse>(
+        ["owner", "integracao", "sync-rm", "worker-cycle", tenantFiltro],
+        workerCycleUrl,
+        { enabled: Boolean(tenantFiltro) }
+    );
+
+    useEffect(() => {
+        if (workerCycleResp) setIntervalDraft(workerCycleResp.intervalMinutes);
+    }, [workerCycleResp]);
 
     const carregarLog = useCallback(async () => {
         setLogLoading(true);
@@ -229,6 +253,35 @@ export default function SyncRmOwnerTab() {
         }
     }
 
+    async function salvarWorkerCycleMinutos() {
+        if (!tenantFiltro) return;
+        setWorkerCycleSaving(true);
+        setWorkerCycleSaveMsg(null);
+        const clamped = Math.min(1440, Math.max(1, Number(intervalDraft) || 5));
+        try {
+            const res = await apiFetch(
+                `/api/owner/integracao/sync-rm/worker-cycle?tenantId=${encodeURIComponent(tenantFiltro)}`,
+                {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ intervalMinutes: clamped }),
+                }
+            );
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const body = (await res.json()) as WorkerCycleResponse;
+            setIntervalDraft(body.intervalMinutes);
+            setWorkerCycleSaveMsg("Salvo no banco do tenant.");
+            await queryClient.invalidateQueries({
+                queryKey: ["owner", "integracao", "sync-rm", "worker-cycle", tenantFiltro],
+            });
+            setTimeout(() => setWorkerCycleSaveMsg(null), 4000);
+        } catch (err) {
+            setWorkerCycleSaveMsg(err instanceof Error ? err.message : "Falha ao salvar intervalo.");
+        } finally {
+            setWorkerCycleSaving(false);
+        }
+    }
+
     const params = new URLSearchParams();
     if (tenantFiltro) params.set("tenantId", tenantFiltro);
     if (entidadeFiltro) params.set("entidade", entidadeFiltro);
@@ -322,7 +375,7 @@ export default function SyncRmOwnerTab() {
                     </span>
                 )}
                 <span className="text-xs text-muted-foreground">
-                    Sem clicar, o worker roda automaticamente a cada 5 min.
+                    O ciclo automático usa o intervalo salvo no banco por tenant (configure nos filtros abaixo ao escolher um tenant).
                 </span>
             </div>
 
@@ -512,6 +565,64 @@ export default function SyncRmOwnerTab() {
                             </option>
                         ))}
                     </select>
+
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/80 px-2.5 py-1.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Ciclo RM
+                        </span>
+                        {!tenantFiltro && (
+                            <span className="text-xs text-muted-foreground">
+                                Escolha um tenant para editar intervalo (min).
+                            </span>
+                        )}
+                        {tenantFiltro && workerCycleLoading && (
+                            <Loader2 className="size-3.5 animate-spin text-muted-foreground" aria-label="Carregando" />
+                        )}
+                        {tenantFiltro && !workerCycleLoading && workerCycleErr && (
+                            <span className="text-xs text-destructive">
+                                {(workerCycleErr as Error)?.message ?? "Erro ao carregar intervalo."}
+                            </span>
+                        )}
+                        {tenantFiltro && !workerCycleLoading && !workerCycleErr && (
+                            <>
+                                <label className="sr-only" htmlFor="rm-cycle-minutes">
+                                    Minutos entre ciclos
+                                </label>
+                                <input
+                                    id="rm-cycle-minutes"
+                                    type="number"
+                                    min={1}
+                                    max={1440}
+                                    value={intervalDraft}
+                                    onChange={(e) => {
+                                        const n = parseInt(e.target.value, 10);
+                                        setIntervalDraft(Number.isFinite(n) ? n : 5);
+                                    }}
+                                    className="h-7 w-[4.5rem] rounded-md border border-input bg-background px-2 text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
+                                />
+                                <span className="text-xs text-muted-foreground">min</span>
+                                <button
+                                    type="button"
+                                    disabled={workerCycleSaving}
+                                    onClick={() => void salvarWorkerCycleMinutos()}
+                                    className="h-7 rounded-md bg-slate-800 px-2.5 text-xs font-medium text-white transition-colors hover:bg-slate-900 disabled:opacity-50"
+                                >
+                                    {workerCycleSaving ? "Salvando…" : "Salvar"}
+                                </button>
+                                {workerCycleSaveMsg && (
+                                    <span
+                                        className={`text-xs ${
+                                            workerCycleSaveMsg.startsWith("HTTP") || workerCycleSaveMsg.startsWith("Falha")
+                                                ? "text-destructive"
+                                                : "text-emerald-700"
+                                        }`}
+                                    >
+                                        {workerCycleSaveMsg}
+                                    </span>
+                                )}
+                            </>
+                        )}
+                    </div>
 
                     <select
                         value={entidadeFiltro}
