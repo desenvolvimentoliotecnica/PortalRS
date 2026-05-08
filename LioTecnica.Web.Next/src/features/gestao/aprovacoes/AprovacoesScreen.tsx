@@ -26,7 +26,11 @@ import {
 import { apiFetch } from "@/lib/api";
 import { usePendencias } from "@/contexts/PendenciasContext";
 import { type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
-import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
+import {
+    SolicitacaoVagaStatusBadgeEl,
+    normalizeSolicitacaoStatusOrdinal,
+    statusBadge as solicitacaoVagaStatusBadgeMeta,
+} from "@/features/gestao/shared/solicitacaoVagaStatusUi";
 
 import NextStepBanner from "@/components/feedback/NextStepBanner";
 import DesligamentoFormModal from "@/features/gestao/desligamentos/DesligamentoFormModal";
@@ -184,23 +188,16 @@ function mapPortalPendenteToRow(p: PortalPendenteApi): GenericRow & { _tabId: st
 /** Status de SolicitacaoVaga que ainda exigem trâmite no Portal (inclui triagem AQ sem etapas ainda). */
 const SOLICITACAO_VAGA_STATUS_PENDENTE_GESTAO = [1, 10, 4, 5, 11, 12, 13] as const;
 
-function solicitacaoVagaStatusLabel(status: number): string {
-    const m: Record<number, string> = {
-        1: "Aguardando aprovação",
-        10: "Aguardando aprovação HC",
-        4: "Ajustes necessários",
-        5: "Aguardando RH",
-        11: "Pendente triagem",
-        12: "Em triagem",
-        13: "Devolvida na triagem",
-    };
-    return m[status] ?? `Status ${status}`;
+/** Status em que o Portal aceita aprovar / reprovar / solicitar ajustes (backend valida permissão). */
+function solicitacaoVagaStatusAllowsApprovalActions(statusRaw: unknown): boolean {
+    const ord = normalizeSolicitacaoStatusOrdinal(statusRaw);
+    return ord === 1 || ord === 5 || ord === 10;
 }
 
 function mapSolicitacaoVagaGridApiToPortalRow(r: Record<string, unknown>): GenericRow & { _tabId: string; _portalTipoFluxo: string } {
-    const status = typeof r.status === "number" ? r.status : parseInt(String(r.status ?? "0"), 10);
-    const flux = status === 10 ? "AumentoHeadcount" : "RequisicaoPessoal";
-    const tipoLabel = status === 10 ? "Aumento de Headcount" : "Requisição de Vaga";
+    const ord = normalizeSolicitacaoStatusOrdinal(r.status);
+    const flux = ord === 10 ? "AumentoHeadcount" : "RequisicaoPessoal";
+    const tipoLabel = ord === 10 ? "Aumento de Headcount" : "Requisição de Vaga";
     const iso = String(r.createdAtUtc ?? "");
     return {
         id: String(r.id ?? ""),
@@ -209,7 +206,7 @@ function mapSolicitacaoVagaGridApiToPortalRow(r: Record<string, unknown>): Gener
         titulo: String(r.titulo ?? "—"),
         funcionarioNome: r.solicitanteNome != null ? String(r.solicitanteNome) : "—",
         tipoDescricao: tipoLabel,
-        statusDescricao: solicitacaoVagaStatusLabel(status),
+        statusDescricao: solicitacaoVagaStatusBadgeMeta(r.status as string | number).label,
         etapaPendenteLabel: r.etapaPendenteLabel != null ? String(r.etapaPendenteLabel) : "",
         etapaPendenteIsQueue: Boolean(r.etapaPendenteIsQueue),
         createdAtUtc: iso,
@@ -1508,7 +1505,50 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                 </TabsContent>
                             </Tabs>
 
-                            {/* Sem ações — espelho do RM, aprovação acontece no TOTVS. */}
+                            {solicitacaoVagaStatusAllowsApprovalActions(detail.status) && (
+                                <div className="space-y-3 rounded-lg border border-border/60 p-3">
+                                    <div className="text-sm font-semibold">Ações de aprovação</div>
+                                    <textarea
+                                        className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
+                                        rows={2}
+                                        placeholder="Observação (opcional)…"
+                                        value={approvalObs}
+                                        onChange={(e) => setApprovalObs(e.target.value)}
+                                        disabled={acting}
+                                    />
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            size="sm"
+                                            className="bg-emerald-600 hover:bg-emerald-700"
+                                            disabled={acting}
+                                            onClick={() => void doContratacaoAction(detail.id, "approve")}
+                                        >
+                                            <CheckCircle2 className="size-4" />
+                                            Aprovar
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                                            disabled={acting}
+                                            onClick={() => void doContratacaoAction(detail.id, "request-changes")}
+                                        >
+                                            <AlertTriangle className="size-4" />
+                                            Solicitar ajustes
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-red-600 border-red-300 hover:bg-red-50"
+                                            disabled={acting}
+                                            onClick={() => setRejectTarget({ row: { id: detail.id } as GenericRow, isContratacao: true })}
+                                        >
+                                            <XCircle className="size-4" />
+                                            Reprovar
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : null}
                 </DialogContent>
