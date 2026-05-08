@@ -342,6 +342,14 @@ function SolicitacoesVagaContent() {
             && !isStatusAprovadaOuConcluida(detail.status);
     }, [detail, rhListaAmpla, isAdminOrOwner, myFuncionarioId]);
 
+    /** Modal/lista: não-solicitante (ex.: gestor aprovador) só consulta — aprovação em Aprovações. */
+    const detailSomenteLeitura = useMemo(() => {
+        if (!detail) return false;
+        if (isAdminOrOwner) return false;
+        if (!myFuncionarioId) return false;
+        return detail.solicitanteId !== myFuncionarioId;
+    }, [detail, isAdminOrOwner, myFuncionarioId]);
+
     /* ── delete confirm ── */
     const [deleteTarget, setDeleteTarget] = useState<SolicitacaoGridRow | null>(null);
 
@@ -353,12 +361,14 @@ function SolicitacoesVagaContent() {
     const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
 
     /* ── resolve meu funcionarioId para filtrar aprovações ── */
-    const isRhObservadorRow = useCallback((r: SolicitacaoGridRow) => {
-        if (!rhListaAmpla || isAdminOrOwner) return false;
-        if (!myFuncionarioId) return false;
-        if (r.solicitanteId === myFuncionarioId) return false;
-        return !isStatusAprovadaOuConcluida(r.status);
-    }, [rhListaAmpla, isAdminOrOwner, myFuncionarioId]);
+    /** Lista: edição/cancelar/copiar só para o solicitante (admin/owner mantém tudo). Terceiros só olham + timeline. */
+    const isExternoAoSolicitanteLista = useCallback(
+        (r: SolicitacaoGridRow) =>
+            !isAdminOrOwner &&
+            !!myFuncionarioId &&
+            r.solicitanteId !== myFuncionarioId,
+        [isAdminOrOwner, myFuncionarioId],
+    );
 
     /* ── data loading ── */
     const syncList = useCallback(async () => {
@@ -794,7 +804,7 @@ function SolicitacoesVagaContent() {
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                            {isRhObservadorRow(r) ? (
+                                            {isExternoAoSolicitanteLista(r) ? (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
                                                         <Eye />
@@ -992,9 +1002,15 @@ function SolicitacoesVagaContent() {
                         </div>
                     ) : detail ? (
                         <div className="space-y-4">
-                            {detailObservadorRh && (
-                                <div className="rounded-md border border-sky-200 bg-sky-50/70 dark:bg-sky-950/25 dark:border-sky-800 px-3 py-2 text-xs text-sky-900 dark:text-sky-100">
-                                    Visualização RH — a requisição ainda não está aprovada; você pode apenas consultar.
+                            {detailSomenteLeitura && (
+                                <div className={`rounded-md border px-3 py-2 text-xs ${
+                                    detailObservadorRh
+                                        ? "border-sky-200 bg-sky-50/70 dark:bg-sky-950/25 dark:border-sky-800 text-sky-900 dark:text-sky-100"
+                                        : "border-amber-200 bg-amber-50/70 dark:bg-amber-950/25 dark:border-amber-800 text-amber-950 dark:text-amber-100"
+                                }`}>
+                                    {detailObservadorRh
+                                        ? "Visualização RH — a requisição ainda não está aprovada; você pode apenas consultar."
+                                        : "Visualização — você não é o solicitante. Para aprovar ou reprovar, use o menu Aprovações. Editar, cancelar ou copiar ficam a cargo do solicitante."}
                                 </div>
                             )}
                             <div className="grid grid-cols-2 gap-3">
@@ -1118,7 +1134,7 @@ function SolicitacoesVagaContent() {
                             )}
 
                             {/* ── Submit action (only for Rascunho ou Ajustes — não para observador RH) ── */}
-                            {(detail.status === 0 || detail.status === "Rascunho") && !detailObservadorRh && (
+                            {(detail.status === 0 || detail.status === "Rascunho") && !detailSomenteLeitura && (
                                 <div className="flex gap-2">
                                     <Button size="sm" onClick={() => void submitForApproval(detail.id)}>
                                         <Send className="size-4" /> Enviar para aprovação
@@ -1143,7 +1159,7 @@ function SolicitacoesVagaContent() {
                                 </div>
                             )}
                             {/* ── Cancelar / editar (pendente) — não para observador RH ── */}
-                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && !detailObservadorRh && (
+                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && !detailSomenteLeitura && (
                                 <div className="flex gap-2">
                                     <Button
                                         size="sm"
