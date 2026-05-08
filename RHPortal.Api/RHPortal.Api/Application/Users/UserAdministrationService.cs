@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Contracts.Users;
 using RhPortal.Api.Domain.Entities;
@@ -257,11 +258,112 @@ public sealed class UserAdministrationService
         var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (user is null) return false;
 
-        var result = await _userManager.DeleteAsync(user);
-        if (!result.Succeeded)
-            throw new InvalidOperationException(string.Join("; ", result.Errors.Select(x => x.Description)));
+        // Vários DbSets têm FK para ApplicationUser com DeleteBehavior.Restrict.
+        // Sem limpar dependências, o DELETE em PostgreSQL falha (HTTP 500 via DbUpdateException).
+        IExecutionStrategy strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync(ct);
+            try
+            {
+                await RemoveTenantScopedApplicationUserDependenciesAsync(id, ct);
 
-        return true;
+                var result = await _userManager.DeleteAsync(user);
+                if (!result.Succeeded)
+                    throw new InvalidOperationException(string.Join("; ", result.Errors.Select(x => x.Description)));
+
+                await tx.CommitAsync(ct);
+                return true;
+            }
+            catch
+            {
+                await tx.RollbackAsync(ct);
+                throw;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Remove ou neutraliza linhas que referenciam <paramref name="userId"/> com FK RESTRICT
+    /// antes de apagar o registro em AspNetUsers ("Users").
+    /// </summary>
+    private async Task RemoveTenantScopedApplicationUserDependenciesAsync(Guid userId, CancellationToken ct)
+    {
+        // Nullable refs — evitar violação de FK no DELETE do usuário.
+        await _db.SolicitacoesAprovacaoEtapa
+            .Where(x => x.AssumedByUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.AssumedByUserId, (Guid?)null), ct);
+
+        await _db.HistoricosStatus
+            .Where(x => x.AlteradoPorUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(h => h.AlteradoPorUserId, (Guid?)null), ct);
+
+        await _db.PropostasVaga
+            .Where(x => x.CriadaPorUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.CriadaPorUserId, (Guid?)null), ct);
+        await _db.PropostasVaga
+            .Where(x => x.EnviadaPorUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.EnviadaPorUserId, (Guid?)null), ct);
+
+        await _db.Vagas
+            .Where(x => x.RecrutadorResponsavelUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(v => v.RecrutadorResponsavelUserId, (Guid?)null), ct);
+        await _db.Vagas
+            .Where(x => x.AlcadaSalarialAprovadaPorUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(v => v.AlcadaSalarialAprovadaPorUserId, (Guid?)null), ct);
+
+        await _db.SolicitacoesVagaIndicacao
+            .Where(x => x.IndicadoPorUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.IndicadoPorUserId, (Guid?)null), ct);
+
+        await _db.DocumentacaoPadraoHistoricos
+            .Where(x => x.UserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(d => d.UserId, (Guid?)null), ct);
+
+        await _db.AvaliacaoCalibragens
+            .Where(x => x.DecididoPorUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.DecididoPorUserId, (Guid?)null), ct);
+
+        await _db.DevelopmentPlans
+            .Where(x => x.TargetUserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.TargetUserId, (Guid?)null), ct);
+
+        await _db.Funcionarios
+            .Where(x => x.UserId == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.UserId, (Guid?)null), ct);
+
+        // Gamificação / humor — Restrict para User
+        await _db.RenderCoinTransactions.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        await _db.RenderCoinBalances.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        await _db.RenderCoinRedemptions.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        await _db.MoodEntries.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        await _db.GamificationDailyStates.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+
+        // Celebrações — Restrict em autor/reações/menções
+        await _db.CelebrationCommentReactions.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        await _db.CelebrationCommentMentions.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        await _db.CelebrationMentions.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        await _db.CelebrationComments.Where(x => x.AuthorId == userId).ExecuteDeleteAsync(ct);
+        await _db.CelebrationPosts.Where(x => x.AuthorId == userId).ExecuteDeleteAsync(ct);
+
+        await _db.FeedbackItems.Where(x => x.FromUserId == userId || x.ToUserId == userId).ExecuteDeleteAsync(ct);
+
+        await _db.DevelopmentPlans.Where(x => x.OwnerUserId == userId).ExecuteDeleteAsync(ct);
+
+        await _db.OneOnOneMeetings.Where(x => x.ManagerId == userId || x.CollaboratorId == userId).ExecuteDeleteAsync(ct);
+
+        await _db.NotificationReceipts.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        await _db.Notifications.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+
+        var surveyResponseIds = await _db.SurveyResponses.AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Select(x => x.Id)
+            .ToListAsync(ct);
+        if (surveyResponseIds.Count > 0)
+        {
+            await _db.SurveyAnswers.Where(x => surveyResponseIds.Contains(x.ResponseId)).ExecuteDeleteAsync(ct);
+            await _db.SurveyResponses.Where(x => x.UserId == userId).ExecuteDeleteAsync(ct);
+        }
     }
 
     public async Task<UserResponse?> SetPasswordAsync(Guid id, string newPassword, CancellationToken ct)
