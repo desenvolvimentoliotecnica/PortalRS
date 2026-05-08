@@ -344,7 +344,10 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddErrorDescriber<LocalizedIdentityErrorDescriber>()
     .AddRoles<ApplicationRole>()
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddSignInManager();
+    .AddSignInManager()
+    // Tokens (reset de senha, confirmar e-mail, etc.). AddIdentityCore não registra o provider "Default";
+    // sem isso, GeneratePasswordResetTokenAsync falha ao administrar usuários.
+    .AddDefaultTokenProviders();
 
 builder.Services.Configure<RmConnectionOptions>(builder.Configuration.GetSection(RmConnectionOptions.SectionName));
 builder.Services.Configure<RmSolicitacaoStatusSyncOptions>(
