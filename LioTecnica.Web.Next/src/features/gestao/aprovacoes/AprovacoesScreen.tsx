@@ -181,6 +181,48 @@ function mapPortalPendenteToRow(p: PortalPendenteApi): GenericRow & { _tabId: st
     };
 }
 
+/** Status de SolicitacaoVaga que ainda exigem trâmite no Portal (inclui triagem AQ sem etapas ainda). */
+const SOLICITACAO_VAGA_STATUS_PENDENTE_GESTAO = [1, 10, 4, 5, 11, 12, 13] as const;
+
+function solicitacaoVagaStatusLabel(status: number): string {
+    const m: Record<number, string> = {
+        1: "Aguardando aprovação",
+        10: "Aguardando aprovação HC",
+        4: "Ajustes necessários",
+        5: "Aguardando RH",
+        11: "Pendente triagem",
+        12: "Em triagem",
+        13: "Devolvida na triagem",
+    };
+    return m[status] ?? `Status ${status}`;
+}
+
+function mapSolicitacaoVagaGridApiToPortalRow(r: Record<string, unknown>): GenericRow & { _tabId: string; _portalTipoFluxo: string } {
+    const status = typeof r.status === "number" ? r.status : parseInt(String(r.status ?? "0"), 10);
+    const flux = status === 10 ? "AumentoHeadcount" : "RequisicaoPessoal";
+    const tipoLabel = status === 10 ? "Aumento de Headcount" : "Requisição de Vaga";
+    const iso = String(r.createdAtUtc ?? "");
+    return {
+        id: String(r.id ?? ""),
+        _tabId: "portal",
+        _portalTipoFluxo: flux,
+        titulo: String(r.titulo ?? "—"),
+        funcionarioNome: r.solicitanteNome != null ? String(r.solicitanteNome) : "—",
+        tipoDescricao: tipoLabel,
+        statusDescricao: solicitacaoVagaStatusLabel(status),
+        etapaPendenteLabel: r.etapaPendenteLabel != null ? String(r.etapaPendenteLabel) : "",
+        etapaPendenteIsQueue: Boolean(r.etapaPendenteIsQueue),
+        createdAtUtc: iso,
+        dataAbertura: iso,
+        centroCustoNome: r.centroCustoNome != null ? String(r.centroCustoNome) : "",
+    };
+}
+
+function isPortalRequisicaoVagaRow(row: GenericRow): boolean {
+    const f = String((row as { _portalTipoFluxo?: string })._portalTipoFluxo ?? "");
+    return f === "RequisicaoPessoal" || f === "AumentoHeadcount";
+}
+
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
     0:  { label: "Rascunho",             color: "bg-zinc-400/15 text-zinc-600",    icon: FileText },
     1:  { label: "Pendente",             color: "bg-amber-500/15 text-amber-700",  icon: Clock },
@@ -549,6 +591,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         _all: true, contratacao: true, promocao: true, desligamento: true,
     });
     const [portalPendentes, setPortalPendentes] = useState<Array<GenericRow & { _tabId: string; _portalTipoFluxo: string }>>([]);
+    const [solicitacaoVagaPendenciaRows, setSolicitacaoVagaPendenciaRows] = useState<Array<GenericRow & { _tabId: string; _portalTipoFluxo: string }>>([]);
     const [portalLoading, setPortalLoading] = useState(true);
 
     /* ── Contratação detail (real API) ── */
@@ -585,11 +628,28 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const fetchPortalPendentes = useCallback(async () => {
         setPortalLoading(true);
         try {
-            const raw = await fetchJson<PortalPendenteApi[]>("/api/aprovacoes/pendentes");
-            const list = Array.isArray(raw) ? raw : [];
+            const params = new URLSearchParams();
+            SOLICITACAO_VAGA_STATUS_PENDENTE_GESTAO.forEach((s) => params.append("statuses", String(s)));
+            params.set("pageSize", "100");
+            params.set("page", "1");
+
+            const [pendentesRaw, vagasRaw] = await Promise.all([
+                fetchJson<PortalPendenteApi[]>("/api/aprovacoes/pendentes").catch(() => []),
+                fetchJson<unknown>(`/api/solicitacoes-vaga?${params.toString()}`).catch(() => []),
+            ]);
+
+            const list = Array.isArray(pendentesRaw) ? pendentesRaw : [];
             setPortalPendentes(list.map(mapPortalPendenteToRow));
+
+            const vagasArr = Array.isArray(vagasRaw) ? vagasRaw : [];
+            setSolicitacaoVagaPendenciaRows(
+                vagasArr
+                    .filter((x): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x))
+                    .map(mapSolicitacaoVagaGridApiToPortalRow),
+            );
         } catch {
             setPortalPendentes([]);
+            setSolicitacaoVagaPendenciaRows([]);
         } finally {
             setPortalLoading(false);
         }
@@ -613,9 +673,26 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         return true;
     }, []);
 
+    /** Grid /api/solicitacoes-vaga sem duplicar o que já veio de /api/aprovacoes/pendentes (mesmo SolicitacaoId). */
+    const portalExtrasDaListaVaga = useMemo(() => {
+        const ids = new Set(portalPendentes.map((p) => p.id));
+        return solicitacaoVagaPendenciaRows.filter((r) => !ids.has(r.id));
+    }, [portalPendentes, solicitacaoVagaPendenciaRows]);
+
+    const allMergedPortalRows = useMemo(
+        () => [...portalPendentes, ...portalExtrasDaListaVaga],
+        [portalPendentes, portalExtrasDaListaVaga],
+    );
+
+    const portalRequisicaoVagaCount = useMemo(
+        () => allMergedPortalRows.filter(isPortalRequisicaoVagaRow).length,
+        [allMergedPortalRows],
+    );
+
     /* ── Counts (per-tab, filtered to relevant items) ── */
     const counts = useMemo(() => {
         const c: Record<TabId, number> = { _all: 0, contratacao: 0, promocao: 0, desligamento: 0 };
+        const rmContratacao = dataMap.contratacao.filter(isMyRow).length;
         for (const tab of TABS) {
             if (tab.id === "promocao") {
                 c.promocao = dataMap.promocao.filter(r => isMyRow(r) && !isRmDesligamentoMovimentacao(r)).length;
@@ -623,14 +700,18 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 c.desligamento =
                     dataMap.desligamento.filter(isMyRow).length
                     + dataMap.promocao.filter(r => isMyRow(r) && isRmDesligamentoMovimentacao(r)).length;
-            } else {
-                c[tab.id] = dataMap[tab.id].filter(isMyRow).length;
+            } else if (tab.id === "contratacao") {
+                c.contratacao = rmContratacao + portalRequisicaoVagaCount;
             }
         }
         return c;
-    }, [dataMap, isMyRow]);
+    }, [dataMap, isMyRow, portalRequisicaoVagaCount]);
 
-    const totalPendente = counts.contratacao + counts.promocao + counts.desligamento + portalPendentes.length;
+    const totalPendente =
+        dataMap.contratacao.filter(isMyRow).length
+        + counts.promocao
+        + counts.desligamento
+        + allMergedPortalRows.length;
 
     /* ── Filtered list for active tab ── */
     const isAllMode = activeTab === "_all";
@@ -690,6 +771,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 const etapa = pick(row, "etapaPendenteLabel");
                 if ((row as GenericRow & { _tabId?: string })._tabId === "portal") {
                     const sol = pick(row, "funcionarioNome");
+                    if (cc !== "—") parts.push(cc);
                     if (sol !== "—") parts.push(`Solicitante: ${sol}`);
                     if (etapa !== "—") parts.push(etapa);
                     if (status !== "—") parts.push(status);
@@ -720,7 +802,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                     _tabId: effectiveRmListTabId(r, tab.id),
                 }))
             );
-            rows.push(...portalPendentes);
+            rows.push(...allMergedPortalRows);
             rows.sort((a, b) => {
                 const da = new Date(pick(a, "createdAtUtc", "0")).getTime();
                 const db = new Date(pick(b, "createdAtUtc", "0")).getTime();
@@ -738,8 +820,18 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 const db = new Date(pick(b, "createdAtUtc", "0")).getTime();
                 return db - da;
             });
+        } else if (activeTab === "contratacao") {
+            rows = [
+                ...dataMap.contratacao.filter(isMyRow),
+                ...allMergedPortalRows.filter(isPortalRequisicaoVagaRow),
+            ];
+            rows.sort((a, b) => {
+                const da = new Date(pick(a, "createdAtUtc", "0")).getTime();
+                const db = new Date(pick(b, "createdAtUtc", "0")).getTime();
+                return db - da;
+            });
         } else {
-            rows = dataMap[activeTab].filter(isMyRow);
+            rows = [];
         }
         if (typeFilter === "direta") rows = rows.filter(r => !r.etapaPendenteIsQueue);
         if (typeFilter === "fila")   rows = rows.filter(r => Boolean(r.etapaPendenteIsQueue));
@@ -749,7 +841,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             const blob = Object.values(r).filter(v => typeof v === "string").join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter, portalPendentes]);
+    }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter, allMergedPortalRows]);
 
     /* ── Selectable rows (non-fila items I can directly approve/reject) ── */
     const selectableRows = useMemo(() => filtered.filter(r => !isFilaRow(r)), [filtered]);
@@ -1079,9 +1171,11 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         _tabId: effectiveRmListTabId(r, tab.id),
                                     })),
                                 ),
-                                ...portalPendentes,
+                                ...allMergedPortalRows,
                             ]
-                            : dataMap[activeTab].filter(isMyRow);
+                            : activeTab === "contratacao"
+                                ? [...dataMap.contratacao.filter(isMyRow), ...allMergedPortalRows.filter(isPortalRequisicaoVagaRow)]
+                                : dataMap[activeTab].filter(isMyRow);
                         const countDireta = base.filter(r => !r.etapaPendenteIsQueue).length;
                         const countFila   = base.filter(r => Boolean(r.etapaPendenteIsQueue)).length;
                         return (
