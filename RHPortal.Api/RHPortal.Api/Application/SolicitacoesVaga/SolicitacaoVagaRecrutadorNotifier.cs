@@ -1,15 +1,19 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.Common;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Frontend;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.SolicitacoesVaga;
 
 public interface ISolicitacaoVagaRecrutadorNotifier
 {
-    Task NotifyNovaEnviadaAsync(SolicitacaoVaga entity, CancellationToken ct);
+    /// <param name="excludeEmail">
+    /// E-mail já notificado pelo magic link (mesmo primeiro aprovador com perfil Recrutador) — não duplica mensagem genérica.</param>
+    Task NotifyNovaEnviadaAsync(SolicitacaoVaga entity, CancellationToken ct, string? excludeEmail = null);
     Task NotifyFinalizadaAsync(Guid solicitacaoId, CancellationToken ct);
 }
 
@@ -21,15 +25,20 @@ public sealed class SolicitacaoVagaRecrutadorNotifier : ISolicitacaoVagaRecrutad
 {
     private readonly AppDbContext _db;
     private readonly IEmailQueueService _emailQueue;
+    private readonly IFrontendPublicUrlBuilder _frontendUrls;
 
-    public SolicitacaoVagaRecrutadorNotifier(AppDbContext db, IEmailQueueService emailQueue)
+    public SolicitacaoVagaRecrutadorNotifier(
+        AppDbContext db,
+        IEmailQueueService emailQueue,
+        IFrontendPublicUrlBuilder frontendUrls)
     {
         _db = db;
         _emailQueue = emailQueue;
+        _frontendUrls = frontendUrls;
     }
 
-    public Task NotifyNovaEnviadaAsync(SolicitacaoVaga entity, CancellationToken ct) =>
-        EnqueueParaRecrutadoresAsync(entity, novaEnviada: true, ct);
+    public Task NotifyNovaEnviadaAsync(SolicitacaoVaga entity, CancellationToken ct, string? excludeEmail = null) =>
+        EnqueueParaRecrutadoresAsync(entity, novaEnviada: true, ct, excludeEmail);
 
     public async Task NotifyFinalizadaAsync(Guid solicitacaoId, CancellationToken ct)
     {
@@ -41,16 +50,20 @@ public sealed class SolicitacaoVagaRecrutadorNotifier : ISolicitacaoVagaRecrutad
             && entity.Status != SolicitacaoStatus.ContratacaoConcluida)
             return;
 
-        await EnqueueParaRecrutadoresAsync(entity, novaEnviada: false, ct);
+        await EnqueueParaRecrutadoresAsync(entity, novaEnviada: false, ct, excludeEmail: null);
     }
 
-    private async Task EnqueueParaRecrutadoresAsync(SolicitacaoVaga entity, bool novaEnviada, CancellationToken ct)
+    private async Task EnqueueParaRecrutadoresAsync(
+        SolicitacaoVaga entity,
+        bool novaEnviada,
+        CancellationToken ct,
+        string? excludeEmail)
     {
         var emails = await GetActiveRecrutadorEmailsAsync(ct);
         if (emails.Count == 0) return;
 
         var tituloEsc = WebUtility.HtmlEncode(entity.Titulo ?? "");
-        var path = $"/rs/solicitacoes/{entity.Id}";
+        var absoluteUrl = _frontendUrls.BuildAbsoluteUrl(SolicitacaoVagaFrontendLinks.SolicitacaoVagaEmailPublicPath(entity.Id));
         string subject;
         string html;
         if (novaEnviada)
@@ -59,7 +72,7 @@ public sealed class SolicitacaoVagaRecrutadorNotifier : ISolicitacaoVagaRecrutad
             html =
                 "<p>Uma nova requisição de vaga foi <strong>enviada</strong>.</p>" +
                 $"<p><strong>{tituloEsc}</strong></p>" +
-                $"<p><a href=\"{path}\">Abrir solicitação</a></p>";
+                $"<p><a href=\"{WebUtility.HtmlEncode(absoluteUrl)}\">Abrir solicitação</a></p>";
         }
         else
         {
@@ -69,13 +82,19 @@ public sealed class SolicitacaoVagaRecrutadorNotifier : ISolicitacaoVagaRecrutad
                 "<p>A requisição de vaga foi <strong>finalizada</strong> para fins de recrutamento.</p>" +
                 $"<p><strong>{tituloEsc}</strong></p>" +
                 $"<p>Status: <strong>{statusEsc}</strong></p>" +
-                $"<p><a href=\"{path}\">Abrir solicitação</a></p>";
+                $"<p><a href=\"{WebUtility.HtmlEncode(absoluteUrl)}\">Abrir solicitação</a></p>";
         }
+
+        string? excludeNorm = string.IsNullOrWhiteSpace(excludeEmail) ? null : excludeEmail.Trim();
 
         foreach (var email in emails)
         {
             try
             {
+                if (excludeNorm is not null
+                    && string.Equals(email.Trim(), excludeNorm, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 await _emailQueue.EnqueueRawAsync(
                     email, subject, html, null,
                     isSystem: true, source: "SolicitacaoVagaRecrutadores", ct);

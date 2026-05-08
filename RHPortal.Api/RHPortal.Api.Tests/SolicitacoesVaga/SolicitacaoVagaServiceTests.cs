@@ -11,6 +11,7 @@ using RhPortal.Api.Contracts.SolicitacoesVaga;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Frontend;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
@@ -107,7 +108,12 @@ public sealed class SolicitacaoVagaServiceTests
             .Setup(x => x.ExecutarCriacaoRequisicaoRmAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var recruiterNotifier = new SolicitacaoVagaRecrutadorNotifier(db, emailMock.Object);
+        var frontendUrlMock = new Mock<IFrontendPublicUrlBuilder>();
+        frontendUrlMock
+            .Setup(x => x.BuildAbsoluteUrl(It.IsAny<string>()))
+            .Returns((string p) => "http://frontend.test" + p);
+
+        var recruiterNotifier = new SolicitacaoVagaRecrutadorNotifier(db, emailMock.Object, frontendUrlMock.Object);
 
         var service = new SolicitacaoVagaService(
             db, tenantMock.Object, vagaMock.Object, currentUserMock.Object,
@@ -521,7 +527,7 @@ public sealed class SolicitacaoVagaServiceTests
         emailMock.Verify(e => e.EnqueueRawAsync(
             "recrutador@teste.com",
             It.Is<string>(s => s.StartsWith("Nova requisição de vaga enviada", StringComparison.Ordinal)),
-            It.Is<string>(html => html.Contains($"/rs/solicitacoes/{id}", StringComparison.Ordinal)),
+            It.Is<string>(html => html.Contains($"http://frontend.test/app/gestao/solicitacoes/editar?id={Uri.EscapeDataString(id.ToString())}", StringComparison.Ordinal)),
             null,
             true,
             "SolicitacaoVagaRecrutadores",

@@ -1044,8 +1044,13 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         var primeiraEtapa = await MontarEtapasRequisicaoPessoalEAvancoProcessoAsync(entity, ct);
         await _db.SaveChangesAsync(ct);
+
+        string? excluirEmailRecrutadorSeAprovador = null;
+        if (primeiraEtapa?.AprovadorId is Guid aprovPrimeiroId)
+            excluirEmailRecrutadorSeAprovador = await ResolverEmailNotificacaoFuncionarioPreferindoUsuarioAsync(aprovPrimeiroId, ct);
+
         await NotificarPrimeiraEtapaSeAprovadorDiretoAsync(entity, primeiraEtapa, ct);
-        await _recruiterNotifier.NotifyNovaEnviadaAsync(entity, ct);
+        await _recruiterNotifier.NotifyNovaEnviadaAsync(entity, ct, excluirEmailRecrutadorSeAprovador);
 
         return true;
     }
@@ -1107,7 +1112,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             entity.SolicitanteId,
             "Solicitação devolvida na triagem RH",
             $"Revise pendências antes de reenviar: {obs}",
-            $"/rs/solicitacoes/{entity.Id}",
+            SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
             ct);
 
         return await GetByIdAsync(id, ct);
@@ -1173,7 +1178,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             entity.SolicitanteId,
             "Solicitação reprovada na triagem",
             $"Motivo: {mot}",
-            $"/rs/solicitacoes/{entity.Id}",
+            SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
             ct,
             "warning");
 
@@ -1305,6 +1310,30 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         return vezesChegouPendente >= 2;
     }
 
+    /// <summary>Alinha com o destino do magic link: e-mail do usuário ativo ligado ao funcionário, senão e-mail do cadastro.</summary>
+    private async Task<string?> ResolverEmailNotificacaoFuncionarioPreferindoUsuarioAsync(Guid funcionarioId, CancellationToken ct)
+    {
+        var userMail = await _db.Set<ApplicationUser>()
+            .AsNoTracking()
+            .Where(u =>
+                u.FuncionarioId == funcionarioId &&
+                u.Email != null &&
+                u.Email != "")
+            .OrderByDescending(u => u.IsActive)
+            .Select(u => u.Email!)
+            .FirstOrDefaultAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(userMail))
+            return userMail.Trim();
+
+        var fe = await _db.Set<Funcionario>().AsNoTracking()
+            .Where(f => f.Id == funcionarioId)
+            .Select(f => f.Email)
+            .FirstOrDefaultAsync(ct);
+
+        return string.IsNullOrWhiteSpace(fe) ? null : fe.Trim();
+    }
+
     private async Task NotificarPrimeiraEtapaSeAprovadorDiretoAsync(
         SolicitacaoVaga entity, SolicitacaoAprovacaoEtapa? primeiraEtapa, CancellationToken ct)
     {
@@ -1322,7 +1351,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             reenvioAposAlteracao
                 ? $"{solicitanteNome} atualizou e reenviou a solicitação: {entity.Titulo}"
                 : $"{solicitanteNome} abriu uma solicitação: {entity.Titulo}",
-            $"/rs/solicitacoes/{entity.Id}",
+            SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
             ct);
 
         try
@@ -1365,7 +1394,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             userIds,
             "Nova solicitação na triagem RH",
             $"{solicitanteNome}: {entity.Titulo} — aguarda triagem antes das aprovações.",
-            $"/rs/solicitacoes/{entity.Id}",
+            SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
             "info",
             ct);
     }
@@ -1447,7 +1476,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     proximaEtapa.AprovadorId.Value,
                     "Solicitação de vaga aguarda sua aprovação",
                     $"A solicitação \"{entity.Titulo}\" foi aprovada na etapa anterior e aguarda sua ação.",
-                    $"/rs/solicitacoes/{entity.Id}",
+                    SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
                     ct);
 
                 try
@@ -1493,7 +1522,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     entity.SolicitanteId,
                     "Aumento de headcount aprovado",
                     $"O aumento de headcount para \"{entity.Titulo}\" foi aprovado pela Diretoria.",
-                    $"/rs/solicitacoes/{entity.Id}",
+                    SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
                     ct);
 
                 await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
@@ -1518,7 +1547,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     entity.SolicitanteId,
                     "Solicitação de vaga aprovada",
                     $"Sua solicitação \"{entity.Titulo}\" foi aprovada.",
-                    $"/rs/solicitacoes/{entity.Id}",
+                    SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
                     ct);
 
                 await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
@@ -1598,7 +1627,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     entity.SolicitanteId,
                     "Solicitação de vaga aprovada — substituição provisória",
                     $"Sua solicitação \"{entity.Titulo}\" foi aprovada com provisório até {expiresAt:dd/MM/yyyy}.",
-                    $"/rs/solicitacoes/{entity.Id}",
+                    SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
                     ct);
 
                 await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
@@ -1629,7 +1658,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     entity.SolicitanteId,
                     "Solicitação de vaga aprovada — consumo de headcount existente",
                     $"\"{entity.Titulo}\" utilizará headcount já autorizado.",
-                    $"/rs/solicitacoes/{entity.Id}",
+                    SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
                     ct);
 
                 await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
@@ -1683,7 +1712,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                         primeiraEtapa.AprovadorId.Value,
                         "Aumento de headcount aguarda sua aprovação",
                         $"{solicitanteNome} solicitou aumento de headcount para \"{entity.Titulo}\". Aguarda sua aprovação.",
-                        $"/rs/solicitacoes/{entity.Id}",
+                        SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
                         ct);
                 }
                 break;
