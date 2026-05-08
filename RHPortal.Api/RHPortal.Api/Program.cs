@@ -236,6 +236,7 @@ builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 
 // Auditing
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<RhPortal.Api.Infrastructure.Frontend.IFrontendPublicUrlBuilder, RhPortal.Api.Infrastructure.Frontend.FrontendPublicUrlBuilder>();
 builder.Services.AddScoped<IAuditContextAccessor, AuditContextAccessor>();
 builder.Services.AddScoped<AuditMiddleware>();
 builder.Services.AddScoped<AuditSaveChangesInterceptor>();

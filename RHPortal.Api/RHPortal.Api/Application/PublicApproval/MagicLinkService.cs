@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Frontend;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Application.SolicitacoesVaga;
+using RhPortal.Api.Application.Common;
 using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.PublicApproval;
@@ -14,6 +16,7 @@ public sealed class MagicLinkService : IMagicLinkService
     private readonly ITenantContext _tenantContext;
     private readonly IEmailQueueService _emailQueue;
     private readonly ISolicitacaoVagaRecrutadorNotifier _solicitacaoVagaRecrutadorNotifier;
+    private readonly IFrontendPublicUrlBuilder _frontendUrls;
 
     private static readonly TimeSpan TokenTtl = TimeSpan.FromHours(72);
 
@@ -21,12 +24,14 @@ public sealed class MagicLinkService : IMagicLinkService
         AppDbContext db,
         ITenantContext tenantContext,
         IEmailQueueService emailQueue,
-        ISolicitacaoVagaRecrutadorNotifier solicitacaoVagaRecrutadorNotifier)
+        ISolicitacaoVagaRecrutadorNotifier solicitacaoVagaRecrutadorNotifier,
+        IFrontendPublicUrlBuilder frontendUrls)
     {
         _db = db;
         _tenantContext = tenantContext;
         _emailQueue = emailQueue;
         _solicitacaoVagaRecrutadorNotifier = solicitacaoVagaRecrutadorNotifier;
+        _frontendUrls = frontendUrls;
     }
 
     // ── Token generation ──────────────────────────────────────────────
@@ -93,17 +98,17 @@ public sealed class MagicLinkService : IMagicLinkService
         });
         await _db.SaveChangesAsync(ct);
 
-        var scheme = httpScheme ?? "http";
-        var host = httpHost ?? "localhost";
-        var baseUrl = $"{scheme}://{host}";
-        var approveUrl = $"{baseUrl}/app/public/approve?token={token}&action=approve";
-        var rejectUrl  = $"{baseUrl}/app/public/approve?token={token}&action=reject";
-        var portalUrl  = $"{baseUrl}/rs/solicitacoes/{solicitacaoId}";
+        var approveUrl = _frontendUrls.BuildAbsoluteUrl($"/app/public/approve?token={Uri.EscapeDataString(token)}&action=approve");
+        var rejectUrl  = _frontendUrls.BuildAbsoluteUrl($"/app/public/approve?token={Uri.EscapeDataString(token)}&action=reject");
+        var portalPath = tipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+            ? SolicitacaoVagaFrontendLinks.SolicitacaoVagaEmailPublicPath(solicitacaoId)
+            : "/app/gestao/painel-solicitacoes";
+        var portalUrl  = _frontendUrls.BuildAbsoluteUrl(portalPath);
         var tipoLabel = TipoFluxoLabel(tipoFluxo);
 
         var assuntoExtra = reenvioAposAlteracao ? "[Atualização] " : "";
         var contexto = reenvioAposAlteracao
-            ? $"<p>O solicitante <strong>atualizou e reenviou</strong> esta {tipoLabel} para análise. Ela volta a aguardar sua decisão.</p>"
+            ? $"<p>Há uma <strong>{tipoLabel}</strong> para análise e aprovação aguardando sua decisão.</p>"
             : $"<p>Você tem uma solicitação de <strong>{tipoLabel}</strong> aguardando sua decisão.</p>";
 
         var body = $@"<p>Olá <b>{aprovador.Name}</b>,</p>
