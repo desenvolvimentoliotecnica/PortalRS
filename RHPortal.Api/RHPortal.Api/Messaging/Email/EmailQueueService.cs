@@ -1,4 +1,3 @@
-using System.Net;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
@@ -71,7 +70,8 @@ public sealed class EmailQueueService : IEmailQueueService
         var subject = EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
         var body = EmailTemplateRenderer.Render(template.BodyHtml, tokens);
 
-        (to, subject, body, _) = await ApplySmtpTestRedirectAsync(to, subject, body, null, ct);
+        var decrypted = await _emailConfig.GetDecryptedAsync(ct);
+        (to, subject, body, _) = SmtpTestRedirectFormatting.Apply(to, subject, body, null, decrypted);
 
         var message = BuildMessage(to, subject, body, null, isSystem, source);
         message.TemplateId = template.Id;
@@ -93,34 +93,13 @@ public sealed class EmailQueueService : IEmailQueueService
         string? source,
         CancellationToken ct)
     {
-        (to, subject, bodyHtml, bodyText) = await ApplySmtpTestRedirectAsync(to, subject, bodyHtml, bodyText, ct);
+        var dto = await _emailConfig.GetDecryptedAsync(ct);
+        (to, subject, bodyHtml, bodyText) = SmtpTestRedirectFormatting.Apply(to, subject, bodyHtml, bodyText, dto);
 
         var message = BuildMessage(to, subject, bodyHtml, bodyText, isSystem, source);
         _db.EmailMessages.Add(message);
         await _db.SaveChangesAsync(ct);
         return message;
-    }
-
-    private async Task<(string To, string Subject, string BodyHtml, string? BodyText)> ApplySmtpTestRedirectAsync(
-        string to,
-        string subject,
-        string bodyHtml,
-        string? bodyText,
-        CancellationToken ct)
-    {
-        var cfg = await _emailConfig.GetEntityAsync(ct);
-        if (cfg is null || !cfg.SmtpUseTestRedirect || string.IsNullOrWhiteSpace(cfg.SmtpTestRedirectAddress))
-            return (to, subject, bodyHtml, bodyText);
-
-        var redirect = cfg.SmtpTestRedirectAddress.Trim();
-        var originalTo = to.Trim();
-        var prefix = $"[TEST → era {originalTo}] ";
-        var banner =
-            "<p style=\"color:#666;font-size:12px;margin:0 0 12px 0\"><strong>[Modo teste SMTP]</strong> Destinatário original: <code>" +
-            WebUtility.HtmlEncode(originalTo) + "</code></p>";
-        var newHtml = banner + bodyHtml;
-        var newText = $"[Modo teste SMTP] Destinatário original: {originalTo}\n\n" + (bodyText ?? "");
-        return (redirect, prefix + subject.Trim(), newHtml, newText);
     }
 
     private EmailMessage BuildMessage(string to, string subject, string bodyHtml, string? bodyText, bool isSystem, string? source)

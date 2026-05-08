@@ -93,7 +93,7 @@ public sealed class SolicitacaoVagaServiceTests
             .Setup(m => m.CreateAndSendAsync(
                 It.IsAny<SolicitacaoAprovacaoEtapa>(), It.IsAny<TipoFluxoAprovacao>(), It.IsAny<Guid>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(), It.IsAny<bool>()))
             .Returns(Task.CompletedTask);
 
         var httpAccessor = new Mock<IHttpContextAccessor>();

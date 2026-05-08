@@ -37,24 +37,26 @@ public sealed class SmtpEmailSender : IEmailSender
         if (config is null || string.IsNullOrWhiteSpace(config.SmtpHost))
             throw new InvalidOperationException(_localizer["InfrastructureEmail.SmtpNotConfigured"]);
 
+        var (to, subject, bodyHtml, _) = SmtpTestRedirectFormatting.Apply(
+            request.To, request.Subject, request.BodyHtml, request.BodyText, config);
+
         using var client = new SmtpClient(config.SmtpHost, config.SmtpPort)
         {
             EnableSsl = config.SmtpEnableSsl
         };
 
-        Console.Error.WriteLine($"[SmtpSender] Host={config.SmtpHost}, Port={config.SmtpPort}, SSL={config.SmtpEnableSsl}, User={config.SmtpUserName}, PwLen={config.SmtpPassword?.Length ?? 0}");
         if (!string.IsNullOrWhiteSpace(config.SmtpUserName) && !string.IsNullOrWhiteSpace(config.SmtpPassword))
             client.Credentials = new NetworkCredential(config.SmtpUserName, config.SmtpPassword);
 
         using var msg = new MailMessage
         {
             From = new MailAddress(config.SmtpFromAddress ?? config.SmtpUserName ?? "no-reply@localhost", config.SmtpFromName),
-            Subject = request.Subject,
-            Body = request.BodyHtml,
+            Subject = subject,
+            Body = bodyHtml,
             IsBodyHtml = true
         };
 
-        msg.To.Add(request.To);
+        msg.To.Add(to);
         await client.SendMailAsync(msg, ct);
     }
 }
