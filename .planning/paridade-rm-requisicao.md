@@ -27,3 +27,7 @@ Legendas: ✅ feito neste codebase | 🔲 pendente | ⚠️ parcial
 ## Como usar este arquivo
 
 Marcar itens quando forem implementados e referenciar PR/commit.
+
+## Ver também
+
+- **`docs/gestores-hierarquia-e-aprovacao-requisicao-vaga.md`** — decisão futura: tela Admin “gestores” vs organograma RM vs `GestorDiretoId` no workflow de requisição de vaga.
