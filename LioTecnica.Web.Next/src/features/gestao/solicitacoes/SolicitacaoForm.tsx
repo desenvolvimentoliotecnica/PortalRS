@@ -203,6 +203,21 @@ function parseDecimalBrInput(s: string): number | null {
     return parseBrlCurrencyInput(s);
 }
 
+/** Mín. e máx. obrigatórios quando um dos campos tem conteúdo; mínimo estritamente menor que o máximo. `null` = sem erro (ex.: ambos vazios). */
+function faixaSalarialMensagemErro(minStr: string, maxStr: string): string | null {
+    const tMin = (minStr ?? "").trim();
+    const tMax = (maxStr ?? "").trim();
+    const nMin = parseDecimalBrInput(minStr);
+    const nMax = parseDecimalBrInput(maxStr);
+    const minOk = tMin.length > 0 && nMin != null;
+    const maxOk = tMax.length > 0 && nMax != null;
+    if (!minOk && !maxOk) return null;
+    if (!minOk) return "Informe o valor mínimo da proposta.";
+    if (!maxOk) return "Informe o valor máximo da proposta.";
+    if (nMin! >= nMax!) return "O mínimo deve ser menor que o máximo.";
+    return null;
+}
+
 /** Colagem: aceita valor já mascarado, decimal BR/invariante, ou só dígitos como reais inteiros. */
 function applyPastedMoneyToField(t: string): string | null {
     const trimmed = t.trim();
@@ -970,6 +985,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
     const exigeDecisaoHeadcountGestor = draft.tipoSolicitacao === 0 || draft.tipoSolicitacao === 2;
 
+    const faixaSalarialErroInline = useMemo(
+        () => (viewOnly ? null : faixaSalarialMensagemErro(draft.faixaSalarialMin, draft.faixaSalarialMax)),
+        [draft.faixaSalarialMin, draft.faixaSalarialMax, viewOnly],
+    );
+
     async function save() {
         if (viewOnly) return;
         const errors: string[] = [];
@@ -1013,12 +1033,12 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         }
         const faixaMinNum = parseDecimalBrInput(draft.faixaSalarialMin);
         const faixaMaxNum = parseDecimalBrInput(draft.faixaSalarialMax);
+        const msgFaixa = faixaSalarialMensagemErro(draft.faixaSalarialMin, draft.faixaSalarialMax);
         if (faixaMinNum == null || faixaMaxNum == null) {
-            errors.push("Proposta faixa salarial (mínimo e máximo)");
+            errors.push(msgFaixa ?? "Proposta faixa salarial (mínimo e máximo)");
             setActiveTab("identificacao");
-        }
-        if (faixaMinNum != null && faixaMaxNum != null && faixaMinNum > faixaMaxNum) {
-            toast.error("Faixa salarial inválida: o mínimo não pode ser maior que o máximo.");
+        } else if (faixaMinNum >= faixaMaxNum) {
+            toast.error(msgFaixa ?? "O mínimo deve ser menor que o máximo.");
             setActiveTab("identificacao");
             return;
         }
@@ -1338,7 +1358,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             spellCheck={false}
                                             placeholder="R$ 0,00"
                                             title="Digite apenas números; o valor é montado em reais com centavos (ex.: para R$ 5.000,00 digite 500000)."
-                                            className="tabular-nums"
+                                            className={`tabular-nums${faixaSalarialErroInline ? " border-destructive" : ""}`}
+                                            aria-invalid={faixaSalarialErroInline ? true : undefined}
                                             value={draft.faixaSalarialMin}
                                             onKeyDown={blockNonDigitMoneyKeys}
                                             onChange={(e) =>
@@ -1378,7 +1399,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             spellCheck={false}
                                             placeholder="R$ 0,00"
                                             title="Digite apenas números; o valor é montado em reais com centavos (ex.: para R$ 5.000,00 digite 500000)."
-                                            className="tabular-nums"
+                                            className={`tabular-nums${faixaSalarialErroInline ? " border-destructive" : ""}`}
+                                            aria-invalid={faixaSalarialErroInline ? true : undefined}
                                             value={draft.faixaSalarialMax}
                                             onKeyDown={blockNonDigitMoneyKeys}
                                             onChange={(e) =>
@@ -1422,6 +1444,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             <label className={L}>Prazo (dias)</label>
                                             <Input type="number" min={1} value={draft.prazoDias ?? ""} onChange={(e) => setDraft((d) => ({ ...d, prazoDias: e.target.value ? Number(e.target.value) : null }))} placeholder="Ex: 180" disabled={viewOnly} />
                                         </div>
+                                    )}
+                                    {faixaSalarialErroInline && !viewOnly && (
+                                        <p className="col-span-full text-xs text-destructive font-medium pt-0.5">{faixaSalarialErroInline}</p>
                                     )}
                                 </div>
 

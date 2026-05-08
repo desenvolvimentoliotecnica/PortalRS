@@ -2615,7 +2615,11 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
     private static void ValidarFaixaSalarialProposta(decimal? min, decimal? max)
     {
-        if (min.HasValue && max.HasValue && min.Value > max.Value)
-            throw new InvalidOperationException("Faixa salarial inválida: o valor mínimo não pode ser maior que o máximo.");
+        if (!min.HasValue || !max.HasValue)
+            return;
+
+        if (min.Value >= max.Value)
+            throw new InvalidOperationException(
+                "Faixa salarial inválida: o valor mínimo deve ser estritamente menor que o máximo.");
     }
 }
