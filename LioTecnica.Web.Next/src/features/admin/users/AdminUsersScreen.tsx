@@ -98,11 +98,12 @@ export default function AdminUsersScreen() {
     async function handleDelete(userId: string, name: string) {
         if (!(await confirmDialog({ title: "Remover usuário", description: `Remover o usuário "${name}"? Esta ação não pode ser desfeita.`, confirmText: "Remover", destructive: true }))) return;
         try {
-            await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
+            // apiFetch não lança em 4xx/5xx — usar fetchJson (como nos outros handlers) para falhar com detalhe do backend.
+            await fetchJson<null>(`/api/users/${userId}`, { method: "DELETE" });
             toast.success(`Usuário "${name}" removido.`);
             void loadData();
-        } catch {
-            toast.error("Falha ao remover usuário.");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Falha ao remover usuário.");
         }
     }
 
