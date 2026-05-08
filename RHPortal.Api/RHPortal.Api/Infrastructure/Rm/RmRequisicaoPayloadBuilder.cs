@@ -35,9 +35,9 @@ public static class RmRequisicaoPayloadBuilder
             throw new InvalidOperationException(
                 "Informe a faixa salarial (valores mínimo e máximo) antes do envio ao RM.");
 
-        if (s.FaixaSalarialMin!.Value > s.FaixaSalarialMax!.Value)
+        if (s.FaixaSalarialMin!.Value >= s.FaixaSalarialMax!.Value)
             throw new InvalidOperationException(
-                "Faixa salarial inválida: o mínimo não pode ser maior que o máximo antes do envio ao RM.");
+                "Faixa salarial inválida: o mínimo deve ser menor que o máximo antes do envio ao RM.");
     }
 
     /// <returns>JSON compacto; truncar antes de gravar na entidade de tentativa se necessário.</returns>
