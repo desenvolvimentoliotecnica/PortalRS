@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Common;
@@ -27,6 +28,17 @@ public sealed class ApprovalWorkflowHelper
         _db = db;
         _tenantContext = tenantContext;
         _notifications = notifications;
+    }
+
+    /// <summary>
+    /// Extrai o nome do aprovador pretendido gravado no snapshot da etapa em cenários de consenso
+    /// (ex.: <c>Aprovação (Consenso: aprovador 'FULANO' sem conta...)</c>).
+    /// </summary>
+    public static string? TryExtractConsensoIntendedAprovadorNome(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return null;
+        var m = Regex.Match(label, @"aprovador\s+'([^']+)'", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return m.Success ? m.Groups[1].Value.Trim() : null;
     }
 
     /// <summary>
@@ -726,8 +738,11 @@ public sealed class ApprovalWorkflowHelper
                 }
                 else
                 {
-                    // Unclaimed role queue — show role name
-                    pendenteCom = roleNames.TryGetValue(etapa.RoleFilaId.Value, out var rn) ? rn : null;
+                    // Fila sem assumir — prioriza o gestor pretendido (snapshot no label do consenso)
+                    // antes do nome do perfil (ex.: Admin), para a lista não parecer que só o role aprova.
+                    var intended = TryExtractConsensoIntendedAprovadorNome(etapa.Label);
+                    pendenteCom = intended
+                        ?? (roleNames.TryGetValue(etapa.RoleFilaId.Value, out var rn) ? rn : null);
                     isQueue = true;
                 }
             }
