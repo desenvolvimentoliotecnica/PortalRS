@@ -137,6 +137,50 @@ function pick(row: GenericRow, key: string, fb = "—") {
     return String(v);
 }
 
+/** RM: VREQDESLIGAMENTO também entra em FuncionarioMovimentacao (tipo 5). */
+const RM_TIPO_MOVIMENTACAO_DESLIGAMENTO = 5;
+
+function isRmDesligamentoMovimentacao(row: GenericRow): boolean {
+    const t = row.tipoMovimentacao;
+    const n = typeof t === "number" ? t : typeof t === "string" ? parseInt(t, 10) : NaN;
+    if (n === RM_TIPO_MOVIMENTACAO_DESLIGAMENTO) return true;
+    return pick(row, "tipoDescricao").toLowerCase().includes("desligamento");
+}
+
+function effectiveRmListTabId(row: GenericRow, sourceTab: "contratacao" | "promocao" | "desligamento"): "contratacao" | "promocao" | "desligamento" {
+    if (sourceTab === "promocao" && isRmDesligamentoMovimentacao(row)) return "desligamento";
+    return sourceTab;
+}
+
+interface PortalPendenteApi {
+    solicitacaoId: string;
+    tipoFluxo: string;
+    tipoLabel: string;
+    titulo: string;
+    solicitanteNome?: string | null;
+    dataCriacao: string;
+    statusLabel: string;
+    etapaLabel?: string | null;
+    etapaPendenteIsQueue?: boolean;
+}
+
+function mapPortalPendenteToRow(p: PortalPendenteApi): GenericRow & { _tabId: string; _portalTipoFluxo: string } {
+    const iso = p.dataCriacao;
+    return {
+        id: String(p.solicitacaoId),
+        _tabId: "portal",
+        _portalTipoFluxo: p.tipoFluxo,
+        titulo: p.titulo,
+        funcionarioNome: p.solicitanteNome ?? "—",
+        tipoDescricao: p.tipoLabel,
+        statusDescricao: p.statusLabel,
+        etapaPendenteLabel: p.etapaLabel ?? "",
+        etapaPendenteIsQueue: Boolean(p.etapaPendenteIsQueue),
+        createdAtUtc: iso,
+        dataAbertura: iso,
+    };
+}
+
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
     0:  { label: "Rascunho",             color: "bg-zinc-400/15 text-zinc-600",    icon: FileText },
     1:  { label: "Pendente",             color: "bg-amber-500/15 text-amber-700",  icon: Clock },
@@ -372,7 +416,7 @@ function isFilaRow(row: GenericRow | SolicitacaoDetail): boolean {
 type TabId = "contratacao" | "promocao" | "desligamento" | "_all";
 
 interface TabDef {
-    id: TabId;
+    id: Exclude<TabId, "_all">;
     label: string;
     icon: React.ElementType;
     color: string;
@@ -504,6 +548,8 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const [loadingMap, setLoadingMap] = useState<Record<TabId, boolean>>({
         _all: true, contratacao: true, promocao: true, desligamento: true,
     });
+    const [portalPendentes, setPortalPendentes] = useState<Array<GenericRow & { _tabId: string; _portalTipoFluxo: string }>>([]);
+    const [portalLoading, setPortalLoading] = useState(true);
 
     /* ── Contratação detail (real API) ── */
     const [detailOpen, setDetailOpen] = useState(false);
@@ -514,6 +560,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     /* ── Generic detail for other types ── */
     const [genericDetailOpen, setGenericDetailOpen] = useState(false);
     const [genericDetail, setGenericDetail] = useState<GenericRow | null>(null);
+    const [genericDetailKind, setGenericDetailKind] = useState<"default" | "rm_mov_timeline">("default");
 
     /* ── View-only modals for Desligamento and Movimentação ── */
     const [viewDesligamentoId, setViewDesligamentoId] = useState<string | null>(null);
@@ -535,10 +582,24 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         }
     }, []);
 
+    const fetchPortalPendentes = useCallback(async () => {
+        setPortalLoading(true);
+        try {
+            const raw = await fetchJson<PortalPendenteApi[]>("/api/aprovacoes/pendentes");
+            const list = Array.isArray(raw) ? raw : [];
+            setPortalPendentes(list.map(mapPortalPendenteToRow));
+        } catch {
+            setPortalPendentes([]);
+        } finally {
+            setPortalLoading(false);
+        }
+    }, []);
+
     const refreshAll = useCallback(() => {
         setLoadingMap({ _all: true, contratacao: true, promocao: true, desligamento: true });
         TABS.forEach(tab => void fetchTab(tab));
-    }, [fetchTab]);
+        void fetchPortalPendentes();
+    }, [fetchTab, fetchPortalPendentes]);
 
     useEffect(() => { refreshAll(); }, [refreshAll]);
 
@@ -556,12 +617,20 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const counts = useMemo(() => {
         const c: Record<TabId, number> = { _all: 0, contratacao: 0, promocao: 0, desligamento: 0 };
         for (const tab of TABS) {
-            c[tab.id] = dataMap[tab.id].filter(isMyRow).length;
+            if (tab.id === "promocao") {
+                c.promocao = dataMap.promocao.filter(r => isMyRow(r) && !isRmDesligamentoMovimentacao(r)).length;
+            } else if (tab.id === "desligamento") {
+                c.desligamento =
+                    dataMap.desligamento.filter(isMyRow).length
+                    + dataMap.promocao.filter(r => isMyRow(r) && isRmDesligamentoMovimentacao(r)).length;
+            } else {
+                c[tab.id] = dataMap[tab.id].filter(isMyRow).length;
+            }
         }
         return c;
     }, [dataMap, isMyRow]);
 
-    const totalPendente = Object.values(counts).reduce((a, b) => a + b, 0);
+    const totalPendente = counts.contratacao + counts.promocao + counts.desligamento + portalPendentes.length;
 
     /* ── Filtered list for active tab ── */
     const isAllMode = activeTab === "_all";
@@ -571,12 +640,28 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         {
             key: "_tipo", label: "Tipo", render: (row) => {
                 const tabId = (row as GenericRow & { _tabId?: string })._tabId;
+                if (tabId === "portal") {
+                    const flux = String((row as GenericRow & { _portalTipoFluxo?: string })._portalTipoFluxo ?? "");
+                    const label = pick(row, "tipoDescricao");
+                    const Icon =
+                        flux === "MovimentacaoPessoal" ? TrendingUp
+                            : flux === "Desligamento" ? UserMinus
+                            : flux === "RequisicaoPessoal" || flux === "AumentoHeadcount" ? Briefcase
+                            : FileText;
+                    const color =
+                        flux === "MovimentacaoPessoal" ? "text-teal-600"
+                            : flux === "Desligamento" ? "text-rose-600"
+                            : flux === "RequisicaoPessoal" || flux === "AumentoHeadcount" ? "text-violet-600"
+                            : "text-sky-600";
+                    return <span className={`inline-flex items-center gap-1 rounded-full bg-card border border-border/50 px-2 py-0.5 text-[11px] font-semibold ${color}`}><Icon className="size-3" />{label}</span>;
+                }
                 const tab = TABS.find(t => t.id === tabId);
-                // Fallback heurístico se _tabId estiver faltando: detecta pelo formato dos campos.
+                // Desligamentos RM podem vir na lista de movimentações — não usar só tipoDescricao antes de tipoRescisao.
                 const guessed = tab ?? (
                     pick(row, "titulo") !== "—" ? TABS.find(t => t.id === "contratacao")
-                    : pick(row, "tipoDescricao") !== "—" ? TABS.find(t => t.id === "promocao")
                     : pick(row, "tipoRescisaoDescricao") !== "—" ? TABS.find(t => t.id === "desligamento")
+                    : isRmDesligamentoMovimentacao(row) ? TABS.find(t => t.id === "desligamento")
+                    : pick(row, "tipoDescricao") !== "—" ? TABS.find(t => t.id === "promocao")
                     : null
                 );
                 if (!guessed) return <span className="text-muted-foreground">—</span>;
@@ -602,6 +687,14 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 const tipoDescricao = pick(row, "tipoDescricao");
                 const tipoRescisao = pick(row, "tipoRescisaoDescricao");
                 const status = pick(row, "statusDescricao");
+                const etapa = pick(row, "etapaPendenteLabel");
+                if ((row as GenericRow & { _tabId?: string })._tabId === "portal") {
+                    const sol = pick(row, "funcionarioNome");
+                    if (sol !== "—") parts.push(`Solicitante: ${sol}`);
+                    if (etapa !== "—") parts.push(etapa);
+                    if (status !== "—") parts.push(status);
+                    return parts.length ? <span className="text-xs">{parts.join(" · ")}</span> : <span className="text-muted-foreground">—</span>;
+                }
                 if (cc !== "—") parts.push(cc);
                 if (subst !== "—") parts.push(`Subst. ${subst}`);
                 if (tipoDescricao !== "—") parts.push(tipoDescricao);
@@ -621,11 +714,25 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const filtered = useMemo(() => {
         let rows: GenericRow[];
         if (isAllMode) {
-            // Merge all tabs, tagging each row with its source tab
             rows = TABS.flatMap(tab =>
-                dataMap[tab.id].filter(isMyRow).map(r => ({ ...r, _tabId: tab.id }))
+                dataMap[tab.id].filter(isMyRow).map(r => ({
+                    ...r,
+                    _tabId: effectiveRmListTabId(r, tab.id),
+                }))
             );
-            // Sort by date desc
+            rows.push(...portalPendentes);
+            rows.sort((a, b) => {
+                const da = new Date(pick(a, "createdAtUtc", "0")).getTime();
+                const db = new Date(pick(b, "createdAtUtc", "0")).getTime();
+                return db - da;
+            });
+        } else if (activeTab === "promocao") {
+            rows = dataMap.promocao.filter(r => isMyRow(r) && !isRmDesligamentoMovimentacao(r));
+        } else if (activeTab === "desligamento") {
+            rows = [
+                ...dataMap.desligamento.filter(isMyRow).map(r => ({ ...r, _tabId: "desligamento" })),
+                ...dataMap.promocao.filter(r => isMyRow(r) && isRmDesligamentoMovimentacao(r)).map(r => ({ ...r, _tabId: "desligamento" })),
+            ];
             rows.sort((a, b) => {
                 const da = new Date(pick(a, "createdAtUtc", "0")).getTime();
                 const db = new Date(pick(b, "createdAtUtc", "0")).getTime();
@@ -634,7 +741,6 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         } else {
             rows = dataMap[activeTab].filter(isMyRow);
         }
-        // Type filter: differentiate direct approver vs queue steps
         if (typeFilter === "direta") rows = rows.filter(r => !r.etapaPendenteIsQueue);
         if (typeFilter === "fila")   rows = rows.filter(r => Boolean(r.etapaPendenteIsQueue));
         const term = q.trim().toLowerCase();
@@ -643,7 +749,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             const blob = Object.values(r).filter(v => typeof v === "string").join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter]);
+    }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter, portalPendentes]);
 
     /* ── Selectable rows (non-fila items I can directly approve/reject) ── */
     const selectableRows = useMemo(() => filtered.filter(r => !isFilaRow(r)), [filtered]);
@@ -703,10 +809,55 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     }
 
     /* ── Generic detail for non-contratacao types ── */
-    function openGenericDetail(row: GenericRow) {
+    function openGenericDetail(row: GenericRow, kind: "default" | "rm_mov_timeline" = "default") {
+        setGenericDetailKind(kind);
         setGenericDetail(row);
         setGenericDetailOpen(true);
         setApprovalObs("");
+    }
+
+    function handleOpenRowDetail(row: GenericRow) {
+        const portalFlux = (row as GenericRow & { _portalTipoFluxo?: string })._portalTipoFluxo;
+        if (portalFlux) {
+            if (portalFlux === "RequisicaoPessoal" || portalFlux === "AumentoHeadcount") {
+                void openContratacaoDetail(row);
+                return;
+            }
+            if (portalFlux === "MovimentacaoPessoal") {
+                setViewPromocaoId(row.id);
+                return;
+            }
+            if (portalFlux === "Desligamento") {
+                setViewDesligamentoId(row.id);
+                return;
+            }
+            toast.message("Painel de Solicitações", {
+                description: "Esta pendência usa outro fluxo no Portal. Abra em Gestão → Painel de solicitações.",
+            });
+            return;
+        }
+
+        const rowTabId = isAllMode
+            ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao")
+            : activeTab;
+
+        if (rowTabId === "contratacao") {
+            void openContratacaoDetail(row);
+            return;
+        }
+        if (rowTabId === "desligamento") {
+            if (pick(row, "tipoRescisaoDescricao") !== "—") {
+                setViewDesligamentoId(row.id);
+                return;
+            }
+            openGenericDetail(row, "rm_mov_timeline");
+            return;
+        }
+        if (rowTabId === "promocao") {
+            setViewPromocaoId(row.id);
+            return;
+        }
+        openGenericDetail(row);
     }
 
     async function doGenericAction(row: GenericRow, action: "approve" | "reject" | "request-changes", obs?: string) {
@@ -806,7 +957,9 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     }
 
     /* ──────────────────────────── render ──────────────────────────── */
-    const isLoading = isAllMode ? Object.entries(loadingMap).some(([k, v]) => k !== "_all" && v) : loadingMap[activeTab];
+    const isLoading = isAllMode
+        ? Object.entries(loadingMap).some(([k, v]) => k !== "_all" && v) || portalLoading
+        : loadingMap[activeTab];
     const displayColumns = isAllMode ? allColumns : activeTabDef.columns;
 
     return (
@@ -919,7 +1072,15 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                     {/* Type chips */}
                     {(() => {
                         const base = isAllMode
-                            ? TABS.flatMap(tab => dataMap[tab.id].filter(isMyRow))
+                            ? [
+                                ...TABS.flatMap(tab =>
+                                    dataMap[tab.id].filter(isMyRow).map(r => ({
+                                        ...r,
+                                        _tabId: effectiveRmListTabId(r, tab.id),
+                                    })),
+                                ),
+                                ...portalPendentes,
+                            ]
                             : dataMap[activeTab].filter(isMyRow);
                         const countDireta = base.filter(r => !r.etapaPendenteIsQueue).length;
                         const countFila   = base.filter(r => Boolean(r.etapaPendenteIsQueue)).length;
@@ -956,22 +1117,22 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                     ) : filtered.map((row) => {
                         const isFila = isFilaRow(row);
                         const rowTabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
-                        const tabDef = TABS.find(t => t.id === rowTabId) ?? TABS[0];
-                        const TabIcon = tabDef.icon;
-                        const isContratacao = rowTabId === "contratacao";
-                        const isDesligamento = rowTabId === "desligamento";
-                        const isPromocao = rowTabId === "promocao";
-                        const openDetail = () => {
-                            if (isContratacao) void openContratacaoDetail(row);
-                            else if (isDesligamento) setViewDesligamentoId(row.id);
-                            else if (isPromocao) setViewPromocaoId(row.id);
-                            else openGenericDetail(row);
-                        };
+                        const tabDef = rowTabId === "portal" ? null : TABS.find(t => t.id === rowTabId) ?? TABS[0];
+                        const TabIcon = tabDef?.icon ?? FileText;
+                        const tabBadgeLabel = rowTabId === "portal" ? pick(row, "tipoDescricao") : tabDef?.label ?? "—";
+                        const tabBadgeColor = rowTabId === "portal"
+                            ? String((row as GenericRow & { _portalTipoFluxo?: string })._portalTipoFluxo ?? "").includes("Desligamento")
+                                ? "text-rose-600 bg-rose-500/15"
+                                : String((row as GenericRow & { _portalTipoFluxo?: string })._portalTipoFluxo ?? "").includes("Movimentacao")
+                                    ? "text-teal-600 bg-teal-500/15"
+                                    : "text-violet-600 bg-violet-500/15"
+                            : `${tabDef?.color ?? ""} ${tabDef?.bgColor ?? ""}`;
                         // Primary label — first column value
-                        const firstCol = tabDef.columns[0];
-                        const primaryLabel = firstCol?.render ? firstCol.render(row) : pick(row, firstCol?.key ?? "id");
-                        // Secondary meta — next 1-2 columns
-                        const metaCols = tabDef.columns.slice(1, 3).filter(c => c.key !== "etapaPendenteLabel");
+                        const firstCol = tabDef?.columns[0];
+                        const primaryLabel = rowTabId === "portal"
+                            ? <span className="font-semibold">{pick(row, "titulo")}</span>
+                            : firstCol?.render ? firstCol.render(row) : pick(row, firstCol?.key ?? "id");
+                        const metaCols = (tabDef?.columns.slice(1, 3) ?? []).filter(c => c.key !== "etapaPendenteLabel");
                         const isSelected = selectedIds.has(row.id);
 
                         return (
@@ -994,8 +1155,8 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                     <div className="flex-1 min-w-0">
                                         <div className="flex flex-wrap items-center gap-1.5 mb-1">
                                             {isAllMode && (
-                                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tabDef.color} ${tabDef.bgColor}`}>
-                                                    <TabIcon className="size-3" />{tabDef.label}
+                                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tabBadgeColor}`}>
+                                                    <TabIcon className="size-3" />{tabBadgeLabel}
                                                 </span>
                                             )}
                                             {isFila && <FilaBadge />}
@@ -1029,7 +1190,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         variant="outline"
                                         size="sm"
                                         className="gap-1.5"
-                                        onClick={openDetail}
+                                        onClick={() => handleOpenRowDetail(row)}
                                     >
                                         <Eye className="size-4" />
                                         <span>Ver</span>
@@ -1063,15 +1224,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                     const isFila = isFilaRow(row);
                                     const isSelected = selectedIds.has(row.id);
                                     const rowTabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
-                                    const isContratacao = rowTabId === "contratacao";
-                                    const isDesligamento = rowTabId === "desligamento";
-                                    const isPromocao = rowTabId === "promocao";
-                                    const openDetail = () => {
-                                        if (isContratacao) void openContratacaoDetail(row);
-                                        else if (isDesligamento) setViewDesligamentoId(row.id);
-                                        else if (isPromocao) setViewPromocaoId(row.id);
-                                        else openGenericDetail(row);
-                                    };
+                                    const openDetail = () => handleOpenRowDetail(row);
                                     return (
                                         <TableRow
                                             key={`${rowTabId}-${row.id}`}
@@ -1286,13 +1439,34 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             />
 
             {/* ── Generic Detail Dialog ── */}
-            <Dialog open={genericDetailOpen} onOpenChange={setGenericDetailOpen}>
+            <Dialog open={genericDetailOpen} onOpenChange={(o) => {
+                setGenericDetailOpen(o);
+                if (!o) setGenericDetailKind("default");
+            }}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Analisar Solicitação de {activeTabDef.label}</DialogTitle>
-                        <DialogDescription>Revise os detalhes e tome uma ação.</DialogDescription>
+                        <DialogTitle>
+                            {genericDetailKind === "rm_mov_timeline"
+                                ? "Desligamento (espelho RM)"
+                                : `Analisar Solicitação de ${activeTabDef.label}`}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {genericDetailKind === "rm_mov_timeline"
+                                ? "Registro sincronizado da linha do tempo do colaborador. Aprovação efetiva ocorre no TOTVS RM."
+                                : "Revise os detalhes e tome uma ação."}
+                        </DialogDescription>
                     </DialogHeader>
-                    {genericDetail && (
+                    {genericDetail && genericDetailKind === "rm_mov_timeline" && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <DetailField label="Funcionário" value={pick(genericDetail, "funcionarioNome")} />
+                            <DetailField label="CHAPA" value={pick(genericDetail, "chapaRm")} />
+                            <DetailField label="ID requisição RM" value={pick(genericDetail, "idReqRm")} />
+                            <DetailField label="Tipo" value={pick(genericDetail, "tipoDescricao")} />
+                            <DetailField label="Status" value={pick(genericDetail, "statusDescricao")} />
+                            <DetailField label="Abertura" value={formatDate(pick(genericDetail, "dataAbertura"))} />
+                        </div>
+                    )}
+                    {genericDetail && genericDetailKind === "default" && (
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 {activeTabDef.columns.map(col => (
