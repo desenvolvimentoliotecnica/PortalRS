@@ -1,13 +1,29 @@
 import type { AprovacaoStep } from "./AcompanhamentoModal";
 
 /**
- * Parses "(Consenso: reason)" suffix from a label string.
- * Returns the clean label and the extracted aviso, if present.
+ * Parses "(Consenso: reason)" / "(Sem aprovador: reason)" from the end of the label.
+ * Usa o último "(Consenso:" para não quebrar quando o título da etapa já tem parênteses
+ * (ex.: "Aprovação (Gestor) (Consenso: …)").
  */
 function parseConsensoLabel(label: string): { cleanLabel: string; aviso: string | null } {
-    const match = label.match(/^(.*?)\s*\((Consenso|Sem aprovador):\s*(.+?)\)\s*$/);
-    if (match) return { cleanLabel: match[1].trim(), aviso: match[3].trim() };
-    return { cleanLabel: label, aviso: null };
+    const t = label.trim();
+    const markers = ["(Consenso:", "(Sem aprovador:"] as const;
+    let bestIdx = -1;
+    let markerLen = 0;
+    for (const m of markers) {
+        const i = t.lastIndexOf(m);
+        if (i > bestIdx) {
+            bestIdx = i;
+            markerLen = m.length;
+        }
+    }
+    if (bestIdx < 0) return { cleanLabel: label, aviso: null };
+
+    const cleanLabel = t.slice(0, bestIdx).trim() || label;
+    const afterMarker = t.slice(bestIdx + markerLen);
+    const close = afterMarker.lastIndexOf(")");
+    const aviso = (close >= 0 ? afterMarker.slice(0, close) : afterMarker).trim();
+    return { cleanLabel, aviso: aviso || null };
 }
 
 /**

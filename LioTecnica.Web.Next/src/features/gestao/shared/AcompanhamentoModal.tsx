@@ -140,37 +140,6 @@ export default function AcompanhamentoModal({ open, loading, steps, solicitacaoS
                             );
                         })()}
 
-                        {/* Pending step banner */}
-                        {pendingStep && (
-                            <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-4 py-3.5">
-                                <div className="flex items-start gap-3">
-                                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50 border border-amber-300">
-                                        <Clock className="size-4 text-amber-600" />
-                                    </div>
-                                    <div className="min-w-0 pt-0.5">
-                                        <div className="text-sm font-semibold text-amber-800 dark:text-amber-300 leading-tight">
-                                            Aguardando: {pendingStep.label}
-                                        </div>
-                                        <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                                            {pendingStep.nome ? (
-                                                <span>
-                                                    Colaborador: <span className="font-semibold">{pendingStep.nome}</span>
-                                                    {pendingStep.aviso && (
-                                                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-200/60 dark:bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:text-amber-300">
-                                                            <AlertTriangle className="size-2.5" />
-                                                            Sem usuário
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            ) : (
-                                                <span className="italic opacity-70">Aprovador não identificado</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
                         {/* Step timeline */}
                         <ol>
                             {visibleSteps.map((step, idx) => {

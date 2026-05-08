@@ -260,6 +260,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     {
         var s = await _db.SolicitacoesVaga.AsNoTracking()
             .Include(x => x.Solicitante)
+                .ThenInclude(f => f!.GestorDireto)
             .Include(x => x.Aprovador)
             .Include(x => x.JobPosition)
             .Include(x => x.Unit)
@@ -312,17 +313,28 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 assumedUserNames[r.Id] = r.Name;
         }
 
-        var etapasFluxo = etapas.Select(e => new EtapaFluxoInfo(
-            e.Ordem,
-            e.Label,
-            e.AssumedByUserId.HasValue && assumedUserNames.TryGetValue(e.AssumedByUserId.Value, out var adminName)
+        var etapasFluxo = etapas.Select(e =>
+        {
+            string? aprovadorNome = e.AssumedByUserId.HasValue && assumedUserNames.TryGetValue(e.AssumedByUserId.Value, out var adminName)
                 ? adminName
-                : e.Aprovador?.Name,
-            e.RoleFilaId.HasValue && roleNames.TryGetValue(e.RoleFilaId.Value, out var rn) ? rn : null,
-            e.Status,
-            e.DataUtc,
-            e.Observacao
-        )).ToList();
+                : e.Aprovador?.Name;
+            // Consenso: fila Admin com gestor sem conta — mostrar o gestor (label ou cadastro), não só o role.
+            if (string.IsNullOrEmpty(aprovadorNome) && e.RoleFilaId.HasValue)
+            {
+                aprovadorNome = ApprovalWorkflowHelper.TryExtractConsensoIntendedAprovadorNome(e.Label)
+                    ?? s.Solicitante?.GestorDireto?.Name;
+            }
+
+            return new EtapaFluxoInfo(
+                e.Ordem,
+                e.Label,
+                aprovadorNome,
+                e.RoleFilaId.HasValue && roleNames.TryGetValue(e.RoleFilaId.Value, out var rn) ? rn : null,
+                e.Status,
+                e.DataUtc,
+                e.Observacao
+            );
+        }).ToList();
 
         return MapToResponse(s, etapasFluxo);
     }
