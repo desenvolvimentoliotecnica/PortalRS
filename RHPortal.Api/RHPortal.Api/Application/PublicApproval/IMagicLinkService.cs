@@ -16,7 +16,8 @@ public interface IMagicLinkService
         string solicitanteNome,
         string? httpScheme,
         string? httpHost,
-        CancellationToken ct);
+        CancellationToken ct,
+        bool reenvioAposAlteracao = false);
 
     /// <summary>
     /// Retorna resumo da solicitação para a landing page de aprovação (sem autenticação).

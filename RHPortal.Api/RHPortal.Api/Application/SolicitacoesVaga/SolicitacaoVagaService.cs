@@ -1290,6 +1290,21 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         return primeiraEtapa;
     }
 
+    /// <summary>
+    /// Mais de uma transição para <see cref="SolicitacaoStatus.PendenteAprovacao"/> indica reenvio
+    /// (ex.: edição pendente → rascunho → novo submit).
+    /// </summary>
+    private async Task<bool> SolicitacaoFoiReenviadaParaPendenciaAposAlteracaoAsync(Guid solicitacaoVagaId, CancellationToken ct)
+    {
+        var vezesChegouPendente = await _db.HistoricosStatus.AsNoTracking()
+            .Where(h =>
+                h.TipoEntidade == TipoEntidadeStatus.SolicitacaoVaga
+                && h.EntidadeId == solicitacaoVagaId
+                && h.StatusNovo == nameof(SolicitacaoStatus.PendenteAprovacao))
+            .CountAsync(ct);
+        return vezesChegouPendente >= 2;
+    }
+
     private async Task NotificarPrimeiraEtapaSeAprovadorDiretoAsync(
         SolicitacaoVaga entity, SolicitacaoAprovacaoEtapa? primeiraEtapa, CancellationToken ct)
     {
@@ -1299,10 +1314,14 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var solicitanteNome = (await _db.Set<Funcionario>().AsNoTracking().FirstOrDefaultAsync(f => f.Id == entity.SolicitanteId, ct))
             ?.Name ?? "Alguém";
 
+        var reenvioAposAlteracao = await SolicitacaoFoiReenviadaParaPendenciaAposAlteracaoAsync(entity.Id, ct);
+
         await _workflow.NotifyByFuncionarioIdAsync(
             primeiraEtapa.AprovadorId.Value,
-            "Nova solicitação de vaga para aprovação",
-            $"{solicitanteNome} abriu uma solicitação: {entity.Titulo}",
+            reenvioAposAlteracao ? "Solicitação de vaga atualizada (reenvio)" : "Nova solicitação de vaga para aprovação",
+            reenvioAposAlteracao
+                ? $"{solicitanteNome} atualizou e reenviou a solicitação: {entity.Titulo}"
+                : $"{solicitanteNome} abriu uma solicitação: {entity.Titulo}",
             $"/rs/solicitacoes/{entity.Id}",
             ct);
 
@@ -1312,7 +1331,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             await _magicLink.CreateAndSendAsync(
                 primeiraEtapa, TipoFluxoAprovacao.RequisicaoPessoal, entity.Id,
                 entity.Titulo, solicitanteNome,
-                httpCtx?.Request.Scheme, httpCtx?.Request.Host.Host, ct);
+                httpCtx?.Request.Scheme, httpCtx?.Request.Host.Host, ct,
+                reenvioAposAlteracao);
         }
         catch { /* best-effort */ }
     }

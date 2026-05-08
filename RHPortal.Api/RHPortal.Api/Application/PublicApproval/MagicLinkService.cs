@@ -48,7 +48,8 @@ public sealed class MagicLinkService : IMagicLinkService
         string solicitanteNome,
         string? httpScheme,
         string? httpHost,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool reenvioAposAlteracao = false)
     {
         if (!etapa.AprovadorId.HasValue) return;
 
@@ -60,7 +61,20 @@ public sealed class MagicLinkService : IMagicLinkService
             .Select(f => new { f.Name, f.Email })
             .FirstOrDefaultAsync(ct);
 
-        if (aprovador is null || string.IsNullOrWhiteSpace(aprovador.Email)) return;
+        if (aprovador is null) return;
+
+        var userMail = await _db.Set<ApplicationUser>()
+            .AsNoTracking()
+            .Where(u =>
+                u.FuncionarioId == aprovadorFuncionarioId &&
+                u.Email != null &&
+                u.Email != "")
+            .OrderByDescending(u => u.IsActive)
+            .Select(u => u.Email!)
+            .FirstOrDefaultAsync(ct);
+
+        var toEmail = (!string.IsNullOrWhiteSpace(userMail) ? userMail : aprovador.Email)?.Trim();
+        if (string.IsNullOrWhiteSpace(toEmail)) return;
 
         var token = GenerateToken();
         var now = DateTimeOffset.UtcNow;
@@ -85,10 +99,15 @@ public sealed class MagicLinkService : IMagicLinkService
         var approveUrl = $"{baseUrl}/app/public/approve?token={token}&action=approve";
         var rejectUrl  = $"{baseUrl}/app/public/approve?token={token}&action=reject";
         var portalUrl  = $"{baseUrl}/rs/solicitacoes/{solicitacaoId}";
-        var tipoLabel  = TipoFluxoLabel(tipoFluxo);
+        var tipoLabel = TipoFluxoLabel(tipoFluxo);
+
+        var assuntoExtra = reenvioAposAlteracao ? "[Atualização] " : "";
+        var contexto = reenvioAposAlteracao
+            ? $"<p>O solicitante <strong>atualizou e reenviou</strong> esta {tipoLabel} para análise. Ela volta a aguardar sua decisão.</p>"
+            : $"<p>Você tem uma solicitação de <strong>{tipoLabel}</strong> aguardando sua decisão.</p>";
 
         var body = $@"<p>Olá <b>{aprovador.Name}</b>,</p>
-<p>Você tem uma solicitação de <strong>{tipoLabel}</strong> aguardando sua decisão.</p>
+{contexto}
 <p><strong>Título:</strong> {tituloSolicitacao}<br/><strong>Solicitante:</strong> {solicitanteNome}</p>
 <table cellpadding=""0"" cellspacing=""0"" style=""margin:24px 0;""><tr>
   <td style=""padding-right:12px;"">
@@ -104,8 +123,8 @@ public sealed class MagicLinkService : IMagicLinkService
         try
         {
             await _emailQueue.EnqueueRawAsync(
-                aprovador.Email,
-                $"[Aprovação pendente] {tipoLabel}: {tituloSolicitacao}",
+                toEmail,
+                $"{assuntoExtra}[Aprovação pendente] {tipoLabel}: {tituloSolicitacao}",
                 body, null, false, "magic-link-aprovacao", ct);
         }
         catch { /* best-effort */ }
