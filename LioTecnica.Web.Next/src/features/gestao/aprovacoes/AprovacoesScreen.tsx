@@ -36,6 +36,7 @@ import NextStepBanner from "@/components/feedback/NextStepBanner";
 import DesligamentoFormModal from "@/features/gestao/desligamentos/DesligamentoFormModal";
 import PromocaoFormModal from "@/features/gestao/promocoes/PromocaoFormModal";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
     Table,
@@ -218,6 +219,11 @@ function mapSolicitacaoVagaGridApiToPortalRow(r: Record<string, unknown>): Gener
 function isPortalRequisicaoVagaRow(row: GenericRow): boolean {
     const f = String((row as { _portalTipoFluxo?: string })._portalTipoFluxo ?? "");
     return f === "RequisicaoPessoal" || f === "AumentoHeadcount";
+}
+
+/** Pendências do fluxo Portal (exclui itens só RM: vagas/movimentações/desligamentos sincronizados). */
+function isPortalPendenciaRow(row: GenericRow): boolean {
+    return (row as GenericRow & { _tabId?: string })._tabId === "portal";
 }
 
 const STATUS_MAP: Record<StatusKey, { label: string; color: string; icon: React.ElementType }> = {
@@ -533,6 +539,12 @@ const TABS: TabDef[] = [
 
 const VALID_TAB_IDS: TabId[] = ["_all", "contratacao", "promocao", "desligamento"];
 const LS_TAB_KEY = "aprovacoes:activeTab";
+const LS_SHOW_RM_LEGACY_KEY = "aprovacoes:showRmLegacy";
+
+function readStoredShowRmLegacy(): boolean {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(LS_SHOW_RM_LEGACY_KEY) === "true";
+}
 
 export default function AprovacoesScreen({ initialTab }: { initialTab?: string }) {
     const pendencias = usePendencias();
@@ -551,6 +563,13 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         setActiveTab(tab);
         localStorage.setItem(LS_TAB_KEY, tab);
     }, []);
+
+    const [showRmLegacy, setShowRmLegacy] = useState(() => readStoredShowRmLegacy());
+    const handleShowRmLegacyChange = useCallback((checked: boolean) => {
+        setShowRmLegacy(checked);
+        localStorage.setItem(LS_SHOW_RM_LEGACY_KEY, checked ? "true" : "false");
+    }, []);
+
     const [q, setQ] = useState("");
     const [typeFilter, setTypeFilter] = useState<"todos" | "direta" | "fila">("todos");
     const [approvalObs, setApprovalObs] = useState("");
@@ -662,6 +681,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
 
     /* ── Clear selection when tab changes ── */
     useEffect(() => { setSelectedIds(new Set()); }, [activeTab]);
+    useEffect(() => { setSelectedIds(new Set()); }, [showRmLegacy]);
 
     /* ── Row relevance: show only tasks assigned to me OR open fila items ── */
     const isMyRow = useCallback((_row: GenericRow): boolean => {
@@ -689,26 +709,30 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     /* ── Counts (per-tab, filtered to relevant items) ── */
     const counts = useMemo(() => {
         const c: Record<TabId, number> = { _all: 0, contratacao: 0, promocao: 0, desligamento: 0 };
-        const rmContratacao = dataMap.contratacao.filter(isMyRow).length;
+        const rmContratacao = showRmLegacy ? dataMap.contratacao.filter(isMyRow).length : 0;
         for (const tab of TABS) {
             if (tab.id === "promocao") {
-                c.promocao = dataMap.promocao.filter(r => isMyRow(r) && !isRmDesligamentoMovimentacao(r)).length;
+                c.promocao = showRmLegacy
+                    ? dataMap.promocao.filter(r => isMyRow(r) && !isRmDesligamentoMovimentacao(r)).length
+                    : 0;
             } else if (tab.id === "desligamento") {
-                c.desligamento =
-                    dataMap.desligamento.filter(isMyRow).length
-                    + dataMap.promocao.filter(r => isMyRow(r) && isRmDesligamentoMovimentacao(r)).length;
+                c.desligamento = showRmLegacy
+                    ? dataMap.desligamento.filter(isMyRow).length
+                        + dataMap.promocao.filter(r => isMyRow(r) && isRmDesligamentoMovimentacao(r)).length
+                    : 0;
             } else if (tab.id === "contratacao") {
                 c.contratacao = rmContratacao + portalRequisicaoVagaCount;
             }
         }
         return c;
-    }, [dataMap, isMyRow, portalRequisicaoVagaCount]);
+    }, [dataMap, isMyRow, portalRequisicaoVagaCount, showRmLegacy]);
 
-    const totalPendente =
-        dataMap.contratacao.filter(isMyRow).length
-        + counts.promocao
-        + counts.desligamento
-        + allMergedPortalRows.length;
+    const totalPendente = showRmLegacy
+        ? dataMap.contratacao.filter(isMyRow).length
+            + counts.promocao
+            + counts.desligamento
+            + allMergedPortalRows.length
+        : allMergedPortalRows.length;
 
     /* ── Filtered list for active tab ── */
     const isAllMode = activeTab === "_all";
@@ -830,6 +854,9 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         } else {
             rows = [];
         }
+        if (!showRmLegacy) {
+            rows = rows.filter(isPortalPendenciaRow);
+        }
         if (typeFilter === "direta") rows = rows.filter(r => !r.etapaPendenteIsQueue);
         if (typeFilter === "fila")   rows = rows.filter(r => Boolean(r.etapaPendenteIsQueue));
         const term = q.trim().toLowerCase();
@@ -838,7 +865,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             const blob = Object.values(r).filter(v => typeof v === "string").join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter, allMergedPortalRows]);
+    }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter, allMergedPortalRows, showRmLegacy]);
 
     /* ── Selectable rows (non-fila items I can directly approve/reject) ── */
     const selectableRows = useMemo(() => filtered.filter(r => !isFilaRow(r)), [filtered]);
@@ -1153,14 +1180,28 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                 {isLoading ? "Carregando…" : `${filtered.length} pendência${filtered.length !== 1 ? "s" : ""}`}
                             </div>
                         </div>
-                        <div className="relative w-full sm:w-auto">
-                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input className="w-full sm:w-[260px] pl-8" placeholder="Buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
+                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-end">
+                            <div className="flex items-center gap-2 shrink-0">
+                                <input
+                                    id="aprovacoes-show-rm-legacy"
+                                    type="checkbox"
+                                    className="size-4 rounded border-border accent-primary cursor-pointer"
+                                    checked={showRmLegacy}
+                                    onChange={(e) => handleShowRmLegacyChange(e.target.checked)}
+                                />
+                                <Label htmlFor="aprovacoes-show-rm-legacy" className="text-xs font-normal text-muted-foreground cursor-pointer whitespace-normal sm:max-w-[200px] leading-snug">
+                                    Exibir requisições RM (Legado)
+                                </Label>
+                            </div>
+                            <div className="relative w-full sm:w-[260px]">
+                                <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input className="w-full pl-8" placeholder="Buscar..." value={q} onChange={(e) => setQ(e.target.value)} />
+                            </div>
                         </div>
                     </div>
                     {/* Type chips */}
                     {(() => {
-                        const base = isAllMode
+                        let base = isAllMode
                             ? [
                                 ...TABS.flatMap(tab =>
                                     dataMap[tab.id].filter(isMyRow).map(r => ({
@@ -1173,6 +1214,9 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                             : activeTab === "contratacao"
                                 ? [...dataMap.contratacao.filter(isMyRow), ...allMergedPortalRows.filter(isPortalRequisicaoVagaRow)]
                                 : dataMap[activeTab].filter(isMyRow);
+                        if (!showRmLegacy) {
+                            base = base.filter(isPortalPendenciaRow);
+                        }
                         const countDireta = base.filter(r => !r.etapaPendenteIsQueue).length;
                         const countFila   = base.filter(r => Boolean(r.etapaPendenteIsQueue)).length;
                         return (
