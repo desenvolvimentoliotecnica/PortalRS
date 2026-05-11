@@ -55,7 +55,6 @@ import {
 } from "@/components/ui/dialog";
 import {
     Tabs,
-    TabsContent,
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
@@ -614,7 +613,12 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const [detailOpen, setDetailOpen] = useState(false);
     const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    const [contratacaoDetailModalTab, setContratacaoDetailModalTab] = useState<"identificacao" | "aprovacao">("identificacao");
     const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
+
+    useEffect(() => {
+        if (detailOpen) setContratacaoDetailModalTab("identificacao");
+    }, [detailOpen, detail?.id]);
 
     /* ── Generic detail for other types ── */
     const [genericDetailOpen, setGenericDetailOpen] = useState(false);
@@ -1466,29 +1470,39 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
 
             {/* ── Contratação Detail Dialog ── */}
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-                <DialogContent className="sm:max-w-4xl max-h-[92vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            Analisar Solicitação de Contratação
-                            {detail && isFilaRow(detail) && <FilaBadge />}
-                        </DialogTitle>
-                        <DialogDescription>Revise os detalhes e tome uma ação.</DialogDescription>
-                    </DialogHeader>
-                    {detailLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="border-lt-primary h-6 w-6 animate-spin rounded-full border-4 border-t-transparent" />
-                        </div>
-                    ) : detail ? (
-                        <div className="space-y-4">
-                            <Tabs defaultValue="identificacao">
+                <DialogContent className="flex h-[90vh] max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+                    {/* Cabeçalho fixo + abas */}
+                    <div className="shrink-0 space-y-4 border-b bg-background px-6 pt-6 pb-4 pr-14">
+                        <DialogHeader className="space-y-2 text-left">
+                            <DialogTitle className="flex items-center gap-2">
+                                Analisar Solicitação de Contratação
+                                {detail && isFilaRow(detail) && <FilaBadge />}
+                            </DialogTitle>
+                            <DialogDescription>Revise os detalhes e tome uma ação.</DialogDescription>
+                        </DialogHeader>
+                        {!detailLoading && detail && (
+                            <Tabs
+                                value={contratacaoDetailModalTab}
+                                onValueChange={(v) => setContratacaoDetailModalTab(v === "aprovacao" ? "aprovacao" : "identificacao")}
+                            >
                                 <TabsList>
                                     <TabsTrigger value="identificacao">Identificação</TabsTrigger>
                                     <TabsTrigger value="aprovacao">Aprovação</TabsTrigger>
                                 </TabsList>
+                            </Tabs>
+                        )}
+                    </div>
 
-                                {/* ── Tab: Identificação ── */}
-                                <TabsContent value="identificacao" className="mt-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3">
+                    {detailLoading ? (
+                        <div className="flex min-h-0 flex-1 items-center justify-center py-12">
+                            <div className="border-lt-primary h-6 w-6 animate-spin rounded-full border-4 border-t-transparent" />
+                        </div>
+                    ) : detail ? (
+                        <>
+                            {/* Conteúdo rolável — altura estável ao trocar aba */}
+                            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-4">
+                                {contratacaoDetailModalTab === "identificacao" ? (
+                                    <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
                                         <SectionDivider title="Identificação" />
                                         <div className="sm:col-span-2"><DetailField label="Empresa" value={detail.empresaNome} /></div>
                                         <DetailField label="Tipo de Contrato" value={enumLabel(TIPO_CONTRATO_MAP, detail.tipoContrato)} />
@@ -1533,24 +1547,23 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         <DetailField label="Data criação" value={formatDate(detail.createdAtUtc)} />
                                         <DetailField label="Status" value={<SolicitacaoVagaStatusBadgeEl raw={detail.status} />} />
                                     </div>
-                                </TabsContent>
-
-                                {/* ── Tab: Aprovação ── */}
-                                <TabsContent value="aprovacao" className="mt-4 space-y-4">
-                                    {detail.etapasFluxo && detail.etapasFluxo.length > 0 && (
-                                        <WorkflowTimeline etapas={detail.etapasFluxo} />
-                                    )}
-                                    {detail.observacaoAprovador && (
-                                        <div>
-                                            <div className="text-xs text-muted-foreground uppercase">Observação do aprovador</div>
-                                            <div className="mt-1 text-sm rounded-md bg-muted/30 p-3">{detail.observacaoAprovador}</div>
-                                        </div>
-                                    )}
-                                </TabsContent>
-                            </Tabs>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {detail.etapasFluxo && detail.etapasFluxo.length > 0 && (
+                                            <WorkflowTimeline etapas={detail.etapasFluxo} />
+                                        )}
+                                        {detail.observacaoAprovador && (
+                                            <div>
+                                                <div className="text-xs text-muted-foreground uppercase">Observação do aprovador</div>
+                                                <div className="mt-1 text-sm rounded-md bg-muted/30 p-3">{detail.observacaoAprovador}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
 
                             {solicitacaoVagaStatusAllowsApprovalActions(detail.status) && (
-                                <div className="space-y-3 rounded-lg border border-border/60 p-3">
+                                <div className="shrink-0 space-y-3 border-t bg-background px-6 py-4">
                                     <div className="text-sm font-semibold">Ações de aprovação</div>
                                     <textarea
                                         className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
@@ -1560,7 +1573,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         onChange={(e) => setApprovalObs(e.target.value)}
                                         disabled={acting}
                                     />
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap justify-end gap-2">
                                         <Button
                                             size="sm"
                                             className="bg-emerald-600 hover:bg-emerald-700"
@@ -1573,7 +1586,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
                                             disabled={acting}
                                             onClick={() => void doContratacaoAction(detail.id, "request-changes")}
                                         >
@@ -1583,7 +1596,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="text-red-600 border-red-300 hover:bg-red-50"
+                                            className="border-red-300 text-red-600 hover:bg-red-50"
                                             disabled={acting}
                                             onClick={() => setRejectTarget({ row: { id: detail.id } as GenericRow, isContratacao: true })}
                                         >
@@ -1593,7 +1606,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </>
                     ) : null}
                 </DialogContent>
             </Dialog>
