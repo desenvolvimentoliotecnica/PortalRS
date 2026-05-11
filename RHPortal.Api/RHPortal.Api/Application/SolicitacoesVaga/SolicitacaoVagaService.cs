@@ -1917,6 +1917,36 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         GarantirFluxoAumentoQuadroPermiteAcaoDeAprovador(entity);
         ApprovalWorkflowHelper.ValidateCanApproveAny(entity.Status);
 
+        // Encerra etapas pendentes no mesmo fluxo ativo — senão /api/aprovacoes/pendentes
+        // continua exibindo a solicitação para o aprovador após devolução ao solicitante.
+        var tipoFluxoAtivo = entity.Status == SolicitacaoStatus.PendenteAprovacaoAumentoHC
+            ? TipoFluxoAprovacao.AumentoHeadcount
+            : TipoFluxoAprovacao.RequisicaoPessoal;
+
+        var etapaAtual = await _db.SolicitacoesAprovacaoEtapa
+            .Where(e => e.SolicitacaoId == id && e.TipoFluxo == tipoFluxoAtivo && e.Status == StatusAprovacao.Pendente)
+            .OrderBy(e => e.Ordem)
+            .FirstOrDefaultAsync(ct);
+
+        if (etapaAtual is not null)
+        {
+            if (!await _workflow.CanApproveStepAsync(etapaAtual, _currentUser, ct))
+                throw new InvalidOperationException("Você não tem permissão para solicitar ajustes nesta etapa.");
+
+            var etapasPendentes = await _db.SolicitacoesAprovacaoEtapa
+                .Where(e => e.SolicitacaoId == id && e.TipoFluxo == tipoFluxoAtivo && e.Status == StatusAprovacao.Pendente)
+                .ToListAsync(ct);
+
+            var nowEtapa = DateTimeOffset.UtcNow;
+            foreach (var etapa in etapasPendentes)
+            {
+                etapa.Status = StatusAprovacao.Cancelado;
+                etapa.DataUtc = nowEtapa;
+                if (etapa.Id == etapaAtual.Id)
+                    etapa.Observacao = observacao;
+            }
+        }
+
         var statusAnteriorChanges = entity.Status.ToString();
         entity.Status = SolicitacaoStatus.AjustesNecessarios;
         entity.ObservacaoAprovador = observacao;
