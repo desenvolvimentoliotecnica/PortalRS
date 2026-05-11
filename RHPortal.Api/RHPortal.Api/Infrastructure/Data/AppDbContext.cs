@@ -1248,6 +1248,11 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.AprovadorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            b.HasOne(x => x.AnalistaRhResponsavelUser)
+                .WithMany()
+                .HasForeignKey(x => x.AnalistaRhResponsavelUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             b.HasOne(x => x.JobPosition)
                 .WithMany()
                 .HasForeignKey(x => x.JobPositionId)
@@ -1278,6 +1283,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.SolicitanteId });
+            b.HasIndex(x => new { x.TenantId, x.AnalistaRhResponsavelUserId });
             b.HasIndex(x => x.MotivoRequisicaoId);
             b.Property(x => x.RequisitosDetalhadosJson).HasColumnType("jsonb");
             b.Property(x => x.RmRequisicaoCodigo).HasMaxLength(120);

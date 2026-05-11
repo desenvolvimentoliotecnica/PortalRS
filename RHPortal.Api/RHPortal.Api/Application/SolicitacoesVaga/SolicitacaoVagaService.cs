@@ -71,6 +71,8 @@ public interface ISolicitacaoVagaService
     Task<SolicitacaoVagaResponse?> RetomarSelecaoAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoVagaResponse?> EncerrarSemContratacaoAsync(Guid id, string observacao, CancellationToken ct);
     Task<SolicitacaoVagaResponse?> MarcarContratacaoConcluidaAsync(Guid id, string? observacao, CancellationToken ct);
+    Task<SolicitacaoVagaResponse?> AssignAnalistaRhAsync(Guid id, Guid? analistaRhResponsavelUserId, CancellationToken ct);
+    Task<int> BulkAssignAnalistaRhAsync(IReadOnlyList<Guid> solicitacaoIds, Guid? analistaRhResponsavelUserId, CancellationToken ct);
     Task<IReadOnlyList<SolicitacaoVagaIndicacaoDto>> ListIndicacoesAsync(Guid solicitacaoId, CancellationToken ct);
     Task<SolicitacaoVagaIndicacaoDto?> AddIndicacaoAsync(Guid solicitacaoId, SolicitacaoVagaIndicacaoCreateRequest request, CancellationToken ct);
     Task<bool> RemoveIndicacaoAsync(Guid solicitacaoId, Guid indicacaoId, CancellationToken ct);
@@ -129,6 +131,120 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     private static bool IsFluxoComDecisaoHeadcountGestor(TipoSolicitacaoVaga t) =>
         t is TipoSolicitacaoVaga.VagaNova or TipoSolicitacaoVaga.AumentoQuadro;
 
+    private static bool IsAnalistaRhRoleName(string? roleName) =>
+        !string.IsNullOrWhiteSpace(roleName)
+        && roleName.Contains("analista", StringComparison.OrdinalIgnoreCase)
+        && roleName.Contains("rh", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsEspecialistaRhRoleName(string? roleName) =>
+        !string.IsNullOrWhiteSpace(roleName)
+        && roleName.Contains("especialista", StringComparison.OrdinalIgnoreCase)
+        && roleName.Contains("rh", StringComparison.OrdinalIgnoreCase);
+
+    private static bool PermiteDistribuicaoAnalistaRh(SolicitacaoStatus status) =>
+        status is SolicitacaoStatus.PendenteAprovacaoRh
+            or SolicitacaoStatus.Aprovada
+            or SolicitacaoStatus.Concluida
+            or SolicitacaoStatus.EmIntegracao
+            or SolicitacaoStatus.PendenteTriagem
+            or SolicitacaoStatus.EmTriagem
+            or SolicitacaoStatus.DevolvidaTriagemGestor
+            or SolicitacaoStatus.PendenteIntegracaoRm
+            or SolicitacaoStatus.ErroIntegracaoRm
+            or SolicitacaoStatus.AguardandoReprocessamentoRm;
+
+    private async Task<IReadOnlyList<string>> GetCurrentUserRoleNamesAsync(CancellationToken ct)
+    {
+        if (!_currentUser.UserId.HasValue)
+            return Array.Empty<string>();
+
+        return await _db.Set<ApplicationUserRole>()
+            .AsNoTracking()
+            .Where(ur => ur.UserId == _currentUser.UserId.Value)
+            .Join(_db.Set<ApplicationRole>().AsNoTracking(),
+                ur => ur.RoleId,
+                role => role.Id,
+                (_, role) => role.Name ?? string.Empty)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    private async Task<bool> CurrentUserEhEspecialistaRhAsync(CancellationToken ct)
+    {
+        if (_currentUser.IsAdmin || _currentUser.IsOwner)
+            return true;
+
+        var roleNames = await GetCurrentUserRoleNamesAsync(ct);
+        return roleNames.Any(IsEspecialistaRhRoleName);
+    }
+
+    private async Task<bool> CurrentUserEhAnalistaRhAsync(CancellationToken ct)
+    {
+        var roleNames = await GetCurrentUserRoleNamesAsync(ct);
+        return roleNames.Any(IsAnalistaRhRoleName);
+    }
+
+    private async Task EnsureCurrentUserPodeDistribuirAnalistaRhAsync(CancellationToken ct)
+    {
+        if (await CurrentUserEhEspecialistaRhAsync(ct))
+            return;
+
+        throw new UnauthorizedAccessException("Somente Especialista de RH pode distribuir solicitações para Analistas de RH.");
+    }
+
+    private async Task ValidarAnalistaRhAlvoAsync(Guid? userId, CancellationToken ct)
+    {
+        if (!userId.HasValue)
+            return;
+
+        var roleNames = await _db.Set<ApplicationUserRole>()
+            .AsNoTracking()
+            .Where(ur => ur.UserId == userId.Value)
+            .Join(_db.Set<ApplicationRole>().AsNoTracking(),
+                ur => ur.RoleId,
+                role => role.Id,
+                (_, role) => role.Name ?? string.Empty)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var userAtivo = await _db.Users
+            .AsNoTracking()
+            .AnyAsync(u => u.Id == userId.Value && u.IsActive, ct);
+
+        if (!userAtivo)
+            throw new InvalidOperationException("O usuário selecionado não foi encontrado ou está inativo.");
+
+        if (!roleNames.Any(IsAnalistaRhRoleName))
+            throw new InvalidOperationException("O usuário selecionado não possui perfil de Analista de RH.");
+    }
+
+    private async Task<string?> ResolveUserDisplayNameAsync(Guid userId, CancellationToken ct)
+    {
+        return await _db.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => u.FullName ?? u.Email)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task SyncAnalistaRhNaVagaAsync(SolicitacaoVaga entity, CancellationToken ct)
+    {
+        if (!entity.VagaId.HasValue)
+            return;
+
+        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
+        if (vaga is null)
+            return;
+
+        vaga.RecrutadorResponsavelUserId = entity.AnalistaRhResponsavelUserId;
+        if (entity.AnalistaRhResponsavelUserId.HasValue)
+        {
+            var nome = await ResolveUserDisplayNameAsync(entity.AnalistaRhResponsavelUserId.Value, ct);
+            if (!string.IsNullOrWhiteSpace(nome))
+                vaga.RecrutadorResponsavel = nome.Length > 120 ? nome[..120] : nome;
+        }
+    }
+
     public async Task<IReadOnlyList<SolicitacaoVagaGridRow>> ListAsync(
         SolicitacaoVagaListQuery query, Guid? currentFuncionarioId, CancellationToken ct)
     {
@@ -141,12 +257,14 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
         else if (!_currentUser.IsAdmin)
         {
+            var currentUserEhAnalistaRh = await CurrentUserEhAnalistaRhAsync(ct);
             var listaAmplaRh =
-                (_currentUser.IsRH
+                (!currentUserEhAnalistaRh
+                 && (_currentUser.IsRH
                  || _currentUser.HasPermission("*")
                  || _currentUser.HasPermission("rh.contratacoes.view")
                  || _currentUser.HasPermission("rh.contratacoes.triagem")
-                 || _currentUser.HasPermission("rh.contratacoes.selecao"))
+                 || _currentUser.HasPermission("rh.contratacoes.selecao")))
                 && query.ApenasMeus != true;
 
             if (listaAmplaRh)
@@ -182,13 +300,16 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             // 31.2: CentroCusto absorveu Area — o escopo ByArea agora é por CentroCusto.
             if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.CentroCustoId.HasValue)
                 q = q.Where(s => s.CentroCustoId == _currentUser.CentroCustoId.Value
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
+                    || solicitacaoIdsComEtapaPendente.Contains(s.Id)
+                    || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
             else if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && currentFuncionarioId.HasValue)
                 q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
+                    || solicitacaoIdsComEtapaPendente.Contains(s.Id)
+                    || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
             else
                 q = q.Where(s => (currentFuncionarioId.HasValue && s.SolicitanteId == currentFuncionarioId.Value)
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id));
+                    || solicitacaoIdsComEtapaPendente.Contains(s.Id)
+                    || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
             }
         }
 
@@ -221,6 +342,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
                 AprovadorId = s.AprovadorId,
                 AprovadorNome = s.Aprovador != null ? s.Aprovador.Name : (string?)null,
+                AnalistaRhResponsavelUserId = s.AnalistaRhResponsavelUserId,
+                AnalistaRhResponsavelNome = s.AnalistaRhResponsavelUser != null
+                    ? (s.AnalistaRhResponsavelUser.FullName ?? s.AnalistaRhResponsavelUser.Email)
+                    : null,
                 CentroCustoNome = s.CentroCusto != null ? s.CentroCusto.Description : (string?)null,
                 s.QtdPosicoes, s.TipoSolicitacao, s.IsConfidencial, s.SubstituidoNome, s.CreatedAtUtc,
                 s.RmCodStatus, s.RmUltimaStatusDescricaoRm, s.RmStatusSyncUltimaMensagem,
@@ -248,7 +373,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             etapasPendentes.TryGetValue(r.Id, out var ep);
             return new SolicitacaoVagaGridRow(
                 r.Id, r.Titulo, r.Urgencia, r.Status, r.SolicitanteId, r.SolicitanteNome,
-                r.AprovadorId, r.AprovadorNome, r.CentroCustoNome, r.QtdPosicoes,
+                r.AprovadorId, r.AprovadorNome, r.AnalistaRhResponsavelUserId, r.AnalistaRhResponsavelNome,
+                r.CentroCustoNome, r.QtdPosicoes,
                 r.TipoSolicitacao, r.IsConfidencial, r.SubstituidoNome, r.CreatedAtUtc,
                 r.RmCodStatus, r.RmUltimaStatusDescricaoRm, r.RmStatusSyncUltimaMensagem,
                 r.RmUltimaSincronizacaoUtc,
@@ -263,6 +389,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(x => x.Solicitante)
                 .ThenInclude(f => f!.GestorDireto)
             .Include(x => x.Aprovador)
+            .Include(x => x.AnalistaRhResponsavelUser)
             .Include(x => x.JobPosition)
             .Include(x => x.Unit)
             .Include(x => x.Empresa)
@@ -1767,6 +1894,9 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var tenantId = _tenantContext.TenantId ?? "";
         var now = DateTimeOffset.UtcNow;
         var vagaId = Guid.NewGuid();
+        var analistaRhResponsavelNome = entity.AnalistaRhResponsavelUserId.HasValue
+            ? await ResolveUserDisplayNameAsync(entity.AnalistaRhResponsavelUserId.Value, ct)
+            : null;
         var prioridade = entity.Urgencia switch
         {
             SolicitacaoVagaUrgencia.Critica => VagaPrioridade.Critica,
@@ -1807,6 +1937,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             TurnoId = entity.TurnoId,
             EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(entity.EscalaTrabalho) ? null : entity.EscalaTrabalho,
             HeadcountPendente = headcountPendente,
+            RecrutadorResponsavelUserId = entity.AnalistaRhResponsavelUserId,
+            RecrutadorResponsavel = string.IsNullOrWhiteSpace(analistaRhResponsavelNome)
+                ? null
+                : (analistaRhResponsavelNome.Length > 120 ? analistaRhResponsavelNome[..120] : analistaRhResponsavelNome),
             PesoCompetencia = 40,
             PesoExperiencia = 30,
             PesoFormacao = 15,
@@ -2376,18 +2510,83 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         return await GetByIdAsync(id, ct);
     }
 
+    public async Task<SolicitacaoVagaResponse?> AssignAnalistaRhAsync(Guid id, Guid? analistaRhResponsavelUserId, CancellationToken ct)
+    {
+        await EnsureCurrentUserPodeDistribuirAnalistaRhAsync(ct);
+        await ValidarAnalistaRhAlvoAsync(analistaRhResponsavelUserId, ct);
+
+        var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return null;
+
+        if (!PermiteDistribuicaoAnalistaRh(entity.Status))
+            throw new InvalidOperationException("A distribuição para Analista de RH só é permitida após a aprovação do gestor requisitante.");
+
+        entity.AnalistaRhResponsavelUserId = analistaRhResponsavelUserId;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await SyncAnalistaRhNaVagaAsync(entity, ct);
+        await _db.SaveChangesAsync(ct);
+
+        return await GetByIdAsync(id, ct);
+    }
+
+    public async Task<int> BulkAssignAnalistaRhAsync(IReadOnlyList<Guid> solicitacaoIds, Guid? analistaRhResponsavelUserId, CancellationToken ct)
+    {
+        await EnsureCurrentUserPodeDistribuirAnalistaRhAsync(ct);
+        await ValidarAnalistaRhAlvoAsync(analistaRhResponsavelUserId, ct);
+
+        var ids = (solicitacaoIds ?? Array.Empty<Guid>())
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        if (ids.Count == 0)
+            throw new InvalidOperationException("Selecione ao menos uma solicitação para distribuir.");
+
+        var entities = await _db.SolicitacoesVaga
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync(ct);
+
+        if (entities.Count != ids.Count)
+            throw new InvalidOperationException("Uma ou mais solicitações selecionadas não foram encontradas.");
+
+        if (entities.Any(x => !PermiteDistribuicaoAnalistaRh(x.Status)))
+            throw new InvalidOperationException("Só é possível distribuir solicitações já aprovadas pelo gestor requisitante.");
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var entity in entities)
+        {
+            entity.AnalistaRhResponsavelUserId = analistaRhResponsavelUserId;
+            entity.UpdatedAtUtc = now;
+            await SyncAnalistaRhNaVagaAsync(entity, ct);
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return entities.Count;
+    }
+
     private async Task<bool> CanUsuarioVerSolicitacaoVagaAsync(Guid solicitanteId, Guid? centroCustoId, Guid solicitacaoId, CancellationToken ct)
     {
         if (_currentUser.IsAdmin) return true;
-        if (_currentUser.HasPermission("*")
-            || _currentUser.HasPermission("rh.contratacoes.view")
-            || _currentUser.HasPermission("rh.contratacoes.triagem")
-            || _currentUser.HasPermission("rh.contratacoes.selecao"))
+        var currentUserEhAnalistaRh = await CurrentUserEhAnalistaRhAsync(ct);
+        if (!currentUserEhAnalistaRh
+            && (_currentUser.HasPermission("*")
+                || _currentUser.HasPermission("rh.contratacoes.view")
+                || _currentUser.HasPermission("rh.contratacoes.triagem")
+                || _currentUser.HasPermission("rh.contratacoes.selecao")))
             return true;
 
         var currentFuncionarioId = _currentUser.FuncionarioId;
         if (currentFuncionarioId.HasValue && solicitanteId == currentFuncionarioId.Value)
             return true;
+
+        if (_currentUser.UserId.HasValue)
+        {
+            var assignedToCurrentUser = await _db.SolicitacoesVaga
+                .AsNoTracking()
+                .AnyAsync(s => s.Id == solicitacaoId && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value, ct);
+            if (assignedToCurrentUser)
+                return true;
+        }
 
         var userRoleIds = _currentUser.UserId.HasValue
             ? await _db.Set<ApplicationUserRole>().AsNoTracking()
@@ -2655,6 +2854,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.Solicitante?.Name,
         s.AprovadorId,
         s.Aprovador?.Name,
+        s.AnalistaRhResponsavelUserId,
+        s.AnalistaRhResponsavelUser != null ? (s.AnalistaRhResponsavelUser.FullName ?? s.AnalistaRhResponsavelUser.Email) : null,
         s.JobPositionId,
         s.JobPosition?.Name,
         s.UnitId,

@@ -23,6 +23,13 @@ public sealed class SolicitacaoVaga : ITenantEntity
     public Guid? AprovadorId { get; set; }
     public Funcionario? Aprovador { get; set; }
 
+    /// <summary>
+    /// Usuário com perfil Analista de RH responsável por conduzir esta solicitação após a aprovação do gestor.
+    /// A atribuição é feita manualmente por um Especialista de RH.
+    /// </summary>
+    public Guid? AnalistaRhResponsavelUserId { get; set; }
+    public ApplicationUser? AnalistaRhResponsavelUser { get; set; }
+
     /// <summary>Cargo desejado.</summary>
     public Guid? JobPositionId { get; set; }
     public JobPosition? JobPosition { get; set; }

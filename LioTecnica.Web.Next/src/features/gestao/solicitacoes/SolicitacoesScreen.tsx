@@ -52,6 +52,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { RhAnalistaAutocomplete } from "@/components/autocomplete/RhAnalistaAutocomplete";
 
 import SolicitacaoFormModal, { type SolicitacaoDraft } from "./SolicitacaoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
@@ -69,6 +70,8 @@ interface SolicitacaoGridRow {
     solicitanteNome: string | null;
     aprovadorId: string | null;
     aprovadorNome: string | null;
+    analistaRhResponsavelUserId?: string | null;
+    analistaRhResponsavelNome?: string | null;
     centroCustoNome: string | null;
     qtdPosicoes: number;
     tipoSolicitacao: number | string;
@@ -84,6 +87,30 @@ interface SolicitacaoGridRow {
 function isStatusAprovadaOuConcluida(status: number | string): boolean {
     const s = String(status);
     return s === "Aprovada" || s === "2" || s === "Concluida" || s === "8";
+}
+
+function isStatusDistribuivelParaAnalistaRh(status: number | string): boolean {
+    const s = String(status);
+    return s === "PendenteAprovacaoRh"
+        || s === "5"
+        || s === "Aprovada"
+        || s === "2"
+        || s === "Concluida"
+        || s === "8"
+        || s === "EmIntegracao"
+        || s === "7"
+        || s === "PendenteTriagem"
+        || s === "11"
+        || s === "EmTriagem"
+        || s === "12"
+        || s === "DevolvidaTriagemGestor"
+        || s === "13"
+        || s === "PendenteIntegracaoRm"
+        || s === "14"
+        || s === "ErroIntegracaoRm"
+        || s === "15"
+        || s === "AguardandoReprocessamentoRm"
+        || s === "16";
 }
 
 function dedupeSolicitacoesPorId(items: SolicitacaoGridRow[]): SolicitacaoGridRow[] {
@@ -103,6 +130,8 @@ interface SolicitacaoDetail {
     solicitanteNome: string | null;
     aprovadorId: string | null;
     aprovadorNome: string | null;
+    analistaRhResponsavelUserId?: string | null;
+    analistaRhResponsavelNome?: string | null;
     jobPositionId: string | null;
     jobPositionName: string | null;
     centroCustoId: string | null;
@@ -287,22 +316,33 @@ function SolicitacoesVagaContent() {
     const { me } = useAuth();
     const router = useRouter();
     const prefersMobileForm = useMobileSolicitacaoFormPreferred();
+    const canViewRhContratacoes = useHasPermission("rh.contratacoes.view");
+    const canTriagemRhContratacoes = useHasPermission("rh.contratacoes.triagem");
+    const canSelecaoRhContratacoes = useHasPermission("rh.contratacoes.selecao");
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
     const isAdminOrOwner = useIsAdminOrOwner();
-    const isRhEspecialista = me?.roles?.some((r: string) => {
-        const role = r.trim().toLowerCase();
-        return role === "rh" || role === "recrutador" || role === "especialista de rh";
-    }) ?? false;
+    const normalizedRoles = useMemo(
+        () => (me?.roles ?? []).map((r: string) => r.trim().toLowerCase()),
+        [me?.roles],
+    );
+    const isRhAnalista = normalizedRoles.some((role) => role.includes("analista") && role.includes("rh"));
+    const isRhEspecialista = normalizedRoles.some((role) => role.includes("especialista") && role.includes("rh"));
+    const isRhLegadoAmplo = normalizedRoles.some((role) => role === "rh" || role.startsWith("recrutador"));
     const rhListaAmpla =
-        isRhEspecialista
-        || useHasPermission("rh.contratacoes.view")
-        || useHasPermission("rh.contratacoes.triagem")
-        || useHasPermission("rh.contratacoes.selecao");
+        !isRhAnalista && (
+            isRhEspecialista
+            || isRhLegadoAmplo
+            || canViewRhContratacoes
+            || canTriagemRhContratacoes
+            || canSelecaoRhContratacoes
+        );
+    const canDistribuirParaAnalistaRh = isAdminOrOwner || isRhEspecialista;
 
     /* ── data ── */
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
     const [pendingRows, setPendingRows] = useState<SolicitacaoGridRow[]>([]);
+    const [selectedSolicitacaoIds, setSelectedSolicitacaoIds] = useState<string[]>([]);
 
     /* ── filters ── */
     const [q, setQ] = useState("");
@@ -336,8 +376,13 @@ function SolicitacoesVagaContent() {
     const [detailOpen, setDetailOpen] = useState(false);
     const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    const [detailAnalistaRh, setDetailAnalistaRh] = useState<{ userId: string | null; nome: string | null }>({ userId: null, nome: null });
+    const [detailAssigning, setDetailAssigning] = useState(false);
 
     const [myFuncionarioId, setMyFuncionarioId] = useState<string | null>(null);
+    const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+    const [bulkAssigning, setBulkAssigning] = useState(false);
+    const [bulkAnalistaRh, setBulkAnalistaRh] = useState<{ userId: string | null; nome: string | null }>({ userId: null, nome: null });
 
     const detailObservadorRh = useMemo(() => {
         if (!detail) return false;
@@ -408,7 +453,7 @@ function SolicitacoesVagaContent() {
                     return ep === funcId;
                 })
                 : [];
-            nextRows = dedupeSolicitacoesPorId([...mine, ...precisoAprovar]);
+            nextRows = dedupeSolicitacoesPorId([...mine, ...allItems, ...precisoAprovar]);
         }
         setRows(nextRows);
 
@@ -422,6 +467,10 @@ function SolicitacoesVagaContent() {
             : allItems.filter((r) => isPendente(r.status));
         setPendingRows(pending);
     }, [myFuncionarioId, rhListaAmpla]);
+
+    useEffect(() => {
+        setSelectedSolicitacaoIds((prev) => prev.filter((id) => rows.some((row) => row.id === id)));
+    }, [rows]);
 
     useEffect(() => {
         let alive = true;
@@ -456,6 +505,12 @@ function SolicitacoesVagaContent() {
             return blob.includes(term);
         });
     }, [q, rows, statusFilter]);
+    const filteredDistribuiveis = useMemo(
+        () => filtered.filter((r) => isStatusDistribuivelParaAnalistaRh(r.status)),
+        [filtered],
+    );
+    const allDistribuiveisSelecionados = filteredDistribuiveis.length > 0
+        && filteredDistribuiveis.every((r) => selectedSolicitacaoIds.includes(r.id));
 
     /* ── KPIs ── */
     const kpis = useMemo(() => {
@@ -512,11 +567,7 @@ function SolicitacoesVagaContent() {
     }
 
     function openView(row: SolicitacaoGridRow) {
-        setViewId(row.id);
-        setEditId(null);
-        setResubmit(false);
-        bumpFormNonce();
-        setFormOpen(true);
+        void openDetail(row);
     }
 
     async function openTimeline(row: SolicitacaoGridRow) {
@@ -560,11 +611,75 @@ function SolicitacoesVagaContent() {
         try {
             const d = await fetchJson<SolicitacaoDetail>(`${API}/${row.id}`);
             setDetail(d);
+            setDetailAnalistaRh({
+                userId: d.analistaRhResponsavelUserId ?? null,
+                nome: d.analistaRhResponsavelNome ?? null,
+            });
         } catch {
             toast.error("Falha ao carregar detalhes.");
             setDetailOpen(false);
         } finally {
             setDetailLoading(false);
+        }
+    }
+
+    function toggleSolicitacaoSelection(id: string, checked: boolean) {
+        setSelectedSolicitacaoIds((prev) => {
+            if (checked) return prev.includes(id) ? prev : [...prev, id];
+            return prev.filter((item) => item !== id);
+        });
+    }
+
+    async function distribuirSolicitacoesSelecionadas() {
+        if (selectedSolicitacaoIds.length === 0) {
+            toast.error("Selecione ao menos uma solicitação.");
+            return;
+        }
+
+        setBulkAssigning(true);
+        try {
+            await fetchJson(`${API}/distribuicao/analista-rh`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    solicitacaoIds: selectedSolicitacaoIds,
+                    analistaRhResponsavelUserId: bulkAnalistaRh.userId,
+                }),
+            });
+            toast.success("Solicitações distribuídas com sucesso.");
+            setBulkAssignOpen(false);
+            setSelectedSolicitacaoIds([]);
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha ao distribuir: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setBulkAssigning(false);
+        }
+    }
+
+    async function distribuirSolicitacaoDoModal() {
+        if (!detail) return;
+
+        setDetailAssigning(true);
+        try {
+            const updated = await fetchJson<SolicitacaoDetail>(`${API}/${detail.id}/analista-rh`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    analistaRhResponsavelUserId: detailAnalistaRh.userId,
+                }),
+            });
+            setDetail(updated);
+            setDetailAnalistaRh({
+                userId: updated.analistaRhResponsavelUserId ?? null,
+                nome: updated.analistaRhResponsavelNome ?? null,
+            });
+            toast.success("Solicitação distribuída com sucesso.");
+            await syncList();
+        } catch (e) {
+            toast.error(`Falha ao distribuir: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setDetailAssigning(false);
         }
     }
 
@@ -651,6 +766,16 @@ function SolicitacoesVagaContent() {
                     <Plus className="size-4 mr-1" />
                     Nova posição
                 </Button>
+                {canDistribuirParaAnalistaRh && (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={selectedSolicitacaoIds.length === 0}
+                        onClick={() => setBulkAssignOpen(true)}
+                    >
+                        Distribuir para Analista de RH
+                    </Button>
+                )}
                 <div className="ml-auto flex items-center gap-2">
                     <Button
                         variant="outline"
@@ -753,6 +878,26 @@ function SolicitacoesVagaContent() {
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            {canDistribuirParaAnalistaRh && (
+                                <TableHead className="w-10">
+                                    <input
+                                        type="checkbox"
+                                        aria-label="Selecionar solicitações distribuíveis"
+                                        checked={allDistribuiveisSelecionados}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedSolicitacaoIds((prev) => Array.from(new Set([
+                                                    ...prev,
+                                                    ...filteredDistribuiveis.map((row) => row.id),
+                                                ])));
+                                            } else {
+                                                setSelectedSolicitacaoIds((prev) =>
+                                                    prev.filter((id) => !filteredDistribuiveis.some((row) => row.id === id)));
+                                            }
+                                        }}
+                                    />
+                                </TableHead>
+                            )}
                             <TableHead>Título</TableHead>
                             <TableHead>Tipo</TableHead>
                             <TableHead>Posições</TableHead>
@@ -766,13 +911,24 @@ function SolicitacoesVagaContent() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 9 : 8} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
                         ) : filtered.length ? (
                             filtered.map((r) => (
                                 <TableRow key={r.id} className="hover:bg-muted/40">
+                                    {canDistribuirParaAnalistaRh && (
+                                        <TableCell onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                aria-label={`Selecionar ${r.titulo}`}
+                                                checked={selectedSolicitacaoIds.includes(r.id)}
+                                                disabled={!isStatusDistribuivelParaAnalistaRh(r.status)}
+                                                onChange={(e) => toggleSolicitacaoSelection(r.id, e.target.checked)}
+                                            />
+                                        </TableCell>
+                                    )}
                                     <TableCell>
                                         <div className="flex items-center gap-1.5">
                                             <span className="font-semibold">{r.titulo}</span>
@@ -783,6 +939,11 @@ function SolicitacoesVagaContent() {
                                         {r.substituidoNome && (
                                             <div className="text-muted-foreground text-xs flex items-center gap-1">
                                                 <UserMinus className="size-3" /> Substituindo: {r.substituidoNome}
+                                            </div>
+                                        )}
+                                        {r.analistaRhResponsavelNome && (
+                                            <div className="text-muted-foreground text-xs">
+                                                Distribuída para: <span className="font-medium text-foreground">{r.analistaRhResponsavelNome}</span>
                                             </div>
                                         )}
                                     </TableCell>
@@ -908,7 +1069,7 @@ function SolicitacoesVagaContent() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 9 : 8} className="text-center text-muted-foreground py-8">
                                     {statusFilter === "ativas"
                                         ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
                                         : "Nenhuma solicitação encontrada para o filtro selecionado."}
@@ -1056,6 +1217,10 @@ function SolicitacoesVagaContent() {
                                     <div className="text-sm">{detail.aprovadorNome || "—"}</div>
                                 </div>
                                 <div>
+                                    <div className="text-xs text-muted-foreground uppercase">Analista RH</div>
+                                    <div className="text-sm">{detail.analistaRhResponsavelNome || "Não distribuída"}</div>
+                                </div>
+                                <div>
                                     <div className="text-xs text-muted-foreground uppercase">Data criação</div>
                                     <div className="text-sm">{formatDate(detail.createdAtUtc)}</div>
                                 </div>
@@ -1112,6 +1277,35 @@ function SolicitacoesVagaContent() {
                                             : "bg-amber-500/10 border-amber-500/20"
                                     }`}>
                                         {detail.observacaoAprovador}
+                                    </div>
+                                </div>
+                            )}
+
+                            {canDistribuirParaAnalistaRh && isStatusDistribuivelParaAnalistaRh(detail.status) && (
+                                <div className="space-y-3 rounded-lg border border-border/60 p-3">
+                                    <div className="text-sm font-semibold">Distribuir para Analista de RH</div>
+                                    <RhAnalistaAutocomplete
+                                        value={detailAnalistaRh.userId}
+                                        onChange={(userId, displayName) => setDetailAnalistaRh({ userId, nome: displayName })}
+                                        defaultLabel={detailAnalistaRh.nome ? { name: detailAnalistaRh.nome } : undefined}
+                                        disabled={detailAssigning}
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={detailAssigning}
+                                            onClick={() => setDetailAnalistaRh({ userId: null, nome: null })}
+                                        >
+                                            Limpar
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            disabled={detailAssigning}
+                                            onClick={() => void distribuirSolicitacaoDoModal()}
+                                        >
+                                            Distribuir
+                                        </Button>
                                     </div>
                                 </div>
                             )}
@@ -1190,6 +1384,40 @@ function SolicitacoesVagaContent() {
                             )}
                         </div>
                     ) : null}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Distribuir solicitações</DialogTitle>
+                        <DialogDescription>
+                            Direcione {selectedSolicitacaoIds.length} solicitação(ões) para um Analista de RH.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                        <RhAnalistaAutocomplete
+                            value={bulkAnalistaRh.userId}
+                            onChange={(userId, displayName) => setBulkAnalistaRh({ userId, nome: displayName })}
+                            defaultLabel={bulkAnalistaRh.nome ? { name: bulkAnalistaRh.nome } : undefined}
+                            disabled={bulkAssigning}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            disabled={bulkAssigning}
+                            onClick={() => setBulkAnalistaRh({ userId: null, nome: null })}
+                        >
+                            Limpar
+                        </Button>
+                        <Button
+                            disabled={bulkAssigning || selectedSolicitacaoIds.length === 0}
+                            onClick={() => void distribuirSolicitacoesSelecionadas()}
+                        >
+                            Distribuir
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
