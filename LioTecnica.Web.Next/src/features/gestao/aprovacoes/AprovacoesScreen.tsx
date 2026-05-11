@@ -609,7 +609,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const [detailOpen, setDetailOpen] = useState(false);
     const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
-    const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
+    const [lastApproved, setLastApproved] = useState<{ titulo: string } | null>(null);
 
     /* ── Generic detail for other types ── */
     const [genericDetailOpen, setGenericDetailOpen] = useState(false);
@@ -907,7 +907,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             });
             toast.success(`Solicitação: ${labels[action]}!`);
             if (action === "approve" && detail) {
-                setLastApproved({ id: detail.id, titulo: detail.titulo });
+                setLastApproved({ titulo: detail.titulo });
             }
             setDetailOpen(false);
             pendencias.refresh();
@@ -1094,10 +1094,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 <NextStepBanner
                     variant="success"
                     title="Solicitação aprovada!"
-                    description={`"${lastApproved.titulo}" foi aprovada. Crie a vaga para iniciar o recrutamento.`}
-                    actions={[
-                        { label: "Criar Vaga", href: `/vagas?newFromSolicitacao=${encodeURIComponent(lastApproved.id)}` },
-                    ]}
+                    description={`"${lastApproved.titulo}" foi aprovada. A vaga mínima foi criada automaticamente e o RH já pode prosseguir com o processo.`}
                     onDismiss={() => setLastApproved(null)}
                 />
             )}
