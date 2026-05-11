@@ -346,7 +346,8 @@ function SolicitacoesVagaContent() {
 
     /* ── filters ── */
     const [q, setQ] = useState("");
-    // "ativas" = padrão enterprise: mostra apenas itens que exigem ação/atenção
+    // "ativas" = padrão enterprise: mostra itens em andamento no fluxo,
+    // incluindo solicitações já aprovadas que ainda seguem para tratativa do RH.
     const [statusFilter, setStatusFilter] = useState("ativas");
     const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
         if (typeof window === "undefined") return "list";
@@ -484,10 +485,10 @@ function SolicitacoesVagaContent() {
     /* ── filtering ── */
     const ATIVAS = new Set([
         "Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh",
-        "PendenteAprovacaoAumentoHC", "EmIntegracao",
+        "PendenteAprovacaoAumentoHC", "Aprovada", "Concluida", "EmIntegracao",
         "PendenteTriagem", "EmTriagem", "DevolvidaTriagemGestor",
         "PendenteIntegracaoRm", "ErroIntegracaoRm", "AguardandoReprocessamentoRm",
-        "0", "1", "4", "5", "7", "10", "11", "12", "13", "14", "15", "16",
+        "0", "1", "2", "4", "5", "7", "8", "10", "11", "12", "13", "14", "15", "16",
     ]);
     const APROVADAS = new Set(["Aprovada", "Concluida", "2", "8"]);
 
