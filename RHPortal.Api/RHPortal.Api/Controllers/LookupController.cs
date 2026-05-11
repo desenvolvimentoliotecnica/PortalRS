@@ -286,6 +286,46 @@ public sealed class LookupController : ControllerBase
     }
 
     /// <summary>
+    /// Lista usuários com perfil Analista de RH para distribuição manual de solicitações
+    /// feita por Especialista de RH.
+    /// </summary>
+    [HttpGet("users-analistas-rh")]
+    [ProducesResponseType(typeof(IReadOnlyList<UserRecrutadorLookupItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<UserRecrutadorLookupItem>>> UsersAnalistasRh(CancellationToken ct)
+    {
+        var analistaRoleIds = await _db.Roles
+            .AsNoTracking()
+            .Where(r => r.Name != null
+                && r.Name.ToLower().Contains("analista")
+                && r.Name.ToLower().Contains("rh"))
+            .Select(r => r.Id)
+            .ToListAsync(ct);
+
+        if (analistaRoleIds.Count == 0)
+            return Ok(new List<UserRecrutadorLookupItem>());
+
+        var userIds = await _db.Set<ApplicationUserRole>()
+            .AsNoTracking()
+            .Where(ur => analistaRoleIds.Contains(ur.RoleId))
+            .Select(ur => ur.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (userIds.Count == 0)
+            return Ok(new List<UserRecrutadorLookupItem>());
+
+        var items = await _db.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id) && u.IsActive)
+            .OrderBy(u => u.FullName)
+            .ThenBy(u => u.Email)
+            .Select(u => new UserRecrutadorLookupItem(u.Id, u.FullName ?? "", u.Email ?? ""))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
     /// Busca funcionários com paginação (para seleção e filtros).
     /// </summary>
     [HttpGet("funcionarios")]

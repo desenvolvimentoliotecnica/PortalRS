@@ -194,6 +194,16 @@ public sealed class SolicitacaoVagaApprovalRequest
     public string? Observacao { get; set; }
 }
 
+public sealed record AssignAnalistaRhRequest(Guid? AnalistaRhResponsavelUserId);
+
+public sealed class BulkAssignAnalistaRhRequest
+{
+    [Required]
+    public IReadOnlyList<Guid> SolicitacaoIds { get; set; } = Array.Empty<Guid>();
+
+    public Guid? AnalistaRhResponsavelUserId { get; set; }
+}
+
 // ── Triagem (fluxo AumentoQuadro — CMP-03 / FLX-02…FLX-04) ──
 
 /// <summary>Devolução da triagem ao gestor para ajustes.</summary>
@@ -242,6 +252,8 @@ public sealed record SolicitacaoVagaResponse(
     string? SolicitanteNome,
     Guid? AprovadorId,
     string? AprovadorNome,
+    Guid? AnalistaRhResponsavelUserId,
+    string? AnalistaRhResponsavelNome,
     Guid? JobPositionId,
     string? JobPositionName,
     Guid? UnitId,
@@ -319,6 +331,8 @@ public sealed record SolicitacaoVagaGridRow(
     string? SolicitanteNome,
     Guid? AprovadorId,
     string? AprovadorNome,
+    Guid? AnalistaRhResponsavelUserId,
+    string? AnalistaRhResponsavelNome,
     /// <summary>Nome do centro de custo — absorveu Area em 31.2.</summary>
     string? CentroCustoNome,
     int QtdPosicoes,

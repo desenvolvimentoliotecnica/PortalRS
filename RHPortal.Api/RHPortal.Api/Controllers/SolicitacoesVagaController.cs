@@ -59,6 +59,56 @@ public sealed class SolicitacoesVagaController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    [HttpPatch("{id:guid}/analista-rh")]
+    [RequirePermission("rh.contratacoes.selecao")]
+    [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AssignAnalistaRh(
+        [FromRoute] Guid id,
+        [FromBody] AssignAnalistaRhRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var updated = await _service.AssignAnalistaRhAsync(id, request.AnalistaRhResponsavelUserId, ct);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("distribuicao/analista-rh")]
+    [RequirePermission("rh.contratacoes.selecao")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> BulkAssignAnalistaRh(
+        [FromBody] BulkAssignAnalistaRhRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            await _service.BulkAssignAnalistaRhAsync(request.SolicitacaoIds, request.AnalistaRhResponsavelUserId, ct);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Cria uma nova solicitação de vaga (rascunho).</summary>
     [HttpPost]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status201Created)]
