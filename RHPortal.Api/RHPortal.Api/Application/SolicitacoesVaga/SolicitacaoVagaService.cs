@@ -2395,16 +2395,29 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 .ToListAsync(ct)
             : new List<Guid>();
 
-        var inEtapa = await _db.SolicitacoesAprovacaoEtapa.AsNoTracking()
+        var inEtapaPendente = await _db.SolicitacoesAprovacaoEtapa.AsNoTracking()
             .AnyAsync(e => e.SolicitacaoId == solicitacaoId
-                           && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                           && (e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                               || e.TipoFluxo == TipoFluxoAprovacao.AumentoHeadcount)
                            && e.Status == StatusAprovacao.Pendente
                            && (
                                (e.AprovadorId.HasValue && e.AprovadorId == currentFuncionarioId)
                                || (e.RoleFilaId.HasValue && userRoleIds.Contains(e.RoleFilaId.Value))
                                || (e.AssumedByUserId.HasValue && e.AssumedByUserId == _currentUser.UserId)
                            ), ct);
-        if (inEtapa) return true;
+        if (inEtapaPendente) return true;
+
+        // Etapas canceladas após "solicitar ajustes" não são Pendente — sem isto o aprovador recebia 404 no GET
+        // e na resposta de request-changes (GetByIdAsync), embora o status da solicitação tivesse sido atualizado.
+        var participouComoAprovadorOuAssumiu = await _db.SolicitacoesAprovacaoEtapa.AsNoTracking()
+            .AnyAsync(e => e.SolicitacaoId == solicitacaoId
+                           && (e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                               || e.TipoFluxo == TipoFluxoAprovacao.AumentoHeadcount)
+                           && (
+                               (e.AprovadorId.HasValue && e.AprovadorId == currentFuncionarioId)
+                               || (e.AssumedByUserId.HasValue && e.AssumedByUserId == _currentUser.UserId)
+                           ), ct);
+        if (participouComoAprovadorOuAssumiu) return true;
 
         if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.CentroCustoId.HasValue)
             return centroCustoId == _currentUser.CentroCustoId.Value;
