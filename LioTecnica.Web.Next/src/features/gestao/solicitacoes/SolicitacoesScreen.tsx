@@ -289,8 +289,13 @@ function SolicitacoesVagaContent() {
     const prefersMobileForm = useMobileSolicitacaoFormPreferred();
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
     const isAdminOrOwner = useIsAdminOrOwner();
+    const isRhEspecialista = me?.roles?.some((r: string) => {
+        const role = r.trim().toLowerCase();
+        return role === "rh" || role === "recrutador" || role === "especialista de rh";
+    }) ?? false;
     const rhListaAmpla =
-        useHasPermission("rh.contratacoes.view")
+        isRhEspecialista
+        || useHasPermission("rh.contratacoes.view")
         || useHasPermission("rh.contratacoes.triagem")
         || useHasPermission("rh.contratacoes.selecao");
 
