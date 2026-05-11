@@ -22,4 +22,10 @@ public sealed class ApplicationRole : IdentityRole<Guid>, ITenantEntity
 
     /// <summary>Tipo/categoria do perfil: RH, Colaborador ou Gestor.</summary>
     public RoleTipo Tipo { get; set; } = RoleTipo.Colaborador;
+
+    /// <summary>
+    /// Quando true, as permissões do perfil vêm das atribuições feitas na tela de acessos
+    /// (<see cref="RoleMenu"/>) em vez do manifesto code-first.
+    /// </summary>
+    public bool UseCustomPermissions { get; set; }
 }

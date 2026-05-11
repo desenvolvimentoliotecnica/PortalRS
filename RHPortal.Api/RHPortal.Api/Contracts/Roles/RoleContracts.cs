@@ -66,4 +66,5 @@ public sealed record RoleMenuAssignmentResponse(
 /// </summary>
 public sealed record RoleEffectivePermissionsResponse(
     IReadOnlyList<string> PermissionKeys,
-    bool IsWildcard);
+    bool IsWildcard,
+    bool IsCustomConfigured);

@@ -131,15 +131,128 @@ public sealed class RoleAdministrationService
     }
 
     /// <summary>
-    /// Resolve permissões efetivas para um perfil (manifesto code-first). Não há gravação em DB.
+    /// Resolve permissões efetivas para um perfil. Se o perfil tiver configuração manual,
+    /// usa <see cref="RoleMenu"/>; caso contrário, usa o manifesto code-first.
     /// </summary>
     public async Task<RoleEffectivePermissionsResponse?> GetEffectivePermissionsAsync(Guid id, CancellationToken ct)
     {
         var role = await _roleManager.Roles.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (role is null) return null;
 
-        var keys = RolePermissionManifest.GetPermissions(new[] { role }).ToList();
+        var keys = await ResolvePermissionsAsync(new[] { role }, ct);
         var wildcard = keys.Count == 1 && string.Equals(keys[0], "*", StringComparison.Ordinal);
-        return new RoleEffectivePermissionsResponse(keys, wildcard);
+        return new RoleEffectivePermissionsResponse(keys, wildcard, role.UseCustomPermissions);
+    }
+
+    public async Task<IReadOnlyList<string>> ResolvePermissionsAsync(IEnumerable<ApplicationRole> roles, CancellationToken ct)
+    {
+        var roleList = roles.ToList();
+        if (roleList.Count == 0) return [];
+
+        var permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var manifestoRoles = roleList.Where(r => !r.UseCustomPermissions).ToList();
+        foreach (var key in RolePermissionManifest.GetPermissions(manifestoRoles))
+        {
+            if (string.Equals(key, "*", StringComparison.Ordinal))
+                return ["*"];
+            permissions.Add(key);
+        }
+
+        var customRoleIds = roleList
+            .Where(r => r.UseCustomPermissions)
+            .Select(r => r.Id)
+            .Distinct()
+            .ToList();
+
+        if (customRoleIds.Count > 0)
+        {
+            var customKeys = await _db.RoleMenus
+                .AsNoTracking()
+                .Where(x => customRoleIds.Contains(x.RoleId))
+                .Select(x => x.PermissionKey)
+                .Distinct()
+                .ToListAsync(ct);
+
+            foreach (var key in customKeys)
+                permissions.Add(key);
+        }
+
+        return permissions
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<RoleEffectivePermissionsResponse?> UpdateRoleMenusAsync(Guid id, RoleMenusUpdateRequest request, CancellationToken ct)
+    {
+        var role = await _roleManager.Roles.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (role is null) return null;
+
+        var items = (request.Items ?? Array.Empty<RoleMenuAssignmentRequest>())
+            .GroupBy(x => x.MenuId)
+            .Select(g => g.First())
+            .ToList();
+
+        var menuIds = items.Select(x => x.MenuId).Distinct().ToList();
+        var menusById = menuIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _db.Menus
+                .AsNoTracking()
+                .Where(x => menuIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, x => x.PermissionKey, ct);
+
+        if (menusById.Count != menuIds.Count)
+            throw new InvalidOperationException("Um ou mais menus informados não existem.");
+
+        foreach (var item in items)
+        {
+            if (!menusById.TryGetValue(item.MenuId, out var expectedPermission))
+                throw new InvalidOperationException("Menu inválido.");
+
+            if (!string.Equals(expectedPermission, item.PermissionKey, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("A permissão informada não corresponde ao menu selecionado.");
+        }
+
+        var currentAssignments = await _db.RoleMenus
+            .Where(x => x.RoleId == id)
+            .ToListAsync(ct);
+
+        _db.RoleMenus.RemoveRange(currentAssignments);
+
+        var now = DateTimeOffset.UtcNow;
+        if (items.Count > 0)
+        {
+            _db.RoleMenus.AddRange(items.Select(item => new RoleMenu
+            {
+                Id = Guid.NewGuid(),
+                TenantId = role.TenantId,
+                RoleId = role.Id,
+                MenuId = item.MenuId,
+                PermissionKey = item.PermissionKey.Trim(),
+                CreatedAtUtc = now,
+            }));
+        }
+
+        role.UseCustomPermissions = true;
+        role.UpdatedAtUtc = now;
+        await _db.SaveChangesAsync(ct);
+
+        return await GetEffectivePermissionsAsync(id, ct);
+    }
+
+    public async Task<bool> ResetRoleMenusToManifestAsync(Guid id, CancellationToken ct)
+    {
+        var role = await _roleManager.Roles.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (role is null) return false;
+
+        var currentAssignments = await _db.RoleMenus
+            .Where(x => x.RoleId == id)
+            .ToListAsync(ct);
+
+        _db.RoleMenus.RemoveRange(currentAssignments);
+        role.UseCustomPermissions = false;
+        role.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return true;
     }
 }
