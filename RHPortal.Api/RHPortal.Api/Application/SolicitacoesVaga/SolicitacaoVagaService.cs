@@ -142,7 +142,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         else if (!_currentUser.IsAdmin)
         {
             var listaAmplaRh =
-                (_currentUser.HasPermission("*")
+                (_currentUser.IsRH
+                 || _currentUser.HasPermission("*")
                  || _currentUser.HasPermission("rh.contratacoes.view")
                  || _currentUser.HasPermission("rh.contratacoes.triagem")
                  || _currentUser.HasPermission("rh.contratacoes.selecao"))
