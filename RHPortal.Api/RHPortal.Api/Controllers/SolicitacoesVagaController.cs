@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.SolicitacoesVaga;
@@ -60,7 +61,7 @@ public sealed class SolicitacoesVagaController : ControllerBase
     }
 
     [HttpPatch("{id:guid}/analista-rh")]
-    [RequirePermission("rh.contratacoes.selecao")]
+    [Authorize]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -86,7 +87,7 @@ public sealed class SolicitacoesVagaController : ControllerBase
     }
 
     [HttpPost("distribuicao/analista-rh")]
-    [RequirePermission("rh.contratacoes.selecao")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
