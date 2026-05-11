@@ -31,6 +31,7 @@ import {
     normalizeSolicitacaoStatusOrdinal,
     statusBadge as solicitacaoVagaStatusBadgeMeta,
 } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
+import SolicitacaoForm from "@/features/gestao/solicitacoes/SolicitacaoForm";
 
 import NextStepBanner from "@/components/feedback/NextStepBanner";
 import DesligamentoFormModal from "@/features/gestao/desligamentos/DesligamentoFormModal";
@@ -53,11 +54,6 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import {
-    Tabs,
-    TabsList,
-    TabsTrigger,
-} from "@/components/ui/tabs";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -613,12 +609,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const [detailOpen, setDetailOpen] = useState(false);
     const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
-    const [contratacaoDetailModalTab, setContratacaoDetailModalTab] = useState<"identificacao" | "aprovacao">("identificacao");
     const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
-
-    useEffect(() => {
-        if (detailOpen) setContratacaoDetailModalTab("identificacao");
-    }, [detailOpen, detail?.id]);
 
     /* ── Generic detail for other types ── */
     const [genericDetailOpen, setGenericDetailOpen] = useState(false);
@@ -1471,8 +1462,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             {/* ── Contratação Detail Dialog ── */}
             <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
                 <DialogContent className="flex h-[90vh] max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
-                    {/* Cabeçalho fixo + abas */}
-                    <div className="shrink-0 space-y-4 border-b bg-background px-6 pt-6 pb-4 pr-14">
+                    <div className="shrink-0 border-b bg-background px-6 pt-6 pb-4 pr-14">
                         <DialogHeader className="space-y-2 text-left">
                             <DialogTitle className="flex items-center gap-2">
                                 Analisar Solicitação de Contratação
@@ -1480,17 +1470,6 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                             </DialogTitle>
                             <DialogDescription>Revise os detalhes e tome uma ação.</DialogDescription>
                         </DialogHeader>
-                        {!detailLoading && detail && (
-                            <Tabs
-                                value={contratacaoDetailModalTab}
-                                onValueChange={(v) => setContratacaoDetailModalTab(v === "aprovacao" ? "aprovacao" : "identificacao")}
-                            >
-                                <TabsList>
-                                    <TabsTrigger value="identificacao">Identificação</TabsTrigger>
-                                    <TabsTrigger value="aprovacao">Aprovação</TabsTrigger>
-                                </TabsList>
-                            </Tabs>
-                        )}
                     </div>
 
                     {detailLoading ? (
@@ -1499,67 +1478,16 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                         </div>
                     ) : detail ? (
                         <>
-                            {/* Conteúdo rolável — altura estável ao trocar aba */}
-                            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-4">
-                                {contratacaoDetailModalTab === "identificacao" ? (
-                                    <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-3">
-                                        <SectionDivider title="Identificação" />
-                                        <div className="sm:col-span-2"><DetailField label="Empresa" value={detail.empresaNome} /></div>
-                                        <DetailField label="Tipo de Contrato" value={enumLabel(TIPO_CONTRATO_MAP, detail.tipoContrato)} />
-                                        <div className="sm:col-span-2"><DetailField label="Local (Unidade)" value={detail.unitName} /></div>
-                                        <DetailField label="Prazo (dias)" value={detail.tipoContrato !== 0 && detail.prazoDias ? `${detail.prazoDias} dias` : "—"} />
-                                        <div className="sm:col-span-2"><DetailField label="Centro de Custo" value={detail.centroCustoNome} /></div>
-                                        <DetailField label="Qtd. Posições" value={<span className="font-mono font-semibold">{detail.qtdPosicoes}</span>} />
-                                        <div className="sm:col-span-2"><DetailField label="Lotação" value={detail.unidadeLotacaoNome} /></div>
-                                        <DetailField label="Urgência" value={urgenciaBadge(detail.urgencia)} />
-
-                                        <SectionDivider title="Dados da Vaga" />
-                                        <div className="sm:col-span-3"><DetailField label="Título da Vaga" value={<span className="font-semibold">{detail.titulo}</span>} /></div>
-                                        <div className="sm:col-span-3">
-                                            <DetailField
-                                                label="Função (RM)"
-                                                value={
-                                                    detail.codFuncaoRm
-                                                        ? `${detail.codFuncaoRm}${detail.funcaoNomeRm ? ` — ${detail.funcaoNomeRm}` : ""}`
-                                                        : "—"
-                                                }
-                                            />
-                                        </div>
-                                        <DetailField label="Cargo" value={detail.jobPositionName} />
-                                        <DetailField label="Tipo de Solicitação" value={enumLabel(TIPO_SOLICITACAO_MAP, detail.tipoSolicitacao)} />
-                                        <DetailField label="Substituído" value={detail.tipoSolicitacao === 1 ? detail.substituidoNome : "—"} />
-                                        <div className="sm:col-span-3"><DetailField label="Motivo da Requisição" value={enumLabel(MOTIVO_REQUISICAO_MAP, detail.motivoRequisicao)} /></div>
-                                        <div className="sm:col-span-3 flex flex-wrap items-center gap-4">
-                                            <div className="flex items-center gap-1.5 text-xs"><span className="text-muted-foreground">CNH obrigatória:</span> <BoolBadge value={detail.cnhObrigatoria} /></div>
-                                            <div className="flex items-center gap-1.5 text-xs"><span className="text-muted-foreground">Disp. viagens:</span> <BoolBadge value={detail.disponibilidadeViagens} /></div>
-                                            <div className="flex items-center gap-1.5 text-xs"><span className="text-muted-foreground">Confidencial:</span> <BoolBadge value={detail.isConfidencial} /></div>
-                                        </div>
-                                        {detail.justificativa && (
-                                            <div className="sm:col-span-3">
-                                                <div className="text-xs text-muted-foreground uppercase">Justificativa</div>
-                                                <div className="mt-1 text-sm rounded-md bg-muted/30 p-3">{detail.justificativa}</div>
-                                            </div>
-                                        )}
-
-                                        <SectionDivider title="Informações Gerais" />
-                                        <DetailField label="Solicitante" value={detail.solicitanteNome} />
-                                        <DetailField label="Centro de Custo" value={detail.centroCustoNome} />
-                                        <DetailField label="Data criação" value={formatDate(detail.createdAtUtc)} />
-                                        <DetailField label="Status" value={<SolicitacaoVagaStatusBadgeEl raw={detail.status} />} />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {detail.etapasFluxo && detail.etapasFluxo.length > 0 && (
-                                            <WorkflowTimeline etapas={detail.etapasFluxo} />
-                                        )}
-                                        {detail.observacaoAprovador && (
-                                            <div>
-                                                <div className="text-xs text-muted-foreground uppercase">Observação do aprovador</div>
-                                                <div className="mt-1 text-sm rounded-md bg-muted/30 p-3">{detail.observacaoAprovador}</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                            <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
+                                <SolicitacaoForm
+                                    key={detail.id}
+                                    active={detailOpen}
+                                    editId={detail.id}
+                                    onCancel={() => {}}
+                                    onSuccess={() => {}}
+                                    viewOnly
+                                    hideFooter
+                                />
                             </div>
 
                             {solicitacaoVagaStatusAllowsApprovalActions(detail.status) && (

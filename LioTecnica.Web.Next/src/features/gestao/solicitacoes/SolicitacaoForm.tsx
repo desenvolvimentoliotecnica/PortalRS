@@ -78,6 +78,7 @@ export interface SolicitacaoFormProps {
     onCancel: () => void;
     onSuccess: () => void;
     viewOnly?: boolean;
+    hideFooter?: boolean;
     resubmitAfterSave?: boolean;
     copySourceId?: string | null;
     initialData?: Partial<SolicitacaoDraft> | null;
@@ -573,7 +574,7 @@ function FuncionarioAsyncSelect({
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, viewOnly, resubmitAfterSave, copySourceId, initialData, reloadNonce = 0 }: SolicitacaoFormProps) {
+export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, viewOnly, hideFooter, resubmitAfterSave, copySourceId, initialData, reloadNonce = 0 }: SolicitacaoFormProps) {
     const [draft, setDraft] = useState<SolicitacaoDraft>({ ...emptyDraft });
     const [saving, setSaving] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(false);
@@ -1916,18 +1917,20 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                     </Tabs>
                 )}
 
-                <div className="mt-0 flex shrink-0 flex-wrap justify-end gap-2 border-t border-border bg-background pt-3">
-                    {viewOnly ? (
-                        <Button variant="outline" type="button" onClick={onCancel}>Fechar</Button>
-                    ) : (
-                        <>
-                            <Button variant="outline" type="button" onClick={onCancel} disabled={saving}>Cancelar</Button>
-                            <Button type="button" onClick={() => void save()} disabled={saving || loadingEdit}>
-                                {saving ? "Enviando…" : effectiveResubmitAfterSave ? "Salvar e reenviar para aprovação" : editId ? "Salvar alterações" : "Solicitar aprovação"}
-                            </Button>
-                        </>
-                    )}
-                </div>
+                {!hideFooter && (
+                    <div className="mt-0 flex shrink-0 flex-wrap justify-end gap-2 border-t border-border bg-background pt-3">
+                        {viewOnly ? (
+                            <Button variant="outline" type="button" onClick={onCancel}>Fechar</Button>
+                        ) : (
+                            <>
+                                <Button variant="outline" type="button" onClick={onCancel} disabled={saving}>Cancelar</Button>
+                                <Button type="button" onClick={() => void save()} disabled={saving || loadingEdit}>
+                                    {saving ? "Enviando…" : effectiveResubmitAfterSave ? "Salvar e reenviar para aprovação" : editId ? "Salvar alterações" : "Solicitar aprovação"}
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                )}
         </div>
     );
 }
