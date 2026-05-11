@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    normalizeSolicitacaoStatusOrdinal,
+    SolicitacaoVagaOrdinal,
+} from "@/features/gestao/shared/solicitacaoVagaStatusUi";
 import { ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
@@ -577,6 +581,14 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [observacaoAprovador, setObservacaoAprovador] = useState<string | null>(null);
     const [statusCarregado, setStatusCarregado] = useState<string | number | null>(null);
 
+    /** Salvar + POST /submit quando URL traz resubmit=1 ou quando a solicitação está em Ajustes necessários (devolução do aprovador). */
+    const effectiveResubmitAfterSave = useMemo(
+        () =>
+            resubmitAfterSave
+            || normalizeSolicitacaoStatusOrdinal(statusCarregado) === SolicitacaoVagaOrdinal.AjustesNecessarios,
+        [resubmitAfterSave, statusCarregado],
+    );
+
     /* ── lookups ── */
     const [unidades, setUnidades] = useState<LookupItem[]>([]);
     const [empresas, setEmpresas] = useState<LookupItem[]>([]);
@@ -1142,8 +1154,13 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                     }
                     return;
                 }
-                if (resubmitAfterSave) {
+                if (effectiveResubmitAfterSave) {
                     await fetchJson(`${API}/${editId}/submit`, { method: "POST" });
+                    setStatusCarregado(
+                        draft.tipoSolicitacao === 2
+                            ? SolicitacaoVagaOrdinal.PendenteTriagem
+                            : SolicitacaoVagaOrdinal.PendenteAprovacao,
+                    );
                     toast.success(
                         draft.tipoSolicitacao === 2
                             ? "Solicitação atualizada e reenviada para triagem RH!"
@@ -1906,7 +1923,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         <>
                             <Button variant="outline" type="button" onClick={onCancel} disabled={saving}>Cancelar</Button>
                             <Button type="button" onClick={() => void save()} disabled={saving || loadingEdit}>
-                                {saving ? "Enviando…" : resubmitAfterSave ? "Salvar e reenviar para aprovação" : editId ? "Salvar alterações" : "Solicitar aprovação"}
+                                {saving ? "Enviando…" : effectiveResubmitAfterSave ? "Salvar e reenviar para aprovação" : editId ? "Salvar alterações" : "Solicitar aprovação"}
                             </Button>
                         </>
                     )}
