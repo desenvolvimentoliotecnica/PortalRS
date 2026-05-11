@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
     Search, RefreshCw,
     LayoutDashboard, Briefcase, Users, Calendar, BarChart3,
-    Shield, Settings, MessageSquare, ChevronDown, ChevronRight, Eye, Info,
+    Shield, Settings, MessageSquare, ChevronDown, ChevronRight, Eye, Info, Save, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ interface MenuOption {
 interface EffectivePermissionsResponse {
     permissionKeys: string[];
     isWildcard: boolean;
+    isCustomConfigured: boolean;
 }
 
 /* ── Module grouping ── */
@@ -86,7 +87,16 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
         const body = await res.json().catch(() => null);
         throw new Error((body as any)?.detail || (body as any)?.error || `HTTP ${res.status}`);
     }
+    if (res.status === 204) return null as T;
     return res.json();
+}
+
+function setsEqual(a: Set<string>, b: Set<string>) {
+    if (a.size !== b.size) return false;
+    for (const item of a) {
+        if (!b.has(item)) return false;
+    }
+    return true;
 }
 
 export default function AdminAccessesScreen() {
@@ -94,9 +104,12 @@ export default function AdminAccessesScreen() {
     const [menus, setMenus] = useState<MenuOption[]>([]);
     const [roleId, setRoleId] = useState("");
     const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
+    const [loadedPermissions, setLoadedPermissions] = useState<Set<string>>(new Set());
     const [effectiveWildcard, setEffectiveWildcard] = useState(false);
+    const [isCustomConfigured, setIsCustomConfigured] = useState(false);
     const [loading, setLoading] = useState(true);
     const [loadingAssignments, setLoadingAssignments] = useState(false);
+    const [savingAssignments, setSavingAssignments] = useState(false);
     const [q, setQ] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set());
@@ -124,23 +137,32 @@ export default function AdminAccessesScreen() {
     const loadRoleEffectivePermissions = useCallback(async (id: string) => {
         if (!id) {
             setSelectedPermissions(new Set());
+            setLoadedPermissions(new Set());
             setEffectiveWildcard(false);
+            setIsCustomConfigured(false);
             return;
         }
         setLoadingAssignments(true);
         try {
             const res = await fetchJson<EffectivePermissionsResponse>(`/api/roles/${id}/effective-permissions`);
             setEffectiveWildcard(res.isWildcard);
+            setIsCustomConfigured(res.isCustomConfigured);
             if (res.isWildcard) {
-                setSelectedPermissions(new Set(menus.filter(m => m.permissionKey).map(m => m.permissionKey!)));
+                const keys = new Set(menus.filter(m => m.permissionKey).map(m => m.permissionKey!));
+                setSelectedPermissions(keys);
+                setLoadedPermissions(new Set(keys));
             } else {
-                setSelectedPermissions(new Set(res.permissionKeys ?? []));
+                const keys = new Set(res.permissionKeys ?? []);
+                setSelectedPermissions(keys);
+                setLoadedPermissions(new Set(keys));
             }
         } catch (err) {
             console.error("Failed to load effective permissions", err);
             toast.error("Falha ao carregar permissões do perfil.");
             setSelectedPermissions(new Set());
+            setLoadedPermissions(new Set());
             setEffectiveWildcard(false);
+            setIsCustomConfigured(false);
         } finally {
             setLoadingAssignments(false);
         }
@@ -202,6 +224,67 @@ export default function AdminAccessesScreen() {
     }, [groupedMenus, q, statusFilter, selectedPermissions]);
 
     const selectedRole = roles.find(r => r.id === roleId);
+    const isProtectedRole = ["owner", "admin", "administrador"].includes((selectedRole?.name ?? "").toLowerCase());
+    const canEditAssignments = !!roleId && !effectiveWildcard && !isProtectedRole;
+    const isDirty = useMemo(
+        () => roleId !== "" && !setsEqual(selectedPermissions, loadedPermissions),
+        [roleId, selectedPermissions, loadedPermissions],
+    );
+
+    function togglePermission(permissionKey: string) {
+        if (!canEditAssignments) return;
+        setSelectedPermissions(prev => {
+            const next = new Set(prev);
+            if (next.has(permissionKey)) next.delete(permissionKey);
+            else next.add(permissionKey);
+            return next;
+        });
+    }
+
+    async function saveAssignments() {
+        if (!roleId || !canEditAssignments) return;
+        setSavingAssignments(true);
+        try {
+            const items = menus
+                .filter(m => m.permissionKey && selectedPermissions.has(m.permissionKey))
+                .map(m => ({ menuId: m.id, permissionKey: m.permissionKey! }));
+
+            const res = await fetchJson<EffectivePermissionsResponse>(`/api/roles/${roleId}/menus`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items }),
+            });
+
+            const next = new Set(res.isWildcard
+                ? menus.filter(m => m.permissionKey).map(m => m.permissionKey!)
+                : (res.permissionKeys ?? []));
+            setSelectedPermissions(next);
+            setLoadedPermissions(new Set(next));
+            setEffectiveWildcard(res.isWildcard);
+            setIsCustomConfigured(res.isCustomConfigured);
+            toast.success("Acessos salvos. Usuários desse perfil podem precisar entrar novamente para renovar o token.");
+        } catch (err) {
+            console.error("Failed to save role accesses", err);
+            toast.error(err instanceof Error ? err.message : "Falha ao salvar acessos.");
+        } finally {
+            setSavingAssignments(false);
+        }
+    }
+
+    async function restoreManifest() {
+        if (!roleId) return;
+        setSavingAssignments(true);
+        try {
+            await fetchJson<void>(`/api/roles/${roleId}/menus`, { method: "DELETE" });
+            toast.success("Permissões manuais removidas. O perfil voltou a usar o manifesto.");
+            await loadRoleEffectivePermissions(roleId);
+        } catch (err) {
+            console.error("Failed to restore manifest permissions", err);
+            toast.error(err instanceof Error ? err.message : "Falha ao restaurar manifesto.");
+        } finally {
+            setSavingAssignments(false);
+        }
+    }
 
     // Preview: menus the user would see
     const previewMenus = useMemo(() =>
@@ -215,7 +298,7 @@ export default function AdminAccessesScreen() {
                 <div>
                     <h4 className="text-lg font-bold">Controle de Acessos</h4>
                     <div className="text-muted-foreground text-sm">
-                        Visualização das permissões efetivas por perfil (definidas no código — <span className="font-medium text-foreground">RolePermissionManifest</span>). Não é possível alterar pelo portal.
+                        Gerencie as permissões efetivas por perfil. Perfis sem personalização continuam usando o <span className="font-medium text-foreground">RolePermissionManifest</span>.
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -230,8 +313,8 @@ export default function AdminAccessesScreen() {
             <div className="flex gap-3 rounded-xl border border-border/50 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                 <Info className="size-5 shrink-0 text-primary mt-0.5" aria-hidden />
                 <p>
-                    O botão &quot;Salvar&quot; antigo chamava uma API removida (menús por perfil no banco). Hoje o JWT e a sidebar usam o mapa fixo por tipo/nome de perfil.
-                    Para mudar o que um papel pode fazer, altere o manifesto no backend e faça deploy — ou ajuste o <strong>tipo do perfil</strong> em Admin → Perfis (Roles).
+                    Você pode personalizar os acessos do perfil por esta tela. Se não houver personalização, o sistema usa o manifesto do backend.
+                    Perfis super-admin como <strong>Owner</strong> e <strong>Admin</strong> continuam com bypass de autorização no servidor e, por isso, ficam bloqueados aqui.
                 </p>
             </div>
 
@@ -272,6 +355,27 @@ export default function AdminAccessesScreen() {
                             <RefreshCw className="mr-1 size-4" /> Recarregar
                         </Button>
                     )}
+                    {roleId && (
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void restoreManifest()}
+                                disabled={savingAssignments || loadingAssignments || !isCustomConfigured || isProtectedRole}
+                                title={isProtectedRole ? "Perfis super-admin usam bypass do servidor" : "Restaurar manifesto"}
+                            >
+                                <RotateCcw className="mr-1 size-4" /> Restaurar manifesto
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() => void saveAssignments()}
+                                disabled={!isDirty || savingAssignments || loadingAssignments || !canEditAssignments}
+                                title={isProtectedRole ? "Perfis super-admin usam bypass do servidor" : "Salvar acessos"}
+                            >
+                                <Save className="mr-1 size-4" /> Salvar acessos
+                            </Button>
+                        </>
+                    )}
                     <div className="ml-auto flex flex-wrap items-center gap-2">
                         <div className="relative">
                             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -300,6 +404,15 @@ export default function AdminAccessesScreen() {
                         </div>
                     ) : (
                         <>
+                            <div className="rounded-xl border border-border/40 bg-card/60 px-4 py-3 text-sm text-muted-foreground">
+                                <span className="font-medium text-foreground">{selectedRole?.name}</span>:{" "}
+                                {isProtectedRole
+                                    ? "perfil protegido por bypass de autorização no servidor."
+                                    : isCustomConfigured
+                                        ? "usando permissões personalizadas salvas no banco."
+                                        : "usando permissões padrão do manifesto."}
+                                {!isProtectedRole && <span className="ml-1">Alterações passam a valer plenamente em novas sessões/login.</span>}
+                            </div>
                             {MODULE_CONFIG.filter(mod => filteredGroupedMenus[mod.key]).map(mod => {
                                 const items = filteredGroupedMenus[mod.key];
                                 const isCollapsed = collapsedModules.has(mod.key);
@@ -331,14 +444,16 @@ export default function AdminAccessesScreen() {
                                                         return (
                                                             <label
                                                                 key={m.id}
-                                                                className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${checked ? "bg-primary/5 border-primary/30" : "border-border/40 opacity-80"} cursor-default`}
+                                                                className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                                                                    checked ? "bg-primary/5 border-primary/30" : "border-border/40"
+                                                                } ${canEditAssignments ? "cursor-pointer hover:bg-muted/30" : "cursor-default opacity-80"}`}
                                                             >
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={checked}
-                                                                    readOnly
-                                                                    disabled
-                                                                    className="mt-0.5 rounded border-input opacity-70"
+                                                                    onChange={() => togglePermission(m.permissionKey!)}
+                                                                    disabled={!canEditAssignments}
+                                                                    className="mt-0.5 rounded border-input"
                                                                 />
                                                                 <div className="min-w-0 flex-1">
                                                                     <div className="font-medium text-sm truncate">
@@ -359,7 +474,9 @@ export default function AdminAccessesScreen() {
                             })}
 
                             <p className="text-center text-xs text-muted-foreground py-2">
-                                Somente leitura — permissões vêm do manifesto no servidor.
+                                {canEditAssignments
+                                    ? "Marque/desmarque os acessos e salve para personalizar o perfil."
+                                    : "Somente leitura para este perfil."}
                             </p>
                         </>
                     )}

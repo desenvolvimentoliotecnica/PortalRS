@@ -113,5 +113,43 @@ public sealed class RolesController : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
-    // PUT  {id}/menus  — removed: role→permission mapping is code-first via RolePermissionManifest.
+    [RequirePermission("access.manage")]
+    [HttpPut("{id:guid}/menus")]
+    [ProducesResponseType(typeof(RoleEffectivePermissionsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RoleEffectivePermissionsResponse>> UpdateMenus(
+        [FromRoute] Guid id,
+        [FromBody] RoleMenusUpdateRequest request,
+        [FromServices] RoleAdministrationService service,
+        CancellationToken ct)
+    {
+        try
+        {
+            var item = await service.UpdateRoleMenusAsync(id, request, ct);
+            return item is null ? NotFound() : Ok(item);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Title = _localizer["ControllerErrors.UnableToUpdateRoleTitle"],
+                Detail = ex.Message,
+                Status = StatusCodes.Status409Conflict
+            });
+        }
+    }
+
+    [RequirePermission("access.manage")]
+    [HttpDelete("{id:guid}/menus")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResetMenus(
+        [FromRoute] Guid id,
+        [FromServices] RoleAdministrationService service,
+        CancellationToken ct)
+    {
+        var reset = await service.ResetRoleMenusToManifestAsync(id, ct);
+        return reset ? NoContent() : NotFound();
+    }
 }

@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RhPortal.Api.Contracts.Authentication;
+using RhPortal.Api.Application.Roles;
 using RhPortal.Api.Application.Feedback;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
@@ -25,6 +26,7 @@ public sealed class AuthenticationService
     private readonly JwtOptions _jwtOptions;
     private readonly IEntraTokenValidator _entraTokenValidator;
     private readonly AwardPointsService _awardPointsService;
+    private readonly RoleAdministrationService _roleAdministrationService;
     private const string EntraDefaultRole = "Operacional";
 
     public AuthenticationService(
@@ -34,7 +36,8 @@ public sealed class AuthenticationService
         ITenantContext tenantContext,
         IOptions<JwtOptions> jwtOptions,
         IEntraTokenValidator entraTokenValidator,
-        AwardPointsService awardPointsService)
+        AwardPointsService awardPointsService,
+        RoleAdministrationService roleAdministrationService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
@@ -43,6 +46,7 @@ public sealed class AuthenticationService
         _jwtOptions = jwtOptions.Value;
         _entraTokenValidator = entraTokenValidator;
         _awardPointsService = awardPointsService;
+        _roleAdministrationService = roleAdministrationService;
     }
 
     /// <summary>Inclui CentroCusto e Unit para derivar EmpresaId no perfil/me.</summary>
@@ -172,7 +176,7 @@ public sealed class AuthenticationService
 
         var roleNames = await _userManager.GetRolesAsync(user);
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
-        var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
+        var permissions = (await _roleAdministrationService.ResolvePermissionsAsync(roleEntities, ct)).ToList();
 
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(user, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
@@ -212,7 +216,7 @@ public sealed class AuthenticationService
 
         var roleNames = await _userManager.GetRolesAsync(user);
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
-        var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
+        var permissions = (await _roleAdministrationService.ResolvePermissionsAsync(roleEntities, ct)).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = await ResolveEstruturaAsync(user.Funcionario, ct);
 
@@ -245,7 +249,7 @@ public sealed class AuthenticationService
 
         var roleNames = await _userManager.GetRolesAsync(user);
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
-        var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
+        var permissions = (await _roleAdministrationService.ResolvePermissionsAsync(roleEntities, ct)).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         return CreateJwtToken(user, roleNames, permissions, tenantId, visibilityScope, vagasDataScope, accessMode);
     }
@@ -274,7 +278,7 @@ public sealed class AuthenticationService
 
         var roleNames = await _userManager.GetRolesAsync(userWithFuncionario);
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
-        var permissions = RolePermissionManifest.GetPermissions(roleEntities).ToList();
+        var permissions = (await _roleAdministrationService.ResolvePermissionsAsync(roleEntities, ct)).ToList();
         var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
         var token = CreateJwtToken(userWithFuncionario, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
         var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = await ResolveEstruturaAsync(userWithFuncionario.Funcionario, ct);
