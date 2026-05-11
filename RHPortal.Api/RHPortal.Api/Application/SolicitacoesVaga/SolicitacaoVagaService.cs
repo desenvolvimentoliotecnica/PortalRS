@@ -227,6 +227,21 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .FirstOrDefaultAsync(ct);
     }
 
+    private async Task<Vaga?> ObterVagaVinculadaAsync(SolicitacaoVaga entity, CancellationToken ct)
+    {
+        if (!entity.VagaId.HasValue)
+            return null;
+
+        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
+        if (vaga is not null)
+            return vaga;
+
+        // Reparo defensivo: havia solicitações com VagaId preenchido, mas sem o registro da vaga.
+        // Nesses casos, limpamos o vínculo em memória para permitir recriação automática da vaga mínima.
+        entity.VagaId = null;
+        return null;
+    }
+
     private async Task SyncAnalistaRhNaVagaAsync(SolicitacaoVaga entity, CancellationToken ct)
     {
         if (!entity.VagaId.HasValue)
@@ -1658,10 +1673,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             else if (entity.TipoSolicitacao == TipoSolicitacaoVaga.Substituicao)
             {
                 // Substituição: comportamento existente — ativar headcount provisório
-                if (!entity.VagaId.HasValue)
+                var vagaSubstituicao = await ObterVagaVinculadaAsync(entity, ct);
+                if (vagaSubstituicao is null)
                     await CriarVagaRascunhoAsync(entity, ct);
-                if (entity.VagaId.HasValue)
-                    await AtivarHeadcountProvisorioAsync(entity, ct);
+                await AtivarHeadcountProvisorioAsync(entity, ct);
                 if (entity.Status != SolicitacaoStatus.Aprovada)
                     entity.Status = SolicitacaoStatus.Aprovada;
 
@@ -1705,14 +1720,15 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (!entity.DecisaoRH.HasValue)
             throw new InvalidOperationException("VagaNova sem decisão de headcount — obrigatório ao submeter.");
 
-        // Garante que a vaga vinculada exista
-        if (!entity.VagaId.HasValue)
+        // Garante que a vaga vinculada exista; se houver vínculo quebrado, recria uma vaga mínima.
+        var vaga = await ObterVagaVinculadaAsync(entity, ct);
+        if (vaga is null)
             await CriarVagaRascunhoAsync(entity, ct, headcountPendente: entity.QtdPosicoes);
         else
             await ProvisionarHcPendenteAsync(entity, ct);
 
-        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId!.Value, ct)
-            ?? throw new InvalidOperationException("Vaga vinculada não encontrada.");
+        vaga = await ObterVagaVinculadaAsync(entity, ct)
+            ?? throw new InvalidOperationException("Falha ao criar a vaga mínima vinculada à solicitação.");
 
         entity.DecisaoRHEmUtc ??= DateTimeOffset.UtcNow;
         entity.DecisaoRHRevisadoPorId ??= entity.SolicitanteId;
@@ -1862,13 +1878,14 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             case AcaoEtapa.CriarVagaRascunho:
                 if (IsFluxoComDecisaoHeadcountGestor(entity.TipoSolicitacao))
                 {
-                    if (entity.VagaId.HasValue)
+                    var vagaExistente = await ObterVagaVinculadaAsync(entity, ct);
+                    if (vagaExistente is not null)
                         await ProvisionarHcPendenteAsync(entity, ct);
                     else
                         await CriarVagaRascunhoAsync(entity, ct, headcountPendente: entity.QtdPosicoes);
                     entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
                 }
-                else if (!entity.VagaId.HasValue)
+                else if (await ObterVagaVinculadaAsync(entity, ct) is null)
                 {
                     // Substituição sem vaga vinculada — criar rascunho
                     await CriarVagaRascunhoAsync(entity, ct);
@@ -1968,8 +1985,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
     private async Task ProvisionarHcPendenteAsync(SolicitacaoVaga entity, CancellationToken ct)
     {
-        if (!entity.VagaId.HasValue) return;
-        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
+        var vaga = await ObterVagaVinculadaAsync(entity, ct);
         if (vaga is null) return;
         vaga.HeadcountPendente += entity.QtdPosicoes;
         vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -2351,9 +2367,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     /// </summary>
     private async Task AtivarHeadcountProvisorioAsync(SolicitacaoVaga entity, CancellationToken ct)
     {
-        if (!entity.VagaId.HasValue) return;
-
-        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
+        var vaga = await ObterVagaVinculadaAsync(entity, ct);
         if (vaga is null) return;
 
         var tenantConfig = await _db.TenantConfiguracoes
