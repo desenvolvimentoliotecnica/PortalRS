@@ -631,12 +631,18 @@ public sealed class SolicitacaoVagaServiceTests
         var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db);
         var id = SeedSolicitacao(db, funcId, SolicitacaoStatus.PendenteAprovacao);
+        SeedEtapaPendente(db, id, aprovadorId: funcId);
 
         var result = await svc.RequestChangesAsync(id, "Falta justificativa", CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(SolicitacaoStatus.AjustesNecessarios, result.Status);
         Assert.Equal("Falta justificativa", result.ObservacaoAprovador);
+
+        var etapa = await db.SolicitacoesAprovacaoEtapa.IgnoreQueryFilters()
+            .SingleAsync(e => e.SolicitacaoId == id);
+        Assert.Equal(StatusAprovacao.Cancelado, etapa.Status);
+        Assert.Equal("Falta justificativa", etapa.Observacao);
     }
 
     [Fact]

@@ -185,8 +185,8 @@ function mapPortalPendenteToRow(p: PortalPendenteApi): GenericRow & { _tabId: st
     };
 }
 
-/** Status de SolicitacaoVaga que ainda exigem trâmite no Portal (inclui triagem AQ sem etapas ainda). */
-const SOLICITACAO_VAGA_STATUS_PENDENTE_GESTAO = [1, 10, 4, 5, 11, 12, 13] as const;
+/** Status de SolicitacaoVaga que ainda exigem trâmite no Portal (inclui triagem AQ sem etapas ainda). Exclui 4 (AjustesNecessarios): volta ao solicitante, não deve aparecer em Minhas Pendências do aprovador. */
+const SOLICITACAO_VAGA_STATUS_PENDENTE_GESTAO = [1, 10, 5, 11, 12, 13] as const;
 
 /** Status em que o Portal aceita aprovar / reprovar / solicitar ajustes (backend valida permissão). */
 function solicitacaoVagaStatusAllowsApprovalActions(statusRaw: unknown): boolean {
