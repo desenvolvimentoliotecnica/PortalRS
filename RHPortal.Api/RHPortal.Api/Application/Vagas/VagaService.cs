@@ -247,6 +247,11 @@ public sealed class VagaService : IVagaService
             .AsNoTracking()
             .Include(s => s.Solicitante)
             .Include(s => s.Aprovador)
+            .Include(s => s.AnalistaRhResponsavelUser)
+            .Include(s => s.JobPosition)
+            .Include(s => s.CentroCusto)
+            .Include(s => s.Turno)
+            .Include(s => s.UnidadeLotacao)
             .Include(s => s.DecisaoRHRevisadoPor)
             .Where(s => s.VagaId == id)
             .OrderByDescending(s => s.CreatedAtUtc)
@@ -254,6 +259,22 @@ public sealed class VagaService : IVagaService
 
         if (solic != null)
         {
+            VagaTipoContratacao? tipoContratacaoFromSolic = solic.TipoContrato switch
+            {
+                TipoContratoVaga.CLT => VagaTipoContratacao.CLT,
+                TipoContratoVaga.Estagio => VagaTipoContratacao.Estagio,
+                TipoContratoVaga.Aprendiz => VagaTipoContratacao.Aprendiz,
+                TipoContratoVaga.Temporario => VagaTipoContratacao.Temporario,
+                _ => null
+            };
+            var prioridadeFromSolic = solic.Urgencia switch
+            {
+                SolicitacaoVagaUrgencia.Critica => VagaPrioridade.Critica,
+                SolicitacaoVagaUrgencia.Alta => VagaPrioridade.Alta,
+                SolicitacaoVagaUrgencia.Media => VagaPrioridade.Media,
+                _ => VagaPrioridade.Baixa
+            };
+
             response = response with
             {
                 SolicitanteNome = solic.Solicitante?.Name,
@@ -266,6 +287,30 @@ public sealed class VagaService : IVagaService
                 DecisaoRHRevisadoPorNome = solic.DecisaoRHRevisadoPor?.Name,
                 DecisaoRHEmUtc = solic.DecisaoRHEmUtc,
                 DecisaoRHPrazoMeses = solic.DecisaoRHPrazoMeses,
+                DescricaoInterna = string.IsNullOrWhiteSpace(response.DescricaoInterna) ? solic.Justificativa : response.DescricaoInterna,
+                CodFuncaoRm = string.IsNullOrWhiteSpace(response.CodFuncaoRm) ? solic.CodFuncaoRm : response.CodFuncaoRm,
+                FuncaoNomeRm = string.IsNullOrWhiteSpace(response.FuncaoNomeRm) ? solic.FuncaoNomeRm : response.FuncaoNomeRm,
+                GestorRequisitante = string.IsNullOrWhiteSpace(response.GestorRequisitante) ? solic.Solicitante?.Name : response.GestorRequisitante,
+                GestorRequisitanteFuncionarioId = response.GestorRequisitanteFuncionarioId ?? solic.SolicitanteId,
+                RecrutadorResponsavel = string.IsNullOrWhiteSpace(response.RecrutadorResponsavel) ? solic.AnalistaRhResponsavelUser?.FullName : response.RecrutadorResponsavel,
+                RecrutadorResponsavelUserId = response.RecrutadorResponsavelUserId ?? solic.AnalistaRhResponsavelUserId,
+                Prioridade = response.Prioridade ?? prioridadeFromSolic,
+                TipoContratacao = response.TipoContratacao ?? tipoContratacaoFromSolic,
+                JobPositionId = response.JobPositionId ?? solic.JobPositionId,
+                JobPositionCode = string.IsNullOrWhiteSpace(response.JobPositionCode) ? solic.JobPosition?.Code : response.JobPositionCode,
+                JobPositionName = string.IsNullOrWhiteSpace(response.JobPositionName) ? solic.JobPosition?.Name : response.JobPositionName,
+                CentroCustoId = response.CentroCustoId ?? solic.CentroCustoId,
+                CentroCustoCode = string.IsNullOrWhiteSpace(response.CentroCustoCode) ? solic.CentroCusto?.Code : response.CentroCustoCode,
+                CentroCustoDescription = string.IsNullOrWhiteSpace(response.CentroCustoDescription) ? solic.CentroCusto?.Description : response.CentroCustoDescription,
+                TurnoId = response.TurnoId ?? solic.TurnoId,
+                TurnoCode = string.IsNullOrWhiteSpace(response.TurnoCode) ? solic.Turno?.Code : response.TurnoCode,
+                TurnoDescription = string.IsNullOrWhiteSpace(response.TurnoDescription) ? solic.Turno?.Description : response.TurnoDescription,
+                UnidadeLotacaoId = response.UnidadeLotacaoId ?? solic.UnidadeLotacaoId,
+                UnidadeLotacaoCode = string.IsNullOrWhiteSpace(response.UnidadeLotacaoCode) ? solic.UnidadeLotacao?.Code : response.UnidadeLotacaoCode,
+                UnidadeLotacaoDescription = string.IsNullOrWhiteSpace(response.UnidadeLotacaoDescription) ? solic.UnidadeLotacao?.Description : response.UnidadeLotacaoDescription,
+                EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(response.EscalaTrabalhoRaw) ? solic.EscalaTrabalho : response.EscalaTrabalhoRaw,
+                SalarioMinimo = response.SalarioMinimo ?? solic.FaixaSalarialMin,
+                SalarioMaximo = response.SalarioMaximo ?? solic.FaixaSalarialMax,
             };
         }
 

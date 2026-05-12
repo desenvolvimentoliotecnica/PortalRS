@@ -1950,6 +1950,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             QuantidadeVagas = entity.QtdPosicoes,
             DescricaoInterna = entity.Justificativa,
             GestorRequisitante = entity.Solicitante?.Name,
+            GestorRequisitanteFuncionarioId = entity.SolicitanteId,
             Prioridade = prioridade,
             Confidencial = entity.IsConfidencial,
             Urgente = entity.Urgencia >= SolicitacaoVagaUrgencia.Alta,
@@ -1961,6 +1962,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             TipoContratacao = tipoContratacao,
             TurnoId = entity.TurnoId,
             EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(entity.EscalaTrabalho) ? null : entity.EscalaTrabalho,
+            SalarioMinimo = entity.FaixaSalarialMin,
+            SalarioMaximo = entity.FaixaSalarialMax,
             HeadcountPendente = headcountPendente,
             RecrutadorResponsavelUserId = entity.AnalistaRhResponsavelUserId,
             RecrutadorResponsavel = string.IsNullOrWhiteSpace(analistaRhResponsavelNome)
