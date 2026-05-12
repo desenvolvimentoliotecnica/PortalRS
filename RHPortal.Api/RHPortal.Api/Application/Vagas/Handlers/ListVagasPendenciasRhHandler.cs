@@ -3,6 +3,7 @@ using RhPortal.Api.Contracts.Vagas;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.Vagas.Handlers;
 
@@ -14,10 +15,12 @@ public interface IListVagasPendenciasRhHandler
 public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
 {
     private readonly AppDbContext _db;
+    private readonly ICurrentUserContext _currentUser;
 
-    public ListVagasPendenciasRhHandler(AppDbContext db)
+    public ListVagasPendenciasRhHandler(AppDbContext db, ICurrentUserContext currentUser)
     {
         _db = db;
+        _currentUser = currentUser;
     }
 
     public async Task<IReadOnlyList<VagaListItemResponse>> HandleAsync(CancellationToken ct)
@@ -47,10 +50,32 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                 return Array.Empty<VagaListItemResponse>();
 
             // Passo 2: Vagas em rascunho OU com headcount pendente
-            var vagas = await _db.Vagas
+            var vagasQuery = _db.Vagas
                 .AsNoTracking()
                 .Include(v => v.Ocupacoes)
-                .Where(v => vagaIdSet.Contains(v.Id))
+                .Where(v => vagaIdSet.Contains(v.Id));
+
+            if (!_currentUser.IsAdmin && !_currentUser.IsOwner)
+            {
+                vagasQuery = _currentUser.VagasDataScope switch
+                {
+                    VagasDataScope.ByArea when _currentUser.CentroCustoId.HasValue =>
+                        vagasQuery.Where(v => v.CentroCustoId == _currentUser.CentroCustoId.Value),
+
+                    VagasDataScope.ByRecrutador when _currentUser.UserId.HasValue =>
+                        vagasQuery.Where(v => v.RecrutadorResponsavelUserId == _currentUser.UserId.Value),
+
+                    VagasDataScope.ByGestorRecrutador when _currentUser.FuncionarioId.HasValue =>
+                        vagasQuery.Where(v =>
+                            v.RecrutadorResponsavelUser != null
+                            && v.RecrutadorResponsavelUser.Funcionario != null
+                            && v.RecrutadorResponsavelUser.Funcionario.GestorDiretoId == _currentUser.FuncionarioId.Value),
+
+                    _ => vagasQuery
+                };
+            }
+
+            var vagas = await vagasQuery
                 .OrderByDescending(v => v.CreatedAtUtc)
                 .ToListAsync(ct);
 
