@@ -52,6 +52,46 @@ export interface EtapaAprovacaoResponse {
     observacao: string | null;
 }
 
+export interface SolicitacaoTimelineEventoResponse {
+    ordem: number;
+    label: string;
+    nome: string | null;
+    status: number | null;
+    dataUtc: string | null;
+    observacao: string | null;
+}
+
+export function normalizeEtapaStatus(status: unknown): string {
+    if (typeof status === "number") {
+        switch (status) {
+            case 1: return "Aprovado";
+            case 2: return "Reprovado";
+            case 3: return "Cancelado";
+            default: return "Pendente";
+        }
+    }
+
+    if (typeof status === "string") {
+        const normalized = status.trim().toLowerCase();
+        switch (normalized) {
+            case "1":
+            case "aprovado":
+                return "Aprovado";
+            case "2":
+            case "reprovado":
+            case "rejeitado":
+                return "Reprovado";
+            case "3":
+            case "cancelado":
+                return "Cancelado";
+            default:
+                return "Pendente";
+        }
+    }
+
+    return "Pendente";
+}
+
 function etapaStatusToNumber(status: string): number | null {
     switch (status.toLowerCase()) {
         case "aprovado":  return 1;
@@ -124,4 +164,21 @@ export function mapEtapasToSteps(
     }
 
     return steps;
+}
+
+export function mapTimelineEventosToSteps(eventos: SolicitacaoTimelineEventoResponse[]): AprovacaoStep[] {
+    const sorted = [...eventos].sort((a, b) => a.ordem - b.ordem);
+
+    return sorted.map((evento) => {
+        const { cleanLabel, aviso } = parseConsensoLabel(evento.label);
+        return {
+            label: cleanLabel,
+            nome: evento.nome,
+            status: evento.status,
+            habilitado: true,
+            date: evento.dataUtc,
+            observacao: evento.observacao,
+            aviso,
+        };
+    });
 }

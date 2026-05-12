@@ -110,6 +110,27 @@ function clamp(n: number, min: number, max: number) {
     return Math.max(min, Math.min(max, n));
 }
 
+function normalizeVagaOrigemTipo(value: unknown): number {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) return numeric;
+        return ({
+            Manual: 0,
+            AumentoQuadro: 1,
+            SubstituicaoDesligamento: 2,
+            SubstituicaoPromocao: 3,
+            Direta: 4,
+        } as Record<string, number>)[value] ?? 0;
+    }
+    return 0;
+}
+
+function isPortalCreatedVaga(vaga: VagaListItem): boolean {
+    const origem = normalizeVagaOrigemTipo((vaga as Record<string, unknown>).origemTipo);
+    return origem === 0;
+}
+
 function formatDate(value: string | null | undefined) {
     if (!value) return "—";
     try {
@@ -320,6 +341,7 @@ export default function VagasScreen() {
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
+    const [showRmImported, setShowRmImported] = useState(false);
 
     useEffect(() => {
         if (!pendenciasMode) return;
@@ -501,9 +523,14 @@ export default function VagasScreen() {
         }
     }, [searchParams]);
 
+    const rowsByOrigin = useMemo(
+        () => (showRmImported ? rows : rows.filter(isPortalCreatedVaga)),
+        [rows, showRmImported],
+    );
+
     const filtered = useMemo(() => {
         const qq = q.trim().toLowerCase();
-        const result = rows.filter((v) => {
+        const result = rowsByOrigin.filter((v) => {
             if (status.length > 0 && !status.includes((v.status ?? "").toLowerCase())) return false;
             // F1 — Date range filter. Prioriza dataAbertura (real do RM ou quando passou a Aberta) sobre createdAtUtc (importação).
             const vr = v as Record<string, unknown>;
@@ -550,11 +577,11 @@ export default function VagasScreen() {
             }
         });
         return result;
-    }, [rows, q, status, sortCol, sortDir, dateFrom, dateTo, agingBucket]);
+    }, [rowsByOrigin, q, status, sortCol, sortDir, dateFrom, dateTo, agingBucket]);
 
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
         initialPageSize: 20,
-        resetDeps: [q, status.join(","), dateFrom, dateTo, agingBucket],
+        resetDeps: [q, status.join(","), dateFrom, dateTo, agingBucket, showRmImported ? "all-origins" : "portal-only"],
     });
     const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice]);
 
@@ -562,12 +589,12 @@ export default function VagasScreen() {
         const openStatuses = new Set(["aberta", "ativa"]);
         const prepStatuses = new Set(["rascunho", "pausada"]);
         return {
-            total: rows.length,
-            open: rows.filter((row) => openStatuses.has((row.status ?? "").toLowerCase())).length,
-            preparation: rows.filter((row) => prepStatuses.has((row.status ?? "").toLowerCase())).length,
-            closed: rows.filter((row) => ["fechada", "encerrada"].includes((row.status ?? "").toLowerCase())).length,
+            total: rowsByOrigin.length,
+            open: rowsByOrigin.filter((row) => openStatuses.has((row.status ?? "").toLowerCase())).length,
+            preparation: rowsByOrigin.filter((row) => prepStatuses.has((row.status ?? "").toLowerCase())).length,
+            closed: rowsByOrigin.filter((row) => ["fechada", "encerrada"].includes((row.status ?? "").toLowerCase())).length,
         };
-    }, [rows]);
+    }, [rowsByOrigin]);
 
     function persistMatchingContext(vagaId: string) {
         try {
@@ -1024,7 +1051,7 @@ export default function VagasScreen() {
                         <DropdownMenuTrigger asChild disabled={pendenciasMode}>
                             <button type="button" className={`inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-2 text-xs transition-colors ${pendenciasMode ? "opacity-50 cursor-not-allowed text-muted-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                                 {status.length === 0
-                                    ? `Todos (${rows.length})`
+                                    ? `Todos (${rowsByOrigin.length})`
                                     : status.length === 1
                                         ? status[0].charAt(0).toUpperCase() + status[0].slice(1)
                                         : `${status.length} status`}
@@ -1036,7 +1063,7 @@ export default function VagasScreen() {
                                 checked={status.length === 0}
                                 onCheckedChange={() => setStatus([])}
                             >
-                                Todos ({rows.length})
+                                Todos ({rowsByOrigin.length})
                             </DropdownMenuCheckboxItem>
                             <DropdownMenuSeparator />
                             {[
@@ -1074,6 +1101,18 @@ export default function VagasScreen() {
                             </span>
                         )}
                     </button>
+                    <button
+                        type="button"
+                        className={`inline-flex items-center gap-1 h-8 rounded-md border px-2 text-xs font-medium transition-colors ${
+                            showRmImported
+                                ? "bg-sky-600 text-white border-sky-600 hover:bg-sky-700"
+                                : "border-input bg-background text-muted-foreground hover:text-foreground"
+                        }`}
+                        onClick={() => setShowRmImported((prev) => !prev)}
+                        title="Inclui vagas importadas do RM na lista"
+                    >
+                        {showRmImported ? "Ocultando RM" : "Exibir RM"}
+                    </button>
                     <div className="flex items-center rounded-md border border-input bg-background p-0.5">
                         <button type="button" className={`inline-flex items-center justify-center rounded-sm px-1.5 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
                             <List className="size-3" />
@@ -1083,6 +1122,11 @@ export default function VagasScreen() {
                         </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">{filtered.length} resultado(s)</span>
+                </div>
+                <div className="border-b border-border/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+                    {showRmImported
+                        ? "Exibindo vagas criadas no portal e vagas importadas do RM."
+                        : "Exibindo apenas vagas criadas no portal. Ative \"Exibir RM\" para incluir importadas."}
                 </div>
 
                 {/* Filters bar — row 2: date range (F1) + aging chips (F2) */}

@@ -17,6 +17,7 @@ public sealed class MagicLinkService : IMagicLinkService
     private readonly IEmailQueueService _emailQueue;
     private readonly ISolicitacaoVagaRecrutadorNotifier _solicitacaoVagaRecrutadorNotifier;
     private readonly IFrontendPublicUrlBuilder _frontendUrls;
+    private readonly StatusHistoricoService _statusHistorico;
 
     private static readonly TimeSpan TokenTtl = TimeSpan.FromHours(72);
 
@@ -25,13 +26,15 @@ public sealed class MagicLinkService : IMagicLinkService
         ITenantContext tenantContext,
         IEmailQueueService emailQueue,
         ISolicitacaoVagaRecrutadorNotifier solicitacaoVagaRecrutadorNotifier,
-        IFrontendPublicUrlBuilder frontendUrls)
+        IFrontendPublicUrlBuilder frontendUrls,
+        StatusHistoricoService statusHistorico)
     {
         _db = db;
         _tenantContext = tenantContext;
         _emailQueue = emailQueue;
         _solicitacaoVagaRecrutadorNotifier = solicitacaoVagaRecrutadorNotifier;
         _frontendUrls = frontendUrls;
+        _statusHistorico = statusHistorico;
     }
 
     // ── Token generation ──────────────────────────────────────────────
@@ -234,9 +237,20 @@ public sealed class MagicLinkService : IMagicLinkService
             {
                 var sol = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == link.SolicitacaoId, ct);
                 if (sol is null) break;
+                var statusAnterior = sol.Status.ToString();
                 sol.Status = SolicitacaoStatus.Aprovada;
                 sol.ApprovedAtUtc = now;
                 sol.UpdatedAtUtc = now;
+                await _statusHistorico.RegistrarAsync(
+                    TipoEntidadeStatus.SolicitacaoVaga,
+                    sol.Id,
+                    statusAnterior,
+                    sol.Status.ToString(),
+                    funcionarioId: null,
+                    userId: null,
+                    alteradoPorNome: "Aprovação externa",
+                    observacao,
+                    ct);
                 break;
             }
             default:
@@ -254,9 +268,20 @@ public sealed class MagicLinkService : IMagicLinkService
             {
                 var sol = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == link.SolicitacaoId, ct);
                 if (sol is null) break;
+                var statusAnterior = sol.Status.ToString();
                 sol.Status = SolicitacaoStatus.Reprovada;
                 sol.ObservacaoAprovador = observacao;
                 sol.UpdatedAtUtc = now;
+                await _statusHistorico.RegistrarAsync(
+                    TipoEntidadeStatus.SolicitacaoVaga,
+                    sol.Id,
+                    statusAnterior,
+                    sol.Status.ToString(),
+                    funcionarioId: null,
+                    userId: null,
+                    alteradoPorNome: "Aprovação externa",
+                    observacao,
+                    ct);
                 break;
             }
             case TipoFluxoAprovacao.MovimentacaoPessoal:
