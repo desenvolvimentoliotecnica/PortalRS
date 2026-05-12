@@ -284,6 +284,7 @@ public sealed class VagasController : ControllerBase
     public async Task<ActionResult<VagaResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] IGetVagaByIdHandler handler,
+        [FromServices] AppDbContext db,
         CancellationToken ct)
     {
         var item = await handler.HandleAsync(id, ct);
@@ -291,9 +292,19 @@ public sealed class VagasController : ControllerBase
             return NotFound();
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue && item.CentroCustoId != _userContext.CentroCustoId)
+            var assignedToCurrentAnalyst = _userContext.UserId.HasValue && await db.SolicitacoesVaga
+                .AsNoTracking()
+                .AnyAsync(s => s.VagaId == id && s.AnalistaRhResponsavelUserId == _userContext.UserId.Value, ct);
+
+            if (!assignedToCurrentAnalyst
+                && _userContext.VagasDataScope == VagasDataScope.ByArea
+                && _userContext.CentroCustoId.HasValue
+                && item.CentroCustoId != _userContext.CentroCustoId)
                 return NotFound();
-            if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue && item.RecrutadorResponsavelUserId != _userContext.UserId)
+            if (!assignedToCurrentAnalyst
+                && _userContext.VagasDataScope == VagasDataScope.ByRecrutador
+                && _userContext.UserId.HasValue
+                && item.RecrutadorResponsavelUserId != _userContext.UserId)
                 return NotFound();
         }
         return Ok(item);

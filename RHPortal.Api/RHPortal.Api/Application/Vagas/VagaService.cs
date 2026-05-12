@@ -1482,21 +1482,33 @@ public sealed class VagaService : IVagaService
         // Admin sees everything
         if (_currentUser.IsAdmin)
             return query;
+        var currentUserId = _currentUser.UserId;
 
         return _currentUser.VagasDataScope switch
         {
             // 31.2: escopo por área agora é escopo por Centro de Custo (absorveu Area).
             VagasDataScope.ByArea when _currentUser.CentroCustoId.HasValue =>
-                query.Where(v => v.CentroCustoId == _currentUser.CentroCustoId.Value),
+                query.Where(v =>
+                    v.CentroCustoId == _currentUser.CentroCustoId.Value
+                    || (currentUserId.HasValue && _db.SolicitacoesVaga.Any(s =>
+                        s.VagaId == v.Id
+                        && s.AnalistaRhResponsavelUserId == currentUserId.Value))),
 
             VagasDataScope.ByRecrutador when _currentUser.UserId.HasValue =>
-                query.Where(v => v.RecrutadorResponsavelUserId == _currentUser.UserId.Value),
+                query.Where(v =>
+                    v.RecrutadorResponsavelUserId == currentUserId.Value
+                    || _db.SolicitacoesVaga.Any(s =>
+                        s.VagaId == v.Id
+                        && s.AnalistaRhResponsavelUserId == currentUserId.Value)),
 
             VagasDataScope.ByGestorRecrutador when _currentUser.FuncionarioId.HasValue =>
                 query.Where(v =>
-                    v.RecrutadorResponsavelUser != null
-                    && v.RecrutadorResponsavelUser.Funcionario != null
-                    && v.RecrutadorResponsavelUser.Funcionario.GestorDiretoId == _currentUser.FuncionarioId.Value),
+                    (v.RecrutadorResponsavelUser != null
+                     && v.RecrutadorResponsavelUser.Funcionario != null
+                     && v.RecrutadorResponsavelUser.Funcionario.GestorDiretoId == _currentUser.FuncionarioId.Value)
+                    || (currentUserId.HasValue && _db.SolicitacoesVaga.Any(s =>
+                        s.VagaId == v.Id
+                        && s.AnalistaRhResponsavelUserId == currentUserId.Value))),
 
             _ => query // All or no centro-custo/userId/funcionarioId resolved
         };
