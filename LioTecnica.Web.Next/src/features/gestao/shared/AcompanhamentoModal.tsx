@@ -91,7 +91,7 @@ export default function AcompanhamentoModal({ open, loading, steps, solicitacaoS
                 {/* Header */}
                 <div className="flex items-center gap-2.5 px-6 py-4 border-b border-border/50">
                     <GitBranch className="size-4 text-muted-foreground flex-shrink-0" />
-                    <DialogTitle className="text-base font-semibold">Acompanhamento de Aprovação</DialogTitle>
+                    <DialogTitle className="text-base font-semibold">Acompanhamento da Solicitação</DialogTitle>
                 </div>
 
                 {loading ? (

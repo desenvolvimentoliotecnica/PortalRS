@@ -57,7 +57,13 @@ import { RhAnalistaAutocomplete } from "@/components/autocomplete/RhAnalistaAuto
 import SolicitacaoFormModal, { type SolicitacaoDraft } from "./SolicitacaoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
-import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
+import {
+    mapEtapasToSteps,
+    mapTimelineEventosToSteps,
+    normalizeEtapaStatus,
+    type EtapaAprovacaoResponse,
+    type SolicitacaoTimelineEventoResponse,
+} from "@/features/gestao/shared/etapaUtils";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -156,7 +162,8 @@ interface SolicitacaoDetail {
     aprovador3Status?: number | string | null;
     aprovador3Habilitado?: boolean;
     etapas?: EtapaAprovacaoResponse[];
-    etapasFluxo?: { ordem: number; label: string; aprovadorNome: string | null; roleNome: string | null; status: number; dataUtc: string | null; observacao: string | null }[];
+    etapasFluxo?: { ordem: number; label: string; aprovadorNome: string | null; roleNome: string | null; status: number | string; dataUtc: string | null; observacao: string | null }[];
+    timelineEventos?: SolicitacaoTimelineEventoResponse[];
     rmCodStatus?: number | string | null;
     rmUltimaStatusDescricaoRm?: string | null;
     rmStatusSyncUltimaMensagem?: string | null;
@@ -579,8 +586,11 @@ function SolicitacoesVagaContent() {
         try {
             const d = await fetchJson<SolicitacaoDetail>(`${API}/${row.id}`);
             setTimelineStatus(d.status);
-            // Prefer etapasFluxo (new format) over etapas (legacy)
-            const STATUS_NUM_TO_STR: Record<number, string> = { 0: "Pendente", 1: "Aprovado", 2: "Reprovado", 3: "Cancelado" };
+            if (d.timelineEventos?.length) {
+                setTimelineSteps(mapTimelineEventosToSteps(d.timelineEventos));
+                return;
+            }
+
             const etapas: EtapaAprovacaoResponse[] = d.etapasFluxo?.length
                 ? d.etapasFluxo.map(e => ({
                     ordem: e.ordem,
@@ -589,14 +599,12 @@ function SolicitacoesVagaContent() {
                     aprovadorNome: e.aprovadorNome,
                     roleFilaId: null,
                     roleFilaNome: e.roleNome,
-                    status: STATUS_NUM_TO_STR[e.status] ?? "Pendente",
+                    status: normalizeEtapaStatus(e.status),
                     dataUtc: e.dataUtc,
                     observacao: e.observacao,
                 }))
                 : (d.etapas ?? []);
-            setTimelineSteps(
-                mapEtapasToSteps(etapas, d.solicitanteNome, d.createdAtUtc)
-            );
+            setTimelineSteps(mapEtapasToSteps(etapas, d.solicitanteNome, d.createdAtUtc));
         } catch {
             toast.error("Falha ao carregar acompanhamento.");
             setTimelineOpen(false);

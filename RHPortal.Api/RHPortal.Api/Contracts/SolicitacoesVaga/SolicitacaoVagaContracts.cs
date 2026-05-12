@@ -237,6 +237,15 @@ public sealed record EtapaFluxoInfo(
     string? Observacao
 );
 
+public sealed record SolicitacaoTimelineEventoInfo(
+    int Ordem,
+    string Label,
+    string? Nome,
+    int? Status,
+    DateTimeOffset? DataUtc,
+    string? Observacao
+);
+
 // ── Response ──
 
 public sealed record SolicitacaoVagaResponse(
@@ -296,6 +305,7 @@ public sealed record SolicitacaoVagaResponse(
     DateTimeOffset UpdatedAtUtc,
     DateTimeOffset? ApprovedAtUtc,
     IReadOnlyList<EtapaFluxoInfo> EtapasFluxo,
+    IReadOnlyList<SolicitacaoTimelineEventoInfo> TimelineEventos,
     // Decisão RH pós-aprovação (VagaNova)
     TipoDecisaoHeadcount? DecisaoRH,
     string? DecisaoRHRevisadoPorNome,

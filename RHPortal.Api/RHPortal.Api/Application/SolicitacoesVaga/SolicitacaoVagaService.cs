@@ -479,7 +479,15 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             );
         }).ToList();
 
-        return MapToResponse(s, etapasFluxo);
+        var historicosTimeline = await _db.HistoricosStatus
+            .AsNoTracking()
+            .Where(h => h.TipoEntidade == TipoEntidadeStatus.SolicitacaoVaga && h.EntidadeId == id)
+            .OrderBy(h => h.AlteradoEmUtc)
+            .ToListAsync(ct);
+
+        var timelineEventos = BuildTimelineEventos(s, etapasFluxo, historicosTimeline);
+
+        return MapToResponse(s, etapasFluxo, timelineEventos);
     }
 
     public async Task<SolicitacaoVagaResponse> CreateAsync(
@@ -2855,7 +2863,147 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         return true;
     }
 
-    private static SolicitacaoVagaResponse MapToResponse(SolicitacaoVaga s, IReadOnlyList<EtapaFluxoInfo>? etapasFluxo = null) => new(
+    private static readonly HashSet<string> TimelineLifecycleStatuses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        nameof(SolicitacaoStatus.AjustesNecessarios),
+        nameof(SolicitacaoStatus.PendenteAprovacaoRh),
+        nameof(SolicitacaoStatus.Aprovada),
+        nameof(SolicitacaoStatus.Reprovada),
+        nameof(SolicitacaoStatus.Cancelada),
+        nameof(SolicitacaoStatus.EmIntegracao),
+        nameof(SolicitacaoStatus.Concluida),
+        nameof(SolicitacaoStatus.PendenteTriagem),
+        nameof(SolicitacaoStatus.EmTriagem),
+        nameof(SolicitacaoStatus.DevolvidaTriagemGestor),
+        nameof(SolicitacaoStatus.PendenteIntegracaoRm),
+        nameof(SolicitacaoStatus.ErroIntegracaoRm),
+        nameof(SolicitacaoStatus.AguardandoReprocessamentoRm),
+        nameof(SolicitacaoStatus.EmProcessoSeletivo),
+        nameof(SolicitacaoStatus.Suspensa),
+        nameof(SolicitacaoStatus.EncerradaSemContratacao),
+        nameof(SolicitacaoStatus.ContratacaoConcluida),
+    };
+
+    private static IReadOnlyList<SolicitacaoTimelineEventoInfo> BuildTimelineEventos(
+        SolicitacaoVaga s,
+        IReadOnlyList<EtapaFluxoInfo> etapasFluxo,
+        IReadOnlyList<HistoricoStatus> historicos)
+    {
+        var eventos = new List<SolicitacaoTimelineEventoInfo>
+        {
+            new(
+                0,
+                "Criado",
+                s.Solicitante?.Name,
+                1,
+                s.CreatedAtUtc,
+                null)
+        };
+
+        foreach (var etapa in etapasFluxo.OrderBy(e => e.Ordem))
+        {
+            eventos.Add(new SolicitacaoTimelineEventoInfo(
+                eventos.Count,
+                etapa.Label,
+                etapa.AprovadorNome ?? etapa.RoleNome,
+                etapa.Status switch
+                {
+                    StatusAprovacao.Aprovado => 1,
+                    StatusAprovacao.Rejeitado => 2,
+                    StatusAprovacao.Cancelado => 3,
+                    _ => null,
+                },
+                etapa.DataUtc,
+                etapa.Observacao));
+        }
+
+        var lifecycleHistoricos = historicos
+            .Where(h => TimelineLifecycleStatuses.Contains(h.StatusNovo))
+            .ToList();
+
+        foreach (var historico in lifecycleHistoricos)
+        {
+            if (!Enum.TryParse<SolicitacaoStatus>(historico.StatusNovo, out var statusHistorico))
+                continue;
+
+            eventos.Add(new SolicitacaoTimelineEventoInfo(
+                eventos.Count,
+                statusHistorico switch
+                {
+                    SolicitacaoStatus.AjustesNecessarios => "Ajustes necessários",
+                    SolicitacaoStatus.PendenteAprovacaoRh => "Aguardando aprovação do RH",
+                    SolicitacaoStatus.Aprovada => "Aprovada",
+                    SolicitacaoStatus.Reprovada => "Reprovada",
+                    SolicitacaoStatus.Cancelada => "Cancelada",
+                    SolicitacaoStatus.EmIntegracao => "Em integração",
+                    SolicitacaoStatus.Concluida => "Concluída",
+                    SolicitacaoStatus.PendenteTriagem => "Pendente triagem",
+                    SolicitacaoStatus.EmTriagem => "Em triagem",
+                    SolicitacaoStatus.DevolvidaTriagemGestor => "Devolvida para o gestor",
+                    SolicitacaoStatus.PendenteIntegracaoRm => "Pendente integração RM",
+                    SolicitacaoStatus.ErroIntegracaoRm => "Erro na integração RM",
+                    SolicitacaoStatus.AguardandoReprocessamentoRm => "Aguardando reprocessamento RM",
+                    SolicitacaoStatus.EmProcessoSeletivo => "Em processo seletivo",
+                    SolicitacaoStatus.Suspensa => "Suspensa",
+                    SolicitacaoStatus.EncerradaSemContratacao => "Encerrada sem contratação",
+                    SolicitacaoStatus.ContratacaoConcluida => "Contratação concluída",
+                    _ => historico.StatusNovo,
+                },
+                historico.AlteradoPorNome,
+                statusHistorico switch
+                {
+                    SolicitacaoStatus.Reprovada => 2,
+                    SolicitacaoStatus.Cancelada => 3,
+                    _ => 1,
+                },
+                historico.AlteradoEmUtc,
+                historico.Observacao));
+        }
+
+        if (TimelineLifecycleStatuses.Contains(s.Status.ToString())
+            && !lifecycleHistoricos.Any(h => string.Equals(h.StatusNovo, s.Status.ToString(), StringComparison.OrdinalIgnoreCase)))
+        {
+            eventos.Add(new SolicitacaoTimelineEventoInfo(
+                eventos.Count,
+                s.Status switch
+                {
+                    SolicitacaoStatus.AjustesNecessarios => "Ajustes necessários",
+                    SolicitacaoStatus.PendenteAprovacaoRh => "Aguardando aprovação do RH",
+                    SolicitacaoStatus.Aprovada => "Aprovada",
+                    SolicitacaoStatus.Reprovada => "Reprovada",
+                    SolicitacaoStatus.Cancelada => "Cancelada",
+                    SolicitacaoStatus.EmIntegracao => "Em integração",
+                    SolicitacaoStatus.Concluida => "Concluída",
+                    SolicitacaoStatus.PendenteTriagem => "Pendente triagem",
+                    SolicitacaoStatus.EmTriagem => "Em triagem",
+                    SolicitacaoStatus.DevolvidaTriagemGestor => "Devolvida para o gestor",
+                    SolicitacaoStatus.PendenteIntegracaoRm => "Pendente integração RM",
+                    SolicitacaoStatus.ErroIntegracaoRm => "Erro na integração RM",
+                    SolicitacaoStatus.AguardandoReprocessamentoRm => "Aguardando reprocessamento RM",
+                    SolicitacaoStatus.EmProcessoSeletivo => "Em processo seletivo",
+                    SolicitacaoStatus.Suspensa => "Suspensa",
+                    SolicitacaoStatus.EncerradaSemContratacao => "Encerrada sem contratação",
+                    SolicitacaoStatus.ContratacaoConcluida => "Contratação concluída",
+                    _ => s.Status.ToString(),
+                },
+                null,
+                s.Status switch
+                {
+                    SolicitacaoStatus.Reprovada => 2,
+                    SolicitacaoStatus.Cancelada => 3,
+                    _ => 1,
+                },
+                s.ApprovedAtUtc ?? s.UpdatedAtUtc,
+                null));
+        }
+
+        return eventos;
+    }
+
+    private static SolicitacaoVagaResponse MapToResponse(
+        SolicitacaoVaga s,
+        IReadOnlyList<EtapaFluxoInfo>? etapasFluxo = null,
+        IReadOnlyList<SolicitacaoTimelineEventoInfo>? timelineEventos = null) => new(
         s.Id,
         s.Titulo,
         s.CodFuncaoRm,
@@ -2909,6 +3057,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.UpdatedAtUtc,
         s.ApprovedAtUtc,
         etapasFluxo ?? Array.Empty<EtapaFluxoInfo>(),
+        timelineEventos ?? Array.Empty<SolicitacaoTimelineEventoInfo>(),
         // Decisão RH
         s.DecisaoRH,
         s.DecisaoRHRevisadoPor?.Name,

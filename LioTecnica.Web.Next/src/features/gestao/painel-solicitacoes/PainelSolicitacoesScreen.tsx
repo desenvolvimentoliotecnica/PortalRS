@@ -37,7 +37,13 @@ import {
 
 import Link from "next/link";
 import AcompanhamentoModal, { type AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
-import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
+import {
+    mapEtapasToSteps,
+    mapTimelineEventosToSteps,
+    normalizeEtapaStatus,
+    type EtapaAprovacaoResponse,
+    type SolicitacaoTimelineEventoResponse,
+} from "@/features/gestao/shared/etapaUtils";
 import {
     normalizeSolicitacaoStatusOrdinal,
     solicitacaoPainelUnifiedStatusOrdinal,
@@ -318,17 +324,21 @@ export default function PainelSolicitacoesScreen() {
         try {
             const detail = await fetchJson<Record<string, unknown>>(row.detailApi);
             setTimelineStatus(detail.status as number | string ?? row.status);
-            const STATUS_NUM_TO_STR: Record<number, string> = { 0: "Pendente", 1: "Aprovado", 2: "Reprovado" };
+            const timelineEventos = detail.timelineEventos as SolicitacaoTimelineEventoResponse[] | undefined;
+            if (timelineEventos?.length) {
+                setTimelineSteps(mapTimelineEventosToSteps(timelineEventos));
+                return;
+            }
 
             // Normalize etapas: etapasFluxo (EtapaFluxoInfo, numeric status) or etapas (EtapaAprovacaoResponse, string status)
-            const rawFluxo = detail.etapasFluxo as { ordem: number; label: string; aprovadorNome: string | null; roleNome: string | null; status: number; dataUtc: string | null; observacao: string | null }[] | undefined;
+            const rawFluxo = detail.etapasFluxo as { ordem: number; label: string; aprovadorNome: string | null; roleNome: string | null; status: number | string; dataUtc: string | null; observacao: string | null }[] | undefined;
             const rawEtapas = detail.etapas as EtapaAprovacaoResponse[] | undefined;
 
             const etapas: EtapaAprovacaoResponse[] = rawFluxo?.length
                 ? rawFluxo.map(e => ({
                     ordem: e.ordem, label: e.label, aprovadorId: null, aprovadorNome: e.aprovadorNome,
                     roleFilaId: null, roleFilaNome: e.roleNome,
-                    status: STATUS_NUM_TO_STR[e.status] ?? "Pendente", dataUtc: e.dataUtc, observacao: e.observacao,
+                    status: normalizeEtapaStatus(e.status), dataUtc: e.dataUtc, observacao: e.observacao,
                 }))
                 : (rawEtapas ?? []);
 

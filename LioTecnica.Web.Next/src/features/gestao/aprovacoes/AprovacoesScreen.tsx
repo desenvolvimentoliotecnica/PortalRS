@@ -181,8 +181,8 @@ function mapPortalPendenteToRow(p: PortalPendenteApi): GenericRow & { _tabId: st
     };
 }
 
-/** Status de SolicitacaoVaga que ainda exigem trâmite no Portal (inclui triagem AQ sem etapas ainda). Exclui 4 (AjustesNecessarios): volta ao solicitante, não deve aparecer em Minhas Pendências do aprovador. */
-const SOLICITACAO_VAGA_STATUS_PENDENTE_GESTAO = [1, 10, 5, 11, 12, 13] as const;
+/** Status de SolicitacaoVaga que ainda exigem ação no Portal/RH. Exclui 4 (AjustesNecessarios): volta ao solicitante, não deve aparecer em Minhas Pendências do aprovador. */
+const SOLICITACAO_VAGA_STATUS_PENDENTE_GESTAO = [1, 2, 5, 7, 8, 10, 11, 12, 13, 14, 15, 16] as const;
 
 /** Status em que o Portal aceita aprovar / reprovar / solicitar ajustes (backend valida permissão). */
 function solicitacaoVagaStatusAllowsApprovalActions(statusRaw: unknown): boolean {
@@ -1080,7 +1080,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Minhas Pendências</h1>
                     <div className="text-muted-foreground text-sm mt-0.5">
-                        Solicitações que aguardam sua aprovação
+                        Solicitações que aguardam sua aprovação ou sua atuação no fluxo do RH
                     </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={refreshAll}>
