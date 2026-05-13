@@ -357,16 +357,9 @@ builder.Services.AddHostedService<RmSolicitacaoStatusSyncHostedService>();
 builder.Services.AddScoped<IRmRequisicoesReadService, RmRequisicoesReadService>();
 
 builder.Services.Configure<RmRequisicaoCreateOptions>(builder.Configuration.GetSection(RmRequisicaoCreateOptions.SectionName));
-builder.Services.AddScoped<IRmRequisicaoCreateClient>(sp =>
-{
-    var o = sp.GetRequiredService<IOptions<RmRequisicaoCreateOptions>>().Value;
-    var mode = (o.Mode ?? "stub").Trim();
-    if (mode.Equals("disabled", StringComparison.OrdinalIgnoreCase))
-        return new RmRequisicaoCreateDisabledClient();
-
-    return new RmRequisicaoCreateStubClient(sp.GetRequiredService<IOptions<RmRequisicaoCreateOptions>>());
-});
+builder.Services.AddHttpClient<IRmRequisicaoCreateClient, RmRequisicaoCreateRestClient>();
 builder.Services.AddScoped<ISolicitacaoVagaRmIntegracaoService, SolicitacaoVagaRmIntegracaoService>();
+builder.Services.AddHostedService<RmSolicitacaoCriacaoHostedService>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<SlaVagaOptions>(builder.Configuration.GetSection(SlaVagaOptions.SectionName));

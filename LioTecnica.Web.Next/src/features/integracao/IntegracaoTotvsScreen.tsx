@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
     CheckCircle2,
     XCircle,
@@ -17,10 +17,15 @@ import {
     TableRow,
     TableCell,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { TableSkeleton } from "@/components/ui/ScreenSkeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import IntegracaoDetalhesDrawer from "./IntegracaoDetalhesDrawer";
+import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 
 /* ── types ── */
 
@@ -37,6 +42,13 @@ interface IntegracaoTotvsListItem {
     integracaoResultado: number | string | null;
     integracaoMensagem: string | null;
     integradaEmUtc: string | null;
+    tentativasIntegracao: number;
+    ultimaTentativaUtc: string | null;
+    rmCriacaoSolicitadaEmUtc: string | null;
+    rmCodColRequisicao: number | null;
+    rmIdReq: number | null;
+    status: string | null;
+    rmCodStatus: number | null;
 }
 
 interface IntegracaoTotvsPainelResponse {
@@ -45,6 +57,12 @@ interface IntegracaoTotvsPainelResponse {
     pendentes: number;
     sucesso: number;
     falha: number;
+}
+
+interface ConfiguracaoRmRequisicaoDto {
+    endpointUrl: string | null;
+    username: string | null;
+    password: string | null;
 }
 
 /* ── constants ── */
@@ -58,6 +76,7 @@ const TIPO_LABELS: Record<number, string> = {
     6: "Dependente",
     7: "Beneficio",
     8: "Ferias",
+    9: "Req. RM",
 };
 
 const TIPO_COLORS: Record<number, string> = {
@@ -69,6 +88,7 @@ const TIPO_COLORS: Record<number, string> = {
     6: "bg-orange-100 text-orange-800",
     7: "bg-pink-100 text-pink-800",
     8: "bg-amber-100 text-amber-800",
+    9: "bg-slate-100 text-slate-800",
 };
 
 const RESULTADO_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -81,16 +101,24 @@ const RESULTADO_MAP: Record<string, { label: string; color: string; icon: React.
 };
 
 type FiltroResultado = "all" | "pendente" | "1" | "2";
+type AbaPainel = "geral" | "solicitacoes-rm";
 
 /* ── component ── */
 
 export default function IntegracaoTotvsScreen() {
     const queryClient = useQueryClient();
+    const [abaAtiva, setAbaAtiva] = useState<AbaPainel>("geral");
     const [filtroTipo, setFiltroTipo] = useState<string>("all");
     const [filtroResultado, setFiltroResultado] = useState<FiltroResultado>("all");
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [drawerItem, setDrawerItem] = useState<IntegracaoTotvsListItem | null>(null);
+    const [configLoading, setConfigLoading] = useState(false);
+    const [configSaving, setConfigSaving] = useState(false);
+    const [canManageRmConfig, setCanManageRmConfig] = useState(true);
+    const [rmEndpointUrl, setRmEndpointUrl] = useState("");
+    const [rmUsername, setRmUsername] = useState("");
+    const [rmPassword, setRmPassword] = useState("");
 
     // Debounce search
     const searchTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -100,15 +128,18 @@ export default function IntegracaoTotvsScreen() {
         searchTimer.current = setTimeout(() => setDebouncedSearch(value), 400);
     }, []);
 
+    const isSolicitacoesRmTab = abaAtiva === "solicitacoes-rm";
+
     // Build query params
     const params = new URLSearchParams();
-    if (filtroTipo !== "all") params.set("tipo", filtroTipo);
+    if (isSolicitacoesRmTab) params.set("tipo", "9");
+    else if (filtroTipo !== "all") params.set("tipo", filtroTipo);
     if (filtroResultado === "1" || filtroResultado === "2") params.set("resultado", filtroResultado);
     if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     params.set("take", "200");
     const qs = params.toString() ? `?${params.toString()}` : "";
 
-    const queryKey = ["integracao-totvs", "painel", filtroTipo, filtroResultado, debouncedSearch];
+    const queryKey = ["integracao-totvs", "painel", abaAtiva, filtroTipo, filtroResultado, debouncedSearch];
     const { data, isLoading } = useApiQuery<IntegracaoTotvsPainelResponse>(
         queryKey,
         `/api/integracao-totvs/painel${qs}`
@@ -129,6 +160,70 @@ export default function IntegracaoTotvsScreen() {
         queryClient.invalidateQueries({ queryKey: ["integracao-totvs"] });
         setDrawerItem(null);
     }, [queryClient]);
+
+    useEffect(() => {
+        if (!isSolicitacoesRmTab) return;
+
+        let cancelled = false;
+        setConfigLoading(true);
+
+        (async () => {
+            try {
+                const res = await apiFetch("/api/integracao-totvs/configuracao-rm-requisicao");
+                if (res.status === 403) {
+                    if (!cancelled) setCanManageRmConfig(false);
+                    return;
+                }
+                if (!res.ok) throw new Error(`Erro HTTP ${res.status}`);
+
+                const json = await res.json() as ConfiguracaoRmRequisicaoDto;
+                if (cancelled) return;
+
+                setCanManageRmConfig(true);
+                setRmEndpointUrl(json.endpointUrl ?? "");
+                setRmUsername(json.username ?? "");
+                setRmPassword(json.password ?? "");
+            } catch {
+                if (!cancelled)
+                    toast.error("Falha ao carregar a configuração de integração RM.");
+            } finally {
+                if (!cancelled) setConfigLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [isSolicitacoesRmTab]);
+
+    const handleSaveRmConfig = useCallback(async () => {
+        setConfigSaving(true);
+        try {
+            const res = await apiFetch("/api/integracao-totvs/configuracao-rm-requisicao", {
+                method: "PUT",
+                body: JSON.stringify({
+                    endpointUrl: rmEndpointUrl.trim() || null,
+                    username: rmUsername.trim() || null,
+                    password: rmPassword.trim() || null,
+                }),
+            });
+
+            if (res.status === 403)
+                throw new Error("Somente administradores podem alterar essa configuração.");
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({ message: `Erro HTTP ${res.status}` }));
+                throw new Error((body as { message?: string }).message || `Erro HTTP ${res.status}`);
+            }
+
+            const json = await res.json() as ConfiguracaoRmRequisicaoDto;
+            setRmEndpointUrl(json.endpointUrl ?? "");
+            setRmUsername(json.username ?? "");
+            setRmPassword(json.password ?? "");
+            toast.success("Configuração de requisição RM salva.");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Falha ao salvar configuração RM.");
+        } finally {
+            setConfigSaving(false);
+        }
+    }, [rmEndpointUrl, rmPassword, rmUsername]);
 
     return (
         <section className="space-y-6">
@@ -152,19 +247,99 @@ export default function IntegracaoTotvsScreen() {
 
             {/* filters + table */}
             <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
+                <div className="mb-4 flex flex-wrap gap-2">
+                    {([
+                        { key: "geral", label: "Painel Geral" },
+                        { key: "solicitacoes-rm", label: "Requisições/Solicitações RM" },
+                    ] as { key: AbaPainel; label: string }[]).map((aba) => (
+                        <button
+                            key={aba.key}
+                            onClick={() => setAbaAtiva(aba.key)}
+                            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                                abaAtiva === aba.key
+                                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                            }`}
+                        >
+                            {aba.label}
+                        </button>
+                    ))}
+                </div>
+
+                {isSolicitacoesRmTab && canManageRmConfig && (
+                    <div className="mb-6 rounded-xl border border-border/60 bg-muted/20 p-4">
+                        <div className="mb-3">
+                            <h2 className="text-sm font-semibold">Configuração da integração de requisições RM</h2>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Informe a URL completa do endpoint e as credenciais BasicAuth usadas para criar requisições no RM.
+                            </p>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <div className="md:col-span-3">
+                                <Label htmlFor="rm-endpoint-url">Endpoint</Label>
+                                <Input
+                                    id="rm-endpoint-url"
+                                    value={rmEndpointUrl}
+                                    onChange={(e) => setRmEndpointUrl(e.target.value)}
+                                    placeholder="http://localhost:8051/RMSRestDataServer/rest/RhuReqAumentoQuadroData"
+                                    disabled={configLoading || configSaving}
+                                />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="rm-username">Usuário</Label>
+                                <Input
+                                    id="rm-username"
+                                    value={rmUsername}
+                                    onChange={(e) => setRmUsername(e.target.value)}
+                                    placeholder="usuario.rm"
+                                    disabled={configLoading || configSaving}
+                                />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="rm-password">Senha</Label>
+                                <Input
+                                    id="rm-password"
+                                    type="password"
+                                    value={rmPassword}
+                                    onChange={(e) => setRmPassword(e.target.value)}
+                                    placeholder="Senha BasicAuth"
+                                    disabled={configLoading || configSaving}
+                                />
+                            </div>
+
+                            <div className="flex items-end">
+                                <Button
+                                    onClick={() => void handleSaveRmConfig()}
+                                    disabled={configLoading || configSaving}
+                                    className="w-full"
+                                >
+                                    {configSaving ? "Salvando..." : "Salvar configuração"}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Filter row */}
                 <div className="flex flex-wrap items-center gap-4 mb-4">
                     {/* Tipo filter */}
-                    <select
-                        value={filtroTipo}
-                        onChange={(e) => setFiltroTipo(e.target.value)}
-                        className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="all">Todos os tipos</option>
-                        {Object.entries(TIPO_LABELS).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
-                        ))}
-                    </select>
+                    {!isSolicitacoesRmTab && (
+                        <select
+                            value={filtroTipo}
+                            onChange={(e) => setFiltroTipo(e.target.value)}
+                            className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="all">Todos os tipos</option>
+                            {Object.entries(TIPO_LABELS)
+                                .filter(([k]) => k !== "9")
+                                .map(([k, v]) => (
+                                    <option key={k} value={k}>{v}</option>
+                                ))}
+                        </select>
+                    )}
 
                     {/* Resultado tabs */}
                     <div className="flex flex-wrap gap-1">
@@ -197,7 +372,7 @@ export default function IntegracaoTotvsScreen() {
                             type="text"
                             value={search}
                             onChange={(e) => handleSearchChange(e.target.value)}
-                            placeholder="Buscar nome ou CPF..."
+                            placeholder={isSolicitacoesRmTab ? "Buscar solicitante ou solicitação..." : "Buscar nome ou CPF..."}
                             className="rounded-lg border border-border bg-background pl-8 pr-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
@@ -206,14 +381,29 @@ export default function IntegracaoTotvsScreen() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Nome</TableHead>
-                            <TableHead>CPF</TableHead>
-                            <TableHead>Descricao</TableHead>
-                            <TableHead className="text-center">Resultado</TableHead>
-                            <TableHead>Mensagem</TableHead>
-                            <TableHead className="text-right">Aprovada em</TableHead>
-                            <TableHead className="text-right">Integrada em</TableHead>
+                            {isSolicitacoesRmTab ? (
+                                <>
+                                    <TableHead>Solicitante</TableHead>
+                                    <TableHead>Solicitação</TableHead>
+                                    <TableHead>Status Portal</TableHead>
+                                    <TableHead>Vínculo RM</TableHead>
+                                    <TableHead className="text-center">Tentativas</TableHead>
+                                    <TableHead className="text-right">Última Tentativa</TableHead>
+                                    <TableHead className="text-center">Resultado</TableHead>
+                                    <TableHead>Mensagem</TableHead>
+                                </>
+                            ) : (
+                                <>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Nome</TableHead>
+                                    <TableHead>CPF</TableHead>
+                                    <TableHead>Descricao</TableHead>
+                                    <TableHead className="text-center">Resultado</TableHead>
+                                    <TableHead>Mensagem</TableHead>
+                                    <TableHead className="text-right">Aprovada em</TableHead>
+                                    <TableHead className="text-right">Integrada em</TableHead>
+                                </>
+                            )}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -246,40 +436,75 @@ export default function IntegracaoTotvsScreen() {
                                     className="cursor-pointer hover:bg-muted/40"
                                     onClick={() => setDrawerItem(r)}
                                 >
-                                    <TableCell>
-                                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIPO_COLORS[r.tipoIntegracao] ?? "bg-gray-100 text-gray-800"}`}>
-                                            {r.tipoIntegracaoLabel}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="font-semibold text-sm">{r.nome}</TableCell>
-                                    <TableCell className="text-sm font-mono">{r.cpf || "\u2014"}</TableCell>
-                                    <TableCell className="text-sm max-w-[180px] truncate">{r.descricao}</TableCell>
-                                    <TableCell className="text-center">
-                                        {res && ResIcon ? (
-                                            <span
-                                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${res.color}`}
-                                            >
-                                                <ResIcon className="size-3" /> {res.label}
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/15 text-amber-700">
-                                                <Clock className="size-3" /> Pendente
-                                            </span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                                        {r.integracaoMensagem || "\u2014"}
-                                    </TableCell>
-                                    <TableCell className="text-right text-xs text-muted-foreground">
-                                        {r.approvedAtUtc
-                                            ? new Date(r.approvedAtUtc).toLocaleDateString("pt-BR")
-                                            : "\u2014"}
-                                    </TableCell>
-                                    <TableCell className="text-right text-xs text-muted-foreground">
-                                        {r.integradaEmUtc
-                                            ? new Date(r.integradaEmUtc).toLocaleDateString("pt-BR")
-                                            : "\u2014"}
-                                    </TableCell>
+                                    {isSolicitacoesRmTab ? (
+                                        <>
+                                            <TableCell className="font-semibold text-sm">{r.nome}</TableCell>
+                                            <TableCell className="text-sm max-w-[220px] truncate">{r.descricao}</TableCell>
+                                            <TableCell className="text-xs text-muted-foreground">{r.status || "\u2014"}</TableCell>
+                                            <TableCell className="text-xs">
+                                                {r.rmIdReq != null
+                                                    ? `IDREQ ${r.rmIdReq} / COL ${r.rmCodColRequisicao ?? "\u2014"} / CODSTATUS ${r.rmCodStatus ?? "\u2014"}`
+                                                    : "Aguardando vínculo RM"}
+                                            </TableCell>
+                                            <TableCell className="text-center text-sm">{r.tentativasIntegracao}</TableCell>
+                                            <TableCell className="text-right text-xs text-muted-foreground">
+                                                {formatDateTime(r.ultimaTentativaUtc || r.rmCriacaoSolicitadaEmUtc)}
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                {res && ResIcon ? (
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${res.color}`}
+                                                    >
+                                                        <ResIcon className="size-3" /> {res.label}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/15 text-amber-700">
+                                                        <Clock className="size-3" /> Na fila
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-muted-foreground max-w-[260px] truncate">
+                                                {r.integracaoMensagem || "\u2014"}
+                                            </TableCell>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <TableCell>
+                                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIPO_COLORS[r.tipoIntegracao] ?? "bg-gray-100 text-gray-800"}`}>
+                                                    {r.tipoIntegracaoLabel}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="font-semibold text-sm">{r.nome}</TableCell>
+                                            <TableCell className="text-sm font-mono">{r.cpf || "\u2014"}</TableCell>
+                                            <TableCell className="text-sm max-w-[180px] truncate">{r.descricao}</TableCell>
+                                            <TableCell className="text-center">
+                                                {res && ResIcon ? (
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${res.color}`}
+                                                    >
+                                                        <ResIcon className="size-3" /> {res.label}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/15 text-amber-700">
+                                                        <Clock className="size-3" /> Pendente
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                                                {r.integracaoMensagem || "\u2014"}
+                                            </TableCell>
+                                            <TableCell className="text-right text-xs text-muted-foreground">
+                                                {r.approvedAtUtc
+                                                    ? new Date(r.approvedAtUtc).toLocaleDateString("pt-BR")
+                                                    : "\u2014"}
+                                            </TableCell>
+                                            <TableCell className="text-right text-xs text-muted-foreground">
+                                                {r.integradaEmUtc
+                                                    ? new Date(r.integradaEmUtc).toLocaleDateString("pt-BR")
+                                                    : "\u2014"}
+                                            </TableCell>
+                                        </>
+                                    )}
                                 </TableRow>
                             );
                         })}
@@ -297,6 +522,11 @@ export default function IntegracaoTotvsScreen() {
             />
         </section>
     );
+}
+
+function formatDateTime(value: string | null | undefined) {
+    if (!value) return "\u2014";
+    return new Date(value).toLocaleString("pt-BR");
 }
 
 /* ── KPI Card ── */

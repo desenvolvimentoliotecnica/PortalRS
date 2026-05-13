@@ -22,12 +22,28 @@ public sealed class RmRequisicaoCreateStubClient(IOptions<RmRequisicaoCreateOpti
 
         if (!string.IsNullOrWhiteSpace(solicitacao.RmRequisicaoCodigo)
             && solicitacao.RmRequisicaoCodigo.StartsWith("STUB-", StringComparison.OrdinalIgnoreCase))
-            return Task.FromResult(new RmCreateRequisicaoOutcome(true, true, solicitacao.RmRequisicaoCodigo, solicitacao.RmCodStatus ?? 1, null, null));
+            return Task.FromResult(new RmCreateRequisicaoOutcome(
+                true,
+                true,
+                solicitacao.RmRequisicaoCodigo,
+                solicitacao.RmCodStatus ?? 1,
+                null,
+                null,
+                solicitacao.RmCodColRequisicao,
+                solicitacao.RmIdReq));
 
         var codigo = $"STUB-{solicitacao.Id:N}".ToUpperInvariant();
         if (codigo.Length > 120)
             codigo = codigo[..120];
 
-        return Task.FromResult(new RmCreateRequisicaoOutcome(true, false, codigo, 1, null, null));
+        return Task.FromResult(new RmCreateRequisicaoOutcome(
+            true,
+            false,
+            codigo,
+            1,
+            null,
+            null,
+            _options.CodColRequisicaoDefault,
+            Math.Abs(solicitacao.Id.GetHashCode())));
     }
 }

@@ -45,3 +45,7 @@ Ou seja: o RM costuma ser a **origem dos dados** de gestor, materializada no Por
 4. Renomear rota/menu (“Hierarquia de aprovação”, “Gestor direto (Portal)”, etc.) pode reduzir a sensação de duplicidade com o organograma **sem** mudar backend.
 
 Este arquivo **não** substitui especificação de API; serve para alinhar produto e equipe antes de refatorações ou remoção de telas.
+
+## Documentos relacionados
+
+- Fluxo `solicitacao -> vaga -> RH`: `docs/solicitacao-vaga-para-vaga-fluxo-rh.md`

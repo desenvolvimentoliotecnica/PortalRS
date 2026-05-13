@@ -192,14 +192,18 @@ public sealed class SolicitacaoVaga : ITenantEntity
 
     // ── Formulário enriquecido / RM sync (milestones aumento quadro + integração RM) ─────────────
 
-    /// <summary>
-    /// Requisitos técnicos/comportamentais/etc. §7 história — payload JSON versionado (<c>schemaVersion</c> definido na Fase 2).
-    /// </summary>
-    public string? RequisitosDetalhadosJson { get; set; }
+    /// <summary>Timestamp em que a criação da requisição RM foi enfileirada pelo portal.</summary>
+    public DateTimeOffset? RmCriacaoSolicitadaEmUtc { get; set; }
 
     /// <summary>Código da requisição retornado pelo RM.</summary>
     [System.ComponentModel.DataAnnotations.MaxLength(120)]
     public string? RmRequisicaoCodigo { get; set; }
+
+    /// <summary>Coligada da requisição retornada pelo RM (<c>CODCOLREQUISICAO</c>).</summary>
+    public short? RmCodColRequisicao { get; set; }
+
+    /// <summary>Identificador numérico da requisição no RM (<c>IDREQ</c>).</summary>
+    public int? RmIdReq { get; set; }
 
     /// <summary>Espelho do <c>CODSTATUS</c> da requisição no RM.</summary>
     public short? RmCodStatus { get; set; }

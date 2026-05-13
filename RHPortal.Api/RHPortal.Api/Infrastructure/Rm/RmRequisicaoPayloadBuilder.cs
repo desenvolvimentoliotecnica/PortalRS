@@ -43,10 +43,6 @@ public static class RmRequisicaoPayloadBuilder
     /// <returns>JSON compacto; truncar antes de gravar na entidade de tentativa se necessário.</returns>
     public static string BuildResumoJson(SolicitacaoVaga s)
     {
-        var requisitosLen = string.IsNullOrEmpty(s.RequisitosDetalhadosJson)
-            ? 0
-            : s.RequisitosDetalhadosJson.Length;
-
         var mdLen = (s.MotivoDesligamentoTexto ?? "").Length;
         var payload = new
         {
@@ -62,7 +58,6 @@ public static class RmRequisicaoPayloadBuilder
             s.DecisaoRH,
             Substituicao = s.TipoSolicitacao == TipoSolicitacaoVaga.Substituicao,
             MotivoDesligamentoTextoApprox = mdLen > 400 ? 400 : mdLen,
-            RequisitosJsonBytes = requisitosLen,
             FaixaSalarialMin = s.FaixaSalarialMin,
             FaixaSalarialMax = s.FaixaSalarialMax,
             s.CnhObrigatoria,

@@ -67,6 +67,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     p.IntegradaEmUtc,
                     null,
                     null,
+                    null,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
                     null
                 ))
                 .ToListAsync(ct);
@@ -91,6 +97,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
                     s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null,
+                    0,
+                    null,
+                    null,
                     null,
                     null,
                     null
@@ -119,6 +131,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegradaEmUtc,
                     null,
                     null,
+                    null,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
                     null
                 ))
                 .ToListAsync(ct);
@@ -143,6 +161,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
                     s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null,
+                    0,
+                    null,
+                    null,
                     null,
                     null,
                     null
@@ -171,6 +195,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegradaEmUtc,
                     null,
                     null,
+                    null,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
                     null
                 ))
                 .ToListAsync(ct);
@@ -195,6 +225,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegracaoResultado,
                     s.IntegracaoMensagem,
                     s.IntegradaEmUtc,
+                    null,
+                    null,
+                    null,
+                    0,
+                    null,
+                    null,
                     null,
                     null,
                     null
@@ -223,6 +259,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegradaEmUtc,
                     null,
                     null,
+                    null,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
                     null
                 ))
                 .ToListAsync(ct);
@@ -249,6 +291,12 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegradaEmUtc,
                     null,
                     null,
+                    null,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
                     null
                 ))
                 .ToListAsync(ct);
@@ -261,15 +309,11 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             var solicitacoesVaga = await _db.SolicitacoesVaga
                 .AsNoTracking()
                 .Include(s => s.Solicitante)
-                .Where(s => s.Status == SolicitacaoStatus.EmIntegracao
-                         || s.Status == SolicitacaoStatus.EmProcessoSeletivo
-                         || s.Status == SolicitacaoStatus.Suspensa
-                         || s.Status == SolicitacaoStatus.Concluida
-                         || s.Status == SolicitacaoStatus.ContratacaoConcluida
-                         || s.Status == SolicitacaoStatus.EncerradaSemContratacao
-                         || s.Status == SolicitacaoStatus.PendenteIntegracaoRm
-                         || s.Status == SolicitacaoStatus.ErroIntegracaoRm
-                         || s.Status == SolicitacaoStatus.AguardandoReprocessamentoRm)
+                .Where(s =>
+                    s.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro
+                    && (s.RmCriacaoSolicitadaEmUtc != null
+                        || !string.IsNullOrWhiteSpace(s.RmRequisicaoCodigo)
+                        || s.IntegracaoResultado != null))
                 .Select(s => new IntegracaoTotvsListItem(
                     s.Id,
                     (short)TipoIntegracao.SolicitacaoVaga,
@@ -283,7 +327,13 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.IntegradaEmUtc,
                     s.RmCodStatus,
                     s.RmUltimaStatusDescricaoRm,
-                    s.RmStatusSyncUltimaMensagem
+                    s.RmStatusSyncUltimaMensagem,
+                    s.TentativasIntegracao,
+                    s.UltimaTentativaUtc,
+                    s.RmCriacaoSolicitadaEmUtc,
+                    s.RmCodColRequisicao,
+                    s.RmIdReq,
+                    s.Status.ToString()
                 ))
                 .ToListAsync(ct);
             all.AddRange(solicitacoesVaga);
@@ -301,6 +351,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             var search = query.Search.Trim().ToLowerInvariant();
             all = all.Where(x =>
                 x.Nome.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                x.Descricao.Contains(search, StringComparison.OrdinalIgnoreCase) ||
                 (x.Cpf != null && x.Cpf.Contains(search, StringComparison.OrdinalIgnoreCase))
             ).ToList();
         }
@@ -600,6 +651,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                     s.CnhObrigatoria, s.DisponibilidadeViagens, s.EscalaTrabalho,
                     s.VagaId,
                     s.IntegracaoResultado, s.IntegracaoMensagem, s.IntegradaEmUtc,
+                    s.TentativasIntegracao, s.UltimaTentativaUtc, s.RmCriacaoSolicitadaEmUtc,
+                    s.RmCodColRequisicao, s.RmIdReq, s.RmRequisicaoCodigo,
+                    s.RmCodStatus, s.RmUltimaStatusDescricaoRm, s.RmStatusSyncUltimaMensagem,
                     s.EfetivadoManualmentePorId, s.EfetivadoManualmenteEmUtc,
                     s.ApprovedAtUtc, s.CreatedAtUtc,
                 };
@@ -920,9 +974,11 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             {
                 var entity = await _db.SolicitacoesVaga.FindAsync(new object[] { id }, ct)
                     ?? throw new KeyNotFoundException($"SolicitacaoVaga {id} não encontrada.");
+                entity.RmCriacaoSolicitadaEmUtc ??= DateTimeOffset.UtcNow;
                 entity.IntegracaoResultado = null;
-                entity.IntegracaoMensagem = null;
+                entity.IntegracaoMensagem = "Reenvio para fila RM solicitado manualmente.";
                 entity.IntegradaEmUtc = null;
+                entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
                 break;
             }
             default:
@@ -930,9 +986,6 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         }
 
         await _db.SaveChangesAsync(ct);
-
-        if (tipo == TipoIntegracao.SolicitacaoVaga)
-            await _solicitacaoVagaRmIntegracao.ExecutarCriacaoRequisicaoRmAsync(id, ct);
     }
 
     public async Task<EfetivarManualResponse> EfetivarManualAsync(
@@ -1379,9 +1432,13 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 var entity = await _db.SolicitacoesVaga.FindAsync(new object[] { id }, ct)
                     ?? throw new KeyNotFoundException($"SolicitacaoVaga {id} não encontrada.");
                 var statusAnterior = entity.Status.ToString();
+                entity.RmCriacaoSolicitadaEmUtc ??= DateTimeOffset.UtcNow;
                 entity.IntegracaoResultado = null;
-                entity.IntegracaoMensagem  = null;
+                entity.IntegracaoMensagem  = "Item voltou para a fila de criação RM.";
                 entity.IntegradaEmUtc      = null;
+                entity.TentativasIntegracao = 0;
+                entity.UltimaTentativaUtc = null;
+                entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
                 if (tipoEntidade.HasValue)
                     await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
                         statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);

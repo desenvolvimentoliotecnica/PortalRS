@@ -42,6 +42,22 @@ public sealed class ConfiguracaoHeadcountRequest
     public string? BlipApiKey { get; set; }
 }
 
+// ── DTOs de integração RM (requisições/solicitações) ──
+
+public sealed class ConfiguracaoRmRequisicaoDto
+{
+    public string? EndpointUrl { get; set; }
+    public string? Username { get; set; }
+    public string? Password { get; set; }
+}
+
+public sealed class ConfiguracaoRmRequisicaoRequest
+{
+    public string? EndpointUrl { get; set; }
+    public string? Username { get; set; }
+    public string? Password { get; set; }
+}
+
 // ── DTOs de IA por tenant (Fase 3 LLM-agnóstico) ──
 
 /// <summary>
@@ -96,6 +112,8 @@ public interface ITenantConfiguracaoService
     Task<TenantConfiguracaoDto> UpsertAsync(TenantConfiguracaoUpsertRequest request, CancellationToken ct);
     Task<ConfiguracaoHeadcountDto> GetHeadcountConfigAsync(CancellationToken ct);
     Task<ConfiguracaoHeadcountDto> UpsertHeadcountConfigAsync(ConfiguracaoHeadcountRequest request, CancellationToken ct);
+    Task<ConfiguracaoRmRequisicaoDto> GetRmRequisicaoConfigAsync(CancellationToken ct);
+    Task<ConfiguracaoRmRequisicaoDto> UpsertRmRequisicaoConfigAsync(ConfiguracaoRmRequisicaoRequest request, CancellationToken ct);
 
     /// <summary>Retorna a configuração de IA do tenant, mais o "effective" depois de resolver fallbacks.</summary>
     Task<TenantAiConfigDto> GetAiConfigAsync(CancellationToken ct);
@@ -213,6 +231,47 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
             BlipNumeroHospedeiro = config.BlipNumeroHospedeiro,
             BlipApiUrl = config.BlipApiUrl,
             BlipApiKey = config.BlipApiKey,
+        };
+    }
+
+    public async Task<ConfiguracaoRmRequisicaoDto> GetRmRequisicaoConfigAsync(CancellationToken ct)
+    {
+        var config = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
+        if (config is null) return new ConfiguracaoRmRequisicaoDto();
+
+        return new ConfiguracaoRmRequisicaoDto
+        {
+            EndpointUrl = config.RmRequisicaoCreateEndpointUrl,
+            Username = config.RmRequisicaoCreateUsername,
+            Password = config.RmRequisicaoCreatePassword,
+        };
+    }
+
+    public async Task<ConfiguracaoRmRequisicaoDto> UpsertRmRequisicaoConfigAsync(ConfiguracaoRmRequisicaoRequest request, CancellationToken ct)
+    {
+        var config = await _db.TenantConfiguracoes.FirstOrDefaultAsync(ct);
+        if (config is null)
+        {
+            config = new Domain.Entities.TenantConfiguracao
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId ?? "",
+            };
+            _db.TenantConfiguracoes.Add(config);
+        }
+
+        config.RmRequisicaoCreateEndpointUrl = NullIfBlank(request.EndpointUrl);
+        config.RmRequisicaoCreateUsername = NullIfBlank(request.Username);
+        config.RmRequisicaoCreatePassword = NullIfBlank(request.Password);
+        config.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        return new ConfiguracaoRmRequisicaoDto
+        {
+            EndpointUrl = config.RmRequisicaoCreateEndpointUrl,
+            Username = config.RmRequisicaoCreateUsername,
+            Password = config.RmRequisicaoCreatePassword,
         };
     }
 

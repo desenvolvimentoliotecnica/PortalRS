@@ -6,4 +6,6 @@ public sealed record RmCreateRequisicaoOutcome(
     string? CodigoRm,
     short? CodStatusRm,
     string? MensagemErro,
-    int? CodigoTecnico);
+    int? CodigoTecnico,
+    short? CodColRequisicao = null,
+    int? IdReq = null);

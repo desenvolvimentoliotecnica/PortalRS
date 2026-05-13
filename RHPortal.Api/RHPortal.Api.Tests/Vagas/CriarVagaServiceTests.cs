@@ -296,4 +296,5 @@ public sealed class CriarVagaServiceTests
         Assert.Equal(created.Id, retrieved.Id);
         Assert.Equal("QA Engineer", retrieved.Titulo);
     }
+
 }

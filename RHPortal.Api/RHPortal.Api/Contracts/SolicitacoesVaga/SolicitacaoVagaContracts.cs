@@ -96,12 +96,6 @@ public sealed class SolicitacaoVagaCreateRequest
     /// <summary>Proposta salarial — teto da faixa.</summary>
     public decimal? FaixaSalarialMax { get; set; }
 
-    /// <summary>
-    /// Requisitos adicionais (JSON objeto com <c>schemaVersion</c>). Obrigatório no envio quando
-    /// <see cref="TipoSolicitacao"/> é <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>.
-    /// </summary>
-    [MaxLength(120_000)]
-    public string? RequisitosDetalhadosJson { get; set; }
 }
 
 public sealed class SolicitacaoVagaUpdateRequest
@@ -178,12 +172,6 @@ public sealed class SolicitacaoVagaUpdateRequest
     /// <summary>Proposta salarial — teto da faixa.</summary>
     public decimal? FaixaSalarialMax { get; set; }
 
-    /// <summary>
-    /// Requisitos adicionais (JSON objeto com <c>schemaVersion</c>). Obrigatório no envio quando
-    /// <see cref="TipoSolicitacao"/> é <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>.
-    /// </summary>
-    [MaxLength(120_000)]
-    public string? RequisitosDetalhadosJson { get; set; }
 }
 
 // ── Approval actions ──
@@ -327,9 +315,13 @@ public sealed record SolicitacaoVagaResponse(
     string? RmStatusSyncUltimaMensagem,
     DateTimeOffset? RmUltimaSincronizacaoUtc,
     string? RmRequisicaoCodigo,
+    DateTimeOffset? RmCriacaoSolicitadaEmUtc,
+    short? RmCodColRequisicao,
+    int? RmIdReq,
+    int TentativasIntegracao,
+    DateTimeOffset? UltimaTentativaUtc,
     decimal? FaixaSalarialMin,
-    decimal? FaixaSalarialMax,
-    string? RequisitosDetalhadosJson
+    decimal? FaixaSalarialMax
 );
 
 public sealed record SolicitacaoVagaGridRow(
@@ -351,6 +343,11 @@ public sealed record SolicitacaoVagaGridRow(
     bool IsConfidencial,
     string? SubstituidoNome,
     DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? RmCriacaoSolicitadaEmUtc,
+    short? RmCodColRequisicao,
+    int? RmIdReq,
+    int TentativasIntegracao,
+    DateTimeOffset? UltimaTentativaUtc,
     short? RmCodStatus,
     string? RmUltimaStatusDescricaoRm,
     string? RmStatusSyncUltimaMensagem,

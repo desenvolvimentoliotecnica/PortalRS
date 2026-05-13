@@ -84,7 +84,28 @@ interface SolicitacaoRow {
 interface SolicitacaoDetail extends SolicitacaoRow {
     justificativa?: string | null;
     aprovadorNome?: string | null;
-    unitName?: string | null;
+    motivoRequisicao?: number | string | null;
+    motivoRequisicaoCodigo?: string | null;
+    motivoRequisicaoEfeito?: number | string | null;
+    analistaRhResponsavelUserId?: string | null;
+    analistaRhResponsavelNome?: string | null;
+    jobPositionId?: string | null;
+    jobPositionName?: string | null;
+    codFuncaoRm?: string | null;
+    funcaoNomeRm?: string | null;
+    tipoContrato?: number | string | null;
+    escalaTrabalho?: string | null;
+    turnoId?: string | null;
+    turnoCode?: string | null;
+    turnoDescription?: string | null;
+    centroCustoId?: string | null;
+    centroCustoNome?: string | null;
+    unidadeLotacaoId?: string | null;
+    unidadeLotacaoNome?: string | null;
+    faixaSalarialMin?: number | string | null;
+    faixaSalarialMax?: number | string | null;
+    cnhObrigatoria?: boolean;
+    disponibilidadeViagens?: boolean;
     vagaId?: string | null;
     observacaoAprovador?: string | null;
     isConfidencial?: boolean;
@@ -106,8 +127,124 @@ function pickString(v: unknown, fb = "") {
     return typeof v === "string" ? v : v == null ? fb : String(v);
 }
 
+function pickBool(v: unknown) {
+    return v === true || v === "true" || v === 1;
+}
+
 function clamp(n: number, min: number, max: number) {
     return Math.max(min, Math.min(max, n));
+}
+
+function pickDecimalString(v: unknown) {
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+    if (typeof v === "string") {
+        const trimmed = v.trim();
+        return trimmed;
+    }
+    return "";
+}
+
+function mapSolicUrgenciaToPrioridade(value: unknown) {
+    if (value === 3 || value === "3" || value === "Critica") return "critica";
+    if (value === 2 || value === "2" || value === "Alta") return "alta";
+    if (value === 1 || value === "1" || value === "Media") return "media";
+    return "baixa";
+}
+
+function mapSolicTipoContratoToVagaTipoContratacao(value: unknown) {
+    const raw = pickString(value).toLowerCase();
+    if (!raw) return "";
+    if (raw === "clt") return "clt";
+    if (raw === "estagio") return "estagio";
+    if (raw === "aprendiz") return "aprendiz";
+    if (raw === "temporario") return "temporario";
+    return raw;
+}
+
+function mapSolicMotivoToVagaMotivoAbertura(solic: SolicitacaoDetail) {
+    const tipoSolicitacao = pickString(solic.tipoSolicitacao);
+    if (tipoSolicitacao === "AumentoQuadro" || tipoSolicitacao === "2") return "aumentodequadro";
+
+    const codigo = pickString(solic.motivoRequisicaoCodigo);
+    switch (codigo) {
+        case "PedidoDemissao":
+        case "DesligamentoSemJustaCausa":
+        case "TerminoContrato":
+        case "Movimentacao":
+        case "Afastamento":
+            return "substituicao";
+        case "NovaUnidade":
+            return "novoprojeto";
+        case "AtenderDemanda":
+        case "ExpansaoBase":
+        case "CotaAprendiz":
+            return "aumentodequadro";
+    }
+
+    const motivoLegacy = pickString(solic.motivoRequisicao);
+    switch (motivoLegacy) {
+        case "PedidoDemissao":
+        case "DesligamentoSemJustaCausa":
+        case "TerminoContrato":
+        case "Movimentacao":
+        case "Afastamento":
+        case "1":
+        case "2":
+        case "4":
+        case "7":
+        case "8":
+            return "substituicao";
+        case "NovaUnidade":
+        case "6":
+            return "novoprojeto";
+        case "AtenderDemanda":
+        case "ExpansaoBase":
+        case "CotaAprendiz":
+        case "0":
+        case "3":
+        case "5":
+            return "aumentodequadro";
+    }
+
+    const efeito = pickString(solic.motivoRequisicaoEfeito);
+    if (efeito === "Aumenta" || efeito === "1") return "aumentodequadro";
+    if (efeito === "Ambos" || efeito === "Diminui" || efeito === "2" || efeito === "3") return "substituicao";
+
+    if (tipoSolicitacao === "Substituicao" || tipoSolicitacao === "1") return "substituicao";
+    return "";
+}
+
+function mapSolicitacaoToVagaPrefill(solic: SolicitacaoDetail): Record<string, unknown> {
+    return {
+        status: "rascunho",
+        titulo: pickString(solic.titulo),
+        descricaoInterna: pickString(solic.justificativa),
+        quantidadeVagas: pickNumber(solic.qtdPosicoes, 1),
+        prioridade: mapSolicUrgenciaToPrioridade(solic.urgencia),
+        urgente: solic.urgencia === 2 || solic.urgencia === 3 || solic.urgencia === "Alta" || solic.urgencia === "Critica",
+        confidencial: pickBool(solic.isConfidencial),
+        cargoId: pickString(solic.jobPositionId),
+        cargoName: pickString(solic.jobPositionName),
+        codFuncaoRm: pickString(solic.codFuncaoRm),
+        funcaoNomeRm: pickString(solic.funcaoNomeRm),
+        motivoAbertura: mapSolicMotivoToVagaMotivoAbertura(solic),
+        tipoContratacao: mapSolicTipoContratoToVagaTipoContratacao(solic.tipoContrato),
+        centroCustoId: pickString(solic.centroCustoId),
+        centroCustoDescription: pickString(solic.centroCustoNome),
+        unidadeLotacaoId: pickString(solic.unidadeLotacaoId),
+        unidadeLotacaoDescription: pickString(solic.unidadeLotacaoNome),
+        turnoId: pickString(solic.turnoId),
+        turnoCode: pickString(solic.turnoCode),
+        turnoDescription: pickString(solic.turnoDescription),
+        escalaTrabalhoRaw: pickString(solic.escalaTrabalho),
+        salarioMinimo: pickDecimalString(solic.faixaSalarialMin),
+        salarioMaximo: pickDecimalString(solic.faixaSalarialMax),
+        exigeCnh: pickBool(solic.cnhObrigatoria),
+        disponibilidadeViagens: pickBool(solic.disponibilidadeViagens),
+        gestorRequisitante: pickString(solic.solicitanteNome),
+        recrutadorResponsavelUserId: pickString(solic.analistaRhResponsavelUserId) || null,
+        recrutadorResponsavel: pickString(solic.analistaRhResponsavelNome),
+    };
 }
 
 function normalizeVagaOrigemTipo(value: unknown): number {
@@ -398,17 +535,9 @@ export default function VagasScreen() {
     useEffect(() => {
         if (!fromSolicId || fromSolicHandled.current) return;
         fromSolicHandled.current = true;
-        fetchJson<Record<string, unknown>>(`/api/solicitacoes-vaga/${encodeURIComponent(fromSolicId)}`)
+        fetchJson<SolicitacaoDetail>(`/api/solicitacoes-vaga/${encodeURIComponent(fromSolicId)}`)
             .then((solic) => {
-                setPrefillFromSolic({
-                    titulo: solic.titulo ?? "",
-                    centroCustoId: solic.centroCustoId ?? "",
-                    centroCustoName: solic.centroCustoName ?? "",
-                    unitId: solic.unitId ?? "",
-                    descricaoInterna: solic.justificativa ?? "",
-                    prioridade: solic.urgencia === 3 || solic.urgencia === "Critica" ? "Critica" : solic.urgencia === 2 || solic.urgencia === "Alta" ? "Alta" : solic.urgencia === 1 || solic.urgencia === "Media" ? "Media" : "Baixa",
-                    quantidadeVagas: solic.qtdPosicoes ?? 1,
-                });
+                setPrefillFromSolic(mapSolicitacaoToVagaPrefill(solic));
                 setEditId(null);
                 setEditOpen(true);
             })
@@ -1902,8 +2031,8 @@ export default function VagasScreen() {
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                                 <DetailField label="Solicitante" value={solicDetail.solicitanteNome || "—"} />
                                 <DetailField label="Aprovador" value={solicDetail.aprovadorNome || "—"} />
-                                <DetailField label="Centro de Custo" value={solicDetail.centroCustoName || "—"} />
-                                <DetailField label="Unidade" value={solicDetail.unitName || "—"} />
+                                <DetailField label="Centro de Custo" value={solicDetail.centroCustoNome || solicDetail.centroCustoName || "—"} />
+                                <DetailField label="Unidade" value={solicDetail.unidadeLotacaoNome || "—"} />
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

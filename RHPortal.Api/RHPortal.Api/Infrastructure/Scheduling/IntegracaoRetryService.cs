@@ -281,19 +281,6 @@ public sealed class IntegracaoRetryService : BackgroundService
                 () => { x.IntegracaoResultado = IntegracaoResultado.FalhaDefinitiva; x.UltimaTentativaUtc = now; }));
         }
 
-        // Requisição de Pessoal
-        foreach (var x in await db.SolicitacoesVaga
-            .Where(e => e.IntegracaoResultado == IntegracaoResultado.Falha && e.TentativasIntegracao < MaxTentativas)
-            .ToListAsync(ct))
-        {
-            if (!DeveTentar(x.TentativasIntegracao, x.UltimaTentativaUtc, now)) continue;
-            result.Add(new IntegracaoFalhaItem(
-                x.Id, TipoIntegracao.SolicitacaoVaga, "Req. Pessoal", x.Titulo,
-                x.TentativasIntegracao, x.SolicitanteId,
-                () => { x.TentativasIntegracao++; x.UltimaTentativaUtc = now; },
-                () => { x.IntegracaoResultado = IntegracaoResultado.FalhaDefinitiva; x.UltimaTentativaUtc = now; }));
-        }
-
         return result;
     }
 
