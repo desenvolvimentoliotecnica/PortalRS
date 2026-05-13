@@ -73,7 +73,8 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                             v.RecrutadorResponsavelUserId == currentUserId.Value
                             || _db.SolicitacoesVaga.Any(s =>
                                 s.VagaId == v.Id
-                                && s.AnalistaRhResponsavelUserId == currentUserId.Value)),
+                                && s.AnalistaRhResponsavelUserId == currentUserId.Value)
+                            || (v.Status == VagaStatus.Aberta && v.RecrutadorResponsavelUserId == null)),
 
                     VagasDataScope.ByGestorRecrutador when _currentUser.FuncionarioId.HasValue =>
                         vagasQuery.Where(v =>

@@ -2,7 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Moq;
+using RhPortal.Api.Application.Common;
+using RhPortal.Api.Application.ProjetosVaga;
 using RhPortal.Api.Application.Vagas;
+using RhPortal.Api.Application.WorkflowRH;
 using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -19,7 +22,8 @@ namespace RhPortal.Api.Tests.Vagas;
 /// Cobertura do épico "Carteira de Vaga":
 /// garante que VagaService.ListAsync aplica VagasDataScope corretamente
 /// nos quatro cenários (All, ByArea, ByRecrutador, ByGestorRecrutador)
-/// e que Admin vê tudo ignorando o scope.
+/// e que Admin vê tudo ignorando o scope. ByRecrutador inclui vagas Abertas
+/// sem recrutador atribuído (fila comum alinhada ao portal público).
 /// </summary>
 public sealed class VagaCarteiraScopeTests
 {
@@ -146,7 +150,18 @@ public sealed class VagaCarteiraScopeTests
         user.Setup(x => x.FuncionarioId).Returns(funcionarioId);
 
         var logger = new Mock<ILogger<VagaService>>();
-        return new VagaService(bag.Db, tenant.Object, logger.Object, localizer.Object, user.Object);
+        var workflowRh = new Mock<IWorkflowRHService>();
+        var projetoVaga = new Mock<IProjetoVagaService>();
+        var statusHistorico = new StatusHistoricoService(bag.Db, tenant.Object);
+        return new VagaService(
+            bag.Db,
+            tenant.Object,
+            logger.Object,
+            localizer.Object,
+            user.Object,
+            workflowRh.Object,
+            statusHistorico,
+            projetoVaga.Object);
     }
 
     // 31.2: VagaListQuery passou a ter 4 args (Q, Status, CentroCustoId, RecrutadorUserId).
@@ -189,26 +204,28 @@ public sealed class VagaCarteiraScopeTests
     }
 
     [Fact]
-    public async Task ByRecrutador_RetornaApenasVagasOndeUsuarioEhRecrutador()
+    public async Task ByRecrutador_RetornaMinhasVagasEAbertasSemRecrutadorNaFilaComum()
     {
         var bag = Seed();
         var svc = Servico(bag, VagasDataScope.ByRecrutador, userId: bag.RecrutadorUserId);
 
         var lista = await svc.ListAsync(EmptyQuery(), CancellationToken.None);
 
-        Assert.Single(lista);
-        Assert.Equal(bag.VagaTiDoRecrutadorId, lista[0].Id);
+        Assert.Equal(2, lista.Count);
+        Assert.Contains(lista, v => v.Id == bag.VagaTiDoRecrutadorId);
+        Assert.Contains(lista, v => v.Id == bag.VagaRhSemRecrutadorId);
     }
 
     [Fact]
-    public async Task ByRecrutador_UsuarioSemVagas_RetornaVazio()
+    public async Task ByRecrutador_UsuarioSemCarteiraAtribuida_RetornaSoAbertasSemRecrutador()
     {
         var bag = Seed();
         var svc = Servico(bag, VagasDataScope.ByRecrutador, userId: Guid.NewGuid());
 
         var lista = await svc.ListAsync(EmptyQuery(), CancellationToken.None);
 
-        Assert.Empty(lista);
+        Assert.Single(lista);
+        Assert.Equal(bag.VagaRhSemRecrutadorId, lista[0].Id);
     }
 
     [Fact]
@@ -256,7 +273,7 @@ public sealed class VagaCarteiraScopeTests
         var lista = await svc.ListAsync(EmptyQuery(), CancellationToken.None);
 
         Assert.DoesNotContain(lista, v => v.Id == bag.VagaTiDeOutroId);
-        Assert.DoesNotContain(lista, v => v.Id == bag.VagaRhSemRecrutadorId);
+        Assert.Contains(lista, v => v.Id == bag.VagaRhSemRecrutadorId);
     }
 
     [Fact]

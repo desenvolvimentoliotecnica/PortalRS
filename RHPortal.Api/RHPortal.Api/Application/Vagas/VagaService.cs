@@ -106,9 +106,8 @@ public sealed class VagaService : IVagaService
             q = q.Where(v => v.CentroCustoId == query.CentroCustoId.Value);
 
         // Carteira (ByRecrutador / ByGestorRecrutador / ByArea) já é aplicada em ApplyVagasDataScopeFilter,
-        // incluindo vínculo SolicitacaoVaga.AnalistaRhResponsavelUserId. Não re-filtrar só por
-        // RecrutadorResponsavelUserId — isso ocultava vagas atribuídas ao analista na solicitação
-        // antes do sync do campo na vaga (e divergia de /api/vagas/pendencias-rh).
+        // incluindo vínculo SolicitacaoVaga.AnalistaRhResponsavelUserId e vagas Abertas sem recrutador
+        // (fila comum, alinhada ao portal público). Não re-filtrar só por RecrutadorResponsavelUserId.
 
         // Carregar configuração do tenant para calcular alerta
         var tenantConfig = await _db.TenantConfiguracoes
@@ -1602,7 +1601,9 @@ public sealed class VagaService : IVagaService
                     v.RecrutadorResponsavelUserId == currentUserId.Value
                     || _db.SolicitacoesVaga.Any(s =>
                         s.VagaId == v.Id
-                        && s.AnalistaRhResponsavelUserId == currentUserId.Value)),
+                        && s.AnalistaRhResponsavelUserId == currentUserId.Value)
+                    // Fila comum: publicada no portal sem carteira atribuída (RM/sync/legado).
+                    || (v.Status == VagaStatus.Aberta && v.RecrutadorResponsavelUserId == null)),
 
             VagasDataScope.ByGestorRecrutador when _currentUser.FuncionarioId.HasValue =>
                 query.Where(v =>
