@@ -310,12 +310,25 @@ public sealed class VagaService : IVagaService
                 UnidadeLotacaoId = response.UnidadeLotacaoId ?? solic.UnidadeLotacaoId,
                 UnidadeLotacaoCode = string.IsNullOrWhiteSpace(response.UnidadeLotacaoCode) ? solic.UnidadeLotacao?.Code : response.UnidadeLotacaoCode,
                 UnidadeLotacaoDescription = string.IsNullOrWhiteSpace(response.UnidadeLotacaoDescription) ? solic.UnidadeLotacao?.Description : response.UnidadeLotacaoDescription,
-                EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(response.EscalaTrabalhoRaw) ? solic.EscalaTrabalho : response.EscalaTrabalhoRaw,
+                EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(response.EscalaTrabalhoRaw)
+                    ? TurnoEscalaTrabalhoRawMapper.ResolveForNewVaga(solic.EscalaTrabalho, solic.Turno)
+                    : response.EscalaTrabalhoRaw,
                 SalarioMinimo = response.SalarioMinimo ?? solic.FaixaSalarialMin,
                 SalarioMaximo = response.SalarioMaximo ?? solic.FaixaSalarialMax,
                 MotivoAbertura = response.MotivoAbertura ?? motivoAberturaPrefill,
             };
         }
+
+        // Escala detalhada (JSON HorarioEditor): se ainda não há grade válida, derivar do turno vinculado à vaga.
+        if (!TurnoEscalaTrabalhoRawMapper.HasPopulatedGrid(response.EscalaTrabalhoRaw ?? ""))
+        {
+            var fromTurno = TurnoEscalaTrabalhoRawMapper.ResolveFromTurno(entity.Turno);
+            if (fromTurno is not null)
+                response = response with { EscalaTrabalhoRaw = fromTurno };
+        }
+
+        if (string.IsNullOrWhiteSpace(response.TurnoGradeHorarioJson) && solic?.Turno is { GradeHorarioJson: { } g } && !string.IsNullOrWhiteSpace(g))
+            response = response with { TurnoGradeHorarioJson = g.Trim() };
 
         // Faixa salarial (dado externo ao Vaga) — populada sob demanda.
         if (entity.JobPositionId.HasValue)
@@ -919,7 +932,8 @@ public sealed class VagaService : IVagaService
             null, // DecisaoRHPrazoMeses
             v.HeadcountProvisorioExpiresAtUtc,
             v.CodFuncaoRm,
-            v.FuncaoNomeRm
+            v.FuncaoNomeRm,
+            string.IsNullOrWhiteSpace(v.Turno?.GradeHorarioJson) ? null : v.Turno!.GradeHorarioJson!.Trim()
         );
     }
 

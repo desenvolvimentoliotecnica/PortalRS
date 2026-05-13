@@ -7,16 +7,35 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { getTenantId } from "@/lib/session";
 import { lookupCep } from "@/lib/cepLookup";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
 import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
 import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
 import { RecrutadorAutocomplete } from "@/components/autocomplete/RecrutadorAutocomplete";
 import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
-import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
 const BASE = "/app";
+
+/** Alinhado a TurnoEscalaTrabalhoRawMapper.HasPopulatedGrid (API): JSON com grid e ao menos uma célula não vazia. */
+function horarioRawHasPopulatedGrid(raw: string | undefined | null): boolean {
+  if (!raw?.trim()) return false;
+  try {
+    const p = JSON.parse(raw) as { grid?: Record<string, Record<string, unknown>> };
+    if (!p?.grid || typeof p.grid !== "object") return false;
+    for (const row of Object.values(p.grid)) {
+      if (!row || typeof row !== "object") continue;
+      for (const cell of Object.values(row)) {
+        if (typeof cell === "string" && cell.trim() !== "") return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 const UF_LIST = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
 const EXP_OPTIONS = [
   { code: "", text: "Qualquer" },
@@ -870,6 +889,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const loaded = useRef(false);
   const lastBootstrapKeyRef = useRef<string>("");
   const [embeddedBootstrapLoading, setEmbeddedBootstrapLoading] = useState(false);
+  /** Grade JSON do cadastro do turno (última carga da API) — usado em "Recarregar do turno". */
+  const turnoGradeJsonRef = useRef<string | null>(null);
 
   // Histórico da decisão de headcount registrada na solicitação de vaga (read-only).
   // Decisão agora é feita pelo GESTOR na criação da solicitação — RH não decide mais aqui.
@@ -963,6 +984,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     if (!open) {
       loaded.current = false;
       lastBootstrapKeyRef.current = "";
+      turnoGradeJsonRef.current = null;
       setEmbeddedBootstrapLoading(false);
       setDecisaoRHFeita(null);
       setDescricaoCargoSearch("");
@@ -1018,6 +1040,27 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       const etaRaw = Array.isArray(v.etapas) ? v.etapas : [];
       const pergRaw = Array.isArray(v.perguntasTriagem) ? v.perguntasTriagem : [];
 
+      const turnoGradeApi = v.turnoGradeHorarioJson != null ? String(v.turnoGradeHorarioJson as string).trim() : "";
+      turnoGradeJsonRef.current = turnoGradeApi || null;
+
+      let escalaTrabalhoRaw = pick(v.escalaTrabalhoRaw);
+      if (!horarioRawHasPopulatedGrid(escalaTrabalhoRaw) && horarioRawHasPopulatedGrid(turnoGradeApi)) {
+        escalaTrabalhoRaw = turnoGradeApi;
+      }
+      const turnoIdResolved = pick(v.turnoId);
+      if (!horarioRawHasPopulatedGrid(escalaTrabalhoRaw) && turnoIdResolved) {
+        try {
+          const t = await fetchJson<Record<string, unknown>>(`${BASE}/api/turnos/${encodeURIComponent(turnoIdResolved)}`);
+          const g = t?.gradeHorarioJson != null ? String(t.gradeHorarioJson).trim() : "";
+          if (horarioRawHasPopulatedGrid(g)) {
+            escalaTrabalhoRaw = g;
+            turnoGradeJsonRef.current = g;
+          }
+        } catch {
+          /* turno opcional */
+        }
+      }
+
       setDraft({
         id,
         titulo: pick(v.titulo), codigo: pick(v.codigo),
@@ -1056,7 +1099,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         projetoNome: pick(v.projetoNome), projetoCliente: pick(v.projetoClienteAreaImpactada),
         projetoPrazo: pick(v.projetoPrazoPrevisto), projetoDescricao: pick(v.projetoDescricao),
         regime: pickEnum(v.regime), cargaSemanalHoras: v.cargaSemanalHoras != null ? String(v.cargaSemanalHoras) : "",
-        escala: pickEnum(v.escala), escalaTrabalhoRaw: pick(v.escalaTrabalhoRaw),
+        escala: pickEnum(v.escala), escalaTrabalhoRaw,
         horaEntrada: pick(v.horaEntrada), horaSaida: pick(v.horaSaida),
         intervalo: pick(v.intervalo),
         cep: pick(v.cep), logradouro: pick(v.logradouro), numero: pick(v.numero), bairro: pick(v.bairro),
@@ -1122,6 +1165,35 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         setDecisaoRHFeita(null);
       }
     } catch { toast.error("Falha ao carregar dados da vaga."); }
+  }
+
+  async function reloadHorariosDoTurno() {
+    if (!draft.turnoId) {
+      toast.error("Selecione um turno cadastrado.");
+      return;
+    }
+    if (horarioRawHasPopulatedGrid(draft.escalaTrabalhoRaw)) {
+      const ok = await confirmDialog({
+        title: "Substituir horários?",
+        description: "A grade atual será substituída pelos horários do cadastro do turno (se existirem).",
+        confirmText: "Substituir",
+        cancelText: "Cancelar",
+      });
+      if (!ok) return;
+    }
+    try {
+      const t = await fetchJson<Record<string, unknown>>(`${BASE}/api/turnos/${encodeURIComponent(draft.turnoId)}`);
+      const g = t?.gradeHorarioJson != null ? String(t.gradeHorarioJson).trim() : "";
+      if (horarioRawHasPopulatedGrid(g)) {
+        set("escalaTrabalhoRaw", g);
+        turnoGradeJsonRef.current = g;
+        toast.success("Horários atualizados a partir do turno.");
+        return;
+      }
+      toast.error("Este turno não possui grade de horários no cadastro. Preencha a grade manualmente ou use um preset.");
+    } catch {
+      toast.error("Falha ao buscar o turno.");
+    }
   }
 
   async function copyFromVaga(id: string) {
@@ -1300,7 +1372,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {/* ── Identificação ───────────────────────────────────── */}
           {tab === "identificacao" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
-              <SectionHeader title="Identificação da vaga" description="Campos principais — espelham o formulário de solicitação do requisitante." />
+              <SectionHeader title="Identificação da vaga" />
 
               <Field label="Título da vaga" required span="col-span-12 md:col-span-8">
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} />
@@ -1355,23 +1427,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                   placeholder="Buscar centro de custo..."
                 />
               </Field>
-              <Field label="Unidade de lotação" span="col-span-12 md:col-span-6">
-                <UnidadeLotacaoAutocomplete
-                  value={draft.unidadeLotacaoCode || draft.unidadeLotacaoId}
-                  defaultLabel={draft.unidadeLotacaoCode ? { code: draft.unidadeLotacaoCode, description: draft.unidadeLotacaoDescription } : undefined}
-                  onChange={(code) => set("unidadeLotacaoCode", code)}
-                  onSelectId={(id) => set("unidadeLotacaoId", id)}
-                  onSelectItem={(item) => {
-                    setDraft((d) => ({
-                      ...d,
-                      unidadeLotacaoId: item.id,
-                      unidadeLotacaoCode: item.code,
-                      unidadeLotacaoDescription: item.description,
-                    }));
-                  }}
-                  placeholder="Buscar unidade de lotação..."
-                />
-              </Field>
 
               <Field label="Qtd. vagas" span="col-span-6 md:col-span-3">
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={1} value={draft.quantidadeVagas} onChange={(e) => set("quantidadeVagas", Math.max(1, Number(e.target.value) || 1))} />
@@ -1398,6 +1453,14 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {/* ── Horário ──────────────────────────────────────────── */}
           {tab === "horario" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
+              <div className="col-span-12 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <p className="text-xs text-muted-foreground max-w-3xl">
+                  O <strong>turno</strong> vem do cadastro da empresa (e da solicitação, quando houver). A <strong>grade abaixo</strong> é o detalhamento salvo na vaga — ao abrir a tela, ela é preenchida pelos horários do turno quando o cadastro os tiver; você pode ajustar manualmente ou usar os presets do editor.
+                </p>
+                <Button type="button" variant="outline" size="sm" className="shrink-0 self-start" onClick={() => void reloadHorariosDoTurno()}>
+                  Recarregar do turno
+                </Button>
+              </div>
               <Field label="Turno" span="col-span-12 md:col-span-6">
                 <TurnoAutocomplete
                   value={draft.turnoCode || draft.turnoId}
@@ -1416,7 +1479,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 />
               </Field>
               <div className="col-span-12 mt-1">
-                <p className="text-xs text-muted-foreground mb-2">Selecione a escala na lista ou preencha manualmente os horários por dia da semana.</p>
                 <HorarioEditor value={draft.escalaTrabalhoRaw} onChange={(v) => set("escalaTrabalhoRaw", v)} />
               </div>
             </div>
