@@ -20,7 +20,14 @@ interface Props extends Omit<SolicitacaoFormProps, "active" | "onCancel" | "onSu
 export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave, copySourceId, initialData, reloadNonce }: Props) {
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-            <DialogContent className="flex h-[95vh] max-h-[95vh] min-h-0 w-full flex-col gap-0 overflow-hidden p-6 sm:max-w-5xl">
+            <DialogContent
+                className="flex h-[95vh] max-h-[95vh] min-h-0 w-full flex-col gap-0 overflow-hidden p-6 sm:max-w-5xl"
+                // Fechar só por Cancelar / X: não overlay, não Escape. Evita fechar quando toast/toaster rouba foco (validação).
+                onPointerDownOutside={(e) => e.preventDefault()}
+                onInteractOutside={(e) => e.preventDefault()}
+                onFocusOutside={(e) => e.preventDefault()}
+                onEscapeKeyDown={(e) => e.preventDefault()}
+            >
                 <DialogHeader className="shrink-0 space-y-0 pb-3 pr-8">
                     <DialogTitle className="text-base font-semibold">
                         {viewOnly ? "Visualizar Requisição de Pessoal" : copySourceId ? "Copiar Requisição de Pessoal" : editId ? "Editar Requisição de Pessoal" : "Requisição de Pessoal"}
