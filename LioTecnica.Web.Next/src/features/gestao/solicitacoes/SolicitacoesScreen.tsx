@@ -90,14 +90,10 @@ interface SolicitacaoGridRow {
     etapaPendenteAprovadorId?: string | null;
 }
 
-function isStatusAprovadaOuConcluida(status: number | string): boolean {
-    const s = String(status);
-    return s === "Aprovada" || s === "2" || s === "Concluida" || s === "8";
-}
-
 function isStatusDistribuivelParaAnalistaRh(status: number | string): boolean {
     const s = String(status);
-    return s === "PendenteAprovacaoRh"
+    return (
+        s === "PendenteAprovacaoRh"
         || s === "5"
         || s === "Aprovada"
         || s === "2"
@@ -116,7 +112,8 @@ function isStatusDistribuivelParaAnalistaRh(status: number | string): boolean {
         || s === "ErroIntegracaoRm"
         || s === "15"
         || s === "AguardandoReprocessamentoRm"
-        || s === "16";
+        || s === "16"
+    );
 }
 
 function dedupeSolicitacoesPorId(items: SolicitacaoGridRow[]): SolicitacaoGridRow[] {
@@ -369,6 +366,8 @@ function SolicitacoesVagaContent() {
     const [formOpen, setFormOpen] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [viewId, setViewId] = useState<string | null>(null);
+    /** Linha da grade ao abrir "Visualizar" (ações extras no rodapé do modal, ex.: distribuir analista RH). */
+    const [viewMetaRow, setViewMetaRow] = useState<SolicitacaoGridRow | null>(null);
     const [resubmit, setResubmit] = useState(false);
     const [copySourceId, setCopySourceId] = useState<string | null>(null);
     const [formInitialData, setFormInitialData] = useState<Partial<SolicitacaoDraft> | null>(null);
@@ -380,10 +379,6 @@ function SolicitacoesVagaContent() {
     const [timelineLoading, setTimelineLoading] = useState(false);
     const [timelineStatus, setTimelineStatus] = useState<number | string | null>(null);
 
-    /* ── detail dialog ── */
-    const [detailOpen, setDetailOpen] = useState(false);
-    const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
-    const [detailLoading, setDetailLoading] = useState(false);
     const [detailAnalistaRh, setDetailAnalistaRh] = useState<{ userId: string | null; nome: string | null }>({ userId: null, nome: null });
     const [detailAssigning, setDetailAssigning] = useState(false);
 
@@ -391,22 +386,6 @@ function SolicitacoesVagaContent() {
     const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
     const [bulkAssigning, setBulkAssigning] = useState(false);
     const [bulkAnalistaRh, setBulkAnalistaRh] = useState<{ userId: string | null; nome: string | null }>({ userId: null, nome: null });
-
-    const detailObservadorRh = useMemo(() => {
-        if (!detail) return false;
-        return rhListaAmpla
-            && !isAdminOrOwner
-            && !!(myFuncionarioId && detail.solicitanteId !== myFuncionarioId)
-            && !isStatusAprovadaOuConcluida(detail.status);
-    }, [detail, rhListaAmpla, isAdminOrOwner, myFuncionarioId]);
-
-    /** Modal/lista: não-solicitante (ex.: gestor aprovador) só consulta — aprovação em Aprovações. */
-    const detailSomenteLeitura = useMemo(() => {
-        if (!detail) return false;
-        if (isAdminOrOwner) return false;
-        if (!myFuncionarioId) return false;
-        return detail.solicitanteId !== myFuncionarioId;
-    }, [detail, isAdminOrOwner, myFuncionarioId]);
 
     /* ── delete confirm ── */
     const [deleteTarget, setDeleteTarget] = useState<SolicitacaoGridRow | null>(null);
@@ -536,6 +515,7 @@ function SolicitacoesVagaContent() {
     /* ── actions ── */
     function openNovaPosicao() {
         setViewId(null);
+        setViewMetaRow(null);
         setEditId(null);
         setResubmit(false);
         setCopySourceId(null);
@@ -550,6 +530,7 @@ function SolicitacoesVagaContent() {
 
     function openEdit(row: SolicitacaoGridRow) {
         setViewId(null);
+        setViewMetaRow(null);
         setEditId(row.id);
         setResubmit(false);
         setCopySourceId(null);
@@ -563,6 +544,7 @@ function SolicitacoesVagaContent() {
 
     function openEditForApproval(row: SolicitacaoGridRow) {
         setViewId(null);
+        setViewMetaRow(null);
         setEditId(row.id);
         setResubmit(true);
         setCopySourceId(null);
@@ -575,7 +557,23 @@ function SolicitacoesVagaContent() {
     }
 
     function openView(row: SolicitacaoGridRow) {
-        void openDetail(row);
+        setViewMetaRow(row);
+        setViewId(row.id);
+        setEditId(null);
+        setResubmit(false);
+        setCopySourceId(null);
+        setFormInitialData(null);
+        setDetailAnalistaRh({
+            userId: row.analistaRhResponsavelUserId ?? null,
+            nome: row.analistaRhResponsavelNome ?? null,
+        });
+        if (prefersMobileForm) {
+            bumpFormNonce();
+            setFormOpen(true);
+            return;
+        }
+        bumpFormNonce();
+        setFormOpen(true);
     }
 
     async function openTimeline(row: SolicitacaoGridRow) {
@@ -610,25 +608,6 @@ function SolicitacoesVagaContent() {
             setTimelineOpen(false);
         } finally {
             setTimelineLoading(false);
-        }
-    }
-
-    async function openDetail(row: SolicitacaoGridRow) {
-        setDetailOpen(true);
-        setDetailLoading(true);
-        setApprovalObs("");
-        try {
-            const d = await fetchJson<SolicitacaoDetail>(`${API}/${row.id}`);
-            setDetail(d);
-            setDetailAnalistaRh({
-                userId: d.analistaRhResponsavelUserId ?? null,
-                nome: d.analistaRhResponsavelNome ?? null,
-            });
-        } catch {
-            toast.error("Falha ao carregar detalhes.");
-            setDetailOpen(false);
-        } finally {
-            setDetailLoading(false);
         }
     }
 
@@ -667,22 +646,29 @@ function SolicitacoesVagaContent() {
     }
 
     async function distribuirSolicitacaoDoModal() {
-        if (!detail) return;
+        const id = viewId;
+        if (!id) return;
 
         setDetailAssigning(true);
         try {
-            const updated = await fetchJson<SolicitacaoDetail>(`${API}/${detail.id}/analista-rh`, {
+            const updated = await fetchJson<SolicitacaoDetail>(`${API}/${id}/analista-rh`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     analistaRhResponsavelUserId: detailAnalistaRh.userId,
                 }),
             });
-            setDetail(updated);
             setDetailAnalistaRh({
                 userId: updated.analistaRhResponsavelUserId ?? null,
                 nome: updated.analistaRhResponsavelNome ?? null,
             });
+            setViewMetaRow((prev) => (prev && prev.id === id
+                ? {
+                    ...prev,
+                    analistaRhResponsavelUserId: updated.analistaRhResponsavelUserId ?? null,
+                    analistaRhResponsavelNome: updated.analistaRhResponsavelNome ?? null,
+                }
+                : prev));
             toast.success("Solicitação distribuída com sucesso.");
             await syncList();
         } catch (e) {
@@ -698,7 +684,7 @@ function SolicitacoesVagaContent() {
             await fetchJson(`${API}/${id}/cancel`, { method: "POST" });
             toast.success("Solicitação cancelada.");
             await syncList();
-            setDetailOpen(false);
+            handleFormClose();
         } catch (e) {
             toast.error(`Falha ao cancelar: ${e instanceof Error ? e.message : "erro"}`);
         }
@@ -709,7 +695,7 @@ function SolicitacoesVagaContent() {
             await fetchJson(`${API}/${id}/submit`, { method: "POST" });
             toast.success("Solicitação enviada para aprovação!");
             await syncList();
-            setDetailOpen(false);
+            handleFormClose();
         } catch (e) {
             toast.error(`Falha ao enviar: ${e instanceof Error ? e.message : "erro"}`);
         }
@@ -725,7 +711,8 @@ function SolicitacoesVagaContent() {
             });
             toast.success(`Solicitação: ${labels[action]}!`);
             await syncList();
-            setDetailOpen(false);
+            setApprovalObs("");
+            handleFormClose();
             if (action === "approve") {
             }
         } catch (e) {
@@ -748,6 +735,7 @@ function SolicitacoesVagaContent() {
     function handleFormClose() {
         setFormOpen(false);
         setViewId(null);
+        setViewMetaRow(null);
         setResubmit(false);
         setCopySourceId(null);
         setFormInitialData(null);
@@ -756,6 +744,7 @@ function SolicitacoesVagaContent() {
     function handleFormSaved() {
         setFormOpen(false);
         setViewId(null);
+        setViewMetaRow(null);
         setResubmit(false);
         setFormInitialData(null);
         setCopySourceId(null);
@@ -1054,6 +1043,7 @@ function SolicitacoesVagaContent() {
                                                             setCopySourceId(r.id);
                                                             setEditId(null);
                                                             setViewId(null);
+                                                            setViewMetaRow(null);
                                                             setResubmit(false);
                                                             setFormInitialData(null);
                                                             if (prefersMobileForm) {
@@ -1153,144 +1143,10 @@ function SolicitacoesVagaContent() {
                 resubmitAfterSave={resubmit}
                 copySourceId={copySourceId}
                 reloadNonce={formReloadNonce}
-            />
-
-            {/* ── Timeline Modal ── */}
-            <AcompanhamentoModal
-                open={timelineOpen}
-                loading={timelineLoading}
-                steps={timelineSteps}
-                solicitacaoStatus={timelineStatus}
-                onClose={() => setTimelineOpen(false)}
-            />
-
-            {/* ── Detail Dialog ── */}
-            <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-                <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>Detalhes da Solicitação</DialogTitle>
-                        <DialogDescription>Informações completas e ações de aprovação.</DialogDescription>
-                    </DialogHeader>
-                    {detailLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="border-lt-primary h-6 w-6 animate-spin rounded-full border-4 border-t-transparent" />
-                        </div>
-                    ) : detail ? (
-                        <div className="space-y-4">
-                            {detailSomenteLeitura && (
-                                <div className={`rounded-md border px-3 py-2 text-xs ${
-                                    detailObservadorRh
-                                        ? "border-sky-200 bg-sky-50/70 dark:bg-sky-950/25 dark:border-sky-800 text-sky-900 dark:text-sky-100"
-                                        : "border-amber-200 bg-amber-50/70 dark:bg-amber-950/25 dark:border-amber-800 text-amber-950 dark:text-amber-100"
-                                }`}>
-                                    {detailObservadorRh
-                                        ? "Visualização RH — a requisição ainda não está aprovada; você pode apenas consultar."
-                                        : "Visualização — você não é o solicitante. Para aprovar ou reprovar, use o menu Aprovações. Editar, cancelar ou copiar ficam a cargo do solicitante."}
-                                </div>
-                            )}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Título</div>
-                                    <div className="font-semibold">{detail.titulo}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Status</div>
-                                    <div className="mt-0.5">{statusBadge(detail.status)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Área</div>
-                                    <div className="text-sm">{detail.centroCustoNome || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Cargo</div>
-                                    <div className="text-sm">{detail.jobPositionName || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Unidade</div>
-                                    <div className="text-sm">{detail.unitName || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Posições</div>
-                                    <div className="text-sm font-mono">{detail.qtdPosicoes}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Urgência</div>
-                                    <div className="mt-0.5">{urgenciaBadge(detail.urgencia)}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Solicitante</div>
-                                    <div className="text-sm">{detail.solicitanteNome || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Aprovador</div>
-                                    <div className="text-sm">{detail.aprovadorNome || "—"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Analista RH</div>
-                                    <div className="text-sm">{detail.analistaRhResponsavelNome || "Não distribuída"}</div>
-                                </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Data criação</div>
-                                    <div className="text-sm">{formatDate(detail.createdAtUtc)}</div>
-                                </div>
-                            </div>
-
-                            {detail.justificativa && (
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">Justificativa</div>
-                                    <div className="mt-1 text-sm rounded-md bg-muted/30 p-3">{detail.justificativa}</div>
-                                </div>
-                            )}
-
-                            {(detail.rmRequisicaoCodigo || detail.rmUltimaStatusDescricaoRm || detail.rmCodStatus != null ||
-                                detail.rmStatusSyncUltimaMensagem || detail.rmUltimaSincronizacaoUtc) ? (
-                                <div className="rounded-md border border-muted bg-muted/20 p-3 text-sm space-y-1.5">
-                                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Totvs RM (somente leitura)</div>
-                                    {detail.rmRequisicaoCodigo && (
-                                        <div><span className="text-muted-foreground text-xs">Código requisição: </span>{detail.rmRequisicaoCodigo}</div>
-                                    )}
-                                    {(detail.rmCodStatus != null || detail.rmUltimaStatusDescricaoRm) && (
-                                        <div><span className="text-muted-foreground text-xs">Status RM: </span>{detail.rmUltimaStatusDescricaoRm ?? String(detail.rmCodStatus ?? "—")}</div>
-                                    )}
-                                    {detail.rmUltimaSincronizacaoUtc && (
-                                        <div><span className="text-muted-foreground text-xs">Última sync: </span>{formatDate(detail.rmUltimaSincronizacaoUtc)}</div>
-                                    )}
-                                    {detail.rmStatusSyncUltimaMensagem && (
-                                        <div className="text-xs rounded bg-background/80 border border-border/50 p-2 whitespace-pre-wrap">{detail.rmStatusSyncUltimaMensagem}</div>
-                                    )}
-                                </div>
-                                ) : null}
-
-                            {detail.aprovador3Habilitado && (
-                                <div className="rounded-md border border-purple-200 bg-purple-50/60 dark:bg-purple-950/20 dark:border-purple-800 p-3 text-sm">
-                                    <div className="text-xs font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider mb-1">Etapa de Aprovação RH</div>
-                                    <div className="text-purple-800 dark:text-purple-300">
-                                        {detail.aprovador3Nome || "Qualquer recrutador"} —{" "}
-                                        {detail.aprovador3Status === 1 || detail.aprovador3Status === "Aprovado"
-                                            ? "✓ Aprovado"
-                                            : detail.aprovador3Status === 2 || detail.aprovador3Status === "Reprovado"
-                                                ? "✗ Reprovado"
-                                                : "⏳ Aguardando"}
-                                    </div>
-                                </div>
-                            )}
-
-                            {detail.observacaoAprovador && (
-                                <div>
-                                    <div className="text-xs text-muted-foreground uppercase">
-                                        {detail.status === 3 || detail.status === "Reprovada" ? "Motivo da Recusa" : "Observação do Aprovador"}
-                                    </div>
-                                    <div className={`mt-1 text-sm rounded-md p-3 border ${
-                                        detail.status === 3 || detail.status === "Reprovada"
-                                            ? "bg-red-500/10 border-red-500/30 text-red-800 dark:text-red-300"
-                                            : "bg-amber-500/10 border-amber-500/20"
-                                    }`}>
-                                        {detail.observacaoAprovador}
-                                    </div>
-                                </div>
-                            )}
-
-                            {canDistribuirParaAnalistaRh && isStatusDistribuivelParaAnalistaRh(detail.status) && (
+                footerExtra={
+                    formOpen && viewId && viewMetaRow ? (
+                        <>
+                            {canDistribuirParaAnalistaRh && isStatusDistribuivelParaAnalistaRh(viewMetaRow.status) && (
                                 <div className="space-y-3 rounded-lg border border-border/60 p-3">
                                     <div className="text-sm font-semibold">Distribuir para Analista de RH</div>
                                     <RhAnalistaAutocomplete
@@ -1318,11 +1174,9 @@ function SolicitacoesVagaContent() {
                                     </div>
                                 </div>
                             )}
-
-                            {/* ── Approval actions (only for Admin when status=Pendente) ── */}
-                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && isAdmin && (
-                                <div className="space-y-3 rounded-lg border border-border/60 p-3">
-                                    <div className="text-sm font-semibold">Ações de aprovação</div>
+                            {(viewMetaRow.status === 1 || viewMetaRow.status === "PendenteAprovacao") && isAdmin && (
+                                <div className="mt-3 space-y-3 rounded-lg border border-border/60 p-3">
+                                    <div className="text-sm font-semibold">Ações de aprovação (admin)</div>
                                     <textarea
                                         className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground"
                                         rows={2}
@@ -1331,70 +1185,28 @@ function SolicitacoesVagaContent() {
                                         onChange={(e) => setApprovalObs(e.target.value)}
                                     />
                                     <div className="flex gap-2">
-                                        <Button size="sm" className="btn-approve" onClick={() => void doApproval(detail.id, "approve")}>
+                                        <Button size="sm" className="btn-approve" onClick={() => void doApproval(viewId, "approve")}>
                                             <CheckCircle2 className="size-4" /> Aprovar
                                         </Button>
-                                        <Button size="sm" className="btn-reject" onClick={() => void doApproval(detail.id, "reject")}>
+                                        <Button size="sm" className="btn-reject" onClick={() => void doApproval(viewId, "reject")}>
                                             <XCircle className="size-4" /> Reprovar
                                         </Button>
                                     </div>
                                 </div>
                             )}
+                        </>
+                    ) : null
+                }
+            />
 
-                            {/* ── Submit action (only for Rascunho ou Ajustes — não para observador RH) ── */}
-                            {(detail.status === 0 || detail.status === "Rascunho") && !detailSomenteLeitura && (
-                                <div className="flex gap-2">
-                                    <Button size="sm" onClick={() => void submitForApproval(detail.id)}>
-                                        <Send className="size-4" /> Enviar para aprovação
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                            setDetailOpen(false);
-                                            if (prefersMobileForm) router.push(`/gestao/solicitacoes/editar?id=${encodeURIComponent(detail.id)}`);
-                                            else {
-                                                bumpFormNonce();
-                                                setEditId(detail.id);
-                                                setCopySourceId(null);
-                                                setResubmit(false);
-                                                setFormOpen(true);
-                                            }
-                                        }}
-                                    >
-                                        <Pencil className="size-4" /> Editar
-                                    </Button>
-                                </div>
-                            )}
-                            {/* ── Cancelar / editar (pendente) — não para observador RH ── */}
-                            {(detail.status === 1 || detail.status === "PendenteAprovacao") && !detailSomenteLeitura && (
-                                <div className="flex gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => {
-                                            setDetailOpen(false);
-                                            if (prefersMobileForm) router.push(`/gestao/solicitacoes/editar?id=${encodeURIComponent(detail.id)}&resubmit=1`);
-                                            else {
-                                                bumpFormNonce();
-                                                setEditId(detail.id);
-                                                setCopySourceId(null);
-                                                setResubmit(true);
-                                                setFormOpen(true);
-                                            }
-                                        }}
-                                    >
-                                        <Pencil className="size-4" /> Editar e reenviar
-                                    </Button>
-                                    <Button size="sm" variant="outline" className="text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(detail.id)}>
-                                        <Ban className="size-4" /> Cancelar
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    ) : null}
-                </DialogContent>
-            </Dialog>
+            {/* ── Timeline Modal ── */}
+            <AcompanhamentoModal
+                open={timelineOpen}
+                loading={timelineLoading}
+                steps={timelineSteps}
+                solicitacaoStatus={timelineStatus}
+                onClose={() => setTimelineOpen(false)}
+            />
 
             <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
                 <DialogContent className="max-w-md">
