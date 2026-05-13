@@ -15,9 +15,11 @@ interface Props extends Omit<SolicitacaoFormProps, "active" | "onCancel" | "onSu
     open: boolean;
     onClose: () => void;
     onSaved: () => void;
+    /** Conteúdo extra no rodapé do modal (ex.: distribuir analista RH na tela de solicitações). */
+    footerExtra?: React.ReactNode;
 }
 
-export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave, copySourceId, initialData, reloadNonce }: Props) {
+export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, viewOnly, resubmitAfterSave, copySourceId, initialData, reloadNonce, footerExtra }: Props) {
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
             <DialogContent
@@ -46,6 +48,11 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                         reloadNonce={reloadNonce}
                     />
                 </div>
+                {footerExtra ? (
+                    <div className="shrink-0 border-t border-border bg-background pt-3">
+                        {footerExtra}
+                    </div>
+                ) : null}
             </DialogContent>
         </Dialog>
     );
