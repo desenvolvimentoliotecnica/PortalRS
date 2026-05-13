@@ -1947,6 +1947,16 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             _ => null,
         };
 
+        Turno? turnoParaEscala = null;
+        if (entity.TurnoId.HasValue)
+        {
+            turnoParaEscala = entity.Turno is not null
+                ? entity.Turno
+                : await _db.Turnos.AsNoTracking().FirstOrDefaultAsync(t => t.Id == entity.TurnoId.Value, ct);
+        }
+
+        var escalaTrabalhoRaw = TurnoEscalaTrabalhoRawMapper.ResolveForNewVaga(entity.EscalaTrabalho, turnoParaEscala);
+
         _db.Vagas.Add(new Vaga
         {
             Id = vagaId,
@@ -1969,7 +1979,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             DisponibilidadeParaViagens = entity.DisponibilidadeViagens,
             TipoContratacao = tipoContratacao,
             TurnoId = entity.TurnoId,
-            EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(entity.EscalaTrabalho) ? null : entity.EscalaTrabalho,
+            EscalaTrabalhoRaw = escalaTrabalhoRaw,
             SalarioMinimo = entity.FaixaSalarialMin,
             SalarioMaximo = entity.FaixaSalarialMax,
             MotivoAbertura = motivoAbertura,

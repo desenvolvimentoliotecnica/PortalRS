@@ -389,7 +389,9 @@ public sealed record VagaResponse(
     int? DecisaoRHPrazoMeses,
     DateTimeOffset? HeadcountProvisorioExpiresAtUtc,
     string? CodFuncaoRm = null,
-    string? FuncaoNomeRm = null
+    string? FuncaoNomeRm = null,
+    /// <summary>Grade JSON do cadastro do turno (HorarioEditor); para hidratar UI quando <see cref="EscalaTrabalhoRaw"/> está vazio.</summary>
+    string? TurnoGradeHorarioJson = null
 );
 
 public sealed record VagaBeneficioRequest(

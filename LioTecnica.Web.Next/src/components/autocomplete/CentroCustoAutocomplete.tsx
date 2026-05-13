@@ -107,15 +107,19 @@ export function CentroCustoAutocomplete({
   return (
     <div ref={containerRef} className="relative">
       {selected ? (
-        <div className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <div className="font-medium">{selected.description}</div>
-            <div className="text-xs text-muted-foreground font-mono">{selected.code}</div>
+        <div className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm flex items-center justify-between gap-2">
+          <div
+            className="min-w-0 flex-1 truncate font-medium"
+            title={`${selected.code} : ${selected.description}`}
+          >
+            <span className="font-mono text-muted-foreground">{selected.code}</span>
+            <span className="text-muted-foreground"> : </span>
+            <span>{selected.description}</span>
           </div>
           <button
             type="button"
             onClick={handleClear}
-            className="text-muted-foreground hover:text-foreground transition-colors ml-2"
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="size-4" />
           </button>

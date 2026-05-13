@@ -110,15 +110,19 @@ export function CargoAutocomplete({
   return (
     <div ref={containerRef} className="relative">
       {selectedCargo ? (
-        <div className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <div className="font-medium">{selectedCargo.name}</div>
-            <div className="text-xs text-muted-foreground font-mono">{selectedCargo.code}</div>
+        <div className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm flex items-center justify-between gap-2">
+          <div
+            className="min-w-0 flex-1 truncate font-medium"
+            title={`${selectedCargo.code} : ${selectedCargo.name}`}
+          >
+            <span className="font-mono text-muted-foreground">{selectedCargo.code}</span>
+            <span className="text-muted-foreground"> : </span>
+            <span>{selectedCargo.name}</span>
           </div>
           <button
             type="button"
             onClick={handleClear}
-            className="text-muted-foreground hover:text-foreground transition-colors ml-2"
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="size-4" />
           </button>
