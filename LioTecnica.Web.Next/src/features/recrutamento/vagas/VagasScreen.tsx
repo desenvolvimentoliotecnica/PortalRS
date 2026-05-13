@@ -263,9 +263,13 @@ function normalizeVagaOrigemTipo(value: unknown): number {
     return 0;
 }
 
-function isPortalCreatedVaga(vaga: VagaListItem): boolean {
-    const origem = normalizeVagaOrigemTipo((vaga as Record<string, unknown>).origemTipo);
-    return origem === 0;
+/**
+ * Com "Exibir RM" desligado, omitimos só vagas de origem **Direta** (carga típica VRS/RM sem requisição-pai;
+ * ver `VagaOrigemTipo` na API). Vagas Manual, AumentoQuadro, substituições etc. permanecem — antes
+ * filtrávamos só `Manual` e sumiam vagas do fluxo de solicitação após integração/publicação.
+ */
+function isRmCatalogOnlyVaga(vaga: VagaListItem): boolean {
+    return normalizeVagaOrigemTipo((vaga as Record<string, unknown>).origemTipo) === 4;
 }
 
 function formatDate(value: string | null | undefined) {
@@ -657,7 +661,7 @@ export default function VagasScreen() {
     }, [searchParams]);
 
     const rowsByOrigin = useMemo(
-        () => (showRmImported ? rows : rows.filter(isPortalCreatedVaga)),
+        () => (showRmImported ? rows : rows.filter((v) => !isRmCatalogOnlyVaga(v))),
         [rows, showRmImported],
     );
 
@@ -1249,7 +1253,7 @@ export default function VagasScreen() {
                                 : "border-input bg-background text-muted-foreground hover:text-foreground"
                         }`}
                         onClick={() => setShowRmImported((prev) => !prev)}
-                        title="Inclui vagas importadas do RM na lista"
+                        title="Quando desligado, oculta vagas de origem Direta (catálogo VRS). Liga para listar também essas importações."
                     >
                         {showRmImported ? "Ocultando RM" : "Exibir RM"}
                     </button>
@@ -1265,8 +1269,8 @@ export default function VagasScreen() {
                 </div>
                 <div className="border-b border-border/40 px-3 py-1.5 text-[11px] text-muted-foreground">
                     {showRmImported
-                        ? "Exibindo vagas criadas no portal e vagas importadas do RM."
-                        : "Exibindo apenas vagas criadas no portal. Ative \"Exibir RM\" para incluir importadas."}
+                        ? "Exibindo vagas do portal e importações RM (incl. origem Direta)."
+                        : "Ocultando vagas só de catálogo RM (origem Direta). Demais origens — Manual, aumento de quadro, substituição — seguem visíveis."}
                 </div>
 
                 {/* Filters bar — row 2: date range (F1) + aging chips (F2) */}
