@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { getTenantId } from "@/lib/session";
@@ -868,6 +868,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [descricaoCargoOptions, setDescricaoCargoOptions] = useState<DescricaoCargoLookupItem[]>([]);
   const [loadingDescricaoCargo, setLoadingDescricaoCargo] = useState(false);
   const loaded = useRef(false);
+  const lastBootstrapKeyRef = useRef<string>("");
+  const [embeddedBootstrapLoading, setEmbeddedBootstrapLoading] = useState(false);
 
   // Histórico da decisão de headcount registrada na solicitação de vaga (read-only).
   // Decisão agora é feita pelo GESTOR na criação da solicitação — RH não decide mais aqui.
@@ -960,39 +962,50 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   useEffect(() => {
     if (!open) {
       loaded.current = false;
+      lastBootstrapKeyRef.current = "";
+      setEmbeddedBootstrapLoading(false);
       setDecisaoRHFeita(null);
       setDescricaoCargoSearch("");
       setDescricaoCargoOptions([]);
       return;
     }
-    if (loaded.current) return;
+    const bootstrapKey = vagaId ?? "__new__";
+    if (loaded.current && lastBootstrapKeyRef.current === bootstrapKey) return;
     loaded.current = true;
     setTab(normalizeEditTab(defaultTab));
     setCopySearch("");
 
+    if (embedded) setEmbeddedBootstrapLoading(true);
+
     void Promise.all([
       fetchJson<unknown>(`${BASE}/api/lookup/enums`).catch(() => null),
       fetchJson<unknown>(`${BASE}/api/vagas`).catch(() => []),
-    ]).then(([enumsRaw, vagasRaw]) => {
-      const eData: EnumData = {};
-      if (enumsRaw && typeof enumsRaw === "object") {
-        Object.entries(enumsRaw as Record<string, unknown>).forEach(([k, v]) => {
-          eData[k] = Array.isArray(v) ? (v as { code: string; text: string }[]) : [];
-        });
-      }
-      setEnums(eData);
-      const vItems = Array.isArray(vagasRaw) ? vagasRaw : (asRec(vagasRaw)?.items as unknown[] ?? []);
-      setVagas((vItems as any[]).map((v: any) => ({ id: v.id, titulo: v.titulo ?? "", codigo: v.codigo ?? "" })));
+    ])
+      .then(async ([enumsRaw, vagasRaw]) => {
+        const eData: EnumData = {};
+        if (enumsRaw && typeof enumsRaw === "object") {
+          Object.entries(enumsRaw as Record<string, unknown>).forEach(([k, v]) => {
+            eData[k] = Array.isArray(v) ? (v as { code: string; text: string }[]) : [];
+          });
+        }
+        setEnums(eData);
+        const vItems = Array.isArray(vagasRaw) ? vagasRaw : (asRec(vagasRaw)?.items as unknown[] ?? []);
+        setVagas((vItems as any[]).map((v: any) => ({ id: v.id, titulo: v.titulo ?? "", codigo: v.codigo ?? "" })));
 
-      if (vagaId) {
-        void loadVagaIntoDraft(vagaId, eData);
-      } else {
-        const d = { ...emptyDraft(), ...prefill };
-        setDraft(d);
-        setDescricaoCargoSearch(d.descricaoCargoCode ? `${d.descricaoCargoCode} - ${d.descricaoCargoTitle}` : "");
-      }
-    }).catch(() => toast.error("Falha ao carregar dados do formulário."));
-  }, [open, vagaId, prefill, defaultTab]);
+        if (vagaId) {
+          await loadVagaIntoDraft(vagaId, eData);
+        } else {
+          const d = { ...emptyDraft(), ...prefill };
+          setDraft(d);
+          setDescricaoCargoSearch(d.descricaoCargoCode ? `${d.descricaoCargoCode} - ${d.descricaoCargoTitle}` : "");
+        }
+      })
+      .catch(() => toast.error("Falha ao carregar dados do formulário."))
+      .finally(() => {
+        lastBootstrapKeyRef.current = bootstrapKey;
+        if (embedded) setEmbeddedBootstrapLoading(false);
+      });
+  }, [open, vagaId, prefill, defaultTab, embedded]);
 
   async function loadVagaIntoDraft(id: string, eData: EnumData) {
     try {
@@ -1186,14 +1199,20 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   // Modo embutido (embedded): sem overlay, ocupa espaço na página
   // Modo modal (default): overlay lateral direito
   const outerCls = embedded
-    ? "rounded-xl border border-border/40 bg-card shadow-sm flex flex-col overflow-hidden min-h-[70vh]"
+    ? "relative rounded-xl border border-border/40 bg-card shadow-sm flex flex-col overflow-hidden min-h-[70vh]"
     : "fixed inset-0 z-50 flex items-stretch justify-end bg-black/40";
   const innerCls = embedded
     ? "flex flex-col flex-1 overflow-hidden"
     : "w-full max-w-5xl bg-white shadow-2xl flex flex-col overflow-hidden";
 
   return (
-    <div className={outerCls} role={embedded ? undefined : "dialog"} aria-modal={embedded ? undefined : true} onClick={embedded ? undefined : onClose}>
+    <div
+      className={outerCls}
+      role={embedded ? undefined : "dialog"}
+      aria-modal={embedded ? undefined : true}
+      aria-busy={embedded ? embeddedBootstrapLoading : undefined}
+      onClick={embedded ? undefined : onClose}
+    >
       <div className={innerCls} onClick={embedded ? undefined : (e) => e.stopPropagation()}>
         {/* Header — oculto no modo embedded (VagaEditScreen já tem header) */}
         {!embedded && (
@@ -1917,6 +1936,18 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           </div>
         </div>
       </div>
+
+      {embedded && embeddedBootstrapLoading ? (
+        <div
+          className="absolute inset-0 z-[100] flex flex-col items-center justify-center gap-2 rounded-[inherit] bg-background/80 backdrop-blur-[1px]"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="size-9 animate-spin text-primary" aria-hidden />
+          <p className="text-base font-semibold text-foreground">Aguarde</p>
+          <p className="text-xs text-muted-foreground">Carregando dados da vaga…</p>
+        </div>
+      ) : null}
     </div>
   );
 }
