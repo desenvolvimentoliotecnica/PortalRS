@@ -448,7 +448,11 @@ export default function VagasScreen() {
     const searchParams = useSearchParams();
     const { me } = useAuth();
     const deeplinkHandled = useRef(false);
-    const pendenciasMode = searchParams.get("pendencias") === "1" || searchParams.get("mode") === "pendencias";
+    /** Pendências ativas por padrão; desligar explicitamente com ?pendencias=0 */
+    const pendenciasParam = searchParams.get("pendencias");
+    const pendenciasMode =
+        pendenciasParam !== "0"
+        && (pendenciasParam === "1" || pendenciasParam === null || searchParams.get("mode") === "pendencias");
 
     const isGestor = useMemo(
         () => (me?.roles ?? []).some((r) => r.toLowerCase() === "gestor"),
@@ -549,7 +553,7 @@ export default function VagasScreen() {
         const payload = await fetchJson<VagasPayload>(endpoint);
         const list = mapVagasPayload(payload);
         setRows(list);
-        setScreenCache(pendenciasMode ? "/vagas?pendencias=1" : "/vagas", list);
+        setScreenCache(pendenciasMode ? "/vagas?pendencias=1" : "/vagas?pendencias=0", list);
     }, [pendenciasMode]);
 
     // ── Drag-drop status change ──
@@ -613,7 +617,7 @@ export default function VagasScreen() {
 
     useEffect(() => {
         let alive = true;
-        const cacheKey = pendenciasMode ? "/vagas?pendencias=1" : "/vagas";
+        const cacheKey = pendenciasMode ? "/vagas?pendencias=1" : "/vagas?pendencias=0";
         const cached = getScreenCache<VagaListItem[]>(cacheKey);
         if (cached) {
             setRows(cached);
@@ -1220,7 +1224,14 @@ export default function VagasScreen() {
                     <button
                         type="button"
                         className={`inline-flex items-center gap-1 h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}
-                        onClick={() => { if (pendenciasMode) { setStatus([]); void router.replace("/vagas"); } else { void router.push("/vagas?pendencias=1"); } }}
+                        onClick={() => {
+                            if (pendenciasMode) {
+                                setStatus([]);
+                                void router.replace("/vagas?pendencias=0");
+                            } else {
+                                void router.replace("/vagas");
+                            }
+                        }}
                         title="Vagas aguardando ação do RH (rascunhos aprovados e headcount pendente)"
                     >
                         Pendências

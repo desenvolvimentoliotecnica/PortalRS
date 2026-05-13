@@ -76,5 +76,10 @@ public sealed record VagaListItemResponse(
     /// <summary>Código da função TOTVS (PFUNC.CODFUNCAO).</summary>
     string? CodFuncaoRm,
     /// <summary>Nome específico da função TOTVS (PFUNCAO.NOME). Ex.: "ANALISTA DE PRICING SR".</summary>
-    string? FuncaoNomeRm
+    string? FuncaoNomeRm,
+
+    /// <summary>Usuário recrutador/analista responsável na vaga (espelha distribuição).</summary>
+    Guid? RecrutadorResponsavelUserId,
+    /// <summary>Nome exibido do recrutador; pode vir da solicitação quando a vaga ainda não foi sincronizada.</summary>
+    string? RecrutadorResponsavel
 );

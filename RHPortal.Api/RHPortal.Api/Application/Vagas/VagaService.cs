@@ -152,6 +152,8 @@ public sealed class VagaService : IVagaService
                 v.IdReqRmOrigem,
                 v.CodFuncaoRm,
                 v.FuncaoNomeRm,
+                v.RecrutadorResponsavelUserId,
+                v.RecrutadorResponsavel,
             })
             .ToListAsync(ct);
 
@@ -170,6 +172,29 @@ public sealed class VagaService : IVagaService
         var rodadaByVaga = rodadasAtivas
             .GroupBy(r => r.VagaId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Numero).First());
+
+        IReadOnlyDictionary<Guid, (Guid? UserId, string? Nome)>? analistaPorVagaId = null;
+        if (vagaIds.Count > 0)
+        {
+            var solicRows = await _db.SolicitacoesVaga.AsNoTracking()
+                .Include(s => s.AnalistaRhResponsavelUser)
+                .Where(s => s.VagaId != null && vagaIds.Contains(s.VagaId.Value))
+                .ToListAsync(ct);
+
+            analistaPorVagaId = solicRows
+                .GroupBy(s => s.VagaId!.Value)
+                .ToDictionary(
+                    g => g.Key,
+                    g =>
+                    {
+                        var best = g.OrderByDescending(x => x.AnalistaRhResponsavelUserId.HasValue ? 1 : 0).First();
+                        var u = best.AnalistaRhResponsavelUser;
+                        var nome = u is null
+                            ? null
+                            : (!string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : u.UserName);
+                        return (best.AnalistaRhResponsavelUserId, nome);
+                    });
+        }
 
         return items
             .OrderByDescending(x => x.UpdatedAtUtc)
@@ -190,6 +215,18 @@ public sealed class VagaService : IVagaService
                 var alertaHCProvVencido = v.HeadcountProvisorio > 0
                     && v.HeadcountProvisorioExpiresAtUtc.HasValue
                     && v.HeadcountProvisorioExpiresAtUtc.Value < agora;
+
+                Guid? recUserId = v.RecrutadorResponsavelUserId;
+                string? recNome = v.RecrutadorResponsavel;
+                if (analistaPorVagaId is not null && analistaPorVagaId.TryGetValue(v.Id, out var an))
+                {
+                    recUserId ??= an.UserId;
+                    if (string.IsNullOrWhiteSpace(recNome) && !string.IsNullOrWhiteSpace(an.Nome))
+                        recNome = an.Nome;
+                }
+
+                if (recNome is { Length: > 120 })
+                    recNome = recNome[..120];
 
                 return new VagaListItemResponse(
                     v.Id, v.Codigo, v.Titulo, v.Status,
@@ -216,7 +253,9 @@ public sealed class VagaService : IVagaService
                     v.HierarquiaDescricao,
                     v.IdReqRmOrigem,
                     v.CodFuncaoRm,
-                    v.FuncaoNomeRm
+                    v.FuncaoNomeRm,
+                    recUserId,
+                    recNome
                 );
             })
             .ToList();

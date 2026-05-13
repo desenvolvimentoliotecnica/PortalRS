@@ -880,8 +880,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   const [draft, setDraft] = useState<VagaDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [enums, setEnums] = useState<EnumData>({});
-  const [vagas, setVagas] = useState<{ id: string; titulo: string; codigo: string }[]>([]);
-  const [copySearch, setCopySearch] = useState("");
   const [wizardMode, setWizardMode] = useState(false);
   const [descricaoCargoSearch, setDescricaoCargoSearch] = useState("");
   const [descricaoCargoOptions, setDescricaoCargoOptions] = useState<DescricaoCargoLookupItem[]>([]);
@@ -995,15 +993,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     if (loaded.current && lastBootstrapKeyRef.current === bootstrapKey) return;
     loaded.current = true;
     setTab(normalizeEditTab(defaultTab));
-    setCopySearch("");
 
     if (embedded) setEmbeddedBootstrapLoading(true);
 
-    void Promise.all([
-      fetchJson<unknown>(`${BASE}/api/lookup/enums`).catch(() => null),
-      fetchJson<unknown>(`${BASE}/api/vagas`).catch(() => []),
-    ])
-      .then(async ([enumsRaw, vagasRaw]) => {
+    void fetchJson<unknown>(`${BASE}/api/lookup/enums`)
+      .catch(() => null)
+      .then(async (enumsRaw) => {
         const eData: EnumData = {};
         if (enumsRaw && typeof enumsRaw === "object") {
           Object.entries(enumsRaw as Record<string, unknown>).forEach(([k, v]) => {
@@ -1011,8 +1006,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           });
         }
         setEnums(eData);
-        const vItems = Array.isArray(vagasRaw) ? vagasRaw : (asRec(vagasRaw)?.items as unknown[] ?? []);
-        setVagas((vItems as any[]).map((v: any) => ({ id: v.id, titulo: v.titulo ?? "", codigo: v.codigo ?? "" })));
 
         if (vagaId) {
           await loadVagaIntoDraft(vagaId, eData);
@@ -1196,13 +1189,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     }
   }
 
-  async function copyFromVaga(id: string) {
-    await loadVagaIntoDraft(id, enums);
-    setDraft((d) => ({ ...d, id: undefined, codigo: "", codigoInterno: "" }));
-    setCopySearch("");
-    toast.success("Dados copiados. Edite e salve como nova.");
-  }
-
   async function handleSave() {
     if (!draft.titulo.trim()) { toast.error("Informe o título da vaga."); setTab("identificacao"); return; }
     if (!draft.status) { toast.error("Selecione o status."); setTab("dados"); return; }
@@ -1257,12 +1243,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     } catch { toast.error("Falha ao salvar vaga."); }
     finally { setSaving(false); }
   }
-
-  const filteredCopyVagas = useMemo(() => {
-    if (!copySearch.trim()) return [];
-    const q = copySearch.toLowerCase();
-    return vagas.filter((v) => v.id !== draft.id && (v.titulo.toLowerCase().includes(q) || v.codigo.toLowerCase().includes(q))).slice(0, 8);
-  }, [copySearch, vagas, draft.id]);
 
   const weightsTotal = draft.weightsCompetencia + draft.weightsExperiencia + draft.weightsFormacao + draft.weightsLocalidade;
 
@@ -1487,24 +1467,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {/* ── Dados básicos ────────────────────────────────────── */}
           {tab === "dados" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
-
-              {/* Copiar de outra vaga */}
-              <div className="col-span-12 rounded-lg border border-dashed border-border bg-muted/30 p-3">
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Copiar dados de outra vaga</label>
-                <div className="relative">
-                  <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Digite o título ou código de uma vaga para copiar os dados..." value={copySearch} onChange={(e) => setCopySearch(e.target.value)} />
-                  {filteredCopyVagas.length > 0 && (
-                    <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCopyVagas.map((v) => (
-                        <button key={v.id} type="button" className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm" onClick={() => void copyFromVaga(v.id)}>
-                          <span className="font-semibold">{v.titulo}</span> <span className="text-muted-foreground">({v.codigo || "—"})</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <p className="text-muted-foreground text-xs mt-1">O formulário será preenchido com os dados da vaga selecionada — edite e salve como nova.</p>
-              </div>
 
               {/* Seção: Identificação */}
               <SectionHeader title="Código e posicionamento" description="Código, status e hierarquia interna da vaga." />
