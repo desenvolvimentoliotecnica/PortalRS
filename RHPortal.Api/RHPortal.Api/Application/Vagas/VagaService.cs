@@ -105,8 +105,10 @@ public sealed class VagaService : IVagaService
         if (query.CentroCustoId.HasValue && query.CentroCustoId.Value != Guid.Empty)
             q = q.Where(v => v.CentroCustoId == query.CentroCustoId.Value);
 
-        if (query.RecrutadorUserId.HasValue && query.RecrutadorUserId.Value != Guid.Empty)
-            q = q.Where(v => v.RecrutadorResponsavelUserId == query.RecrutadorUserId.Value);
+        // Carteira (ByRecrutador / ByGestorRecrutador / ByArea) já é aplicada em ApplyVagasDataScopeFilter,
+        // incluindo vínculo SolicitacaoVaga.AnalistaRhResponsavelUserId. Não re-filtrar só por
+        // RecrutadorResponsavelUserId — isso ocultava vagas atribuídas ao analista na solicitação
+        // antes do sync do campo na vaga (e divergia de /api/vagas/pendencias-rh).
 
         // Carregar configuração do tenant para calcular alerta
         var tenantConfig = await _db.TenantConfiguracoes

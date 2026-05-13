@@ -61,7 +61,6 @@ public sealed class VagasController : ControllerBase
         CancellationToken ct)
     {
         Guid? effectiveCentroCustoId;
-        Guid? recrutadorUserId = null;
         if (_userContext.IsAdmin || _userContext.IsInRole("Owner"))
         {
             effectiveCentroCustoId = centroCustoId;
@@ -75,7 +74,6 @@ public sealed class VagasController : ControllerBase
             else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
             {
                 effectiveCentroCustoId = null;
-                recrutadorUserId = _userContext.UserId;
             }
             else if (_userContext.VagasDataScope == VagasDataScope.ByGestorRecrutador && _userContext.FuncionarioId.HasValue)
             {
@@ -88,7 +86,7 @@ public sealed class VagasController : ControllerBase
             }
         }
 
-        var query = new VagaListQuery(q, status, effectiveCentroCustoId, recrutadorUserId);
+        var query = new VagaListQuery(q, status, effectiveCentroCustoId, null);
         var items = await handler.HandleAsync(query, ct);
         return Ok(items);
     }
