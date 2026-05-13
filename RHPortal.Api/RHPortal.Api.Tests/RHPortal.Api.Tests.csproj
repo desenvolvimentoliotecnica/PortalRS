@@ -35,7 +35,7 @@
     <Compile Remove="Vagas\CriarVagaServiceTests.cs" />
     <Compile Remove="Vagas\VagaServiceOperacoesTests.cs" />
     <Compile Remove="Vagas\VagaFaixaSalarialTests.cs" />
-    <Compile Remove="Vagas\VagaCarteiraScopeTests.cs" />
+    <!-- VagaCarteiraScopeTests: reativado (escopo ByRecrutador + fila comum Aberta sem recrutador). -->
     <!-- SolicitacaoVagaService: reativado (Fase 2 triagem / construtor alinhado ao serviço). -->
     <!-- FuncionarioUpdateRequest ganhou parâmetro Notes -->
     <Compile Remove="Funcionarios\FuncionarioServiceTests.cs" />
