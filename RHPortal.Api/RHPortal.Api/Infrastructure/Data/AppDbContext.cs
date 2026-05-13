@@ -1284,8 +1284,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.SolicitanteId });
             b.HasIndex(x => new { x.TenantId, x.AnalistaRhResponsavelUserId });
+            b.HasIndex(x => new { x.TenantId, x.TipoSolicitacao, x.RmCriacaoSolicitadaEmUtc });
             b.HasIndex(x => x.MotivoRequisicaoId);
-            b.Property(x => x.RequisitosDetalhadosJson).HasColumnType("jsonb");
             b.Property(x => x.RmRequisicaoCodigo).HasMaxLength(120);
             b.Property(x => x.RmStatusSyncUltimaMensagem).HasMaxLength(2000);
             b.Property(x => x.RmUltimaStatusDescricaoRm).HasMaxLength(240);
@@ -2295,6 +2295,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasKey(x => x.Id);
 
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.RmRequisicaoCreateEndpointUrl).HasMaxLength(1000);
+            b.Property(x => x.RmRequisicaoCreateUsername).HasMaxLength(200);
+            b.Property(x => x.RmRequisicaoCreatePassword).HasMaxLength(500);
 
             b.HasOne(x => x.AprovadorRh)
                 .WithMany()

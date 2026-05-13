@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.IntegracaoTotvs;
+using RhPortal.Api.Application.TenantConfiguracao;
 using RhPortal.Api.Contracts.IntegracaoTotvs;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Tenancy;
@@ -17,11 +18,16 @@ namespace RhPortal.Api.Controllers;
 public sealed class IntegracaoTotvsController : ControllerBase
 {
     private readonly IIntegracaoTotvsService _service;
+    private readonly ITenantConfiguracaoService _tenantConfiguracaoService;
     private readonly ICurrentUserContext _userContext;
 
-    public IntegracaoTotvsController(IIntegracaoTotvsService service, ICurrentUserContext userContext)
+    public IntegracaoTotvsController(
+        IIntegracaoTotvsService service,
+        ITenantConfiguracaoService tenantConfiguracaoService,
+        ICurrentUserContext userContext)
     {
         _service = service;
+        _tenantConfiguracaoService = tenantConfiguracaoService;
         _userContext = userContext;
     }
 
@@ -42,6 +48,43 @@ public sealed class IntegracaoTotvsController : ControllerBase
     {
         var query = new IntegracaoTotvsPainelQuery(tipo, resultado, search, skip, take);
         return Ok(await _service.ListPainelAsync(query, ct));
+    }
+
+    /// <summary>
+    /// Configuração por tenant da integração RM para criação de requisições de pessoal.
+    /// </summary>
+    [HttpGet("configuracao-rm-requisicao")]
+    [ProducesResponseType(typeof(ConfiguracaoRmRequisicaoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetConfiguracaoRmRequisicao(CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        return Ok(await _tenantConfiguracaoService.GetRmRequisicaoConfigAsync(ct));
+    }
+
+    /// <summary>
+    /// Salva a URL completa do endpoint RM e as credenciais BasicAuth por tenant.
+    /// </summary>
+    [HttpPut("configuracao-rm-requisicao")]
+    [ProducesResponseType(typeof(ConfiguracaoRmRequisicaoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpsertConfiguracaoRmRequisicao(
+        [FromBody] ConfiguracaoRmRequisicaoRequest request,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        if (!string.IsNullOrWhiteSpace(request.EndpointUrl)
+            && !Uri.TryCreate(request.EndpointUrl.Trim(), UriKind.Absolute, out _))
+        {
+            return BadRequest(new { message = "Informe uma URL absoluta válida para o endpoint RM." });
+        }
+
+        return Ok(await _tenantConfiguracaoService.UpsertRmRequisicaoConfigAsync(request, ct));
     }
 
     /// <summary>

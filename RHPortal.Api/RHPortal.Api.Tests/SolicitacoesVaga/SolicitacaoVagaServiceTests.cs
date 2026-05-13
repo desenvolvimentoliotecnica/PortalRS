@@ -1,20 +1,26 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using Moq;
 using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.Pessoas;
+using RhPortal.Api.Application.ProjetosVaga;
 using RhPortal.Api.Application.PublicApproval;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Application.Vagas;
+using RhPortal.Api.Application.WorkflowRH;
 using RhPortal.Api.Contracts.SolicitacoesVaga;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Frontend;
+using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
+using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
 using Xunit;
 
@@ -256,7 +262,6 @@ public sealed class SolicitacaoVagaServiceTests
             JobPositionId = jobPositionId,
             CentroCustoId = centroCustoId,
             MotivoRequisicao = MotivoRequisicaoVaga.ExpansaoBase,
-            RequisitosDetalhadosJson = """{"schemaVersion":1,"orcamento":"previsto"}""",
             EscalaTrabalho = "5x2",
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
@@ -554,6 +559,106 @@ public sealed class SolicitacaoVagaServiceTests
     }
 
     [Fact]
+    public async Task Approve_CriaVagaComMotivoPrefill()
+    {
+        var (db, svc, _, _) = CriarServico();
+        var solicitanteId = SeedFuncionario(db);
+        var jobPositionId = SeedJobPosition(db);
+        var centroCustoId = Guid.NewGuid();
+        var solicitacaoId = SeedSolicitacao(db, solicitanteId, SolicitacaoStatus.PendenteAprovacao, areaId: centroCustoId);
+        var solicitacao = await db.SolicitacoesVaga.FirstAsync(x => x.Id == solicitacaoId);
+        solicitacao.JobPositionId = jobPositionId;
+        solicitacao.MotivoRequisicao = MotivoRequisicaoVaga.ExpansaoBase;
+        solicitacao.FaixaSalarialMin = 3000m;
+        solicitacao.FaixaSalarialMax = 4500m;
+        await db.SaveChangesAsync();
+        SeedEtapaPendente(db, solicitacaoId, aprovadorId: solicitanteId);
+
+        var result = await svc.ApproveAsync(solicitacaoId, null, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.NotNull(result!.VagaId);
+
+        var vaga = await db.Vagas
+            .IgnoreQueryFilters()
+            .Include(v => v.Requisitos)
+            .FirstAsync(v => v.Id == result.VagaId!.Value);
+
+        Assert.Equal(VagaMotivoAbertura.AumentoDeQuadro, vaga.MotivoAbertura);
+        Assert.Equal(3000m, vaga.SalarioMinimo);
+        Assert.Equal(4500m, vaga.SalarioMaximo);
+        Assert.Empty(vaga.Requisitos);
+    }
+
+    [Fact]
+    public async Task VagaService_GetById_HidrataCamposBaseDaSolicitacaoEmRascunhoAntigo()
+    {
+        var (db, _, _, _) = CriarServico();
+        var vagaId = Guid.NewGuid();
+        var solicitanteId = SeedFuncionario(db);
+        db.Vagas.Add(new Vaga
+        {
+            Id = vagaId,
+            TenantId = TenantTeste,
+            Titulo = "Vaga legado",
+            Status = VagaStatus.Rascunho,
+            QuantidadeVagas = 1,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
+        db.SolicitacoesVaga.Add(new SolicitacaoVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            SolicitanteId = solicitanteId,
+            VagaId = vagaId,
+            Titulo = "Solicitação vinculada",
+            Justificativa = "Reforço do time",
+            QtdPosicoes = 1,
+            Urgencia = SolicitacaoVagaUrgencia.Alta,
+            Status = SolicitacaoStatus.Aprovada,
+            TipoSolicitacao = TipoSolicitacaoVaga.Substituicao,
+            MotivoRequisicao = MotivoRequisicaoVaga.PedidoDemissao,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var tenantMock = new Mock<ITenantContext>();
+        tenantMock.Setup(x => x.TenantId).Returns(TenantTeste);
+        var localizer = new Mock<IStringLocalizer<ServiceMessages>>();
+        localizer
+            .Setup(x => x[It.IsAny<string>()])
+            .Returns<string>(k => new LocalizedString(k, k));
+        var userContext = new Mock<ICurrentUserContext>();
+        userContext.Setup(x => x.IsAdmin).Returns(true);
+        userContext.Setup(x => x.IsReadOnly).Returns(false);
+        userContext.Setup(x => x.VagasDataScope).Returns(VagasDataScope.All);
+        userContext.Setup(x => x.UserId).Returns((Guid?)null);
+        var logger = new Mock<ILogger<VagaService>>();
+        var workflowRh = new Mock<IWorkflowRHService>();
+        var projetoVaga = new Mock<IProjetoVagaService>();
+        var statusHistorico = new StatusHistoricoService(db, tenantMock.Object);
+        var vagaService = new VagaService(
+            db,
+            tenantMock.Object,
+            logger.Object,
+            localizer.Object,
+            userContext.Object,
+            workflowRh.Object,
+            statusHistorico,
+            projetoVaga.Object);
+
+        var retrieved = await vagaService.GetByIdAsync(vagaId, CancellationToken.None);
+
+        Assert.NotNull(retrieved);
+        Assert.Equal(VagaMotivoAbertura.Substituicao, retrieved!.MotivoAbertura);
+        Assert.Equal("Reforço do time", retrieved.DescricaoInterna);
+        Assert.Equal(VagaPrioridade.Alta, retrieved.Prioridade);
+        Assert.Empty(retrieved.Requisitos);
+    }
+
+    [Fact]
     public async Task Approve_Substituicao_DisparaEmailFinalizadaParaRecrutadores()
     {
         var (db, svc, _, emailMock) = CriarServico();
@@ -775,7 +880,6 @@ public sealed class SolicitacaoVagaServiceTests
             MotivoRequisicao = MotivoRequisicaoVaga.ExpansaoBase,
             DecisaoRH = TipoDecisaoHeadcount.AumentoDefinitivo,
             EscalaTrabalho = "5x2",
-            RequisitosDetalhadosJson = """{"schemaVersion":1,"orcamento":"previsto"}""",
         }, CancellationToken.None);
 
         Assert.True(await svc.SubmitAsync(id, CancellationToken.None));

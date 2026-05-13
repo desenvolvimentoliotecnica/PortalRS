@@ -84,6 +84,9 @@ interface SolicitacaoRow {
 interface SolicitacaoDetail extends SolicitacaoRow {
     justificativa?: string | null;
     aprovadorNome?: string | null;
+    motivoRequisicao?: number | string | null;
+    motivoRequisicaoCodigo?: string | null;
+    motivoRequisicaoEfeito?: number | string | null;
     analistaRhResponsavelUserId?: string | null;
     analistaRhResponsavelNome?: string | null;
     jobPositionId?: string | null;
@@ -158,6 +161,59 @@ function mapSolicTipoContratoToVagaTipoContratacao(value: unknown) {
     return raw;
 }
 
+function mapSolicMotivoToVagaMotivoAbertura(solic: SolicitacaoDetail) {
+    const tipoSolicitacao = pickString(solic.tipoSolicitacao);
+    if (tipoSolicitacao === "AumentoQuadro" || tipoSolicitacao === "2") return "aumentodequadro";
+
+    const codigo = pickString(solic.motivoRequisicaoCodigo);
+    switch (codigo) {
+        case "PedidoDemissao":
+        case "DesligamentoSemJustaCausa":
+        case "TerminoContrato":
+        case "Movimentacao":
+        case "Afastamento":
+            return "substituicao";
+        case "NovaUnidade":
+            return "novoprojeto";
+        case "AtenderDemanda":
+        case "ExpansaoBase":
+        case "CotaAprendiz":
+            return "aumentodequadro";
+    }
+
+    const motivoLegacy = pickString(solic.motivoRequisicao);
+    switch (motivoLegacy) {
+        case "PedidoDemissao":
+        case "DesligamentoSemJustaCausa":
+        case "TerminoContrato":
+        case "Movimentacao":
+        case "Afastamento":
+        case "1":
+        case "2":
+        case "4":
+        case "7":
+        case "8":
+            return "substituicao";
+        case "NovaUnidade":
+        case "6":
+            return "novoprojeto";
+        case "AtenderDemanda":
+        case "ExpansaoBase":
+        case "CotaAprendiz":
+        case "0":
+        case "3":
+        case "5":
+            return "aumentodequadro";
+    }
+
+    const efeito = pickString(solic.motivoRequisicaoEfeito);
+    if (efeito === "Aumenta" || efeito === "1") return "aumentodequadro";
+    if (efeito === "Ambos" || efeito === "Diminui" || efeito === "2" || efeito === "3") return "substituicao";
+
+    if (tipoSolicitacao === "Substituicao" || tipoSolicitacao === "1") return "substituicao";
+    return "";
+}
+
 function mapSolicitacaoToVagaPrefill(solic: SolicitacaoDetail): Record<string, unknown> {
     return {
         status: "rascunho",
@@ -171,6 +227,7 @@ function mapSolicitacaoToVagaPrefill(solic: SolicitacaoDetail): Record<string, u
         cargoName: pickString(solic.jobPositionName),
         codFuncaoRm: pickString(solic.codFuncaoRm),
         funcaoNomeRm: pickString(solic.funcaoNomeRm),
+        motivoAbertura: mapSolicMotivoToVagaMotivoAbertura(solic),
         tipoContratacao: mapSolicTipoContratoToVagaTipoContratacao(solic.tipoContrato),
         centroCustoId: pickString(solic.centroCustoId),
         centroCustoDescription: pickString(solic.centroCustoNome),

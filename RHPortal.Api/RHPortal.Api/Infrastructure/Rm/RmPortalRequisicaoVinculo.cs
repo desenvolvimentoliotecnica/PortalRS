@@ -8,10 +8,14 @@ namespace RhPortal.Api.Infrastructure.Rm;
 public static class RmPortalRequisicaoVinculo
 {
     public const char Separator = '|';
+    public const string TipoAumentoQuadro = "AUMENTO_QUADRO";
 
     public static bool IsStub(string? rmRequisicaoCodigo) =>
         !string.IsNullOrWhiteSpace(rmRequisicaoCodigo)
         && rmRequisicaoCodigo.TrimStart().StartsWith("STUB-", StringComparison.OrdinalIgnoreCase);
+
+    public static string Build(string tipo, int codCol, int idReq) =>
+        System.FormattableString.Invariant($"{tipo}{Separator}{codCol}{Separator}{idReq}");
 
     /// <summary>True se houver três partes TIPO|CODCOL|IDREQ.</summary>
     public static bool TryParse(string? rmRequisicaoCodigo, out string tipo, out int codCol, out int idReq)

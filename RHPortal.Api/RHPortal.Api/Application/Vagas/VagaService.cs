@@ -248,6 +248,7 @@ public sealed class VagaService : IVagaService
             .Include(s => s.Solicitante)
             .Include(s => s.Aprovador)
             .Include(s => s.AnalistaRhResponsavelUser)
+            .Include(s => s.Motivo)
             .Include(s => s.JobPosition)
             .Include(s => s.CentroCusto)
             .Include(s => s.Turno)
@@ -274,6 +275,7 @@ public sealed class VagaService : IVagaService
                 SolicitacaoVagaUrgencia.Media => VagaPrioridade.Media,
                 _ => VagaPrioridade.Baixa
             };
+            var motivoAberturaPrefill = SolicitacaoVagaPrefillMapper.MapMotivoAbertura(solic);
 
             response = response with
             {
@@ -311,6 +313,7 @@ public sealed class VagaService : IVagaService
                 EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(response.EscalaTrabalhoRaw) ? solic.EscalaTrabalho : response.EscalaTrabalhoRaw,
                 SalarioMinimo = response.SalarioMinimo ?? solic.FaixaSalarialMin,
                 SalarioMaximo = response.SalarioMaximo ?? solic.FaixaSalarialMax,
+                MotivoAbertura = response.MotivoAbertura ?? motivoAberturaPrefill,
             };
         }
 

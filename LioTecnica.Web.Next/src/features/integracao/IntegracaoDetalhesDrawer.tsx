@@ -53,6 +53,7 @@ const TIPO_COLORS: Record<number, string> = {
     6: "bg-orange-100 text-orange-800",
     7: "bg-pink-100 text-pink-800",
     8: "bg-amber-100 text-amber-800",
+    9: "bg-slate-100 text-slate-800",
 };
 
 // Mapa de labels legíveis para campos
@@ -104,6 +105,16 @@ const FIELD_LABELS: Record<string, string> = {
     // Pagamento Extra
     tipoPagamentoExtra: "Tipo Pgto Extra", valor: "Valor", dataPagamento: "Data Pagamento",
     competencia: "Competência",
+    // Solicitação RM
+    tentativasIntegracao: "Tentativas de Integração",
+    ultimaTentativaUtc: "Última Tentativa",
+    rmCriacaoSolicitadaEmUtc: "Enfileirada em",
+    rmCodColRequisicao: "Coligada RM",
+    rmIdReq: "IDREQ RM",
+    rmRequisicaoCodigo: "Vínculo Portal/RM",
+    rmCodStatus: "CODSTATUS RM",
+    rmUltimaStatusDescricaoRm: "Status RM",
+    rmStatusSyncUltimaMensagem: "Mensagem Sync RM",
     // Comuns
     observacoes: "Observações", status: "Status",
 };

@@ -37,6 +37,10 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
     public async Task ExecutarCriacaoRequisicaoRmAsync(Guid solicitacaoVagaId, CancellationToken ct)
     {
         var entity = await _db.SolicitacoesVaga
+            .Include(x => x.Solicitante)
+            .Include(x => x.CentroCusto)
+            .Include(x => x.Empresa)
+            .Include(x => x.Unit)
             .FirstOrDefaultAsync(x => x.Id == solicitacaoVagaId, ct);
 
         if (entity is null)
@@ -46,15 +50,11 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
         if (!string.IsNullOrEmpty(ctxTenant) && entity.TenantId != ctxTenant)
             throw new InvalidOperationException("Tenant da solicitação não confere com o contexto atual.");
 
-        static bool EstadoPermiteRm(SolicitacaoStatus st) =>
-            st is SolicitacaoStatus.Aprovada
-                or SolicitacaoStatus.PendenteIntegracaoRm
-                or SolicitacaoStatus.AguardandoReprocessamentoRm
-                or SolicitacaoStatus.ErroIntegracaoRm;
+        if (entity.TipoSolicitacao != TipoSolicitacaoVaga.AumentoQuadro)
+            throw new InvalidOperationException("A criação assíncrona de requisição RM está habilitada apenas para AumentoQuadro.");
 
-        if (!EstadoPermiteRm(entity.Status))
-            throw new InvalidOperationException(
-                $"Envio ao RM só é permitido a partir de Aprovada ou estados de reprocessamento (atual: {entity.Status}).");
+        if (entity.Status is SolicitacaoStatus.Reprovada or SolicitacaoStatus.Cancelada)
+            throw new InvalidOperationException($"Solicitação em estado terminal não pode ser enviada ao RM (atual: {entity.Status}).");
 
         if (entity.IntegracaoResultado == IntegracaoResultado.Sucesso
             && !string.IsNullOrWhiteSpace(entity.RmRequisicaoCodigo))
@@ -64,11 +64,12 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
 
         var resumo = RmRequisicaoPayloadBuilder.TruncateResumo(RmRequisicaoPayloadBuilder.BuildResumoJson(entity));
         var idempotencyKey = $"{entity.TenantId}:{entity.Id:N}";
-        var statusAntesRm = entity.Status.ToString();
+        var now = DateTimeOffset.UtcNow;
 
+        entity.RmCriacaoSolicitadaEmUtc ??= now;
         entity.TentativasIntegracao += 1;
-        entity.UltimaTentativaUtc = DateTimeOffset.UtcNow;
-        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        entity.UltimaTentativaUtc = now;
+        entity.UpdatedAtUtc = now;
 
         var max = Math.Max(1, _options.Value.MaxTentativas);
         RmCreateRequisicaoOutcome outcome;
@@ -82,37 +83,42 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
             outcome = new RmCreateRequisicaoOutcome(false, false, null, null, ex.Message, null);
         }
 
+        var codigoRmRetornado = !string.IsNullOrWhiteSpace(outcome.CodigoRm)
+            ? outcome.CodigoRm
+            : outcome is { CodColRequisicao: not null, IdReq: not null }
+                ? RmPortalRequisicaoVinculo.Build(
+                    RmPortalRequisicaoVinculo.TipoAumentoQuadro,
+                    outcome.CodColRequisicao.Value,
+                    outcome.IdReq.Value)
+                : null;
+
         var tentativa = new SolicitacaoVagaIntegracaoTentativa
         {
             Id = Guid.NewGuid(),
             TenantId = entity.TenantId,
             SolicitacaoVagaId = entity.Id,
-            TentativaEmUtc = DateTimeOffset.UtcNow,
+            TentativaEmUtc = now,
             Sucesso = outcome.Sucesso,
             PayloadResumo = resumo,
             MensagemErro = outcome.MensagemErro,
             CodigoTecnico = outcome.CodigoTecnico,
-            CodigoRmRetornado = outcome.CodigoRm
+            CodigoRmRetornado = codigoRmRetornado
         };
         _db.SolicitacoesVagaIntegracaoTentativas.Add(tentativa);
 
         if (outcome.Sucesso)
         {
-            if (!string.IsNullOrWhiteSpace(outcome.CodigoRm))
-                entity.RmRequisicaoCodigo = outcome.CodigoRm[..Math.Min(outcome.CodigoRm.Length, 120)];
+            if (!string.IsNullOrWhiteSpace(codigoRmRetornado))
+                entity.RmRequisicaoCodigo = codigoRmRetornado[..Math.Min(codigoRmRetornado.Length, 120)];
+            entity.RmCodColRequisicao = outcome.CodColRequisicao ?? entity.RmCodColRequisicao;
+            entity.RmIdReq = outcome.IdReq ?? entity.RmIdReq;
             entity.RmCodStatus = outcome.CodStatusRm;
-            entity.RmUltimaSincronizacaoUtc = DateTimeOffset.UtcNow;
+            entity.RmUltimaSincronizacaoUtc = now;
             entity.IntegracaoResultado = IntegracaoResultado.Sucesso;
             entity.IntegracaoMensagem = outcome.JaExistiaNoRm
                 ? "Requisição já existente no RM (confirmação idempotente)."
                 : "Requisição criada no RM.";
-            entity.IntegradaEmUtc = DateTimeOffset.UtcNow;
-            entity.Status = SolicitacaoStatus.EmIntegracao;
-
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                statusAntesRm, entity.Status.ToString(),
-                _currentUser, outcome.JaExistiaNoRm ? "RM: idempotente" : "RM: criação concluída", ct);
+            entity.IntegradaEmUtc = now;
         }
         else
         {
@@ -125,14 +131,6 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
                 ? outcome.MensagemErro[..2000]
                 : outcome.MensagemErro;
             entity.IntegradaEmUtc = null;
-
-            var statusNovo = definitiva ? SolicitacaoStatus.ErroIntegracaoRm : SolicitacaoStatus.AguardandoReprocessamentoRm;
-            entity.Status = statusNovo;
-
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                statusAntesRm, entity.Status.ToString(),
-                _currentUser, $"RM falhou ({(definitiva ? "definitivo" : "reprocessável")})", ct);
         }
 
         await _db.SaveChangesAsync(ct);

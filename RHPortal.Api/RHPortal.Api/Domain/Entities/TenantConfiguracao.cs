@@ -80,6 +80,22 @@ public sealed class TenantConfiguracao : ITenantEntity
     public string? BlipApiKey { get; set; }
 
     // --------------------
+    // Integração RM — criação de requisições de pessoal
+    // --------------------
+
+    /// <summary>
+    /// URL completa do endpoint de criação de requisições RM.
+    /// Ex.: <c>http://localhost:8051/RMSRestDataServer/rest/RhuReqAumentoQuadroData</c>.
+    /// </summary>
+    public string? RmRequisicaoCreateEndpointUrl { get; set; }
+
+    /// <summary>Usuário de autenticação BasicAuth para o endpoint RM de criação.</summary>
+    public string? RmRequisicaoCreateUsername { get; set; }
+
+    /// <summary>Senha de autenticação BasicAuth para o endpoint RM de criação.</summary>
+    public string? RmRequisicaoCreatePassword { get; set; }
+
+    // --------------------
     // Integração Azure AD
     // --------------------
 

@@ -67,8 +67,6 @@ export interface SolicitacaoDraft {
     decisaoRH: number | null; // 1=SubstituicaoProvisoria, 2=AumentoDefinitivo, 3=ConsumirHeadcountExistente
     decisaoRHPrazoMeses: number | null;
     decisaoRHPrazoDataAlvo: string | null; // ISO datetime
-    /** JSON objeto — obrigatório para envio quando `tipoSolicitacao === AumentoQuadro`. */
-    requisitosDetalhadosJson: string;
 }
 
 export interface SolicitacaoFormProps {
@@ -139,7 +137,6 @@ const emptyDraft: SolicitacaoDraft = {
     decisaoRH: null,
     decisaoRHPrazoMeses: 3,
     decisaoRHPrazoDataAlvo: null,
-    requisitosDetalhadosJson: "",
 };
 
 const MAX_BRL_CENT_DIGITS = 15;
@@ -253,26 +250,6 @@ function blockNonDigitMoneyKeys(e: React.KeyboardEvent<HTMLInputElement>): void 
     if (e.key.length === 1 && /\d/.test(e.key)) return;
     e.preventDefault();
 }
-
-/** Valida o mesmo formato exigido em `EnsureCamposMinimosEnvioAumentoQuadroAsync`. */
-function parseRequisitosJsonForSubmit(raw: string): { ok: true; json: string } | { ok: false; message: string } {
-    const t = raw.trim();
-    if (t.length < 8) return { ok: false, message: "Requisitos detalhados (JSON): informe um objeto JSON (mín. 8 caracteres)." };
-    try {
-        const o = JSON.parse(t) as unknown;
-        if (o === null || typeof o !== "object" || Array.isArray(o)) {
-            return { ok: false, message: "Requisitos detalhados devem ser um objeto JSON { ... }, não lista ou texto solto." };
-        }
-        const json = JSON.stringify(o);
-        if (json.trim().length < 8) return { ok: false, message: "Requisitos detalhados (JSON) incompletos." };
-        return { ok: true, json };
-    } catch {
-        return { ok: false, message: "Requisitos detalhados: JSON inválido (verifique vírgulas e aspas)." };
-    }
-}
-
-/** Moldura inicial editável compatível com a validação na API (`schemaVersion`). */
-const DEFAULT_REQUISITOS_JSON_AUMENTO_QUADRO = `{\n  "schemaVersion": 1,\n  "orcamento": "previsto"\n}`;
 
 /** Rótulos próximos ao RM (TOTVS) para mesma linguagem nas telas. */
 const LB = {
@@ -717,12 +694,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             })(),
             decisaoRHPrazoMeses: d?.decisaoRHPrazoMeses != null ? Number(d.decisaoRHPrazoMeses) : 3,
             decisaoRHPrazoDataAlvo: d?.decisaoRHPrazoDataAlvo ? String(d.decisaoRHPrazoDataAlvo) : null,
-            requisitosDetalhadosJson: (() => {
-                const raw = d?.requisitosDetalhadosJson ?? d?.RequisitosDetalhadosJson;
-                if (typeof raw === "string") return raw;
-                if (raw != null && typeof raw === "object") return JSON.stringify(raw, null, 2);
-                return "";
-            })(),
         };
     }
 
@@ -1055,16 +1026,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             setActiveTab("identificacao");
             return;
         }
-        let requisitosDetalhadosPayload: string | null = null;
-        if (draft.tipoSolicitacao === 2) {
-            const pr = parseRequisitosJsonForSubmit(draft.requisitosDetalhadosJson);
-            if (!pr.ok) {
-                toast.error(pr.message);
-                setActiveTab("identificacao");
-                return;
-            }
-            requisitosDetalhadosPayload = pr.json;
-        }
         if (errors.length > 0) {
             toast.error(`Campos obrigatórios: ${errors.join(", ")}.`);
             return;
@@ -1113,7 +1074,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             decisaoRHPrazoDataAlvo: draft.decisaoRH === 1 ? draft.decisaoRHPrazoDataAlvo : null,
             faixaSalarialMin: faixaMinNum,
             faixaSalarialMax: faixaMaxNum,
-            requisitosDetalhadosJson: requisitosDetalhadosPayload,
         };
 
         function hintTabFromMvcKeys(body: Record<string, unknown>): "identificacao" | "horario" | "aprovacao" | null {
@@ -1480,12 +1440,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                                     ...d,
                                                     tipoSolicitacao: v,
                                                     substituidoFuncionarioId: v === 2 ? null : d.substituidoFuncionarioId,
-                                                    requisitosDetalhadosJson:
-                                                        v === 2 && !(d.requisitosDetalhadosJson || "").trim()
-                                                            ? DEFAULT_REQUISITOS_JSON_AUMENTO_QUADRO
-                                                            : v !== 2
-                                                                ? ""
-                                                                : d.requisitosDetalhadosJson,
                                                 }));
                                             }}
                                             disabled={viewOnly}
@@ -1514,7 +1468,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                                     motivoRequisicaoId: id,
                                                     // Desligamento (Diminui/Ambos) implica Substituicao (RM).
                                                     tipoSolicitacao: isDesl ? 1 : d.tipoSolicitacao,
-                                                    requisitosDetalhadosJson: isDesl ? "" : d.requisitosDetalhadosJson,
                                                 }));
                                             }}
                                             disabled={viewOnly || motivos.length === 0}
@@ -1740,25 +1693,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     />
                                 </div>
 
-                                {draft.tipoSolicitacao === 2 && (
-                                    <div className="col-span-3">
-                                        <label className={L}>Requisitos detalhados * (JSON objeto)</label>
-                                        <textarea
-                                            className="w-full rounded-md border border-input bg-background p-2 text-sm placeholder:text-muted-foreground resize-none font-mono disabled:bg-muted/40 disabled:text-muted-foreground disabled:cursor-default"
-                                            rows={8}
-                                            value={draft.requisitosDetalhadosJson}
-                                            onChange={(e) => setDraft((d) => ({ ...d, requisitosDetalhadosJson: e.target.value }))}
-                                            placeholder={'Ex.: { "schemaVersion": 1, "orcamento": "previsto" }'}
-                                            spellCheck={false}
-                                            disabled={viewOnly}
-                                        />
-                                        <p className="text-[11px] text-muted-foreground mt-1">
-                                            Objetivo JSON válido (<code className="text-xs">{`{}`}</code> com dados versionados —
-                                            ex.: <code className="text-xs">schemaVersion</code>
-                                            ); necessário para o envio ao RM após triagem.
-                                        </p>
-                                    </div>
-                                )}
                             </div>
                         </TabsContent>
 

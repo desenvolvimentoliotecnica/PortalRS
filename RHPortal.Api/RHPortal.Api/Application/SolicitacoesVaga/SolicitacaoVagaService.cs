@@ -1,5 +1,4 @@
 using RhPortal.Api.Application.Common;
-using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -232,6 +231,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (!entity.VagaId.HasValue)
             return null;
 
+        var vagaLocal = _db.Vagas.Local.FirstOrDefault(v => v.Id == entity.VagaId.Value);
+        if (vagaLocal is not null)
+            return vagaLocal;
+
         var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
         if (vaga is not null)
             return vaga;
@@ -363,6 +366,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     : null,
                 CentroCustoNome = s.CentroCusto != null ? s.CentroCusto.Description : (string?)null,
                 s.QtdPosicoes, s.TipoSolicitacao, s.IsConfidencial, s.SubstituidoNome, s.CreatedAtUtc,
+                s.RmCriacaoSolicitadaEmUtc, s.RmCodColRequisicao, s.RmIdReq,
+                s.TentativasIntegracao, s.UltimaTentativaUtc,
                 s.RmCodStatus, s.RmUltimaStatusDescricaoRm, s.RmStatusSyncUltimaMensagem,
                 s.RmUltimaSincronizacaoUtc,
             }).ToListAsync(ct);
@@ -391,6 +396,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 r.AprovadorId, r.AprovadorNome, r.AnalistaRhResponsavelUserId, r.AnalistaRhResponsavelNome,
                 r.CentroCustoNome, r.QtdPosicoes,
                 r.TipoSolicitacao, r.IsConfidencial, r.SubstituidoNome, r.CreatedAtUtc,
+                r.RmCriacaoSolicitadaEmUtc, r.RmCodColRequisicao, r.RmIdReq, r.TentativasIntegracao, r.UltimaTentativaUtc,
                 r.RmCodStatus, r.RmUltimaStatusDescricaoRm, r.RmStatusSyncUltimaMensagem,
                 r.RmUltimaSincronizacaoUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,
@@ -590,9 +596,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             DecisaoRHPrazoDataAlvo = request.DecisaoRHPrazoDataAlvo,
             FaixaSalarialMin = request.FaixaSalarialMin,
             FaixaSalarialMax = request.FaixaSalarialMax,
-            RequisitosDetalhadosJson = string.IsNullOrWhiteSpace(request.RequisitosDetalhadosJson)
-                ? null
-                : request.RequisitosDetalhadosJson.Trim(),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -619,6 +622,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             catch { /* best-effort — se falhar a submissão do desligamento, a vaga ainda segue */ }
         }
 
+        if (ShouldQueueRmCreation(entity))
+        {
+            MarkRmCreationQueued(entity);
+            await _db.SaveChangesAsync(ct);
+        }
+
         return (await GetByIdAsync(entity.Id, ct))!;
     }
 
@@ -637,6 +646,20 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
     private static bool IsMotivoDesligamentoLegacy(MotivoRequisicaoVaga? m) =>
         m is MotivoRequisicaoVaga.PedidoDemissao or MotivoRequisicaoVaga.DesligamentoSemJustaCausa;
+
+    private static bool ShouldQueueRmCreation(SolicitacaoVaga entity) =>
+        entity.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro
+        && string.IsNullOrWhiteSpace(entity.RmRequisicaoCodigo);
+
+    private static void MarkRmCreationQueued(SolicitacaoVaga entity)
+    {
+        var now = DateTimeOffset.UtcNow;
+        entity.RmCriacaoSolicitadaEmUtc ??= now;
+        entity.IntegracaoResultado = null;
+        entity.IntegracaoMensagem = "Aguardando envio assíncrono da requisição ao RM.";
+        entity.IntegradaEmUtc = null;
+        entity.UpdatedAtUtc = now;
+    }
 
     /// <summary>
     /// Resolve o motivo da requisição aceitando tanto o novo FK (<paramref name="motivoId"/>) quanto o
@@ -869,7 +892,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             DecisaoRHPrazoDataAlvo = source.DecisaoRHPrazoDataAlvo,
             FaixaSalarialMin = source.FaixaSalarialMin,
             FaixaSalarialMax = source.FaixaSalarialMax,
-            RequisitosDetalhadosJson = source.RequisitosDetalhadosJson,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
@@ -1066,9 +1088,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         entity.DecisaoRHPrazoDataAlvo = request.DecisaoRHPrazoDataAlvo;
         entity.FaixaSalarialMin = request.FaixaSalarialMin;
         entity.FaixaSalarialMax = request.FaixaSalarialMax;
-        entity.RequisitosDetalhadosJson = string.IsNullOrWhiteSpace(request.RequisitosDetalhadosJson)
-            ? null
-            : request.RequisitosDetalhadosJson.Trim();
 
         ValidarFaixaSalarialProposta(entity.FaixaSalarialMin, entity.FaixaSalarialMax);
 
@@ -1382,20 +1401,6 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (string.IsNullOrWhiteSpace(entity.Justificativa))
             throw new InvalidOperationException("Informe a justificativa da solicitação antes do envio.");
 
-        var jsonText = entity.RequisitosDetalhadosJson?.Trim();
-        if (string.IsNullOrEmpty(jsonText) || jsonText.Length < 8)
-            throw new InvalidOperationException("Informe os requisitos detalhados (JSON) antes do envio.");
-
-        try
-        {
-            using var doc = JsonDocument.Parse(jsonText);
-            if (doc.RootElement.ValueKind != JsonValueKind.Object)
-                throw new InvalidOperationException("RequisitosDetalhadosJson deve ser um objeto JSON.");
-        }
-        catch (JsonException)
-        {
-            throw new InvalidOperationException("RequisitosDetalhadosJson inválido (JSON malformado).");
-        }
     }
 
     private async Task<SolicitacaoAprovacaoEtapa?> MontarEtapasRequisicaoPessoalEAvancoProcessoAsync(
@@ -1915,6 +1920,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     {
         if (entity.Solicitante is null)
             await _db.Entry(entity).Reference(e => e.Solicitante).LoadAsync(ct);
+        if (entity.MotivoRequisicaoId.HasValue && entity.Motivo is null)
+            await _db.Entry(entity).Reference(e => e.Motivo).LoadAsync(ct);
 
         var tenantId = _tenantContext.TenantId ?? "";
         var now = DateTimeOffset.UtcNow;
@@ -1922,6 +1929,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var analistaRhResponsavelNome = entity.AnalistaRhResponsavelUserId.HasValue
             ? await ResolveUserDisplayNameAsync(entity.AnalistaRhResponsavelUserId.Value, ct)
             : null;
+        var motivoAbertura = SolicitacaoVagaPrefillMapper.MapMotivoAbertura(entity);
         var prioridade = entity.Urgencia switch
         {
             SolicitacaoVagaUrgencia.Critica => VagaPrioridade.Critica,
@@ -1964,6 +1972,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             EscalaTrabalhoRaw = string.IsNullOrWhiteSpace(entity.EscalaTrabalho) ? null : entity.EscalaTrabalho,
             SalarioMinimo = entity.FaixaSalarialMin,
             SalarioMaximo = entity.FaixaSalarialMax,
+            MotivoAbertura = motivoAbertura,
             HeadcountPendente = headcountPendente,
             RecrutadorResponsavelUserId = entity.AnalistaRhResponsavelUserId,
             RecrutadorResponsavel = string.IsNullOrWhiteSpace(analistaRhResponsavelNome)
@@ -3080,9 +3089,13 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.RmStatusSyncUltimaMensagem,
         s.RmUltimaSincronizacaoUtc,
         s.RmRequisicaoCodigo,
+        s.RmCriacaoSolicitadaEmUtc,
+        s.RmCodColRequisicao,
+        s.RmIdReq,
+        s.TentativasIntegracao,
+        s.UltimaTentativaUtc,
         s.FaixaSalarialMin,
-        s.FaixaSalarialMax,
-        s.RequisitosDetalhadosJson
+        s.FaixaSalarialMax
     );
 
     private static void ValidarFaixaSalarialProposta(decimal? min, decimal? max)

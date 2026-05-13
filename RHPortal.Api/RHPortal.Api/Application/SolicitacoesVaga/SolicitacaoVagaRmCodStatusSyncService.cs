@@ -192,11 +192,29 @@ public sealed class SolicitacaoVagaRmCodStatusSyncService : ISolicitacaoVagaRmCo
             s is SolicitacaoStatus.Reprovada or SolicitacaoStatus.Cancelada or SolicitacaoStatus.Concluida
                 or SolicitacaoStatus.ContratacaoConcluida or SolicitacaoStatus.EncerradaSemContratacao;
 
+        static bool WorkflowInternoAindaBloqueiaSyncRm(SolicitacaoStatus s) =>
+            s is SolicitacaoStatus.Rascunho
+                or SolicitacaoStatus.PendenteAprovacao
+                or SolicitacaoStatus.AjustesNecessarios
+                or SolicitacaoStatus.PendenteAprovacaoRh
+                or SolicitacaoStatus.PendenteAprovacaoAumentoHC
+                or SolicitacaoStatus.PendenteTriagem
+                or SolicitacaoStatus.EmTriagem
+                or SolicitacaoStatus.DevolvidaTriagemGestor;
+
         if (Terminal(entity.Status))
         {
             entity.UpdatedAtUtc = now;
             await _db.SaveChangesAsync(ct);
             return SyncDisposition.Updated;
+        }
+
+        if (WorkflowInternoAindaBloqueiaSyncRm(entity.Status))
+        {
+            entity.RmStatusSyncUltimaMensagem = "Sync RM registrado sem alterar o workflow interno do portal.";
+            entity.UpdatedAtUtc = now;
+            await _db.SaveChangesAsync(ct);
+            return SyncDisposition.Ignored;
         }
 
         var map = RmRequisicaoStatusMapResolver.ResolveFirst(maps, snap.CodStatusRm);

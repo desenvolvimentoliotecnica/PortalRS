@@ -9,11 +9,21 @@ Hoje o produto trabalha em duas camadas:
 1. Quando a solicitacao e aprovada, o backend cria automaticamente uma `Vaga` em `Rascunho`.
 2. Ao abrir essa vaga rascunho, a Analista de RH encontra parte dos dados herdados da solicitacao e completa o restante antes de publicar a vaga.
 
+Observacao importante de fluxo:
+
+- requisitos detalhados nao pertencem mais a `SolicitacaoVaga`;
+- requisitos, stack, idiomas, diferenciais e matching passam a nascer e ser mantidos na `Vaga`, sob responsabilidade da `Analista de RH`.
+
 Com os ajustes atuais, os prefills de baixo risco passam a acontecer em dois pontos:
 
 - na criacao automatica da vaga minima;
 - no prefill da tela de vagas quando a origem e uma solicitacao (`newFromSolicitacao`);
 - com fallback seguro na leitura da vaga para rascunhos antigos, quando o campo ainda esta vazio.
+
+Agora, alem dos campos basicos, o Portal tambem:
+
+- converte o motivo da requisicao para `motivoAbertura` da vaga por regra semantica;
+- deixa os requisitos estruturados para preenchimento direto na vaga pelo RH.
 
 ## 2. Matriz de mapeamento
 
@@ -36,9 +46,9 @@ Com os ajustes atuais, os prefills de baixo risco passam a acontecer em dois pon
 | `CnhObrigatoria` | `exigeCnh` (`Publicacao/Compliance`) | ja mapeado | Sinaliza exigencia documental basica. |
 | `DisponibilidadeViagens` | `disponibilidadeViagens` (`Publicacao/Compliance`) | ja mapeado | Copiado da solicitacao. |
 | `FaixaSalarialMin` + `FaixaSalarialMax` | `salarioMinimo` + `salarioMaximo` (`Remuneracao`) | ja mapeado | Passa a ser persistido na vaga minima e usado como fallback para rascunhos antigos. |
-| `MotivoRequisicaoId` / `MotivoRequisicao` | `motivoAbertura` (`Dados`) | mapear | Falta definir tabela/crosswalk entre motivo da solicitacao e motivo da vaga. |
+| `MotivoRequisicaoId` / `MotivoRequisicao` | `motivoAbertura` (`Dados`) | ja mapeado | Regras atuais: motivos de reposicao viram `Substituicao`; `NovaUnidade` vira `NovoProjeto`; motivos de expansao/demanda viram `AumentoDeQuadro`; para motivo custom, o fallback usa `EfeitoHeadcount`. |
 | `PrazoDias` | `projetoPrazo` ou campo dedicado | mapear | Reaproveitavel para vagas temporarias/estagio, mas depende de regra de negocio/UX. |
-| `RequisitosDetalhadosJson` | `requisitos`, `tagsStack`, `diferenciais`, possivelmente `matchingHabilidades` | mapear | Precisa parser por schema versionado; nao e seguro espalhar esse JSON automaticamente sem normalizacao. |
+| requisitos detalhados / stack / idiomas / diferenciais / matching | campos estruturados da vaga | manual do RH | Esses dados deixaram de existir na solicitacao e sao preenchidos diretamente na vaga pela `Analista de RH`. |
 | `TipoSolicitacao`, `SubstituidoNome`, `MotivoDesligamentoTexto`, `DataDesligamento` | `observacoesProcesso` ou bloco especifico do fluxo | mapear | Dados muito uteis para substituicao, mas ainda sem destino estruturado na vaga. |
 | `EmpresaId` + `EmpresaNome` | sem campo direto no formulario atual | manual do RH | Informacao de contexto; hoje nao possui correspondencia explicita na vaga. |
 | `UnitId` + `UnitName` | sem campo direto no formulario atual | manual do RH | Nao confundir `Unit` da solicitacao com `UnidadeLotacao` da vaga. |
@@ -107,4 +117,5 @@ Se alguem perguntar "o que vem da solicitacao para a vaga?", a resposta curta co
 
 - o Portal cria automaticamente a vaga minima quando a solicitacao e aprovada;
 - titulo, cargo, funcao RM, quantidade, justificativa, prioridade, contrato, centro de custo, unidade de lotacao, turno, escala, recrutador responsavel, gestor requisitante, CNH, viagens e faixa salarial ja podem chegar preenchidos;
+- motivo de abertura e parte estruturada dos requisitos da solicitacao tambem podem virar prefill automatico na vaga;
 - o RH ainda precisa completar os dados de divulgacao, requisitos, matching, etapas, publicacao e compliance para transformar o rascunho em vaga operacional.

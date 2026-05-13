@@ -25,7 +25,13 @@ public sealed record IntegracaoTotvsListItem(
     /// <summary>Preenchido para <see cref="TipoIntegracao.SolicitacaoVaga"/> após sync SYN.</summary>
     short? RmCodStatus = null,
     string? RmUltimaStatusDescricaoRm = null,
-    string? RmStatusSyncUltimaMensagem = null
+    string? RmStatusSyncUltimaMensagem = null,
+    int TentativasIntegracao = 0,
+    DateTimeOffset? UltimaTentativaUtc = null,
+    DateTimeOffset? RmCriacaoSolicitadaEmUtc = null,
+    short? RmCodColRequisicao = null,
+    int? RmIdReq = null,
+    string? Status = null
 );
 
 public sealed record IntegracaoTotvsPainelResponse(
