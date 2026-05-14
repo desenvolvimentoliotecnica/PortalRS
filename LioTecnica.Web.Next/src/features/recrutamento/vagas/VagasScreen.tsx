@@ -272,6 +272,57 @@ function isRmCatalogOnlyVaga(vaga: VagaListItem): boolean {
     return normalizeVagaOrigemTipo((vaga as Record<string, unknown>).origemTipo) === 4;
 }
 
+/** Manual (0) = criada no portal sem origem TOTVS; 1–4 = fluxos RM / sync. */
+function isVagaOrigemPortal(origemTipo: unknown): boolean {
+    return normalizeVagaOrigemTipo(origemTipo) === 0;
+}
+
+type RhLookupUserRow = { id?: string; name?: string; email?: string };
+
+function mergeRhLookupUsers(lists: RhLookupUserRow[][]): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const list of lists) {
+        for (const u of list) {
+            const id = pickString(u.id, "").trim().toLowerCase();
+            if (!id) continue;
+            const label = pickString(u.name, "").trim() || pickString(u.email, "").trim();
+            if (label) out[id] = label.length > 120 ? label.slice(0, 120) : label;
+        }
+    }
+    return out;
+}
+
+function collectPortalRecrutadorUidsNeedingLabel(
+    rows: VagaListItem[],
+    filaRows: Array<Record<string, unknown>>,
+): string[] {
+    const ids = new Set<string>();
+    const scan = (raw: Record<string, unknown>) => {
+        if (!isVagaOrigemPortal(raw.origemTipo)) return;
+        const nome = pickString(raw.recrutadorResponsavel, "").trim();
+        const uid = pickString(raw.recrutadorResponsavelUserId, "").trim().toLowerCase();
+        if (!nome && uid) ids.add(uid);
+    };
+    for (const v of rows) scan(v as Record<string, unknown>);
+    for (const v of filaRows) scan(v);
+    return [...ids];
+}
+
+function renderRecrutadorDisplay(
+    raw: Record<string, unknown>,
+    lookup: Record<string, string>,
+) {
+    const nome = pickString(raw.recrutadorResponsavel, "").trim();
+    if (nome) return <span title="Recrutador responsável">{nome}</span>;
+    const portal = isVagaOrigemPortal(raw.origemTipo);
+    const uid = pickString(raw.recrutadorResponsavelUserId, "").trim().toLowerCase();
+    if (portal && uid) {
+        const fb = lookup[uid];
+        if (fb) return <span title="Recrutador responsável">{fb}</span>;
+    }
+    return <span className="text-xs text-muted-foreground italic">não atribuído</span>;
+}
+
 function formatDate(value: string | null | undefined) {
     if (!value) return "—";
     try {
@@ -522,9 +573,56 @@ export default function VagasScreen() {
     const [lastCreatedVagaId, setLastCreatedVagaId] = useState<string | null>(null);
 
     /* ── Fila de Análise RH ── */
-    interface FilaRhItem { id: string; titulo: string; centroCustoName: string | null; createdAtUtc: string; }
+    interface FilaRhItem {
+        id: string;
+        titulo: string;
+        centroCustoName: string | null;
+        createdAtUtc: string;
+        origemTipo?: unknown;
+        recrutadorResponsavel?: unknown;
+        recrutadorResponsavelUserId?: unknown;
+    }
     const [filaRh, setFilaRh] = useState<FilaRhItem[]>([]);
     const [filaRhLoading, setFilaRhLoading] = useState(false);
+
+    /** Nomes (analistas + recrutadores) para fallback só em vagas origem Manual (portal). */
+    const [rhRecrutadorLookup, setRhRecrutadorLookup] = useState<Record<string, string>>({});
+
+    const portalRecrLookupKey = useMemo(
+        () => collectPortalRecrutadorUidsNeedingLabel(rows, (filaRh as unknown as Array<Record<string, unknown>>)).sort().join(","),
+        [rows, filaRh],
+    );
+
+    useEffect(() => {
+        const need = collectPortalRecrutadorUidsNeedingLabel(rows, (filaRh as unknown as Array<Record<string, unknown>>))
+            .filter((id) => !rhRecrutadorLookup[id]);
+        if (need.length === 0) return;
+        let cancelled = false;
+        void (async () => {
+            try {
+                const [analistas, recrutadores] = await Promise.all([
+                    fetchJson<RhLookupUserRow[]>("/api/lookup/users-analistas-rh"),
+                    fetchJson<RhLookupUserRow[]>("/api/lookup/users-recrutadores"),
+                ]);
+                if (cancelled) return;
+                const merged = mergeRhLookupUsers([analistas ?? [], recrutadores ?? []]);
+                setRhRecrutadorLookup((prev) => {
+                    const next = { ...prev };
+                    let changed = false;
+                    for (const id of need) {
+                        if (merged[id]) {
+                            next[id] = merged[id];
+                            changed = true;
+                        }
+                    }
+                    return changed ? next : prev;
+                });
+            } catch {
+                /* silencioso */
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [portalRecrLookupKey, rows, filaRh, rhRecrutadorLookup]);
 
     const loadFilaRh = useCallback(async () => {
         setFilaRhLoading(true);
@@ -1129,6 +1227,7 @@ export default function VagasScreen() {
                                 <TableRow className="hover:bg-transparent border-amber-200">
                                     <TableHead className="text-amber-800 dark:text-amber-300">Título</TableHead>
                                     <TableHead className="text-amber-800 dark:text-amber-300">Lotação</TableHead>
+                                    <TableHead className="text-amber-800 dark:text-amber-300">Analista / Recrutador</TableHead>
                                     <TableHead className="text-amber-800 dark:text-amber-300">Criada em</TableHead>
                                     <TableHead className="text-amber-800 dark:text-amber-300">Dias</TableHead>
                                     <TableHead className="text-right text-amber-800 dark:text-amber-300">Ações</TableHead>
@@ -1141,6 +1240,9 @@ export default function VagasScreen() {
                                         <TableRow key={v.id} className="border-amber-100 hover:bg-amber-100/40">
                                             <TableCell className="font-medium text-amber-900 dark:text-amber-200">{v.titulo}</TableCell>
                                             <TableCell className="text-sm text-amber-700 dark:text-amber-400">{v.centroCustoName ?? "—"}</TableCell>
+                                            <TableCell className="text-sm text-amber-800 dark:text-amber-300">
+                                                {renderRecrutadorDisplay(v as unknown as Record<string, unknown>, rhRecrutadorLookup)}
+                                            </TableCell>
                                             <TableCell className="text-sm text-amber-700 dark:text-amber-400">{formatDate(v.createdAtUtc)}</TableCell>
                                             <TableCell>
                                                 <span className={`text-xs font-medium ${days > 7 ? "text-red-600" : days > 3 ? "text-amber-700" : "text-amber-600"}`}>
@@ -1451,13 +1553,7 @@ export default function VagasScreen() {
                                                         {vaga.createdAtUtc ? new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR") : "—"}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
-                                                        {(() => {
-                                                            const raw = vaga as Record<string, unknown>;
-                                                            const nome = (raw.recrutadorResponsavel as string | undefined)?.trim();
-                                                            return nome
-                                                                ? <span title="Recrutador responsável">{nome}</span>
-                                                                : <span className="text-xs text-muted-foreground italic">não atribuído</span>;
-                                                        })()}
+                                                        {renderRecrutadorDisplay(vaga as Record<string, unknown>, rhRecrutadorLookup)}
                                                     </TableCell>
                                                     <TableCell onClick={(e) => { e.stopPropagation(); const s = (vaga.status ?? "").toLowerCase(); if (s) setStatus(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]); }}>
                                                         <div className="flex items-center gap-1.5 flex-wrap">
