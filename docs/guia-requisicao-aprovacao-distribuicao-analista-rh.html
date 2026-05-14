@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guia — Requisição de Pessoal: do gestor ao analista de RH</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1a1d26;
+      --muted: #5c6370;
+      --border: #e2e6ef;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --warn-bg: #fff7ed;
+      --warn-border: #fdba74;
+      --ok: #059669;
+      --radius: 12px;
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.55;
+      font-size: 16px;
+    }
+    .wrap { max-width: 52rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.5rem;
+    }
+    .subtitle { color: var(--muted); margin: 0 0 1.5rem; font-size: 1rem; }
+    .toc {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .toc strong { display: block; margin-bottom: 0.5rem; }
+    .toc ol { margin: 0; padding-left: 1.25rem; }
+    .toc a { color: var(--accent); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .alert {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      font-size: 0.95rem;
+    }
+    .alert strong { color: #9a3412; }
+    table.users {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin: 1rem 0 2rem;
+      font-size: 0.95rem;
+    }
+    table.users th, table.users td {
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    table.users th { background: #f1f4fa; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    table.users tr:last-child td { border-bottom: none; }
+    code, kbd {
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      font-size: 0.88em;
+    }
+    kbd {
+      display: inline-block;
+      padding: 0.12em 0.45em;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(0,0,0,.06);
+    }
+    section.card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 1.35rem;
+      margin-bottom: 1.75rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    section.card h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      background: var(--accent-soft);
+      color: #1e40af;
+    }
+    ol.steps { margin: 0; padding-left: 1.2rem; }
+    ol.steps > li { margin-bottom: 0.85rem; }
+    ol.steps li::marker { font-weight: 700; color: var(--accent); }
+    .hint { color: var(--muted); font-size: 0.92rem; margin-top: 0.35rem; }
+    ul.bullets { margin: 0.5rem 0 0; padding-left: 1.2rem; color: var(--text); }
+    ul.bullets li { margin-bottom: 0.35rem; }
+    .path { word-break: break-all; background: #f1f5f9; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.9rem; }
+    footer.note {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    @media print {
+      body { background: #fff; }
+      .toc, .alert { break-inside: avoid; }
+      section.card { break-inside: avoid; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Requisição de Pessoal no Portal RH</h1>
+    <p class="subtitle">Passo a passo amigável: criar requisição, aprovar, distribuir para analista e trabalhar a vaga — com os mesmos cliques e telas do sistema.</p>
+
+    <div class="alert">
+      <strong>Atenção — credenciais e segurança</strong><br />
+      Este arquivo contém senhas de exemplo para treinamento. Não publique em repositório aberto nem envie por e-mail sem criptografia. Troque as senhas após testes e use apenas em ambiente autorizado.
+    </div>
+
+    <nav class="toc" aria-label="Sumário">
+      <strong>Neste guia</strong>
+      <ol>
+        <li><a href="#acesso">Antes de começar (endereço e login)</a></li>
+        <li><a href="#usuarios">Usuários de exemplo</a></li>
+        <li><a href="#gestor">1. Gestor / requisitante — criar e enviar requisição</a></li>
+        <li><a href="#aprovador">2. Aprovador — analisar e decidir</a></li>
+        <li><a href="#especialista">3. Especialista de RH — distribuir para analista</a></li>
+        <li><a href="#analista">4. Analista de RH — trabalhar a vaga</a></li>
+      </ol>
+    </nav>
+
+    <section id="acesso" class="card">
+      <h2><span class="badge">Início</span> Antes de começar</h2>
+      <ol class="steps">
+        <li>Abra o navegador (Chrome ou Edge recomendado) e acesse o <strong>endereço do Portal RH</strong> da sua empresa (URL fornecida pela TI).</li>
+        <li>Se você não estiver logado, o sistema mostra a tela de login. O caminho costuma ser algo como <span class="path">/login</span> (a barra de endereço completa depende do ambiente).</li>
+        <li>Faça logout ao terminar, principalmente em computadores compartilhados: use o menu do usuário (canto superior) e a opção de sair, se existir.</li>
+      </ol>
+    </section>
+
+    <section id="usuarios" class="card">
+      <h2>Usuários de exemplo (treinamento)</h2>
+      <p>Use estes logins apenas no ambiente indicado pela equipe de TI.</p>
+      <table class="users">
+        <thead>
+          <tr>
+            <th>Perfil</th>
+            <th>E-mail</th>
+            <th>Senha</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Gestor / requisitante</td>
+            <td><code>lucas.machado@liotecnica.com.br</code></td>
+            <td><code>Naotemsenha0(</code></td>
+          </tr>
+          <tr>
+            <td>Aprovador</td>
+            <td><code>fabio@liotecnica.com.br</code></td>
+            <td><code>Naotemsenha0(</code></td>
+          </tr>
+          <tr>
+            <td>Especialista RH</td>
+            <td><code>telma.montini@liotecnica.com.br</code></td>
+            <td><code>Naotemsenha0(</code></td>
+          </tr>
+          <tr>
+            <td>Analista RH</td>
+            <td><code>julia.machado@liotecnica.com.br</code></td>
+            <td><code>Naotemsenha0(</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="gestor" class="card">
+      <h2><span class="badge">Gestor</span> Criar e enviar uma requisição</h2>
+      <p>O gestor abre a área de <strong>Solicitações</strong>, preenche o formulário de <strong>Requisição de Pessoal</strong> em três abas e envia para o fluxo de aprovação.</p>
+      <ol class="steps">
+        <li>
+          <strong>Entrar como gestor</strong><br />
+          Na tela de login, informe o e-mail <code>lucas.machado@liotecnica.com.br</code> e a senha <code>Naotemsenha0(</code>. Confirme com <kbd>Enter</kbd> ou no botão de entrar.
+        </li>
+        <li>
+          <strong>Abrir a tela de solicitações de vaga</strong><br />
+          No menu lateral (ou superior, conforme o tema), localize <strong>Gestão</strong> ou equivalente e abra <strong>Solicitações</strong>. O endereço na barra do navegador fica como <span class="path">/gestao/solicitacoes</span>.
+          <p class="hint">Na parte superior da página há abas: <strong>Requisição de Pessoal</strong>, Movimentação de Pessoal e Desligamento. Clique em <strong>Requisição de Pessoal</strong> se não estiver selecionada.</p>
+        </li>
+        <li>
+          <strong>Iniciar uma nova posição</strong><br />
+          Clique no botão <strong>Nova posição</strong> (ícone de “+”). Abre o modal <strong>Requisição de Pessoal</strong>.
+        </li>
+        <li>
+          <strong>Aba “Identificação”</strong> — preencha na ordem que fizer sentido para o seu caso:
+          <ul class="bullets">
+            <li><strong>Empresa</strong> e <strong>Filial</strong>: escolha nos campos de busca (digite parte do nome e selecione na lista).</li>
+            <li><strong>Seção</strong> (centro de custo): obrigatório; filtra dados da estrutura.</li>
+            <li><strong>Qtd. posições</strong> e <strong>Urgência</strong> (Baixa, Média, Alta ou Crítica).</li>
+            <li><strong>Tipo de contrato</strong> e, se aplicável, <strong>Prazo (dias)</strong>.</li>
+            <li><strong>Faixa salarial mínima e máxima</strong>: digite apenas números; o sistema formata em reais. O mínimo deve ser menor que o máximo.</li>
+            <li><strong>Tipo de solicitação</strong>: <em>Vaga nova</em>, <em>Substituição</em> ou <em>Aumento de quadro</em>. Em substituição, indique o <strong>funcionário substituído</strong>. Em aumento de quadro, o <strong>Cargo</strong> é obrigatório e há triagem pelo RH antes das demais aprovações.</li>
+            <li><strong>Motivo</strong>: escolha o motivo parametrizado na lista (aguarde “Carregando motivos…” se aparecer).</li>
+            <li><strong>Função (RM)</strong>: lista ligada à sua equipe; escolha a função — o título da vaga costuma ser preenchido automaticamente a partir dela.</li>
+            <li><strong>Cargo</strong>: obrigatório para “Aumento de quadro”; opcional nos demais fluxos conforme a regra da empresa.</li>
+            <li>Campos adicionais podem aparecer (confidencialidade, decisão de headcount para vaga nova, dados de desligamento quando o motivo exige): leia os textos de ajuda em tela e preencha o que estiver em vermelho ou marcado como obrigatório.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Aba “Horário”</strong><br />
+          Ajuste turnos / horário conforme a política da empresa e o que combinou com o RH.
+        </li>
+        <li>
+          <strong>Aba “Aprovação”</strong><br />
+          Confira quem aparece como <strong>superior direto (aprovador)</strong>. Se o sistema avisar que não há gestor cadastrado, use o campo <strong>Definir aprovador</strong> para escolher manualmente a pessoa correta.
+        </li>
+        <li>
+          <strong>Salvar e enviar</strong><br />
+          No rodapé do modal, clique em <strong>Solicitar aprovação</strong> (requisição nova) ou <strong>Salvar alterações</strong> / <strong>Salvar e reenviar para aprovação</strong> se estiver corrigindo algo devolvido pelo aprovador.<br />
+          <span class="hint">Alternativa: você pode salvar como rascunho se primeiro gravar sem enviar — na lista principal, em status Rascunho, use o ícone de <strong>avião / enviar</strong> (Enviar para aprovação) quando estiver pronto.</span>
+        </li>
+        <li>
+          <strong>Conferir na lista</strong><br />
+          Feche o modal (ou ele fecha sozinho após sucesso). Na grade <strong>Minhas solicitações</strong>, a linha deve mostrar status de pendência de aprovação. Use o ícone de <strong>atividade / linha do tempo</strong> (Acompanhamento) para ver em que etapa está.
+        </li>
+      </ol>
+    </section>
+
+    <section id="aprovador" class="card">
+      <h2><span class="badge">Aprovador</span> Aprovar, pedir ajustes ou reprovar</h2>
+      <p>O aprovador usa a tela <strong>Minhas Pendências</strong>, abre o detalhe da requisição e escolhe a ação no rodapé.</p>
+      <ol class="steps">
+        <li>
+          <strong>Sair do gestor e entrar como aprovador</strong><br />
+          Faça logout e login com <code>fabio@liotecnica.com.br</code> / <code>Naotemsenha0(</code>.
+        </li>
+        <li>
+          <strong>Abrir pendências</strong><br />
+          No menu, abra a área de <strong>Aprovações</strong> (caminho típico: <span class="path">/gestao/aprovacoes</span>). O título da página é <strong>Minhas Pendências</strong>.
+        </li>
+        <li>
+          <strong>Entender o que aparece na lista</strong><br />
+          Por padrão o sistema prioriza pendências do <strong>Portal</strong> (requisições criadas no próprio sistema). Há um interruptor <strong>Exibir requisições RM (Legado)</strong>: deixe desmarcado para focar nas requisições do portal, salvo orientação da TI.<br />
+          Use os cartões no topo (<strong>Total</strong>, <strong>Contratação</strong>, etc.) para filtrar. Requisições de vaga do portal costumam aparecer no total e também ao escolher <strong>Contratação</strong> quando aplicável.<br />
+          Chips <strong>Todos</strong>, <strong>Aprovação direta</strong> e <strong>Fila de aprovação</strong> ajudam a separar o que vai direto para você do que é fila de perfil (vários aprovadores podem atuar).
+        </li>
+        <li>
+          <strong>Abrir o detalhe</strong><br />
+          Clique na linha da requisição desejada ou no botão do <strong>olho</strong> (Ver). Abre o diálogo <strong>Analisar Solicitação de Contratação</strong> com o mesmo formulário em modo leitura (abas Identificação, Horário e Aprovação).
+        </li>
+        <li>
+          <strong>Decidir</strong><br />
+          Role até o bloco <strong>Ações de aprovação</strong> (só aparece quando o status permite aprovação no portal):
+          <ul class="bullets">
+            <li><strong>Aprovar</strong> (verde): conclui sua etapa; ao final do fluxo o sistema cria a vaga mínima no recrutamento para o RH continuar.</li>
+            <li><strong>Solicitar ajustes</strong> (laranja): devolve ao gestor para corrigir dados; ele edita e reenvia.</li>
+            <li><strong>Reprovar</strong> (vermelho): abre confirmação para informar motivo visível ao solicitante.</li>
+          </ul>
+          Opcionalmente preencha a caixa de <strong>Observação</strong> antes de confirmar.
+        </li>
+        <li>
+          <strong>Atualizar a lista</strong><br />
+          Use <strong>Atualizar</strong> no canto superior se a linha não sumir da lista imediatamente. Um aviso de sucesso pode confirmar que a solicitação foi aprovada ou ajustada.
+        </li>
+      </ol>
+    </section>
+
+    <section id="especialista" class="card">
+      <h2><span class="badge">Especialista RH</span> Distribuir a requisição para um analista de RH</h2>
+      <p>Quem tem perfil de <strong>especialista de RH</strong> (ou administrador) vê na mesma tela de solicitações os controles de <strong>distribuição</strong> para um analista responsável.</p>
+      <ol class="steps">
+        <li>
+          <strong>Entrar como especialista</strong><br />
+          Login com <code>telma.montini@liotecnica.com.br</code> / <code>Naotemsenha0(</code>.
+        </li>
+        <li>
+          <strong>Voltar para Solicitações</strong><br />
+          Abra <span class="path">/gestao/solicitacoes</span>, aba <strong>Requisição de Pessoal</strong>.
+        </li>
+        <li>
+          <strong>Opção A — distribuir uma requisição pelo detalhe</strong><br />
+          Localize a solicitação na tabela e clique em <strong>Visualizar</strong> (ícone de olho). No rodapé do modal, se o status permitir, aparece o bloco <strong>Distribuir para Analista de RH</strong>:
+          <ul class="bullets">
+            <li>Clique no campo de busca do analista, digite parte do nome (ex.: Julia) e selecione <strong>julia.machado@liotecnica.com.br</strong> na lista.</li>
+            <li>Clique em <strong>Distribuir</strong>. Aguarde a mensagem de sucesso.</li>
+            <li><strong>Limpar</strong> remove o vínculo se precisar corrigir.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Opção B — distribuir várias de uma vez</strong><br />
+          Na lista, marque as caixas de seleção à esquerda das linhas elegíveis (somente status que o sistema permite distribuir). Clique no botão <strong>Distribuir para Analista de RH</strong>, escolha o analista no diálogo e confirme <strong>Distribuir</strong>.
+        </li>
+        <li>
+          <strong>Conferência</strong><br />
+          Na coluna do título, pode aparecer a linha em texto menor <em>“Distribuída para: …”</em> com o nome do analista.
+        </li>
+      </ol>
+      <p class="hint">Se os botões de distribuição não aparecerem, confirme com a TI se seu usuário tem o papel de especialista de RH ou administrador e permissões de recrutamento.</p>
+    </section>
+
+    <section id="analista" class="card">
+      <h2><span class="badge">Analista RH</span> Trabalhar a vaga após aprovação e distribuição</h2>
+      <p>Depois que a requisição foi aprovada e, idealmente, <strong>distribuída para você</strong>, o trabalho do analista concentra-se nas telas de <strong>vagas</strong>, <strong>painel de recrutamento</strong>, candidatos, matching e triagem.</p>
+      <ol class="steps">
+        <li>
+          <strong>Entrar como analista</strong><br />
+          Login com <code>julia.machado@liotecnica.com.br</code> / <code>Naotemsenha0(</code>.
+        </li>
+        <li>
+          <strong>Ver solicitações atribuídas a você</strong><br />
+          Em <span class="path">/gestao/solicitacoes</span> (aba Requisição de Pessoal), a lista pode mostrar de forma mais focada o que cabe ao seu papel; procure linhas com <em>“Distribuída para:”</em> o seu nome ou filtre pelos chips de status (Ativas, Aprovadas, etc.).
+        </li>
+        <li>
+          <strong>Configurar e publicar a vaga</strong><br />
+          Abra <span class="path">/vagas</span>. Localize a vaga gerada a partir da aprovação (título semelhante ao da requisição). Clique para <strong>editar</strong>: complete abas como requisitos, filtros de matching, etapas do processo e publicação, conforme o padrão do RH.
+        </li>
+        <li>
+          <strong>Painel de recrutamento (pipeline)</strong><br />
+          Acesse <span class="path">/painel-rh</span>. Use a aba <strong>Recrutamento</strong> para ver workflows, buscar por vaga ou responsável e acompanhar SLA. Em cada linha, ao clicar, o sistema costuma abrir o <strong>hub da vaga</strong> (<span class="path">/vagas/hub?id=…</span>) quando já existe vaga vinculada — é o ponto central para ações da vaga.
+        </li>
+        <li>
+          <strong>Candidatos e matching</strong><br />
+          Em <span class="path">/candidatos</span> você vê candidatos vinculados às vagas. Em <span class="path">/matching</span> (ou pelo botão <strong>Matching</strong> a partir da tela de vagas) analise o ranking por IA quando o serviço estiver disponível no ambiente.
+        </li>
+        <li>
+          <strong>Triagem e próximas etapas</strong><br />
+          Use <span class="path">/triagem</span> para o quadro Kanban. Conforme o processo da empresa, siga para <strong>Processo seletivo</strong> (<span class="path">/gestao/processo-seletivo</span>), <strong>Agendas</strong> (<span class="path">/agendas</span>) e <strong>Pré-admissão</strong> (<span class="path">/admissao</span>) quando houver candidato aprovado.
+        </li>
+      </ol>
+      <p class="hint">Alguns recursos (matching com IA, entrada por e-mail, agendas em tempo real) dependem de serviços e configurações ativas no ambiente — em dúvida, pergunte à TI.</p>
+    </section>
+
+    <footer class="note">
+      Documento gerado para orientação operacional do Portal RH (LioTecnica / RenderRH). Rotas e rótulos refletem a aplicação Next.js em <code>/gestao/solicitacoes</code>, <code>/gestao/aprovacoes</code>, <code>/vagas</code> e <code>/painel-rh</code>. Ajuste o texto se o menu da sua empresa usar nomes diferentes.
+    </footer>
+  </div>
+</body>
+</html>
