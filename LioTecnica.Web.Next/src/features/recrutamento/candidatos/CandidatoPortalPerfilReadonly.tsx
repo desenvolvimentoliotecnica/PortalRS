@@ -186,12 +186,23 @@ function PrefGrid({ data, keys }: { data: Record<string, unknown>; keys: [string
 type Props = {
   data: CandidatoPortalPerfilCompleto | null;
   loading?: boolean;
+  /** Quando o GET falhou (ex.: 404 API antiga); exibido em vez da mensagem genérica. */
+  loadError?: string | null;
   className?: string;
 };
 
-export function CandidatoPortalPerfilReadonly({ data, loading, className = "" }: Props) {
+export function CandidatoPortalPerfilReadonly({ data, loading, loadError, className = "" }: Props) {
   if (loading) {
     return <div className={`text-muted-foreground text-sm py-6 text-center ${className}`}>Carregando perfil do portal…</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className={`rounded-xl border border-destructive/30 bg-destructive/5 text-destructive text-sm p-4 whitespace-pre-wrap ${className}`}>
+        <div className="font-semibold mb-1">Não foi possível carregar o perfil do portal</div>
+        <div className="text-destructive/90 text-xs leading-relaxed">{loadError}</div>
+      </div>
+    );
   }
 
   if (!data) {
