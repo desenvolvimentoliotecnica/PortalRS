@@ -575,6 +575,7 @@ builder.Services.AddSingleton<RhPortal.Api.Messaging.WhatsApp.IWhatsAppMessageSe
         logger.CreateLogger<RhPortal.Api.Messaging.WhatsApp.LoggingWhatsAppMessageSender>());
 });
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
+builder.Services.AddScoped<ICandidatoPortalPerfilReader, CandidatoPortalPerfilReader>();
 builder.Services.AddScoped<IPessoaService, PessoaService>();
 builder.Services.AddScoped<ICvGptExtractor, CvGptExtractor>();
 builder.Services.AddScoped<ITalentoService, TalentoService>();

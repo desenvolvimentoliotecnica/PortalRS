@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
+using RhPortal.Api.Contracts.Candidatos;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -118,28 +119,81 @@ public sealed class CandidatosController : ControllerBase
         var item = await handler.HandleAsync(id, documentosVagaId, ct);
         if (item is null)
             return NotFound();
-        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
-        {
-            var vid = item.VagaId;
-            var assignedToCurrentAnalyst =
-                vid.HasValue
-                && _userContext.UserId.HasValue
-                && await db.SolicitacoesVaga.AsNoTracking()
-                    .AnyAsync(s => s.VagaId == vid.Value && s.AnalistaRhResponsavelUserId == _userContext.UserId!.Value, ct);
-
-            if (!assignedToCurrentAnalyst
-                && _userContext.VagasDataScope == VagasDataScope.ByArea
-                && _userContext.CentroCustoId.HasValue
-                && item.VagaAreaId.HasValue
-                && item.VagaAreaId != _userContext.CentroCustoId)
-                return NotFound();
-            if (!assignedToCurrentAnalyst
-                && _userContext.VagasDataScope == VagasDataScope.ByRecrutador
-                && _userContext.UserId.HasValue
-                && item.VagaRecrutadorResponsavelUserId != _userContext.UserId)
-                return NotFound();
-        }
+        var denied = await AuthorizeCandidatoDetailAsync(
+            item.VagaId,
+            item.VagaAreaId,
+            item.VagaRecrutadorResponsavelUserId,
+            db,
+            ct);
+        if (denied != null)
+            return denied;
         return Ok(item);
+    }
+
+    /// <summary>
+    /// Perfil completo (read-only) como no Portal de Candidatos — skills, formação, experiências, etc.
+    /// </summary>
+    [HttpGet("{id:guid}/perfil-portal")]
+    [ProducesResponseType(typeof(CandidatoPortalPerfilCompletoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CandidatoPortalPerfilCompletoResponse>> GetPerfilPortal(
+        [FromRoute] Guid id,
+        [FromServices] AppDbContext db,
+        [FromServices] ICandidatoPortalPerfilReader reader,
+        [FromServices] IGetCandidatoByIdHandler handler,
+        CancellationToken ct)
+    {
+        var item = await handler.HandleAsync(id, null, ct);
+        if (item is null)
+            return NotFound();
+
+        var denied = await AuthorizeCandidatoDetailAsync(
+            item.VagaId,
+            item.VagaAreaId,
+            item.VagaRecrutadorResponsavelUserId,
+            db,
+            ct);
+        if (denied != null)
+            return denied;
+
+        var payload = await reader.GetCompletoAsync(id, ct);
+        return payload is null ? NotFound() : Ok(payload);
+    }
+
+    /// <summary>
+    /// Mesmas regras de visibilidade que <see cref="GetById"/> (área / recrutador / analista em SolicitacaoVaga).
+    /// </summary>
+    private async Task<ActionResult?> AuthorizeCandidatoDetailAsync(
+        Guid? vagaId,
+        Guid? vagaAreaId,
+        Guid? vagaRecrutadorResponsavelUserId,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        if (_userContext.IsAdmin || _userContext.IsInRole("Owner"))
+            return null;
+
+        var vid = vagaId;
+        var assignedToCurrentAnalyst =
+            vid.HasValue
+            && _userContext.UserId.HasValue
+            && await db.SolicitacoesVaga.AsNoTracking()
+                .AnyAsync(s => s.VagaId == vid.Value && s.AnalistaRhResponsavelUserId == _userContext.UserId!.Value, ct);
+
+        if (!assignedToCurrentAnalyst
+            && _userContext.VagasDataScope == VagasDataScope.ByArea
+            && _userContext.CentroCustoId.HasValue
+            && vagaAreaId.HasValue
+            && vagaAreaId != _userContext.CentroCustoId)
+            return NotFound();
+
+        if (!assignedToCurrentAnalyst
+            && _userContext.VagasDataScope == VagasDataScope.ByRecrutador
+            && _userContext.UserId.HasValue
+            && vagaRecrutadorResponsavelUserId != _userContext.UserId)
+            return NotFound();
+
+        return null;
     }
 
     /// <summary>
