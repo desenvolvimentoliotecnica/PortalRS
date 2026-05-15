@@ -78,7 +78,37 @@ function asRecord(v: unknown): Record<string, unknown> | null {
     return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
 
-/** Mapeia a resposta camelCase ou PascalCase de `GET /api/candidatos/{id}` para o modelo da tela. */
+/** Lista de documentos embutida em `GET /api/candidatos/{id}` (não existe `GET .../documents`). */
+function mapDocumentosFromCandidatePayload(raw: unknown, candidatoId: string): DocItem[] {
+    const r = asRecord(raw);
+    if (!r) return [];
+    const list = r.documentos ?? r.Documentos;
+    if (!Array.isArray(list)) return [];
+    return list
+        .map((row): DocItem | null => {
+            const d = asRecord(row);
+            if (!d) return null;
+            const id = d.id ?? d.Id;
+            if (id == null) return null;
+            const nome = d.nomeArquivo ?? d.NomeArquivo;
+            const urlRaw = d.url ?? d.Url;
+            const downloadUrl =
+                typeof urlRaw === "string" && urlRaw.trim()
+                    ? urlRaw.trim()
+                    : `/api/candidatos/${candidatoId}/documentos/${String(id)}/download`;
+            const created = d.createdAtUtc ?? d.CreatedAtUtc;
+            return {
+                id: String(id),
+                fileName: nome != null ? String(nome) : "documento",
+                fileType: (d.contentType ?? d.ContentType ?? d.tipo ?? d.Tipo) != null
+                    ? String(d.contentType ?? d.ContentType ?? d.tipo ?? d.Tipo)
+                    : null,
+                uploadedAt: created != null ? String(created) : null,
+                downloadUrl,
+            };
+        })
+        .filter((x): x is DocItem => x != null);
+}
 function mapCandidateResponseToDetail(raw: unknown): CandidatoDetail | null {
     const r = asRecord(raw);
     if (!r) return null;
@@ -150,12 +180,13 @@ export default function CandidatoDetalhesScreen() {
         setPortalPerfil(null);
         setPortalPerfilError(null);
         try {
-            const [rawCand, d] = await Promise.all([
-                fetchJson<unknown>(`/api/candidatos/${candidatoId}`),
-                fetchJson<DocItem[]>(`/api/candidatos/${candidatoId}/documents`).catch(() => []),
-            ]);
+            const candUrl =
+                vagaId.trim()
+                    ? `/api/candidatos/${candidatoId}?vagaId=${encodeURIComponent(vagaId.trim())}`
+                    : `/api/candidatos/${candidatoId}`;
+            const rawCand = await fetchJson<unknown>(candUrl);
             setCand(mapCandidateResponseToDetail(rawCand));
-            setDocs(Array.isArray(d) ? d : []);
+            setDocs(mapDocumentosFromCandidatePayload(rawCand, candidatoId));
             const { data, error } = await fetchCandidatoPortalPerfil(candidatoId, "");
             setPortalPerfil(data);
             setPortalPerfilError(error);
@@ -165,7 +196,7 @@ export default function CandidatoDetalhesScreen() {
             setLoading(false);
             setPortalPerfilLoading(false);
         }
-    }, [candidatoId]);
+    }, [candidatoId, vagaId]);
 
     useEffect(() => { void load(); }, [load]);
 
