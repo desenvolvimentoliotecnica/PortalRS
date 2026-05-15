@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { CandidatoPortalPerfilReadonly, type CandidatoPortalPerfilCompleto } from "@/features/recrutamento/candidatos/CandidatoPortalPerfilReadonly";
 
 /* ── Types ── */
 
@@ -72,9 +73,34 @@ function normalizeScore(v: number): number {
     return Math.round(v > 1 ? v : v * 100);
 }
 
+function asRecord(v: unknown): Record<string, unknown> | null {
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+/** Mapeia a resposta camelCase de `GET /api/candidatos/{id}` para o modelo da tela. */
+function mapCandidateResponseToDetail(raw: unknown): CandidatoDetail | null {
+    const r = asRecord(raw);
+    if (!r) return null;
+    const id = r.id != null ? String(r.id) : "";
+    if (!id) return null;
+    return {
+        id,
+        nome: r.nome != null ? String(r.nome) : "",
+        email: r.email != null ? String(r.email) : "",
+        resumoProfissional: r.resumoProfissional != null ? String(r.resumoProfissional) : null,
+        observacoes: r.obs != null ? String(r.obs) : null,
+        cvTexto: r.cvText != null ? String(r.cvText) : null,
+        status: r.status != null ? String(r.status) : null,
+        recrutadorNome: r.applicationRecruiterUserName != null ? String(r.applicationRecruiterUserName) : null,
+        updatedAt:
+            (r.updatedAtUtc != null ? String(r.updatedAtUtc) : null)
+            ?? (r.updatedAt != null ? String(r.updatedAt) : null),
+    };
+}
+
 /* ── Component ── */
 
-type Tab = "resumo" | "cv" | "docs" | "match";
+type Tab = "resumo" | "cv" | "docs" | "match" | "perfilPortal";
 
 export default function CandidatoDetalhesScreen() {
     const sp = useSearchParams();
@@ -89,6 +115,8 @@ export default function CandidatoDetalhesScreen() {
     const [match, setMatch] = useState<MatchResult | null>(null);
     const [matchLoading, setMatchLoading] = useState(false);
     const [admissaoLoading, setAdmissaoLoading] = useState(false);
+    const [portalPerfil, setPortalPerfil] = useState<CandidatoPortalPerfilCompleto | null>(null);
+    const [portalPerfilLoading, setPortalPerfilLoading] = useState(false);
 
     const iniciarAdmissao = async () => {
         setAdmissaoLoading(true);
@@ -116,17 +144,22 @@ export default function CandidatoDetalhesScreen() {
     const load = useCallback(async () => {
         if (!candidatoId) return;
         setLoading(true);
+        setPortalPerfilLoading(true);
+        setPortalPerfil(null);
         try {
-            const [c, d] = await Promise.all([
-                fetchJson<CandidatoDetail>(`/api/candidatos/${candidatoId}`),
+            const [rawCand, d, portal] = await Promise.all([
+                fetchJson<unknown>(`/api/candidatos/${candidatoId}`),
                 fetchJson<DocItem[]>(`/api/candidatos/${candidatoId}/documents`).catch(() => []),
+                fetchJson<CandidatoPortalPerfilCompleto>(`/api/candidatos/${candidatoId}/perfil-portal`).catch(() => null),
             ]);
-            setCand(c);
+            setCand(mapCandidateResponseToDetail(rawCand));
             setDocs(Array.isArray(d) ? d : []);
+            setPortalPerfil(portal);
         } catch {
             toast.error("Falha ao carregar candidato.");
         } finally {
             setLoading(false);
+            setPortalPerfilLoading(false);
         }
     }, [candidatoId]);
 
@@ -379,6 +412,13 @@ export default function CandidatoDetalhesScreen() {
                             ) : (
                                 <div className="text-muted-foreground text-sm py-4 text-center">Sem dados de match disponíveis.</div>
                             )}
+                        </div>
+                    )}
+
+                    {tab === "perfilPortal" && (
+                        <div className="max-h-[min(70vh,640px)] overflow-y-auto space-y-2">
+                            <p className="text-muted-foreground text-xs">Dados preenchidos pelo candidato no portal (somente leitura).</p>
+                            <CandidatoPortalPerfilReadonly data={portalPerfil} loading={portalPerfilLoading} />
                         </div>
                     )}
                 </div>

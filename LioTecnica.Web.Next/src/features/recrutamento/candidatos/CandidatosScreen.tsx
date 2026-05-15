@@ -8,6 +8,7 @@ import { Search } from "lucide-react";
 import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
+import { CandidatoPortalPerfilReadonly, type CandidatoPortalPerfilCompleto } from "@/features/recrutamento/candidatos/CandidatoPortalPerfilReadonly";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
@@ -233,9 +234,11 @@ export default function CandidatosScreen() {
   const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.candidatos.viewMode", m); };
   const [detailOpen, setDetailOpen] = useState(false);
   const [detail, setDetail] = useState<Candidato | null>(null);
-  const [detailTab, setDetailTab] = useState<"resumo" | "cv" | "docs" | "match">("resumo");
+  const [detailTab, setDetailTab] = useState<"resumo" | "cv" | "docs" | "match" | "perfilPortal">("resumo");
   const [detailVaga, setDetailVaga] = useState<Record<string, unknown> | null>(null);
   const [detailMatch, setDetailMatch] = useState<MatchResult | null>(null);
+  const [portalPerfil, setPortalPerfil] = useState<CandidatoPortalPerfilCompleto | null>(null);
+  const [portalPerfilLoading, setPortalPerfilLoading] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState<Partial<Candidato>>({});
@@ -441,11 +444,23 @@ export default function CandidatosScreen() {
     setDetail(null);
     setDetailVaga(null);
     setDetailMatch(null);
+    setPortalPerfil(null);
+    setPortalPerfilLoading(true);
     try {
       const d = await fetchJson<Candidato>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`);
       setDetail(d);
     } catch {
       toast.error("Falha ao carregar detalhes do candidato.");
+      setPortalPerfilLoading(false);
+      return;
+    }
+    try {
+      const portal = await fetchJson<CandidatoPortalPerfilCompleto>(
+        `${BASE}/api/candidatos/${encodeURIComponent(id)}/perfil-portal`,
+      ).catch(() => null);
+      setPortalPerfil(portal);
+    } finally {
+      setPortalPerfilLoading(false);
     }
   }
 
@@ -1112,7 +1127,10 @@ export default function CandidatosScreen() {
               <div className="flex items-center gap-2">
                 {detail?.id ? (
                   <Button variant="outline" size="sm" asChild>
-                    <Link href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}`} onClick={() => setDetailOpen(false)}>
+                    <Link
+                      href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}${pickString(detail.vagaId, "").trim() ? `&vagaId=${encodeURIComponent(pickString(detail.vagaId, "").trim())}` : ""}`}
+                      onClick={() => setDetailOpen(false)}
+                    >
                       Abrir em página
                     </Link>
                   </Button>
@@ -1135,6 +1153,7 @@ export default function CandidatosScreen() {
                         { key: "cv", label: "Texto do CV" },
                         { key: "docs", label: "Documentos" },
                         { key: "match", label: "Match" },
+                        { key: "perfilPortal", label: "Perfil portal" },
                       ] as const
                     ).map((t) => (
                       <Button
@@ -1335,6 +1354,15 @@ export default function CandidatosScreen() {
                         </div>
                       </>
                     )}
+                  </div>
+                ) : null}
+
+                {detailTab === "perfilPortal" ? (
+                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4 max-h-[min(70vh,640px)] overflow-y-auto" style={{ boxShadow: "none" }}>
+                    <div className="text-muted-foreground text-xs mb-3">
+                      Dados preenchidos pelo candidato no portal (somente leitura).
+                    </div>
+                    <CandidatoPortalPerfilReadonly data={portalPerfil} loading={portalPerfilLoading} />
                   </div>
                 ) : null}
               </div>
