@@ -403,8 +403,13 @@ function formatFileSizeShort(n: number): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-async function downloadHubCandidateDocument(doc: CandidateDocRow): Promise<void> {
-  const rawPath = doc.url?.trim();
+async function downloadHubCandidateDocument(doc: CandidateDocRow, candidatoIdFallback: string | null): Promise<void> {
+  let rawPath = doc.url?.trim();
+  if (!rawPath || rawPath === "#") {
+    if (candidatoIdFallback && doc.id) {
+      rawPath = `/api/candidatos/${candidatoIdFallback}/documentos/${doc.id}/download`;
+    }
+  }
   if (!rawPath || rawPath === "#") {
     toast.error("Link de download indisponível.");
     return;
@@ -415,10 +420,25 @@ async function downloadHubCandidateDocument(doc: CandidateDocRow): Promise<void>
   }
   const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
   try {
-    const res = await apiFetch(path, { method: "GET" }, 120_000);
+    // apiFetch define Accept: application/json por omissão — incompatível com arquivo binário / alguns proxies.
+    const res = await apiFetch(
+      path,
+      {
+        method: "GET",
+        headers: { Accept: "*/*" },
+      },
+      120_000,
+    );
     if (!res.ok) {
       const msg = await res.text().catch(() => "");
-      throw new Error(msg || `HTTP ${res.status}`);
+      let detail = (msg ?? "").trim().slice(0, 300);
+      try {
+        const j = JSON.parse(msg) as { message?: string; detail?: string; title?: string };
+        detail = (j.message || j.detail || j.title || detail).trim();
+      } catch {
+        /* texto plano ou HTML */
+      }
+      throw new Error(detail ? `${res.status} — ${detail}` : `${res.status}`);
     }
     const blob = await res.blob();
     const blobUrl = URL.createObjectURL(blob);
@@ -429,8 +449,9 @@ async function downloadHubCandidateDocument(doc: CandidateDocRow): Promise<void>
     a.click();
     a.remove();
     URL.revokeObjectURL(blobUrl);
-  } catch {
-    toast.error("Não foi possível baixar o arquivo.");
+  } catch (e) {
+    const m = e instanceof Error ? e.message : String(e);
+    toast.error(`Não foi possível baixar o arquivo. ${m}`);
   }
 }
 
@@ -1576,7 +1597,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                               {d.tamanhoBytes != null ? ` • ${formatFileSizeShort(d.tamanhoBytes)}` : ""}
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" className="shrink-0" type="button" onClick={() => void downloadHubCandidateDocument(d)}>
+                          <Button variant="outline" size="sm" className="shrink-0" type="button" onClick={() => void downloadHubCandidateDocument(d, editingCandidateId)}>
                             Download
                           </Button>
                         </li>
