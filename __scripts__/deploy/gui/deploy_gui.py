@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import re
 import shlex
 import shutil
 import subprocess
@@ -50,6 +51,26 @@ SERVICE_LABELS = {
     "ai": "RHPortal.Ai",
 }
 ALL_SERVICES = list(SERVICE_TO_CONTAINER)
+
+
+def _format_disk_bytes(n: int) -> str:
+    """Human-readable size (binary units)."""
+    x = float(n)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if abs(x) < 1024.0 or unit == "TiB":
+            return f"{x:.1f} {unit}" if unit != "B" else f"{int(n)} B"
+        x /= 1024.0
+    return f"{x:.1f} TiB"
+
+
+def _parse_disk_marker(text: str, marker: str) -> int | None:
+    m = re.search(re.escape(marker) + r"=(\d+)", text)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
 
 
 DEFAULT_CONFIG = {
@@ -248,6 +269,8 @@ class DeployRunner:
             self.set_progress(15, "Gerando snapshot")
             self._create_archive()
             with SshSession(self.cfg, self.log) as ssh:
+                self.set_progress(22, "Limpeza de disco no servidor")
+                self._remote_disk_cleanup(ssh)
                 self.set_progress(25, "Preflight remoto")
                 self._remote_preflight(ssh)
                 self.set_progress(30, "Planejando build")
@@ -367,6 +390,67 @@ class DeployRunner:
         size_mb = target.stat().st_size / 1024 / 1024
         self.archive_path = target
         self.log.ok(f"Snapshot gerado: {target} ({size_mb:.1f} MB)")
+
+    def _remote_disk_cleanup(self, ssh: SshSession) -> None:
+        """Free server disk before upload/build (build-cache, old SHA snapshots, Docker builder cache)."""
+        root = self.cfg.remote_deploy_dir.rstrip("/")
+        script = f"""
+set -euo pipefail
+export LC_ALL=C
+DEPLOY_ROOT={shlex.quote(root)}
+
+avail_bytes() {{
+  local v
+  v=$(df -B1 / 2>/dev/null | awk 'NR==2 {{print $4}}' || true)
+  if [[ -n "$v" && "$v" =~ ^[0-9]+$ ]]; then
+    echo "$v"
+    return 0
+  fi
+  df -Pk / 2>/dev/null | awk 'NR==2 {{print $4 * 1024}}'
+}}
+
+BEFORE=$(avail_bytes || echo "0")
+echo "__RH_DEPLOY_DISK_BEFORE__=${{BEFORE}}__"
+df -h / || true
+echo ">>> Removendo build-cache em $DEPLOY_ROOT/build-cache"
+rm -rf "$DEPLOY_ROOT/build-cache"
+echo ">>> Removendo snapshots antigos (pastas com nome SHA git, 40 hex) em $DEPLOY_ROOT"
+shopt -s nullglob
+for d in "$DEPLOY_ROOT"/*; do
+  [[ -d "$d" ]] || continue
+  base=$(basename "$d")
+  if [[ "$base" =~ ^[0-9a-f]{{40}}$ ]]; then
+    echo "  rm -rf $d"
+    rm -rf "$d"
+  fi
+done
+if command -v docker >/dev/null 2>&1; then
+  echo ">>> docker builder prune -af"
+  docker builder prune -af || echo "WARN: docker builder prune retornou erro (continuando)"
+  echo ">>> docker image prune -f (imagens pendentes / dangling)"
+  docker image prune -f || true
+else
+  echo "WARN: docker nao encontrado; pulando prune de builder"
+fi
+AFTER=$(avail_bytes || echo "0")
+echo "__RH_DEPLOY_DISK_AFTER__=${{AFTER}}__"
+df -h / || true
+"""
+        _, output = ssh.run(script, "limpeza de disco remota (pre-deploy)")
+        before = _parse_disk_marker(output, "__RH_DEPLOY_DISK_BEFORE__")
+        after = _parse_disk_marker(output, "__RH_DEPLOY_DISK_AFTER__")
+        if before is not None and after is not None and before >= 0 and after >= 0:
+            gained = after - before
+            self.log.ok(
+                "Disco em / apos limpeza: "
+                f"{_format_disk_bytes(after)} livres "
+                f"(antes: {_format_disk_bytes(before)}; "
+                f"ganho aproximado: {_format_disk_bytes(gained)})."
+            )
+        elif after is not None and after >= 0:
+            self.log.ok(f"Disco em / apos limpeza: {_format_disk_bytes(after)} livres (antes nao medido).")
+        else:
+            self.log.warn("Nao foi possivel ler espaco livre apos limpeza; veja df -h no log acima.")
 
     def _remote_preflight(self, ssh: SshSession) -> None:
         script = r"""
