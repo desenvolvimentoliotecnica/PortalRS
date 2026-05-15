@@ -264,6 +264,42 @@ export function normalizePortalPerfilPayload(json: unknown): CandidatoPortalPerf
   };
 }
 
+/** Extrai mensagem legível de corpos JSON (RFC 7807 / ASP.NET ProblemDetails / validação). */
+export function parseApiProblemDetailsBody(text: string): string {
+  const raw = text?.trim() ?? "";
+  if (!raw) return "";
+  try {
+    const j = JSON.parse(raw) as Record<string, unknown>;
+    const detail = typeof j.detail === "string" ? j.detail.trim() : "";
+    const msg = typeof j.message === "string" ? j.message.trim() : "";
+    const title = typeof j.title === "string" ? j.title.trim() : "";
+    const traceId =
+      (typeof j.traceId === "string" && j.traceId.trim()) ||
+      (() => {
+        const ext = (j.extensions ?? j.Extensions) as Record<string, unknown> | undefined;
+        const tid = ext?.traceId ?? ext?.TraceId;
+        return typeof tid === "string" ? tid.trim() : "";
+      })();
+
+    let errors = "";
+    const errObj = j.errors;
+    if (errObj && typeof errObj === "object" && !Array.isArray(errObj)) {
+      errors = Object.entries(errObj as Record<string, unknown>)
+        .map(([k, v]) => {
+          if (Array.isArray(v)) return `${k}: ${(v as unknown[]).map(String).join(", ")}`;
+          return `${k}: ${String(v)}`;
+        })
+        .join("; ");
+    }
+
+    // ProblemDetails: priorizar `detail` (onde a API coloca a exceção), não `title` genérico.
+    const primary = detail || msg || errors || title || raw.slice(0, 1200);
+    return traceId ? `${primary} [traceId: ${traceId}]` : primary;
+  } catch {
+    return raw.slice(0, 1200);
+  }
+}
+
 /**
  * GET agregado do perfil portal (RH autenticado).
  * @param pathPrefix ex.: `/app` quando a UI chama via mesmo host; vazio para `/api/...` direto.
@@ -281,20 +317,14 @@ export async function fetchCandidatoPortalPerfil(
     });
     const text = await res.text().catch(() => "");
     if (!res.ok) {
-      let detail = text?.slice(0, 400) ?? "";
-      try {
-        const j = JSON.parse(text) as { message?: string; title?: string; detail?: string };
-        detail = j.message ?? j.title ?? j.detail ?? detail;
-      } catch {
-        /* manter texto cru */
-      }
+      const parsed = parseApiProblemDetailsBody(text);
       const hint =
         res.status === 404
           ? " Confirme se a API publicada inclui GET …/perfil-portal e se o candidato existe neste tenant."
           : res.status === 401 || res.status === 403
             ? " Sessão expirada ou sem permissão para este candidato."
             : "";
-      return { data: null, error: `HTTP ${res.status}${detail ? `: ${detail}` : ""}.${hint}` };
+      return { data: null, error: `HTTP ${res.status}${parsed ? `: ${parsed}` : ""}.${hint}` };
     }
     if (!text?.trim()) return { data: null, error: "Resposta vazia da API." };
     let raw: unknown;

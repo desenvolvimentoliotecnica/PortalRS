@@ -82,7 +82,7 @@ using RhPortal.Api.Contracts.Funcionarios;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
-builder.Services.AddExceptionHandler<DevelopmentExceptionDetailHandler>();
+builder.Services.AddExceptionHandler<GlobalExceptionProblemDetailsHandler>();
 
 // Response Compression (Brotli + Gzip)
 builder.Services.AddResponseCompression(options =>
