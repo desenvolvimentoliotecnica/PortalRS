@@ -9,6 +9,7 @@ import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
 import { CandidatoPortalPerfilReadonly, type CandidatoPortalPerfilCompleto } from "@/features/recrutamento/candidatos/CandidatoPortalPerfilReadonly";
+import { fetchCandidatoPortalPerfil } from "@/features/recrutamento/candidatos/portalPerfilClient";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
@@ -239,6 +240,7 @@ export default function CandidatosScreen() {
   const [detailMatch, setDetailMatch] = useState<MatchResult | null>(null);
   const [portalPerfil, setPortalPerfil] = useState<CandidatoPortalPerfilCompleto | null>(null);
   const [portalPerfilLoading, setPortalPerfilLoading] = useState(false);
+  const [portalPerfilError, setPortalPerfilError] = useState<string | null>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState<Partial<Candidato>>({});
@@ -445,6 +447,7 @@ export default function CandidatosScreen() {
     setDetailVaga(null);
     setDetailMatch(null);
     setPortalPerfil(null);
+    setPortalPerfilError(null);
     setPortalPerfilLoading(true);
     try {
       const d = await fetchJson<Candidato>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`);
@@ -455,10 +458,9 @@ export default function CandidatosScreen() {
       return;
     }
     try {
-      const portal = await fetchJson<CandidatoPortalPerfilCompleto>(
-        `${BASE}/api/candidatos/${encodeURIComponent(id)}/perfil-portal`,
-      ).catch(() => null);
-      setPortalPerfil(portal);
+      const { data, error } = await fetchCandidatoPortalPerfil(id, BASE);
+      setPortalPerfil(data);
+      setPortalPerfilError(error);
     } finally {
       setPortalPerfilLoading(false);
     }
@@ -1362,7 +1364,7 @@ export default function CandidatosScreen() {
                     <div className="text-muted-foreground text-xs mb-3">
                       Dados preenchidos pelo candidato no portal (somente leitura).
                     </div>
-                    <CandidatoPortalPerfilReadonly data={portalPerfil} loading={portalPerfilLoading} />
+                    <CandidatoPortalPerfilReadonly data={portalPerfil} loading={portalPerfilLoading} loadError={portalPerfilError} />
                   </div>
                 ) : null}
               </div>

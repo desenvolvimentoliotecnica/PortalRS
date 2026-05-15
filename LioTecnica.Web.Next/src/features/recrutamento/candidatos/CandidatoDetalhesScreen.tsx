@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { CandidatoPortalPerfilReadonly, type CandidatoPortalPerfilCompleto } from "@/features/recrutamento/candidatos/CandidatoPortalPerfilReadonly";
+import { fetchCandidatoPortalPerfil } from "@/features/recrutamento/candidatos/portalPerfilClient";
 
 /* ── Types ── */
 
@@ -77,24 +78,24 @@ function asRecord(v: unknown): Record<string, unknown> | null {
     return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
 
-/** Mapeia a resposta camelCase de `GET /api/candidatos/{id}` para o modelo da tela. */
+/** Mapeia a resposta camelCase ou PascalCase de `GET /api/candidatos/{id}` para o modelo da tela. */
 function mapCandidateResponseToDetail(raw: unknown): CandidatoDetail | null {
     const r = asRecord(raw);
     if (!r) return null;
-    const id = r.id != null ? String(r.id) : "";
+    const id = r.id != null ? String(r.id) : r.Id != null ? String(r.Id) : "";
     if (!id) return null;
+    const s = (v: unknown) => (v == null ? null : String(v));
     return {
         id,
-        nome: r.nome != null ? String(r.nome) : "",
-        email: r.email != null ? String(r.email) : "",
-        resumoProfissional: r.resumoProfissional != null ? String(r.resumoProfissional) : null,
-        observacoes: r.obs != null ? String(r.obs) : null,
-        cvTexto: r.cvText != null ? String(r.cvText) : null,
-        status: r.status != null ? String(r.status) : null,
-        recrutadorNome: r.applicationRecruiterUserName != null ? String(r.applicationRecruiterUserName) : null,
+        nome: s(r.nome ?? r.Nome) ?? "",
+        email: s(r.email ?? r.Email) ?? "",
+        resumoProfissional: s(r.resumoProfissional ?? r.ResumoProfissional),
+        observacoes: s(r.obs ?? r.Obs),
+        cvTexto: s(r.cvText ?? r.CvText),
+        status: s(r.status ?? r.Status),
+        recrutadorNome: s(r.applicationRecruiterUserName ?? r.ApplicationRecruiterUserName),
         updatedAt:
-            (r.updatedAtUtc != null ? String(r.updatedAtUtc) : null)
-            ?? (r.updatedAt != null ? String(r.updatedAt) : null),
+            s(r.updatedAtUtc ?? r.UpdatedAtUtc ?? r.updatedAt ?? r.UpdatedAt),
     };
 }
 
@@ -117,6 +118,7 @@ export default function CandidatoDetalhesScreen() {
     const [admissaoLoading, setAdmissaoLoading] = useState(false);
     const [portalPerfil, setPortalPerfil] = useState<CandidatoPortalPerfilCompleto | null>(null);
     const [portalPerfilLoading, setPortalPerfilLoading] = useState(false);
+    const [portalPerfilError, setPortalPerfilError] = useState<string | null>(null);
 
     const iniciarAdmissao = async () => {
         setAdmissaoLoading(true);
@@ -146,15 +148,17 @@ export default function CandidatoDetalhesScreen() {
         setLoading(true);
         setPortalPerfilLoading(true);
         setPortalPerfil(null);
+        setPortalPerfilError(null);
         try {
-            const [rawCand, d, portal] = await Promise.all([
+            const [rawCand, d] = await Promise.all([
                 fetchJson<unknown>(`/api/candidatos/${candidatoId}`),
                 fetchJson<DocItem[]>(`/api/candidatos/${candidatoId}/documents`).catch(() => []),
-                fetchJson<CandidatoPortalPerfilCompleto>(`/api/candidatos/${candidatoId}/perfil-portal`).catch(() => null),
             ]);
             setCand(mapCandidateResponseToDetail(rawCand));
             setDocs(Array.isArray(d) ? d : []);
-            setPortalPerfil(portal);
+            const { data, error } = await fetchCandidatoPortalPerfil(candidatoId, "");
+            setPortalPerfil(data);
+            setPortalPerfilError(error);
         } catch {
             toast.error("Falha ao carregar candidato.");
         } finally {
@@ -186,6 +190,7 @@ export default function CandidatoDetalhesScreen() {
         { key: "cv", label: "Texto do CV", icon: <FileText className="size-4" /> },
         { key: "docs", label: "Documentos", icon: <Paperclip className="size-4" /> },
         { key: "match", label: "Match", icon: <Sparkles className="size-4" /> },
+        { key: "perfilPortal", label: "Perfil portal", icon: <User className="size-4" /> },
     ];
 
     if (!candidatoId) {
@@ -418,7 +423,7 @@ export default function CandidatoDetalhesScreen() {
                     {tab === "perfilPortal" && (
                         <div className="max-h-[min(70vh,640px)] overflow-y-auto space-y-2">
                             <p className="text-muted-foreground text-xs">Dados preenchidos pelo candidato no portal (somente leitura).</p>
-                            <CandidatoPortalPerfilReadonly data={portalPerfil} loading={portalPerfilLoading} />
+                            <CandidatoPortalPerfilReadonly data={portalPerfil} loading={portalPerfilLoading} loadError={portalPerfilError} />
                         </div>
                     )}
                 </div>
