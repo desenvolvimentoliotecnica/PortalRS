@@ -1776,7 +1776,13 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.ArquivoNome).HasMaxLength(260);
             b.Property(x => x.DataReferencia).HasMaxLength(20);
 
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             b.HasIndex(x => new { x.TenantId, x.CandidatoId });
+            b.HasIndex(x => new { x.TenantId, x.VagaId, x.CandidatoId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 

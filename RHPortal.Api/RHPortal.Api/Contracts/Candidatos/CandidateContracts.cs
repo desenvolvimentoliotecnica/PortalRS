@@ -131,13 +131,15 @@ public sealed record CandidateDocumentoRequest(
     [MaxLength(120)] string? ContentType,
     [MaxLength(240)] string? Descricao,
     long? TamanhoBytes,
-    [MaxLength(400)] string? Url
+    [MaxLength(400)] string? Url,
+    Guid? VagaId = null
 );
 
 public sealed record CandidateDocumentoUploadRequest(
     [Required] string Tipo,
     [MaxLength(240)] string? Descricao,
-    [Required] IFormFile Arquivo
+    [Required] IFormFile Arquivo,
+    Guid? VagaId = null
 );
 
 public sealed record CandidateCurriculoUploadRequest(
@@ -154,7 +156,8 @@ public sealed record CandidateDocumentoResponse(
     long? TamanhoBytes,
     string? Url,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    Guid? VagaId
 );
 
 public sealed record CandidateStatusChangeRequest(

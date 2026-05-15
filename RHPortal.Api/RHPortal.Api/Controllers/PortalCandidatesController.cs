@@ -35,6 +35,7 @@ public sealed class PortalCandidatesController : ControllerBase
     public sealed class PortalCandidateUploadFileInput
     {
         public IFormFile? Arquivo { get; set; }
+        public Guid? VagaId { get; set; }
     }
 
     public sealed class PortalCandidateDocumentUploadInput
@@ -42,6 +43,7 @@ public sealed class PortalCandidatesController : ControllerBase
         public string? Tipo { get; set; }
         public string? Observacoes { get; set; }
         public IFormFile? Arquivo { get; set; }
+        public Guid? VagaId { get; set; }
     }
 
     /// <summary>
@@ -1346,7 +1348,7 @@ public sealed class PortalCandidatesController : ControllerBase
 
         try
         {
-            var created = await service.AddDocumentoAsync(id, tipo, NormalizeOptional(input.Observacoes), arquivo, ct);
+            var created = await service.AddDocumentoAsync(id, tipo, NormalizeOptional(input.Observacoes), arquivo, ct, input.VagaId);
             if (created is null)
                 return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
 
@@ -2347,8 +2349,15 @@ public sealed class PortalCandidatesController : ControllerBase
         if (arquivo is null || arquivo.Length == 0)
             return BadRequest(new { message = _localizer["ControllerErrors.CandidatoDocumentoFileInvalid"] });
 
-        var existing = await db.CandidatoDocumentos
-            .Where(d => d.CandidatoId == id && d.Tipo == CandidateDocumentType.Curriculo)
+        var vagaIdFiltro = input?.VagaId;
+        var existingQuery = db.CandidatoDocumentos
+            .Where(d => d.CandidatoId == id && d.Tipo == CandidateDocumentType.Curriculo);
+        if (vagaIdFiltro.HasValue)
+            existingQuery = existingQuery.Where(d => d.VagaId == vagaIdFiltro);
+        else
+            existingQuery = existingQuery.Where(d => d.VagaId == null);
+
+        var existing = await existingQuery
             .Select(d => d.Id)
             .ToListAsync(ct);
 
@@ -2357,7 +2366,7 @@ public sealed class PortalCandidatesController : ControllerBase
             await service.DeleteDocumentoAsync(id, docId, ct);
         }
 
-        var created = await service.AddDocumentoAsync(id, CandidateDocumentType.Curriculo, "Curriculo", arquivo, ct);
+        var created = await service.AddDocumentoAsync(id, CandidateDocumentType.Curriculo, "Curriculo", arquivo, ct, input?.VagaId);
         if (created is null)
             return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
 

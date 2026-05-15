@@ -22,7 +22,7 @@ namespace RhPortal.Api.Application.Candidatos;
 public interface ICandidatoService
 {
     Task<CandidatePagedResponse> ListAsync(CandidateListQuery query, CancellationToken ct);
-    Task<CandidateResponse?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<CandidateResponse?> GetByIdAsync(Guid id, CancellationToken ct, Guid? documentosFiltrarPorVagaId = null);
     Task<CandidateResponse> CreateAsync(CandidateCreateRequest request, CancellationToken ct);
     Task<CandidateResponse?> UpdateAsync(Guid id, CandidateUpdateRequest request, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
@@ -31,7 +31,7 @@ public interface ICandidatoService
     /// <summary>Desvincula todos os candidatos de uma vaga (VagaId = null), mantendo os dados na base como talentos.</summary>
     Task<int> DesvincularDaVagaAsync(Guid vagaId, CancellationToken ct);
     Task<IReadOnlyList<CandidateStatusHistoryItemResponse>> ListStatusHistoryAsync(Guid candidatoId, CancellationToken ct);
-    Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct);
+    Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct, Guid? vagaId = null);
     /// <summary>Upload de currículo (PDF), extração de texto e opcionalmente dados sugeridos pela LLM para o usuário revisar na tela.</summary>
     Task<CandidatoCurriculoExtrairResponse?> UploadCurriculoEExtrairAsync(Guid candidatoId, IFormFile arquivo, bool enviarParaGpt, CancellationToken ct);
     Task<CandidatoDocumentoFileResult?> GetDocumentoFileAsync(Guid candidatoId, Guid documentoId, CancellationToken ct);
@@ -199,7 +199,7 @@ public sealed class CandidatoService : ICandidatoService
         return new CandidatePagedResponse(items, totalCount, page, pageSize);
     }
 
-    public async Task<CandidateResponse?> GetByIdAsync(Guid id, CancellationToken ct)
+    public async Task<CandidateResponse?> GetByIdAsync(Guid id, CancellationToken ct, Guid? documentosFiltrarPorVagaId = null)
     {
         var entity = await _db.Candidatos
             .AsNoTracking()
@@ -207,6 +207,15 @@ public sealed class CandidatoService : ICandidatoService
             .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         if (entity is null) return null;
+
+        IEnumerable<CandidatoDocumento> docsEnum = entity.Documentos;
+        if (documentosFiltrarPorVagaId is { } vf && vf != Guid.Empty)
+            docsEnum = docsEnum.Where(d => d.VagaId == vf);
+
+        var documentos = docsEnum
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Select(doc => MapDocumento(entity.Id, doc))
+            .ToList();
 
         // Buscar apenas os campos necessários da Vaga para evitar dependência
         // de colunas novas que podem não existir em todos os tenants.
@@ -258,10 +267,7 @@ public sealed class CandidatoService : ICandidatoService
             entity.ResumoProfissional,
             entity.CvText,
             MapMatch(entity),
-            entity.Documentos
-                .OrderByDescending(x => x.CreatedAtUtc)
-                .Select(doc => MapDocumento(entity.Id, doc))
-                .ToList(),
+            documentos,
             entity.ApplicationRecruiterUserId,
             entity.ApplicationRecruiterUserName,
             entity.CreatedAtUtc,
@@ -662,7 +668,7 @@ public sealed class CandidatoService : ICandidatoService
         return count;
     }
 
-    public async Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct)
+    public async Task<CandidateDocumentoResponse?> AddDocumentoAsync(Guid candidatoId, CandidateDocumentType tipo, string? descricao, IFormFile arquivo, CancellationToken ct, Guid? vagaId = null)
     {
         if (arquivo is null || arquivo.Length == 0)
             throw new InvalidOperationException(_localizer["ServiceErrors.CandidatoFileInvalid"]);
@@ -672,6 +678,11 @@ public sealed class CandidatoService : ICandidatoService
             .AnyAsync(x => x.Id == candidatoId, ct);
 
         if (!exists) return null;
+
+        Guid? resolvedVagaId = null;
+        if (vagaId is { } v && v != Guid.Empty &&
+            await _db.Vagas.AsNoTracking().AnyAsync(x => x.Id == v, ct))
+            resolvedVagaId = v;
 
         var originalName = NormalizeFileName(arquivo.FileName);
         var documentId = Guid.NewGuid();
@@ -697,7 +708,8 @@ public sealed class CandidatoService : ICandidatoService
             Descricao = TrimOrNull(descricao),
             TamanhoBytes = arquivo.Length,
             StorageFileName = storageFileName,
-            Url = null
+            Url = null,
+            VagaId = resolvedVagaId
         };
 
         try
@@ -879,7 +891,8 @@ public sealed class CandidatoService : ICandidatoService
             d.TamanhoBytes,
             url,
             d.CreatedAtUtc,
-            d.UpdatedAtUtc
+            d.UpdatedAtUtc,
+            d.VagaId
         );
     }
 
@@ -931,7 +944,8 @@ public sealed class CandidatoService : ICandidatoService
                 ContentType = TrimOrNull(item.ContentType),
                 Descricao = TrimOrNull(item.Descricao),
                 TamanhoBytes = item.TamanhoBytes,
-                Url = TrimOrNull(item.Url)
+                Url = TrimOrNull(item.Url),
+                VagaId = item.VagaId is { } ev && ev != Guid.Empty ? ev : null
             });
         }
         return list;

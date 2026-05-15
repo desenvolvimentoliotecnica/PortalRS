@@ -4,7 +4,7 @@ namespace RhPortal.Api.Application.Candidatos.Handlers;
 
 public interface IGetCandidatoByIdHandler
 {
-    Task<CandidateResponse?> HandleAsync(Guid id, CancellationToken ct);
+    Task<CandidateResponse?> HandleAsync(Guid id, Guid? documentosFiltrarPorVagaId, CancellationToken ct);
 }
 
 public sealed class GetCandidatoByIdHandler : IGetCandidatoByIdHandler
@@ -13,6 +13,6 @@ public sealed class GetCandidatoByIdHandler : IGetCandidatoByIdHandler
 
     public GetCandidatoByIdHandler(ICandidatoService service) => _service = service;
 
-    public Task<CandidateResponse?> HandleAsync(Guid id, CancellationToken ct)
-        => _service.GetByIdAsync(id, ct);
+    public Task<CandidateResponse?> HandleAsync(Guid id, Guid? documentosFiltrarPorVagaId, CancellationToken ct)
+        => _service.GetByIdAsync(id, ct, documentosFiltrarPorVagaId);
 }

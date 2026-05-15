@@ -195,7 +195,8 @@ public sealed class PublicCandidaturasController : ControllerBase
                         CandidateDocumentType.Curriculo,
                         _localizer["ControllerLabels.CvEnviadoPeloPortal"],
                         request.Arquivo,
-                        ct);
+                        ct,
+                        request.VagaId);
                 }
             }
             else
@@ -248,7 +249,8 @@ public sealed class PublicCandidaturasController : ControllerBase
                         CandidateDocumentType.Curriculo,
                         _localizer["ControllerLabels.CvEnviadoPeloPortal"],
                         request.Arquivo,
-                        ct);
+                        ct,
+                        request.VagaId);
                 }
             }
 
