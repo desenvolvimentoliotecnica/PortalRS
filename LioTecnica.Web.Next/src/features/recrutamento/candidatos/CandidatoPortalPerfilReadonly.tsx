@@ -1,5 +1,10 @@
 "use client";
 
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
+
 /* ── Types (JSON camelCase from API) ── */
 
 export type CandidatoPortalPerfilCompleto = {
@@ -149,6 +154,41 @@ function disp(v: unknown): string {
   return s || "—";
 }
 
+/** Mesma convenção que `fetchCandidatoPortalPerfil`: prefixo vazio ou `/app`. */
+function buildCandidatoDocumentoDownloadPath(candidatoId: string, documentoId: string, apiPathPrefix = ""): string {
+  const base = apiPathPrefix.replace(/\/$/, "");
+  const segment = `/api/candidatos/${encodeURIComponent(candidatoId)}/documentos/${encodeURIComponent(documentoId)}/download`;
+  return base ? `${base}${segment}` : segment;
+}
+
+async function downloadCandidatoDocumento(path: string, suggestedName: string): Promise<void> {
+  const res = await apiFetch(path, { method: "GET", headers: { Accept: "*/*" } }, 120_000);
+  if (!res.ok) {
+    const raw = await res.text().catch(() => "");
+    let msg = raw?.trim() || `HTTP ${res.status}`;
+    try {
+      const j = JSON.parse(raw) as Record<string, unknown>;
+      const detail = typeof j.detail === "string" ? j.detail.trim() : "";
+      const m = typeof j.message === "string" ? j.message.trim() : "";
+      const title = typeof j.title === "string" ? j.title.trim() : "";
+      msg = detail || m || title || msg;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = suggestedName.trim() || "documento";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <details className="rounded-xl border border-border/50 bg-card/40 group">
@@ -189,9 +229,22 @@ type Props = {
   /** Quando o GET falhou (ex.: 404 API antiga); exibido em vez da mensagem genérica. */
   loadError?: string | null;
   className?: string;
+  /** Candidato no contexto RH — necessário para baixar documentos do portal via API autenticada. */
+  candidatoId?: string | null;
+  /** Ex.: `/app` quando a app usa basePath; vazio na página de detalhes que chama `/api/...` direto. */
+  apiPathPrefix?: string;
 };
 
-export function CandidatoPortalPerfilReadonly({ data, loading, loadError, className = "" }: Props) {
+export function CandidatoPortalPerfilReadonly({
+  data,
+  loading,
+  loadError,
+  className = "",
+  candidatoId = null,
+  apiPathPrefix = "",
+}: Props) {
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+
   if (loading) {
     return <div className={`text-muted-foreground text-sm py-6 text-center ${className}`}>Carregando perfil do portal…</div>;
   }
@@ -564,9 +617,34 @@ export function CandidatoPortalPerfilReadonly({ data, loading, loadError, classN
                   <div className="text-muted-foreground">{disp(doc.tipo)} · {disp(doc.data)}</div>
                   {doc.observacoes ? <div className="mt-0.5 whitespace-pre-wrap">{doc.observacoes}</div> : null}
                 </div>
-                {doc.link ? (
-                  <a href={doc.link} className="text-[rgb(var(--lt-primary))] hover:underline shrink-0" target="_blank" rel="noopener noreferrer">
-                    Abrir
+                {candidatoId?.trim() && doc.id?.trim() ? (
+                  <button
+                    type="button"
+                    disabled={downloadingDocId === doc.id}
+                    className="text-[rgb(var(--lt-primary))] hover:underline shrink-0 inline-flex items-center gap-1 disabled:opacity-50"
+                    onClick={() => {
+                      const cid = candidatoId.trim();
+                      const did = doc.id!.trim();
+                      const name = (doc.nome ?? doc.fileName ?? "documento").trim() || "documento";
+                      void (async () => {
+                        setDownloadingDocId(did);
+                        try {
+                          const path = buildCandidatoDocumentoDownloadPath(cid, did, apiPathPrefix);
+                          await downloadCandidatoDocumento(path, name);
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Falha ao baixar o documento.");
+                        } finally {
+                          setDownloadingDocId(null);
+                        }
+                      })();
+                    }}
+                  >
+                    {downloadingDocId === doc.id ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
+                    Baixar
+                  </button>
+                ) : doc.link && /^https?:\/\//i.test(doc.link.trim()) ? (
+                  <a href={doc.link.trim()} className="text-[rgb(var(--lt-primary))] hover:underline shrink-0" target="_blank" rel="noopener noreferrer">
+                    Abrir link
                   </a>
                 ) : null}
               </div>

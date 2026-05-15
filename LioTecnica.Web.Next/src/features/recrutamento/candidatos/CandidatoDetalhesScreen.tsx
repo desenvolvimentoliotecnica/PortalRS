@@ -454,7 +454,12 @@ export default function CandidatoDetalhesScreen() {
                     {tab === "perfilPortal" && (
                         <div className="max-h-[min(70vh,640px)] overflow-y-auto space-y-2">
                             <p className="text-muted-foreground text-xs">Dados preenchidos pelo candidato no portal (somente leitura).</p>
-                            <CandidatoPortalPerfilReadonly data={portalPerfil} loading={portalPerfilLoading} loadError={portalPerfilError} />
+                            <CandidatoPortalPerfilReadonly
+                                data={portalPerfil}
+                                loading={portalPerfilLoading}
+                                loadError={portalPerfilError}
+                                candidatoId={candidatoId}
+                            />
                         </div>
                     )}
                 </div>
