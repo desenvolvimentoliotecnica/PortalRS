@@ -108,6 +108,10 @@ public sealed class CandidatoDocumento : ITenantEntity
     public Guid CandidatoId { get; set; }
     public Candidato? Candidato { get; set; }
 
+    /// <summary>Vaga à qual este anexo se refere (ex.: CV enviado na candidatura ao portal). Null = legado ou documento genérico do talento.</summary>
+    public Guid? VagaId { get; set; }
+    public RHPortal.Api.Domain.Entities.Vaga? Vaga { get; set; }
+
     public CandidateDocumentType Tipo { get; set; }
 
     [Required, StringLength(200)]

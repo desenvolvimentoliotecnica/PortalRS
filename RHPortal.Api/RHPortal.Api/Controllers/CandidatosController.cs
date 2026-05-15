@@ -112,9 +112,10 @@ public sealed class CandidatosController : ControllerBase
         [FromRoute] Guid id,
         [FromServices] IGetCandidatoByIdHandler handler,
         [FromServices] AppDbContext db,
+        [FromQuery(Name = "vagaId")] Guid? documentosVagaId,
         CancellationToken ct)
     {
-        var item = await handler.HandleAsync(id, ct);
+        var item = await handler.HandleAsync(id, documentosVagaId, ct);
         if (item is null)
             return NotFound();
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
@@ -276,7 +277,7 @@ public sealed class CandidatosController : ControllerBase
 
         try
         {
-            var created = await service.AddDocumentoAsync(id, tipo, request.Descricao, request.Arquivo, ct);
+            var created = await service.AddDocumentoAsync(id, tipo, request.Descricao, request.Arquivo, ct, request.VagaId);
             return created is null ? NotFound() : Ok(created);
         }
         catch (InvalidOperationException ex)

@@ -674,7 +674,8 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
 
   async function openEditCandidate(candidateId: string) {
     try {
-      const data = await fetchJson<Record<string, unknown>>(`/api/candidatos/${encodeURIComponent(candidateId)}`);
+      const docQ = vagaId ? `?vagaId=${encodeURIComponent(vagaId)}` : "";
+      const data = await fetchJson<Record<string, unknown>>(`/api/candidatos/${encodeURIComponent(candidateId)}${docQ}`);
       setNewCandForm({
         nome: String(data.nome ?? ""),
         email: String(data.email ?? ""),
@@ -1706,6 +1707,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                     form.append("arquivo", doc.file);
                     form.append("tipo", doc.tipo);
                     if (doc.desc.trim()) form.append("descricao", doc.desc.trim());
+                    if (vagaId) form.append("vagaId", vagaId);
                     const up = await apiFetch(`/api/candidatos/${encodeURIComponent(effectiveId)}/documentos`, { method: "POST", body: form });
                     if (!up.ok) {
                       const detail = await up.json().catch(() => ({})) as Record<string, unknown>;
