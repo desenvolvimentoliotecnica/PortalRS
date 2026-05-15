@@ -5,6 +5,7 @@ using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
 using RhPortal.Api.Contracts.Candidates;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
@@ -42,19 +43,58 @@ public sealed class CandidatosController : ControllerBase
         [FromQuery] Guid[]? vagaIds,
         [FromQuery] CandidateOrigin? fonte,
         [FromServices] IListCandidatosHandler handler,
+        [FromServices] AppDbContext db,
         CancellationToken ct,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
         Guid? areaId = null;
         Guid? recrutadorUserId = null;
-        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
+
+        // Hub da vaga filtra por vagaId; o acesso já segue a mesma regra de GET /api/vagas/{id}.
+        // Não reaplicar carteira (RecrutadorResponsavel na Vaga) em cima de Candidato — senão
+        // analista distribuído só em SolicitacaoVaga.AnalistaRh (vaga com Recrutador null/desatualizado)
+        // via de regra vê 0 candidatos apesar do portal ter registrado Candidatura.
+        var singleVaga =
+            vagaId.HasValue && vagaId.Value != Guid.Empty
+            && (vagaIds is null || vagaIds.Length == 0);
+
+        if (singleVaga
+            && !_userContext.IsAdmin
+            && !_userContext.IsInRole("Owner"))
+        {
+            var vid = vagaId!.Value;
+            var vagaRow = await db.Vagas.AsNoTracking()
+                .Where(v => v.Id == vid)
+                .Select(v => new { v.CentroCustoId, v.RecrutadorResponsavelUserId })
+                .FirstOrDefaultAsync(ct);
+            if (vagaRow is null)
+                return NotFound();
+
+            var uid = _userContext.UserId;
+            var assignedToCurrentAnalyst = uid.HasValue && await db.SolicitacoesVaga.AsNoTracking()
+                .AnyAsync(s => s.VagaId == vid && s.AnalistaRhResponsavelUserId == uid.Value, ct);
+
+            if (!assignedToCurrentAnalyst
+                && _userContext.VagasDataScope == VagasDataScope.ByArea
+                && _userContext.CentroCustoId.HasValue
+                && vagaRow.CentroCustoId != _userContext.CentroCustoId)
+                return NotFound();
+
+            if (!assignedToCurrentAnalyst
+                && _userContext.VagasDataScope == VagasDataScope.ByRecrutador
+                && uid.HasValue
+                && vagaRow.RecrutadorResponsavelUserId != uid.Value)
+                return NotFound();
+        }
+        else if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
             if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue)
                 areaId = _userContext.CentroCustoId;
             else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
                 recrutadorUserId = _userContext.UserId;
         }
+
         var statusList = statuses is { Length: > 0 } ? statuses.ToList() : null;
         var vagaIdList = vagaIds is { Length: > 0 } ? vagaIds.ToList() : null;
         var query = new CandidateListQuery(q, status, statusList, vagaId, vagaIdList, fonte, areaId, recrutadorUserId, page, pageSize);
@@ -71,6 +111,7 @@ public sealed class CandidatosController : ControllerBase
     public async Task<ActionResult<CandidateResponse>> GetById(
         [FromRoute] Guid id,
         [FromServices] IGetCandidatoByIdHandler handler,
+        [FromServices] AppDbContext db,
         CancellationToken ct)
     {
         var item = await handler.HandleAsync(id, ct);
@@ -78,9 +119,23 @@ public sealed class CandidatosController : ControllerBase
             return NotFound();
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue && item.VagaAreaId.HasValue && item.VagaAreaId != _userContext.CentroCustoId)
+            var vid = item.VagaId;
+            var assignedToCurrentAnalyst =
+                vid.HasValue
+                && _userContext.UserId.HasValue
+                && await db.SolicitacoesVaga.AsNoTracking()
+                    .AnyAsync(s => s.VagaId == vid.Value && s.AnalistaRhResponsavelUserId == _userContext.UserId!.Value, ct);
+
+            if (!assignedToCurrentAnalyst
+                && _userContext.VagasDataScope == VagasDataScope.ByArea
+                && _userContext.CentroCustoId.HasValue
+                && item.VagaAreaId.HasValue
+                && item.VagaAreaId != _userContext.CentroCustoId)
                 return NotFound();
-            if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue && item.VagaRecrutadorResponsavelUserId != _userContext.UserId)
+            if (!assignedToCurrentAnalyst
+                && _userContext.VagasDataScope == VagasDataScope.ByRecrutador
+                && _userContext.UserId.HasValue
+                && item.VagaRecrutadorResponsavelUserId != _userContext.UserId)
                 return NotFound();
         }
         return Ok(item);
