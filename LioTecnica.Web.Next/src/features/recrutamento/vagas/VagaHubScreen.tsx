@@ -358,6 +358,81 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+interface CandidateDocRow {
+  id: string;
+  tipo: string;
+  nomeArquivo: string | null;
+  descricao: string | null;
+  tamanhoBytes: number | null;
+  url: string | null;
+}
+
+function parseCandidateDocumentos(raw: unknown): CandidateDocRow[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CandidateDocRow[] = [];
+  for (const item of raw) {
+    const r = item as Record<string, unknown>;
+    const id = r?.id != null ? String(r.id) : "";
+    if (!id) continue;
+    const tb = r?.tamanhoBytes;
+    const tamanhoBytes = typeof tb === "number" && Number.isFinite(tb) ? tb : null;
+    out.push({
+      id,
+      tipo: r?.tipo != null ? String(r.tipo) : "",
+      nomeArquivo: r?.nomeArquivo != null ? String(r.nomeArquivo) : null,
+      descricao: r?.descricao != null ? String(r.descricao) : null,
+      tamanhoBytes,
+      url: r?.url != null ? String(r.url) : null,
+    });
+  }
+  return out;
+}
+
+  const t = tipo.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (t === "curriculo" || t === "0") return "Currículo";
+  if (t === "documento" || t === "1") return "Documento";
+  if (t === "outros" || t === "2") return "Outros";
+  return tipo || "Documento";
+}
+
+function formatFileSizeShort(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const kb = n / 1024;
+  if (kb < 1024) return `${kb.toFixed(0)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+async function downloadHubCandidateDocument(doc: CandidateDocRow): Promise<void> {
+  const rawPath = doc.url?.trim();
+  if (!rawPath || rawPath === "#") {
+    toast.error("Link de download indisponível.");
+    return;
+  }
+  if (/^https?:\/\//i.test(rawPath)) {
+    window.open(rawPath, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+  try {
+    const res = await apiFetch(path, { method: "GET" }, 120_000);
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      throw new Error(msg || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = (doc.nomeArquivo ?? "documento").replace(/[/\\]/g, "_");
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    toast.error("Não foi possível baixar o arquivo.");
+  }
+}
+
 export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const router = useRouter();
   const { me } = useAuth();
@@ -378,6 +453,8 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [newCandDocDesc, setNewCandDocDesc] = useState("");
   const [newCandDocFile, setNewCandDocFile] = useState<File | null>(null);
   const [newCandPendingDocs, setNewCandPendingDocs] = useState<Array<{ id: string; tipo: string; desc: string; file: File; name: string; size: number }>>([]);
+  /** Documentos já persistidos (ex.: CV do portal) — preenchido ao abrir edição via GET /api/candidatos/{id}. */
+  const [existingCandDocs, setExistingCandDocs] = useState<CandidateDocRow[]>([]);
   const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
 
   const [solicitacoesLinked, setSolicitacoesLinked] = useState<SolicitacaoLinked[]>([]);
@@ -589,6 +666,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         linkedinUrl: String(data.linkedinUrl ?? ""),
         obs: String(data.obs ?? ""),
       });
+      setExistingCandDocs(parseCandidateDocumentos(data.documentos));
+      setNewCandPendingDocs([]);
+      setNewCandDocDesc("");
+      setNewCandDocFile(null);
       setEditingCandidateId(candidateId);
       setNewCandidateOpen(true);
     } catch {
@@ -601,6 +682,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
     setEditingCandidateId(null);
     setNewCandForm({ nome: "", email: "", fone: "", celular: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
     setNewCandPendingDocs([]);
+    setExistingCandDocs([]);
   }
 
   useEffect(() => { void load(); }, [load]);
@@ -957,7 +1039,13 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             <p className="text-sm text-muted-foreground">{candidateCount} candidato(s) nesta vaga</p>
             <div className="flex gap-2">
               {!isReadOnly && (
-                <Button size="sm" onClick={() => setNewCandidateOpen(true)}>
+                <Button size="sm" onClick={() => {
+                  setEditingCandidateId(null);
+                  setExistingCandDocs([]);
+                  setNewCandForm({ nome: "", email: "", fone: "", celular: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
+                  setNewCandPendingDocs([]);
+                  setNewCandidateOpen(true);
+                }}>
                   <UserPlus className="size-3.5 mr-1" /> Candidato
                 </Button>
               )}
@@ -1384,7 +1472,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       {/* ── New Candidate — modal customizado idêntico ao CandidatosScreen ── */}
       {newCandidateOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={closeCandidateForm}>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-6xl p-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">{editingCandidateId ? "Editar candidato" : "Novo candidato"}</p>
@@ -1473,8 +1561,32 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             <div>
               <div className="rounded-xl border border-border/40 bg-muted/5 p-3">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 border-b pb-1">Documentos</h3>
+                {existingCandDocs.length > 0 ? (
+                  <div className="mb-4 space-y-2">
+                    <div className="text-sm font-medium">Arquivos do candidato ({existingCandDocs.length})</div>
+                    <ul className="space-y-2">
+                      {existingCandDocs.map((d) => (
+                        <li key={d.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-sm truncate" title={d.nomeArquivo ?? undefined}>{d.nomeArquivo ?? "—"}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatDocTipoLabel(d.tipo)}
+                              {d.descricao ? ` • ${d.descricao}` : ""}
+                              {d.tamanhoBytes != null ? ` • ${formatFileSizeShort(d.tamanhoBytes)}` : ""}
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="shrink-0" type="button" onClick={() => void downloadHubCandidateDocument(d)}>
+                            Download
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : editingCandidateId ? (
+                  <p className="text-sm text-muted-foreground mb-3">Nenhum documento cadastrado ainda neste perfil.</p>
+                ) : null}
                 <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-sm mb-3">
-                  Os documentos serão enviados ao salvar o candidato.
+                  Arquivos na fila <span className="font-medium">Pendentes</span> são enviados automaticamente após salvar (criar ou atualizar o candidato).
                 </div>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                   <div>
@@ -1539,21 +1651,47 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                   obs: newCandForm.obs.trim() || null,
                   vagaId,
                 };
-                const res = editingCandidateId
-                  ? await apiFetch(`/api/candidatos/${encodeURIComponent(editingCandidateId)}`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(payload),
-                    })
-                  : await apiFetch("/api/candidatos", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ ...payload, status: "Triagem", vagaId }),
-                    });
-                if (!res.ok) {
-                  const body = await res.json().catch(() => ({})) as Record<string, string>;
-                  throw new Error(body.message || body.detail || `Erro ${res.status}`);
+
+                let effectiveId: string | null = editingCandidateId;
+
+                if (editingCandidateId) {
+                  const res = await apiFetch(`/api/candidatos/${encodeURIComponent(editingCandidateId)}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                  });
+                  if (!res.ok) {
+                    const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+                    throw new Error(String(body.message || body.detail || `Erro ${res.status}`));
+                  }
+                } else {
+                  const res = await apiFetch("/api/candidatos", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...payload, status: "Triagem", vagaId }),
+                  });
+                  const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+                  if (!res.ok) {
+                    throw new Error(String(body.message || body.detail || `Erro ${res.status}`));
+                  }
+                  const id = body.id;
+                  effectiveId = typeof id === "string" ? id : id != null ? String(id) : null;
                 }
+
+                if (effectiveId && newCandPendingDocs.length > 0) {
+                  for (const doc of newCandPendingDocs) {
+                    const form = new FormData();
+                    form.append("arquivo", doc.file);
+                    form.append("tipo", doc.tipo);
+                    if (doc.desc.trim()) form.append("descricao", doc.desc.trim());
+                    const up = await apiFetch(`/api/candidatos/${encodeURIComponent(effectiveId)}/documentos`, { method: "POST", body: form });
+                    if (!up.ok) {
+                      const detail = await up.json().catch(() => ({})) as Record<string, unknown>;
+                      throw new Error(String(detail.message || detail.detail || `Falha ao enviar documento (${up.status})`));
+                    }
+                  }
+                }
+
                 toast.success(editingCandidateId ? "Candidato atualizado!" : "Candidato adicionado!");
                 closeCandidateForm();
                 void load();
