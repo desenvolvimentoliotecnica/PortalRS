@@ -388,6 +388,7 @@ function parseCandidateDocumentos(raw: unknown): CandidateDocRow[] {
   return out;
 }
 
+function formatDocTipoLabel(tipo: string): string {
   const t = tipo.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
   if (t === "curriculo" || t === "0") return "Currículo";
   if (t === "documento" || t === "1") return "Documento";
