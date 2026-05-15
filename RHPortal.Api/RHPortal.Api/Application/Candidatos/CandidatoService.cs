@@ -16,6 +16,7 @@ using RhPortal.Api.Infrastructure.Inbox;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Application.Candidatos;
 
@@ -53,6 +54,7 @@ public sealed class CandidatoService : ICandidatoService
     private readonly IRHPortalAiMatchClient? _aiMatchClient;
     private readonly ICandidatoVagaMatchingScoreService? _matchingScoreService;
     private readonly ICandidaturaService? _candidaturaService;
+    private readonly ICurrentUserContext _currentUser;
 
     public CandidatoService(
         AppDbContext db,
@@ -63,6 +65,7 @@ public sealed class CandidatoService : ICandidatoService
         NotificationPublisher notificationPublisher,
         IMatchingService matchingService,
         ICvGptExtractor cvGptExtractor,
+        ICurrentUserContext currentUser,
         IRHPortalAiMatchClient? aiMatchClient = null,
         ICandidatoVagaMatchingScoreService? matchingScoreService = null,
         ICandidaturaService? candidaturaService = null)
@@ -75,6 +78,7 @@ public sealed class CandidatoService : ICandidatoService
         _notificationPublisher = notificationPublisher;
         _matchingService = matchingService;
         _cvGptExtractor = cvGptExtractor;
+        _currentUser = currentUser;
         _aiMatchClient = aiMatchClient;
         _matchingScoreService = matchingScoreService;
         _candidaturaService = candidaturaService;
@@ -152,11 +156,41 @@ public sealed class CandidatoService : ICandidatoService
         else if (query.VagaId.HasValue && query.VagaId.Value != Guid.Empty)
             q = q.Where(c => c.VagaId == query.VagaId.Value);
 
+        // Carteira de vagas: espelha VagaService.ApplyVagasDataScopeFilter — a lista de candidatos
+        // não pode ser mais restritiva que a de vagas (ex.: analista só em SolicitacaoVaga ou vaga
+        // Aberta sem RecrutadorResponsavel na fila comum).
         if (query.AreaId.HasValue && query.AreaId.Value != Guid.Empty)
-            q = q.Where(c => c.Vaga != null && c.Vaga.CentroCustoId == query.AreaId.Value);
+        {
+            var areaId = query.AreaId.Value;
+            var analystId = _currentUser.UserId;
+            q = q.Where(c =>
+                (c.VagaId.HasValue
+                 && _db.Vagas.Any(v => v.Id == c.VagaId!.Value
+                     && (v.CentroCustoId == areaId
+                         || (analystId.HasValue && _db.SolicitacoesVaga.Any(s =>
+                             s.VagaId == v.Id && s.AnalistaRhResponsavelUserId == analystId.Value)))))
+                || _db.Candidaturas.Any(cand => cand.CandidatoId == c.Id
+                    && _db.Vagas.Any(v => v.Id == cand.VagaId
+                        && (v.CentroCustoId == areaId
+                            || (analystId.HasValue && _db.SolicitacoesVaga.Any(s =>
+                                s.VagaId == v.Id && s.AnalistaRhResponsavelUserId == analystId.Value))))));
+        }
 
         if (query.RecrutadorUserId.HasValue && query.RecrutadorUserId.Value != Guid.Empty)
-            q = q.Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == query.RecrutadorUserId.Value);
+        {
+            var rid = query.RecrutadorUserId.Value;
+            q = q.Where(c =>
+                (c.VagaId.HasValue
+                 && _db.Vagas.Any(v => v.Id == c.VagaId!.Value
+                     && (v.RecrutadorResponsavelUserId == rid
+                         || _db.SolicitacoesVaga.Any(s => s.VagaId == v.Id && s.AnalistaRhResponsavelUserId == rid)
+                         || (v.Status == VagaStatus.Aberta && v.RecrutadorResponsavelUserId == null))))
+                || _db.Candidaturas.Any(cand => cand.CandidatoId == c.Id
+                    && _db.Vagas.Any(v => v.Id == cand.VagaId
+                        && (v.RecrutadorResponsavelUserId == rid
+                            || _db.SolicitacoesVaga.Any(s => s.VagaId == v.Id && s.AnalistaRhResponsavelUserId == rid)
+                            || (v.Status == VagaStatus.Aberta && v.RecrutadorResponsavelUserId == null)))));
+        }
 
         var ordered = q
             .OrderByDescending(c => c.UpdatedAtUtc)
