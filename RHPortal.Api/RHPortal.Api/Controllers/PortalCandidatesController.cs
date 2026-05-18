@@ -1108,6 +1108,8 @@ public sealed class PortalCandidatesController : ControllerBase
     public async Task<ActionResult<PortalCandidateDocumentsResponse>> GetDocuments(
         Guid id,
         [FromServices] AppDbContext db,
+        [FromServices] IHostEnvironment hostEnvironment,
+        [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
     {
         if (!await CandidateExistsAsync(db, id, ct))
@@ -1119,7 +1121,7 @@ public sealed class PortalCandidatesController : ControllerBase
             .OrderByDescending(d => d.UpdatedAtUtc)
             .ToListAsync(ct);
 
-        var items = docs.Select(MapDocumentDto).ToList();
+        var items = docs.Select(d => MapDocumentDto(hostEnvironment, tenantContext, id, d)).ToList();
         return Ok(new PortalCandidateDocumentsResponse(items));
     }
 
@@ -1291,6 +1293,8 @@ public sealed class PortalCandidatesController : ControllerBase
         Guid id,
         [FromBody] PortalCandidateDocumentRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] IHostEnvironment hostEnvironment,
+        [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
     {
         if (!ModelState.IsValid)
@@ -1317,7 +1321,7 @@ public sealed class PortalCandidatesController : ControllerBase
         db.CandidatoDocumentos.Add(doc);
         await db.SaveChangesAsync(ct);
 
-        return Ok(MapDocumentDto(doc));
+        return Ok(MapDocumentDto(hostEnvironment, tenantContext, id, doc));
     }
 
     /// <summary>
@@ -1352,16 +1356,19 @@ public sealed class PortalCandidatesController : ControllerBase
             if (created is null)
                 return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
 
+            var downloadUrl = created.TemArquivo
+                ? CandidatoDocumentoStorage.BuildRhDownloadUrl(id, created.Id)
+                : created.Url;
             return Ok(new PortalCandidateDocumentDto(
                 created.Id,
                 MapDocumentTypeLabel(created.Tipo),
                 created.NomeArquivo,
-                $"/api/candidatos/{id}/documentos/{created.Id}/download",
+                downloadUrl,
                 null,
                 created.Descricao,
                 created.NomeArquivo,
                 created.CreatedAtUtc,
-                TemArquivo: true));
+                created.TemArquivo));
         }
         catch (InvalidOperationException ex)
         {
@@ -1381,6 +1388,8 @@ public sealed class PortalCandidatesController : ControllerBase
         Guid documentId,
         [FromBody] PortalCandidateDocumentRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] IHostEnvironment hostEnvironment,
+        [FromServices] ITenantContext tenantContext,
         CancellationToken ct)
     {
         if (!ModelState.IsValid)
@@ -1399,7 +1408,7 @@ public sealed class PortalCandidatesController : ControllerBase
         doc.ArquivoNome = NormalizeOptional(request.FileName);
 
         await db.SaveChangesAsync(ct);
-        return Ok(MapDocumentDto(doc));
+        return Ok(MapDocumentDto(hostEnvironment, tenantContext, id, doc));
     }
 
     /// <summary>
@@ -2683,11 +2692,15 @@ public sealed class PortalCandidatesController : ControllerBase
         };
     }
 
-    private static PortalCandidateDocumentDto MapDocumentDto(CandidatoDocumento doc)
+    private static PortalCandidateDocumentDto MapDocumentDto(
+        IHostEnvironment hostEnvironment,
+        ITenantContext tenantContext,
+        Guid candidatoId,
+        CandidatoDocumento doc)
     {
-        var temArquivo = !string.IsNullOrWhiteSpace(doc.StorageFileName);
+        var temArquivo = CandidatoDocumentoStorage.ExistsOnDisk(hostEnvironment, tenantContext, candidatoId, doc);
         var link = temArquivo
-            ? $"/api/candidatos/{doc.CandidatoId}/documentos/{doc.Id}/download"
+            ? CandidatoDocumentoStorage.BuildRhDownloadUrl(candidatoId, doc.Id)
             : doc.Url;
         return new PortalCandidateDocumentDto(
             doc.Id,

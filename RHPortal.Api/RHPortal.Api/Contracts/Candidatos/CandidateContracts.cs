@@ -157,7 +157,8 @@ public sealed record CandidateDocumentoResponse(
     string? Url,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
-    Guid? VagaId
+    Guid? VagaId,
+    bool TemArquivo
 );
 
 public sealed record CandidateStatusChangeRequest(

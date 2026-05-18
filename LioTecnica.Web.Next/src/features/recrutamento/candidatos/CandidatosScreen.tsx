@@ -10,6 +10,11 @@ import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
 import { CandidatoPortalPerfilReadonly, type CandidatoPortalPerfilCompleto } from "@/features/recrutamento/candidatos/CandidatoPortalPerfilReadonly";
 import { fetchCandidatoPortalPerfil } from "@/features/recrutamento/candidatos/portalPerfilClient";
+import {
+  buildCandidatoDocumentoDownloadPath,
+  downloadCandidatoDocumento,
+  candidatoDocumentoTemArquivo,
+} from "@/features/recrutamento/candidatos/candidatoDocumentoDownload";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
@@ -1752,6 +1757,7 @@ function DocumentosBox({
 
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [enviarParaGpt, setEnviarParaGpt] = useState(true);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
   const docs = Array.isArray(candidato.documentos) ? candidato.documentos : [];
   const tipoText = (code: string | null | undefined) => {
@@ -1853,11 +1859,34 @@ function DocumentosBox({
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={d.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!d.url}>
+                  {candidatoDocumentoTemArquivo(asRecord(d)) ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={downloadingDocId === d.id}
+                      onClick={() => {
+                        const path = buildCandidatoDocumentoDownloadPath(candidato.id, d.id, BASE);
+                        void (async () => {
+                          setDownloadingDocId(d.id);
+                          try {
+                            await downloadCandidatoDocumento(path, d.nomeArquivo ?? "documento");
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Falha ao baixar o documento.");
+                          } finally {
+                            setDownloadingDocId(null);
+                          }
+                        })();
+                      }}
+                    >
                       Download
-                    </a>
-                  </Button>
+                    </Button>
+                  ) : d.url && /^https?:\/\//i.test(d.url) ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={d.url} target="_blank" rel="noreferrer">
+                        Abrir link
+                      </a>
+                    </Button>
+                  ) : null}
                   <Button
                     variant="destructive"
                     size="sm"

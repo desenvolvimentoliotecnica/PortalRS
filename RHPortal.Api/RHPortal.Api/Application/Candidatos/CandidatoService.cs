@@ -244,7 +244,10 @@ public sealed class CandidatoService : ICandidatoService
 
         IEnumerable<CandidatoDocumento> docsEnum = entity.Documentos;
         if (documentosFiltrarPorVagaId is { } vf && vf != Guid.Empty)
-            docsEnum = docsEnum.Where(d => d.VagaId == vf);
+        {
+            // Inclui anexos da vaga e legados/genéricos (VagaId null), como CV do portal sem vaga no upload.
+            docsEnum = docsEnum.Where(d => d.VagaId == null || d.VagaId == vf);
+        }
 
         var documentos = docsEnum
             .OrderByDescending(x => x.CreatedAtUtc)
@@ -877,7 +880,7 @@ public sealed class CandidatoService : ICandidatoService
         return raw.TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
-    private static CandidateResponse MapToResponse(Candidato c)
+    private CandidateResponse MapToResponse(Candidato c)
     {
         return new CandidateResponse(
             c.Id,
@@ -910,10 +913,11 @@ public sealed class CandidatoService : ICandidatoService
         );
     }
 
-    private static CandidateDocumentoResponse MapDocumento(Guid candidatoId, CandidatoDocumento d)
+    private CandidateDocumentoResponse MapDocumento(Guid candidatoId, CandidatoDocumento d)
     {
-        var url = !string.IsNullOrWhiteSpace(d.StorageFileName)
-            ? BuildDownloadUrl(candidatoId, d.Id)
+        var temArquivo = CandidatoDocumentoStorage.ExistsOnDisk(_hostEnvironment, _tenantContext, candidatoId, d);
+        var url = temArquivo
+            ? CandidatoDocumentoStorage.BuildRhDownloadUrl(candidatoId, d.Id)
             : TrimOrNull(d.Url);
 
         return new CandidateDocumentoResponse(
@@ -926,8 +930,8 @@ public sealed class CandidatoService : ICandidatoService
             url,
             d.CreatedAtUtc,
             d.UpdatedAtUtc,
-            d.VagaId
-        );
+            d.VagaId,
+            temArquivo);
     }
 
     private static CandidateMatchResponse? MapMatch(Candidato c)
