@@ -153,8 +153,11 @@ builder.Services.AddRateLimiter(options =>
 });
 builder.Services.AddSignalR();
 builder.Services.AddHttpClient();
-// Sessão 31.8 — Geocoding via Nominatim (OpenStreetMap, free)
-builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.IGeocodingService, RhPortal.Api.Application.Geocoding.NominatimGeocodingService>();
+// Sessão 31.8 — Geocoding: Nominatim + Photon + BrasilAPI CEP (cadeia, best-effort)
+builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.NominatimGeocodingService>();
+builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.PhotonGeocodingService>();
+builder.Services.AddHttpClient<RhPortal.Api.Application.Geocoding.BrasilApiCepGeocodingService>();
+builder.Services.AddSingleton<RhPortal.Api.Application.Geocoding.IGeocodingService, RhPortal.Api.Application.Geocoding.CompositeGeocodingService>();
 builder.Services.AddCors(options =>
 {
     var allowAny = string.Equals(builder.Configuration["Cors:AllowAny"], "true", StringComparison.OrdinalIgnoreCase);
