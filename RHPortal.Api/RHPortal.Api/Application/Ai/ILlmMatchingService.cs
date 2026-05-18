@@ -29,6 +29,12 @@ public interface ILlmMatchingService
     /// Retorna <c>null</c> se o provider de IA estiver indisponível OU vaga sem DescricaoCargo vinculada.
     /// </summary>
     Task<LlmMatchingResult?> ScoreAsync(Guid candidatoId, Guid vagaId, bool force = false, CancellationToken ct = default);
+
+    /// <summary>
+    /// Retorna score LLM apenas se já existir em cache válido (mesmo hash de entrada).
+    /// Não chama o provider — uso em listagens (ex.: aba Matching IA).
+    /// </summary>
+    Task<LlmMatchingResult?> GetCachedScoreAsync(Guid candidatoId, Guid vagaId, CancellationToken ct = default);
 }
 
 /// <summary>Resultado completo do LLM-as-Judge.</summary>

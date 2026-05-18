@@ -801,6 +801,24 @@ public sealed class VagasController : ControllerBase
     ///
     /// <para>Use <c>?force=true</c> para forçar regeração.</para>
     /// </summary>
+    /// <summary>
+    /// Score LLM em cache apenas (sem invocar Gemini). Retorna 404 se ainda não houver análise gerada.
+    /// </summary>
+    [HttpGet("{id:guid}/matching-llm-cached/{candidatoId:guid}")]
+    [ProducesResponseType(typeof(RhPortal.Api.Application.Ai.LlmMatchingResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMatchingLlmCached(
+        [FromRoute] Guid id,
+        [FromRoute] Guid candidatoId,
+        [FromServices] RhPortal.Api.Application.Ai.ILlmMatchingService llmMatching,
+        CancellationToken ct)
+    {
+        var result = await llmMatching.GetCachedScoreAsync(candidatoId, id, ct);
+        if (result is null)
+            return NotFound(new { message = "Nenhuma Análise IA em cache para este candidato — use o botão Análise IA." });
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}/matching-llm/{candidatoId:guid}")]
     [ProducesResponseType(typeof(RhPortal.Api.Application.Ai.LlmMatchingResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

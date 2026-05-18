@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertCircle, Bot, Loader2, RefreshCw, Sparkles, Brain } from "lucide-react";
+import { AlertCircle, AlertTriangle, Bot, Loader2, RefreshCw, Sparkles, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
-import { MATCHING_FETCH_TIMEOUT_MS } from "@/features/recrutamento/matching/matchingHelpers";
+import {
+    MATCHING_FETCH_TIMEOUT_MS,
+    MATCHING_LLM_CACHE_TIMEOUT_MS,
+    MATCHING_SCORE_DIVERGENCE_THRESHOLD,
+} from "@/features/recrutamento/matching/matchingHelpers";
 import { AssistenteIaApi } from "@/features/assistente-ia/assistente-ia-api";
 import MatchingBreakdownDialog, {
     useMatchingBreakdownDialog,
@@ -49,6 +53,10 @@ interface BreakdownRow {
     reqsFaltando: number;
     loading?: boolean;
     error?: string;
+    /** Score da Análise IA (LLM), só se já existir em cache. */
+    llmScore?: number | null;
+    llmPassou?: boolean | null;
+    llmLoading?: boolean;
 }
 
 export interface MatchingIaTabProps {
@@ -109,7 +117,19 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
         setScores(() => {
             const init: Record<string, BreakdownRow> = {};
             candidates.forEach((c) => {
-                init[c.id] = { loading: true, scoreFinal: 0, scoreLexico: null, scoreSemantico: null, distanciaKm: null, modo: "lexical", passou: false, reqsFaltando: 0 };
+                init[c.id] = {
+                    loading: true,
+                    llmLoading: true,
+                    scoreFinal: 0,
+                    scoreLexico: null,
+                    scoreSemantico: null,
+                    distanciaKm: null,
+                    modo: "lexical",
+                    passou: false,
+                    reqsFaltando: 0,
+                    llmScore: null,
+                    llmPassou: null,
+                };
             });
             return init;
         });
@@ -137,10 +157,31 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                         passouMatchMinimo: boolean;
                         requisitosObrigatoriosFaltando: string[];
                     };
+                    let llmScore: number | null = null;
+                    let llmPassou: boolean | null = null;
+                    try {
+                        const llmRes = await apiFetch(
+                            `/api/vagas/${vagaId}/matching-llm-cached/${c.id}`,
+                            { cache: "no-store" },
+                            MATCHING_LLM_CACHE_TIMEOUT_MS,
+                        );
+                        if (llmRes.ok) {
+                            const llm = (await llmRes.json()) as {
+                                scoreFinal: number;
+                                passouMatchMinimo: boolean;
+                            };
+                            llmScore = llm.scoreFinal;
+                            llmPassou = llm.passouMatchMinimo;
+                        }
+                    } catch {
+                        /* sem cache — usuário pode abrir Análise IA */
+                    }
+
                     setScores((prev) => ({
                         ...prev,
                         [c.id]: {
                             loading: false,
+                            llmLoading: false,
                             scoreFinal: data.scoreFinal,
                             scoreLexico: data.scoreLexico,
                             scoreSemantico: data.scoreSemantico,
@@ -148,6 +189,8 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                             modo: data.modo ?? "semantic",
                             passou: data.passouMatchMinimo,
                             reqsFaltando: data.requisitosObrigatoriosFaltando?.length ?? 0,
+                            llmScore,
+                            llmPassou,
                         },
                     }));
                 } catch (err) {
@@ -155,7 +198,21 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                     toast.error(`${c.nome}: ${msg}`, { duration: 8000 });
                     setScores((prev) => ({
                         ...prev,
-                        [c.id]: { ...prev[c.id], loading: false, error: msg, scoreFinal: 0, scoreLexico: null, scoreSemantico: null, distanciaKm: null, modo: "lexical", passou: false, reqsFaltando: 0 },
+                        [c.id]: {
+                            ...prev[c.id],
+                            loading: false,
+                            llmLoading: false,
+                            error: msg,
+                            scoreFinal: 0,
+                            scoreLexico: null,
+                            scoreSemantico: null,
+                            distanciaKm: null,
+                            modo: "lexical",
+                            passou: false,
+                            reqsFaltando: 0,
+                            llmScore: null,
+                            llmPassou: null,
+                        },
                     }));
                 }
             }
@@ -263,8 +320,11 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                     <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
                         <tr>
                             <th className="px-3 py-2 text-left cursor-pointer hover:text-foreground" onClick={() => setSortCol("nome")}>Candidato</th>
-                            <th className="px-3 py-2 text-center cursor-pointer hover:text-foreground" onClick={() => setSortCol("score")}>
-                                Score {sortCol === "score" && "▼"}
+                            <th className="px-3 py-2 text-center min-w-[200px] cursor-pointer hover:text-foreground" onClick={() => setSortCol("score")}>
+                                Scores {sortCol === "score" && "▼"}
+                                <div className="text-[10px] font-normal normal-case text-muted-foreground/80">
+                                    Breakdown · Análise IA
+                                </div>
                             </th>
                             <th className="px-3 py-2 text-center">Léxico</th>
                             <th className="px-3 py-2 text-center">Semântico</th>
@@ -286,23 +346,7 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                                         <div className="text-[11px] text-muted-foreground">{r.email ?? "—"}</div>
                                     </td>
                                     <td className="px-3 py-2 text-center">
-                                        {bd?.loading ? (
-                                            <Loader2 className="inline size-4 animate-spin text-muted-foreground" />
-                                        ) : bd?.error ? (
-                                            <span
-                                                className="text-red-600 text-xs block max-w-[140px] mx-auto cursor-help underline decoration-dotted"
-                                                title={bd.error}
-                                            >
-                                                erro
-                                                <span className="block text-[10px] font-normal text-red-600/80 line-clamp-2 mt-0.5 no-underline">
-                                                    {bd.error}
-                                                </span>
-                                            </span>
-                                        ) : (
-                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${scoreBadge(bd?.scoreFinal ?? 0)}`}>
-                                                {bd?.scoreFinal ?? 0}%
-                                            </span>
-                                        )}
+                                        <DualScoreCell bd={bd} />
                                     </td>
                                     <td className="px-3 py-2 text-center text-xs text-muted-foreground">
                                         {bd?.loading ? "—" : bd?.scoreLexico ?? "—"}
@@ -346,8 +390,8 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => llmDialog.open(vagaId, r.id, r.nome)}
-                                                disabled={bd?.loading || !ollamaUp}
-                                                title="Análise profunda pela IA (Qwen 2.5) — 10-60s na 1ª vez, cache depois"
+                                                disabled={bd?.loading}
+                                                title="Análise profunda pela IA do tenant — 10–60s na 1ª vez, cache depois"
                                                 className="gap-1 border-violet-500/40 text-violet-700 hover:bg-violet-500/10"
                                             >
                                                 <Brain className="size-3" />
@@ -365,9 +409,14 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
             {/* Legenda dos modos — descreve exatamente o que cada um faz no backend */}
             <div className="text-xs text-muted-foreground space-y-1">
                 <div>
+                    <strong>Scores:</strong> <em>Breakdown</em> = fórmula híbrida (léxico + embeddings + localidade).{" "}
+                    <em>Análise IA</em> = leitura do LLM sobre vaga × CV. Diferença &gt; {MATCHING_SCORE_DIVERGENCE_THRESHOLD} pts
+                    indica métodos distintos (não é bug).
+                </div>
+                <div>
                     <strong className="text-violet-700 dark:text-violet-400">🧠 IA (híbrido)</strong> —
-                    Ollama ativo: <strong>30% léxico</strong> (TF-IDF + stems + sinônimos) +
-                    <strong> 50% embeddings semânticos</strong> (bge-m3, pgvector kNN cosine) +
+                    embeddings ativos: <strong>30% léxico</strong> (TF-IDF + stems + sinônimos) +
+                    <strong> 50% embeddings semânticos</strong> (Gemini/pgvector) +
                     <strong> 20% localidade</strong> (Haversine).
                 </div>
                 <div>
@@ -402,7 +451,84 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                     vagaId={llmDialog.target.vagaId}
                     candidatoId={llmDialog.target.candidatoId}
                     candidatoNome={llmDialog.target.candidatoNome}
+                    onAnalyzed={(result) => {
+                        const cid = llmDialog.target!.candidatoId;
+                        setScores((prev) => ({
+                            ...prev,
+                            [cid]: {
+                                ...prev[cid],
+                                llmScore: result.scoreFinal,
+                                llmPassou: result.passouMatchMinimo,
+                                llmLoading: false,
+                            },
+                        }));
+                    }}
                 />
+            )}
+        </div>
+    );
+}
+
+function DualScoreCell({ bd }: { bd?: BreakdownRow }) {
+    if (bd?.loading) {
+        return <Loader2 className="inline size-4 animate-spin text-muted-foreground" />;
+    }
+    if (bd?.error) {
+        return (
+            <span
+                className="text-red-600 text-xs block max-w-[200px] mx-auto cursor-help underline decoration-dotted"
+                title={bd.error}
+            >
+                erro
+                <span className="block text-[10px] font-normal text-red-600/80 line-clamp-2 mt-0.5 no-underline">
+                    {bd.error}
+                </span>
+            </span>
+        );
+    }
+
+    const breakdown = bd?.scoreFinal ?? 0;
+    const llm = bd?.llmScore;
+    const diverge =
+        llm != null && Math.abs(breakdown - llm) > MATCHING_SCORE_DIVERGENCE_THRESHOLD;
+
+    return (
+        <div className="flex flex-col items-center gap-1 min-w-[180px]">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+                <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Breakdown</span>
+                    <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${scoreBadge(breakdown)}`}
+                    >
+                        {breakdown}%
+                    </span>
+                </div>
+                <span className="text-muted-foreground/50 text-xs">|</span>
+                <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Análise IA</span>
+                    {bd?.llmLoading ? (
+                        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                    ) : llm != null ? (
+                        <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border border-violet-500/30 ${scoreBadge(llm)}`}
+                        >
+                            {llm}%
+                        </span>
+                    ) : (
+                        <span className="text-[10px] text-muted-foreground italic">—</span>
+                    )}
+                </div>
+            </div>
+            {diverge && (
+                <div
+                    className="flex items-start gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-900 dark:text-amber-200 max-w-[220px] text-left"
+                    title={`Breakdown (${breakdown}%) e Análise IA (${llm}%) usam métodos diferentes: híbrido algorítmico vs. leitura do LLM sobre o CV.`}
+                >
+                    <AlertTriangle className="size-3 shrink-0 mt-0.5 text-amber-600" />
+                    <span>
+                        Diferença de {Math.abs(breakdown - (llm ?? 0))} pts — métodos distintos (híbrido vs. LLM).
+                    </span>
+                </div>
             )}
         </div>
     );

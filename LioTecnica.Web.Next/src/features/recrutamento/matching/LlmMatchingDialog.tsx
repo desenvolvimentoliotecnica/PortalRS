@@ -55,6 +55,8 @@ export interface LlmMatchingDialogProps {
     vagaId: string;
     candidatoId: string;
     candidatoNome?: string;
+    /** Chamado quando uma análise é obtida (cache ou nova) — atualiza score na tabela. */
+    onAnalyzed?: (result: LlmResult) => void;
 }
 
 function scoreColor(score: number): string {
@@ -71,7 +73,7 @@ function barColor(score: number): string {
     return "bg-red-500";
 }
 
-export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, candidatoNome }: LlmMatchingDialogProps) {
+export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, candidatoNome, onAnalyzed }: LlmMatchingDialogProps) {
     const [data, setData] = useState<LlmResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -96,6 +98,7 @@ export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, 
             }
             const json = (await res.json()) as LlmResult;
             setData(json);
+            onAnalyzed?.(json);
         } catch (err) {
             setError((err as Error).message);
         } finally {
