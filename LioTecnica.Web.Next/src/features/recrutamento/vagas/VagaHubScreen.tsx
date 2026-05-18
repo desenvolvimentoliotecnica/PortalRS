@@ -928,10 +928,14 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       }}>
         <TabsList className="w-full justify-start flex-wrap">
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
-          <TabsTrigger value="candidatos" className="gap-1">
-            <Sparkles className="size-3.5" />
-            Candidatos & Match
-            {candidateCount > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{candidateCount}</span>}
+          <TabsTrigger value="candidatos" className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+            <Sparkles className="size-3.5 shrink-0" />
+            <span>Candidatos & Match</span>
+            {candidateCount > 0 && (
+              <span className="shrink-0 text-[10px] bg-primary/15 text-primary rounded-full px-1.5 leading-none py-0.5">
+                {candidateCount}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="publicacoes">
             Publicações {rodadas.length > 0 && <span className="ml-1 text-[10px] bg-emerald-500/15 text-emerald-700 rounded-full px-1.5">{rodadas.length}</span>}

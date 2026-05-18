@@ -426,13 +426,11 @@ export default function CandidatosMatchTab({
                                     Data {sortCol === "data" && "▼"}
                                 </th>
                                 <th
-                                    className="px-3 py-2 text-center min-w-[200px] cursor-pointer hover:text-foreground"
+                                    className="px-3 py-2 text-center whitespace-nowrap cursor-pointer hover:text-foreground"
                                     onClick={() => setSortCol("score")}
+                                    title="Divergência entre breakdown e Análise IA"
                                 >
                                     Match {sortCol === "score" && "▼"}
-                                    <div className="text-[10px] font-normal normal-case text-muted-foreground/80">
-                                        Breakdown · Análise IA
-                                    </div>
                                 </th>
                                 <th className="px-3 py-2 text-center">Mínimo</th>
                                 <th className="px-3 py-2 text-right">Ações</th>
@@ -449,7 +447,7 @@ export default function CandidatosMatchTab({
                                 rows.map((r) => {
                                     const m = r.m;
                                     return (
-                                        <tr key={r.id} className="hover:bg-muted/20 align-top">
+                                        <tr key={r.id} className="hover:bg-muted/20 align-middle">
                                             <td className="px-3 py-2">
                                                 <div className="font-medium">{r.nome}</div>
                                                 <div className="text-[11px] text-muted-foreground">{r.email ?? "—"}</div>
@@ -462,7 +460,7 @@ export default function CandidatosMatchTab({
                                             <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
                                                 {new Date(r.createdAtUtc).toLocaleDateString("pt-BR")}
                                             </td>
-                                            <td className="px-3 py-2 text-center">
+                                            <td className="px-3 py-2 text-center whitespace-nowrap">
                                                 {!temDescricaoCargo ? (
                                                     <span className="text-xs text-muted-foreground">—</span>
                                                 ) : (
@@ -572,91 +570,62 @@ function emptyMatchRow(): MatchRow {
 function MatchScoreCell({ m, onCalcular }: { m?: MatchRow; onCalcular: () => void }) {
     if (m?.loading) {
         return (
-            <div className="flex flex-col items-center gap-1 py-1">
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                <span className="text-[10px] text-muted-foreground">Calculando…</span>
-            </div>
+            <span className="inline-flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
+                <Loader2 className="size-4 animate-spin shrink-0" />
+                Calculando…
+            </span>
         );
     }
 
     if (m?.error) {
         return (
-            <div className="flex flex-col items-center gap-1">
-                <span className="text-red-600 text-xs max-w-[180px] line-clamp-2" title={m.error}>
+            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                <span className="text-red-600 text-xs max-w-[140px] truncate" title={m.error}>
                     {m.error}
                 </span>
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onCalcular}>
+                <Button size="sm" variant="outline" className="h-7 text-xs shrink-0 whitespace-nowrap" onClick={onCalcular}>
                     Tentar de novo
                 </Button>
-            </div>
+            </span>
         );
     }
 
     if (!m?.calculated) {
         return (
-            <div className="flex flex-col items-center gap-1.5">
-                {m?.llmCacheLoading ? (
-                    <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                ) : m?.llmScore != null ? (
-                    <div className="flex items-center gap-2 text-xs">
-                        <span className="text-muted-foreground">IA:</span>
-                        <span className={`rounded-full px-2 py-0.5 font-semibold border border-violet-500/30 ${scoreBadge(m.llmScore)}`}>
-                            {m.llmScore}%
-                        </span>
-                    </div>
-                ) : null}
-                <Button size="sm" variant="secondary" className="h-7 text-xs gap-1" onClick={onCalcular}>
-                    <Sparkles className="size-3" />
-                    Calcular match
-                </Button>
-            </div>
+            <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 text-xs gap-1 shrink-0 whitespace-nowrap"
+                onClick={onCalcular}
+            >
+                <Sparkles className="size-3 shrink-0" />
+                Calcular match
+            </Button>
         );
     }
 
-    return <DualScoreCell m={m} />;
+    return <DivergencePtsChip m={m} />;
 }
 
-function DualScoreCell({ m }: { m: MatchRow }) {
+function DivergencePtsChip({ m }: { m: MatchRow }) {
     const breakdown = m.scoreFinal;
     const llm = m.llmScore;
     const diverge =
         llm != null && Math.abs(breakdown - llm) > MATCHING_SCORE_DIVERGENCE_THRESHOLD;
 
+    if (!diverge) {
+        return <span className="text-xs text-muted-foreground">—</span>;
+    }
+
+    const delta = Math.abs(breakdown - (llm ?? 0));
     return (
-        <div className="flex flex-col items-center gap-1 min-w-[160px]">
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-                <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Breakdown</span>
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${scoreBadge(breakdown)}`}>
-                        {breakdown}%
-                    </span>
-                </div>
-                <span className="text-muted-foreground/50 text-xs">|</span>
-                <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Análise IA</span>
-                    {m.llmCacheLoading ? (
-                        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                    ) : llm != null ? (
-                        <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold border border-violet-500/30 ${scoreBadge(llm)}`}
-                        >
-                            {llm}%
-                        </span>
-                    ) : (
-                        <span className="text-[10px] text-muted-foreground italic">—</span>
-                    )}
-                </div>
-            </div>
-            {diverge && (
-                <div
-                    className="flex items-start gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-900 dark:text-amber-200 max-w-[200px] text-left"
-                    title={`Breakdown (${breakdown}%) vs Análise IA (${llm}%) — métodos distintos.`}
-                >
-                    <AlertTriangle className="size-3 shrink-0 text-amber-600" />
-                    <span>Δ {Math.abs(breakdown - (llm ?? 0))} pts</span>
-                </div>
-            )}
-        </div>
+        <span
+            className="inline-flex items-center gap-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:text-amber-200 whitespace-nowrap"
+            title={`Breakdown ${breakdown}% vs Análise IA ${llm}% — métodos distintos`}
+        >
+            <AlertTriangle className="size-3 shrink-0 text-amber-600" />
+            {delta} pts
+        </span>
     );
 }
 
@@ -683,30 +652,31 @@ function RowActions({
     onApprove: () => void;
     onAcompanhar: () => void;
 }) {
+    const breakdownLabel = m?.calculated ? `Breakdown ${m.scoreFinal}%` : "Breakdown";
+    const analiseIaLabel = m?.llmScore != null ? `Análise IA ${m.llmScore}%` : "Análise IA";
+
     return (
         <div className="flex items-center justify-end gap-1">
             {temDescricaoCargo && (
                 <>
-                    {!m?.calculated && !m?.loading && (
-                        <Button size="sm" variant="secondary" className="h-8 text-xs hidden lg:inline-flex gap-1" onClick={onCalcularMatch}>
-                            <Sparkles className="size-3" />
-                            Match
-                        </Button>
-                    )}
-                    {m?.calculated && (
-                        <Button size="sm" variant="outline" className="h-8 text-xs hidden xl:inline-flex" onClick={onBreakdown} disabled={m.loading}>
-                            Breakdown
-                        </Button>
-                    )}
                     <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 text-xs gap-1 border-violet-500/40 text-violet-700 hover:bg-violet-500/10 hidden xl:inline-flex"
+                        className="h-8 text-xs hidden lg:inline-flex whitespace-nowrap"
+                        onClick={onBreakdown}
+                        disabled={m?.loading}
+                    >
+                        {breakdownLabel}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs gap-1 border-violet-500/40 text-violet-700 hover:bg-violet-500/10 hidden lg:inline-flex whitespace-nowrap"
                         onClick={onAnaliseIa}
                         disabled={m?.loading}
                     >
-                        <Brain className="size-3" />
-                        IA
+                        <Brain className="size-3 shrink-0" />
+                        {analiseIaLabel}
                     </Button>
                 </>
             )}
@@ -718,7 +688,7 @@ function RowActions({
                         <span className="sr-only">Ações</span>
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuContent align="end" className="w-56">
                     {temDescricaoCargo && (
                         <>
                             <DropdownMenuItem onClick={onCalcularMatch} disabled={m?.loading}>
@@ -726,11 +696,11 @@ function RowActions({
                                 {m?.calculated ? "Recalcular match" : "Calcular match"}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={onBreakdown} disabled={m?.loading}>
-                                Ver breakdown detalhado
+                                {breakdownLabel}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={onAnaliseIa}>
                                 <Brain className="size-4 mr-2" />
-                                Análise IA
+                                {analiseIaLabel}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                         </>
@@ -756,9 +726,3 @@ function RowActions({
     );
 }
 
-function scoreBadge(score: number): string {
-    if (score >= 60) return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
-    if (score >= 40) return "bg-amber-500/15 text-amber-700 dark:text-amber-400";
-    if (score >= 20) return "bg-orange-500/15 text-orange-700 dark:text-orange-400";
-    return "bg-zinc-400/15 text-zinc-600 dark:text-zinc-400";
-}
