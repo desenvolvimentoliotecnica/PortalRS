@@ -614,6 +614,70 @@ public sealed class CandidatoService : ICandidatoService
         }, CancellationToken.None);
     }
 
+    /// <summary>
+    /// Extrai texto de currículo (PDF/DOCX/TXT) e persiste em <see cref="Candidato.CvText"/> quando o tipo é Currículo.
+    /// </summary>
+    private async Task<string?> TryExtractAndPersistCvTextAsync(
+        Guid candidatoId,
+        string filePath,
+        CandidateDocumentType tipo,
+        CancellationToken ct)
+    {
+        if (tipo != CandidateDocumentType.Curriculo)
+            return null;
+
+        var ext = Path.GetExtension(filePath)?.ToLowerInvariant() ?? string.Empty;
+        if (ext is not ".pdf" and not ".docx" and not ".txt")
+            return null;
+
+        string extracted;
+        try
+        {
+            extracted = await ResumeTextExtractor.ExtractAsync(filePath, ct);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(extracted))
+            return null;
+
+        var trimmed = extracted.Trim();
+        var candidato = await _db.Candidatos.FirstOrDefaultAsync(x => x.Id == candidatoId, ct);
+        if (candidato is null)
+            return trimmed;
+
+        candidato.CvText = trimmed;
+        candidato.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        TryGenerateCandidatoEmbeddingAsync(candidatoId, ct);
+        ScheduleMatchRecalcIfVaga(candidato);
+
+        return trimmed;
+    }
+
+    private void ScheduleMatchRecalcIfVaga(Candidato candidato)
+    {
+        if (candidato.VagaId is not { } vagaId || vagaId == Guid.Empty)
+            return;
+
+        var candidatoId = candidato.Id;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _matchingService.CalculateAndStoreAsync(candidatoId, vagaId, CancellationToken.None);
+                await TrySaveAiScoreAsync(candidatoId, vagaId, CancellationToken.None);
+            }
+            catch
+            {
+                /* best-effort */
+            }
+        });
+    }
+
     private async Task TrySaveAiScoreAsync(Guid candidatoId, Guid vagaId, CancellationToken ct)
     {
         if (_aiMatchClient == null || _matchingScoreService == null) return;
@@ -760,6 +824,8 @@ public sealed class CandidatoService : ICandidatoService
             throw;
         }
 
+        await TryExtractAndPersistCvTextAsync(candidatoId, filePath, tipo, ct);
+
         return MapDocumento(candidatoId, doc);
     }
 
@@ -813,18 +879,18 @@ public sealed class CandidatoService : ICandidatoService
             throw;
         }
 
-        string? cvText = null;
+        var cvText = await TryExtractAndPersistCvTextAsync(candidatoId, filePath, CandidateDocumentType.Curriculo, ct);
         TalentoImportPdfSuggestedData? suggestedData = null;
-
-        try
+        if (enviarParaGpt && !string.IsNullOrWhiteSpace(cvText))
         {
-            cvText = await ResumeTextExtractor.ExtractAsync(filePath, ct);
-            if (enviarParaGpt && !string.IsNullOrWhiteSpace(cvText))
+            try
+            {
                 suggestedData = await _cvGptExtractor.ExtractSuggestedDataAsync(cvText, ct);
-        }
-        catch
-        {
-            cvText ??= string.Empty;
+            }
+            catch
+            {
+                /* best-effort */
+            }
         }
 
         var documentoResponse = MapDocumento(candidatoId, doc);
