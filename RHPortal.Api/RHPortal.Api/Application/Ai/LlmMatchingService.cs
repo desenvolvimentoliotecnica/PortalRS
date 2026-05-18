@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Contracts.Ai;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -21,8 +22,9 @@ namespace RhPortal.Api.Application.Ai;
 
 /// <summary>
 /// Implementação do LLM-as-a-Judge: monta prompt estruturado com DescCargo DNALIO
-/// + CV + pesos, chama Qwen 2.5 via <see cref="IOllamaClient"/> em modo JSON,
-/// parseia resposta e persiste em <see cref="CandidatoVagaLlmScore"/>.
+/// + CV + pesos, chama o provider do tenant via <see cref="IUnifiedAiService"/>
+/// (Gemini/OpenAI/Anthropic) ou <see cref="IOllamaClient"/> quando <c>LlmProvider=ollama</c>,
+/// parseia JSON e persiste em <see cref="CandidatoVagaLlmScore"/>.
 ///
 /// <para><b>Pipeline</b>:
 /// <list type="number">
@@ -39,6 +41,9 @@ public sealed class LlmMatchingService : ILlmMatchingService
 {
     private readonly AppDbContext _db;
     private readonly IOllamaClient _ollama;
+    private readonly IUnifiedAiService _unifiedAi;
+    private readonly ITenantAiSettingsResolver _tenantAi;
+    private readonly AiOptions _aiOptions;
     private readonly OllamaOptions _ollamaOptions;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<LlmMatchingService> _logger;
@@ -46,12 +51,17 @@ public sealed class LlmMatchingService : ILlmMatchingService
     public LlmMatchingService(
         AppDbContext db,
         IOllamaClient ollama,
+        IUnifiedAiService unifiedAi,
+        ITenantAiSettingsResolver tenantAi,
         IOptions<AiOptions> aiOptions,
         ITenantContext tenantContext,
         ILogger<LlmMatchingService> logger)
     {
         _db = db;
         _ollama = ollama;
+        _unifiedAi = unifiedAi;
+        _tenantAi = tenantAi;
+        _aiOptions = aiOptions.Value;
         _ollamaOptions = aiOptions.Value.Ollama;
         _tenantContext = tenantContext;
         _logger = logger;
@@ -85,6 +95,8 @@ public sealed class LlmMatchingService : ILlmMatchingService
         // ── 2. Hash do input (CV + DescCargo itens + pesos + MatchMinimo) ──
         var inputHash = ComputeInputHash(vaga, candidato, competencias);
 
+        var effectiveModel = await ResolveEffectiveLlmModelAsync(ct);
+
         // ── 3. Cache check ──────────────────────────────────────────────────
         if (!force)
         {
@@ -93,61 +105,45 @@ public sealed class LlmMatchingService : ILlmMatchingService
                 .FirstOrDefaultAsync(x => x.VagaId == vagaId && x.CandidatoId == candidatoId, ct);
             if (cached is not null
                 && cached.InputHash == inputHash
-                && cached.ModelVersion == _ollamaOptions.ChatModel)
+                && string.Equals(cached.ModelVersion, effectiveModel, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogDebug("[LlmMatching] Cache hit para cand={Cand} vaga={Vaga}", candidatoId, vagaId);
                 return ResultFromEntity(cached, usouCache: true);
             }
         }
 
-        // ── 4. Health check do Ollama ───────────────────────────────────────
-        var health = await _ollama.CheckHealthAsync(ct);
-        if (!health.IsReachable || !health.HasChatModel)
-        {
-            _logger.LogInformation("[LlmMatching] Ollama indisponível — score LLM não computado. {Err}", health.ErrorMessage);
-            return null;
-        }
-
-        // ── 5. Monta prompt ────────────────────────────────────────────────
+        // ── 4. Monta prompt ────────────────────────────────────────────────
         var (systemPrompt, userPrompt) = BuildPrompts(vaga, candidato, competencias);
 
-        // ── 6. Chama Qwen ──────────────────────────────────────────────────
+        // ── 5. Chama LLM (provider do tenant) ───────────────────────────────
         var sw = Stopwatch.StartNew();
-        var messages = new List<OllamaChatMessage> { new("user", userPrompt) };
-        var resp = await _ollama.ChatAsync(messages,
-            new OllamaChatOptions(
-                Temperature: 0.1,
-                SystemPrompt: systemPrompt,
-                MaxTokens: 2000),
-            ct);
+        var (rawContent, modelUsed) = await InvokeJudgeLlmAsync(
+            tenantId, systemPrompt, userPrompt, effectiveModel, ct);
         sw.Stop();
 
-        if (!resp.IsSuccess || string.IsNullOrWhiteSpace(resp.Content))
+        if (string.IsNullOrWhiteSpace(rawContent))
         {
-            _logger.LogWarning("[LlmMatching] Qwen retornou vazio após {Elapsed}ms. {Err}",
-                sw.ElapsedMilliseconds, resp.ErrorMessage);
-            // Retorna resultado indicando timeout/falha para o controller diferenciar de "ollama off"
+            _logger.LogWarning("[LlmMatching] LLM retornou vazio após {Elapsed}ms (model={Model})",
+                sw.ElapsedMilliseconds, modelUsed);
             throw new LlmTimeoutException(
-                $"Qwen não respondeu em {sw.ElapsedMilliseconds / 1000}s. " +
-                $"Isso pode indicar: (1) modelo descarregado da memória (cold start), " +
-                $"(2) GPU indisponível forçando CPU lenta, (3) prompt muito grande. " +
-                $"Tente novamente — a 2ª chamada costuma ser rápida com modelo já quente.");
+                $"O modelo de IA ({modelUsed}) não respondeu em {sw.ElapsedMilliseconds / 1000}s. " +
+                "Verifique a chave do provider (Owner → IA) e a configuração em Admin → IA do tenant. Tente novamente.");
         }
 
-        var parsed = TryParseJson(resp.Content);
+        var parsed = TryParseJson(rawContent);
         if (parsed is null)
         {
             _logger.LogWarning("[LlmMatching] JSON inválido do LLM (len={Len}):\n{Content}",
-                resp.Content?.Length ?? 0, resp.Content);
-            throw new LlmTimeoutException("Qwen retornou resposta em formato inesperado. Tente regenerar.");
+                rawContent.Length, rawContent);
+            throw new LlmTimeoutException("O modelo retornou resposta em formato inesperado. Tente regenerar.");
         }
 
-        // ── 7. Valida pesos e normaliza score final ─────────────────────────
+        // ── 6. Valida pesos e normaliza score final ─────────────────────────
         var matchMin = Math.Clamp(vaga.MatchMinimoPercentual, 0, 100);
         var passou = parsed.ScoreFinal >= matchMin;
 
-        // ── 8. Persiste no cache ───────────────────────────────────────────
-        await UpsertCacheAsync(tenantId, candidatoId, vagaId, parsed, passou, inputHash, (int)sw.ElapsedMilliseconds, ct);
+        // ── 7. Persiste no cache ───────────────────────────────────────────
+        await UpsertCacheAsync(tenantId, candidatoId, vagaId, parsed, passou, inputHash, modelUsed, (int)sw.ElapsedMilliseconds, ct);
 
         return new LlmMatchingResult(
             candidatoId, vagaId,
@@ -164,9 +160,91 @@ public sealed class LlmMatchingService : ILlmMatchingService
             )).ToList() ?? new List<LlmCriterio>(),
             parsed.PontosFortes ?? new List<string>(),
             parsed.Gaps ?? new List<string>(),
-            _ollamaOptions.ChatModel,
+            modelUsed,
             (int)sw.ElapsedMilliseconds,
             UsouCache: false);
+    }
+
+    private async Task<string> ResolveEffectiveLlmProviderAsync(CancellationToken ct)
+    {
+        var settings = await _tenantAi.GetCurrentAsync(ct);
+        if (!string.IsNullOrWhiteSpace(settings?.LlmProvider))
+            return settings.LlmProvider.Trim().ToLowerInvariant();
+
+        var fallback = _aiOptions.DefaultProvider?.Trim();
+        return string.IsNullOrWhiteSpace(fallback) ? "openai" : fallback.ToLowerInvariant();
+    }
+
+    private async Task<string> ResolveEffectiveLlmModelAsync(CancellationToken ct)
+    {
+        var settings = await _tenantAi.GetCurrentAsync(ct);
+        if (!string.IsNullOrWhiteSpace(settings?.LlmModel))
+            return settings.LlmModel.Trim();
+
+        var provider = await ResolveEffectiveLlmProviderAsync(ct);
+        return provider switch
+        {
+            "gemini" => _aiOptions.Gemini?.DefaultModel ?? "gemini-2.5-flash",
+            "anthropic" => _aiOptions.Anthropic?.DefaultModel ?? "claude-3-5-sonnet-20241022",
+            "ollama" => _ollamaOptions.ChatModel ?? "qwen2.5:7b",
+            _ => _aiOptions.OpenAI?.DefaultModel ?? "gpt-4o-mini",
+        };
+    }
+
+    private async Task<(string? Content, string ModelUsed)> InvokeJudgeLlmAsync(
+        string tenantId,
+        string systemPrompt,
+        string userPrompt,
+        string effectiveModel,
+        CancellationToken ct)
+    {
+        var provider = await ResolveEffectiveLlmProviderAsync(ct);
+
+        if (provider == "ollama")
+        {
+            var health = await _ollama.CheckHealthAsync(ct);
+            if (!health.IsReachable || !health.HasChatModel)
+            {
+                _logger.LogInformation("[LlmMatching] Ollama indisponível — score LLM não computado. {Err}", health.ErrorMessage);
+                return (null, effectiveModel);
+            }
+
+            var messages = new List<OllamaChatMessage> { new("user", userPrompt) };
+            var resp = await _ollama.ChatAsync(messages,
+                new OllamaChatOptions(Temperature: 0.1, SystemPrompt: systemPrompt, MaxTokens: 2000),
+                ct);
+            if (!resp.IsSuccess)
+                return (null, _ollamaOptions.ChatModel ?? effectiveModel);
+            return (resp.Content, _ollamaOptions.ChatModel ?? effectiveModel);
+        }
+
+        var payload = new { prompt = systemPrompt, cvText = userPrompt };
+        var request = new AiInvokeRequest(
+            Module: "LlmMatching",
+            ActionDescription: "Avaliação candidato × vaga (LLM-as-Judge)",
+            RequestMessage: null,
+            ModelId: null,
+            Payload: payload);
+
+        var outcome = await _unifiedAi.InvokeWithOutcomeAsync(tenantId, null, "LlmMatching", request, ct);
+        if (outcome.Response is null)
+        {
+            _logger.LogWarning(
+                "[LlmMatching] UnifiedAi indisponível: {Reason} — {Detail}",
+                outcome.Reason, outcome.Detail);
+            return (null, effectiveModel);
+        }
+
+        var content = outcome.Response.Content?.Trim() ?? "";
+        if (content.StartsWith("AI_ERROR:", StringComparison.OrdinalIgnoreCase))
+        {
+            var err = content.Length > "AI_ERROR:".Length
+                ? content["AI_ERROR:".Length..].Trim()
+                : "erro na API do provider";
+            throw new LlmTimeoutException($"Falha ao chamar o modelo de IA: {err}");
+        }
+
+        return (content, effectiveModel);
     }
 
     // ── PROMPTS ─────────────────────────────────────────────────────────────
@@ -309,7 +387,7 @@ public sealed class LlmMatchingService : ILlmMatchingService
 
     private async Task UpsertCacheAsync(
         string tenantId, Guid candidatoId, Guid vagaId,
-        LlmPayload parsed, bool passou, string inputHash, int durationMs, CancellationToken ct)
+        LlmPayload parsed, bool passou, string inputHash, string modelVersion, int durationMs, CancellationToken ct)
     {
         var existing = await _db.CandidatoVagaLlmScores
             .FirstOrDefaultAsync(x => x.VagaId == vagaId && x.CandidatoId == candidatoId, ct);
@@ -334,7 +412,7 @@ public sealed class LlmMatchingService : ILlmMatchingService
                 PontosFortes = Truncate(pontosFortes, 2000),
                 Gaps = Truncate(gaps, 2000),
                 InputHash = inputHash,
-                ModelVersion = _ollamaOptions.ChatModel,
+                ModelVersion = modelVersion,
                 DurationMs = durationMs,
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now,
@@ -349,7 +427,7 @@ public sealed class LlmMatchingService : ILlmMatchingService
             existing.PontosFortes = Truncate(pontosFortes, 2000);
             existing.Gaps = Truncate(gaps, 2000);
             existing.InputHash = inputHash;
-            existing.ModelVersion = _ollamaOptions.ChatModel;
+            existing.ModelVersion = modelVersion;
             existing.DurationMs = durationMs;
             existing.UpdatedAtUtc = now;
         }

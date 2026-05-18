@@ -819,7 +819,7 @@ public sealed class VagasController : ControllerBase
             {
                 return StatusCode(StatusCodes.Status503ServiceUnavailable, new
                 {
-                    message = "Não foi possível gerar score por LLM. Verifique: (1) vaga tem DescricaoCargo vinculada, (2) Ollama rodando com qwen2.5:7b carregado, (3) candidato válido."
+                    message = "Não foi possível gerar score por LLM. Verifique: (1) vaga tem DescricaoCargo vinculada, (2) provider de IA do tenant (Admin → IA) e chave Gemini no Owner → IA, (3) candidato válido."
                 });
             }
             return Ok(result);

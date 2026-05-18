@@ -5,6 +5,7 @@
  * streaming (Server-Sent Events) no endpoint `/chat/stream`.
  */
 import { apiFetch, apiJson } from "@/lib/api";
+import { MATCHING_REINDEX_TIMEOUT_MS } from "@/features/recrutamento/matching/matchingHelpers";
 
 export type AssistantChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -161,7 +162,9 @@ export const AssistenteIaApi = {
         }),
 
     reindexar: (force = false) =>
-        apiJson<IndexingStats>(`/api/assistente-ia/embeddings/reindexar?force=${force}`, {
-            method: "POST",
-        }),
+        apiJson<IndexingStats>(
+            `/api/assistente-ia/embeddings/reindexar?force=${force}`,
+            { method: "POST" },
+            MATCHING_REINDEX_TIMEOUT_MS,
+        ),
 };

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AlertCircle, Bot, Loader2, RefreshCw, Sparkles, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { MATCHING_FETCH_TIMEOUT_MS } from "@/features/recrutamento/matching/matchingHelpers";
 import { AssistenteIaApi } from "@/features/assistente-ia/assistente-ia-api";
 import MatchingBreakdownDialog, {
     useMatchingBreakdownDialog,
@@ -88,7 +89,7 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
 
         // Busca em paralelo com concorrência limitada (4 de cada vez)
         const queue = [...candidates];
-        const MAX_PARALLEL = 4;
+        const MAX_PARALLEL = 2;
         async function worker() {
             while (queue.length > 0) {
                 const c = queue.shift();
@@ -97,7 +98,7 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                     const res = await apiFetch(
                         `/api/vagas/${vagaId}/matching-breakdown-hybrid/${c.id}`,
                         { cache: "no-store" },
-                        60_000,
+                        MATCHING_FETCH_TIMEOUT_MS,
                     );
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     const data = (await res.json()) as {

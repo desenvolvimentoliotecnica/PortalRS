@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { MATCHING_FETCH_TIMEOUT_MS } from "@/features/recrutamento/matching/matchingHelpers";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -92,7 +93,7 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
         const endpoint = mode === "lexical"
           ? `/api/vagas/${vagaId}/matching-breakdown/${candidatoId}`
           : `/api/vagas/${vagaId}/matching-breakdown-hybrid/${candidatoId}`;
-        const res = await apiFetch(endpoint, { cache: "no-store" });
+        const res = await apiFetch(endpoint, { cache: "no-store" }, MATCHING_FETCH_TIMEOUT_MS);
         if (!res.ok) {
           if (res.status === 404) {
             const body = await res.json().catch(() => ({ message: "Sem breakdown disponível" }));

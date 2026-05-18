@@ -1,6 +1,13 @@
 /* Matching helpers – extracted for reusability */
 import { apiFetch } from "@/lib/api";
 
+/** Hybrid/breakdown: cold start bge-m3 + indexação on-the-fly do CV no CPU pode passar de 60s. */
+export const MATCHING_FETCH_TIMEOUT_MS = 180_000;
+/** Análise Qwen (primeira chamada em CPU). */
+export const MATCHING_LLM_FETCH_TIMEOUT_MS = 360_000;
+/** Reindexar todos os embeddings do tenant. */
+export const MATCHING_REINDEX_TIMEOUT_MS = 600_000;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyRec = Record<string, any>;
 export const BASE = "/app";
