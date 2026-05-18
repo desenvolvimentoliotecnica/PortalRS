@@ -151,7 +151,7 @@ public sealed class LlmMatchingService : ILlmMatchingService
     }
 
     private sealed record ScoreContext(
-        Domain.Entities.Vaga Vaga,
+        RHPortal.Api.Domain.Entities.Vaga Vaga,
         Candidato Candidato,
         IReadOnlyList<string> Competencias,
         string InputHash);
