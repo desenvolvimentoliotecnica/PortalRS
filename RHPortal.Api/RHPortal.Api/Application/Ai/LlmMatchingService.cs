@@ -67,48 +67,33 @@ public sealed class LlmMatchingService : ILlmMatchingService
         _logger = logger;
     }
 
+    public async Task<LlmMatchingResult?> GetCachedScoreAsync(Guid candidatoId, Guid vagaId, CancellationToken ct = default)
+    {
+        var ctx = await LoadScoreContextAsync(candidatoId, vagaId, ct);
+        if (ctx is null) return null;
+
+        var effectiveModel = await ResolveEffectiveLlmModelAsync(ct);
+        return await TryGetValidCacheAsync(candidatoId, vagaId, ctx.InputHash, effectiveModel, ct);
+    }
+
     public async Task<LlmMatchingResult?> ScoreAsync(Guid candidatoId, Guid vagaId, bool force = false, CancellationToken ct = default)
     {
         var tenantId = _tenantContext.TenantId ?? "";
 
-        // ── 1. Carrega contexto ─────────────────────────────────────────────
-        var vaga = await _db.Vagas
-            .AsNoTracking()
-            .Include(v => v.DescricaoCargo)
-                .ThenInclude(d => d!.Itens)
-            .FirstOrDefaultAsync(v => v.Id == vagaId, ct);
+        var ctx = await LoadScoreContextAsync(candidatoId, vagaId, ct);
+        if (ctx is null) return null;
 
-        if (vaga is null) return null;
-        if (vaga.DescricaoCargo is null) return null;
-
-        var candidato = await _db.Candidatos
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == candidatoId, ct);
-        if (candidato is null) return null;
-
-        var competencias = await _db.CandidatoCompetencias
-            .AsNoTracking()
-            .Where(x => x.CandidatoId == candidatoId)
-            .Select(x => x.Nome)
-            .ToListAsync(ct);
-
-        // ── 2. Hash do input (CV + DescCargo itens + pesos + MatchMinimo) ──
-        var inputHash = ComputeInputHash(vaga, candidato, competencias);
-
+        var (vaga, candidato, competencias, inputHash) = ctx;
         var effectiveModel = await ResolveEffectiveLlmModelAsync(ct);
 
-        // ── 3. Cache check ──────────────────────────────────────────────────
+        // ── Cache check ──────────────────────────────────────────────────
         if (!force)
         {
-            var cached = await _db.CandidatoVagaLlmScores
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.VagaId == vagaId && x.CandidatoId == candidatoId, ct);
-            if (cached is not null
-                && cached.InputHash == inputHash
-                && string.Equals(cached.ModelVersion, effectiveModel, StringComparison.OrdinalIgnoreCase))
+            var cached = await TryGetValidCacheAsync(candidatoId, vagaId, inputHash, effectiveModel, ct);
+            if (cached is not null)
             {
                 _logger.LogDebug("[LlmMatching] Cache hit para cand={Cand} vaga={Vaga}", candidatoId, vagaId);
-                return ResultFromEntity(cached, usouCache: true);
+                return cached;
             }
         }
 
@@ -163,6 +148,57 @@ public sealed class LlmMatchingService : ILlmMatchingService
             modelUsed,
             (int)sw.ElapsedMilliseconds,
             UsouCache: false);
+    }
+
+    private sealed record ScoreContext(
+        Domain.Entities.Vaga Vaga,
+        Candidato Candidato,
+        IReadOnlyList<string> Competencias,
+        string InputHash);
+
+    private async Task<ScoreContext?> LoadScoreContextAsync(Guid candidatoId, Guid vagaId, CancellationToken ct)
+    {
+        var vaga = await _db.Vagas
+            .AsNoTracking()
+            .Include(v => v.DescricaoCargo)
+                .ThenInclude(d => d!.Itens)
+            .FirstOrDefaultAsync(v => v.Id == vagaId, ct);
+
+        if (vaga is null || vaga.DescricaoCargo is null) return null;
+
+        var candidato = await _db.Candidatos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == candidatoId, ct);
+        if (candidato is null) return null;
+
+        var competencias = await _db.CandidatoCompetencias
+            .AsNoTracking()
+            .Where(x => x.CandidatoId == candidatoId)
+            .Select(x => x.Nome)
+            .ToListAsync(ct);
+
+        var inputHash = ComputeInputHash(vaga, candidato, competencias);
+        return new ScoreContext(vaga, candidato, competencias, inputHash);
+    }
+
+    private async Task<LlmMatchingResult?> TryGetValidCacheAsync(
+        Guid candidatoId,
+        Guid vagaId,
+        string inputHash,
+        string effectiveModel,
+        CancellationToken ct)
+    {
+        var cached = await _db.CandidatoVagaLlmScores
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.VagaId == vagaId && x.CandidatoId == candidatoId, ct);
+        if (cached is null
+            || cached.InputHash != inputHash
+            || !string.Equals(cached.ModelVersion, effectiveModel, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return ResultFromEntity(cached, usouCache: true);
     }
 
     private async Task<string> ResolveEffectiveLlmProviderAsync(CancellationToken ct)

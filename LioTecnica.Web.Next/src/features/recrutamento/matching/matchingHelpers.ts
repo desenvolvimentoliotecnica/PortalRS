@@ -7,6 +7,10 @@ export const MATCHING_FETCH_TIMEOUT_MS = 180_000;
 export const MATCHING_LLM_FETCH_TIMEOUT_MS = 360_000;
 /** Reindexar todos os embeddings do tenant. */
 export const MATCHING_REINDEX_TIMEOUT_MS = 600_000;
+/** Leitura de Análise IA em cache (sem chamar LLM). */
+export const MATCHING_LLM_CACHE_TIMEOUT_MS = 15_000;
+/** Diferença entre Breakdown algorítmico e Análise IA que dispara aviso na UI. */
+export const MATCHING_SCORE_DIVERGENCE_THRESHOLD = 20;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyRec = Record<string, any>;
