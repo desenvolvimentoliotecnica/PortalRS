@@ -94,6 +94,24 @@ function pickNum(obj: VagaData | null, key: string, fallback = 0): number {
   return typeof v === "number" ? v : fallback;
 }
 
+function pickOptional(obj: VagaData | null, key: string): string {
+  if (!obj) return "";
+  const v = obj[key];
+  if (v == null || v === "") return "";
+  return String(v).trim();
+}
+
+/** Mesmo formato do autocomplete: `01.11.023.002 : GESTAO SISTEMAS` */
+function formatCentroCustoLabel(vaga: VagaData | null): string {
+  const code = pickOptional(vaga, "centroCustoCode");
+  const desc =
+    pickOptional(vaga, "centroCustoDescription") ||
+    pickOptional(vaga, "centroCustoName") ||
+    pickOptional(vaga, "areaName");
+  if (code && desc) return `${code} : ${desc}`;
+  return desc || code;
+}
+
 function fmtDate(iso: string): string {
   if (!iso || iso === "—") return "—";
   try { return new Date(iso).toLocaleDateString("pt-BR"); } catch { return "—"; }
@@ -809,7 +827,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const requisitos = Array.isArray(vaga?.requisitos) ? (vaga.requisitos as unknown[]) : [];
   const etapas = Array.isArray(vaga?.etapas) ? (vaga.etapas as { nome: string; responsavel?: string; slaDias?: number }[]) : [];
   const tags = pick(vaga, "tagsKeywordsRaw", "");
-  const areaName = pick(vaga, "centroCustoName", "") || pick(vaga, "areaName", "");
+  const centroCustoLabel = formatCentroCustoLabel(vaga);
   const modalidadeStr = pick(vaga, "modalidade", "");
   const senioridadeStr = pick(vaga, "senioridade", "");
   const cidade = pick(vaga, "cidade", "");
@@ -863,8 +881,28 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5 flex-wrap">
               {pick(vaga, "codigo") !== "—" && <span className="font-mono text-xs bg-muted/60 px-1.5 py-0.5 rounded">{pick(vaga, "codigo")}</span>}
-              <span>{areaName || "—"}</span>
-              <span className="text-border">|</span>
+              {centroCustoLabel ? (
+                <span className="truncate max-w-[min(100%,28rem)]" title={centroCustoLabel}>
+                  {(() => {
+                    const ccCode = pickOptional(vaga, "centroCustoCode");
+                    const ccDesc =
+                      pickOptional(vaga, "centroCustoDescription") ||
+                      pickOptional(vaga, "centroCustoName") ||
+                      pickOptional(vaga, "areaName");
+                    if (ccCode && ccDesc) {
+                      return (
+                        <>
+                          <span className="font-mono text-xs">{ccCode}</span>
+                          <span> : </span>
+                          <span className="font-medium text-foreground/90">{ccDesc}</span>
+                        </>
+                      );
+                    }
+                    return <span className="font-medium text-foreground/90">{centroCustoLabel}</span>;
+                  })()}
+                </span>
+              ) : null}
+              {centroCustoLabel ? <span className="text-border">|</span> : null}
               <span>{modalidadeStr || "—"}</span>
               {(() => {
                 const dt = (vaga?.dataAbertura as string | undefined) ?? (vaga?.createdAtUtc as string | undefined);

@@ -256,7 +256,9 @@ export default function CandidatosMatchTab({
         setReindexando(true);
         try {
             const r = await AssistenteIaApi.reindexar(true);
-            toast.success(`Reindexado: ${r.itensIndexados} itens + ${r.candidatosIndexados} candidatos`);
+            toast.success(
+                `Currículos atualizados: ${r.candidatosIndexados} candidato(s) e ${r.itensIndexados} descrição(ões) de cargo.`,
+            );
         } catch (err) {
             toast.error(`Erro: ${(err as Error).message}`);
         } finally {
@@ -304,7 +306,7 @@ export default function CandidatosMatchTab({
 
     const filterChips: { id: MatchFilter; label: string }[] = [
         { id: "todos", label: "Todos" },
-        { id: "sem_match", label: "Sem breakdown" },
+        { id: "sem_match", label: "Sem match calculado" },
         { id: "passou", label: "Passou mínimo" },
         { id: "abaixo", label: "Abaixo do mínimo" },
         { id: "com_llm", label: "Com Análise IA" },
@@ -324,7 +326,7 @@ export default function CandidatosMatchTab({
                         <div className="text-xs text-muted-foreground">
                             {candidates.length} candidato(s)
                             {temDescricaoCargo && stats.calculated > 0 && (
-                                <span> · {stats.calculated} com breakdown calculado</span>
+                                <span> · {stats.calculated} com compatibilidade calculada</span>
                             )}
                             {stats.comLlm > 0 && <span> · {stats.comLlm} com Análise IA em cache</span>}
                         </div>
@@ -354,10 +356,10 @@ export default function CandidatosMatchTab({
                             onClick={() => void reindexar()}
                             disabled={reindexando}
                             className="gap-1.5"
-                            title="Reindexa embeddings da vaga/CVs (ação administrativa)"
+                            title="Use após incluir ou alterar currículos ou a descrição da vaga, para o match por IA usar os textos mais recentes."
                         >
                             {reindexando ? <Loader2 className="size-3.5 animate-spin" /> : <Bot className="size-3.5" />}
-                            Reindexar embeddings
+                            Atualizar currículos
                         </Button>
                     )}
                 </div>
@@ -428,7 +430,7 @@ export default function CandidatosMatchTab({
                                 <th
                                     className="px-3 py-2 text-center whitespace-nowrap cursor-pointer hover:text-foreground"
                                     onClick={() => setSortCol("score")}
-                                    title="Divergência entre breakdown e Análise IA"
+                                    title="Divergência entre o score automático e a Análise IA"
                                 >
                                     Match {sortCol === "score" && "▼"}
                                 </th>
@@ -507,8 +509,8 @@ export default function CandidatosMatchTab({
                     <div className="flex items-start gap-1.5">
                         <Sparkles className="size-3.5 shrink-0 mt-0.5 text-violet-600" />
                         <span>
-                            Use <strong>Calcular match</strong> por candidato (breakdown híbrido).{" "}
-                            <strong>Análise IA</strong> é opcional e mais demorada; scores em cache aparecem ao abrir a aba.
+                            Use <strong>Calcular match</strong> por candidato. <strong>Compatibilidade</strong> mostra o
+                            detalhamento por critério; <strong>Análise IA</strong> é opcional e mais demorada.
                             Diferença &gt; {MATCHING_SCORE_DIVERGENCE_THRESHOLD} pts entre métodos é esperada.
                         </span>
                     </div>
@@ -621,7 +623,7 @@ function DivergencePtsChip({ m }: { m: MatchRow }) {
     return (
         <span
             className="inline-flex items-center gap-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:text-amber-200 whitespace-nowrap"
-            title={`Breakdown ${breakdown}% vs Análise IA ${llm}% — métodos distintos`}
+            title={`Compatibilidade ${breakdown}% vs Análise IA ${llm}% — métodos distintos`}
         >
             <AlertTriangle className="size-3 shrink-0 text-amber-600" />
             {delta} pts
@@ -652,7 +654,7 @@ function RowActions({
     onApprove: () => void;
     onAcompanhar: () => void;
 }) {
-    const breakdownLabel = m?.calculated ? `Breakdown ${m.scoreFinal}%` : "Breakdown";
+    const breakdownLabel = m?.calculated ? `Compatibilidade ${m.scoreFinal}%` : "Compatibilidade";
     const analiseIaLabel = m?.llmScore != null ? `Análise IA ${m.llmScore}%` : "Análise IA";
 
     return (
