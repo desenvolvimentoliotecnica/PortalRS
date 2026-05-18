@@ -112,6 +112,12 @@ function formatCentroCustoLabel(vaga: VagaData | null): string {
   return desc || code;
 }
 
+/** Cidade/UF da vaga (API já faz fallback para empresa do centro de custo). */
+function formatVagaLocal(vaga: VagaData | null): string {
+  const parts = [pickOptional(vaga, "cidade"), pickOptional(vaga, "uf")].filter(Boolean);
+  return parts.length ? parts.join(", ") : "—";
+}
+
 function fmtDate(iso: string): string {
   if (!iso || iso === "—") return "—";
   try { return new Date(iso).toLocaleDateString("pt-BR"); } catch { return "—"; }
@@ -830,9 +836,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const centroCustoLabel = formatCentroCustoLabel(vaga);
   const modalidadeStr = pick(vaga, "modalidade", "");
   const senioridadeStr = pick(vaga, "senioridade", "");
-  const cidade = pick(vaga, "cidade", "");
-  const uf = pick(vaga, "uf", "");
-  const localStr = [cidade, uf].filter(v => v && v !== "—").join(", ") || "—";
+  const localStr = formatVagaLocal(vaga);
   const tipoContratacao = pick(vaga, "tipoContratacao", "");
   const qtdVagas = pick(vaga, "quantidadeVagas", "1");
   const matchMin = pickNum(vaga, "matchMinimoPercentual", 60);

@@ -5,6 +5,7 @@ using Moq;
 using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Entities;
+using Empresa = RhPortal.Api.Domain.Entities.Empresa;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Tenancy;
@@ -442,5 +443,50 @@ public sealed class VagaServiceOperacoesTests
 
         Assert.NotNull(result);
         Assert.Equal(filtros, result.MatchingFiltrosRaw);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_sem_cidade_na_vaga_herda_da_empresa_do_centro_custo()
+    {
+        var (db, svc) = CriarServico();
+        var empresa = new Empresa
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            Code = "001",
+            Description = "Matriz",
+            Cidade = "Jundiaí",
+            Uf = "SP",
+        };
+        var ccId = Guid.NewGuid();
+        db.Empresas.Add(empresa);
+        db.CentrosCusto.Add(new CentroCusto
+        {
+            Id = ccId,
+            TenantId = TenantTeste,
+            Code = "01.11.023.002",
+            Description = "GESTAO SISTEMAS",
+            EmpresaId = empresa.Id,
+            IsActive = true,
+        });
+        var vagaId = Guid.NewGuid();
+        db.Vagas.Add(new Vaga
+        {
+            Id = vagaId,
+            TenantId = TenantTeste,
+            Titulo = "Analista Infra",
+            Status = VagaStatus.Aberta,
+            CentroCustoId = ccId,
+            Cidade = null,
+            Uf = null,
+            QuantidadeVagas = 1,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.GetByIdAsync(vagaId, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("Jundiaí", result.Cidade);
+        Assert.Equal("SP", result.Uf);
     }
 }
