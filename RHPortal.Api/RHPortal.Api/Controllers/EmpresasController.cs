@@ -288,7 +288,7 @@ public sealed class EmpresasController : ControllerBase
         {
             return UnprocessableEntity(new
             {
-                message = "Não foi possível obter latitude/longitude (Nominatim). Verifique o endereço e se o servidor tem acesso HTTPS a nominatim.openstreetmap.org.",
+                message = "Não foi possível obter latitude/longitude (tentamos Nominatim, Photon e BrasilAPI CEP). Verifique o endereço e se o servidor tem saída HTTPS para nominatim.openstreetmap.org, photon.komoot.io e brasilapi.com.br.",
             });
         }
 
