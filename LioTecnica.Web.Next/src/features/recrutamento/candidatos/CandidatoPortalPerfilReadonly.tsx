@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { apiFetch } from "@/lib/api";
+import {
+  buildCandidatoDocumentoDownloadPath,
+  downloadCandidatoDocumento,
+} from "@/features/recrutamento/candidatos/candidatoDocumentoDownload";
 
 /* ── Types (JSON camelCase from API) ── */
 
@@ -154,41 +157,6 @@ function disp(v: unknown): string {
   if (typeof v === "number" && Number.isFinite(v)) return String(v);
   const s = String(v).trim();
   return s || "—";
-}
-
-/** Mesma convenção que `fetchCandidatoPortalPerfil`: prefixo vazio ou `/app`. */
-function buildCandidatoDocumentoDownloadPath(candidatoId: string, documentoId: string, apiPathPrefix = ""): string {
-  const base = apiPathPrefix.replace(/\/$/, "");
-  const segment = `/api/candidatos/${encodeURIComponent(candidatoId)}/documentos/${encodeURIComponent(documentoId)}/download`;
-  return base ? `${base}${segment}` : segment;
-}
-
-async function downloadCandidatoDocumento(path: string, suggestedName: string): Promise<void> {
-  const res = await apiFetch(path, { method: "GET", headers: { Accept: "*/*" } }, 120_000);
-  if (!res.ok) {
-    const raw = await res.text().catch(() => "");
-    let msg = raw?.trim() || `HTTP ${res.status}`;
-    try {
-      const j = JSON.parse(raw) as Record<string, unknown>;
-      const detail = typeof j.detail === "string" ? j.detail.trim() : "";
-      const m = typeof j.message === "string" ? j.message.trim() : "";
-      const title = typeof j.title === "string" ? j.title.trim() : "";
-      msg = detail || m || title || msg;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(msg);
-  }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = suggestedName.trim() || "documento";
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

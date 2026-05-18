@@ -19,6 +19,11 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { CandidatoPortalPerfilReadonly, type CandidatoPortalPerfilCompleto } from "@/features/recrutamento/candidatos/CandidatoPortalPerfilReadonly";
 import { fetchCandidatoPortalPerfil } from "@/features/recrutamento/candidatos/portalPerfilClient";
+import {
+    buildCandidatoDocumentoDownloadPath,
+    downloadCandidatoDocumento,
+    candidatoDocumentoTemArquivo,
+} from "@/features/recrutamento/candidatos/candidatoDocumentoDownload";
 
 /* ── Types ── */
 
@@ -40,6 +45,9 @@ type DocItem = {
     fileType: string | null;
     uploadedAt: string | null;
     downloadUrl: string | null;
+    /** Download via API autenticada (StorageFileName no servidor). */
+    canDownload: boolean;
+    externalUrl: string | null;
 };
 
 type MatchResult = {
@@ -92,10 +100,13 @@ function mapDocumentosFromCandidatePayload(raw: unknown, candidatoId: string): D
             if (id == null) return null;
             const nome = d.nomeArquivo ?? d.NomeArquivo;
             const urlRaw = d.url ?? d.Url;
-            const downloadUrl =
-                typeof urlRaw === "string" && urlRaw.trim()
-                    ? urlRaw.trim()
-                    : `/api/candidatos/${candidatoId}/documentos/${String(id)}/download`;
+            const urlStr = typeof urlRaw === "string" && urlRaw.trim() ? urlRaw.trim() : "";
+            const canDownload = candidatoDocumentoTemArquivo(d);
+            const downloadUrl = canDownload
+                ? urlStr || `/api/candidatos/${candidatoId}/documentos/${String(id)}/download`
+                : null;
+            const externalUrl =
+                urlStr && /^https?:\/\//i.test(urlStr) ? urlStr : null;
             const created = d.createdAtUtc ?? d.CreatedAtUtc;
             return {
                 id: String(id),
@@ -105,6 +116,8 @@ function mapDocumentosFromCandidatePayload(raw: unknown, candidatoId: string): D
                     : null,
                 uploadedAt: created != null ? String(created) : null,
                 downloadUrl,
+                canDownload,
+                externalUrl,
             };
         })
         .filter((x): x is DocItem => x != null);
@@ -149,6 +162,7 @@ export default function CandidatoDetalhesScreen() {
     const [portalPerfil, setPortalPerfil] = useState<CandidatoPortalPerfilCompleto | null>(null);
     const [portalPerfilLoading, setPortalPerfilLoading] = useState(false);
     const [portalPerfilError, setPortalPerfilError] = useState<string | null>(null);
+    const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
     const iniciarAdmissao = async () => {
         setAdmissaoLoading(true);
@@ -376,13 +390,43 @@ export default function CandidatoDetalhesScreen() {
                                                     )}
                                                 </div>
                                             </div>
-                                            {d.downloadUrl && (
+                                            {d.canDownload ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={downloadingDocId === d.id}
+                                                    onClick={() => {
+                                                        const path = buildCandidatoDocumentoDownloadPath(
+                                                            candidatoId,
+                                                            d.id,
+                                                            "",
+                                                        );
+                                                        void (async () => {
+                                                            setDownloadingDocId(d.id);
+                                                            try {
+                                                                await downloadCandidatoDocumento(path, d.fileName);
+                                                            } catch (e) {
+                                                                toast.error(
+                                                                    e instanceof Error ? e.message : "Falha ao baixar o documento.",
+                                                                );
+                                                            } finally {
+                                                                setDownloadingDocId(null);
+                                                            }
+                                                        })();
+                                                    }}
+                                                >
+                                                    {downloadingDocId === d.id ? (
+                                                        <Loader2 className="size-3.5 animate-spin" />
+                                                    ) : null}
+                                                    Download
+                                                </Button>
+                                            ) : d.externalUrl ? (
                                                 <Button variant="outline" size="sm" asChild>
-                                                    <a href={d.downloadUrl} target="_blank" rel="noopener noreferrer">
-                                                        Download
+                                                    <a href={d.externalUrl} target="_blank" rel="noopener noreferrer">
+                                                        Abrir link
                                                     </a>
                                                 </Button>
-                                            )}
+                                            ) : null}
                                         </div>
                                     ))}
                                 </div>

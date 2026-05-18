@@ -372,11 +372,11 @@ public sealed class CandidatoPortalPerfilReader : ICandidatoPortalPerfilReader
         return new PortalCandidateExperienceProjectResponse(experiences, projects);
     }
 
-    private static PortalCandidateDocumentDto MapDocumentDto(Guid candidatoId, CandidatoDocumento doc)
+    private PortalCandidateDocumentDto MapDocumentDto(Guid candidatoId, CandidatoDocumento doc)
     {
-        var temArquivo = !string.IsNullOrWhiteSpace(doc.StorageFileName);
+        var temArquivo = CandidatoDocumentoStorage.ExistsOnDisk(_hostEnvironment, _tenantContext, candidatoId, doc);
         var link = temArquivo
-            ? $"/api/candidatos/{candidatoId}/documentos/{doc.Id}/download"
+            ? CandidatoDocumentoStorage.BuildRhDownloadUrl(candidatoId, doc.Id)
             : doc.Url;
         return new PortalCandidateDocumentDto(
             doc.Id,

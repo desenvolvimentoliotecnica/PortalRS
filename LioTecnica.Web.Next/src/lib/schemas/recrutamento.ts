@@ -69,6 +69,7 @@ export const DocumentoSchema = z
         url: z.string().optional().nullable(),
         contentType: z.string().optional().nullable(),
         createdAt: z.string().optional().nullable(),
+        temArquivo: z.boolean().optional().nullable(),
     })
     .passthrough();
 
