@@ -24,6 +24,7 @@ import {
     downloadCandidatoDocumento,
     candidatoDocumentoTemArquivo,
 } from "@/features/recrutamento/candidatos/candidatoDocumentoDownload";
+import CandidatoMatchTabPanel from "@/features/recrutamento/candidatos/CandidatoMatchTabPanel";
 
 /* ── Types ── */
 
@@ -50,19 +51,6 @@ type DocItem = {
     externalUrl: string | null;
 };
 
-type MatchResult = {
-    score: number;
-    threshold: number;
-    hitsCount: number;
-    missCount: number;
-    requirements: Array<{
-        keyword: string;
-        found: boolean;
-        weight: number;
-        mandatory: boolean;
-    }>;
-};
-
 /* ── API ── */
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -76,11 +64,6 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 /* ── Helpers ── */
-
-/** Normaliza score para 0-100 independente de o backend retornar 0-1 ou 0-100 */
-function normalizeScore(v: number): number {
-    return Math.round(v > 1 ? v : v * 100);
-}
 
 function asRecord(v: unknown): Record<string, unknown> | null {
     return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -156,8 +139,6 @@ export default function CandidatoDetalhesScreen() {
     const [loading, setLoading] = useState(true);
     const [cand, setCand] = useState<CandidatoDetail | null>(null);
     const [docs, setDocs] = useState<DocItem[]>([]);
-    const [match, setMatch] = useState<MatchResult | null>(null);
-    const [matchLoading, setMatchLoading] = useState(false);
     const [admissaoLoading, setAdmissaoLoading] = useState(false);
     const [portalPerfil, setPortalPerfil] = useState<CandidatoPortalPerfilCompleto | null>(null);
     const [portalPerfilLoading, setPortalPerfilLoading] = useState(false);
@@ -213,16 +194,6 @@ export default function CandidatoDetalhesScreen() {
     }, [candidatoId, vagaId]);
 
     useEffect(() => { void load(); }, [load]);
-
-    /* Load match when tab is selected and vagaId exists */
-    useEffect(() => {
-        if (tab !== "match" || !vagaId || !candidatoId || match) return;
-        setMatchLoading(true);
-        fetchJson<MatchResult>(`/api/vagas/${vagaId}/matching/${candidatoId}`)
-            .then(setMatch)
-            .catch(() => toast.error("Falha ao carregar matching."))
-            .finally(() => setMatchLoading(false));
-    }, [tab, vagaId, candidatoId, match]);
 
     const initials = (cand?.nome ?? "—")
         .split(" ")
@@ -437,60 +408,19 @@ export default function CandidatoDetalhesScreen() {
                     {tab === "match" && (
                         <div>
                             {!vagaId ? (
-                                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                                    Selecione uma vaga no contexto (ex.: abrindo pelo Matching) para ver o score.
-                                </div>
-                            ) : matchLoading ? (
-                                <div className="py-8 text-center">
-                                    <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" />
-                                </div>
-                            ) : match ? (
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="font-bold">Score</div>
-                                            <div className="text-muted-foreground text-sm">baseado em pesos e palavras-chave</div>
-                                        </div>
-                                        <div className="text-2xl font-bold" style={{ color: "rgb(var(--lt-primary))" }}>
-                                            {normalizeScore(match.score)}%
-                                        </div>
-                                    </div>
-                                    <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
-                                        <div
-                                            className="h-full rounded-full transition-all"
-                                            style={{
-                                                width: `${Math.min(100, normalizeScore(match.score))}%`,
-                                                background: "rgb(var(--lt-primary))",
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="text-muted-foreground text-sm">
-                                        Match mínimo: <strong>{normalizeScore(match.threshold)}%</strong>
-                                        {" · "}Encontrados: <strong>{match.hitsCount}</strong>
-                                        {" · "}Obrig. faltando: <strong>{match.missCount}</strong>
-                                    </div>
-                                    {match.requirements.length > 0 && (
-                                        <>
-                                            <div className="font-semibold mt-2">Requisitos (detalhado)</div>
-                                            <div className="space-y-1">
-                                                {match.requirements.map((r, i) => (
-                                                    <div key={i} className="flex items-center gap-2 text-sm">
-                                                        <span className={`size-2 rounded-full ${r.found ? "bg-emerald-500" : "bg-red-500"}`} />
-                                                        <span className={r.found ? "" : "text-red-600"}>
-                                                            {r.keyword}
-                                                            {r.mandatory && " (obrigatório)"}
-                                                        </span>
-                                                        <span className="text-muted-foreground text-xs ml-auto">
-                                                            peso: {r.weight}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
+                                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 space-y-1">
+                                    <p className="font-medium">Vaga não informada na URL</p>
+                                    <p className="text-xs">
+                                        Abra este candidato com o parâmetro{" "}
+                                        <code className="bg-amber-100 px-1 rounded">vagaId</code> na URL (lista filtrada por vaga ou módulo Matching).
+                                    </p>
                                 </div>
                             ) : (
-                                <div className="text-muted-foreground text-sm py-4 text-center">Sem dados de match disponíveis.</div>
+                                <CandidatoMatchTabPanel
+                                    vagaId={vagaId}
+                                    candidatoId={candidatoId}
+                                    cvTexto={cand.cvTexto}
+                                />
                             )}
                         </div>
                     )}
