@@ -289,7 +289,7 @@ public sealed class CandidatoPortalPerfilReader : ICandidatoPortalPerfilReader
             .OrderByDescending(d => d.UpdatedAtUtc)
             .ToListAsync(ct);
 
-        var items = docs.Select(MapDocumentDto).ToList();
+        var items = docs.Select(d => MapDocumentDto(id, d)).ToList();
         return new PortalCandidateDocumentsResponse(items);
     }
 
@@ -372,16 +372,23 @@ public sealed class CandidatoPortalPerfilReader : ICandidatoPortalPerfilReader
         return new PortalCandidateExperienceProjectResponse(experiences, projects);
     }
 
-    private static PortalCandidateDocumentDto MapDocumentDto(CandidatoDocumento doc)
-        => new(
+    private static PortalCandidateDocumentDto MapDocumentDto(Guid candidatoId, CandidatoDocumento doc)
+    {
+        var temArquivo = !string.IsNullOrWhiteSpace(doc.StorageFileName);
+        var link = temArquivo
+            ? $"/api/candidatos/{candidatoId}/documentos/{doc.Id}/download"
+            : doc.Url;
+        return new PortalCandidateDocumentDto(
             doc.Id,
             MapDocumentTypeLabel(doc.Tipo),
             doc.NomeArquivo,
-            doc.Url,
+            link,
             doc.DataReferencia,
             doc.Descricao,
             doc.ArquivoNome,
-            doc.CreatedAtUtc);
+            doc.CreatedAtUtc,
+            temArquivo);
+    }
 
     private static string MapDocumentTypeLabel(CandidateDocumentType tipo)
         => tipo switch

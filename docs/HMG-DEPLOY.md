@@ -69,6 +69,11 @@ O workflow faz login em `ghcr.io` **no servidor** com estes dois últimos secret
 
 5. Opcional: criar `~/rhportal-hmg/` antes do primeiro deploy — o workflow já envia `docker-compose.hmg.yml` para `~/rhportal-hmg/`.
 
+6. **Uploads da API (documentos do portal, CV, inbox):** o serviço `api` monta o volume  
+   `HMG_API_APP_DATA_DIR` (por defeito `/home/administrator/rhportal-hmg/api-app-data`) em `/app/App_Data`.  
+   Sem este volume, cada `docker compose up` apaga os ficheiros no disco do contentor e o download no RH devolve **404**, embora os metadados continuem na base de dados.  
+   Após activar o volume, documentos antigos **sem** ficheiro no host precisam ser reenviados pelo candidato ou pelo RH.
+
 ## Ficheiros usados pelo workflow no servidor
 
 Após cada deploy, em `~/rhportal-hmg/` ficam (entre outros):

@@ -100,6 +100,8 @@ type PortalDocItem = {
   observacoes?: string | null;
   fileName?: string | null;
   createdAtUtc?: string | null;
+  /** Upload com binário no servidor (StorageFileName). */
+  temArquivo?: boolean;
 };
 
 type PortalLgpd = Record<string, string | number | boolean | null | undefined>;
@@ -617,7 +619,7 @@ export function CandidatoPortalPerfilReadonly({
                   <div className="text-muted-foreground">{disp(doc.tipo)} · {disp(doc.data)}</div>
                   {doc.observacoes ? <div className="mt-0.5 whitespace-pre-wrap">{doc.observacoes}</div> : null}
                 </div>
-                {candidatoId?.trim() && doc.id?.trim() ? (
+                {candidatoId?.trim() && doc.id?.trim() && doc.temArquivo ? (
                   <button
                     type="button"
                     disabled={downloadingDocId === doc.id}
@@ -626,10 +628,10 @@ export function CandidatoPortalPerfilReadonly({
                       const cid = candidatoId.trim();
                       const did = doc.id!.trim();
                       const name = (doc.nome ?? doc.fileName ?? "documento").trim() || "documento";
+                      const path = buildCandidatoDocumentoDownloadPath(cid, did, apiPathPrefix);
                       void (async () => {
                         setDownloadingDocId(did);
                         try {
-                          const path = buildCandidatoDocumentoDownloadPath(cid, did, apiPathPrefix);
                           await downloadCandidatoDocumento(path, name);
                         } catch (e) {
                           toast.error(e instanceof Error ? e.message : "Falha ao baixar o documento.");
@@ -646,6 +648,10 @@ export function CandidatoPortalPerfilReadonly({
                   <a href={doc.link.trim()} className="text-[rgb(var(--lt-primary))] hover:underline shrink-0" target="_blank" rel="noopener noreferrer">
                     Abrir link
                   </a>
+                ) : doc.id ? (
+                  <span className="text-muted-foreground text-[10px] shrink-0" title="Registro sem arquivo no servidor (só metadados ou arquivo perdido após deploy)">
+                    Sem arquivo
+                  </span>
                 ) : null}
               </div>
             ))}

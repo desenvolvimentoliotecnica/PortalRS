@@ -28,6 +28,9 @@ services:
       - ${HMG_ENV_FILE:-.env.hmg}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Uploads do portal (CV/documentos), inbox, etc. — sem volume os ficheiros somem a cada deploy.
+    volumes:
+      - ${HMG_API_APP_DATA_DIR:-/home/administrator/rhportal-hmg/api-app-data}:/app/App_Data
     networks:
       - rhportal-net
     healthcheck:
