@@ -154,6 +154,15 @@ export default function EmpresaCadastroScreen() {
     ativos: rows.filter((r) => r.isActive).length,
   }), [rows]);
 
+  const applyGeocodeFromResponse = (saved: Item) => {
+    setDraft((d) => ({
+      ...d,
+      latitude: saved.latitude ?? null,
+      longitude: saved.longitude ?? null,
+      geocodificadoEmUtc: saved.geocodificadoEmUtc ?? null,
+    }));
+  };
+
   const save = async () => {
     if (!draft.code.trim() || !draft.description.trim()) { toast.error("Código e descrição são obrigatórios"); return; }
     try {
@@ -169,17 +178,46 @@ export default function EmpresaCadastroScreen() {
         cidade: draft.cidade.trim() || null,
         uf: draft.uf.trim().toUpperCase() || null,
       };
+      let saved: Item;
       if (draft.id) {
-        await fetchJson(`/api/empresas/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        saved = await fetchJson<Item>(`/api/empresas/${draft.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         toast.success("Empresa atualizada");
       } else {
-        await fetchJson("/api/empresas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        saved = await fetchJson<Item>("/api/empresas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         toast.success("Empresa criada");
+      }
+      applyGeocodeFromResponse(saved);
+      if ((saved.cidade || saved.cep) && saved.latitude == null) {
+        toast.warning(
+          "Endereço salvo, mas latitude/longitude não foram obtidas. Use «Geocodificar agora» ou confira se o servidor acessa nominatim.openstreetmap.org.",
+        );
       }
       setEditOpen(false);
       await syncList();
     } catch { toast.error("Erro ao salvar empresa"); }
     finally { setSaving(false); }
+  };
+
+  const geocodificarAgora = async () => {
+    if (!draft.id) {
+      toast.error("Salve a empresa antes de geocodificar.");
+      return;
+    }
+    if (!draft.cidade.trim() && !draft.cep.trim()) {
+      toast.error("Informe pelo menos cidade ou CEP.");
+      return;
+    }
+    try {
+      setSaving(true);
+      const saved = await fetchJson<Item>(`/api/empresas/${draft.id}/geocodificar`, { method: "POST" });
+      applyGeocodeFromResponse(saved);
+      toast.success(`Geocodificado: ${saved.latitude?.toFixed(6)}, ${saved.longitude?.toFixed(6)}`);
+      await syncList();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao geocodificar");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,9 +255,20 @@ export default function EmpresaCadastroScreen() {
     const existingMap = new Map(rows.map((r) => [r.code.toLowerCase(), r.id]));
     let created = 0, updated = 0, errors = 0;
     for (const row of importRows) {
-      const payload = { code: row.code, description: row.description, isActive: row.isActive };
       try {
         const existingId = existingMap.get(row.code.toLowerCase());
+        const existing = existingId ? rows.find((r) => r.id === existingId) : undefined;
+        const payload = {
+          code: row.code,
+          description: row.description,
+          isActive: row.isActive,
+          cep: existing?.cep ?? null,
+          logradouro: existing?.logradouro ?? null,
+          numero: existing?.numero ?? null,
+          bairro: existing?.bairro ?? null,
+          cidade: existing?.cidade ?? null,
+          uf: existing?.uf ?? null,
+        };
         if (existingId) {
           await fetchJson(`/api/empresas/${existingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); updated++;
         } else {
@@ -427,14 +476,19 @@ export default function EmpresaCadastroScreen() {
             )}
             {draft.latitude == null && (draft.cep || draft.cidade) && (
               <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded p-2">
-                Endereço será geocodificado ao salvar (Nominatim/OpenStreetMap, best-effort).
+                Sem coordenadas. Ao salvar tentamos Nominatim (OpenStreetMap). Se continuar vazio, use «Geocodificar agora» — comum em dados vindos de SQL/importação ou quando o servidor não alcança o Nominatim.
               </div>
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button onClick={save} disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button>
+            {draft.id && (draft.cep || draft.cidade) && draft.latitude == null && (
+              <Button type="button" variant="secondary" onClick={() => void geocodificarAgora()} disabled={saving}>
+                Geocodificar agora
+              </Button>
+            )}
+            <Button onClick={() => void save()} disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

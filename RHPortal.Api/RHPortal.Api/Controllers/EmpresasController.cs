@@ -17,6 +17,8 @@ namespace RhPortal.Api.Controllers;
 [Route("api/empresas")]
 public sealed class EmpresasController : ControllerBase
 {
+    private const int NominatimMinIntervalMs = 1100;
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static string? NullIfBlank(string? s)
@@ -41,15 +43,16 @@ public sealed class EmpresasController : ControllerBase
         string? bairro,
         string? cidade,
         string? uf,
+        bool preserveExistingAddressWhenNull,
         IGeocodingService geocoding,
         CancellationToken ct)
     {
-        var novoCep = NullIfBlank(cep);
-        var novoLog = NullIfBlank(logradouro);
-        var novoNum = NullIfBlank(numero);
-        var novoBai = NullIfBlank(bairro);
-        var novaCid = NullIfBlank(cidade);
-        var novaUf = NullIfBlank(uf);
+        var novoCep = CoalesceAddressField(cep, entity.Cep, preserveExistingAddressWhenNull);
+        var novoLog = CoalesceAddressField(logradouro, entity.Logradouro, preserveExistingAddressWhenNull);
+        var novoNum = CoalesceAddressField(numero, entity.Numero, preserveExistingAddressWhenNull);
+        var novoBai = CoalesceAddressField(bairro, entity.Bairro, preserveExistingAddressWhenNull);
+        var novaCid = CoalesceAddressField(cidade, entity.Cidade, preserveExistingAddressWhenNull);
+        var novaUf = CoalesceAddressField(uf, entity.Uf, preserveExistingAddressWhenNull);
 
         var enderecoMudou =
             entity.Cep != novoCep ||
@@ -66,24 +69,52 @@ public sealed class EmpresasController : ControllerBase
         entity.Cidade = novaCid;
         entity.Uf = novaUf;
 
-        // Geocodifica se o endereço mudou ou se nunca foi geocodificado e há dados úteis
-        if (enderecoMudou || (entity.Latitude is null && (novoCep != null || novaCid != null)))
+        var precisaGeocodificar =
+            enderecoMudou ||
+            (entity.Latitude is null && (novoCep != null || novaCid != null));
+
+        if (!precisaGeocodificar)
+            return;
+
+        await TryGeocodificarEmpresaAsync(entity, geocoding, limparCoordsSeFalhar: enderecoMudou, ct);
+    }
+
+    private static string? CoalesceAddressField(string? incoming, string? existing, bool preserveWhenNull)
+    {
+        var parsed = NullIfBlank(incoming);
+        if (parsed is not null)
+            return parsed;
+        return preserveWhenNull ? NullIfBlank(existing) : null;
+    }
+
+    private static async Task<bool> TryGeocodificarEmpresaAsync(
+        Empresa entity,
+        IGeocodingService geocoding,
+        bool limparCoordsSeFalhar,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(entity.Cep) && string.IsNullOrWhiteSpace(entity.Cidade))
+            return false;
+
+        var result = await geocoding.GeocodeAsync(
+            entity.Cep, entity.Logradouro, entity.Numero, entity.Cidade, entity.Uf, ct);
+
+        if (result is not null)
         {
-            var result = await geocoding.GeocodeAsync(novoCep, novoLog, novoNum, novaCid, novaUf, ct);
-            if (result is not null)
-            {
-                entity.Latitude = result.Latitude;
-                entity.Longitude = result.Longitude;
-                entity.GeocodificadoEmUtc = DateTimeOffset.UtcNow;
-            }
-            else if (enderecoMudou)
-            {
-                // Endereço mudou mas geocoding falhou — limpa coords antigas pra não usar valor errado
-                entity.Latitude = null;
-                entity.Longitude = null;
-                entity.GeocodificadoEmUtc = null;
-            }
+            entity.Latitude = result.Latitude;
+            entity.Longitude = result.Longitude;
+            entity.GeocodificadoEmUtc = DateTimeOffset.UtcNow;
+            return true;
         }
+
+        if (limparCoordsSeFalhar)
+        {
+            entity.Latitude = null;
+            entity.Longitude = null;
+            entity.GeocodificadoEmUtc = null;
+        }
+
+        return false;
     }
 
     // ── CRUD ─────────────────────────────────────────────────────────────────
@@ -184,7 +215,8 @@ public sealed class EmpresasController : ControllerBase
 
         await ApplyEnderecoEGeocodificarAsync(
             entity, request.Cep, request.Logradouro, request.Numero,
-            request.Bairro, request.Cidade, request.Uf, geocoding, ct);
+            request.Bairro, request.Cidade, request.Uf,
+            preserveExistingAddressWhenNull: false, geocoding, ct);
 
         db.Empresas.Add(entity);
         await db.SaveChangesAsync(ct);
@@ -217,11 +249,98 @@ public sealed class EmpresasController : ControllerBase
 
         await ApplyEnderecoEGeocodificarAsync(
             entity, request.Cep, request.Logradouro, request.Numero,
-            request.Bairro, request.Cidade, request.Uf, geocoding, ct);
+            request.Bairro, request.Cidade, request.Uf,
+            preserveExistingAddressWhenNull: true, geocoding, ct);
 
         await db.SaveChangesAsync(ct);
 
         return Ok(MapToResponse(entity));
+    }
+
+    /// <summary>
+    /// Força geocodificação (Nominatim) a partir do endereço já salvo na empresa.
+    /// Útil para registros criados via SQL/importação ou quando o ambiente bloqueou
+    /// a chamada externa no momento do save.
+    /// </summary>
+    [HttpPost("{id:guid}/geocodificar")]
+    [ProducesResponseType(typeof(EmpresaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<EmpresaResponse>> Geocodificar(
+        [FromRoute] Guid id,
+        [FromServices] AppDbContext db,
+        [FromServices] IGeocodingService geocoding,
+        CancellationToken ct)
+    {
+        var entity = await db.Empresas.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (entity is null) return NotFound();
+
+        if (string.IsNullOrWhiteSpace(entity.Cep) && string.IsNullOrWhiteSpace(entity.Cidade))
+        {
+            return UnprocessableEntity(new
+            {
+                message = "Empresa sem CEP ou cidade. Preencha o endereço antes de geocodificar.",
+            });
+        }
+
+        var ok = await TryGeocodificarEmpresaAsync(entity, geocoding, limparCoordsSeFalhar: false, ct);
+        if (!ok)
+        {
+            return UnprocessableEntity(new
+            {
+                message = "Não foi possível obter latitude/longitude (Nominatim). Verifique o endereço e se o servidor tem acesso HTTPS a nominatim.openstreetmap.org.",
+            });
+        }
+
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Ok(MapToResponse(entity));
+    }
+
+    /// <summary>
+    /// Geocodifica empresas ativas que têm cidade/CEP mas ainda não têm coordenadas.
+    /// Respeita rate limit do Nominatim (~1 req/s).
+    /// </summary>
+    [HttpPost("geocodificar-pendentes")]
+    [ProducesResponseType(typeof(EmpresaGeocodificarPendentesResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EmpresaGeocodificarPendentesResponse>> GeocodificarPendentes(
+        [FromServices] AppDbContext db,
+        [FromServices] IGeocodingService geocoding,
+        CancellationToken ct,
+        [FromQuery] int take = 50)
+    {
+        take = Math.Clamp(take, 1, 200);
+
+        var pendentes = await db.Empresas
+            .Where(e => e.IsActive && e.Latitude == null && (e.Cidade != null || e.Cep != null))
+            .OrderBy(e => e.Code)
+            .Take(take)
+            .ToListAsync(ct);
+
+        var geocodificadas = 0;
+        var falhas = 0;
+
+        for (var i = 0; i < pendentes.Count; i++)
+        {
+            if (i > 0)
+                await Task.Delay(NominatimMinIntervalMs, ct);
+
+            var entity = pendentes[i];
+            if (await TryGeocodificarEmpresaAsync(entity, geocoding, limparCoordsSeFalhar: false, ct))
+            {
+                entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                geocodificadas++;
+            }
+            else
+            {
+                falhas++;
+            }
+        }
+
+        if (geocodificadas > 0)
+            await db.SaveChangesAsync(ct);
+
+        return Ok(new EmpresaGeocodificarPendentesResponse(pendentes.Count, geocodificadas, falhas));
     }
 
     [HttpDelete("{id:guid}")]

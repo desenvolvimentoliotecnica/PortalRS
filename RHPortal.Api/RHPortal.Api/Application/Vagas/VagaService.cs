@@ -127,7 +127,8 @@ public sealed class VagaService : IVagaService
                 v.Modalidade, v.Senioridade, v.QuantidadeVagas, v.MatchMinimoPercentual,
                 v.Confidencial, v.Urgente, v.AceitaPcd,
                 v.DataInicio, v.DataEncerramento, v.DataAbertura, v.SlaDiasMetaFechamento,
-                v.Cidade, v.Uf,
+                Cidade = v.Cidade ?? (v.CentroCusto != null && v.CentroCusto.Empresa != null ? v.CentroCusto.Empresa.Cidade : null),
+                Uf = v.Uf ?? (v.CentroCusto != null && v.CentroCusto.Empresa != null ? v.CentroCusto.Empresa.Uf : null),
                 RequisitosTotal = v.Requisitos.Count(),
                 RequisitosObrigatorios = v.Requisitos.Count(r => r.Obrigatorio),
                 v.CreatedAtUtc, v.UpdatedAtUtc,
@@ -267,6 +268,7 @@ public sealed class VagaService : IVagaService
             .Include(x => x.JobPosition)
             .Include(x => x.CategoriaSalarial)
             .Include(x => x.CentroCusto)
+                .ThenInclude(c => c!.Empresa)
             .Include(x => x.Turno)
             .Include(x => x.UnidadeLotacao)
             .Include(x => x.EixoVaga)
@@ -391,7 +393,7 @@ public sealed class VagaService : IVagaService
             }
         }
 
-        return response;
+        return await ApplyLocalidadeFallbackAsync(response, entity, ct);
     }
 
     public async Task<VagaResponse> CreateAsync(VagaCreateRequest request, CancellationToken ct)
@@ -1575,6 +1577,56 @@ public sealed class VagaService : IVagaService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         return items.Length == 0 ? Array.Empty<string>() : items;
+    }
+
+    /// <summary>
+    /// Exibe cidade/UF da vaga quando preenchidos; senão herda da <see cref="Empresa"/>
+    /// vinculada ao <see cref="CentroCusto"/> (mesma origem do matching Haversine).
+    /// </summary>
+    private async Task<VagaResponse> ApplyLocalidadeFallbackAsync(
+        VagaResponse response,
+        Vaga entity,
+        CancellationToken ct)
+    {
+        var cidade = CoalesceNonEmpty(response.Cidade, entity.Cidade, entity.CentroCusto?.Empresa?.Cidade);
+        var uf = CoalesceNonEmpty(response.Uf, entity.Uf, entity.CentroCusto?.Empresa?.Uf);
+
+        if (string.IsNullOrWhiteSpace(cidade) && string.IsNullOrWhiteSpace(uf))
+        {
+            var ccId = response.CentroCustoId ?? entity.CentroCustoId;
+            if (ccId.HasValue)
+            {
+                var fromCc = await _db.CentrosCusto
+                    .AsNoTracking()
+                    .Where(c => c.Id == ccId.Value)
+                    .Select(c => new
+                    {
+                        EmpCidade = c.Empresa != null ? c.Empresa.Cidade : null,
+                        EmpUf = c.Empresa != null ? c.Empresa.Uf : null,
+                    })
+                    .FirstOrDefaultAsync(ct);
+                if (fromCc is not null)
+                {
+                    cidade = CoalesceNonEmpty(fromCc.EmpCidade);
+                    uf = CoalesceNonEmpty(fromCc.EmpUf);
+                }
+            }
+        }
+
+        if (cidade == response.Cidade && uf == response.Uf)
+            return response;
+
+        return response with { Cidade = cidade, Uf = uf };
+    }
+
+    private static string? CoalesceNonEmpty(params string?[] values)
+    {
+        foreach (var v in values)
+        {
+            if (!string.IsNullOrWhiteSpace(v))
+                return v.Trim();
+        }
+        return null;
     }
 
     // ── Sprint P1: VagasDataScope enforcement ──

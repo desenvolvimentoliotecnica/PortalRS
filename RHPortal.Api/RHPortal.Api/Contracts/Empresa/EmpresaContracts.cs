@@ -52,3 +52,8 @@ public sealed record EmpresaLookupItem(
     string Description,
     string DisplayLabel
 );
+
+public sealed record EmpresaGeocodificarPendentesResponse(
+    int Total,
+    int Geocodificadas,
+    int Falhas);
