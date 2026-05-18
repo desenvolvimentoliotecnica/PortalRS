@@ -8,7 +8,9 @@ public sealed record PortalCandidateDocumentDto(
     string? Data,
     string? Observacoes,
     string? FileName,
-    DateTimeOffset CreatedAtUtc
+    DateTimeOffset CreatedAtUtc,
+    /// <summary>True quando o binário foi enviado (upload) e pode ser baixado pela API de candidatos.</summary>
+    bool TemArquivo = false
 );
 
 public sealed record PortalCandidateDocumentsResponse(

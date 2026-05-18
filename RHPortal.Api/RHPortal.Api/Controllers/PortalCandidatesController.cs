@@ -1356,12 +1356,12 @@ public sealed class PortalCandidatesController : ControllerBase
                 created.Id,
                 MapDocumentTypeLabel(created.Tipo),
                 created.NomeArquivo,
-                created.Url,
+                $"/api/candidatos/{id}/documentos/{created.Id}/download",
                 null,
                 created.Descricao,
                 created.NomeArquivo,
-                created.CreatedAtUtc
-            ));
+                created.CreatedAtUtc,
+                TemArquivo: true));
         }
         catch (InvalidOperationException ex)
         {
@@ -2685,16 +2685,20 @@ public sealed class PortalCandidatesController : ControllerBase
 
     private static PortalCandidateDocumentDto MapDocumentDto(CandidatoDocumento doc)
     {
+        var temArquivo = !string.IsNullOrWhiteSpace(doc.StorageFileName);
+        var link = temArquivo
+            ? $"/api/candidatos/{doc.CandidatoId}/documentos/{doc.Id}/download"
+            : doc.Url;
         return new PortalCandidateDocumentDto(
             doc.Id,
             MapDocumentTypeLabel(doc.Tipo),
             doc.NomeArquivo,
-            doc.Url,
+            link,
             doc.DataReferencia,
             doc.Descricao,
             doc.ArquivoNome,
-            doc.CreatedAtUtc
-        );
+            doc.CreatedAtUtc,
+            temArquivo);
     }
 
     private async Task<bool> CandidateExistsAsync(AppDbContext db, Guid id, CancellationToken ct)

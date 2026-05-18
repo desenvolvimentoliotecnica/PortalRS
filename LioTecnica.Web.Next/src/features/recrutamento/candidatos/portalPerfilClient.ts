@@ -199,6 +199,7 @@ function normalizePortalDocuments(raw: unknown): CandidatoPortalPerfilCompleto["
   const items = Array.isArray(itemsRaw)
     ? itemsRaw.map((row) => {
         const x = asRecord(row) ?? {};
+        const temArquivoRaw = pick(x, "temArquivo", "TemArquivo");
         return {
           id: pick(x, "id", "Id") != null ? String(pick(x, "id", "Id")) : undefined,
           tipo: (pick(x, "tipo", "Tipo") as string | null | undefined) ?? null,
@@ -208,6 +209,7 @@ function normalizePortalDocuments(raw: unknown): CandidatoPortalPerfilCompleto["
           observacoes: (pick(x, "observacoes", "Observacoes") as string | null | undefined) ?? null,
           fileName: (pick(x, "fileName", "FileName") as string | null | undefined) ?? null,
           createdAtUtc: (pick(x, "createdAtUtc", "CreatedAtUtc") as string | null | undefined) ?? null,
+          temArquivo: temArquivoRaw === true || temArquivoRaw === "true",
         };
       })
     : [];
