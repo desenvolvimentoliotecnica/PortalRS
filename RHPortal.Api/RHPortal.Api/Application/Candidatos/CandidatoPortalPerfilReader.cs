@@ -36,34 +36,19 @@ public sealed class CandidatoPortalPerfilReader : ICandidatoPortalPerfilReader
         if (!await _db.Candidatos.AnyAsync(c => c.Id == candidatoId, ct))
             return null;
 
-        var perfilTask = LoadPerfilBasicoAsync(candidatoId, ct);
-        var skillsTask = LoadSkillsPortfolioAsync(candidatoId, ct);
-        var educationTask = LoadEducationAsync(candidatoId, ct);
-        var preferencesTask = LoadPreferencesAsync(candidatoId, ct);
-        var accessibilityTask = LoadAccessibilityAsync(candidatoId, ct);
-        var agendaTask = LoadAgendaAsync(candidatoId, ct);
-        var notificationsTask = LoadNotificationsAsync(candidatoId, ct);
-        var documentsTask = LoadPortalDocumentsAsync(candidatoId, ct);
-        var lgpdTask = LoadLgpdAsync(candidatoId, ct);
-        var referencesTask = LoadReferencesAsync(candidatoId, ct);
-        var experienceTask = LoadExperienceProjectsAsync(candidatoId, ct);
-
-        await Task.WhenAll(
-            perfilTask, skillsTask, educationTask, preferencesTask, accessibilityTask,
-            agendaTask, notificationsTask, documentsTask, lgpdTask, referencesTask, experienceTask);
-
+        // DbContext não suporta operações concorrentes na mesma instância — carregar em sequência.
         return new CandidatoPortalPerfilCompletoResponse(
-            await perfilTask,
-            await skillsTask,
-            await educationTask,
-            await preferencesTask,
-            await accessibilityTask,
-            await agendaTask,
-            await notificationsTask,
-            await documentsTask,
-            await lgpdTask,
-            await referencesTask,
-            await experienceTask);
+            await LoadPerfilBasicoAsync(candidatoId, ct),
+            await LoadSkillsPortfolioAsync(candidatoId, ct),
+            await LoadEducationAsync(candidatoId, ct),
+            await LoadPreferencesAsync(candidatoId, ct),
+            await LoadAccessibilityAsync(candidatoId, ct),
+            await LoadAgendaAsync(candidatoId, ct),
+            await LoadNotificationsAsync(candidatoId, ct),
+            await LoadPortalDocumentsAsync(candidatoId, ct),
+            await LoadLgpdAsync(candidatoId, ct),
+            await LoadReferencesAsync(candidatoId, ct),
+            await LoadExperienceProjectsAsync(candidatoId, ct));
     }
 
     private async Task<PortalCandidateProfileResponse> LoadPerfilBasicoAsync(Guid id, CancellationToken ct)
