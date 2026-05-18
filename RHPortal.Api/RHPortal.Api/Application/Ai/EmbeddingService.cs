@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Pgvector;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Domain.Entities;
@@ -17,32 +16,24 @@ using RhPortal.Api.Infrastructure.Tenancy;
 namespace RhPortal.Api.Application.Ai;
 
 /// <summary>
-/// Implementação do <see cref="IEmbeddingService"/>: gera embeddings via
-/// <see cref="IOllamaClient"/> e persiste em <c>DescricaoCargoItemEmbeddings</c>
-/// e <c>CandidatoEmbeddings</c>. Idempotente: SHA256 do texto-fonte é comparado
-/// antes de regerar.
-///
-/// <para>Falhas de rede/Ollama são tratadas com try/log — nunca lança; o chamador
-/// pode continuar operando com fallback léxico.</para>
+/// Indexa embeddings em <c>DescricaoCargoItemEmbeddings</c> e <c>CandidatoEmbeddings</c>
+/// via <see cref="ITenantEmbeddingGenerator"/> (Gemini ou Ollama conforme tenant).
 /// </summary>
 public sealed class EmbeddingService : IEmbeddingService
 {
     private readonly AppDbContext _db;
-    private readonly IOllamaClient _ollama;
-    private readonly OllamaOptions _ollamaOptions;
+    private readonly ITenantEmbeddingGenerator _embeddingGenerator;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<EmbeddingService> _logger;
 
     public EmbeddingService(
         AppDbContext db,
-        IOllamaClient ollama,
-        IOptions<AiOptions> aiOptions,
+        ITenantEmbeddingGenerator embeddingGenerator,
         ITenantContext tenantContext,
         ILogger<EmbeddingService> logger)
     {
         _db = db;
-        _ollama = ollama;
-        _ollamaOptions = aiOptions.Value.Ollama;
+        _embeddingGenerator = embeddingGenerator;
         _tenantContext = tenantContext;
         _logger = logger;
     }
@@ -55,27 +46,24 @@ public sealed class EmbeddingService : IEmbeddingService
             .FirstOrDefaultAsync(x => x.Id == descricaoCargoItemId, ct);
         if (item is null) return false;
 
-        // Texto-fonte: texto do item + subcategoria (se houver) — contexto suficiente
-        // para embedding semântico sem inflar prompt.
         var source = BuildItemSourceText(item);
-        var hash = ComputeHash(source);
 
         var existing = await _db.DescricaoCargoItemEmbeddings
             .FirstOrDefaultAsync(e => e.DescricaoCargoItemId == descricaoCargoItemId, ct);
 
+        var generated = await _embeddingGenerator.GenerateAsync(source, ct);
+        if (generated is null)
+        {
+            _logger.LogWarning("Embedding vazio para item {ItemId}", descricaoCargoItemId);
+            return false;
+        }
+
         if (!force
             && existing is not null
             && existing.Embedding is not null
-            && existing.ModelVersion == _ollamaOptions.EmbeddingModel
+            && existing.ModelVersion == generated.ModelVersion
             && string.Equals(existing.TextoSource, source, StringComparison.Ordinal))
         {
-            return false; // já atualizado
-        }
-
-        var vector = await _ollama.EmbedAsync(source, ct);
-        if (vector is null)
-        {
-            _logger.LogWarning("Embedding vazio para item {ItemId} — Ollama indisponível?", descricaoCargoItemId);
             return false;
         }
 
@@ -87,9 +75,9 @@ public sealed class EmbeddingService : IEmbeddingService
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 DescricaoCargoItemId = descricaoCargoItemId,
-                ModelVersion = _ollamaOptions.EmbeddingModel,
-                Dimensions = vector.Length,
-                Embedding = new Vector(vector),
+                ModelVersion = generated.ModelVersion,
+                Dimensions = generated.Vector.Length,
+                Embedding = new Vector(generated.Vector),
                 TextoSource = Truncate(source, 4000),
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now,
@@ -97,9 +85,9 @@ public sealed class EmbeddingService : IEmbeddingService
         }
         else
         {
-            existing.Embedding = new Vector(vector);
-            existing.ModelVersion = _ollamaOptions.EmbeddingModel;
-            existing.Dimensions = vector.Length;
+            existing.Embedding = new Vector(generated.Vector);
+            existing.ModelVersion = generated.ModelVersion;
+            existing.Dimensions = generated.Vector.Length;
             existing.TextoSource = Truncate(source, 4000);
             existing.UpdatedAtUtc = now;
         }
@@ -145,19 +133,19 @@ public sealed class EmbeddingService : IEmbeddingService
         var existing = await _db.CandidatoEmbeddings
             .FirstOrDefaultAsync(e => e.CandidatoId == candidatoId, ct);
 
-        if (!force
-            && existing is not null
-            && existing.Embedding is not null
-            && existing.ModelVersion == _ollamaOptions.EmbeddingModel
-            && existing.ConteudoHash == hash)
+        var generated = await _embeddingGenerator.GenerateAsync(source, ct);
+        if (generated is null)
         {
+            _logger.LogWarning("Embedding vazio para candidato {CandidatoId}", candidatoId);
             return false;
         }
 
-        var vector = await _ollama.EmbedAsync(source, ct);
-        if (vector is null)
+        if (!force
+            && existing is not null
+            && existing.Embedding is not null
+            && existing.ModelVersion == generated.ModelVersion
+            && existing.ConteudoHash == hash)
         {
-            _logger.LogWarning("Embedding vazio para candidato {CandidatoId}", candidatoId);
             return false;
         }
 
@@ -169,9 +157,9 @@ public sealed class EmbeddingService : IEmbeddingService
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 CandidatoId = candidatoId,
-                ModelVersion = _ollamaOptions.EmbeddingModel,
-                Dimensions = vector.Length,
-                Embedding = new Vector(vector),
+                ModelVersion = generated.ModelVersion,
+                Dimensions = generated.Vector.Length,
+                Embedding = new Vector(generated.Vector),
                 TextoSource = Truncate(source, 8000),
                 ConteudoHash = hash,
                 CreatedAtUtc = now,
@@ -180,9 +168,9 @@ public sealed class EmbeddingService : IEmbeddingService
         }
         else
         {
-            existing.Embedding = new Vector(vector);
-            existing.ModelVersion = _ollamaOptions.EmbeddingModel;
-            existing.Dimensions = vector.Length;
+            existing.Embedding = new Vector(generated.Vector);
+            existing.ModelVersion = generated.ModelVersion;
+            existing.Dimensions = generated.Vector.Length;
             existing.TextoSource = Truncate(source, 8000);
             existing.ConteudoHash = hash;
             existing.UpdatedAtUtc = now;
@@ -230,12 +218,6 @@ public sealed class EmbeddingService : IEmbeddingService
         return new IndexingStats(itens, cands, skipped, falhas);
     }
 
-    // ── helpers ────────────────────────────────────────────────────────────
-    /// <summary>
-    /// Constrói o texto-fonte usado para gerar o embedding de um item DNALIO.
-    /// Inclui categoria e subcategoria para dar contexto ao embedder (melhora
-    /// qualidade da similaridade com CV).
-    /// </summary>
     internal static string BuildItemSourceText(DescricaoCargoItem item)
     {
         var sb = new StringBuilder();
@@ -246,10 +228,6 @@ public sealed class EmbeddingService : IEmbeddingService
         return sb.ToString().Trim();
     }
 
-    /// <summary>
-    /// Constrói o texto-fonte do candidato concatenando CV + resumo + competências.
-    /// Passa por expansão de sinônimos para alinhar vocabulário com template DNALIO.
-    /// </summary>
     internal static string BuildCandidatoSourceText(Candidato candidato, IReadOnlyList<string> competencias)
     {
         var raw = MatchingService.BuildCandidateProfileText(

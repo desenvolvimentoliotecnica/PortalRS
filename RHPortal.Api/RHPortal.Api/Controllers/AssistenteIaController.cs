@@ -32,9 +32,12 @@ public sealed class AssistenteIaController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Health(
         [FromServices] IOllamaClient ollama,
+        [FromServices] ITenantAiSettingsResolver tenantAi,
         CancellationToken ct)
     {
         var h = await ollama.CheckHealthAsync(ct);
+        var tenant = await tenantAi.GetCurrentAsync(ct);
+        var embProvider = tenant?.EmbeddingProvider ?? tenant?.LlmProvider ?? "gemini";
         return Ok(new
         {
             ollama = new
@@ -43,6 +46,12 @@ public sealed class AssistenteIaController : ControllerBase
                 hasChatModel = h.HasChatModel,
                 hasEmbeddingModel = h.HasEmbeddingModel,
                 error = h.ErrorMessage,
+            },
+            embedding = new
+            {
+                provider = embProvider,
+                model = tenant?.EmbeddingModel,
+                usesCloudGemini = string.Equals(embProvider, "gemini", StringComparison.OrdinalIgnoreCase),
             }
         });
     }

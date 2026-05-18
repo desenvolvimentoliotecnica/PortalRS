@@ -356,7 +356,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 
     private string DefaultEmbeddingModelFor(string provider) => provider switch
     {
-        "gemini" => "models/gemini-embedding-001",
+        "gemini" => "gemini-embedding-001",
         "ollama" => _aiOptions.Ollama?.EmbeddingModel ?? "bge-m3",
         // Anthropic não fornece embeddings — cai em OpenAI no fallback do factory Python
         _ => "text-embedding-3-small",
