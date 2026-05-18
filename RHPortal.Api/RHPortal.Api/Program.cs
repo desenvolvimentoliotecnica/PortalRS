@@ -592,6 +592,7 @@ builder.Services.AddHttpClient<RhPortal.Api.Application.Ai.IOllamaClient, RhPort
         http.BaseAddress = new Uri(opts.Endpoint);
     http.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
 });
+builder.Services.AddScoped<RhPortal.Api.Application.Ai.ITenantEmbeddingGenerator, RhPortal.Api.Application.Ai.TenantEmbeddingGenerator>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IEmbeddingService, RhPortal.Api.Application.Ai.EmbeddingService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IVectorSearchService, RhPortal.Api.Application.Ai.VectorSearchService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Matching.HybridMatchingService>();

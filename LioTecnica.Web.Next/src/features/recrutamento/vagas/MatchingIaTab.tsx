@@ -59,20 +59,47 @@ export interface MatchingIaTabProps {
 
 type SortCol = "score" | "nome" | "distancia";
 
+async function parseMatchApiError(res: Response): Promise<string> {
+    const raw = await res.text().catch(() => "");
+    if (!raw.trim()) return `HTTP ${res.status}`;
+    try {
+        const j = JSON.parse(raw) as Record<string, unknown>;
+        const m = j.message ?? j.title ?? j.detail;
+        if (typeof m === "string" && m.trim()) return m.trim();
+    } catch {
+        /* ignore */
+    }
+    return raw.length > 200 ? `${raw.slice(0, 200)}…` : raw.trim();
+}
+
 export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }: MatchingIaTabProps) {
     const [scores, setScores] = useState<Record<string, BreakdownRow>>({});
     const [loadingAll, setLoadingAll] = useState(false);
     const [reindexando, setReindexando] = useState(false);
     const [ollamaUp, setOllamaUp] = useState<boolean | null>(null);
+    const [tenantLlmLabel, setTenantLlmLabel] = useState<string | null>(null);
     const [sortCol, setSortCol] = useState<SortCol>("score");
     const breakdownDialog = useMatchingBreakdownDialog();
     const llmDialog = useLlmMatchingDialog();
 
-    // Checa health do Ollama uma vez (não bloqueia UI — info passiva)
+    // Health: Ollama legado + provider de embeddings do tenant
     useEffect(() => {
         AssistenteIaApi.health()
-            .then((h) => setOllamaUp(!!h.ollama?.reachable))
+            .then((h) => {
+                const emb = h as { embedding?: { usesCloudGemini?: boolean }; ollama?: { reachable?: boolean } };
+                if (emb.embedding?.usesCloudGemini) setOllamaUp(true);
+                else setOllamaUp(!!emb.ollama?.reachable);
+            })
             .catch(() => setOllamaUp(false));
+        apiFetch("/api/tenant-configuracao/ai")
+            .then(async (res) => {
+                if (!res.ok) return;
+                const dto = (await res.json()) as { effectiveLlmProvider?: string; effectiveLlmModel?: string };
+                const p = dto.effectiveLlmProvider ?? "?";
+                const m = dto.effectiveLlmModel ? ` (${dto.effectiveLlmModel})` : "";
+                setTenantLlmLabel(`${p}${m}`);
+            })
+            .catch(() => setTenantLlmLabel(null));
     }, []);
 
     const loadAllScores = useCallback(async () => {
@@ -100,7 +127,7 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                         { cache: "no-store" },
                         MATCHING_FETCH_TIMEOUT_MS,
                     );
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    if (!res.ok) throw new Error(await parseMatchApiError(res));
                     const data = (await res.json()) as {
                         scoreFinal: number;
                         scoreLexico: number | null;
@@ -113,6 +140,7 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                     setScores((prev) => ({
                         ...prev,
                         [c.id]: {
+                            loading: false,
                             scoreFinal: data.scoreFinal,
                             scoreLexico: data.scoreLexico,
                             scoreSemantico: data.scoreSemantico,
@@ -123,9 +151,11 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                         },
                     }));
                 } catch (err) {
+                    const msg = err instanceof Error ? err.message : "Falha ao calcular match";
+                    toast.error(`${c.nome}: ${msg}`, { duration: 8000 });
                     setScores((prev) => ({
                         ...prev,
-                        [c.id]: { ...prev[c.id], loading: false, error: (err as Error).message, scoreFinal: 0, scoreLexico: null, scoreSemantico: null, distanciaKm: null, modo: "lexical", passou: false, reqsFaltando: 0 },
+                        [c.id]: { ...prev[c.id], loading: false, error: msg, scoreFinal: 0, scoreLexico: null, scoreSemantico: null, distanciaKm: null, modo: "lexical", passou: false, reqsFaltando: 0 },
                     }));
                 }
             }
@@ -205,10 +235,13 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                     <div>
                         <div className="font-semibold text-sm">Matching por IA</div>
                         <div className="text-xs text-muted-foreground">
-                            {candidates.length} candidato(s) • Ollama:{" "}
-                            {ollamaUp === null && <span className="text-muted-foreground">verificando…</span>}
-                            {ollamaUp === true && <span className="text-emerald-600">online</span>}
-                            {ollamaUp === false && <span className="text-red-600">offline (fallback léxico)</span>}
+                            <div>{candidates.length} candidato(s) • Análise IA: <span className="text-foreground/80">{tenantLlmLabel ?? "…"}</span>
+                            </div>
+                            <div>Embeddings (score híbrido): Gemini (nuvem) —{" "}
+                            {ollamaUp === null && <span>verificando…</span>}
+                            {ollamaUp === true && <span className="text-emerald-600">disponível</span>}
+                            {ollamaUp === false && <span className="text-red-600">indisponível (só léxico)</span>}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -256,7 +289,15 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                                         {bd?.loading ? (
                                             <Loader2 className="inline size-4 animate-spin text-muted-foreground" />
                                         ) : bd?.error ? (
-                                            <span className="text-red-600 text-xs">erro</span>
+                                            <span
+                                                className="text-red-600 text-xs block max-w-[140px] mx-auto cursor-help underline decoration-dotted"
+                                                title={bd.error}
+                                            >
+                                                erro
+                                                <span className="block text-[10px] font-normal text-red-600/80 line-clamp-2 mt-0.5 no-underline">
+                                                    {bd.error}
+                                                </span>
+                                            </span>
                                         ) : (
                                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${scoreBadge(bd?.scoreFinal ?? 0)}`}>
                                                 {bd?.scoreFinal ?? 0}%
