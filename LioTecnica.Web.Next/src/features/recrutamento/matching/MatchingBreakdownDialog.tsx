@@ -96,15 +96,15 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
         const res = await apiFetch(endpoint, { cache: "no-store" }, MATCHING_FETCH_TIMEOUT_MS);
         if (!res.ok) {
           if (res.status === 404) {
-            const body = await res.json().catch(() => ({ message: "Sem breakdown disponível" }));
-            throw new Error(body?.message ?? "Vaga sem Descrição de Cargo vinculada — atribua um template DNALIO para ver o breakdown.");
+            const body = await res.json().catch(() => ({ message: "Sem detalhes disponíveis" }));
+            throw new Error(body?.message ?? "Vaga sem Descrição de Cargo vinculada — atribua um template DNALIO para ver a compatibilidade.");
           }
           throw new Error(`HTTP ${res.status}`);
         }
         const json = (await res.json()) as Breakdown;
         if (!cancelled) setData(json);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erro ao carregar breakdown");
+        if (!cancelled) setError(err instanceof Error ? err.message : "Erro ao carregar compatibilidade");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -132,8 +132,8 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <strong>Não foi possível calcular:</strong> {error}
             <p className="text-xs text-muted-foreground mt-1">
-              Para ver o breakdown explicável, a vaga precisa apontar para uma <strong>Descrição de Cargo</strong> (cadastro
-              em /app/descricao-cargo seguindo o template DNALIO). Vagas sem template usam o algoritmo legado, sem breakdown.
+              Para ver o detalhamento da compatibilidade, a vaga precisa apontar para uma <strong>Descrição de Cargo</strong> (cadastro
+              em /app/descricao-cargo seguindo o template DNALIO). Vagas sem template usam o algoritmo legado, sem detalhamento por critério.
             </p>
           </div>
         )}
