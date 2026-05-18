@@ -52,7 +52,7 @@ import NextStepBanner from "@/components/feedback/NextStepBanner";
 import StepperProgress from "@/components/feedback/StepperProgress";
 import type { StepperStep } from "@/components/feedback/StepperProgress";
 import VagaFormModal from "./VagaFormModal";
-import MatchingIaTab from "./MatchingIaTab";
+import CandidatosMatchTab from "./CandidatosMatchTab";
 
 const BASE = "/app";
 
@@ -464,6 +464,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [candidateCount, setCandidateCount] = useState(0);
   const [candidates, setCandidates] = useState<CandidateRow[]>([]);
   const [activeTab, setActiveTab] = useState("resumo");
+
+  useEffect(() => {
+    if (activeTab === "matching") setActiveTab("candidatos");
+  }, [activeTab]);
   const [editOpen, setEditOpen] = useState(false);
   const [admissaoDialog, setAdmissaoDialog] = useState<AdmissaoDialogState>({
     open: false, candidate: null, modo: "manual", canal: "whatsapp+email", tipoContratacao: "CLT", cpf: "", working: false, linkGerado: null, emailEnviado: false, whatsappEnviado: false,
@@ -924,8 +928,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       }}>
         <TabsList className="w-full justify-start flex-wrap">
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
-          <TabsTrigger value="candidatos">
-            Candidatos {candidateCount > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{candidateCount}</span>}
+          <TabsTrigger value="candidatos" className="gap-1">
+            <Sparkles className="size-3.5" />
+            Candidatos & Match
+            {candidateCount > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{candidateCount}</span>}
           </TabsTrigger>
           <TabsTrigger value="publicacoes">
             Publicações {rodadas.length > 0 && <span className="ml-1 text-[10px] bg-emerald-500/15 text-emerald-700 rounded-full px-1.5">{rodadas.length}</span>}
@@ -935,10 +941,6 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="posicao">
             Posição {isEstrutural && <span className="ml-1 text-[10px] bg-blue-500/15 text-blue-700 rounded-full px-1.5">{headcountOcupado}/{headcountAutorizado}</span>}
-          </TabsTrigger>
-          <TabsTrigger value="matching" className="gap-1">
-            <Sparkles className="size-3.5" /> Matching IA
-            {candidateCount > 0 && <span className="ml-0.5 text-[10px] bg-violet-500/15 text-violet-700 rounded-full px-1.5">{candidateCount}</span>}
           </TabsTrigger>
         </TabsList>
 
@@ -1056,99 +1058,48 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           </div>
         </TabsContent>
 
-        {/* ── Tab: Candidatos ── */}
-        <TabsContent value="candidatos" className="mt-4 space-y-3 rounded-xl border border-border/40 bg-card p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{candidateCount} candidato(s) nesta vaga</p>
-            <div className="flex gap-2">
-              {!isReadOnly && (
-                <Button size="sm" onClick={() => {
-                  setEditingCandidateId(null);
-                  setExistingCandDocs([]);
-                  setNewCandForm({ nome: "", email: "", fone: "", celular: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
-                  setNewCandPendingDocs([]);
-                  setNewCandidateOpen(true);
-                }}>
-                  <UserPlus className="size-3.5 mr-1" /> Candidato
-                </Button>
-              )}
-            </div>
-          </div>
-          {candidates.length === 0 ? (
-            <div className="rounded-xl border border-border/40 bg-card p-6 text-center">
-              <Users className="mx-auto size-8 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">Nenhum candidato nesta vaga ainda.</p>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-border/40 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Nome</th>
-                    <th className="px-3 py-2 text-left">Email</th>
-                    <th className="px-3 py-2 text-left">Status</th>
-                    <th className="px-3 py-2 text-left">Data</th>
-                    <th className="px-3 py-2 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/30">
-                  {candidates.map((c) => (
-                    <tr key={c.id} className="hover:bg-muted/20">
-                      <td className="px-3 py-2 font-medium">{c.nome}</td>
-                      <td className="px-3 py-2 text-muted-foreground text-xs">{c.email ?? "—"}</td>
-                      <td className="px-3 py-2">
-                        <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-700">{c.status}</span>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(c.createdAtUtc).toLocaleDateString("pt-BR")}</td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex gap-1.5 justify-end">
-                          {!isReadOnly && (
-                            <Button size="sm" variant="ghost" onClick={() => void openEditCandidate(c.id)}>
-                              <PenSquare className="size-3.5" />
-                            </Button>
-                          )}
-                          {!isReadOnly && (
-                            <Button size="sm" variant="outline" onClick={() => {
-                              const semEmail = !c.email?.trim();
-                              const semCelular = !c.celular?.trim();
-                              if (semEmail || semCelular) {
-                                const campos = [semEmail && "e-mail", semCelular && "celular"].filter(Boolean).join(" e ");
-                                toast.error(`Preencha o ${campos} do candidato antes de aprovar.`, { duration: 5000 });
-                                void openEditCandidate(c.id);
-                                return;
-                              }
-                              const vagaTipo = pick(vaga, "tipoContratacao").toUpperCase();
-                              const tipo = (vagaTipo === "CLT" || vagaTipo === "PJ") ? vagaTipo as "CLT" | "PJ" : "CLT";
-                              setAdmissaoDialog({ open: true, candidate: c, modo: "manual", canal: "whatsapp+email", tipoContratacao: tipo, cpf: "", working: false, linkGerado: null, emailEnviado: false, whatsappEnviado: false });
-                            }}>
-                              <Mail className="size-3.5 mr-1" /> {c.status === "Aprovado" ? "Reenviar" : "Aprovar Candidato"}
-                            </Button>
-                          )}
-                          {c.status === "Aprovado" && (
-                            <Button size="sm" variant="outline" onClick={async () => {
-                              try {
-                                const res = await apiFetch(`/api/pre-admissao/iniciar-manual`, {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ candidatoId: c.id }),
-                                });
-                                if (res.ok) {
-                                  const data = await res.json() as { id: string };
-                                  router.push(`/admissao/nova?id=${encodeURIComponent(data.id)}`);
-                                }
-                              } catch { toast.error("Erro ao abrir admissão"); }
-                            }}>
-                              Acompanhar
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        {/* ── Tab: Candidatos & Match ── */}
+        <TabsContent value="candidatos">
+          <CandidatosMatchTab
+            vagaId={vagaId}
+            candidates={candidates}
+            temDescricaoCargo={Boolean(pick(vaga, "descricaoCargoId", "")) || Boolean(pick(vaga, "descricaoCargo", ""))}
+            isReadOnly={isReadOnly}
+            onAddCandidate={() => {
+              setEditingCandidateId(null);
+              setExistingCandDocs([]);
+              setNewCandForm({ nome: "", email: "", fone: "", celular: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
+              setNewCandPendingDocs([]);
+              setNewCandidateOpen(true);
+            }}
+            onEditCandidate={(id) => void openEditCandidate(id)}
+            onApproveCandidate={(c) => {
+              const semEmail = !c.email?.trim();
+              const semCelular = !c.celular?.trim();
+              if (semEmail || semCelular) {
+                const campos = [semEmail && "e-mail", semCelular && "celular"].filter(Boolean).join(" e ");
+                toast.error(`Preencha o ${campos} do candidato antes de aprovar.`, { duration: 5000 });
+                void openEditCandidate(c.id);
+                return;
+              }
+              const vagaTipo = pick(vaga, "tipoContratacao").toUpperCase();
+              const tipo = (vagaTipo === "CLT" || vagaTipo === "PJ") ? vagaTipo as "CLT" | "PJ" : "CLT";
+              setAdmissaoDialog({ open: true, candidate: c, modo: "manual", canal: "whatsapp+email", tipoContratacao: tipo, cpf: "", working: false, linkGerado: null, emailEnviado: false, whatsappEnviado: false });
+            }}
+            onAcompanharAdmissao={async (candidatoId) => {
+              const res = await apiFetch(`/api/pre-admissao/iniciar-manual`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ candidatoId }),
+              });
+              if (res.ok) {
+                const data = (await res.json()) as { id: string };
+                router.push(`/admissao/nova?id=${encodeURIComponent(data.id)}`);
+              } else {
+                toast.error("Erro ao abrir admissão");
+              }
+            }}
+          />
         </TabsContent>
 
         {/* ── Tab: Publicações (Rodadas) ── */}
@@ -1213,15 +1164,6 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                 })}
             </div>
           )}
-        </TabsContent>
-
-        {/* ── Tab: Matching IA (Fase 4 — Ollama + pgvector) ── */}
-        <TabsContent value="matching" className="mt-4">
-          <MatchingIaTab
-            vagaId={vagaId}
-            candidates={candidates.map((c) => ({ id: c.id, nome: c.nome, email: c.email, status: c.status }))}
-            temDescricaoCargo={Boolean(pick(vaga, "descricaoCargoId", "")) || Boolean(pick(vaga, "descricaoCargo", ""))}
-          />
         </TabsContent>
 
         {/* ── Tab: Configuração ── */}
