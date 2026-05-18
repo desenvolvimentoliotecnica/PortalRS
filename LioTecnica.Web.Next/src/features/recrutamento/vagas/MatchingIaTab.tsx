@@ -19,6 +19,8 @@ import LlmMatchingDialog, {
 } from "@/features/recrutamento/matching/LlmMatchingDialog";
 
 /**
+ * @deprecated Use {@link ./CandidatosMatchTab} — aba unificada "Candidatos & Match" no hub da vaga.
+ *
  * Aba "Matching IA" dentro do hub da vaga.
  *
  * <para>Lista TODOS os candidatos da vaga com o score híbrido (léxico + semântico
