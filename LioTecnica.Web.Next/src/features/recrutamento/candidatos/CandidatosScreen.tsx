@@ -1364,7 +1364,13 @@ export default function CandidatosScreen() {
                     <div className="text-muted-foreground text-xs mb-3">
                       Dados preenchidos pelo candidato no portal (somente leitura).
                     </div>
-                    <CandidatoPortalPerfilReadonly data={portalPerfil} loading={portalPerfilLoading} loadError={portalPerfilError} />
+                    <CandidatoPortalPerfilReadonly
+                      data={portalPerfil}
+                      loading={portalPerfilLoading}
+                      loadError={portalPerfilError}
+                      candidatoId={detail.id}
+                      apiPathPrefix={BASE}
+                    />
                   </div>
                 ) : null}
               </div>
