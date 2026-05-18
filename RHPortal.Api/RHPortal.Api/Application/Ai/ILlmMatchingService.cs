@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 namespace RhPortal.Api.Application.Ai;
 
 /// <summary>
-/// Serviço de matching por LLM (Qwen 2.5) — "LLM-as-a-Judge".
+/// Serviço de matching por LLM — "LLM-as-a-Judge" (provider do tenant: Gemini, OpenAI, etc.).
 ///
-/// <para>Avaliação profunda candidato × vaga feita pelo Qwen: recebe a DescricaoCargo
+/// <para>Avaliação profunda candidato × vaga: recebe a DescricaoCargo
 /// estruturada (por categoria DNALIO), o CV completo e os pesos calibrados da vaga;
 /// retorna JSON com score final, justificativa em PT-BR, breakdown por critério
 /// (com pontos fortes e gaps) e se passou no match mínimo.</para>
@@ -26,7 +26,7 @@ public interface ILlmMatchingService
 {
     /// <summary>
     /// Calcula (ou recupera do cache) o score LLM para um candidato em uma vaga.
-    /// Retorna <c>null</c> se Ollama indisponível OU vaga sem DescricaoCargo vinculada.
+    /// Retorna <c>null</c> se o provider de IA estiver indisponível OU vaga sem DescricaoCargo vinculada.
     /// </summary>
     Task<LlmMatchingResult?> ScoreAsync(Guid candidatoId, Guid vagaId, bool force = false, CancellationToken ct = default);
 }

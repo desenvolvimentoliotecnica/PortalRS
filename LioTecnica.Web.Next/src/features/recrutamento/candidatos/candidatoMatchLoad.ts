@@ -1,5 +1,10 @@
 import { apiFetch } from "@/lib/api";
-import { calcMatch, mapVagaDetail, type MatchResult } from "@/features/recrutamento/matching/matchingHelpers";
+import {
+  calcMatch,
+  mapVagaDetail,
+  MATCHING_FETCH_TIMEOUT_MS,
+  type MatchResult,
+} from "@/features/recrutamento/matching/matchingHelpers";
 
 export type MatchingBreakdownCriterio = {
   nome: string;
@@ -126,7 +131,11 @@ export async function loadCandidatoMatchTab(
   let last404Message: string | null = null;
 
   for (const url of endpoints) {
-    const res = await apiFetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
+    const res = await apiFetch(
+      url,
+      { headers: { Accept: "application/json" }, cache: "no-store" },
+      MATCHING_FETCH_TIMEOUT_MS,
+    );
     if (res.ok) {
       const json = (await res.json()) as Record<string, unknown>;
       return { kind: "breakdown", data: mapBreakdown(json) };
@@ -165,6 +174,7 @@ export async function recalculateCandidatoMatch(vagaId: string, candidatoId: str
   const res = await apiFetch(
     `/api/matching/recalculate?candidatoId=${encodeURIComponent(candidatoId)}&vagaId=${encodeURIComponent(vagaId)}`,
     { method: "POST", headers: { Accept: "application/json" } },
+    MATCHING_FETCH_TIMEOUT_MS,
   );
   if (!res.ok) throw new Error(await parseApiError(res));
 }

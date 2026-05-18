@@ -30,7 +30,6 @@ public sealed class HybridMatchingService
 {
     private readonly DescricaoCargoMatchingService _lexical;
     private readonly IVectorSearchService _vectorSearch;
-    private readonly IOllamaClient _ollama;
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<HybridMatchingService> _logger;
@@ -38,14 +37,12 @@ public sealed class HybridMatchingService
     public HybridMatchingService(
         DescricaoCargoMatchingService lexical,
         IVectorSearchService vectorSearch,
-        IOllamaClient ollama,
         AppDbContext db,
         ITenantContext tenantContext,
         ILogger<HybridMatchingService> logger)
     {
         _lexical = lexical;
         _vectorSearch = vectorSearch;
-        _ollama = ollama;
         _db = db;
         _tenantContext = tenantContext;
         _logger = logger;
@@ -60,13 +57,9 @@ public sealed class HybridMatchingService
         var lexical = await _lexical.CalcularBreakdownAsync(candidatoId, vagaId, ct);
         if (lexical is null) return null;
 
-        // Checa saúde do Ollama — se indisponível, retorna léxico com flag fallback
-        var health = await _ollama.CheckHealthAsync(ct);
-        if (!health.IsReachable || !health.HasEmbeddingModel)
-        {
-            _logger.LogInformation("Ollama indisponível — retornando score léxico como fallback. {Err}", health.ErrorMessage);
-            return lexical with { Modo = "semantic", ScoreLexico = lexical.ScoreFinal };
-        }
+        // Semântico usa embeddings já persistidos (pgvector). Ollama só é necessário
+        // para gerar vetores on-the-fly — não bloqueamos o híbrido se /api/tags falhar
+        // mas já existirem linhas em CandidatoEmbeddings / DescricaoCargoItemEmbeddings.
 
         // Precisamos do DescricaoCargoId + MatchMinimoPercentual para cálculo final
         var vaga = await _db.Vagas

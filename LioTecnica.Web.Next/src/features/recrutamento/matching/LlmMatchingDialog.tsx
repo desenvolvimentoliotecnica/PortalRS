@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { MATCHING_LLM_FETCH_TIMEOUT_MS } from "@/features/recrutamento/matching/matchingHelpers";
 
 /**
- * Dialog do "LLM-as-a-Judge" — Qwen 2.5 avalia candidato × vaga com raciocínio
+ * Dialog do "LLM-as-a-Judge" — modelo do tenant (ex.: Gemini) avalia candidato × vaga
  * profundo e retorna:
  *   • Score final 0-100 aplicando pesos da vaga
  *   • Justificativa em PT-BR em linguagem natural
@@ -84,7 +85,7 @@ export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, 
             const res = await apiFetch(
                 `/api/vagas/${vagaId}/matching-llm/${candidatoId}?force=${force}`,
                 { cache: "no-store" },
-                360_000, // 6min timeout (cold start Qwen 7B CPU ~3-4min)
+                MATCHING_LLM_FETCH_TIMEOUT_MS,
             );
             if (!res.ok) {
                 if (res.status === 503) {
@@ -120,7 +121,7 @@ export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, 
                         Análise por IA {candidatoNome ? `— ${candidatoNome}` : ""}
                     </DialogTitle>
                     <DialogDescription>
-                        Qwen 2.5 lê o CV + descrição de cargo + pesos da vaga e produz avaliação com justificativa em PT-BR.
+                        O modelo configurado em Admin → IA lê o CV + descrição de cargo + pesos da vaga e produz avaliação em PT-BR.
                         Cache automático — mesma combinação de CV/descrição/pesos retorna instantânea.
                     </DialogDescription>
                 </DialogHeader>
@@ -133,9 +134,8 @@ export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, 
                     <div className="rounded-md border border-red-500/40 bg-red-500/10 p-4 text-sm">
                         <strong className="text-red-700 dark:text-red-400">Não foi possível gerar análise:</strong> {error}
                         <p className="text-xs text-muted-foreground mt-2">
-                            Verifique: (1) vaga tem Descrição de Cargo vinculada, (2) Ollama está rodando
-                            (<code>curl localhost:11434/api/version</code>), (3) modelo <code>qwen2.5:7b</code> está baixado
-                            (<code>ollama pull qwen2.5:7b</code>).
+                            Verifique: (1) vaga tem Descrição de Cargo vinculada, (2) Admin → IA com provider Gemini
+                            e chave ativa em Owner → IA, (3) módulo IA habilitado para o tenant.
                         </p>
                         <Button size="sm" variant="outline" className="mt-3" onClick={() => void fetchScore(false)}>
                             <RefreshCw className="size-3.5 mr-1" /> Tentar de novo
@@ -270,17 +270,17 @@ function LoadingWithElapsed() {
     }, []);
 
     const stage =
-        elapsed < 15 ? "Carregando modelo Qwen 2.5 na memória…"
+        elapsed < 15 ? "Conectando ao modelo de IA do tenant…"
         : elapsed < 45 ? "Analisando perfil do candidato e descrição da vaga…"
         : elapsed < 90 ? "Aplicando os pesos e gerando breakdown…"
-        : elapsed < 150 ? "Ainda processando — CPU sem GPU é mais lento, mas vai."
+        : elapsed < 150 ? "Ainda processando — aguarde."
         : "Quase lá — próxima chamada será instantânea (cache).";
 
     return (
         <div className="py-10 text-center space-y-3">
             <Loader2 className="mx-auto size-8 animate-spin text-violet-600" />
             <div className="text-sm text-muted-foreground">
-                Qwen 2.5 está analisando o candidato…
+                A IA está analisando o candidato…
                 <div className="mt-2 text-xs">
                     <span className="inline-block min-w-[3rem] font-mono text-violet-700 dark:text-violet-400">
                         {Math.floor(elapsed / 60)}:{(elapsed % 60).toString().padStart(2, "0")}
@@ -289,7 +289,7 @@ function LoadingWithElapsed() {
                     <span>{stage}</span>
                 </div>
                 <div className="mt-3 text-[11px] text-muted-foreground/70 max-w-md mx-auto">
-                    Primeira avaliação pode levar até 3min no CPU (cold start). As seguintes são ~10-30s.
+                    Primeira avaliação pode levar 30–90s (Gemini na nuvem). Depois fica em cache.
                     Depois de processado, fica em cache e próximas chamadas são instantâneas.
                 </div>
             </div>
