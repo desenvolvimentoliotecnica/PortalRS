@@ -94,6 +94,7 @@ public sealed class Candidato : ITenantEntity
     public CandidatoAgendaPreferencia? AgendaPreferencia { get; set; }
     public List<CandidatoAgendaBloqueio> AgendaBloqueios { get; set; } = new();
     public CandidatoNotificacaoPreferencia? NotificacaoPreferencia { get; set; }
+    public List<CandidatoPortalNotificacao> PortalNotificacoes { get; set; } = new();
     public CandidatoLgpdConsent? LgpdConsent { get; set; }
 
     public DateTimeOffset CreatedAtUtc { get; set; }

@@ -1100,6 +1100,85 @@ public sealed class PortalCandidatesController : ControllerBase
     }
 
     /// <summary>
+    /// Lista mensagens internas do RH exibidas no workspace do candidato.
+    /// </summary>
+    [HttpGet("{id:guid}/portal-notifications")]
+    [ProducesResponseType(typeof(PortalCandidateInternalNotificationsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateInternalNotificationsResponse>> GetPortalNotifications(
+        Guid id,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        if (!await CandidateExistsAsync(db, id, ct))
+            return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        var rows = await db.CandidatoPortalNotificacoes
+            .AsNoTracking()
+            .Where(n => n.CandidatoId == id)
+            .OrderBy(n => n.ResolvidaEmUtc != null)
+            .ThenBy(n => n.LidaEmUtc != null)
+            .ThenByDescending(n => n.CreatedAtUtc)
+            .Take(50)
+            .Select(n => new
+            {
+                Notificacao = n,
+                VagaTitulo = n.Vaga != null ? n.Vaga.Titulo : null,
+            })
+            .ToListAsync(ct);
+
+        var items = rows.Select(x => MapPortalNotification(x.Notificacao, x.VagaTitulo)).ToList();
+        return Ok(new PortalCandidateInternalNotificationsResponse(
+            items,
+            items.Count(i => i.LidaEmUtc is null),
+            items.Count(i => i.ResolvidaEmUtc is null)));
+    }
+
+    /// <summary>Marca uma mensagem interna como lida.</summary>
+    [HttpPost("{id:guid}/portal-notifications/{notificationId:guid}/read")]
+    [ProducesResponseType(typeof(PortalCandidateInternalNotificationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateInternalNotificationDto>> ReadPortalNotification(
+        Guid id,
+        Guid notificationId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var notification = await db.CandidatoPortalNotificacoes
+            .Include(n => n.Vaga)
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.CandidatoId == id, ct);
+        if (notification is null)
+            return NotFound(new { message = "Notificação não encontrada." });
+
+        notification.LidaEmUtc ??= DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Ok(MapPortalNotification(notification, notification.Vaga?.Titulo));
+    }
+
+    /// <summary>Marca uma mensagem interna como resolvida.</summary>
+    [HttpPost("{id:guid}/portal-notifications/{notificationId:guid}/resolve")]
+    [ProducesResponseType(typeof(PortalCandidateInternalNotificationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateInternalNotificationDto>> ResolvePortalNotification(
+        Guid id,
+        Guid notificationId,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var notification = await db.CandidatoPortalNotificacoes
+            .Include(n => n.Vaga)
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.CandidatoId == id, ct);
+        if (notification is null)
+            return NotFound(new { message = "Notificação não encontrada." });
+
+        var now = DateTimeOffset.UtcNow;
+        notification.LidaEmUtc ??= now;
+        notification.ResolvidaEmUtc ??= now;
+        await db.SaveChangesAsync(ct);
+        return Ok(MapPortalNotification(notification, notification.Vaga?.Titulo));
+    }
+
+    /// <summary>
     /// Lista documentos anexos do candidato.
     /// </summary>
     [HttpGet("{id:guid}/documents")]
@@ -2712,6 +2791,30 @@ public sealed class PortalCandidatesController : ControllerBase
             doc.ArquivoNome,
             doc.CreatedAtUtc,
             temArquivo);
+    }
+
+    private static PortalCandidateInternalNotificationDto MapPortalNotification(
+        CandidatoPortalNotificacao n,
+        string? vagaTitulo)
+    {
+        var campos = string.IsNullOrWhiteSpace(n.CamposPendentesJson)
+            ? Array.Empty<string>()
+            : System.Text.Json.JsonSerializer.Deserialize<string[]>(n.CamposPendentesJson) ?? Array.Empty<string>();
+        return new PortalCandidateInternalNotificationDto(
+            n.Id,
+            n.CandidatoId,
+            n.VagaId,
+            vagaTitulo,
+            n.CandidaturaId,
+            n.Tipo,
+            n.Titulo,
+            n.Mensagem,
+            campos,
+            n.LidaEmUtc,
+            n.ResolvidaEmUtc,
+            n.CriadaPorNome,
+            n.CreatedAtUtc,
+            n.UpdatedAtUtc);
     }
 
     private async Task<bool> CandidateExistsAsync(AppDbContext db, Guid id, CancellationToken ct)

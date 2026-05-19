@@ -54,6 +54,18 @@ public sealed class CandidatoPerfilPortalEndpointTests
         };
     }
 
+    private static PortalCandidatesController CreatePortalController()
+    {
+        var localizer = new Mock<IStringLocalizer<ControllerMessages>>();
+        localizer.Setup(x => x[It.IsAny<string>()])
+            .Returns<string>(k => new LocalizedString(k, k));
+
+        return new PortalCandidatesController(localizer.Object)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+    }
+
     private static ICurrentUserContext CreateUserContext(
         bool isAdmin = false,
         bool isOwner = false,
@@ -305,5 +317,95 @@ public sealed class CandidatoPerfilPortalEndpointTests
             CancellationToken.None);
 
         Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task SolicitarAtualizacaoDadosPortal_Admin_CriaMensagemInterna()
+    {
+        await using var db = CreateDb();
+        var ctl = CreateController(db, CreateUserContext(isAdmin: true));
+        var candidatoId = Guid.NewGuid();
+        var vagaId = Guid.NewGuid();
+
+        db.Vagas.Add(new RHPortal.Api.Domain.Entities.Vaga
+        {
+            Id = vagaId,
+            TenantId = TenantTeste,
+            Titulo = "Analista de Sistemas",
+        });
+        db.Candidatos.Add(new Candidato
+        {
+            Id = candidatoId,
+            TenantId = TenantTeste,
+            Nome = "Fulano",
+            Email = "",
+            Celular = "",
+            VagaId = vagaId,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await ctl.SolicitarAtualizacaoDadosPortal(
+            candidatoId,
+            new SolicitarAtualizacaoDadosCandidatoRequest(
+                vagaId,
+                CandidaturaId: null,
+                new[] { "e-mail", "celular" },
+                Titulo: null,
+                Mensagem: null),
+            db,
+            CancellationToken.None);
+
+        var created = Assert.IsType<CreatedAtActionResult>(result.Result);
+        var dto = Assert.IsType<PortalCandidateInternalNotificationDto>(created.Value);
+        Assert.Equal(candidatoId, dto.CandidatoId);
+        Assert.Equal(new[] { "e-mail", "celular" }, dto.CamposPendentes);
+        Assert.Equal(1, await db.CandidatoPortalNotificacoes.CountAsync());
+    }
+
+    [Fact]
+    public async Task PortalNotifications_ListReadResolve_AtualizaStatusDaMensagem()
+    {
+        await using var db = CreateDb();
+        var ctl = CreatePortalController();
+        var candidatoId = Guid.NewGuid();
+        var notificationId = Guid.NewGuid();
+
+        db.Candidatos.Add(new Candidato
+        {
+            Id = candidatoId,
+            TenantId = TenantTeste,
+            Nome = "Fulano",
+            Email = "a@b.com",
+            Celular = "11",
+        });
+        db.CandidatoPortalNotificacoes.Add(new CandidatoPortalNotificacao
+        {
+            Id = notificationId,
+            TenantId = TenantTeste,
+            CandidatoId = candidatoId,
+            Tipo = "CompletarDados",
+            Titulo = "Complete seus dados",
+            Mensagem = "Atualize e-mail e celular.",
+            CamposPendentesJson = "[\"e-mail\",\"celular\"]",
+        });
+        await db.SaveChangesAsync();
+
+        var listResult = await ctl.GetPortalNotifications(candidatoId, db, CancellationToken.None);
+        var listOk = Assert.IsType<OkObjectResult>(listResult.Result);
+        var list = Assert.IsType<PortalCandidateInternalNotificationsResponse>(listOk.Value);
+        Assert.Equal(1, list.Pendentes);
+        Assert.Equal(1, list.NaoLidas);
+
+        var readResult = await ctl.ReadPortalNotification(candidatoId, notificationId, db, CancellationToken.None);
+        var readOk = Assert.IsType<OkObjectResult>(readResult.Result);
+        var readDto = Assert.IsType<PortalCandidateInternalNotificationDto>(readOk.Value);
+        Assert.NotNull(readDto.LidaEmUtc);
+        Assert.Null(readDto.ResolvidaEmUtc);
+
+        var resolveResult = await ctl.ResolvePortalNotification(candidatoId, notificationId, db, CancellationToken.None);
+        var resolveOk = Assert.IsType<OkObjectResult>(resolveResult.Result);
+        var resolveDto = Assert.IsType<PortalCandidateInternalNotificationDto>(resolveOk.Value);
+        Assert.NotNull(resolveDto.LidaEmUtc);
+        Assert.NotNull(resolveDto.ResolvidaEmUtc);
     }
 }

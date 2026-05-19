@@ -3,8 +3,36 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { getTenantId } from "@/lib/session";
 import { Button } from "@/components/ui/button";
+import { getPortalCandidateSession, portalCandidateFetch } from "@/features/portalvagas/publicApi";
 import type { NotificationsResponse } from "./types";
+
+type InternalNotification = {
+  id: string;
+  vagaId?: string | null;
+  vagaTitulo?: string | null;
+  tipo: string;
+  titulo: string;
+  mensagem: string;
+  camposPendentes: string[];
+  lidaEmUtc?: string | null;
+  resolvidaEmUtc?: string | null;
+  criadaPorNome?: string | null;
+  createdAtUtc: string;
+};
+
+type InternalNotificationsResponse = {
+  items: InternalNotification[];
+  naoLidas: number;
+  pendentes: number;
+};
+
+type PortalVagasNotificationsSectionProps = {
+  tenantId?: string;
+  onOpenProfile?: () => void;
+  onInternalCountChange?: (count: number) => void;
+};
 
 /** Alinhado ao portal candidato e ao contrato varchar da API (Frequencia até 40 chars). */
 const FREQUENCY_OPTIONS = [
@@ -80,8 +108,14 @@ function normalizeSilencioPrioridade(raw: string | null | undefined): string {
   return t.slice(0, 20);
 }
 
-export default function PortalVagasNotificationsSection() {
-  const [data, setData] = useState<NotificationsResponse | null>(null);
+export default function PortalVagasNotificationsSection({
+  tenantId: tenantIdProp,
+  onOpenProfile,
+  onInternalCountChange,
+}: PortalVagasNotificationsSectionProps = {}) {
+  const [internalMessages, setInternalMessages] = useState<InternalNotification[]>([]);
+  const [internalLoading, setInternalLoading] = useState(false);
+  const [updatingMessageId, setUpdatingMessageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -107,13 +141,32 @@ export default function PortalVagasNotificationsSection() {
     assinatura: "",
   });
 
+  const loadInternalMessages = useCallback(
+    async (portalTenantId: string) => {
+      setInternalLoading(true);
+      try {
+        const res = await portalCandidateFetch(portalTenantId, "/portal-notifications", { cache: "no-store" });
+        const json = (await res.json().catch(() => null)) as InternalNotificationsResponse | null;
+        if (!res.ok || !json) throw new Error();
+        setInternalMessages(Array.isArray(json.items) ? json.items : []);
+        onInternalCountChange?.(json.pendentes ?? 0);
+      } catch {
+        setInternalMessages([]);
+        onInternalCountChange?.(0);
+      } finally {
+        setInternalLoading(false);
+      }
+    },
+    [onInternalCountChange],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
+    const portalTenantId = (tenantIdProp || getTenantId() || "").trim();
     try {
       const res = await apiFetch("/PortalVagas/Notifications", { cache: "no-store" });
       const json = (await res.json().catch(() => null)) as NotificationsResponse | null;
       if (!res.ok || !json) throw new Error();
-      setData(json);
       setForm({
         canalEmail: json.canalEmail ?? true,
         canalWhatsapp: json.canalWhatsapp ?? false,
@@ -141,7 +194,13 @@ export default function PortalVagasNotificationsSection() {
     } finally {
       setLoading(false);
     }
-  }, []);
+    if (portalTenantId && getPortalCandidateSession(portalTenantId)?.id) {
+      await loadInternalMessages(portalTenantId);
+    } else {
+      setInternalMessages([]);
+      onInternalCountChange?.(0);
+    }
+  }, [tenantIdProp, onInternalCountChange, loadInternalMessages]);
 
   useEffect(() => {
     void load();
@@ -173,6 +232,24 @@ export default function PortalVagasNotificationsSection() {
       toast.error("Falha ao salvar.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function updateInternalMessage(messageId: string, action: "read" | "resolve") {
+    const portalTenantId = (tenantIdProp || getTenantId() || "").trim();
+    if (!portalTenantId) return;
+    setUpdatingMessageId(messageId);
+    try {
+      const res = await portalCandidateFetch(portalTenantId, `/portal-notifications/${messageId}/${action}`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error();
+      await loadInternalMessages(portalTenantId);
+      toast.success(action === "resolve" ? "Pendência marcada como resolvida." : "Mensagem marcada como lida.");
+    } catch {
+      toast.error("Falha ao atualizar mensagem.");
+    } finally {
+      setUpdatingMessageId(null);
     }
   }
 
@@ -244,6 +321,88 @@ export default function PortalVagasNotificationsSection() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/20">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h4 className="mini-title">Mensagens do RH</h4>
+            <p className="text-xs text-muted-foreground">
+              Solicitações importantes aparecem aqui, mesmo quando e-mail ou WhatsApp ainda não foram informados.
+            </p>
+          </div>
+          {internalMessages.some((m) => !m.resolvidaEmUtc) && (
+            <span className="rounded-full bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white">
+              {internalMessages.filter((m) => !m.resolvidaEmUtc).length} pendente(s)
+            </span>
+          )}
+        </div>
+
+        {internalLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando mensagens do RH...</p>
+        ) : internalMessages.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma mensagem do RH no momento.</p>
+        ) : (
+          <div className="space-y-3">
+            {internalMessages.map((message) => {
+              const isResolved = Boolean(message.resolvidaEmUtc);
+              const isRead = Boolean(message.lidaEmUtc);
+              return (
+                <article key={message.id} className="rounded-lg border bg-background p-3 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <div className="font-semibold text-sm">{message.titulo}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {message.vagaTitulo ? `Vaga: ${message.vagaTitulo} · ` : ""}
+                        {new Date(message.createdAtUtc).toLocaleDateString("pt-BR")}
+                      </div>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${isResolved ? "bg-emerald-500/10 text-emerald-700" : isRead ? "bg-amber-500/10 text-amber-700" : "bg-blue-500/10 text-blue-700"}`}>
+                      {isResolved ? "Resolvida" : isRead ? "Lida" : "Nova"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{message.mensagem}</p>
+                  {message.camposPendentes.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {message.camposPendentes.map((field) => (
+                        <span key={field} className="rounded-full bg-muted px-2 py-0.5 text-xs">
+                          {field}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {onOpenProfile && (
+                      <Button size="sm" onClick={onOpenProfile}>
+                        Atualizar perfil
+                      </Button>
+                    )}
+                    {!isRead && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={updatingMessageId === message.id}
+                        onClick={() => void updateInternalMessage(message.id, "read")}
+                      >
+                        Marcar como lida
+                      </Button>
+                    )}
+                    {!isResolved && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={updatingMessageId === message.id}
+                        onClick={() => void updateInternalMessage(message.id, "resolve")}
+                      >
+                        Marcar como resolvida
+                      </Button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div>
         <h4 className="mini-title mb-2">Canais</h4>
         <div className="flex flex-wrap gap-4">

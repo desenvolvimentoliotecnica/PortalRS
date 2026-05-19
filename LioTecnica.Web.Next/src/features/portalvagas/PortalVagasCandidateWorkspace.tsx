@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { apiFetch } from "@/lib/api";
 import { getTenantId } from "@/lib/session";
 import { getPortalCandidateSession, portalCandidateFetch } from "@/features/portalvagas/publicApi";
 import PortalVagasAgendaScreen from "@/features/portalvagas/agenda/PortalVagasAgendaScreen";
@@ -70,6 +69,10 @@ type PortalMatchItem = {
   reason?: string | null;
 };
 
+type PortalInternalNotificationsSummary = {
+  pendentes?: number;
+};
+
 const UF_LIST = ["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO"];
 
 const SECTIONS: Array<[WorkspaceSection, string]> = [
@@ -105,6 +108,7 @@ export default function PortalVagasCandidateWorkspace() {
   const [profile, setProfile] = useState<PortalProfile | null>(null);
   const [completion, setCompletion] = useState<PortalCompletion | null>(null);
   const [matches, setMatches] = useState<PortalMatchItem[]>([]);
+  const [notificationPendingCount, setNotificationPendingCount] = useState(0);
 
   const accessHref = `/app/PortalVagas/Acesso?tenantId=${encodeURIComponent(tenantId)}`;
   const jobsHref = `/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}`;
@@ -121,16 +125,19 @@ export default function PortalVagasCandidateWorkspace() {
       portalCandidateFetch(tenantId, "", { cache: "no-store" }),
       portalCandidateFetch(tenantId, "/profile-completion", { cache: "no-store" }),
       portalCandidateFetch(tenantId, "/job-matches", { cache: "no-store" }),
+      portalCandidateFetch(tenantId, "/portal-notifications", { cache: "no-store" }),
     ])
-      .then(async ([profileRes, completionRes, matchesRes]) => {
+      .then(async ([profileRes, completionRes, matchesRes, notificationsRes]) => {
         if (!alive) return;
         if (!profileRes.ok) throw new Error(`PROFILE_${profileRes.status}`);
         const profileData = (await profileRes.json().catch(() => null)) as PortalProfile | null;
         const completionData = completionRes.ok ? ((await completionRes.json().catch(() => null)) as PortalCompletion | null) : null;
         const matchesData = matchesRes.ok ? ((await matchesRes.json().catch(() => null)) as { matches?: PortalMatchItem[] } | null) : null;
+        const notificationsData = notificationsRes.ok ? ((await notificationsRes.json().catch(() => null)) as PortalInternalNotificationsSummary | null) : null;
         setProfile(profileData);
         setCompletion(completionData);
         setMatches(Array.isArray(matchesData?.matches) ? matchesData.matches : []);
+        setNotificationPendingCount(notificationsData?.pendentes ?? 0);
       })
       .catch(() => {
         if (alive) toast.error("Falha ao carregar workspace do candidato.");
@@ -290,6 +297,7 @@ export default function PortalVagasCandidateWorkspace() {
                 className={`rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${section === key ? "bg-[#105290] text-white" : "text-slate-600 hover:bg-slate-100"}`}
               >
                 {label}
+                {key === "notifications" && notificationPendingCount > 0 ? ` (${notificationPendingCount})` : ""}
               </button>
             ))}
           </nav>
@@ -317,7 +325,13 @@ export default function PortalVagasCandidateWorkspace() {
           {section === "documents" && <PortalVagasDocumentsSection />}
           {section === "references" && <PortalVagasReferencesSection />}
           {section === "lgpd" && <PortalVagasLgpdSection />}
-          {section === "notifications" && <PortalVagasNotificationsSection />}
+          {section === "notifications" && (
+            <PortalVagasNotificationsSection
+              tenantId={tenantId}
+              onOpenProfile={() => setSection("perfil")}
+              onInternalCountChange={setNotificationPendingCount}
+            />
+          )}
           {section === "accessibility" && <PortalVagasAccessibilitySection />}
           {section === "tests" && <PortalVagasTestsSection />}
         </section>

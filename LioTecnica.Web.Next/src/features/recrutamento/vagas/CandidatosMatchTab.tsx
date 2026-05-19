@@ -23,6 +23,14 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api";
 import {
     MATCHING_FETCH_TIMEOUT_MS,
@@ -124,6 +132,8 @@ export default function CandidatosMatchTab({
     const [embeddingsOk, setEmbeddingsOk] = useState<boolean | null>(null);
     const [sortCol, setSortCol] = useState<SortCol>("nome");
     const [filter, setFilter] = useState<MatchFilter>("todos");
+    const [notifyTarget, setNotifyTarget] = useState<HubCandidateRow | null>(null);
+    const [notifySending, setNotifySending] = useState(false);
     const breakdownDialog = useMatchingBreakdownDialog();
     const llmDialog = useLlmMatchingDialog();
 
@@ -265,6 +275,35 @@ export default function CandidatosMatchTab({
             setReindexando(false);
         }
     }, []);
+
+    const solicitarAtualizacaoDados = useCallback(async () => {
+        if (!notifyTarget) return;
+        const campos = missingCandidateFields(notifyTarget);
+        if (campos.length === 0) {
+            toast.info("Este candidato não tem pendências de contato visíveis nesta lista.");
+            setNotifyTarget(null);
+            return;
+        }
+
+        setNotifySending(true);
+        try {
+            const res = await apiFetch(`/api/candidatos/${notifyTarget.id}/portal-notificacoes/solicitar-dados`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    vagaId,
+                    camposPendentes: campos,
+                }),
+            });
+            if (!res.ok) throw new Error(await parseMatchApiError(res));
+            toast.success("Solicitação enviada para o portal do candidato.");
+            setNotifyTarget(null);
+        } catch (err) {
+            toast.error(`Erro ao avisar candidato: ${(err as Error).message}`);
+        } finally {
+            setNotifySending(false);
+        }
+    }, [notifyTarget, vagaId]);
 
     const rows = useMemo(() => {
         let list = candidates.map((c) => ({ ...c, m: matchById[c.id] }));
@@ -492,6 +531,7 @@ export default function CandidatosMatchTab({
                                                     onAnaliseIa={() => llmDialog.open(vagaId, r.id, r.nome)}
                                                     onEdit={() => void onEditCandidate(r.id)}
                                                     onApprove={() => onApproveCandidate(r)}
+                                                    onNotify={() => setNotifyTarget(r)}
                                                     onAcompanhar={() => void onAcompanharAdmissao(r.id)}
                                                 />
                                             </td>
@@ -548,6 +588,53 @@ export default function CandidatosMatchTab({
                     }}
                 />
             )}
+
+            <Dialog open={!!notifyTarget} onOpenChange={(open) => !open && setNotifyTarget(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Avisar candidato para completar dados</DialogTitle>
+                        <DialogDescription>
+                            A mensagem será exibida dentro do Portal de Vagas do candidato.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {notifyTarget && (
+                        <div className="space-y-3 text-sm">
+                            <div>
+                                <div className="font-medium">{notifyTarget.nome}</div>
+                                <div className="text-xs text-muted-foreground">{notifyTarget.email || "Sem e-mail cadastrado"}</div>
+                            </div>
+                            <div className="rounded-lg border bg-muted/20 p-3">
+                                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                                    Pendências que serão solicitadas
+                                </div>
+                                <ul className="space-y-1">
+                                    {missingCandidateFields(notifyTarget).map((field) => (
+                                        <li key={field} className="flex items-center gap-2">
+                                            <span className="inline-flex size-4 items-center justify-center rounded border text-[10px]">
+                                                ✓
+                                            </span>
+                                            <span>{field}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                O candidato verá a ação necessária em <strong>Notificações</strong> e poderá ir para o
+                                perfil para atualizar os dados.
+                            </p>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setNotifyTarget(null)} disabled={notifySending}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={() => void solicitarAtualizacaoDados()} disabled={notifySending}>
+                            {notifySending && <Loader2 className="mr-2 size-4 animate-spin" />}
+                            Enviar solicitação
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -567,6 +654,14 @@ function emptyMatchRow(): MatchRow {
         llmPassou: null,
         llmCacheLoading: false,
     };
+}
+
+function missingCandidateFields(candidato: HubCandidateRow): string[] {
+    const fields: string[] = [];
+    if (!candidato.email?.trim()) fields.push("e-mail");
+    if (!candidato.celular?.trim()) fields.push("celular");
+    if (!candidato.fone?.trim()) fields.push("telefone");
+    return fields;
 }
 
 function MatchScoreCell({ m, onCalcular }: { m?: MatchRow; onCalcular: () => void }) {
@@ -641,6 +736,7 @@ function RowActions({
     onAnaliseIa,
     onEdit,
     onApprove,
+    onNotify,
     onAcompanhar,
 }: {
     candidato: HubCandidateRow;
@@ -652,10 +748,12 @@ function RowActions({
     onAnaliseIa: () => void;
     onEdit: () => void;
     onApprove: () => void;
+    onNotify: () => void;
     onAcompanhar: () => void;
 }) {
     const breakdownLabel = m?.calculated ? `Compatibilidade ${m.scoreFinal}%` : "Compatibilidade";
     const analiseIaLabel = m?.llmScore != null ? `Análise IA ${m.llmScore}%` : "Análise IA";
+    const missingFields = missingCandidateFields(candidato);
 
     return (
         <div className="flex items-center justify-end gap-1">
@@ -711,6 +809,12 @@ function RowActions({
                         <DropdownMenuItem onClick={onEdit}>
                             <PenSquare className="size-4 mr-2" />
                             Editar candidato
+                        </DropdownMenuItem>
+                    )}
+                    {!isReadOnly && missingFields.length > 0 && (
+                        <DropdownMenuItem onClick={onNotify}>
+                            <AlertCircle className="size-4 mr-2" />
+                            Avisar candidato
                         </DropdownMenuItem>
                     )}
                     {!isReadOnly && (

@@ -91,6 +91,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<CandidatoAgendaPreferencia> CandidatoAgendaPreferencias => Set<CandidatoAgendaPreferencia>();
     public DbSet<CandidatoAgendaBloqueio> CandidatoAgendaBloqueios => Set<CandidatoAgendaBloqueio>();
     public DbSet<CandidatoNotificacaoPreferencia> CandidatoNotificacaoPreferencias => Set<CandidatoNotificacaoPreferencia>();
+    public DbSet<CandidatoPortalNotificacao> CandidatoPortalNotificacoes => Set<CandidatoPortalNotificacao>();
     public DbSet<CandidatoLgpdConsent> CandidatoLgpdConsents => Set<CandidatoLgpdConsent>();
     public DbSet<CandidatoStatusHistory> CandidatoStatusHistories => Set<CandidatoStatusHistory>();
     public DbSet<EmailConfig> EmailConfigs => Set<EmailConfig>();
@@ -1891,6 +1892,37 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
 
             b.HasIndex(x => x.CandidatoId).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.CandidatoId }).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<CandidatoPortalNotificacao>(b =>
+        {
+            b.ToTable("CandidatoPortalNotificacoes");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Tipo).HasMaxLength(60).IsRequired();
+            b.Property(x => x.Titulo).HasMaxLength(160).IsRequired();
+            b.Property(x => x.Mensagem).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.CriadaPorNome).HasMaxLength(200);
+
+            b.HasOne(x => x.Candidato)
+                .WithMany(c => c.PortalNotificacoes)
+                .HasForeignKey(x => x.CandidatoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.Vaga)
+                .WithMany()
+                .HasForeignKey(x => x.VagaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(x => x.Candidatura)
+                .WithMany()
+                .HasForeignKey(x => x.CandidaturaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId, x.CreatedAtUtc });
+            b.HasIndex(x => new { x.TenantId, x.CandidatoId, x.ResolvidaEmUtc });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -3846,6 +3878,12 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             {
                 if (entry.State == EntityState.Added) notificacao.CreatedAtUtc = now;
                 if (entry.State is EntityState.Added or EntityState.Modified) notificacao.UpdatedAtUtc = now;
+            }
+
+            if (entry.Entity is CandidatoPortalNotificacao portalNotificacao)
+            {
+                if (entry.State == EntityState.Added) portalNotificacao.CreatedAtUtc = now;
+                if (entry.State is EntityState.Added or EntityState.Modified) portalNotificacao.UpdatedAtUtc = now;
             }
 
             if (entry.Entity is CandidatoLgpdConsent lgpdConsent)
