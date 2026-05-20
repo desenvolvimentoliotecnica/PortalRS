@@ -28,6 +28,10 @@ namespace RhPortal.Api.Controllers;
 [RequireModule("candidatos")]
 public sealed class CandidatosController : ControllerBase
 {
+    private const int MaxMensagemAnexos = 5;
+    private const long MaxMensagemAnexoBytes = 10 * 1024 * 1024;
+    private const long MaxMensagemAnexosTotalBytes = 20 * 1024 * 1024;
+
     private readonly IStringLocalizer<ControllerMessages> _localizer;
     private readonly ICurrentUserContext _userContext;
 
@@ -283,6 +287,126 @@ public sealed class CandidatosController : ControllerBase
     }
 
     /// <summary>
+    /// Envia uma mensagem livre do RH ao candidato por e-mail e como notificação interna no portal.
+    /// </summary>
+    [HttpPost("{id:guid}/portal-notificacoes/enviar-mensagem")]
+    [RequestSizeLimit(25 * 1024 * 1024)]
+    [ProducesResponseType(typeof(PortalCandidateInternalNotificationDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateInternalNotificationDto>> EnviarMensagemPortal(
+        [FromRoute] Guid id,
+        [FromForm] EnviarMensagemCandidatoFormRequest request,
+        [FromServices] AppDbContext db,
+        [FromServices] IEmailQueueService emailQueue,
+        [FromServices] IEmailConfigService emailConfig,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
+            return Forbid();
+
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var assunto = (request.Assunto ?? string.Empty).Trim();
+        var corpo = (request.Corpo ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(assunto) || string.IsNullOrWhiteSpace(corpo))
+            return BadRequest(new { message = "Informe assunto e corpo da mensagem." });
+
+        var candidate = await db.Candidatos
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new { c.Id, c.TenantId, c.Nome, c.Email, c.VagaId })
+            .FirstOrDefaultAsync(ct);
+        if (candidate is null)
+            return NotFound();
+
+        var vagaId = request.VagaId ?? candidate.VagaId;
+        Guid? candidaturaId = request.CandidaturaId;
+        if (candidaturaId.HasValue)
+        {
+            var candidaturaOk = await db.Candidaturas
+                .AsNoTracking()
+                .AnyAsync(c => c.Id == candidaturaId.Value && c.CandidatoId == candidate.Id
+                    && (!vagaId.HasValue || c.VagaId == vagaId.Value), ct);
+            if (!candidaturaOk)
+                return BadRequest(new { message = "Candidatura informada não pertence ao candidato/vaga." });
+        }
+
+        Guid? vagaAreaId = null;
+        Guid? vagaRecrutadorUserId = null;
+        string? vagaTitulo = null;
+        if (vagaId.HasValue)
+        {
+            var vaga = await db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == vagaId.Value)
+                .Select(v => new { v.Id, v.CentroCustoId, v.RecrutadorResponsavelUserId, v.Titulo })
+                .FirstOrDefaultAsync(ct);
+            if (vaga is null)
+                return BadRequest(new { message = "Vaga informada não encontrada." });
+            vagaAreaId = vaga.CentroCustoId;
+            vagaRecrutadorUserId = vaga.RecrutadorResponsavelUserId;
+            vagaTitulo = vaga.Titulo;
+        }
+
+        var denied = await AuthorizeCandidatoDetailAsync(vagaId, vagaAreaId, vagaRecrutadorUserId, db, ct);
+        if (denied != null)
+            return denied;
+
+        var attachmentsResult = await BuildEmailAttachmentsAsync(request.Anexos, ct);
+        if (attachmentsResult.Error is not null)
+            return BadRequest(new { message = attachmentsResult.Error });
+
+        var to = NormalizeEmailDestination(candidate.Email);
+        if (to is null)
+        {
+            var cfg = await emailConfig.GetDecryptedAsync(ct);
+            if (cfg?.SmtpUseTestRedirect == true && !string.IsNullOrWhiteSpace(cfg.SmtpTestRedirectAddress))
+                to = "candidato-sem-email@renderrh.local";
+        }
+        if (to is null)
+            return BadRequest(new { message = "O candidato não possui e-mail cadastrado." });
+
+        var entity = new CandidatoPortalNotificacao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = candidate.TenantId,
+            CandidatoId = candidate.Id,
+            VagaId = vagaId,
+            CandidaturaId = candidaturaId,
+            Tipo = "MensagemRh",
+            Titulo = assunto,
+            Mensagem = corpo,
+            CamposPendentesJson = JsonSerializer.Serialize(Array.Empty<string>()),
+            CriadaPorUserId = _userContext.UserId,
+            CriadaPorNome = _userContext.Email,
+        };
+
+        db.CandidatoPortalNotificacoes.Add(entity);
+
+        var bodyHtml = BuildMensagemRhEmailHtml(candidate.Nome, vagaTitulo, corpo);
+        var bodyText = BuildMensagemRhEmailText(candidate.Nome, vagaTitulo, corpo);
+        await emailQueue.EnqueueRawAsync(
+            to,
+            assunto,
+            bodyHtml,
+            bodyText,
+            attachmentsResult.Attachments,
+            isSystem: false,
+            source: "portal-candidato-mensagem-rh",
+            ct);
+
+        await db.SaveChangesAsync(ct);
+
+        return CreatedAtAction(
+            nameof(EnviarMensagemPortal),
+            new { id = candidate.Id },
+            MapPortalNotificacao(entity, vagaTitulo));
+    }
+
+    /// <summary>
     /// Mesmas regras de visibilidade que <see cref="GetById"/> (área / recrutador / analista em SolicitacaoVaga).
     /// </summary>
     private async Task<ActionResult?> AuthorizeCandidatoDetailAsync(
@@ -411,6 +535,62 @@ public sealed class CandidatosController : ControllerBase
         var trimmed = (email ?? string.Empty).Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
+
+    private static async Task<(IReadOnlyList<EmailAttachmentPayload> Attachments, string? Error)> BuildEmailAttachmentsAsync(
+        IReadOnlyList<IFormFile>? files,
+        CancellationToken ct)
+    {
+        if (files is null || files.Count == 0)
+            return (Array.Empty<EmailAttachmentPayload>(), null);
+
+        if (files.Count > MaxMensagemAnexos)
+            return (Array.Empty<EmailAttachmentPayload>(), $"Envie no máximo {MaxMensagemAnexos} anexos.");
+
+        var total = files.Sum(f => f.Length);
+        if (total > MaxMensagemAnexosTotalBytes)
+            return (Array.Empty<EmailAttachmentPayload>(), "O tamanho total dos anexos deve ser de até 20 MB.");
+
+        var attachments = new List<EmailAttachmentPayload>();
+        foreach (var file in files)
+        {
+            if (file.Length <= 0)
+                continue;
+
+            if (file.Length > MaxMensagemAnexoBytes)
+                return (Array.Empty<EmailAttachmentPayload>(), $"O arquivo {file.FileName} excede 10 MB.");
+
+            await using var ms = new MemoryStream();
+            await file.CopyToAsync(ms, ct);
+            attachments.Add(new EmailAttachmentPayload(
+                Path.GetFileName(file.FileName),
+                file.ContentType,
+                ms.ToArray()));
+        }
+
+        return (attachments, null);
+    }
+
+    private static string BuildMensagemRhEmailHtml(string candidatoNome, string? vagaTitulo, string corpo)
+    {
+        var nome = WebUtility.HtmlEncode(candidatoNome);
+        var vaga = string.IsNullOrWhiteSpace(vagaTitulo)
+            ? ""
+            : $"<p><strong>Vaga:</strong> {WebUtility.HtmlEncode(vagaTitulo)}</p>";
+        var mensagem = WebUtility.HtmlEncode(corpo).Replace("\n", "<br />");
+        return $"""
+            <p>Olá {nome},</p>
+            {vaga}
+            <p>{mensagem}</p>
+            """;
+    }
+
+    private static string BuildMensagemRhEmailText(string candidatoNome, string? vagaTitulo, string corpo)
+        => $"""
+            Olá {candidatoNome},
+
+            {(string.IsNullOrWhiteSpace(vagaTitulo) ? "" : $"Vaga: {vagaTitulo}\n")}
+            {corpo}
+            """;
 
     /// <summary>
     /// Cria um novo candidato.

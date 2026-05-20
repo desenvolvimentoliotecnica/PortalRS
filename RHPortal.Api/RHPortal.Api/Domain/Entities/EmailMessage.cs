@@ -59,6 +59,29 @@ public sealed class EmailMessage : ITenantEntity
     public DateTimeOffset UpdatedAtUtc { get; set; }
 
     public List<EmailAttempt> Attempts { get; set; } = new();
+    public List<EmailMessageAttachment> Attachments { get; set; } = new();
+}
+
+public sealed class EmailMessageAttachment : ITenantEntity
+{
+    public Guid Id { get; set; }
+    public string TenantId { get; set; } = default!;
+
+    public Guid EmailMessageId { get; set; }
+    public EmailMessage? EmailMessage { get; set; }
+
+    [Required, MaxLength(260)]
+    public string FileName { get; set; } = string.Empty;
+
+    [MaxLength(160)]
+    public string? ContentType { get; set; }
+
+    public long SizeBytes { get; set; }
+
+    public byte[] ContentBytes { get; set; } = Array.Empty<byte>();
+
+    public DateTimeOffset CreatedAtUtc { get; set; }
+    public DateTimeOffset UpdatedAtUtc { get; set; }
 }
 
 public sealed class EmailAttempt : ITenantEntity

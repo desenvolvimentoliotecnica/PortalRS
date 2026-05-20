@@ -15,8 +15,14 @@ public sealed record EmailSendRequest(
     string Subject,
     string BodyHtml,
     string? BodyText,
-    string ProviderName
+    string ProviderName,
+    IReadOnlyList<EmailSendAttachment>? Attachments = null
 );
+
+public sealed record EmailSendAttachment(
+    string FileName,
+    string? ContentType,
+    byte[] ContentBytes);
 
 public sealed class SmtpEmailSender : IEmailSender
 {
@@ -57,6 +63,22 @@ public sealed class SmtpEmailSender : IEmailSender
         };
 
         msg.To.Add(to);
+        if (request.Attachments is { Count: > 0 })
+        {
+            foreach (var attachment in request.Attachments)
+            {
+                if (attachment.ContentBytes.Length == 0)
+                    continue;
+
+                var stream = new MemoryStream(attachment.ContentBytes);
+                var mailAttachment = new Attachment(
+                    stream,
+                    attachment.FileName,
+                    string.IsNullOrWhiteSpace(attachment.ContentType) ? "application/octet-stream" : attachment.ContentType);
+                msg.Attachments.Add(mailAttachment);
+            }
+        }
+
         await client.SendMailAsync(msg, ct);
     }
 }

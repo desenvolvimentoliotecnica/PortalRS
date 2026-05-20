@@ -14,6 +14,7 @@ import {
   type KanbanCandidaturaItem,
   type KanbanCandidaturasResponse,
 } from "./candidaturaApi";
+import CandidateKanbanDetailDialog from "./CandidateKanbanDetailDialog";
 import MatchingBreakdownDialog, { useMatchingBreakdownDialog } from "@/features/recrutamento/matching/MatchingBreakdownDialog";
 
 type VagaLite = { id: string; titulo: string | null };
@@ -56,6 +57,7 @@ export default function CandidaturasKanbanScreen() {
   const [vagas, setVagas] = useState<VagaLite[]>([]);
   const [dragging, setDragging] = useState<KanbanCandidaturaItem | null>(null);
   const [hoverEtapa, setHoverEtapa] = useState<EtapaMacroCandidatura | null>(null);
+  const [detailItem, setDetailItem] = useState<KanbanCandidaturaItem | null>(null);
   // Sessão 31.8 — explicabilidade do matching
   const matchDialog = useMatchingBreakdownDialog();
 
@@ -271,6 +273,7 @@ export default function CandidaturasKanbanScreen() {
                           draggable
                           onDragStart={() => setDragging(it)}
                           onDragEnd={() => { setDragging(null); setHoverEtapa(null); }}
+                          onClick={() => setDetailItem(it)}
                           className={`cursor-grab rounded-md border border-l-4 ${slaBorder} ${isSelected ? "border-sky-400 ring-2 ring-sky-200" : "border-neutral-200"} bg-white p-3 text-sm shadow-sm hover:shadow-md active:cursor-grabbing`}
                           title={slaTooltip}
                         >
@@ -336,6 +339,12 @@ export default function CandidaturasKanbanScreen() {
           candidatoNome={matchDialog.target.candidatoNome}
         />
       )}
+
+      <CandidateKanbanDetailDialog
+        open={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+      />
     </section>
   );
 }

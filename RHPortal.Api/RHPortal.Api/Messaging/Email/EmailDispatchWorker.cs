@@ -76,6 +76,7 @@ public sealed class EmailDispatchWorker : BackgroundService
                 var configService = scope.ServiceProvider.GetRequiredService<IEmailConfigService>();
 
                 var pending = await db.EmailMessages
+                    .Include(x => x.Attachments)
                     .Where(x => (x.Status == EmailMessageStatus.Queued || x.Status == EmailMessageStatus.Failed)
                                 && x.AttemptCount < x.MaxAttempts
                                 && (x.NextAttemptAtUtc == null || x.NextAttemptAtUtc <= now))
@@ -122,7 +123,8 @@ public sealed class EmailDispatchWorker : BackgroundService
                 msg.Subject,
                 msg.BodyHtml,
                 msg.BodyText,
-                providerName), ct);
+                providerName,
+                msg.Attachments.Select(a => new EmailSendAttachment(a.FileName, a.ContentType, a.ContentBytes)).ToList()), ct);
 
             attempt.IsSuccess = true;
             attempt.CompletedAtUtc = DateTimeOffset.UtcNow;

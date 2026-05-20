@@ -27,7 +27,22 @@ public interface IEmailQueueService
         bool isSystem,
         string? source,
         CancellationToken ct);
+
+    Task<EmailMessage> EnqueueRawAsync(
+        string to,
+        string subject,
+        string bodyHtml,
+        string? bodyText,
+        IReadOnlyList<EmailAttachmentPayload> attachments,
+        bool isSystem,
+        string? source,
+        CancellationToken ct);
 }
+
+public sealed record EmailAttachmentPayload(
+    string FileName,
+    string? ContentType,
+    byte[] ContentBytes);
 
 public sealed class EmailQueueService : IEmailQueueService
 {
@@ -93,10 +108,42 @@ public sealed class EmailQueueService : IEmailQueueService
         string? source,
         CancellationToken ct)
     {
+        return await EnqueueRawAsync(to, subject, bodyHtml, bodyText, Array.Empty<EmailAttachmentPayload>(), isSystem, source, ct);
+    }
+
+    public async Task<EmailMessage> EnqueueRawAsync(
+        string to,
+        string subject,
+        string bodyHtml,
+        string? bodyText,
+        IReadOnlyList<EmailAttachmentPayload> attachments,
+        bool isSystem,
+        string? source,
+        CancellationToken ct)
+    {
         var dto = await _emailConfig.GetDecryptedAsync(ct);
         (to, subject, bodyHtml, bodyText) = SmtpTestRedirectFormatting.Apply(to, subject, bodyHtml, bodyText, dto);
 
         var message = BuildMessage(to, subject, bodyHtml, bodyText, isSystem, source);
+        var now = DateTimeOffset.UtcNow;
+        foreach (var attachment in attachments)
+        {
+            if (attachment.ContentBytes.Length == 0)
+                continue;
+
+            message.Attachments.Add(new EmailMessageAttachment
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId,
+                FileName = attachment.FileName.Trim(),
+                ContentType = string.IsNullOrWhiteSpace(attachment.ContentType) ? "application/octet-stream" : attachment.ContentType.Trim(),
+                SizeBytes = attachment.ContentBytes.LongLength,
+                ContentBytes = attachment.ContentBytes,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            });
+        }
+
         _db.EmailMessages.Add(message);
         await _db.SaveChangesAsync(ct);
         return message;
