@@ -22,6 +22,7 @@ import {
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { getKanbanVagas, type KanbanVagaFiltroItem } from "@/features/recrutamento/candidaturas/candidaturaApi";
 
 /* ────── constants ────── */
 
@@ -167,7 +168,7 @@ export default function ProcessoSeletivoScreen() {
     const [aprovarLoading, setAprovarLoading] = useState(false);
 
     /* vagas lookup para seletor + criar rodada */
-    const [vagasLookup, setVagasLookup] = useState<{ id: string; titulo: string }[]>([]);
+    const [vagasLookup, setVagasLookup] = useState<KanbanVagaFiltroItem[]>([]);
     const [selectedVagaId, setSelectedVagaId] = useState<string>("");
     const [creatingRodada, setCreatingRodada] = useState(false);
 
@@ -181,10 +182,9 @@ export default function ProcessoSeletivoScreen() {
 
     /* Load vagas + projetos */
     useEffect(() => {
-        fetchJson<any>("/api/vagas?fields=id,titulo").then((data) => {
-            const items: any[] = Array.isArray(data) ? data : (data?.items ?? []);
-            setVagasLookup(items.map((v: any) => ({ id: v.id, titulo: v.titulo })));
-            Promise.all(items.slice(0, 20).map((v: any) =>
+        getKanbanVagas().then((items) => {
+            setVagasLookup(items);
+            Promise.all(items.slice(0, 20).map((v) =>
                 fetchJson<ProjetoMin[]>(`/api/vagas/${v.id}/projetos`).catch(() => [] as ProjetoMin[])
             )).then((all) => setProjetos(all.flat()));
         }).catch(() => { toast.error("Falha ao carregar vagas e projetos."); });
@@ -546,7 +546,11 @@ export default function ProcessoSeletivoScreen() {
                         >
                             <option value="">Selecione a vaga...</option>
                             {vagasLookup.map((v) => (
-                                <option key={v.id} value={v.id}>{v.titulo}</option>
+                                <option key={v.id} value={v.id}>
+                                    {v.titulo ?? v.id.slice(0, 8)}
+                                    {v.codigo ? ` · ${v.codigo}` : ""}
+                                    {v.totalCandidaturas > 0 ? ` (${v.totalCandidaturas})` : ""}
+                                </option>
                             ))}
                         </select>
                     </div>

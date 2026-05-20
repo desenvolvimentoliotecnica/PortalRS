@@ -15,7 +15,10 @@ public sealed class VagaPipelineServiceTests
 {
     private const string TenantTeste = "tenant-pipeline";
 
-    private static (AppDbContext Db, VagaPipelineService Service) CriarServico()
+    private static (AppDbContext Db, VagaPipelineService Service) CriarServico(
+        Guid? userId = null,
+        bool isAdmin = true,
+        bool isOwner = false)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -25,7 +28,12 @@ public sealed class VagaPipelineServiceTests
         tenantMock.Setup(x => x.TenantId).Returns(TenantTeste);
 
         var db = new AppDbContext(options, tenantMock.Object);
-        var service = new VagaPipelineService(db);
+        var userContext = new Mock<ICurrentUserContext>();
+        userContext.Setup(x => x.UserId).Returns(userId ?? Guid.NewGuid());
+        userContext.Setup(x => x.IsAdmin).Returns(isAdmin);
+        userContext.Setup(x => x.IsInRole(It.Is<string>(r => r == "Owner"))).Returns(isOwner);
+
+        var service = new VagaPipelineService(db, userContext.Object);
         return (db, service);
     }
 
@@ -82,6 +90,20 @@ public sealed class VagaPipelineServiceTests
             AplicadaEmUtc = DateTimeOffset.UtcNow,
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
+        db.SaveChanges();
+    }
+
+    private static void SeedSolicitacaoVaga(AppDbContext db, Guid vagaId, Guid? analistaId)
+    {
+        db.SolicitacoesVaga.Add(new SolicitacaoVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            SolicitanteId = Guid.NewGuid(),
+            VagaId = vagaId,
+            Titulo = "Solicitação de vaga",
+            AnalistaRhResponsavelUserId = analistaId,
         });
         db.SaveChanges();
     }
@@ -227,6 +249,27 @@ public sealed class VagaPipelineServiceTests
         var result = await svc.ListarAsync(new VagaPipelineFiltros(null, null, null), default);
 
         Assert.Equal(0, result.Total);
+    }
+
+    [Fact]
+    public async Task AnalistaRh_RetornaSomenteVagasAtribuidasAoUsuario()
+    {
+        var analystId = Guid.NewGuid();
+        var (db, svc) = CriarServico(userId: analystId, isAdmin: false);
+        var vagaAtribuida = SeedVaga(db, codigo: "ATRIB");
+        var vagaOutroAnalista = SeedVaga(db, codigo: "OUTRO");
+        var vagaSemAtribuicao = SeedVaga(db, codigo: "SEM");
+
+        SeedSolicitacaoVaga(db, vagaAtribuida.Id, analystId);
+        SeedSolicitacaoVaga(db, vagaOutroAnalista.Id, Guid.NewGuid());
+
+        var result = await svc.ListarAsync(new VagaPipelineFiltros(null, null, null), default);
+        var vagas = result.Colunas.SelectMany(c => c.Vagas).ToList();
+
+        Assert.Equal(1, result.Total);
+        Assert.Contains(vagas, v => v.Id == vagaAtribuida.Id);
+        Assert.DoesNotContain(vagas, v => v.Id == vagaOutroAnalista.Id);
+        Assert.DoesNotContain(vagas, v => v.Id == vagaSemAtribuicao.Id);
     }
 
     [Fact]

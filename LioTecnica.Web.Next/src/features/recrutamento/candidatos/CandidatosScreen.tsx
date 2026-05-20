@@ -21,6 +21,7 @@ import { confirmDialog } from "@/lib/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { getKanbanVagas } from "@/features/recrutamento/candidaturas/candidaturaApi";
 
 const BASE = "/app";
 
@@ -49,12 +50,6 @@ function pickNumber(v: unknown, fallback: number) {
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
-}
-
-function arrayFromItemsPayload(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload;
-  const r = asRecord(payload);
-  return Array.isArray(r?.items) ? (r!.items as unknown[]) : [];
 }
 
 function normalizeEnumCode(code: unknown) {
@@ -280,21 +275,17 @@ export default function CandidatosScreen() {
   }
 
   async function loadVagas() {
-    const payload = await fetchJson<unknown>(`${BASE}/api/vagas`);
-    const list = arrayFromItemsPayload(payload);
-    const mapped: VagaOption[] = list.map((v) => {
-      const r = asRecord(v) ?? {};
-      const id = pickString(r.id, "");
-      const titulo = pickString(r.titulo, "");
-      const codigo = pickString(r.codigo, "");
-      const threshold = pickNumber(r.matchMinimoPercentual, 0);
-      return {
-        id,
-        label: codigo ? `${titulo} (${codigo})` : titulo,
-        code: codigo || null,
-        threshold: Number.isFinite(threshold) ? threshold : null,
-      };
-    });
+    const list = await getKanbanVagas();
+    const mapped: VagaOption[] = list.map((v) => ({
+      id: v.id,
+      label: [
+        v.titulo || v.id.slice(0, 8),
+        v.codigo ? `(${v.codigo})` : null,
+        v.totalCandidaturas > 0 ? `- ${v.totalCandidaturas} candidatura(s)` : null,
+      ].filter(Boolean).join(" "),
+      code: v.codigo || null,
+      threshold: null,
+    }));
     setVagas(mapped.filter((v) => v.id && v.label).sort((a, b) => a.label.localeCompare(b.label, "pt-BR")));
   }
 
