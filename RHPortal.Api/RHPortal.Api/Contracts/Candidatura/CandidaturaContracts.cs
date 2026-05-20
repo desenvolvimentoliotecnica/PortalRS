@@ -102,6 +102,13 @@ public sealed record KanbanCandidaturasResponse(
     int Total
 );
 
+public sealed record KanbanVagaFiltroItem(
+    Guid Id,
+    string? Titulo,
+    string? Codigo,
+    int TotalCandidaturas
+);
+
 public sealed record KanbanColunaResponse(
     EtapaMacroCandidatura Etapa,
     string Titulo,

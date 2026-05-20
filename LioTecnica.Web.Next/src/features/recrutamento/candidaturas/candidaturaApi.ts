@@ -135,9 +135,20 @@ export type KanbanCandidaturasResponse = {
   total: number;
 };
 
+export type KanbanVagaFiltroItem = {
+  id: string;
+  titulo: string | null;
+  codigo: string | null;
+  totalCandidaturas: number;
+};
+
 export function getKanban(vagaId?: string | null) {
   const qs = vagaId ? `?vagaId=${encodeURIComponent(vagaId)}` : "";
   return apiJson<KanbanCandidaturasResponse>(`/api/candidaturas/kanban${qs}`);
+}
+
+export function getKanbanVagas() {
+  return apiJson<KanbanVagaFiltroItem[]>("/api/candidaturas/kanban/vagas");
 }
 
 export async function avancarEtapa(

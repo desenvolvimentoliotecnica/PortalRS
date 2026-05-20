@@ -34,6 +34,18 @@ public sealed class CandidaturasController : ControllerBase
         return Ok(resp);
     }
 
+    /// <summary>
+    /// Retorna somente vagas relevantes para o filtro do Kanban: vagas com candidaturas
+    /// visíveis no Kanban e, para analista RH, vagas atribuídas a ele mesmo sem candidatura.
+    /// </summary>
+    [HttpGet("kanban/vagas")]
+    [ProducesResponseType(typeof(IReadOnlyList<KanbanVagaFiltroItem>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<KanbanVagaFiltroItem>>> KanbanVagas(CancellationToken ct)
+    {
+        var resp = await _service.ListarVagasKanbanAsync(ct);
+        return Ok(resp);
+    }
+
     /// <summary>Lista as candidaturas de um candidato (com histórico completo).</summary>
     [HttpGet("candidato/{candidatoId:guid}")]
     [ProducesResponseType(typeof(IReadOnlyList<CandidaturaResponse>), StatusCodes.Status200OK)]
