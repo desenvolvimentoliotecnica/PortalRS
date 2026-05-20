@@ -11,7 +11,7 @@ namespace RhPortal.Api.Controllers;
 /// O admin define, por tipo de documento, se é Obrigatório, Opcional ou Não será pedido.
 /// </summary>
 [ApiController]
-[RequirePermission("access.manage")]
+[RequirePermission("documentacao-padrao.manage")]
 [Route("api/admin/documentacao-padrao")]
 public sealed class DocumentacaoPadraoController : ControllerBase
 {

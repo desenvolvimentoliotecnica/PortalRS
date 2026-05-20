@@ -217,7 +217,8 @@ public static class MenuSeeder
         ("/Admin/Gestores", "bi-people", 102, "admin.gestores.manage", false, "Seed.Menu.GestoresHierarquia", null),
         ("/Admin/RegrasAprovacaoVaga", "bi-check2-square", 103, "admin.regras-aprovacao.manage", true, "Seed.Menu.RegrasAprovacao", null),
         ("/Admin/Hierarquia", "bi-diagram-2", 104, "admin.hierarquia.manage", false, "Seed.Menu.NiveisHierarquicos", null),
-        ("/Owner/AwsSettings", "cloud-upload", 105, "aws-settings.manage", false, "Seed.Menu.ConfigAws", null)
+        ("/admin/documentacao-padrao", "bi-journal-text", 105, "documentacao-padrao.manage", false, "Seed.Menu.DocumentacaoPadrao", null),
+        ("/Owner/AwsSettings", "cloud-upload", 106, "aws-settings.manage", false, "Seed.Menu.ConfigAws", null)
     ];
 
     private static List<Menu> BuildDefaultMenus(IStringLocalizer<SeedMessages> localizer)
