@@ -285,6 +285,12 @@ public sealed class CandidaturaService : ICandidaturaService
                 join cand in _db.Candidatos.AsNoTracking() on c.CandidatoId equals cand.Id
                 join v in _db.Vagas.AsNoTracking() on c.VagaId equals v.Id into vj
                 from v in vj.DefaultIfEmpty()
+                join llmScore in _db.CandidatoVagaLlmScores.AsNoTracking()
+                    on new { c.CandidatoId, c.VagaId } equals new { llmScore.CandidatoId, llmScore.VagaId } into llmScoreJoin
+                from llmScore in llmScoreJoin.DefaultIfEmpty()
+                join matchingScore in _db.CandidatoVagaMatchingScores.AsNoTracking()
+                    on new { c.CandidatoId, c.VagaId } equals new { matchingScore.CandidatoId, matchingScore.VagaId } into matchingScoreJoin
+                from matchingScore in matchingScoreJoin.DefaultIfEmpty()
                 where !vagaId.HasValue || c.VagaId == vagaId.Value
                 select new
                 {
@@ -300,7 +306,13 @@ public sealed class CandidaturaService : ICandidaturaService
                     c.EtapaMacro,
                     c.AplicadaEmUtc,
                     c.EtapaAtualDesdeUtc,
-                    MatchScore = (int?)cand.LastMatchScore,
+                    MatchScore = llmScore != null
+                        ? (int?)llmScore.ScoreFinal
+                        : matchingScore != null
+                            ? (int?)matchingScore.Score
+                            : cand.LastMatchVagaId == c.VagaId
+                                ? cand.LastMatchScore
+                                : null,
                 };
 
         var rows = await q.OrderByDescending(x => x.AplicadaEmUtc).ToListAsync(ct);

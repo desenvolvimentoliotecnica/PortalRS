@@ -264,6 +264,7 @@ export default function CandidaturasKanbanScreen() {
                           : "bg-red-50 text-red-800";
                       const slaTooltip = `${it.diasNaEtapa} dia(s) na etapa (SLA: ${it.slaDiasEtapa} dias)`;
                       const isSelected = selectedIds.has(it.id);
+                      const hasMatchScore = typeof it.matchScore === "number" && Number.isFinite(it.matchScore);
                       return (
                         <article
                           key={it.id}
@@ -297,7 +298,7 @@ export default function CandidaturasKanbanScreen() {
                             <span className={`rounded-full px-2 py-0.5 font-medium ${slaBg}`} title={slaTooltip}>
                               {it.diasNaEtapa}d / {it.slaDiasEtapa}d
                             </span>
-                            {typeof it.matchScore === "number" && (
+                            {hasMatchScore && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -307,7 +308,7 @@ export default function CandidaturasKanbanScreen() {
                                 className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-800 hover:bg-sky-100 cursor-pointer transition-colors"
                                 title="Ver breakdown explicável (peso × score por critério)"
                               >
-                                match {it.matchScore} →
+                                match {Math.round(it.matchScore ?? 0)}% →
                               </button>
                             )}
                           </div>

@@ -114,24 +114,24 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-y-auto text-base">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-2xl">
             Match {candidatoNome ? `de ${candidatoNome}` : "do candidato"} com a vaga
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-base leading-relaxed">
             Explicação granular: peso configurado por critério, sub-score, contribuição e itens da Descrição de Cargo cobertos/faltando.
           </DialogDescription>
         </DialogHeader>
 
         {loading && (
-          <div className="py-8 text-center text-sm text-muted-foreground">Calculando…</div>
+          <div className="py-10 text-center text-lg text-muted-foreground">Calculando…</div>
         )}
 
         {error && !loading && (
-          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-base leading-relaxed">
             <strong>Não foi possível calcular:</strong> {error}
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
               Para ver o detalhamento da compatibilidade, a vaga precisa apontar para uma <strong>Descrição de Cargo</strong> (cadastro
               em /app/descricao-cargo seguindo o template DNALIO). Vagas sem template usam o algoritmo legado, sem detalhamento por critério.
             </p>
@@ -139,14 +139,14 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
         )}
 
         {data && !loading && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Toggle modo cálculo */}
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-base">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-muted-foreground">Cálculo:</span>
                 <button
                   type="button"
-                  className={`rounded px-2 py-1 border ${mode === "auto" ? "bg-primary text-primary-foreground border-primary" : "bg-transparent"}`}
+                  className={`rounded px-3 py-1.5 border text-sm font-medium ${mode === "auto" ? "bg-primary text-primary-foreground border-primary" : "bg-transparent"}`}
                   onClick={() => setMode("auto")}
                   title="Prioriza IA (Ollama) — cai em Semântico automaticamente se indisponível"
                 >
@@ -154,7 +154,7 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
                 </button>
                 <button
                   type="button"
-                  className={`rounded px-2 py-1 border ${mode === "lexical" ? "bg-primary text-primary-foreground border-primary" : "bg-transparent"}`}
+                  className={`rounded px-3 py-1.5 border text-sm font-medium ${mode === "lexical" ? "bg-primary text-primary-foreground border-primary" : "bg-transparent"}`}
                   onClick={() => setMode("lexical")}
                   title="Força modo léxico puro sem IA (para auditoria)"
                 >
@@ -183,17 +183,17 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
             </div>
 
             {/* Score final + status */}
-            <div className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/30 p-4">
+            <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 p-5">
               <div>
-                <div className="text-xs text-muted-foreground uppercase">Score final</div>
-                <div className={`text-4xl font-bold ${scoreColor(data.scoreFinal)}`}>{data.scoreFinal}<span className="text-2xl">%</span></div>
+                <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Score final</div>
+                <div className={`text-6xl font-bold leading-tight ${scoreColor(data.scoreFinal)}`}>{data.scoreFinal}<span className="text-4xl">%</span></div>
               </div>
-              <div className="text-right space-y-1">
-                <span className={`inline-flex items-center rounded-full px-3 py-0.5 text-xs font-semibold ${data.passouMatchMinimo ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-zinc-400/15 text-zinc-600 dark:text-zinc-400"}`}>
+              <div className="text-right space-y-2">
+                <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold ${data.passouMatchMinimo ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-zinc-400/15 text-zinc-600 dark:text-zinc-400"}`}>
                   {data.passouMatchMinimo ? "Passa no mínimo" : "Abaixo do mínimo"}
                 </span>
                 {data.distanciaKm != null && (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-sm text-muted-foreground">
                     Distância candidato × empresa: <strong>{data.distanciaKm.toFixed(1)} km</strong>
                   </div>
                 )}
@@ -202,14 +202,14 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
 
             {/* Evidências semânticas (Fase 4) */}
             {data.evidenciasSemanticas && data.evidenciasSemanticas.length > 0 && (
-              <div className="rounded-md border border-violet-500/40 bg-violet-500/5 p-3">
-                <div className="text-xs font-semibold text-violet-700 dark:text-violet-400 uppercase tracking-wider mb-2">
+              <div className="rounded-lg border border-violet-500/40 bg-violet-500/5 p-4">
+                <div className="text-sm font-semibold text-violet-700 dark:text-violet-400 uppercase tracking-wider mb-3">
                   🧠 Por que a IA acha que bate (top-3 similaridade semântica)
                 </div>
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {data.evidenciasSemanticas.map((ev, i) => (
-                    <li key={i} className="text-xs">
-                      <span className="inline-flex items-center rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 font-mono mr-2">
+                    <li key={i} className="text-sm leading-relaxed">
+                      <span className="inline-flex items-center rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 px-2 py-1 font-mono mr-2">
                         {(ev.similaridade * 100).toFixed(0)}%
                       </span>
                       <span className="text-muted-foreground">[{ev.categoria}{ev.subcategoria ? ` / ${ev.subcategoria}` : ""}]</span>{" "}
@@ -222,38 +222,38 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
 
             {/* Penalidade por requisitos obrigatórios faltando */}
             {data.temRequisitoObrigatorioFaltando && (
-              <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm">
+              <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-base leading-relaxed">
                 <strong className="text-red-700 dark:text-red-400">Score capado em 60</strong> — requisito(s) obrigatório(s) não atendido(s):
-                <ul className="list-disc list-inside mt-1 text-xs">
+                <ul className="list-disc list-inside mt-2 text-sm">
                   {data.requisitosObrigatoriosFaltando.map((r, i) => <li key={i}>{r}</li>)}
                 </ul>
               </div>
             )}
 
             {/* Critérios — barras */}
-            <div className="space-y-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Critérios usados (peso × score = contribuição)</div>
+            <div className="space-y-4">
+              <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Critérios usados (peso × score = contribuição)</div>
               {data.criterios.length === 0 ? (
-                <div className="text-sm text-muted-foreground italic">Nenhum critério com peso configurado nesta vaga.</div>
+                <div className="text-base text-muted-foreground italic">Nenhum critério com peso configurado nesta vaga.</div>
               ) : (
                 data.criterios.map((c) => (
-                  <div key={c.nome} className="rounded-md border border-border/40 p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="font-semibold text-sm">{c.nome}</div>
-                      <div className="text-xs text-muted-foreground font-mono">
+                  <div key={c.nome} className="rounded-lg border border-border/40 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <div className="font-semibold text-lg">{c.nome}</div>
+                      <div className="text-sm text-muted-foreground font-mono">
                         peso {c.peso} × <span className={scoreColor(c.score)}>{c.score}%</span> = <strong>{c.contribuicao.toFixed(1)} pts</strong>
                       </div>
                     </div>
                     {/* Barra de progresso */}
-                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden mb-2">
+                    <div className="h-3 w-full bg-muted rounded-full overflow-hidden mb-3">
                       <div className={`h-full ${barColor(c.score)} transition-all`} style={{ width: `${c.score}%` }} />
                     </div>
                     {(c.itensCobertos.length > 0 || c.itensFaltando.length > 0) && (
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="grid gap-4 text-sm leading-relaxed md:grid-cols-2">
                         {c.itensCobertos.length > 0 && (
                           <div>
-                            <div className="text-emerald-700 dark:text-emerald-400 font-semibold mb-1">✓ Cobertos ({c.itensCobertos.length})</div>
-                            <ul className="text-muted-foreground space-y-0.5">
+                            <div className="text-emerald-700 dark:text-emerald-400 font-semibold mb-2">✓ Cobertos ({c.itensCobertos.length})</div>
+                            <ul className="text-muted-foreground space-y-1">
                               {c.itensCobertos.slice(0, 6).map((t, i) => <li key={i}>• {t}</li>)}
                               {c.itensCobertos.length > 6 && <li className="italic">…e mais {c.itensCobertos.length - 6}</li>}
                             </ul>
@@ -261,8 +261,8 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
                         )}
                         {c.itensFaltando.length > 0 && (
                           <div>
-                            <div className="text-red-700 dark:text-red-400 font-semibold mb-1">✗ Faltando ({c.itensFaltando.length})</div>
-                            <ul className="text-muted-foreground space-y-0.5">
+                            <div className="text-red-700 dark:text-red-400 font-semibold mb-2">✗ Faltando ({c.itensFaltando.length})</div>
+                            <ul className="text-muted-foreground space-y-1">
                               {c.itensFaltando.slice(0, 6).map((t, i) => <li key={i}>• {t}</li>)}
                               {c.itensFaltando.length > 6 && <li className="italic">…e mais {c.itensFaltando.length - 6}</li>}
                             </ul>
@@ -278,7 +278,7 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Fechar</Button>
+          <Button variant="outline" className="text-base" onClick={onClose}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
