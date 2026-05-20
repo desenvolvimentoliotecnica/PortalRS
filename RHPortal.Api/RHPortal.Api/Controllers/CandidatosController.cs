@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
+using System.Net;
 using System.Text.Json;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
@@ -13,6 +15,7 @@ using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Controllers;
@@ -175,6 +178,9 @@ public sealed class CandidatosController : ControllerBase
         [FromRoute] Guid id,
         [FromBody] SolicitarAtualizacaoDadosCandidatoRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] IEmailQueueService emailQueue,
+        [FromServices] IEmailConfigService emailConfig,
+        [FromServices] ILogger<CandidatosController> logger,
         CancellationToken ct)
     {
         if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
@@ -195,7 +201,7 @@ public sealed class CandidatosController : ControllerBase
         var candidate = await db.Candidatos
             .AsNoTracking()
             .Where(c => c.Id == id)
-            .Select(c => new { c.Id, c.TenantId, c.Nome, c.VagaId })
+            .Select(c => new { c.Id, c.TenantId, c.Nome, c.Email, c.VagaId })
             .FirstOrDefaultAsync(ct);
         if (candidate is null)
             return NotFound();
@@ -257,6 +263,18 @@ public sealed class CandidatosController : ControllerBase
         };
         db.CandidatoPortalNotificacoes.Add(entity);
         await db.SaveChangesAsync(ct);
+
+        await TryEnqueueSolicitacaoAtualizacaoEmailAsync(
+            candidate.Nome,
+            candidate.Email,
+            vagaTitulo,
+            titulo,
+            mensagem,
+            campos,
+            emailQueue,
+            emailConfig,
+            logger,
+            ct);
 
         return CreatedAtAction(
             nameof(SolicitarAtualizacaoDadosPortal),
@@ -322,6 +340,76 @@ public sealed class CandidatosController : ControllerBase
             n.CriadaPorNome,
             n.CreatedAtUtc,
             n.UpdatedAtUtc);
+    }
+
+    private static async Task TryEnqueueSolicitacaoAtualizacaoEmailAsync(
+        string candidatoNome,
+        string? candidatoEmail,
+        string? vagaTitulo,
+        string titulo,
+        string mensagem,
+        IReadOnlyList<string> campos,
+        IEmailQueueService emailQueue,
+        IEmailConfigService emailConfig,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var to = NormalizeEmailDestination(candidatoEmail);
+        if (to is null)
+        {
+            var cfg = await emailConfig.GetDecryptedAsync(ct);
+            if (cfg?.SmtpUseTestRedirect == true && !string.IsNullOrWhiteSpace(cfg.SmtpTestRedirectAddress))
+                to = "candidato-sem-email@renderrh.local";
+        }
+
+        if (to is null)
+            return;
+
+        try
+        {
+            var nome = WebUtility.HtmlEncode(candidatoNome);
+            var vaga = string.IsNullOrWhiteSpace(vagaTitulo)
+                ? ""
+                : $"<p><strong>Vaga:</strong> {WebUtility.HtmlEncode(vagaTitulo)}</p>";
+            var camposHtml = string.Join("", campos.Select(c => $"<li>{WebUtility.HtmlEncode(c)}</li>"));
+            var bodyHtml = $"""
+                <p>Olá {nome},</p>
+                <p>{WebUtility.HtmlEncode(mensagem)}</p>
+                {vaga}
+                <p><strong>Campos solicitados:</strong></p>
+                <ul>{camposHtml}</ul>
+                <p>Acesse o Portal de Vagas, abra seu workspace e atualize seu perfil para seguir no processo.</p>
+                """;
+            var bodyText = $"""
+                Olá {candidatoNome},
+
+                {mensagem}
+
+                {(string.IsNullOrWhiteSpace(vagaTitulo) ? "" : $"Vaga: {vagaTitulo}\n")}
+                Campos solicitados: {string.Join(", ", campos)}
+
+                Acesse o Portal de Vagas, abra seu workspace e atualize seu perfil para seguir no processo.
+                """;
+
+            await emailQueue.EnqueueRawAsync(
+                to,
+                titulo,
+                bodyHtml,
+                bodyText,
+                isSystem: true,
+                source: "portal-candidato-completar-dados",
+                ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Falha ao enfileirar e-mail de solicitação de atualização de dados do candidato.");
+        }
+    }
+
+    private static string? NormalizeEmailDestination(string? email)
+    {
+        var trimmed = (email ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 
     /// <summary>

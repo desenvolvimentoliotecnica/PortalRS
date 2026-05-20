@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using Moq;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
@@ -16,6 +17,7 @@ using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 using Xunit;
 
 namespace RhPortal.Api.Tests.Candidatos;
@@ -186,6 +188,33 @@ public sealed class CandidatoPerfilPortalEndpointTests
         return m.Object;
     }
 
+    private static Mock<IEmailQueueService> EmailQueueMock()
+    {
+        var m = new Mock<IEmailQueueService>();
+        m.Setup(x => x.EnqueueRawAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailMessage { Id = Guid.NewGuid(), TenantId = TenantTeste, To = "teste@local", Subject = "Teste" });
+        return m;
+    }
+
+    private static Mock<IEmailConfigService> EmailConfigMock(bool testRedirect = false)
+    {
+        var m = new Mock<IEmailConfigService>();
+        m.Setup(x => x.GetDecryptedAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailConfigDto
+            {
+                SmtpUseTestRedirect = testRedirect,
+                SmtpTestRedirectAddress = testRedirect ? "qa@renderrh.local" : null,
+            });
+        return m;
+    }
+
     [Fact]
     public async Task GetPerfilPortal_CandidatoInexistente_Retorna404()
     {
@@ -344,6 +373,7 @@ public sealed class CandidatoPerfilPortalEndpointTests
         });
         await db.SaveChangesAsync();
 
+        var emailQueue = EmailQueueMock();
         var result = await ctl.SolicitarAtualizacaoDadosPortal(
             candidatoId,
             new SolicitarAtualizacaoDadosCandidatoRequest(
@@ -353,6 +383,9 @@ public sealed class CandidatoPerfilPortalEndpointTests
                 Titulo: null,
                 Mensagem: null),
             db,
+            emailQueue.Object,
+            EmailConfigMock(testRedirect: true).Object,
+            Mock.Of<ILogger<CandidatosController>>(),
             CancellationToken.None);
 
         var created = Assert.IsType<CreatedAtActionResult>(result.Result);
@@ -360,6 +393,14 @@ public sealed class CandidatoPerfilPortalEndpointTests
         Assert.Equal(candidatoId, dto.CandidatoId);
         Assert.Equal(new[] { "e-mail", "celular" }, dto.CamposPendentes);
         Assert.Equal(1, await db.CandidatoPortalNotificacoes.CountAsync());
+        emailQueue.Verify(x => x.EnqueueRawAsync(
+            "candidato-sem-email@renderrh.local",
+            It.IsAny<string>(),
+            It.Is<string>(body => body.Contains("e-mail") && body.Contains("celular")),
+            It.IsAny<string?>(),
+            true,
+            "portal-candidato-completar-dados",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
