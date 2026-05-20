@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using RhPortal.Api.Contracts.Candidatura;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -45,19 +46,22 @@ public sealed class CandidaturaService : ICandidaturaService
     private readonly ICurrentUserContext _currentUser;
     private readonly ICandidaturaNotificacaoService _notificacaoService;
     private readonly ILogger<CandidaturaService> _logger;
+    private readonly HybridMatchingService? _hybridMatchingService;
 
     public CandidaturaService(
         AppDbContext db,
         ITenantContext tenant,
         ICurrentUserContext currentUser,
         ICandidaturaNotificacaoService notificacaoService,
-        ILogger<CandidaturaService> logger)
+        ILogger<CandidaturaService> logger,
+        HybridMatchingService? hybridMatchingService = null)
     {
         _db = db;
         _tenant = tenant;
         _currentUser = currentUser;
         _notificacaoService = notificacaoService;
         _logger = logger;
+        _hybridMatchingService = hybridMatchingService;
     }
 
     public async Task<Candidatura> GetOrCreateAsync(Guid candidatoId, Guid vagaId, string? fonte, string? obs, CancellationToken ct)
@@ -317,6 +321,9 @@ public sealed class CandidaturaService : ICandidaturaService
 
         var rows = await q.OrderByDescending(x => x.AplicadaEmUtc).ToListAsync(ct);
         var total = rows.Count;
+        var hybridScores = await CalcularScoresHybridKanbanAsync(
+            rows.Select(r => (r.CandidatoId, r.VagaId, r.MatchScore)),
+            ct);
 
         var etapas = new[]
         {
@@ -343,6 +350,9 @@ public sealed class CandidaturaService : ICandidaturaService
                     var semaforo = dias <= slaEtapaDefault / 2
                         ? "verde"
                         : (dias <= slaEtapaDefault ? "amarelo" : "vermelho");
+                    var matchScore = hybridScores.TryGetValue((r.CandidatoId, r.VagaId), out var hybridScore)
+                        ? hybridScore
+                        : r.MatchScore;
                     return new KanbanCandidaturaItem(
                         r.Id,
                         r.CandidatoId,
@@ -356,7 +366,7 @@ public sealed class CandidaturaService : ICandidaturaService
                         r.EtapaMacro,
                         r.AplicadaEmUtc,
                         r.EtapaAtualDesdeUtc,
-                        r.MatchScore,
+                        matchScore,
                         dias,
                         slaEtapaDefault,
                         semaforo);
@@ -366,6 +376,38 @@ public sealed class CandidaturaService : ICandidaturaService
         }).ToList();
 
         return new KanbanCandidaturasResponse(colunas, total);
+    }
+
+    private async Task<Dictionary<(Guid CandidatoId, Guid VagaId), int?>> CalcularScoresHybridKanbanAsync(
+        IEnumerable<(Guid CandidatoId, Guid VagaId, int? FallbackScore)> pares,
+        CancellationToken ct)
+    {
+        var scores = new Dictionary<(Guid CandidatoId, Guid VagaId), int?>();
+        if (_hybridMatchingService is null)
+        {
+            return scores;
+        }
+
+        foreach (var par in pares.Distinct())
+        {
+            var key = (par.CandidatoId, par.VagaId);
+            try
+            {
+                var breakdown = await _hybridMatchingService.CalcularHybridAsync(par.CandidatoId, par.VagaId, ct);
+                scores[key] = breakdown?.ScoreFinal ?? par.FallbackScore;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Falha ao calcular score híbrido do Kanban para candidato {CandidatoId} e vaga {VagaId}; usando fallback.",
+                    par.CandidatoId,
+                    par.VagaId);
+                scores[key] = par.FallbackScore;
+            }
+        }
+
+        return scores;
     }
 
     public async Task<FunilCandidaturasResponse> FunilConversaoAsync(
