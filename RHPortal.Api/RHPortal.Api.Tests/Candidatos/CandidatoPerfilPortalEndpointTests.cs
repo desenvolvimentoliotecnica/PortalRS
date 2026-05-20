@@ -202,6 +202,16 @@ public sealed class CandidatoPerfilPortalEndpointTests
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new EmailMessage { Id = Guid.NewGuid(), TenantId = TenantTeste, To = "teste@local", Subject = "Teste" });
+        m.Setup(x => x.EnqueueRawAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<IReadOnlyList<EmailAttachmentPayload>>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailMessage { Id = Guid.NewGuid(), TenantId = TenantTeste, To = "teste@local", Subject = "Teste" });
         return m;
     }
 
@@ -482,6 +492,114 @@ public sealed class CandidatoPerfilPortalEndpointTests
             true,
             "portal-candidato-completar-dados",
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task EnviarMensagemPortal_Admin_CriaNotificacaoEEnfileiraEmailComAnexo()
+    {
+        await using var db = CreateDb();
+        var ctl = CreateController(db, CreateUserContext(isAdmin: true));
+        var candidatoId = Guid.NewGuid();
+        var vagaId = Guid.NewGuid();
+
+        db.Vagas.Add(new RHPortal.Api.Domain.Entities.Vaga
+        {
+            Id = vagaId,
+            TenantId = TenantTeste,
+            Titulo = "Analista de Sistemas",
+        });
+        db.Candidatos.Add(new Candidato
+        {
+            Id = candidatoId,
+            TenantId = TenantTeste,
+            Nome = "Fulano",
+            Email = "fulano@teste.local",
+            VagaId = vagaId,
+        });
+        await db.SaveChangesAsync();
+
+        var bytes = new byte[] { 1, 2, 3, 4 };
+        var file = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "anexos", "convite.pdf")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "application/pdf"
+        };
+        var emailQueue = EmailQueueMock();
+
+        var result = await ctl.EnviarMensagemPortal(
+            candidatoId,
+            new EnviarMensagemCandidatoFormRequest
+            {
+                VagaId = vagaId,
+                Assunto = "Convite para entrevista",
+                Corpo = "Olá, seguem detalhes da próxima etapa.",
+                Anexos = new List<IFormFile> { file }
+            },
+            db,
+            emailQueue.Object,
+            EmailConfigMock().Object,
+            CancellationToken.None);
+
+        var created = Assert.IsType<CreatedAtActionResult>(result.Result);
+        var dto = Assert.IsType<PortalCandidateInternalNotificationDto>(created.Value);
+        Assert.Equal("MensagemRh", dto.Tipo);
+        Assert.Equal("Convite para entrevista", dto.Titulo);
+        Assert.Equal("Olá, seguem detalhes da próxima etapa.", dto.Mensagem);
+        Assert.Equal(1, await db.CandidatoPortalNotificacoes.CountAsync());
+        emailQueue.Verify(x => x.EnqueueRawAsync(
+            "fulano@teste.local",
+            "Convite para entrevista",
+            It.Is<string>(body => body.Contains("seguem detalhes")),
+            It.IsAny<string?>(),
+            It.Is<IReadOnlyList<EmailAttachmentPayload>>(a =>
+                a.Count == 1
+                && a[0].FileName == "convite.pdf"
+                && a[0].ContentType == "application/pdf"
+                && a[0].ContentBytes.SequenceEqual(bytes)),
+            false,
+            "portal-candidato-mensagem-rh",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task EnviarMensagemPortal_AnexosAcimaDoLimite_RetornaBadRequest()
+    {
+        await using var db = CreateDb();
+        var ctl = CreateController(db, CreateUserContext(isAdmin: true));
+        var candidatoId = Guid.NewGuid();
+
+        db.Candidatos.Add(new Candidato
+        {
+            Id = candidatoId,
+            TenantId = TenantTeste,
+            Nome = "Fulano",
+            Email = "fulano@teste.local",
+        });
+        await db.SaveChangesAsync();
+
+        var anexos = Enumerable.Range(1, 6)
+            .Select(i => (IFormFile)new FormFile(new MemoryStream(new byte[] { 1 }), 0, 1, "anexos", $"a{i}.txt")
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = "text/plain"
+            })
+            .ToList();
+
+        var result = await ctl.EnviarMensagemPortal(
+            candidatoId,
+            new EnviarMensagemCandidatoFormRequest
+            {
+                Assunto = "Teste",
+                Corpo = "Mensagem",
+                Anexos = anexos
+            },
+            db,
+            EmailQueueMock().Object,
+            EmailConfigMock().Object,
+            CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("no máximo", badRequest.Value?.ToString());
     }
 
     [Fact]

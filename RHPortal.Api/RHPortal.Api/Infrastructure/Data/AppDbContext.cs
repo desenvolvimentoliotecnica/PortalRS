@@ -98,6 +98,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<EntraIdConfig> EntraIdConfigs => Set<EntraIdConfig>();
     public DbSet<LocalizationConfig> LocalizationConfigs => Set<LocalizationConfig>();
     public DbSet<EmailMessage> EmailMessages => Set<EmailMessage>();
+    public DbSet<EmailMessageAttachment> EmailMessageAttachments => Set<EmailMessageAttachment>();
     public DbSet<EmailAttempt> EmailAttempts => Set<EmailAttempt>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<InboxItem> InboxItems => Set<InboxItem>();
@@ -2286,10 +2287,27 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .HasForeignKey(x => x.EmailMessageId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            b.HasMany(x => x.Attachments)
+                .WithOne(x => x.EmailMessage)
+                .HasForeignKey(x => x.EmailMessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             b.HasIndex(x => new { x.TenantId, x.Status });
             b.HasIndex(x => new { x.TenantId, x.OwnerUserId });
             b.HasIndex(x => new { x.TenantId, x.IsSystem });
             b.HasIndex(x => new { x.TenantId, x.CreatedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmailMessageAttachment>(b =>
+        {
+            b.ToTable("EmailMessageAttachments");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            b.Property(x => x.ContentType).HasMaxLength(160);
+            b.Property(x => x.ContentBytes).IsRequired();
+            b.HasIndex(x => new { x.TenantId, x.EmailMessageId });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
