@@ -319,6 +319,21 @@ public sealed class CandidaturaService : ICandidaturaService
                                 : null,
                 };
 
+        if (!_currentUser.IsAdmin && !_currentUser.IsInRole("Owner"))
+        {
+            if (!_currentUser.UserId.HasValue)
+            {
+                q = q.Where(_ => false);
+            }
+            else
+            {
+                var userId = _currentUser.UserId.Value;
+                q = q.Where(x => _db.SolicitacoesVaga
+                    .AsNoTracking()
+                    .Any(s => s.VagaId == x.VagaId && s.AnalistaRhResponsavelUserId == userId));
+            }
+        }
+
         var rows = await q.OrderByDescending(x => x.AplicadaEmUtc).ToListAsync(ct);
         var total = rows.Count;
         var hybridScores = await CalcularScoresHybridKanbanAsync(
