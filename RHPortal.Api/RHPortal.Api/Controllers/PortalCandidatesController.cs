@@ -1439,7 +1439,7 @@ public sealed class PortalCandidatesController : ControllerBase
                 return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
 
             var downloadUrl = created.TemArquivo
-                ? CandidatoDocumentoStorage.BuildRhDownloadUrl(id, created.Id)
+                ? BuildPortalDocumentDownloadUrl(id, created.Id)
                 : created.Url;
             return Ok(new PortalCandidateDocumentDto(
                 created.Id,
@@ -2783,7 +2783,7 @@ public sealed class PortalCandidatesController : ControllerBase
     {
         var temArquivo = CandidatoDocumentoStorage.ExistsOnDisk(hostEnvironment, tenantContext, candidatoId, doc);
         var link = temArquivo
-            ? CandidatoDocumentoStorage.BuildRhDownloadUrl(candidatoId, doc.Id)
+            ? BuildPortalDocumentDownloadUrl(candidatoId, doc.Id)
             : doc.Url;
         return new PortalCandidateDocumentDto(
             doc.Id,
@@ -2796,6 +2796,9 @@ public sealed class PortalCandidatesController : ControllerBase
             doc.CreatedAtUtc,
             temArquivo);
     }
+
+    private static string BuildPortalDocumentDownloadUrl(Guid candidatoId, Guid documentoId)
+        => $"/api/public/portal-candidates/{candidatoId}/curriculos/{documentoId}/download";
 
     private static PortalCandidateInternalNotificationDto MapPortalNotification(
         CandidatoPortalNotificacao n,
