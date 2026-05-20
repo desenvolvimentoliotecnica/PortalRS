@@ -47,7 +47,7 @@ export function OQueFazerWidget({
         )}
         {vagasForaSla > 0 && (
           <Link
-            href="/triagem?filter=late"
+            href="/recrutamento/candidaturas"
             className="flex items-center justify-between gap-2 rounded-lg bg-white/80 border border-red-200/40 px-3 py-2 text-sm hover:bg-white transition-colors group"
           >
             <div className="flex items-center gap-2">

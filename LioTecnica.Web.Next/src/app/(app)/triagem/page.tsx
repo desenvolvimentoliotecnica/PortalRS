@@ -1,12 +1,5 @@
-"use client";
-
-import { AuthGuard } from "@/hooks/useAuth";
-import TriagemScreen from "@/features/recrutamento/triagem/TriagemScreen";
+import { redirect } from "next/navigation";
 
 export default function TriagemPage() {
-  return (
-    <AuthGuard>
-      <TriagemScreen initialVagas={[]} initialCands={[]} />
-    </AuthGuard>
-  );
+  redirect("/recrutamento/candidaturas");
 }
