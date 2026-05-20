@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Vagas;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Application.Vagas;
@@ -39,10 +40,12 @@ public sealed class VagaPipelineService : IVagaPipelineService
     };
 
     private readonly AppDbContext _db;
+    private readonly ICurrentUserContext _currentUser;
 
-    public VagaPipelineService(AppDbContext db)
+    public VagaPipelineService(AppDbContext db, ICurrentUserContext currentUser)
     {
         _db = db;
+        _currentUser = currentUser;
     }
 
     public async Task<VagaPipelineResponse> ListarAsync(VagaPipelineFiltros filtros, CancellationToken ct)
@@ -51,6 +54,8 @@ public sealed class VagaPipelineService : IVagaPipelineService
 
         var vagasQuery = _db.Vagas.AsNoTracking()
             .Where(v => !v.IsEstrutural && !statusExcluidos.Contains(v.Status));
+
+        vagasQuery = AplicarEscopoAnalista(vagasQuery);
 
         if (filtros.Origem.HasValue)
             vagasQuery = vagasQuery.Where(v => v.OrigemTipo == filtros.Origem.Value);
@@ -199,6 +204,24 @@ public sealed class VagaPipelineService : IVagaPipelineService
 
     private static IReadOnlyList<VagaPipelineColuna> BuildEmptyColunas()
         => Colunas.Select(c => new VagaPipelineColuna(c.Estagio, c.Nome, 0, Array.Empty<VagaPipelineItem>())).ToList();
+
+    private IQueryable<RHPortal.Api.Domain.Entities.Vaga> AplicarEscopoAnalista(IQueryable<RHPortal.Api.Domain.Entities.Vaga> query)
+    {
+        if (_currentUser.IsAdmin || _currentUser.IsInRole("Owner"))
+        {
+            return query;
+        }
+
+        if (!_currentUser.UserId.HasValue)
+        {
+            return query.Where(_ => false);
+        }
+
+        var userId = _currentUser.UserId.Value;
+        return query.Where(v => _db.SolicitacoesVaga
+            .AsNoTracking()
+            .Any(s => s.VagaId == v.Id && s.AnalistaRhResponsavelUserId == userId));
+    }
 
     private sealed record VagaRow(
         Guid Id,
