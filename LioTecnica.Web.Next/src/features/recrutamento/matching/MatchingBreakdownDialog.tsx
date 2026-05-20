@@ -249,7 +249,7 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
                       <div className={`h-full ${barColor(c.score)} transition-all`} style={{ width: `${c.score}%` }} />
                     </div>
                     {(c.itensCobertos.length > 0 || c.itensFaltando.length > 0) && (
-                      <div className="grid gap-4 text-sm leading-relaxed md:grid-cols-2">
+                      <div className={`grid gap-4 text-lg leading-relaxed ${c.itensCobertos.length > 0 && c.itensFaltando.length > 0 ? "md:grid-cols-2" : "grid-cols-1"}`}>
                         {c.itensCobertos.length > 0 && (
                           <div>
                             <div className="text-emerald-700 dark:text-emerald-400 font-semibold mb-2">✓ Cobertos ({c.itensCobertos.length})</div>
