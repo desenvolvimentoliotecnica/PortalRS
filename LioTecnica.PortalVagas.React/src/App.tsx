@@ -3325,6 +3325,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             <DocumentRepeaterSection
               title="Documentos"
               items={state.documents}
+              tenantId={ctx.tenantId}
               onUpload={(values) => uploadDocument(`/api/public/portal-candidates/${candidateId}/documents/upload`, values.tipo, values.observacoes, values.arquivo)}
               onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, values, 'Documento atualizado.')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, 'Documento removido.')}
@@ -4911,12 +4912,14 @@ function ProjectRepeaterSection({
 function DocumentRepeaterSection({
   title,
   items,
+  tenantId,
   onUpload,
   onUpdate,
   onDelete,
 }: {
   title: string
   items: PortalDocument[]
+  tenantId: string
   onUpload: (values: { tipo: string; observacoes: string; arquivo: File }) => void | Promise<void>
   onUpdate: (item: PortalDocument, values: Record<string, string>) => void | Promise<void>
   onDelete: (item: PortalDocument) => void
@@ -4962,6 +4965,16 @@ function DocumentRepeaterSection({
     resetDraft()
   }
 
+  async function openDocumentLink(link?: string | null) {
+    const trimmed = (link ?? '').trim()
+    if (!trimmed) return
+
+    const url = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : await buildApiUrl(trimmed, tenantId)
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <div className="subsection-card document-section-card">
       <div className="subsection-head document-section-head">
@@ -4996,7 +5009,7 @@ function DocumentRepeaterSection({
                   <dd>{formatJobDate(item.createdAtUtc)}</dd>
                 </div>
               </dl>
-              {item.link ? <a className="document-link" href={item.link} target="_blank" rel="noreferrer">Abrir link</a> : null}
+              {item.link ? <button className="document-link" type="button" onClick={() => void openDocumentLink(item.link)}>Abrir link</button> : null}
               {item.observacoes ? <p className="document-note">{item.observacoes}</p> : null}
               <div className="list-item-actions">
                 <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
