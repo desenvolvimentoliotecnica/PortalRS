@@ -15,6 +15,7 @@ public interface ICandidaturaService
     Task<IReadOnlyList<CandidaturaResponse>> ListarDoCandidatoAsync(Guid candidatoId, CancellationToken ct);
     Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct);
     Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct);
+    Task<IReadOnlyList<KanbanVagaFiltroItem>> ListarVagasKanbanAsync(CancellationToken ct);
 
     /// <summary>
     /// Sessão 31.8 (FASE 3.A) — Funil de conversão de candidaturas.
@@ -391,6 +392,69 @@ public sealed class CandidaturaService : ICandidaturaService
         }).ToList();
 
         return new KanbanCandidaturasResponse(colunas, total);
+    }
+
+    public async Task<IReadOnlyList<KanbanVagaFiltroItem>> ListarVagasKanbanAsync(CancellationToken ct)
+    {
+        var candidaturaVagaIds = AplicarEscopoKanban(_db.Candidaturas.AsNoTracking())
+            .Select(c => c.VagaId);
+
+        IQueryable<Guid> vagaIds = candidaturaVagaIds;
+
+        if (!_currentUser.IsAdmin && !_currentUser.IsInRole("Owner") && _currentUser.UserId.HasValue)
+        {
+            var userId = _currentUser.UserId.Value;
+            var vagasAtribuidas = _db.SolicitacoesVaga
+                .AsNoTracking()
+                .Where(s => s.VagaId.HasValue && s.AnalistaRhResponsavelUserId == userId)
+                .Select(s => s.VagaId!.Value);
+
+            vagaIds = vagaIds.Union(vagasAtribuidas);
+        }
+
+        var ids = await vagaIds.Distinct().ToListAsync(ct);
+        if (ids.Count == 0)
+        {
+            return Array.Empty<KanbanVagaFiltroItem>();
+        }
+
+        var totaisPorVaga = await AplicarEscopoKanban(_db.Candidaturas.AsNoTracking())
+            .Where(c => ids.Contains(c.VagaId))
+            .GroupBy(c => c.VagaId)
+            .Select(g => new { VagaId = g.Key, Total = g.Count() })
+            .ToDictionaryAsync(x => x.VagaId, x => x.Total, ct);
+
+        var vagas = await _db.Vagas
+            .AsNoTracking()
+            .Where(v => ids.Contains(v.Id))
+            .OrderBy(v => v.Titulo)
+            .ToListAsync(ct);
+
+        return vagas
+            .Select(v => new KanbanVagaFiltroItem(
+                v.Id,
+                v.Titulo,
+                v.Codigo,
+                totaisPorVaga.GetValueOrDefault(v.Id)))
+            .ToList();
+    }
+
+    private IQueryable<Candidatura> AplicarEscopoKanban(IQueryable<Candidatura> query)
+    {
+        if (_currentUser.IsAdmin || _currentUser.IsInRole("Owner"))
+        {
+            return query;
+        }
+
+        if (!_currentUser.UserId.HasValue)
+        {
+            return query.Where(_ => false);
+        }
+
+        var userId = _currentUser.UserId.Value;
+        return query.Where(c => _db.SolicitacoesVaga
+            .AsNoTracking()
+            .Any(s => s.VagaId == c.VagaId && s.AnalistaRhResponsavelUserId == userId));
     }
 
     private async Task<Dictionary<(Guid CandidatoId, Guid VagaId), int?>> CalcularScoresHybridKanbanAsync(

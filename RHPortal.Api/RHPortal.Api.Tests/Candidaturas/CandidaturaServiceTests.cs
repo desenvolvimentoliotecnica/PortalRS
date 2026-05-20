@@ -219,6 +219,31 @@ public sealed class CandidaturaServiceTests
     }
 
     [Fact]
+    public async Task ListarVagasKanban_AnalistaRh_RetornaSomenteVagasVisiveisOuAtribuidas()
+    {
+        var analystId = Guid.NewGuid();
+        var (db, svc) = CriarServico(userId: analystId);
+        var candPermitido = SeedCandidato(db, "Permitido", "permitido@ex.com");
+        var candOutro = SeedCandidato(db, "Outro", "outro@ex.com");
+        var vagaPermitida = SeedVaga(db, "Vaga com candidatura");
+        var vagaOutroAnalista = SeedVaga(db, "Vaga de outro analista");
+        var vagaAtribuidaSemCandidatura = SeedVaga(db, "Vaga atribuida sem candidatura");
+
+        await svc.GetOrCreateAsync(candPermitido, vagaPermitida, "Portal", null, default);
+        await svc.GetOrCreateAsync(candOutro, vagaOutroAnalista, "Portal", null, default);
+        SeedSolicitacaoVaga(db, vagaPermitida, analystId);
+        SeedSolicitacaoVaga(db, vagaOutroAnalista, Guid.NewGuid());
+        SeedSolicitacaoVaga(db, vagaAtribuidaSemCandidatura, analystId);
+
+        var vagas = await svc.ListarVagasKanbanAsync(default);
+
+        Assert.Equal(2, vagas.Count);
+        Assert.Contains(vagas, v => v.Id == vagaPermitida && v.TotalCandidaturas == 1);
+        Assert.Contains(vagas, v => v.Id == vagaAtribuidaSemCandidatura && v.TotalCandidaturas == 0);
+        Assert.DoesNotContain(vagas, v => v.Id == vagaOutroAnalista);
+    }
+
+    [Fact]
     public async Task AvancarEtapa_RegistraHistoricoEAtualizaEtapaAtual()
     {
         var (db, svc) = CriarServico();

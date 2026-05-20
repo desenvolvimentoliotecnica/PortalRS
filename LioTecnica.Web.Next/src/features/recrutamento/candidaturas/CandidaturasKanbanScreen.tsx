@@ -3,21 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { apiJson } from "@/lib/api";
 import {
   avancarEtapa,
   bulkAvancarEtapa,
   ETAPAS_KANBAN,
   getKanban,
+  getKanbanVagas,
   resolveEtapa,
   type EtapaMacroCandidatura,
   type KanbanCandidaturaItem,
   type KanbanCandidaturasResponse,
+  type KanbanVagaFiltroItem,
 } from "./candidaturaApi";
 import CandidateKanbanDetailDialog from "./CandidateKanbanDetailDialog";
 import MatchingBreakdownDialog, { useMatchingBreakdownDialog } from "@/features/recrutamento/matching/MatchingBreakdownDialog";
-
-type VagaLite = { id: string; titulo: string | null };
 
 const ETAPA_LABELS: Record<EtapaMacroCandidatura, string> = {
   Aplicada: "Aplicada",
@@ -54,7 +53,7 @@ export default function CandidaturasKanbanScreen() {
   const [data, setData] = useState<KanbanCandidaturasResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [vagaId, setVagaId] = useState<string>("");
-  const [vagas, setVagas] = useState<VagaLite[]>([]);
+  const [vagas, setVagas] = useState<KanbanVagaFiltroItem[]>([]);
   const [dragging, setDragging] = useState<KanbanCandidaturaItem | null>(null);
   const [hoverEtapa, setHoverEtapa] = useState<EtapaMacroCandidatura | null>(null);
   const [detailItem, setDetailItem] = useState<KanbanCandidaturaItem | null>(null);
@@ -118,7 +117,7 @@ export default function CandidaturasKanbanScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const vs = await apiJson<VagaLite[]>("/api/vagas").catch(() => [] as VagaLite[]);
+        const vs = await getKanbanVagas().catch(() => [] as KanbanVagaFiltroItem[]);
         setVagas(vs);
       } catch { /* ignore */ }
     })();
@@ -166,7 +165,7 @@ export default function CandidaturasKanbanScreen() {
   };
 
   return (
-    <section className="space-y-4 p-4">
+    <section className="flex min-h-[calc(100vh-5rem)] flex-col space-y-4 p-4">
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900">Kanban de candidaturas</h1>
@@ -187,6 +186,8 @@ export default function CandidaturasKanbanScreen() {
               {vagas.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.titulo ?? v.id.slice(0, 8)}
+                  {v.codigo ? ` · ${v.codigo}` : ""}
+                  {v.totalCandidaturas > 0 ? ` (${v.totalCandidaturas})` : ""}
                 </option>
               ))}
             </select>
@@ -223,11 +224,11 @@ export default function CandidaturasKanbanScreen() {
       )}
 
       {loading ? (
-        <div className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
+        <div className="flex min-h-[calc(100vh-14rem)] flex-1 rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
           Carregando…
         </div>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-2">
+        <div className="flex min-h-[calc(100vh-14rem)] flex-1 gap-3 overflow-x-auto pb-2">
           {ETAPAS_KANBAN.map((etapa) => {
             const style = ETAPA_STYLES[etapa];
             const itens = columns.get(etapa) ?? [];
@@ -235,7 +236,7 @@ export default function CandidaturasKanbanScreen() {
             return (
               <div
                 key={etapa}
-                className={`flex w-72 shrink-0 flex-col rounded-lg border bg-white ${style.accent} ${isHover ? "ring-2 ring-sky-400" : ""}`}
+                className={`flex min-h-full w-72 shrink-0 flex-col rounded-lg border bg-white ${style.accent} ${isHover ? "ring-2 ring-sky-400" : ""}`}
                 onDragOver={(e) => { e.preventDefault(); setHoverEtapa(etapa); }}
                 onDragLeave={() => { if (hoverEtapa === etapa) setHoverEtapa(null); }}
                 onDrop={(e) => { e.preventDefault(); void onDropTo(etapa); }}
