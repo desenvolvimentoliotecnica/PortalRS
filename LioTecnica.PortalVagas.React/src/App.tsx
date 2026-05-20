@@ -2993,7 +2993,25 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
 
   async function deleteDocument(item: PortalDocument) {
     try {
-      await authFetch(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, { method: 'DELETE' }, false)
+      if (!ctx.session) throw new Error('Sessão não encontrada.')
+      const ensured = await ensureSession(ctx.session, ctx.tenantId)
+      ctx.setSession(ensured)
+
+      const response = await fetch(
+        await buildApiUrl(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, ctx.tenantId),
+        {
+          method: 'DELETE',
+          headers: {
+            'X-Tenant-Id': ctx.tenantId,
+            ...(ensured.accessToken ? { Authorization: `Bearer ${ensured.accessToken}` } : {}),
+          },
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error(await readApiMessage(response))
+      }
+
       setState((current) => ({
         ...current,
         documents: current.documents.filter((documentItem) => documentItem.id !== item.id),
