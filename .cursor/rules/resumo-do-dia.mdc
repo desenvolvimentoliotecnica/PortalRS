@@ -1,0 +1,23 @@
+---
+description: Padrao para gerar resumo do dia em Markdown
+alwaysApply: true
+---
+
+# Resumo Do Dia
+
+Quando o usuario pedir "um resumo do dia", "relatorio do dia" ou equivalente:
+
+- Gerar um documento `.md` em `docs/` com nome no formato `relatorio-atividades-DD-MM-YYYY.md`.
+- Consultar os commits do dia solicitado e usar tambem o contexto da conversa quando disponivel.
+- Escrever em linguagem natural, executiva e nao tecnica, para conversa com PO/stakeholders.
+- Explicar o que foi feito, por que importa para o negocio/RH e quais ganhos o usuario percebe.
+- Agrupar por temas, nao por commit individual.
+- Evitar detalhes de codigo, nomes internos de classes, endpoints e termos tecnicos, exceto quando forem essenciais e traduzidos em linguagem simples.
+- Incluir secoes semelhantes a:
+  - Visao geral do dia
+  - Principais frentes trabalhadas
+  - Ganhos para o usuario/RH
+  - Pontos de atencao
+  - Resumo para conversa com o PO
+- Manter tom claro, objetivo e estudavel, como material de preparacao para reuniao.
+- Ao finalizar, informar o caminho do arquivo criado.

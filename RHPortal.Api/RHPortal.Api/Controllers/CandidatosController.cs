@@ -1,15 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
+using System.Net;
+using System.Text.Json;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
 using RhPortal.Api.Contracts.Candidatos;
 using RhPortal.Api.Contracts.Candidates;
+using RhPortal.Api.Contracts.Portal;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Controllers;
@@ -161,6 +167,122 @@ public sealed class CandidatosController : ControllerBase
     }
 
     /// <summary>
+    /// Solicita que o candidato complete dados no Portal de Vagas (mensagem interna).
+    /// </summary>
+    [HttpPost("{id:guid}/portal-notificacoes/solicitar-dados")]
+    [ProducesResponseType(typeof(PortalCandidateInternalNotificationDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortalCandidateInternalNotificationDto>> SolicitarAtualizacaoDadosPortal(
+        [FromRoute] Guid id,
+        [FromBody] SolicitarAtualizacaoDadosCandidatoRequest request,
+        [FromServices] AppDbContext db,
+        [FromServices] IEmailQueueService emailQueue,
+        [FromServices] IEmailConfigService emailConfig,
+        [FromServices] ILogger<CandidatosController> logger,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner") && _userContext.IsReadOnly)
+            return Forbid();
+
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var campos = request.CamposPendentes
+            .Select(c => (c ?? string.Empty).Trim())
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList();
+        if (campos.Count == 0)
+            return BadRequest(new { message = "Informe ao menos um campo pendente." });
+
+        var candidate = await db.Candidatos
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new { c.Id, c.TenantId, c.Nome, c.Email, c.VagaId })
+            .FirstOrDefaultAsync(ct);
+        if (candidate is null)
+            return NotFound();
+
+        var vagaId = request.VagaId ?? candidate.VagaId;
+        Guid? candidaturaId = request.CandidaturaId;
+        if (candidaturaId.HasValue)
+        {
+            var candidaturaOk = await db.Candidaturas
+                .AsNoTracking()
+                .AnyAsync(c => c.Id == candidaturaId.Value && c.CandidatoId == candidate.Id
+                    && (!vagaId.HasValue || c.VagaId == vagaId.Value), ct);
+            if (!candidaturaOk)
+                return BadRequest(new { message = "Candidatura informada não pertence ao candidato/vaga." });
+        }
+
+        Guid? vagaAreaId = null;
+        Guid? vagaRecrutadorUserId = null;
+        string? vagaTitulo = null;
+        if (vagaId.HasValue)
+        {
+            var vaga = await db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == vagaId.Value)
+                .Select(v => new { v.Id, v.CentroCustoId, v.RecrutadorResponsavelUserId, v.Titulo })
+                .FirstOrDefaultAsync(ct);
+            if (vaga is null)
+                return BadRequest(new { message = "Vaga informada não encontrada." });
+            vagaAreaId = vaga.CentroCustoId;
+            vagaRecrutadorUserId = vaga.RecrutadorResponsavelUserId;
+            vagaTitulo = vaga.Titulo;
+        }
+
+        var denied = await AuthorizeCandidatoDetailAsync(vagaId, vagaAreaId, vagaRecrutadorUserId, db, ct);
+        if (denied != null)
+            return denied;
+
+        var titulo = string.IsNullOrWhiteSpace(request.Titulo)
+            ? "Ação necessária: complete seus dados"
+            : request.Titulo.Trim();
+        var camposTexto = string.Join(", ", campos);
+        var mensagem = string.IsNullOrWhiteSpace(request.Mensagem)
+            ? $"O RH solicitou a atualização dos seguintes dados para seguir com sua candidatura: {camposTexto}. Acesse a seção Perfil e complete as informações."
+            : request.Mensagem.Trim();
+
+        var entity = new CandidatoPortalNotificacao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = candidate.TenantId,
+            CandidatoId = candidate.Id,
+            VagaId = vagaId,
+            CandidaturaId = candidaturaId,
+            Tipo = "CompletarDados",
+            Titulo = titulo,
+            Mensagem = mensagem,
+            CamposPendentesJson = JsonSerializer.Serialize(campos),
+            CriadaPorUserId = _userContext.UserId,
+            CriadaPorNome = _userContext.Email,
+        };
+        db.CandidatoPortalNotificacoes.Add(entity);
+        await db.SaveChangesAsync(ct);
+
+        await TryEnqueueSolicitacaoAtualizacaoEmailAsync(
+            candidate.Nome,
+            candidate.Email,
+            vagaTitulo,
+            titulo,
+            mensagem,
+            campos,
+            emailQueue,
+            emailConfig,
+            logger,
+            ct);
+
+        return CreatedAtAction(
+            nameof(SolicitarAtualizacaoDadosPortal),
+            new { id = candidate.Id },
+            MapPortalNotificacao(entity, vagaTitulo));
+    }
+
+    /// <summary>
     /// Mesmas regras de visibilidade que <see cref="GetById"/> (área / recrutador / analista em SolicitacaoVaga).
     /// </summary>
     private async Task<ActionResult?> AuthorizeCandidatoDetailAsync(
@@ -194,6 +316,100 @@ public sealed class CandidatosController : ControllerBase
             return NotFound();
 
         return null;
+    }
+
+    private static PortalCandidateInternalNotificationDto MapPortalNotificacao(
+        CandidatoPortalNotificacao n,
+        string? vagaTitulo)
+    {
+        var campos = string.IsNullOrWhiteSpace(n.CamposPendentesJson)
+            ? Array.Empty<string>()
+            : JsonSerializer.Deserialize<string[]>(n.CamposPendentesJson) ?? Array.Empty<string>();
+        return new PortalCandidateInternalNotificationDto(
+            n.Id,
+            n.CandidatoId,
+            n.VagaId,
+            vagaTitulo,
+            n.CandidaturaId,
+            n.Tipo,
+            n.Titulo,
+            n.Mensagem,
+            campos,
+            n.LidaEmUtc,
+            n.ResolvidaEmUtc,
+            n.CriadaPorNome,
+            n.CreatedAtUtc,
+            n.UpdatedAtUtc);
+    }
+
+    private static async Task TryEnqueueSolicitacaoAtualizacaoEmailAsync(
+        string candidatoNome,
+        string? candidatoEmail,
+        string? vagaTitulo,
+        string titulo,
+        string mensagem,
+        IReadOnlyList<string> campos,
+        IEmailQueueService emailQueue,
+        IEmailConfigService emailConfig,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var to = NormalizeEmailDestination(candidatoEmail);
+        if (to is null)
+        {
+            var cfg = await emailConfig.GetDecryptedAsync(ct);
+            if (cfg?.SmtpUseTestRedirect == true && !string.IsNullOrWhiteSpace(cfg.SmtpTestRedirectAddress))
+                to = "candidato-sem-email@renderrh.local";
+        }
+
+        if (to is null)
+            return;
+
+        try
+        {
+            var nome = WebUtility.HtmlEncode(candidatoNome);
+            var vaga = string.IsNullOrWhiteSpace(vagaTitulo)
+                ? ""
+                : $"<p><strong>Vaga:</strong> {WebUtility.HtmlEncode(vagaTitulo)}</p>";
+            var camposHtml = string.Join("", campos.Select(c => $"<li>{WebUtility.HtmlEncode(c)}</li>"));
+            var bodyHtml = $"""
+                <p>Olá {nome},</p>
+                <p>{WebUtility.HtmlEncode(mensagem)}</p>
+                {vaga}
+                <p><strong>Campos solicitados:</strong></p>
+                <ul>{camposHtml}</ul>
+                <p>Acesse o Portal de Vagas, abra seu workspace e atualize seu perfil para seguir no processo.</p>
+                """;
+            var bodyText = $"""
+                Olá {candidatoNome},
+
+                {mensagem}
+
+                {(string.IsNullOrWhiteSpace(vagaTitulo) ? "" : $"Vaga: {vagaTitulo}\n")}
+                Campos solicitados: {string.Join(", ", campos)}
+
+                Acesse o Portal de Vagas, abra seu workspace e atualize seu perfil para seguir no processo.
+                """;
+
+            await emailQueue.EnqueueRawAsync(
+                to,
+                titulo,
+                bodyHtml,
+                bodyText,
+                isSystem: true,
+                source: "portal-candidato-completar-dados",
+                ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Falha ao enfileirar e-mail de solicitação de atualização de dados do candidato.");
+        }
+    }
+
+    private static string? NormalizeEmailDestination(string? email)
+    {
+        var trimmed = (email ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 
     /// <summary>
