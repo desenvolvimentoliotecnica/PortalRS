@@ -5065,7 +5065,10 @@ function DocumentRepeaterSection({
               {item.link ? <button className="document-link" type="button" onClick={() => void openDocumentLink(item.link)}>Abrir link</button> : null}
               {item.observacoes ? <p className="document-note">{item.observacoes}</p> : null}
               <div className="list-item-actions">
-                <button className="ghost-btn" type="button" onClick={() => setDeleteTarget(item)}>Remover</button>
+                <button className="document-remove-btn" type="button" onClick={() => setDeleteTarget(item)}>
+                  <i className="fas fa-trash" aria-hidden="true"></i>
+                  <span>Remover</span>
+                </button>
               </div>
             </article>
           )
