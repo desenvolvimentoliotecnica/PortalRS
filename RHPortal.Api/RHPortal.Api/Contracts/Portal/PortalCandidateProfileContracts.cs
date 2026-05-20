@@ -13,6 +13,7 @@ public sealed record PortalCandidateProfileResponse(
     string Nome,
     string Email,
     string? Fone,
+    string? Celular,
     string? Cidade,
     string? Uf,
     string? LinkedinUrl,
@@ -25,6 +26,7 @@ public sealed record PortalCandidateProfileResponse(
 public sealed record PortalCandidateProfileUpdateRequest(
     [Required, MaxLength(160)] string Nome,
     [Required, MaxLength(40)] string Fone,
+    [MaxLength(40)] string? Celular,
     [Required, MaxLength(120)] string Cidade,
     [Required, MaxLength(2)] string Uf,
     [MaxLength(260)] string? LinkedinUrl,

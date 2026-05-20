@@ -33,6 +33,7 @@ type PortalProfile = {
   nome: string
   email: string
   fone?: string | null
+  celular?: string | null
   cidade?: string | null
   uf?: string | null
   linkedinUrl?: string | null
@@ -1640,6 +1641,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     nome: '',
     email: '',
     fone: '',
+    celular: '',
     cidade: '',
     uf: '',
   })
@@ -1774,6 +1776,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
       nome: snapshot.profileData.nome ?? '',
       email: snapshot.profileData.email ?? '',
       fone: snapshot.profileData.fone ?? '',
+      celular: snapshot.profileData.celular ?? '',
       cidade: snapshot.profileData.cidade ?? '',
       uf: snapshot.profileData.uf ?? '',
     })
@@ -2084,6 +2087,10 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         <strong>{formatBrazilianPhone(form.fone) || 'Não informado'}</strong>
                       </div>
                       <div className="profile-mini-card">
+                        <span>Celular</span>
+                        <strong>{formatBrazilianPhone(form.celular) || 'Não informado'}</strong>
+                      </div>
+                      <div className="profile-mini-card">
                         <span>LinkedIn</span>
                         <strong>{linkedinValue}</strong>
                       </div>
@@ -2179,6 +2186,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                             fields={[
                               field('Nome', profile?.nome),
                               field('Telefone', profile?.fone),
+                              field('Celular', profile?.celular),
                               field('Cidade', profile?.cidade),
                               field('UF', profile?.uf),
                               field('LinkedIn', profile?.linkedinUrl),
@@ -2187,6 +2195,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                             onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}`, {
                               nome: values.Nome,
                               fone: values.Telefone,
+                              celular: values.Celular,
                               cidade: values.Cidade,
                               uf: values.UF,
                               linkedinUrl: values.LinkedIn,
@@ -2858,6 +2867,10 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
   })
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
+  const [uploadFeedback, setUploadFeedback] = useState<{
+    title: string
+    message: string
+  } | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [resumeParsePreview, setResumeParsePreview] = useState<string>('')
   const authFetch = useMemo(() => createAuthorizedClient(ctx), [ctx])
@@ -2988,6 +3001,12 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
       }, false)
       setMessage(successText)
       await refreshWorkspace()
+      if (path.includes('/curriculos')) {
+        setUploadFeedback({
+          title: 'Currículo enviado com sucesso',
+          message: 'O arquivo já está disponível para consulta na seção Documentos do seu perfil.',
+        })
+      }
     } catch (err) {
       setMessage(readError(err))
     }
@@ -3126,6 +3145,43 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
           </section>
 
           {message ?<div className="toast-banner">{message}</div> : null}
+          {uploadFeedback ?(
+            <div className="swal-backdrop" role="presentation" onClick={() => setUploadFeedback(null)}>
+              <section
+                className="swal-card success"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="upload-feedback-title"
+                aria-describedby="upload-feedback-message"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="swal-icon" aria-hidden="true">
+                  <i className="fas fa-check"></i>
+                </div>
+                <h3 id="upload-feedback-title">{uploadFeedback.title}</h3>
+                <p id="upload-feedback-message">{uploadFeedback.message}</p>
+                <div className="swal-actions">
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={() => setUploadFeedback(null)}
+                  >
+                    Continuar no perfil
+                  </button>
+                  <button
+                    className="primary-btn"
+                    type="button"
+                    onClick={() => {
+                      setUploadFeedback(null)
+                      selectWorkspaceSection('documentos')
+                    }}
+                  >
+                    Ver em Documentos
+                  </button>
+                </div>
+              </section>
+            </div>
+          ) : null}
 
           <div className="content-grid workspace-content-grid is-single-section">
         <section className="content-column">
@@ -3140,6 +3196,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
               setMessage={setMessage}
               setResumeParsePreview={setResumeParsePreview}
               uploadFile={uploadFile}
+              onOpenDocuments={() => selectWorkspaceSection('documentos')}
             />
 
             {resumeParsePreview ?<pre className="json-preview">{resumeParsePreview}</pre> : null}
@@ -4060,6 +4117,7 @@ function CandidateProfileResumeForm({
   setMessage,
   setResumeParsePreview,
   uploadFile,
+  onOpenDocuments,
 }: {
   authFetch: ReturnType<typeof createAuthorizedClient>
   avatarPreview: string | null
@@ -4070,10 +4128,12 @@ function CandidateProfileResumeForm({
   setMessage: (message: string | null) => void
   setResumeParsePreview: (value: string) => void
   uploadFile: (path: string, fieldName: string, file: File, successText: string) => Promise<void>
+  onOpenDocuments: () => void
 }) {
   const [form, setForm] = useState({
     nome: '',
     fone: '',
+    celular: '',
     uf: '',
     cidade: '',
     linkedinUrl: '',
@@ -4087,6 +4147,7 @@ function CandidateProfileResumeForm({
     setForm({
       nome: profile?.nome ?? '',
       fone: formatBrazilianPhone(profile?.fone),
+      celular: formatBrazilianPhone(profile?.celular),
       uf: (profile?.uf ?? '').toUpperCase(),
       cidade: profile?.cidade ?? '',
       linkedinUrl: profile?.linkedinUrl ?? '',
@@ -4144,6 +4205,7 @@ function CandidateProfileResumeForm({
   const citySelectOptions = form.cidade && !cityOptions.includes(form.cidade)
     ?[form.cidade, ...cityOptions]
     : cityOptions
+  const latestResume = profile?.curriculo ?? null
 
   return (
     <>
@@ -4167,6 +4229,7 @@ function CandidateProfileResumeForm({
           void saveJson(`/api/public/portal-candidates/${candidateId}`, {
             nome: form.nome.trim(),
             fone: form.fone.trim(),
+            celular: form.celular.trim(),
             uf: form.uf.trim().toUpperCase(),
             cidade: form.cidade.trim(),
             linkedinUrl: form.linkedinUrl.trim(),
@@ -4186,6 +4249,25 @@ function CandidateProfileResumeForm({
             value={form.fone}
             onChange={(event) => setForm((current) => ({ ...current, fone: formatBrazilianPhone(event.target.value) }))}
           />
+        </label>
+        <label>
+          <span>Celular</span>
+          <div className="profile-copy-field">
+            <input
+              inputMode="tel"
+              placeholder="(11) 99999-9999"
+              value={form.celular}
+              onChange={(event) => setForm((current) => ({ ...current, celular: formatBrazilianPhone(event.target.value) }))}
+            />
+            <button
+              className="ghost-btn"
+              type="button"
+              onClick={() => setForm((current) => ({ ...current, celular: formatBrazilianPhone(current.fone) }))}
+              disabled={!form.fone.trim()}
+            >
+              Copiar telefone
+            </button>
+          </div>
         </label>
         <label>
           <span>UF</span>
@@ -4223,29 +4305,48 @@ function CandidateProfileResumeForm({
         <button className="primary-btn" type="submit">Salvar seção</button>
       </form>
 
-      <div className="toolbar-row">
-        <label className="upload-label">
-          Enviar currículo
-          <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'Currículo enviado.')
-          }} />
-        </label>
-        <label className="upload-label">
-          Parsear currículo
-          <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (!file) return
-            const upload = new FormData()
-            upload.append('arquivo', file)
-            void authFetch<Record<string, unknown>>(`/api/public/portal-candidates/${candidateId}/parse-resume`, { method: 'POST', body: upload }, false)
-              .then((result) => setResumeParsePreview(JSON.stringify(result, null, 2)))
-              .catch((err) => setMessage(readError(err)))
-          }} />
-        </label>
-        <button className="secondary-btn" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>Abrir currículo HTML</button>
-        <button className="secondary-btn" type="button" onClick={() => void downloadResumePdf(authFetch, candidateId)}>Baixar PDF gerado</button>
-      </div>
+      <section className={`profile-resume-card${latestResume ? ' has-resume' : ' is-empty'}`}>
+        <div className="profile-resume-icon" aria-hidden="true">
+          <i className="fas fa-file-lines"></i>
+        </div>
+        <div className="profile-resume-copy">
+          <span className="eyebrow">Currículo principal</span>
+          <strong>{latestResume?.nomeArquivo ?? 'Nenhum currículo enviado ainda'}</strong>
+          <p>
+            {latestResume
+              ? `Enviado em ${formatDateTime(latestResume.createdAtUtc)}. Também disponível na seção Documentos.`
+              : 'Envie um arquivo PDF, DOC ou DOCX para deixar seu currículo disponível no portal.'}
+          </p>
+        </div>
+        <div className="profile-resume-actions">
+          <label className="upload-label">
+            {latestResume ? 'Substituir currículo' : 'Enviar currículo'}
+            <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'Currículo enviado.')
+            }} />
+          </label>
+          {latestResume ? (
+            <>
+              <label className="upload-label">
+                Parsear currículo
+                <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  const upload = new FormData()
+                  upload.append('arquivo', file)
+                  void authFetch<Record<string, unknown>>(`/api/public/portal-candidates/${candidateId}/parse-resume`, { method: 'POST', body: upload }, false)
+                    .then((result) => setResumeParsePreview(JSON.stringify(result, null, 2)))
+                    .catch((err) => setMessage(readError(err)))
+                }} />
+              </label>
+              <button className="secondary-btn" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>Abrir currículo HTML</button>
+              <button className="secondary-btn" type="button" onClick={() => void downloadResumePdf(authFetch, candidateId)}>Baixar PDF gerado</button>
+              <button className="ghost-btn" type="button" onClick={onOpenDocuments}>Ver em Documentos</button>
+            </>
+          ) : null}
+        </div>
+      </section>
     </>
   )
 }
