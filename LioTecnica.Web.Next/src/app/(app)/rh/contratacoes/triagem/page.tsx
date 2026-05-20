@@ -12,7 +12,7 @@ export default function RhContratacoesTriagemPage() {
             ) : (
                 <RhContratacoesListScreen
                     title="Contratações — Triagem"
-                    subtitle="Fila de requisição de pessoal (aumento de quadro) — distinto do pipeline de candidatos em /triagem."
+                    subtitle="Fila de requisição de pessoal (aumento de quadro) — distinta do Kanban de candidaturas em /recrutamento/candidaturas."
                     statusPresets={[
                         { label: "Fila triagem", codes: ["11", "12", "13"] },
                         { label: "Pendente triagem", codes: ["11"] },

@@ -37,7 +37,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     // ── Recrutamento & Seleção ─────────────────────────────────────────
     { id: "nav-vagas",                     label: "Vagas",                       href: "/vagas",                          icon: "briefcase",        permission: "vagas.view" },
     { id: "nav-candidatos",                label: "Candidatos",                  href: "/candidatos",                     icon: "users",            permission: "candidatos.view" },
-    { id: "nav-triagem",                   label: "Pipeline",                    href: "/triagem",                        icon: "bi-funnel",        permission: "triagem.view" },
+    { id: "nav-triagem",                   label: "Candidaturas",                href: "/recrutamento/candidaturas",      icon: "bi-funnel",        permission: "triagem.view" },
     { id: "nav-rh-contrat-triagem",        label: "Contratações — Triagem",      href: "/rh/contratacoes/triagem",        icon: "clipboardlist",      permission: "rh.contratacoes.triagem" },
     { id: "nav-rh-contrat-selecao",        label: "Contratações — Seleção",       href: "/rh/contratacoes/selecao",        icon: "usercheck",          permission: "rh.contratacoes.selecao" },
     { id: "nav-rh-contrat-aprovacoes",    label: "Contratações — Aprovações",     href: "/gestao/aprovacoes",            icon: "listchecks",          permission: "gestao.dashboard" },

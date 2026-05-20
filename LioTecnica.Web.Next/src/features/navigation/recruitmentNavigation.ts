@@ -14,7 +14,7 @@ export const RECRUITMENT_ROUTE_KEYS = {
   matching: "/matching",
   rodadas: "/gestao/projetos",
   processoSeletivo: "/gestao/processo-seletivo",
-  triagem: "/triagem",
+  triagem: "/recrutamento/candidaturas",
   admissao: "/admissao",
   integracao: "/admissao/integracao",
   desligamentos: "/gestao/desligamentos",
@@ -44,7 +44,7 @@ export const RECRUITMENT_MVP_ORDER = [
 
 /** Abas secundárias — abaixo do divisor */
 export const RECRUITMENT_SECONDARY_ORDER = [
-  RECRUITMENT_ROUTE_KEYS.triagem,          // Pipeline
+  RECRUITMENT_ROUTE_KEYS.triagem,          // Candidaturas
   RECRUITMENT_ROUTE_KEYS.processoSeletivo, // Processo Seletivo
 ] as const;
 
@@ -65,7 +65,7 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.matching]: "Matching IA",
   [RECRUITMENT_ROUTE_KEYS.rodadas]: "Rodadas de Seleção",
   [RECRUITMENT_ROUTE_KEYS.processoSeletivo]: "Processo Seletivo",
-  [RECRUITMENT_ROUTE_KEYS.triagem]: "Pipeline",
+  [RECRUITMENT_ROUTE_KEYS.triagem]: "Candidaturas",
   [RECRUITMENT_ROUTE_KEYS.admissao]: "Admissão",
   [RECRUITMENT_ROUTE_KEYS.integracao]: "Integração TOTVS",
   [RECRUITMENT_ROUTE_KEYS.painelSolicitacoes]: "Painel de Solicitações",
@@ -115,6 +115,7 @@ export function getPipelineStepNumber(routeKey: string): number {
 }
 
 const ROUTE_KEY_ALIASES: Record<string, string> = {
+  "/triagem": RECRUITMENT_ROUTE_KEYS.triagem,
   "/gestao/pipeline": RECRUITMENT_ROUTE_KEYS.rodadas,
 };
 
