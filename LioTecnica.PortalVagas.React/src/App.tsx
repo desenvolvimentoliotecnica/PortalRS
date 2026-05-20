@@ -3078,14 +3078,14 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
   }
 
   if (loading) {
-    return <PageLoading label="Sincronizando seu perfil e suas prefer?ncias..." />
+    return <PageLoading label="Sincronizando seu perfil e suas preferências..." />
   }
 
   if (message && !state.profile) {
     return (
       <main className="page-shell">
         <section className="state-card unavailable">
-          <h3>N?o foi poss?vel carregar seu espa?o</h3>
+          <h3>Não foi possível carregar seu espaço</h3>
           <p>{message}</p>
           <button className="primary-btn" type="button" onClick={() => void refreshWorkspace()}>Tentar novamente</button>
         </section>
@@ -4041,7 +4041,7 @@ type AuthContext = {
 
 function createAuthorizedClient(ctx: AuthContext) {
   return async function request<T>(path: string, init?: RequestInit, json = true): Promise<T> {
-    if (!ctx.session) throw new Error('Sess?o n?o encontrada.')
+    if (!ctx.session) throw new Error('Sessão não encontrada.')
 
     const ensured = await ensureSession(ctx.session, ctx.tenantId)
     ctx.setSession(ensured)
@@ -4072,7 +4072,7 @@ function createAuthorizedClient(ctx: AuthContext) {
 }
 
 async function fetchAuthorizedBlobUrl(ctx: AuthContext, path: string) {
-  if (!ctx.session) throw new Error('Sess?o n?o encontrada.')
+  if (!ctx.session) throw new Error('Sessão não encontrada.')
   const ensured = await ensureSession(ctx.session, ctx.tenantId)
   ctx.setSession(ensured)
 
