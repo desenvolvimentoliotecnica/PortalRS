@@ -4959,6 +4959,12 @@ function DocumentRepeaterSection({
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PortalDocument | null>(null)
+  const [uploadPending, setUploadPending] = useState(false)
+  const [uploadFeedback, setUploadFeedback] = useState<{
+    type: 'success' | 'error'
+    title: string
+    message: string
+  } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<PortalDocument | null>(null)
   const [deletePending, setDeletePending] = useState(false)
   const [deleteFeedback, setDeleteFeedback] = useState<{
@@ -4989,6 +4995,7 @@ function DocumentRepeaterSection({
   }
 
   function closeModal() {
+    if (uploadPending) return
     setModalOpen(false)
     setEditingItem(null)
     resetDraft()
@@ -5028,6 +5035,61 @@ function DocumentRepeaterSection({
     }
   }
 
+  async function submitDocumentForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (uploadPending) return
+
+    if (!draft.tipo.trim()) {
+      setModalError('Selecione o tipo do documento.')
+      return
+    }
+
+    if (editingItem) {
+      await onUpdate(editingItem, {
+        tipo: draft.tipo,
+        nome: editingItem.nome || editingItem.fileName || 'Documento',
+        link: editingItem.link ?? '',
+        data: editingItem.data ?? '',
+        observacoes: draft.observacoes,
+        fileName: editingItem.fileName ?? '',
+      })
+      closeModal()
+      return
+    }
+
+    if (!draft.arquivo) {
+      setModalError('Selecione um arquivo para enviar.')
+      return
+    }
+
+    const fileName = draft.arquivo.name
+    setUploadPending(true)
+    setModalError(null)
+    try {
+      await onUpload({
+        tipo: draft.tipo,
+        observacoes: draft.observacoes,
+        arquivo: draft.arquivo,
+      })
+      setModalOpen(false)
+      setEditingItem(null)
+      resetDraft()
+      setUploadFeedback({
+        type: 'success',
+        title: 'Documento enviado com sucesso',
+        message: `O arquivo "${fileName}" já está disponível na sua lista de documentos.`,
+      })
+    } catch (err) {
+      setUploadFeedback({
+        type: 'error',
+        title: 'Não foi possível enviar',
+        message: readError(err),
+      })
+    } finally {
+      setUploadPending(false)
+    }
+  }
+
   return (
     <div className="subsection-card document-section-card">
       <div className="subsection-head document-section-head">
@@ -5052,19 +5114,25 @@ function DocumentRepeaterSection({
                   <p>{item.tipo || 'Tipo não informado'}</p>
                 </div>
               </div>
-              <dl className="document-meta-grid">
-                <div>
-                  <dt>Data</dt>
-                  <dd>{formatDocumentDate(item.data) || 'Sem data'}</dd>
-                </div>
+              <dl className={`document-meta-grid${item.data ? '' : ' is-single'}`}>
+                {item.data ? (
+                  <div>
+                    <dt>Data</dt>
+                    <dd>{formatDocumentDate(item.data)}</dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt>Cadastrado</dt>
                   <dd>{formatJobDate(item.createdAtUtc)}</dd>
                 </div>
               </dl>
-              {item.link ? <button className="document-link" type="button" onClick={() => void openDocumentLink(item.link)}>Abrir link</button> : null}
-              {item.observacoes ? <p className="document-note">{item.observacoes}</p> : null}
               <div className="list-item-actions">
+                {item.link ? (
+                  <button className="document-download-btn" type="button" onClick={() => void openDocumentLink(item.link)}>
+                    <i className="fas fa-download" aria-hidden="true"></i>
+                    <span>Download</span>
+                  </button>
+                ) : null}
                 <button className="document-remove-btn" type="button" onClick={() => setDeleteTarget(item)}>
                   <i className="fas fa-trash" aria-hidden="true"></i>
                   <span>Remover</span>
@@ -5088,40 +5156,13 @@ function DocumentRepeaterSection({
           <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="workspace-form-modal-header">
               <h3>{editingItem ? 'Editar Documento' : 'Adicionar Documento'}</h3>
-              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
+              <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar" disabled={uploadPending}>
                 <i className="fas fa-times" aria-hidden="true"></i>
               </button>
             </div>
             <form
               className="project-form-grid document-form-grid"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (!draft.tipo.trim()) {
-                  setModalError('Selecione o tipo do documento.')
-                  return
-                }
-                if (editingItem) {
-                  onUpdate(editingItem, {
-                    tipo: draft.tipo,
-                    nome: editingItem.nome || editingItem.fileName || 'Documento',
-                    link: editingItem.link ?? '',
-                    data: editingItem.data ?? '',
-                    observacoes: draft.observacoes,
-                    fileName: editingItem.fileName ?? '',
-                  })
-                } else {
-                  if (!draft.arquivo) {
-                    setModalError('Selecione um arquivo para enviar.')
-                    return
-                  }
-                  onUpload({
-                    tipo: draft.tipo,
-                    observacoes: draft.observacoes,
-                    arquivo: draft.arquivo,
-                  })
-                }
-                closeModal()
-              }}
+              onSubmit={(event) => void submitDocumentForm(event)}
             >
               <div className="workspace-form-modal-body">
                 <label>
@@ -5142,6 +5183,7 @@ function DocumentRepeaterSection({
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      disabled={uploadPending}
                       onChange={(event) => setDraft((current) => ({ ...current, arquivo: event.target.files?.[0] ?? null }))}
                     />
                     <small>{draft.arquivo ? draft.arquivo.name : 'PDF, DOC, DOCX, JPG ou PNG.'}</small>
@@ -5149,16 +5191,43 @@ function DocumentRepeaterSection({
                 ) : null}
                 <label>
                   <span>Observações</span>
-                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Informe contexto, validade, emissor ou qualquer observação importante." />
+                  <textarea rows={4} value={draft.observacoes} disabled={uploadPending} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Informe contexto, validade, emissor ou qualquer observação importante." />
                 </label>
+                {uploadPending ? (
+                  <div className="document-upload-pending">
+                    <i className="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                    <span>Enviando documento...</span>
+                  </div>
+                ) : null}
                 {modalError ? <div className="document-modal-error">{modalError}</div> : null}
               </div>
               <div className="workspace-form-modal-actions">
-                <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
-                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar Documento' : 'Adicionar Documento'}</button>
+                <button className="ghost-btn" type="button" onClick={closeModal} disabled={uploadPending}>Cancelar</button>
+                <button className="secondary-btn" type="submit" disabled={uploadPending}>
+                  {uploadPending ? 'Enviando...' : editingItem ? 'Salvar Documento' : 'Adicionar Documento'}
+                </button>
               </div>
             </form>
           </div>
+        </div>
+      ), document.body) : null}
+      {uploadFeedback ? createPortal((
+        <div className="swal-backdrop" role="presentation" onClick={() => setUploadFeedback(null)}>
+          <section
+            className={`swal-card ${uploadFeedback.type}`}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="document-upload-feedback-title"
+            aria-describedby="document-upload-feedback-message"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="swal-icon" aria-hidden="true">
+              <i className={`fas ${uploadFeedback.type === 'success' ? 'fa-check' : 'fa-triangle-exclamation'}`}></i>
+            </div>
+            <h3 id="document-upload-feedback-title">{uploadFeedback.title}</h3>
+            <p id="document-upload-feedback-message">{uploadFeedback.message}</p>
+            <button className="primary-btn" type="button" onClick={() => setUploadFeedback(null)}>Ok</button>
+          </section>
         </div>
       ), document.body) : null}
       {deleteTarget ? createPortal((

@@ -3599,6 +3599,10 @@ img {
   margin: 0;
 }
 
+.document-meta-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .document-meta-grid div {
   border: 1px solid #e6edf5;
   border-radius: 14px;
@@ -3622,21 +3626,33 @@ img {
   white-space: nowrap;
 }
 
-.document-link {
-  justify-self: start;
+.document-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   border: 0;
   border-radius: 999px;
   background: #eef4ff;
   color: #1e5aa8;
   cursor: pointer;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 800;
-  padding: 0.35rem 0.7rem;
+  padding: 0.55rem 0.9rem;
   text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.document-download-btn:hover,
+.document-download-btn:focus-visible {
+  background: #dbeafe;
+  box-shadow: 0 10px 22px rgba(30, 90, 168, 0.14);
+  transform: translateY(-1px);
 }
 
 .document-card .list-item-actions {
   display: flex;
+  gap: 0.6rem;
   justify-content: flex-end;
   justify-self: stretch;
   width: 100%;
@@ -3714,6 +3730,19 @@ img {
   background: #fff7f7;
   color: #b91c1c;
   font-weight: 700;
+  padding: 0.8rem 0.9rem;
+}
+
+.document-upload-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.88rem;
+  font-weight: 800;
   padding: 0.8rem 0.9rem;
 }
 
