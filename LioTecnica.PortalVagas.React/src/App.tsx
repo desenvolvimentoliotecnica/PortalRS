@@ -2991,6 +2991,21 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     }
   }
 
+  async function deleteDocument(item: PortalDocument) {
+    try {
+      await authFetch(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, { method: 'DELETE' })
+      setState((current) => ({
+        ...current,
+        documents: current.documents.filter((documentItem) => documentItem.id !== item.id),
+      }))
+      setMessage('Documento removido.')
+      await refreshWorkspace()
+    } catch (err) {
+      setMessage(readError(err))
+      throw err
+    }
+  }
+
   async function uploadFile(path: string, fieldName: string, file: File, successText: string) {
     const form = new FormData()
     form.append(fieldName, file)
@@ -3328,7 +3343,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
               tenantId={ctx.tenantId}
               onUpload={(values) => uploadDocument(`/api/public/portal-candidates/${candidateId}/documents/upload`, values.tipo, values.observacoes, values.arquivo)}
               onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, values, 'Documento atualizado.')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, 'Documento removido.')}
+              onDelete={deleteDocument}
             />
           </WorkspaceSection>
 
@@ -4922,10 +4937,17 @@ function DocumentRepeaterSection({
   tenantId: string
   onUpload: (values: { tipo: string; observacoes: string; arquivo: File }) => void | Promise<void>
   onUpdate: (item: PortalDocument, values: Record<string, string>) => void | Promise<void>
-  onDelete: (item: PortalDocument) => void
+  onDelete: (item: PortalDocument) => void | Promise<void>
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PortalDocument | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<PortalDocument | null>(null)
+  const [deletePending, setDeletePending] = useState(false)
+  const [deleteFeedback, setDeleteFeedback] = useState<{
+    type: 'success' | 'error'
+    title: string
+    message: string
+  } | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
   const [draft, setDraft] = useState({
     tipo: '',
@@ -4948,17 +4970,6 @@ function DocumentRepeaterSection({
     setModalOpen(true)
   }
 
-  function openEdit(item: PortalDocument) {
-    setEditingItem(item)
-    setDraft({
-      tipo: item.tipo ?? '',
-      observacoes: item.observacoes ?? '',
-      arquivo: null,
-    })
-    setModalError(null)
-    setModalOpen(true)
-  }
-
   function closeModal() {
     setModalOpen(false)
     setEditingItem(null)
@@ -4973,6 +4984,30 @@ function DocumentRepeaterSection({
       ? trimmed
       : await buildApiUrl(trimmed, tenantId)
     window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  async function confirmDeleteDocument() {
+    if (!deleteTarget || deletePending) return
+
+    const displayName = deleteTarget.fileName || deleteTarget.nome || 'documento'
+    setDeletePending(true)
+    try {
+      await onDelete(deleteTarget)
+      setDeleteTarget(null)
+      setDeleteFeedback({
+        type: 'success',
+        title: 'Documento removido',
+        message: `O arquivo "${displayName}" foi removido da sua lista de documentos.`,
+      })
+    } catch (err) {
+      setDeleteFeedback({
+        type: 'error',
+        title: 'Não foi possível remover',
+        message: readError(err),
+      })
+    } finally {
+      setDeletePending(false)
+    }
   }
 
   return (
@@ -5012,8 +5047,7 @@ function DocumentRepeaterSection({
               {item.link ? <button className="document-link" type="button" onClick={() => void openDocumentLink(item.link)}>Abrir link</button> : null}
               {item.observacoes ? <p className="document-note">{item.observacoes}</p> : null}
               <div className="list-item-actions">
-                <button className="ghost-btn" type="button" onClick={() => openEdit(item)}>Editar</button>
-                <button className="ghost-btn" type="button" onClick={() => onDelete(item)}>Remover</button>
+                <button className="ghost-btn" type="button" onClick={() => setDeleteTarget(item)}>Remover</button>
               </div>
             </article>
           )
@@ -5104,6 +5138,51 @@ function DocumentRepeaterSection({
               </div>
             </form>
           </div>
+        </div>
+      ), document.body) : null}
+      {deleteTarget ? createPortal((
+        <div className="swal-backdrop" role="presentation" onClick={() => !deletePending && setDeleteTarget(null)}>
+          <section
+            className="swal-card error"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="document-delete-title"
+            aria-describedby="document-delete-message"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="swal-icon" aria-hidden="true">
+              <i className="fas fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="document-delete-title">Remover documento?</h3>
+            <p id="document-delete-message">
+              Esta ação remove o arquivo da sua lista de documentos. Você poderá enviar novamente depois, se necessário.
+            </p>
+            <div className="swal-actions">
+              <button className="secondary-btn" type="button" disabled={deletePending} onClick={() => setDeleteTarget(null)}>Cancelar</button>
+              <button className="primary-btn" type="button" disabled={deletePending} onClick={() => void confirmDeleteDocument()}>
+                {deletePending ? 'Removendo...' : 'Sim, remover'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ), document.body) : null}
+      {deleteFeedback ? createPortal((
+        <div className="swal-backdrop" role="presentation" onClick={() => setDeleteFeedback(null)}>
+          <section
+            className={`swal-card ${deleteFeedback.type}`}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="document-delete-feedback-title"
+            aria-describedby="document-delete-feedback-message"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="swal-icon" aria-hidden="true">
+              <i className={`fas ${deleteFeedback.type === 'success' ? 'fa-check' : 'fa-triangle-exclamation'}`}></i>
+            </div>
+            <h3 id="document-delete-feedback-title">{deleteFeedback.title}</h3>
+            <p id="document-delete-feedback-message">{deleteFeedback.message}</p>
+            <button className="primary-btn" type="button" onClick={() => setDeleteFeedback(null)}>Ok</button>
+          </section>
         </div>
       ), document.body) : null}
     </div>
