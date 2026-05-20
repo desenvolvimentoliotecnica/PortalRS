@@ -270,6 +270,9 @@
   <data name="Seed.Menu.Acessos" xml:space="preserve">
     <value>Acessos</value>
   </data>
+  <data name="Seed.Menu.DocumentacaoPadrao" xml:space="preserve">
+    <value>Documentação Padrão</value>
+  </data>
   <data name="Seed.Menu.LogsTransacionais" xml:space="preserve">
     <value>Logs Transacionais</value>
   </data>

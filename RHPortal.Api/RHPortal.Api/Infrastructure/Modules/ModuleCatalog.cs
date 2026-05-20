@@ -32,7 +32,7 @@ public static class ModuleCatalog
     {
         // ── Core (sempre ligados) ─────────────────────────────────────────────
         new("dashboard",       "Dashboard",           "Painel inicial e visão geral",                               IsCore: true,  PermissionKeyPrefixes: ["dashboard."]),
-        new("administracao",   "Administração",       "Usuários, perfis, menus, acessos, auditoria e logs",          IsCore: true,  PermissionKeyPrefixes: ["users.", "roles.", "menus.", "access.", "audit.", "logs."]),
+        new("administracao",   "Administração",       "Usuários, perfis, menus, acessos, auditoria e logs",          IsCore: true,  PermissionKeyPrefixes: ["users.", "roles.", "menus.", "access.", "documentacao-padrao.", "audit.", "logs."]),
         new("cadastros",       "Cadastros",           "Áreas, departamentos, unidades, cargos, categorias, funcionários", IsCore: true, PermissionKeyPrefixes: ["departments.", "areas.", "categories.", "jobpositions.", "units.", "funcionarios.", "bloqueio-pessoa."]),
         new("configuracoes",   "Configurações",       "E-mails, Entra ID, idioma e demais configurações",             IsCore: true,  PermissionKeyPrefixes: ["email-", "emails.", "entra-", "localization-"]),
 

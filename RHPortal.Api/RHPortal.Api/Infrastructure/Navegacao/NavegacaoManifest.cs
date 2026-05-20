@@ -176,7 +176,7 @@ public static class NavegacaoManifest
         new("nav-admin-organograma",        "Organograma",            "/admin/organograma",              "bi-diagram-2",      "access.manage",            Ordem: 40),
         new("nav-admin-gestores",           "Gestores",               "/admin/gestores",                 "usercheck",         "access.manage",            Ordem: 50),
         new("nav-admin-hierarquia",         "Hierarquia",             "/admin/hierarquia",               "bi-diagram-3",      "access.manage",            Ordem: 60),
-        new("nav-admin-doc-padrao",         "Documentação Padrão",    "/admin/documentacao-padrao",      "bi-journal-text",   "access.manage",            Ordem: 100),
+        new("nav-admin-doc-padrao",         "Documentação Padrão",    "/admin/documentacao-padrao",      "bi-journal-text",   "documentacao-padrao.manage", Ordem: 100),
         new("nav-admin-requisicoes-rm",     "Requisições RM",         "/admin/requisicoes-rm",           "clipboardlist",    "access.manage",            Ordem: 105),
         new("nav-admin-rm-requisicao-status", "Status RM ⇄ Requisição", "/admin/rm-requisicao-status",   "arrow-right-left", "access.manage",            Ordem: 106),
         new("nav-admin-notif-candidatura",  "Notificações (Candidaturas)", "/administracao/notificacoes-candidatura", "bell-ring", "audit.view",           Ordem: 140),

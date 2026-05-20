@@ -64,6 +64,7 @@ public sealed class MenuAdministrationService
             ["roles.manage"] = "Seed.Menu.Perfis",
             ["menus.manage"] = "Seed.Menu.Menus",
             ["access.manage"] = "Seed.Menu.Acessos",
+            ["documentacao-padrao.manage"] = "Seed.Menu.DocumentacaoPadrao",
             ["audit.view"] = "Seed.Menu.LogsTransacionais",
             ["logs.view"] = "Seed.Menu.LogsOperacionais",
             ["email-templates.manage"] = "Seed.Menu.TemplatesEmail",
@@ -143,13 +144,16 @@ public sealed class MenuAdministrationService
 
     public async Task<IReadOnlyList<MenuListItemResponse>> ListAsync(CancellationToken ct)
     {
-        return await _db.Menus
+        var menus = await _db.Menus
             .AsNoTracking()
             .OrderBy(x => x.Order)
             .ThenBy(x => x.DisplayName)
+            .ToListAsync(ct);
+
+        return menus
             .Select(x => new MenuListItemResponse(
                 x.Id,
-                x.DisplayName,
+                ResolveDisplayName(x),
                 x.Route,
                 x.Icon,
                 x.Order,
@@ -157,7 +161,9 @@ public sealed class MenuAdministrationService
                 x.PermissionKey,
                 x.IsActive,
                 x.OpenInNewTab))
-            .ToListAsync(ct);
+            .OrderBy(x => x.Order)
+            .ThenBy(x => x.DisplayName)
+            .ToList();
     }
 
     public async Task<MenuResponse?> GetByIdAsync(Guid id, CancellationToken ct)
