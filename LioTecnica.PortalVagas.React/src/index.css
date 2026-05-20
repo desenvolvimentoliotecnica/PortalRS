@@ -2766,6 +2766,86 @@ img {
   max-width: 100%;
 }
 
+.rh-message-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.rh-message-card {
+  border: 1px solid #dbe3ee;
+  border-radius: 18px;
+  background: #fbfcfe;
+  padding: 1rem;
+}
+
+.rh-message-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-bottom: 0.65rem;
+}
+
+.rh-message-card-head strong {
+  display: block;
+  color: #10243d;
+}
+
+.rh-message-card-head small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #607089;
+}
+
+.rh-message-card p {
+  margin: 0 0 0.75rem;
+  color: #34455f;
+  line-height: 1.55;
+}
+
+.rh-message-status {
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rh-message-status.is-new {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.rh-message-status.is-read {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.rh-message-status.is-resolved {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.rh-message-tags,
+.rh-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rh-message-tags {
+  margin-bottom: 0.85rem;
+}
+
+.rh-message-tags span {
+  border-radius: 999px;
+  background: #eef3fa;
+  color: #10243d;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .nl-hero > div:first-child {
   display: flex;
   flex-direction: column;

@@ -213,6 +213,29 @@ type PortalApplicationSummary = {
   aplicadaEmUtc?: string | null
 }
 
+type PortalInternalNotification = {
+  id: string
+  candidatoId: string
+  vagaId?: string | null
+  vagaTitulo?: string | null
+  candidaturaId?: string | null
+  tipo: string
+  titulo: string
+  mensagem: string
+  camposPendentes: string[]
+  lidaEmUtc?: string | null
+  resolvidaEmUtc?: string | null
+  criadaPorNome?: string | null
+  createdAtUtc: string
+  updatedAtUtc: string
+}
+
+type PortalInternalNotificationsResponse = {
+  items: PortalInternalNotification[]
+  naoLidas: number
+  pendentes: number
+}
+
 type WorkspaceState = {
   profile: PortalProfile | null
   completion: PortalCompletion | null
@@ -224,6 +247,7 @@ type WorkspaceState = {
   accessibility: PortalAccessibility | null
   agenda: PortalAgenda | null
   notifications: PortalNotifications | null
+  internalNotifications: PortalInternalNotificationsResponse | null
   documents: PortalDocument[]
   references: PortalReference[]
   lgpd: PortalLgpd | null
@@ -2827,6 +2851,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     accessibility: null,
     agenda: null,
     notifications: null,
+    internalNotifications: null,
     documents: [],
     references: [],
     lgpd: null,
@@ -2844,7 +2869,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     setMessage(null)
 
     try {
-      const [profile, completion, matches, portfolio, education, experience, preferences, accessibility, agenda, notifications, documents, references, lgpd] = await Promise.all([
+      const [profile, completion, matches, portfolio, education, experience, preferences, accessibility, agenda, notifications, internalNotifications, documents, references, lgpd] = await Promise.all([
         authFetch<PortalProfile>(`/api/public/portal-candidates/${candidateId}`),
         authFetch<PortalCompletion>(`/api/public/portal-candidates/${candidateId}/profile-completion`),
         authFetch<{ matches: PortalMatchItem[] }>(`/api/public/portal-candidates/${candidateId}/job-matches`),
@@ -2855,6 +2880,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         authFetch<PortalAccessibility>(`/api/public/portal-candidates/${candidateId}/accessibility`),
         authFetch<PortalAgenda>(`/api/public/portal-candidates/${candidateId}/agenda`),
         authFetch<PortalNotifications>(`/api/public/portal-candidates/${candidateId}/notifications`),
+        authFetch<PortalInternalNotificationsResponse>(`/api/public/portal-candidates/${candidateId}/portal-notifications`),
         authFetch<{ items: PortalDocument[] }>(`/api/public/portal-candidates/${candidateId}/documents`),
         authFetch<{ items: PortalReference[] }>(`/api/public/portal-candidates/${candidateId}/references`),
         authFetch<PortalLgpd>(`/api/public/portal-candidates/${candidateId}/lgpd`),
@@ -2871,6 +2897,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         accessibility,
         agenda,
         notifications,
+        internalNotifications,
         documents: documents.items ?? [],
         references: references.items ?? [],
         lgpd,
@@ -2923,6 +2950,18 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         body: JSON.stringify(payload),
       })
       setMessage(successText)
+      await refreshWorkspace()
+    } catch (err) {
+      setMessage(readError(err))
+    }
+  }
+
+  async function updateInternalNotification(notificationId: string, action: 'read' | 'resolve') {
+    try {
+      await authFetch(`/api/public/portal-candidates/${candidateId}/portal-notifications/${notificationId}/${action}`, {
+        method: 'POST',
+      })
+      setMessage(action === 'resolve' ? 'Mensagem do RH marcada como resolvida.' : 'Mensagem do RH marcada como lida.')
       await refreshWorkspace()
     } catch (err) {
       setMessage(readError(err))
@@ -3006,6 +3045,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
   const candidateName = state.profile?.nome || ctx.session?.candidate.nome || 'Candidato'
   const candidateEmail = state.profile?.email || ctx.session?.candidate.email || ''
   const currentRole = state.portfolio?.preferences.workModel || asString(state.preferences?.CargoAlvo) || 'Perfil em construção'
+  const internalNotificationCount = state.internalNotifications?.pendentes ?? 0
   const workspaceNavItems = WORKSPACE_SECTIONS.map((section) => ({
     ...section,
     badge: section.id === 'perfil-curriculo'
@@ -3022,7 +3062,9 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
                 ?String(state.portfolio?.skills?.length ?? 0)
                 : section.id === 'credenciais' && (state.portfolio?.certifications?.length ?? 0)
                   ?String(state.portfolio?.certifications?.length ?? 0)
-                : null,
+                  : section.id === 'notificacoes' && internalNotificationCount > 0
+                    ?String(internalNotificationCount)
+                    : null,
   }))
 
   return (
@@ -3202,6 +3244,12 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
           </WorkspaceSection>
 
           <WorkspaceSection active={activeWorkspaceSection === 'notificacoes'} id="notificacoes" title="Notificações" description="Escolha canais, ritmo dos avisos e horários de silêncio.">
+            <CandidateInternalMessagesPanel
+              messages={state.internalNotifications?.items ?? []}
+              pendingCount={state.internalNotifications?.pendentes ?? 0}
+              onOpenProfile={() => selectWorkspaceSection('perfil-curriculo')}
+              onUpdate={(notificationId, action) => updateInternalNotification(notificationId, action)}
+            />
             <CandidateNotificationsWorkspaceForm
               data={state.notifications}
               onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'Notificações atualizadas.')}
@@ -5238,6 +5286,81 @@ const NOTIFICATION_LANG_PRESETS = ['pt-BR', 'en-US', 'es-ES'] as const
 
 const LGPD_SHARING_SCOPE_PRESETS = ['Rh', 'RhGestor', 'Interno'] as const
 
+function CandidateInternalMessagesPanel({
+  messages,
+  pendingCount,
+  onOpenProfile,
+  onUpdate,
+}: {
+  messages: PortalInternalNotification[]
+  pendingCount: number
+  onOpenProfile: () => void
+  onUpdate: (notificationId: string, action: 'read' | 'resolve') => void | Promise<void>
+}) {
+  return (
+    <section className="nl-card" aria-labelledby="rh-messages-title">
+      <div className="nl-card-head">
+        <div>
+          <span className="eyebrow">Mensagens do RH</span>
+          <strong id="rh-messages-title">Ações solicitadas pela equipe de recrutamento</strong>
+        </div>
+        {pendingCount > 0 ? (
+          <p><strong>{pendingCount}</strong> pendência(s) aguardando sua ação.</p>
+        ) : (
+          <p>Nenhuma pendência do RH no momento.</p>
+        )}
+      </div>
+
+      {messages.length === 0 ? (
+        <div className="nl-privacy-pill" role="note">
+          <i className="fas fa-circle-check" aria-hidden="true"></i>
+          <span>Quando o RH solicitar atualização de dados, a mensagem aparecerá aqui.</span>
+        </div>
+      ) : (
+        <div className="rh-message-list">
+          {messages.map((message) => {
+            const isRead = Boolean(message.lidaEmUtc)
+            const isResolved = Boolean(message.resolvidaEmUtc)
+            return (
+              <article className="rh-message-card" key={message.id}>
+                <div className="rh-message-card-head">
+                  <div>
+                    <strong>{message.titulo}</strong>
+                    <small>
+                      {message.vagaTitulo ? `Vaga: ${message.vagaTitulo} · ` : ''}
+                      {formatDateTime(message.createdAtUtc)}
+                    </small>
+                  </div>
+                  <span className={`rh-message-status ${isResolved ? 'is-resolved' : isRead ? 'is-read' : 'is-new'}`}>
+                    {isResolved ? 'Resolvida' : isRead ? 'Lida' : 'Nova'}
+                  </span>
+                </div>
+                <p>{message.mensagem}</p>
+                {message.camposPendentes?.length ? (
+                  <div className="rh-message-tags">
+                    {message.camposPendentes.map((field) => (
+                      <span key={field}>{field}</span>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="rh-message-actions">
+                  <button className="primary-btn" type="button" onClick={onOpenProfile}>Atualizar perfil</button>
+                  {!isRead ? (
+                    <button className="ghost-btn" type="button" onClick={() => onUpdate(message.id, 'read')}>Marcar como lida</button>
+                  ) : null}
+                  {!isResolved ? (
+                    <button className="ghost-btn" type="button" onClick={() => onUpdate(message.id, 'resolve')}>Marcar como resolvida</button>
+                  ) : null}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
 function normalizePortalNotificationsForm(n: PortalNotifications | null) {
   const d = n ?? ({} as Partial<PortalNotifications>)
   return {
@@ -6712,6 +6835,13 @@ function formatJobDate(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Data não informada'
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(date)
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return 'Data não informada'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Data não informada'
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date)
 }
 
 function isRecentJob(value: string) {
