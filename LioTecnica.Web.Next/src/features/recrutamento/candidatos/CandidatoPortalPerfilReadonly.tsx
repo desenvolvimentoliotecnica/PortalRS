@@ -29,6 +29,7 @@ type PortalCandidateProfile = {
   nome?: string | null;
   email?: string | null;
   fone?: string | null;
+  celular?: string | null;
   cidade?: string | null;
   uf?: string | null;
   linkedinUrl?: string | null;
@@ -250,6 +251,10 @@ export function CandidatoPortalPerfilReadonly({
           <div className="min-w-0 flex-1 space-y-1">
             <div className="font-semibold text-base">{disp(p?.nome)}</div>
             <div className="text-muted-foreground text-sm">{disp(p?.email)}</div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>Telefone: {disp(p?.fone)}</span>
+              <span>Celular: {disp(p?.celular)}</span>
+            </div>
             {p?.linkedinUrl ? (
               <a href={p.linkedinUrl} className="text-sm text-[rgb(var(--lt-primary))] hover:underline break-all" target="_blank" rel="noopener noreferrer">
                 LinkedIn

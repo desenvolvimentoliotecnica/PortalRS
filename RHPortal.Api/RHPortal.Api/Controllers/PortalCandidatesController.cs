@@ -80,6 +80,7 @@ public sealed class PortalCandidatesController : ControllerBase
             candidate.Nome,
             candidate.Email,
             candidate.Fone,
+            candidate.Celular,
             candidate.Cidade,
             candidate.Uf,
             candidate.LinkedinUrl,
@@ -117,6 +118,7 @@ public sealed class PortalCandidatesController : ControllerBase
 
         candidate.Nome = (request.Nome ?? string.Empty).Trim();
         candidate.Fone = NormalizeRequired(request.Fone);
+        candidate.Celular = NormalizeOptional(request.Celular);
         candidate.Cidade = NormalizeRequired(request.Cidade);
         candidate.Uf = NormalizeUfRequired(request.Uf);
         candidate.LinkedinUrl = NormalizeOptional(request.LinkedinUrl);
@@ -141,6 +143,7 @@ public sealed class PortalCandidatesController : ControllerBase
             candidate.Nome,
             candidate.Email,
             candidate.Fone,
+            candidate.Celular,
             candidate.Cidade,
             candidate.Uf,
             candidate.LinkedinUrl,
@@ -2129,6 +2132,7 @@ public sealed class PortalCandidatesController : ControllerBase
                 c.Nome,
                 c.Email,
                 c.Fone,
+                c.Celular,
                 c.Cidade,
                 c.Uf,
                 c.LinkedinUrl,
@@ -2168,10 +2172,10 @@ public sealed class PortalCandidatesController : ControllerBase
         {
             ["perfil"] = Percent(new[]
             {
-                Filled(candidate.Nome), Filled(candidate.Email), Filled(candidate.Fone), Filled(candidate.Cidade),
+                Filled(candidate.Nome), Filled(candidate.Email), Filled(candidate.Fone), Filled(candidate.Celular), Filled(candidate.Cidade),
                 Filled(candidate.Uf), Filled(candidate.LinkedinUrl), Filled(candidate.ResumoProfissional),
                 Filled(candidate.AvatarFileName), hasCurriculo, candidate.TrabalhandoAtualmente.HasValue
-            }.Count(x => x), 10),
+            }.Count(x => x), 11),
             ["testes"] = 0,
             ["comp"] = Percent((skillsCount > 0 ? 1 : 0) + (certsCount > 0 ? 1 : 0) + (portfolio is not null ? 1 : 0), 3),
             ["formacao"] = Percent((educationSummary is not null ? 1 : 0) + (educationItems > 0 ? 1 : 0), 2),

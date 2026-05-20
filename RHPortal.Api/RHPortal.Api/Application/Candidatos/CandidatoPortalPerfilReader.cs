@@ -71,6 +71,7 @@ public sealed class CandidatoPortalPerfilReader : ICandidatoPortalPerfilReader
             candidate.Nome,
             candidate.Email,
             candidate.Fone,
+            candidate.Celular,
             candidate.Cidade,
             candidate.Uf,
             candidate.LinkedinUrl,

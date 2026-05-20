@@ -380,6 +380,73 @@ img {
   min-width: 0;
 }
 
+.profile-copy-field {
+  display: flex;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+.profile-copy-field input {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-copy-field .ghost-btn {
+  white-space: nowrap;
+}
+
+.profile-resume-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  border: 1px solid #dbe3ee;
+  border-radius: 20px;
+  background: #fbfcfe;
+  padding: 1rem;
+  box-shadow: 0 12px 28px rgba(15, 35, 68, 0.04);
+}
+
+.profile-resume-card.has-resume {
+  background: linear-gradient(135deg, #fbfcfe, #f4faf6);
+  border-color: #cfe7d5;
+}
+
+.profile-resume-icon {
+  width: 3.5rem;
+  height: 4.25rem;
+  border-radius: 16px;
+  background: #eef7f0;
+  color: #1c5130;
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+}
+
+.profile-resume-copy {
+  min-width: 0;
+}
+
+.profile-resume-copy strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: #10243d;
+  overflow-wrap: anywhere;
+}
+
+.profile-resume-copy p {
+  margin: 0.35rem 0 0;
+  color: #52647a;
+  line-height: 1.5;
+}
+
+.profile-resume-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 .profile-shell {
   align-items: center;
 }
@@ -1394,6 +1461,13 @@ img {
 
 .swal-card .primary-btn {
   min-width: 9rem;
+}
+
+.swal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
 }
 
 @keyframes swal-pop {

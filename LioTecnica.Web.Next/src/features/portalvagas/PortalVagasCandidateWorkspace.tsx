@@ -40,6 +40,7 @@ type PortalProfile = {
   nome: string;
   email: string;
   fone?: string | null;
+  celular?: string | null;
   cidade?: string | null;
   uf?: string | null;
   linkedinUrl?: string | null;
@@ -176,6 +177,7 @@ export default function PortalVagasCandidateWorkspace() {
         body: JSON.stringify({
           nome: profile.nome || "",
           fone: profile.fone || "",
+          celular: profile.celular || "",
           cidade: profile.cidade || "",
           uf: (profile.uf || "").toUpperCase(),
           linkedinUrl: profile.linkedinUrl || "",
@@ -444,6 +446,20 @@ function ProfileEditor(props: {
         <div><label className={lbl}>Nome</label><input className={inp} value={profile.nome || ""} onChange={(e) => setProfile({ ...profile, nome: e.target.value })} /></div>
         <div><label className={lbl}>E-mail</label><input className={inp} value={profile.email || ""} readOnly /></div>
         <div><label className={lbl}>Telefone</label><input className={inp} value={profile.fone || ""} onChange={(e) => setProfile({ ...profile, fone: e.target.value })} /></div>
+        <div>
+          <label className={lbl}>Celular</label>
+          <div className="flex gap-2">
+            <input className={inp} value={profile.celular || ""} onChange={(e) => setProfile({ ...profile, celular: e.target.value })} />
+            <button
+              type="button"
+              disabled={!profile.fone}
+              onClick={() => setProfile({ ...profile, celular: profile.fone || "" })}
+              className="whitespace-nowrap rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted/50 disabled:opacity-50"
+            >
+              Copiar telefone
+            </button>
+          </div>
+        </div>
         <div><label className={lbl}>UF</label><select className={inp} value={profile.uf || ""} onChange={(e) => setProfile({ ...profile, uf: e.target.value.toUpperCase() })}><option value="">Selecione</option>{UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}</select></div>
         <div><label className={lbl}>Cidade</label><input className={inp} value={profile.cidade || ""} onChange={(e) => setProfile({ ...profile, cidade: e.target.value })} /></div>
         <div><label className={lbl}>LinkedIn</label><input className={inp} value={profile.linkedinUrl || ""} onChange={(e) => setProfile({ ...profile, linkedinUrl: e.target.value })} /></div>

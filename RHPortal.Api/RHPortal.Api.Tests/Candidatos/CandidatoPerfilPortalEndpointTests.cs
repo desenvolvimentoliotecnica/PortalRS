@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using Moq;
 using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Candidatos.Handlers;
@@ -125,6 +126,7 @@ public sealed class CandidatoPerfilPortalEndpointTests
                 "Fulano",
                 "a@b.com",
                 Fone: null,
+                Celular: null,
                 Cidade: null,
                 Uf: null,
                 LinkedinUrl: null,
@@ -213,6 +215,85 @@ public sealed class CandidatoPerfilPortalEndpointTests
                 SmtpTestRedirectAddress = testRedirect ? "qa@renderrh.local" : null,
             });
         return m;
+    }
+
+    [Fact]
+    public async Task PortalProfile_Get_RetornaCelularDoCandidato()
+    {
+        await using var db = CreateDb();
+        var ctl = CreatePortalController();
+        var candidatoId = Guid.NewGuid();
+
+        db.Candidatos.Add(new Candidato
+        {
+            Id = candidatoId,
+            TenantId = TenantTeste,
+            Nome = "Fulano",
+            Email = "a@b.com",
+            Fone = "(11) 3000-0000",
+            Celular = "(11) 99999-0000",
+        });
+        await db.SaveChangesAsync();
+
+        var tenant = new Mock<ITenantContext>();
+        tenant.Setup(x => x.TenantId).Returns(TenantTeste);
+
+        var result = await ctl.GetProfile(
+            candidatoId,
+            db,
+            Mock.Of<IHostEnvironment>(),
+            tenant.Object,
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var profile = Assert.IsType<PortalCandidateProfileResponse>(ok.Value);
+        Assert.Equal("(11) 99999-0000", profile.Celular);
+    }
+
+    [Fact]
+    public async Task PortalProfile_Update_PersisteCelularDoCandidato()
+    {
+        await using var db = CreateDb();
+        var ctl = CreatePortalController();
+        var candidatoId = Guid.NewGuid();
+
+        db.Candidatos.Add(new Candidato
+        {
+            Id = candidatoId,
+            TenantId = TenantTeste,
+            Nome = "Fulano",
+            Email = "a@b.com",
+            Fone = "(11) 3000-0000",
+            Celular = null,
+            Cidade = "Santos",
+            Uf = "SP",
+        });
+        await db.SaveChangesAsync();
+
+        var tenant = new Mock<ITenantContext>();
+        tenant.Setup(x => x.TenantId).Returns(TenantTeste);
+
+        var result = await ctl.UpdateProfile(
+            candidatoId,
+            new PortalCandidateProfileUpdateRequest(
+                "Fulano",
+                "(11) 3000-0000",
+                "(11) 99999-0000",
+                "Santos",
+                "SP",
+                LinkedinUrl: null,
+                ResumoProfissional: null,
+                TrabalhandoAtualmente: null),
+            db,
+            notificationPublisher: null!,
+            Mock.Of<IHostEnvironment>(),
+            tenant.Object,
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var profile = Assert.IsType<PortalCandidateProfileResponse>(ok.Value);
+        Assert.Equal("(11) 99999-0000", profile.Celular);
+        Assert.Equal("(11) 99999-0000", await db.Candidatos.Where(c => c.Id == candidatoId).Select(c => c.Celular).SingleAsync());
     }
 
     [Fact]
