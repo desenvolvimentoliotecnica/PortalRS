@@ -18,7 +18,10 @@ public sealed class CandidaturaServiceTests
 {
     private const string TenantTeste = "tenant-candidatura";
 
-    private static (AppDbContext Db, CandidaturaService Service) CriarServico()
+    private static (AppDbContext Db, CandidaturaService Service) CriarServico(
+        Guid? userId = null,
+        bool isAdmin = false,
+        bool isOwner = false)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -29,7 +32,9 @@ public sealed class CandidaturaServiceTests
         var db = new AppDbContext(options, tenantMock.Object);
 
         var userContext = new Mock<ICurrentUserContext>();
-        userContext.Setup(x => x.UserId).Returns(Guid.NewGuid());
+        userContext.Setup(x => x.UserId).Returns(userId ?? Guid.NewGuid());
+        userContext.Setup(x => x.IsAdmin).Returns(isAdmin);
+        userContext.Setup(x => x.IsInRole(It.Is<string>(r => r == "Owner"))).Returns(isOwner);
 
         var notificacaoMock = new Mock<ICandidaturaNotificacaoService>();
         notificacaoMock
@@ -68,6 +73,20 @@ public sealed class CandidaturaServiceTests
         db.Candidatos.Add(c);
         db.SaveChanges();
         return c.Id;
+    }
+
+    private static void SeedSolicitacaoVaga(AppDbContext db, Guid vagaId, Guid? analistaId)
+    {
+        db.SolicitacoesVaga.Add(new SolicitacaoVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            SolicitanteId = Guid.NewGuid(),
+            VagaId = vagaId,
+            Titulo = "Solicitação de vaga",
+            AnalistaRhResponsavelUserId = analistaId,
+        });
+        db.SaveChanges();
     }
 
     [Fact]
@@ -155,6 +174,48 @@ public sealed class CandidaturaServiceTests
         Assert.Single(list);
         Assert.Equal("Dev Sênior", list[0].VagaTitulo);
         Assert.Equal("Campinas - SP", list[0].VagaLocal);
+    }
+
+    [Fact]
+    public async Task ListarKanban_AnalistaRh_RetornaSomenteVagasAtribuidasAoUsuario()
+    {
+        var analystId = Guid.NewGuid();
+        var (db, svc) = CriarServico(userId: analystId);
+        var candPermitido = SeedCandidato(db, "Permitido", "permitido@ex.com");
+        var candOutro = SeedCandidato(db, "Outro", "outro@ex.com");
+        var vagaPermitida = SeedVaga(db, "Vaga do analista");
+        var vagaOutroAnalista = SeedVaga(db, "Vaga de outro analista");
+
+        await svc.GetOrCreateAsync(candPermitido, vagaPermitida, "Portal", null, default);
+        await svc.GetOrCreateAsync(candOutro, vagaOutroAnalista, "Portal", null, default);
+        SeedSolicitacaoVaga(db, vagaPermitida, analystId);
+        SeedSolicitacaoVaga(db, vagaOutroAnalista, Guid.NewGuid());
+
+        var kanban = await svc.ListarKanbanAsync(null, default);
+        var itens = kanban.Colunas.SelectMany(c => c.Itens).ToList();
+
+        Assert.Equal(1, kanban.Total);
+        var item = Assert.Single(itens);
+        Assert.Equal(candPermitido, item.CandidatoId);
+        Assert.Equal(vagaPermitida, item.VagaId);
+    }
+
+    [Fact]
+    public async Task ListarKanban_Admin_RetornaTodasAsVagas()
+    {
+        var (db, svc) = CriarServico(isAdmin: true);
+        var cand1 = SeedCandidato(db, "Um", "um@ex.com");
+        var cand2 = SeedCandidato(db, "Dois", "dois@ex.com");
+        var vaga1 = SeedVaga(db, "Vaga 1");
+        var vaga2 = SeedVaga(db, "Vaga 2");
+
+        await svc.GetOrCreateAsync(cand1, vaga1, "Portal", null, default);
+        await svc.GetOrCreateAsync(cand2, vaga2, "Portal", null, default);
+
+        var kanban = await svc.ListarKanbanAsync(null, default);
+
+        Assert.Equal(2, kanban.Total);
+        Assert.Equal(2, kanban.Colunas.Sum(c => c.Itens.Count));
     }
 
     [Fact]

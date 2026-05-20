@@ -44,6 +44,8 @@ type Props = {
   onClose: () => void;
 };
 
+const tabContentClass = "mt-4 min-h-0 flex-1 overflow-y-auto pr-2";
+
 function formatDate(iso: string | null | undefined) {
   if (!iso) return "—";
   try {
@@ -177,7 +179,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-6xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="flex h-[85vh] flex-col overflow-hidden sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>Detalhes de {item.candidatoNome}</DialogTitle>
           <DialogDescription>
@@ -185,7 +187,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
           <TabsList className="flex w-full flex-wrap justify-start">
             <TabsTrigger value="resumo">Resumo</TabsTrigger>
             <TabsTrigger value="match">Match</TabsTrigger>
@@ -194,7 +196,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
             <TabsTrigger value="email">Enviar Email</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="resumo" className="space-y-4">
+          <TabsContent value="resumo" className={`${tabContentClass} space-y-4`}>
             <div className="grid gap-3 md:grid-cols-3">
               <Field label="Candidato" value={item.candidatoNome} />
               <Field label="Email" value={item.candidatoEmail ?? "—"} />
@@ -208,7 +210,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
             </div>
           </TabsContent>
 
-          <TabsContent value="match" className="space-y-4">
+          <TabsContent value="match" className={`${tabContentClass} space-y-4`}>
             {matchLoading ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Calculando match...</div>
             ) : matchError ? (
@@ -250,7 +252,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
             ) : null}
           </TabsContent>
 
-          <TabsContent value="perfil">
+          <TabsContent value="perfil" className={tabContentClass}>
             <CandidatoPortalPerfilReadonly
               data={portalPerfil}
               loading={portalLoading}
@@ -259,7 +261,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
             />
           </TabsContent>
 
-          <TabsContent value="documentos" className="space-y-3">
+          <TabsContent value="documentos" className={`${tabContentClass} space-y-3`}>
             {portalLoading ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Carregando documentos...</div>
             ) : docs.length === 0 ? (
@@ -305,7 +307,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
             )}
           </TabsContent>
 
-          <TabsContent value="email" className="space-y-4">
+          <TabsContent value="email" className={`${tabContentClass} space-y-4`}>
             <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
               O mesmo assunto e corpo serão enviados por email e aparecerão como mensagem interna no portal do candidato.
             </div>
