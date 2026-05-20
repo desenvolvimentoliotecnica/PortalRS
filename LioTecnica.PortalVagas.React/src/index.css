@@ -3636,7 +3636,10 @@ img {
 }
 
 .document-card .list-item-actions {
+  display: flex;
   justify-content: flex-end;
+  justify-self: stretch;
+  width: 100%;
 }
 
 .document-remove-btn {
