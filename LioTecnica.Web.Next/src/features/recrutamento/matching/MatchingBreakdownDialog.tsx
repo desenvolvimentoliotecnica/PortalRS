@@ -253,8 +253,8 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
                         {c.itensCobertos.length > 0 && (
                           <div>
                             <div className="text-emerald-700 dark:text-emerald-400 font-semibold mb-2">✓ Cobertos ({c.itensCobertos.length})</div>
-                            <ul className="text-muted-foreground space-y-1">
-                              {c.itensCobertos.slice(0, 6).map((t, i) => <li key={i}>• {t}</li>)}
+                            <ul className="list-disc pl-6 text-muted-foreground space-y-2 marker:text-emerald-700">
+                              {c.itensCobertos.slice(0, 6).map((t, i) => <li key={i} className="pl-1">{t}</li>)}
                               {c.itensCobertos.length > 6 && <li className="italic">…e mais {c.itensCobertos.length - 6}</li>}
                             </ul>
                           </div>
@@ -262,8 +262,8 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
                         {c.itensFaltando.length > 0 && (
                           <div>
                             <div className="text-red-700 dark:text-red-400 font-semibold mb-2">✗ Faltando ({c.itensFaltando.length})</div>
-                            <ul className="text-muted-foreground space-y-1">
-                              {c.itensFaltando.slice(0, 6).map((t, i) => <li key={i}>• {t}</li>)}
+                            <ul className="list-disc pl-6 text-muted-foreground space-y-2 marker:text-red-700">
+                              {c.itensFaltando.slice(0, 6).map((t, i) => <li key={i} className="pl-1">{t}</li>)}
                               {c.itensFaltando.length > 6 && <li className="italic">…e mais {c.itensFaltando.length - 6}</li>}
                             </ul>
                           </div>
