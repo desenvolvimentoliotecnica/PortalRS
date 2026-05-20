@@ -2993,7 +2993,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
 
   async function deleteDocument(item: PortalDocument) {
     try {
-      await authFetch(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, { method: 'DELETE' })
+      await authFetch(`/api/public/portal-candidates/${candidateId}/documents/${item.id}`, { method: 'DELETE' }, false)
       setState((current) => ({
         ...current,
         documents: current.documents.filter((documentItem) => documentItem.id !== item.id),
