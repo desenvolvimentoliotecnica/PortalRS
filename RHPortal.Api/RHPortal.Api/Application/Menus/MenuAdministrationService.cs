@@ -144,6 +144,8 @@ public sealed class MenuAdministrationService
 
     public async Task<IReadOnlyList<MenuListItemResponse>> ListAsync(CancellationToken ct)
     {
+        await EnsureDefaultMenusPresentAsync(ct);
+
         var menus = await _db.Menus
             .AsNoTracking()
             .OrderBy(x => x.Order)
@@ -164,6 +166,78 @@ public sealed class MenuAdministrationService
             .OrderBy(x => x.Order)
             .ThenBy(x => x.DisplayName)
             .ToList();
+    }
+
+    private async Task EnsureDefaultMenusPresentAsync(CancellationToken ct)
+    {
+        var descriptors = MenuSeeder.GetDefaultMenuDescriptors();
+        var existingByPermission = await _db.Menus
+            .ToDictionaryAsync(x => x.PermissionKey, x => x, StringComparer.OrdinalIgnoreCase, ct);
+
+        var tenantId = _tenantContext.TenantId ?? string.Empty;
+        var now = DateTimeOffset.UtcNow;
+        var changed = false;
+        var insertedPermissionKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var d in descriptors)
+        {
+            if (existingByPermission.ContainsKey(d.PermissionKey))
+                continue;
+
+            var menu = new Menu
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                DisplayName = ResolveSeedDisplayName(d.DisplayNameKey),
+                DisplayNameKey = d.DisplayNameKey,
+                Route = d.Route,
+                Icon = d.Icon,
+                Order = d.Order,
+                PermissionKey = d.PermissionKey,
+                IsActive = true,
+                OpenInNewTab = d.OpenInNewTab,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
+            };
+
+            _db.Menus.Add(menu);
+            existingByPermission[d.PermissionKey] = menu;
+            insertedPermissionKeys.Add(d.PermissionKey);
+            changed = true;
+        }
+
+        foreach (var d in descriptors.Where(x => x.ParentPermissionKey is not null))
+        {
+            if (!insertedPermissionKeys.Contains(d.PermissionKey))
+                continue;
+            if (!existingByPermission.TryGetValue(d.PermissionKey, out var child))
+                continue;
+            if (!existingByPermission.TryGetValue(d.ParentPermissionKey!, out var parent))
+                continue;
+            if (child.ParentId == parent.Id)
+                continue;
+
+            child.ParentId = parent.Id;
+            child.UpdatedAtUtc = now;
+            changed = true;
+        }
+
+        if (changed)
+            await _db.SaveChangesAsync(ct);
+    }
+
+    private static string ResolveSeedDisplayName(string key)
+    {
+        var current = GetSeedValue(CultureInfo.CurrentUICulture.Name, key);
+        if (!string.IsNullOrWhiteSpace(current))
+            return current;
+
+        var ptBr = GetSeedValue("pt-BR", key);
+        if (!string.IsNullOrWhiteSpace(ptBr))
+            return ptBr;
+
+        var enUs = GetSeedValue("en-US", key);
+        return string.IsNullOrWhiteSpace(enUs) ? key : enUs;
     }
 
     public async Task<MenuResponse?> GetByIdAsync(Guid id, CancellationToken ct)
