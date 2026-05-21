@@ -1,11 +1,25 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth, useHasPermission } from "@/hooks/useAuth";
+
+function getRequiredPermission(pathname: string) {
+    const normalizedPathname = pathname.startsWith("/app/")
+        ? pathname.slice(4)
+        : pathname;
+
+    if (normalizedPathname.startsWith("/admin/documentacao-padrao")) {
+        return "documentacao-padrao.manage";
+    }
+
+    return "access.manage";
+}
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
     const { loading } = useAuth();
-    const allowed = useHasPermission("access.manage");
+    const pathname = usePathname();
+    const allowed = useHasPermission(getRequiredPermission(pathname));
 
     if (loading) {
         return (
