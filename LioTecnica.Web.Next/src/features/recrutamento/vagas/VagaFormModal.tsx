@@ -161,7 +161,7 @@ function emptyDraft(): VagaDraft {
     horaEntrada: "", horaSaida: "", intervalo: "",
     cep: "", logradouro: "", numero: "", bairro: "",
     cidade: "", uf: "", politicaTrabalho: "", observacoesDeslocamento: "",
-    moeda: "", salarioMinimo: "", salarioMaximo: "", periodicidade: "",
+    moeda: "brl", salarioMinimo: "", salarioMaximo: "", periodicidade: "mensal",
     bonusTipo: "", bonusPercentual: "", observacoesRemuneracao: "",
     travarFaixaSalarial: false,
     beneficios: [],
@@ -198,6 +198,33 @@ function pickBool(v: unknown) { return v === true || v === "true" || v === 1; }
 function pickNum(v: unknown, fb: number) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
 function emptyToNull(s: string) { return s.trim() || null; }
+
+function formatMoneyInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const cents = Number.parseInt(digits, 10);
+  if (!Number.isFinite(cents)) return "";
+  return (cents / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatMoneyValue(value: unknown) {
+  if (value == null || value === "") return "";
+  const numeric = typeof value === "number" ? value : Number(String(value).replace(",", "."));
+  if (!Number.isFinite(numeric)) return "";
+  return numeric.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function parseMoneyInput(value: string) {
+  const normalized = value.replace(/\./g, "").replace(",", ".");
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
+}
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await apiFetch(url, { ...init, headers: { Accept: "application/json", ...(init?.headers || {}) }, cache: "no-store" });
@@ -561,10 +588,10 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     uf: d.uf.trim().toUpperCase().slice(0, 2) || null,
     politicaTrabalho: emptyToNull(d.politicaTrabalho),
     observacoesDeslocamento: emptyToNull(d.observacoesDeslocamento),
-    moeda: emptyToNull(d.moeda),
-    salarioMinimo: d.salarioMinimo ? Number(d.salarioMinimo.replace(",", ".")) || null : null,
-    salarioMaximo: d.salarioMaximo ? Number(d.salarioMaximo.replace(",", ".")) || null : null,
-    periodicidade: emptyToNull(d.periodicidade),
+    moeda: emptyToNull(d.moeda) ?? "brl",
+    salarioMinimo: d.salarioMinimo ? parseMoneyInput(d.salarioMinimo) : null,
+    salarioMaximo: d.salarioMaximo ? parseMoneyInput(d.salarioMaximo) : null,
+    periodicidade: emptyToNull(d.periodicidade) ?? "mensal",
     bonusTipo: emptyToNull(d.bonusTipo),
     bonusPercentual: d.bonusPercentual ? Number(d.bonusPercentual.replace(",", ".")) || null : null,
     observacoesRemuneracao: emptyToNull(d.observacoesRemuneracao),
@@ -665,7 +692,7 @@ function EnumSelect({ value, onChange, options, placeholder }: {
 /* ── Tab definitions ─────────────────────────────────────────────────── */
 
 type TabKey = "identificacao" | "horario" | "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos" | "posicao";
-const REMOVED_EDIT_TABS = new Set<TabKey>(["processo", "publicacao", "campos", "posicao"]);
+const REMOVED_EDIT_TABS = new Set<TabKey>(["publicacao", "campos", "posicao"]);
 
 function normalizeEditTab(tab?: TabKey): TabKey {
   return tab && !REMOVED_EDIT_TABS.has(tab) ? tab : "identificacao";
@@ -681,6 +708,7 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "remuneracao", icon: "💰", label: "Remuneração" },
   { key: "requisitos", icon: "✅", label: "Requisitos" },
   { key: "matching", icon: "✨", label: "Filtros matching (IA)" },
+  { key: "processo", icon: "🧭", label: "Etapas" },
   { key: "candidatos", icon: "👥", label: "Candidatos" },
 ];
 
@@ -1098,9 +1126,9 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         cep: pick(v.cep), logradouro: pick(v.logradouro), numero: pick(v.numero), bairro: pick(v.bairro),
         cidade: pick(v.cidade), uf: pick(v.uf), politicaTrabalho: pick(v.politicaTrabalho),
         observacoesDeslocamento: pick(v.observacoesDeslocamento),
-        moeda: pickEnum(v.moeda), salarioMinimo: v.salarioMinimo != null ? String(v.salarioMinimo) : "",
-        salarioMaximo: v.salarioMaximo != null ? String(v.salarioMaximo) : "",
-        periodicidade: pickEnum(v.periodicidade), bonusTipo: pickEnum(v.bonusTipo),
+        moeda: pickEnum(v.moeda, "brl"), salarioMinimo: formatMoneyValue(v.salarioMinimo),
+        salarioMaximo: formatMoneyValue(v.salarioMaximo),
+        periodicidade: pickEnum(v.periodicidade, "mensal"), bonusTipo: pickEnum(v.bonusTipo),
         bonusPercentual: v.bonusPercentual != null ? String(v.bonusPercentual) : "",
         observacoesRemuneracao: pick(v.observacoesRemuneracao),
         travarFaixaSalarial: pickBool(v.travarFaixaSalarial),
@@ -1623,10 +1651,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                   }}
                 />
               </div>
-              <Field label="Moeda" span="col-span-6 md:col-span-2"><EnumSelect value={draft.moeda} onChange={(v) => set("moeda", v)} options={enumOpts(enums, "vagaMoeda", "Selecionar")} /></Field>
-              <Field label="Salário mínimo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0,00" value={draft.salarioMinimo} onChange={(e) => set("salarioMinimo", e.target.value)} /></Field>
-              <Field label="Salário máximo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0,00" value={draft.salarioMaximo} onChange={(e) => set("salarioMaximo", e.target.value)} /></Field>
-              <Field label="Periodicidade" span="col-span-6 md:col-span-4"><EnumSelect value={draft.periodicidade} onChange={(v) => set("periodicidade", v)} options={enumOpts(enums, "vagaRemuneracaoPeriodicidade", "Selecionar")} /></Field>
+              <Field label="Moeda" span="col-span-6 md:col-span-2"><EnumSelect value={draft.moeda || "brl"} onChange={(v) => set("moeda", v || "brl")} options={enumOpts(enums, "vagaMoeda")} /></Field>
+              <Field label="Salário mínimo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" inputMode="numeric" placeholder="0,00" value={draft.salarioMinimo} onChange={(e) => set("salarioMinimo", formatMoneyInput(e.target.value))} /></Field>
+              <Field label="Salário máximo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" inputMode="numeric" placeholder="0,00" value={draft.salarioMaximo} onChange={(e) => set("salarioMaximo", formatMoneyInput(e.target.value))} /></Field>
+              <Field label="Periodicidade" span="col-span-6 md:col-span-4"><EnumSelect value={draft.periodicidade || "mensal"} onChange={(v) => set("periodicidade", v || "mensal")} options={enumOpts(enums, "vagaRemuneracaoPeriodicidade")} /></Field>
               <Field label="Tipo de bônus / extra" span="col-span-12 md:col-span-4"><EnumSelect value={draft.bonusTipo} onChange={(v) => set("bonusTipo", v)} options={enumOpts(enums, "vagaBonusTipo", "Selecionar")} /></Field>
               <Field label="% bônus" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0%" value={draft.bonusPercentual} onChange={(e) => set("bonusPercentual", e.target.value)} /></Field>
               <Field label="Observações de remuneração" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: faixa depende de senioridade" value={draft.observacoesRemuneracao} onChange={(e) => set("observacoesRemuneracao", e.target.value)} /></Field>
@@ -1787,13 +1815,25 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
           {/* ── Processo seletivo ────────────────────────────────── */}
           {tab === "processo" && (
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
+              <div className="col-span-12 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                <p className="font-semibold">Para que servem as etapas?</p>
+                <p className="mt-1">
+                  Elas desenham o fluxo de seleção desta vaga: triagem, entrevista RH, entrevista técnica, proposta, exame admissional etc.
+                  A ordem cadastrada aqui aparece no hub da vaga e ajuda o RH a acompanhar responsáveis, formato e prazo de cada fase.
+                </p>
+              </div>
               <div className="col-span-12 flex items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">Etapas do processo seletivo</p>
-                  <p className="text-xs text-muted-foreground">Defina as etapas com responsável, modo e prazo (SLA).</p>
+                  <p className="text-xs text-muted-foreground">Clique em adicionar etapa, preencha nome, responsável, modo e SLA, depois salve a vaga.</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setList("etapas", (l) => [...l, { nome: "", responsavel: "", modo: "", slaDias: "3", descricao: "" }])}>+ Adicionar etapa</Button>
               </div>
+              {draft.etapas.length === 0 && (
+                <div className="col-span-12 rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                  Nenhuma etapa cadastrada ainda. Um fluxo comum é: Triagem RH, Entrevista RH, Entrevista Técnica, Proposta e Admissão.
+                </div>
+              )}
               {draft.etapas.map((e, i) => (
                 <div key={i} className="col-span-12 card-soft p-3">
                   <div className="flex justify-between items-start mb-2"><span className="fw-semibold text-sm">Etapa #{i + 1}</span><Button variant="destructive" size="sm" onClick={() => setList("etapas", (l) => l.filter((_, j) => j !== i))}>Remover</Button></div>

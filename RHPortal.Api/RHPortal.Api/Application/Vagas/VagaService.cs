@@ -478,10 +478,10 @@ public sealed class VagaService : IVagaService
             Uf = TrimOrNull(request.Uf),
             PoliticaTrabalho = TrimOrNull(request.PoliticaTrabalho),
             ObservacoesDeslocamento = TrimOrNull(request.ObservacoesDeslocamento),
-            Moeda = request.Moeda,
+            Moeda = request.Moeda ?? VagaMoeda.BRL,
             SalarioMinimo = request.SalarioMinimo,
             SalarioMaximo = request.SalarioMaximo,
-            Periodicidade = request.Periodicidade,
+            Periodicidade = request.Periodicidade ?? VagaRemuneracaoPeriodicidade.Mensal,
             BonusTipo = request.BonusTipo,
             BonusPercentual = request.BonusPercentual,
             ObservacoesRemuneracao = TrimOrNull(request.ObservacoesRemuneracao),
@@ -1364,6 +1364,10 @@ public sealed class VagaService : IVagaService
         entity.Titulo = (request.Titulo ?? string.Empty).Trim();
         entity.AreaTime = request.AreaTime;
         entity.Modalidade = request.Modalidade;
+        if (request.Status == VagaStatus.Aberta && entity.HeadcountPendente > 0)
+            throw new InvalidOperationException(
+                "Existe aumento de headcount pendente de aprovação para esta vaga. Acompanhe em Aprovações antes de publicar.");
+
         entity.Status = request.Status;
         if (request.Status == VagaStatus.Aberta && entity.DataAbertura == null)
             entity.DataAbertura = DateTimeOffset.UtcNow;
@@ -1439,10 +1443,10 @@ public sealed class VagaService : IVagaService
         entity.Uf = TrimOrNull(request.Uf);
         entity.PoliticaTrabalho = TrimOrNull(request.PoliticaTrabalho);
         entity.ObservacoesDeslocamento = TrimOrNull(request.ObservacoesDeslocamento);
-        entity.Moeda = request.Moeda;
+        entity.Moeda = request.Moeda ?? VagaMoeda.BRL;
         entity.SalarioMinimo = request.SalarioMinimo;
         entity.SalarioMaximo = request.SalarioMaximo;
-        entity.Periodicidade = request.Periodicidade;
+        entity.Periodicidade = request.Periodicidade ?? VagaRemuneracaoPeriodicidade.Mensal;
         entity.BonusTipo = request.BonusTipo;
         entity.BonusPercentual = request.BonusPercentual;
         entity.ObservacoesRemuneracao = TrimOrNull(request.ObservacoesRemuneracao);

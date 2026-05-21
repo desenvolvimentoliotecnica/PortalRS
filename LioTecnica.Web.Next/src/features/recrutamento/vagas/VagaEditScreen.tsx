@@ -7,6 +7,7 @@ import VagaFormModal from "./VagaFormModal";
 
 interface Props {
   editId?: string;
+  defaultTab?: "processo";
 }
 
 /**
@@ -14,7 +15,7 @@ interface Props {
  * Wrapper fino sobre VagaFormModal — renderiza como página ao invés de modal.
  * O VagaFormModal recebe open=true e nunca fecha por overlay.
  */
-export default function VagaEditScreen({ editId }: Props) {
+export default function VagaEditScreen({ editId, defaultTab }: Props) {
   const router = useRouter();
 
   function handleClose() {
@@ -54,6 +55,7 @@ export default function VagaEditScreen({ editId }: Props) {
       <VagaFormModal
         open={true}
         editId={editId}
+        defaultTab={defaultTab}
         onClose={handleClose}
         onSaved={handleSaved}
         embedded

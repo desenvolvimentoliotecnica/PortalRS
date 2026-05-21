@@ -6,5 +6,6 @@ import VagaEditScreen from "@/features/recrutamento/vagas/VagaEditScreen";
 export default function VagaEditPageClient() {
   const params = useSearchParams();
   const id = params.get("id") ?? undefined;
-  return <VagaEditScreen editId={id} />;
+  const tab = params.get("tab") === "processo" ? "processo" : undefined;
+  return <VagaEditScreen editId={id} defaultTab={tab} />;
 }

@@ -852,7 +852,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const isEstrutural = vaga?.isEstrutural === true;
 
   const publishBlockReason: string | null = (() => {
-    if (headcountPendente > 0) return "Existe decisão de headcount pendente do RH — resolva antes de publicar";
+    if (headcountPendente > 0) return "Existe aumento de headcount pendente de aprovação — acompanhe em Aprovações antes de publicar";
     if (status === "aberta") return "A vaga já está publicada";
     if (status === "preenchida") return "A vaga está preenchida";
     if (status === "cancelada") return "A vaga está cancelada";
@@ -1231,7 +1231,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             ) : (
               <div className="text-center py-4">
                 <p className="text-sm text-muted-foreground">Nenhuma etapa configurada.</p>
-                <Button size="sm" variant="outline" className="mt-2" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}>
+                <p className="mx-auto mt-1 max-w-xl text-xs text-muted-foreground">
+                  As etapas definem o roteiro da seleção desta vaga, como triagem, entrevistas, proposta e admissão, com responsável e SLA por fase.
+                </p>
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}&tab=processo`)}>
                   Configurar Etapas
                 </Button>
               </div>
@@ -1334,17 +1337,22 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             <div className="flex items-center justify-between gap-3 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-800 dark:bg-violet-900/20">
               <div className="flex items-center gap-2 text-sm text-violet-800 dark:text-violet-300">
                 <AlertTriangle className="size-4 shrink-0" />
-                <span>
-                  <b>+{headcountPendente} headcount</b> aprovado aguarda decisão do RH — a vaga não pode ser publicada até que o RH defina o tipo de headcount.
-                </span>
+                <div>
+                  <p>
+                    <b>+{headcountPendente} headcount</b> aguarda aprovação do aumento de HC.
+                  </p>
+                  <p className="mt-0.5 text-xs text-violet-700 dark:text-violet-300/80">
+                    A decisão de tipo de headcount já foi registrada na solicitação. Agora a vaga só pode ser publicada depois da aprovação do fluxo de aumento.
+                  </p>
+                </div>
               </div>
               <Button
                 size="sm"
                 variant="outline"
                 className="shrink-0 border-violet-300 text-violet-700 hover:bg-violet-100 dark:border-violet-700 dark:text-violet-300"
-                onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}`)}
+                onClick={() => router.push("/gestao/aprovacoes")}
               >
-                Resolver decisão
+                Ver aprovações
               </Button>
             </div>
           )}

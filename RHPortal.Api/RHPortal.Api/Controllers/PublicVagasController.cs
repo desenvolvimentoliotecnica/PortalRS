@@ -76,6 +76,7 @@ public sealed class PublicVagasController : ControllerBase
             .Include(v => v.CentroCusto)
             .Include(v => v.Etapas)
             .Where(v => v.Status == VagaStatus.Aberta)
+            .Where(v => v.HeadcountPendente <= 0)
             .Where(v => !v.Confidencial)
             .Where(v => !v.Visibilidade.HasValue
                 || v.Visibilidade == VagaPublicacaoVisibilidade.NaoInformado
@@ -205,6 +206,7 @@ public sealed class PublicVagasController : ControllerBase
             .Include(v => v.Etapas)
             .Where(v => v.Id == id)
             .Where(v => v.Status == VagaStatus.Aberta)
+            .Where(v => v.HeadcountPendente <= 0)
             .Where(v => !v.Confidencial)
             .Where(v => !v.Visibilidade.HasValue
                 || v.Visibilidade == VagaPublicacaoVisibilidade.NaoInformado
