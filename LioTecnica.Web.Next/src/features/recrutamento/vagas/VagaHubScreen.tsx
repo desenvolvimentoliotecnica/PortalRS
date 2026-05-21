@@ -1350,7 +1350,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                 size="sm"
                 variant="outline"
                 className="shrink-0 border-violet-300 text-violet-700 hover:bg-violet-100 dark:border-violet-700 dark:text-violet-300"
-                onClick={() => router.push("/gestao/aprovacoes")}
+                onClick={() => router.push(`/gestao/aprovacoes?tab=contratacao&q=${encodeURIComponent(title)}`)}
               >
                 Ver aprovações
               </Button>

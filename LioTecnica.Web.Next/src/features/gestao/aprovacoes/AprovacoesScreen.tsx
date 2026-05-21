@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
     Search,
@@ -543,8 +544,11 @@ function readStoredShowRmLegacy(): boolean {
 
 export default function AprovacoesScreen({ initialTab }: { initialTab?: string }) {
     const pendencias = usePendencias();
+    const searchParams = useSearchParams();
 
     const resolvedInitial: TabId = (() => {
+        const tabParam = searchParams.get("tab");
+        if (VALID_TAB_IDS.includes(tabParam as TabId)) return tabParam as TabId;
         if (VALID_TAB_IDS.includes(initialTab as TabId)) return initialTab as TabId;
         if (typeof window !== "undefined") {
             const saved = localStorage.getItem(LS_TAB_KEY);
@@ -565,7 +569,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         localStorage.setItem(LS_SHOW_RM_LEGACY_KEY, checked ? "true" : "false");
     }, []);
 
-    const [q, setQ] = useState("");
+    const [q, setQ] = useState(() => searchParams.get("q") ?? "");
     const [typeFilter, setTypeFilter] = useState<"todos" | "direta" | "fila">("todos");
     const [approvalObs, setApprovalObs] = useState("");
     const [acting, setActing] = useState(false);
@@ -652,7 +656,11 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             const list = Array.isArray(pendentesRaw) ? pendentesRaw : [];
             setPortalPendentes(list.map(mapPortalPendenteToRow));
 
-            const vagasArr = Array.isArray(vagasRaw) ? vagasRaw : [];
+            const vagasArr = Array.isArray(vagasRaw)
+                ? vagasRaw
+                : Array.isArray((vagasRaw as { items?: unknown[] } | null)?.items)
+                    ? (vagasRaw as { items: unknown[] }).items
+                    : [];
             setSolicitacaoVagaPendenciaRows(
                 vagasArr
                     .filter((x): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x))
