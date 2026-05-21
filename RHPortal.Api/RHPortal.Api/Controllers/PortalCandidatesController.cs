@@ -2235,6 +2235,7 @@ public sealed class PortalCandidatesController : ControllerBase
                 on v.Id equals score.VagaId into scoreJoin
             from score in scoreJoin.DefaultIfEmpty()
             where v.Status == RHPortal.Api.Domain.Enums.VagaStatus.Aberta
+                && v.HeadcountPendente <= 0
                 && !v.Confidencial
                 && (!v.Visibilidade.HasValue
                     || v.Visibilidade == RHPortal.Api.Domain.Enums.VagaPublicacaoVisibilidade.NaoInformado
