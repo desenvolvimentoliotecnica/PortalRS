@@ -60,33 +60,9 @@ public sealed class VagasController : ControllerBase
         [FromServices] IListVagasHandler handler,
         CancellationToken ct)
     {
-        Guid? effectiveCentroCustoId;
-        if (_userContext.IsAdmin || _userContext.IsInRole("Owner"))
-        {
-            effectiveCentroCustoId = centroCustoId;
-        }
-        else
-        {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue)
-            {
-                effectiveCentroCustoId = _userContext.CentroCustoId;
-            }
-            else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
-            {
-                effectiveCentroCustoId = null;
-            }
-            else if (_userContext.VagasDataScope == VagasDataScope.ByGestorRecrutador && _userContext.FuncionarioId.HasValue)
-            {
-                // Filtragem real acontece no ApplyVagasDataScopeFilter via navegação RecrutadorResponsavelUser.Funcionario.GestorDiretoId
-                effectiveCentroCustoId = null;
-            }
-            else
-            {
-                effectiveCentroCustoId = centroCustoId;
-            }
-        }
-
-        var query = new VagaListQuery(q, status, effectiveCentroCustoId, null);
+        // O escopo de segurança é aplicado no VagaService. Aqui, centroCustoId é apenas
+        // filtro explícito da tela; forçar o CC do usuário esconderia vagas atribuídas a ele.
+        var query = new VagaListQuery(q, status, centroCustoId, null);
         var items = await handler.HandleAsync(query, ct);
         return Ok(items);
     }
