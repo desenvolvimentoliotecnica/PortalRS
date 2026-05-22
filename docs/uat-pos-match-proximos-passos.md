@@ -59,16 +59,26 @@ O proximo passo correto e tomar uma decisao de triagem:
 Checklist:
 
 - [ ] Candidato aparece na vaga correta.
-- [ ] Candidato aparece com status inicial, como **Aplicada**.
-- [ ] Score de match aparece ou fica acessivel.
-- [ ] Match minimo da vaga fica claro para comparacao.
-- [ ] Dados do CV/documentos ficam disponiveis para leitura.
-- [ ] Analise de compatibilidade ou IA fica disponivel, quando houver.
+- [ ] Candidato aparece com status inicial **Novo** ou **Aplicada**, conforme nomenclatura atual da tela.
+- [ ] Antes do calculo, a row exibe a acao **Calcular match**.
+- [ ] Depois do calculo, a row exibe o score de compatibilidade, por exemplo **58%**.
+- [ ] A acao **Compatibilidade XX%** abre o resumo/detalhamento do match.
+- [ ] A acao **Analise IA** abre o modal de IA e permite gerar/visualizar a analise.
+- [ ] Match minimo da vaga fica claro para comparacao na aba **Candidatos & Match**.
+- [ ] Dados do CV/documentos ficam disponiveis para leitura ou download.
+- [ ] Existe acao **Baixar CV** na row do candidato quando ha curriculo enviado.
+- [ ] Analise de compatibilidade ou IA fica disponivel depois do calculo.
 
 Resultado esperado:
 
 ```text
 Analista entende se o candidato esta acima, abaixo ou proximo do minimo esperado.
+```
+
+Observacao validada em UAT:
+
+```text
+Na tela atual, o candidato pode aparecer como "Novo". Para este fluxo, "Novo" representa a entrada inicial da candidatura antes da triagem operacional.
 ```
 
 ### UAT 2 - Registrar decisao de triagem

@@ -55,6 +55,70 @@ import VagaFormModal from "./VagaFormModal";
 import CandidatosMatchTab from "./CandidatosMatchTab";
 
 const BASE = "/app";
+const VAGA_HUB_FONT_135X_STYLE = `
+  .vaga-hub-font-135x {
+    font-size: 1.35rem;
+    line-height: 1.85rem;
+  }
+
+  .vaga-hub-font-135x .text-\\[10px\\] {
+    font-size: 13.5px !important;
+    line-height: 1.15rem !important;
+  }
+
+  .vaga-hub-font-135x .text-\\[11px\\] {
+    font-size: 14.85px !important;
+    line-height: 1.2rem !important;
+  }
+
+  .vaga-hub-font-135x .text-\\[0\\.82rem\\] {
+    font-size: 1.107rem !important;
+    line-height: 1.45rem !important;
+  }
+
+  .vaga-hub-font-135x .text-xs {
+    font-size: 1.0125rem !important;
+    line-height: 1.45rem !important;
+  }
+
+  .vaga-hub-font-135x .text-sm {
+    font-size: 1.18125rem !important;
+    line-height: 1.55rem !important;
+  }
+
+  .vaga-hub-font-135x .text-base {
+    font-size: 1.35rem !important;
+    line-height: 1.85rem !important;
+  }
+
+  .vaga-hub-font-135x .text-lg {
+    font-size: 1.51875rem !important;
+    line-height: 2rem !important;
+  }
+
+  .vaga-hub-font-135x .text-xl {
+    font-size: 1.6875rem !important;
+    line-height: 2.2rem !important;
+  }
+
+  .vaga-hub-font-135x input:not([type="checkbox"]),
+  .vaga-hub-font-135x select,
+  .vaga-hub-font-135x textarea,
+  .vaga-hub-font-135x button {
+    font-size: 1.18125rem !important;
+    line-height: 1.55rem !important;
+  }
+
+  .vaga-hub-font-135x input:not([type="checkbox"]),
+  .vaga-hub-font-135x select,
+  .vaga-hub-font-135x button {
+    min-height: 3rem;
+  }
+
+  .vaga-hub-font-135x textarea {
+    min-height: 5rem;
+  }
+`;
 
 type VagaData = Record<string, unknown>;
 
@@ -862,7 +926,8 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
 
   if (loading) {
     return (
-      <section className="space-y-4">
+      <section className="vaga-hub-font-135x space-y-4">
+        <style>{VAGA_HUB_FONT_135X_STYLE}</style>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => router.push("/vagas")}><ArrowLeft className="size-4" /></Button>
           <div className="h-7 w-64 animate-pulse rounded-lg bg-muted" />
@@ -873,7 +938,8 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="vaga-hub-font-135x space-y-4">
+      <style>{VAGA_HUB_FONT_135X_STYLE}</style>
       {/* ── Header ── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -1110,6 +1176,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             vagaId={vagaId}
             candidates={candidates}
             temDescricaoCargo={Boolean(pick(vaga, "descricaoCargoId", "")) || Boolean(pick(vaga, "descricaoCargo", ""))}
+            matchMinimoPercentual={matchMin}
             isReadOnly={isReadOnly}
             onAddCandidate={() => {
               setEditingCandidateId(null);
