@@ -103,6 +103,32 @@ function statusLabel(s: string) {
 }
 
 
+function agendaTypeLabel(label?: string | null, code?: string | null) {
+  const raw = String(label ?? "").trim();
+  const normalizedCode = String(code ?? "").trim().toLowerCase();
+
+  if (raw && !raw.startsWith("Seed.AgendaType")) return raw;
+
+  const key = raw || normalizedCode;
+  const labels: Record<string, string> = {
+    "Seed.AgendaTypeInterview": "Entrevista",
+    "Seed.AgendaTypeMeeting": "Reunião",
+    "Seed.AgendaTypeOnboarding": "Onboarding",
+    "Seed.AgendaTypeAssessment": "Assessment",
+    "Seed.AgendaTypeFollowUp": "Follow-up",
+    "Seed.AgendaTypeOther": "Outro",
+    entrevista: "Entrevista",
+    reuniao: "Reunião",
+    onboarding: "Onboarding",
+    assessment: "Assessment",
+    followup: "Follow-up",
+    outro: "Outro",
+  };
+
+  return labels[key] ?? raw ?? code ?? "—";
+}
+
+
 function agendaIcon(icon: unknown) {
   const k = String(icon ?? "")
     .trim()
@@ -204,7 +230,7 @@ export default function AgendasScreen() {
       .trim()
       .toLowerCase();
     const byCode = code ? types.find((t) => String(t.code ?? "").trim().toLowerCase() === code) : null;
-    const label = String(selectedEvent?.typeLabel ?? "") || byCode?.label || selectedEvent?.typeCode || "—";
+    const label = agendaTypeLabel(selectedEvent?.typeLabel || byCode?.label, selectedEvent?.typeCode);
     const icon = selectedEvent?.typeIcon ?? byCode?.icon ?? "bi-calendar";
     const Icon = agendaIcon(icon);
     return { label, Icon };
@@ -678,7 +704,7 @@ export default function AgendasScreen() {
                 <option value="all">Todos os tipos</option>
                 {types.map((t) => (
                   <option key={t.code} value={t.code}>
-                    {t.label}
+                    {agendaTypeLabel(t.label, t.code)}
                   </option>
                 ))}
               </select>
@@ -826,7 +852,7 @@ export default function AgendasScreen() {
                             const Icon = agendaIcon(ev.typeIcon ?? "bi-calendar");
                             return <Icon className="size-3.5" />;
                           })()}
-                          {types.find((t) => t.code === ev.typeCode)?.label ?? ev.typeLabel ?? ev.typeCode ?? "—"}
+                          {agendaTypeLabel(types.find((t) => t.code === ev.typeCode)?.label ?? ev.typeLabel, ev.typeCode)}
                         </span>
                         <span className="badge-soft text-xs">{statusLabel((ev.status ?? "").toLowerCase())}</span>
                         {ev.candidate ? <span className="badge-soft text-xs">{ev.candidate}</span> : null}
@@ -868,7 +894,7 @@ export default function AgendasScreen() {
                 <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.typeCode} onChange={(e) => setForm({ ...form, typeCode: e.target.value })}>
                   {types.map((t) => (
                     <option key={t.code} value={t.code}>
-                      {t.label}
+                      {agendaTypeLabel(t.label, t.code)}
                     </option>
                   ))}
                 </select>

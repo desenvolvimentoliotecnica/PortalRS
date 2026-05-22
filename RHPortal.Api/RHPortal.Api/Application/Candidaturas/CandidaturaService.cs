@@ -290,6 +290,12 @@ public sealed class CandidaturaService : ICandidaturaService
         var responsavel = request.Responsavel.Trim();
         if (string.IsNullOrWhiteSpace(responsavel))
             throw new InvalidOperationException("Informe o responsável pela entrevista.");
+        var participantes = request.ParticipantesOpcionais?
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList() ?? [];
 
         var inicioUtc = request.InicioUtc.Kind == DateTimeKind.Utc
             ? request.InicioUtc
@@ -336,6 +342,7 @@ public sealed class CandidaturaService : ICandidaturaService
             $"CandidaturaId: {cand.Id}",
             $"Formato: {formato}",
             $"Responsável: {responsavel}",
+            participantes.Count == 0 ? null : $"Participantes opcionais: {string.Join(", ", participantes)}",
             $"Duração: {request.DuracaoMinutos} minutos",
             string.IsNullOrWhiteSpace(request.Observacao) ? null : $"Observação: {request.Observacao.Trim()}",
         }.Where(x => !string.IsNullOrWhiteSpace(x)));

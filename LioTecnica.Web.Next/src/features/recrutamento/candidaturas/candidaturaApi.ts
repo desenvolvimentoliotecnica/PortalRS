@@ -214,6 +214,7 @@ export type AgendarEntrevistaCandidaturaRequest = {
   duracaoMinutos: number;
   formato: "Presencial" | "Online";
   responsavel: string;
+  participantesOpcionais?: string[] | null;
   local?: string | null;
   observacao?: string | null;
 };

@@ -73,6 +73,19 @@ export default function PropostasVagaScreen() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") !== "1") return;
+    const prefillVagaId = params.get("vagaId") ?? "";
+    const prefillCandidatoId = params.get("candidatoId") ?? "";
+    setShowNew(true);
+    setForm((f) => ({
+      ...f,
+      vagaId: prefillVagaId || f.vagaId,
+      candidatoId: prefillCandidatoId || f.candidatoId,
+    }));
+  }, []);
+
+  useEffect(() => {
     if (!showNew) return;
     const ac = new AbortController();
     (async () => {
