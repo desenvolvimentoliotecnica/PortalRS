@@ -129,6 +129,7 @@ public static class RolePermissionManifest
                               string.Equals(r.Name, "Administrador", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(r.Name, "RH", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(r.Name, "Especialista de RH", StringComparison.OrdinalIgnoreCase) ||
+                              string.Equals(r.Name, "Analista de RH", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(r.Name, "Recrutador", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(r.Name, "Operacional", StringComparison.OrdinalIgnoreCase)))
             return TenantPermissions;
