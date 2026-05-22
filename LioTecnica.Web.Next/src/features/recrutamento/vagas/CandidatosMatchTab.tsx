@@ -7,6 +7,7 @@ import {
     AlertTriangle,
     Bot,
     Brain,
+    Download,
     Loader2,
     Mail,
     MoreHorizontal,
@@ -59,6 +60,7 @@ export interface CandidatosMatchTabProps {
     vagaId: string;
     candidates: HubCandidateRow[];
     temDescricaoCargo: boolean;
+    matchMinimoPercentual: number;
     isReadOnly: boolean;
     onAddCandidate: () => void;
     onEditCandidate: (id: string) => void | Promise<void>;
@@ -120,6 +122,7 @@ export default function CandidatosMatchTab({
     vagaId,
     candidates,
     temDescricaoCargo,
+    matchMinimoPercentual,
     isReadOnly,
     onAddCandidate,
     onEditCandidate,
@@ -305,6 +308,45 @@ export default function CandidatosMatchTab({
         }
     }, [notifyTarget, vagaId]);
 
+    const baixarCurriculo = useCallback(async (candidato: HubCandidateRow) => {
+        try {
+            const res = await apiFetch(`/api/public/portal-candidates/${candidato.id}/documents`, { cache: "no-store" });
+            if (!res.ok) throw new Error(await parseMatchApiError(res));
+            const data = (await res.json()) as {
+                items?: Array<{
+                    tipo?: string;
+                    nome?: string;
+                    link?: string | null;
+                    fileName?: string | null;
+                    temArquivo?: boolean;
+                }>;
+            };
+            const curriculo = (data.items ?? []).find((doc) => {
+                const tipo = (doc.tipo ?? "").toLowerCase();
+                const nome = (doc.nome ?? "").toLowerCase();
+                return tipo.includes("curr") || nome.includes("curr");
+            });
+            if (!curriculo?.link) {
+                toast.error("Nenhum CV disponível para download neste candidato.");
+                return;
+            }
+
+            const download = await apiFetch(curriculo.link, { cache: "no-store" });
+            if (!download.ok) throw new Error(await parseMatchApiError(download));
+            const blob = await download.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = curriculo.fileName || curriculo.nome || `curriculo-${candidato.nome}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+            toast.error(`Falha ao baixar CV: ${err instanceof Error ? err.message : "erro desconhecido"}`);
+        }
+    }, []);
+
     const rows = useMemo(() => {
         let list = candidates.map((c) => ({ ...c, m: matchById[c.id] }));
 
@@ -363,7 +405,7 @@ export default function CandidatosMatchTab({
                     <div className="min-w-0">
                         <div className="font-semibold text-sm">Candidatos & Match</div>
                         <div className="text-xs text-muted-foreground">
-                            {candidates.length} candidato(s)
+                            {candidates.length} candidato(s) · mínimo da vaga: {matchMinimoPercentual}%
                             {temDescricaoCargo && stats.calculated > 0 && (
                                 <span> · {stats.calculated} com compatibilidade calculada</span>
                             )}
@@ -473,7 +515,7 @@ export default function CandidatosMatchTab({
                                 >
                                     Match {sortCol === "score" && "▼"}
                                 </th>
-                                <th className="px-3 py-2 text-center">Mínimo</th>
+                                <th className="px-3 py-2 text-center">Mínimo da vaga</th>
                                 <th className="px-3 py-2 text-right">Ações</th>
                             </tr>
                         </thead>
@@ -512,12 +554,20 @@ export default function CandidatosMatchTab({
                                                 )}
                                             </td>
                                             <td className="px-3 py-2 text-center">
-                                                {!temDescricaoCargo || !m?.calculated ? (
+                                                {!temDescricaoCargo ? (
                                                     <span className="text-xs text-muted-foreground">—</span>
+                                                ) : !m?.calculated ? (
+                                                    <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                                        {matchMinimoPercentual}%
+                                                    </span>
                                                 ) : m.passou ? (
-                                                    <span className="text-emerald-600 text-xs font-medium">✓ passou</span>
+                                                    <span className="inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                                        {matchMinimoPercentual}% · passou
+                                                    </span>
                                                 ) : (
-                                                    <span className="text-amber-700 text-xs">abaixo</span>
+                                                    <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                                        {matchMinimoPercentual}% · abaixo
+                                                    </span>
                                                 )}
                                             </td>
                                             <td className="px-3 py-2 text-right">
@@ -530,6 +580,7 @@ export default function CandidatosMatchTab({
                                                     onBreakdown={() => breakdownDialog.open(vagaId, r.id, r.nome)}
                                                     onAnaliseIa={() => llmDialog.open(vagaId, r.id, r.nome)}
                                                     onEdit={() => void onEditCandidate(r.id)}
+                                                    onDownloadCv={() => void baixarCurriculo(r)}
                                                     onApprove={() => onApproveCandidate(r)}
                                                     onNotify={() => setNotifyTarget(r)}
                                                     onAcompanhar={() => void onAcompanharAdmissao(r.id)}
@@ -710,18 +761,17 @@ function DivergencePtsChip({ m }: { m: MatchRow }) {
     const diverge =
         llm != null && Math.abs(breakdown - llm) > MATCHING_SCORE_DIVERGENCE_THRESHOLD;
 
-    if (!diverge) {
-        return <span className="text-xs text-muted-foreground">—</span>;
-    }
-
-    const delta = Math.abs(breakdown - (llm ?? 0));
     return (
         <span
-            className="inline-flex items-center gap-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-900 dark:text-amber-200 whitespace-nowrap"
-            title={`Compatibilidade ${breakdown}% vs Análise IA ${llm}% — métodos distintos`}
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
+                m.passou
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                    : "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+            }`}
+            title={llm != null ? `Compatibilidade ${breakdown}% vs Análise IA ${llm}% — métodos distintos` : "Compatibilidade calculada"}
         >
-            <AlertTriangle className="size-3 shrink-0 text-amber-600" />
-            {delta} pts
+            {breakdown}%
+            {diverge && <AlertTriangle className="size-3 shrink-0 text-amber-600" />}
         </span>
     );
 }
@@ -735,6 +785,7 @@ function RowActions({
     onBreakdown,
     onAnaliseIa,
     onEdit,
+    onDownloadCv,
     onApprove,
     onNotify,
     onAcompanhar,
@@ -747,6 +798,7 @@ function RowActions({
     onBreakdown: () => void;
     onAnaliseIa: () => void;
     onEdit: () => void;
+    onDownloadCv: () => void;
     onApprove: () => void;
     onNotify: () => void;
     onAcompanhar: () => void;
@@ -780,6 +832,15 @@ function RowActions({
                     </Button>
                 </>
             )}
+            <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs gap-1 hidden xl:inline-flex whitespace-nowrap"
+                onClick={onDownloadCv}
+            >
+                <Download className="size-3 shrink-0" />
+                Baixar CV
+            </Button>
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -811,6 +872,10 @@ function RowActions({
                             Editar candidato
                         </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={onDownloadCv}>
+                        <Download className="size-4 mr-2" />
+                        Baixar CV
+                    </DropdownMenuItem>
                     {!isReadOnly && missingFields.length > 0 && (
                         <DropdownMenuItem onClick={onNotify}>
                             <AlertCircle className="size-4 mr-2" />
