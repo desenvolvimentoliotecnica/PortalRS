@@ -37,64 +37,64 @@ export default function VagaEditScreen({ editId, defaultTab }: Props) {
   }
 
   return (
-    <div className="vaga-edit-font-2x space-y-6">
+    <div className="vaga-edit-font-135x space-y-6">
       <style>{`
-        .vaga-edit-font-2x {
-          font-size: 2rem;
-          line-height: 2.5rem;
+        .vaga-edit-font-135x {
+          font-size: 1.35rem;
+          line-height: 1.85rem;
         }
 
-        .vaga-edit-font-2x .text-\\[10px\\] {
-          font-size: 20px !important;
-          line-height: 1.5rem !important;
+        .vaga-edit-font-135x .text-\\[10px\\] {
+          font-size: 13.5px !important;
+          line-height: 1.15rem !important;
         }
 
-        .vaga-edit-font-2x .text-\\[0\\.82rem\\] {
-          font-size: 1.64rem !important;
-          line-height: 2.1rem !important;
+        .vaga-edit-font-135x .text-\\[0\\.82rem\\] {
+          font-size: 1.107rem !important;
+          line-height: 1.45rem !important;
         }
 
-        .vaga-edit-font-2x .text-xs {
-          font-size: 1.5rem !important;
+        .vaga-edit-font-135x .text-xs {
+          font-size: 1.0125rem !important;
+          line-height: 1.45rem !important;
+        }
+
+        .vaga-edit-font-135x .text-sm {
+          font-size: 1.18125rem !important;
+          line-height: 1.55rem !important;
+        }
+
+        .vaga-edit-font-135x .text-base {
+          font-size: 1.35rem !important;
+          line-height: 1.85rem !important;
+        }
+
+        .vaga-edit-font-135x .text-lg {
+          font-size: 1.51875rem !important;
           line-height: 2rem !important;
         }
 
-        .vaga-edit-font-2x .text-sm {
-          font-size: 1.75rem !important;
-          line-height: 2.25rem !important;
+        .vaga-edit-font-135x .text-xl {
+          font-size: 1.6875rem !important;
+          line-height: 2.2rem !important;
         }
 
-        .vaga-edit-font-2x .text-base {
-          font-size: 2rem !important;
-          line-height: 2.5rem !important;
+        .vaga-edit-font-135x input:not([type="checkbox"]),
+        .vaga-edit-font-135x select,
+        .vaga-edit-font-135x textarea,
+        .vaga-edit-font-135x button {
+          font-size: 1.18125rem !important;
+          line-height: 1.55rem !important;
         }
 
-        .vaga-edit-font-2x .text-lg {
-          font-size: 2.25rem !important;
-          line-height: 2.75rem !important;
+        .vaga-edit-font-135x input:not([type="checkbox"]),
+        .vaga-edit-font-135x select,
+        .vaga-edit-font-135x button {
+          min-height: 3rem;
         }
 
-        .vaga-edit-font-2x .text-xl {
-          font-size: 2.5rem !important;
-          line-height: 3rem !important;
-        }
-
-        .vaga-edit-font-2x input:not([type="checkbox"]),
-        .vaga-edit-font-2x select,
-        .vaga-edit-font-2x textarea,
-        .vaga-edit-font-2x button {
-          font-size: 1.75rem !important;
-          line-height: 2.25rem !important;
-        }
-
-        .vaga-edit-font-2x input:not([type="checkbox"]),
-        .vaga-edit-font-2x select,
-        .vaga-edit-font-2x button {
-          min-height: 4rem;
-        }
-
-        .vaga-edit-font-2x textarea {
-          min-height: 7rem;
+        .vaga-edit-font-135x textarea {
+          min-height: 5rem;
         }
       `}</style>
       {/* Header */}
