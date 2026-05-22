@@ -76,6 +76,18 @@ type MatchingModo = "ai" | "semantic" | "lexical";
 type SortCol = "nome" | "data" | "score";
 type MatchFilter = "todos" | "sem_match" | "abaixo" | "passou" | "divergencia" | "com_llm";
 
+const ETAPA_MACRO_LABELS: Record<string, string> = {
+    Aplicada: "Aplicada",
+    EmTriagem: "Em triagem",
+    Entrevista: "Entrevista",
+    EntrevistaTecnica: "Entrevista técnica",
+    Teste: "Teste",
+    Proposta: "Proposta",
+    Contratado: "Contratado",
+    Recusado: "Recusado",
+    Desistiu: "Desistiu",
+};
+
 interface MatchRow {
     calculated: boolean;
     loading: boolean;
@@ -547,7 +559,7 @@ export default function CandidatosMatchTab({
                                             </td>
                                             <td className="px-3 py-2">
                                                 <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-700">
-                                                    {r.status}
+                                                    {candidateStageLabel(r)}
                                                 </span>
                                             </td>
                                             <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
@@ -718,6 +730,12 @@ function normalizeEtapaMacro(value: string | number | null | undefined): string 
         return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu"][value] ?? "Aplicada";
     }
     return value ?? "Aplicada";
+}
+
+function candidateStageLabel(candidato: HubCandidateRow): string {
+    if (candidato.etapaMacro == null) return candidato.status;
+    const etapa = normalizeEtapaMacro(candidato.etapaMacro);
+    return ETAPA_MACRO_LABELS[etapa] ?? etapa;
 }
 
 function canApproveCandidate(candidato: HubCandidateRow): boolean {

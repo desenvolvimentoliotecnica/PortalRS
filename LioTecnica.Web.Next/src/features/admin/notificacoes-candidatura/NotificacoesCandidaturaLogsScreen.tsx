@@ -40,6 +40,7 @@ const ETAPAS: EtapaMacroCandidatura[] = [
   "Aplicada",
   "EmTriagem",
   "Entrevista",
+  "EntrevistaTecnica",
   "Teste",
   "Proposta",
   "Contratado",

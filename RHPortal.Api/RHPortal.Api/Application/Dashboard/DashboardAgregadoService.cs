@@ -168,6 +168,7 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
                 .CountAsync(c => carteiraVagaIds.Contains(c.VagaId)
                                  && c.Status == CandidaturaStatus.Ativa
                                  && (c.EtapaMacro == EtapaMacroCandidatura.Entrevista
+                                     || c.EtapaMacro == EtapaMacroCandidatura.EntrevistaTecnica
                                      || c.EtapaMacro == EtapaMacroCandidatura.Teste
                                      || c.EtapaMacro == EtapaMacroCandidatura.Proposta), ct);
         }
@@ -256,6 +257,7 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
             var etapasAvancadas = new[]
             {
                 EtapaMacroCandidatura.Entrevista,
+                EtapaMacroCandidatura.EntrevistaTecnica,
                 EtapaMacroCandidatura.Teste,
                 EtapaMacroCandidatura.Proposta,
             };
@@ -437,7 +439,7 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
             VagasRascunho: vagasRascunho,
             PipelineAplicadas: Etapa(EtapaMacroCandidatura.Aplicada),
             PipelineEmTriagem: Etapa(EtapaMacroCandidatura.EmTriagem),
-            PipelineEntrevista: Etapa(EtapaMacroCandidatura.Entrevista),
+            PipelineEntrevista: Etapa(EtapaMacroCandidatura.Entrevista) + Etapa(EtapaMacroCandidatura.EntrevistaTecnica),
             PipelineProposta: Etapa(EtapaMacroCandidatura.Proposta),
             PipelineContratadoMes: contratadosMes,
             PreAdmissoesEmAndamento: preEmAndamento,

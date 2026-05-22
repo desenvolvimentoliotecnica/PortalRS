@@ -14,6 +14,8 @@ public interface ICandidaturaService
     Task<Candidatura> GetOrCreateAsync(Guid candidatoId, Guid vagaId, string? fonte, string? obs, CancellationToken ct);
     Task<IReadOnlyList<CandidaturaResponse>> ListarDoCandidatoAsync(Guid candidatoId, CancellationToken ct);
     Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct);
+    Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct);
+    Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct);
     Task<KanbanCandidaturasResponse> ListarKanbanAsync(Guid? vagaId, CancellationToken ct);
     Task<IReadOnlyList<KanbanVagaFiltroItem>> ListarVagasKanbanAsync(CancellationToken ct);
 
@@ -211,7 +213,10 @@ public sealed class CandidaturaService : ICandidaturaService
         )).ToList();
     }
 
-    public async Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct)
+    public Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, CancellationToken ct)
+        => AvancarEtapaAsync(candidaturaId, novaEtapa, observacao, null, ct);
+
+    public async Task<CandidaturaResponse?> AvancarEtapaAsync(Guid candidaturaId, EtapaMacroCandidatura novaEtapa, string? observacao, AgendarEntrevistaCandidaturaRequest? entrevista, CancellationToken ct)
     {
         var cand = await _db.Candidaturas.FirstOrDefaultAsync(x => x.Id == candidaturaId, ct);
         if (cand is null) return null;
@@ -248,6 +253,11 @@ public sealed class CandidaturaService : ICandidaturaService
             _ => cand.Status,
         };
 
+        if (IsEtapaComAgendaEntrevista(novaEtapa) && entrevista is not null)
+        {
+            await CriarEventoEntrevistaAsync(cand, novaEtapa, entrevista, ct);
+        }
+
         await _db.SaveChangesAsync(ct);
 
         // Mantém o cache Candidato.VagaId alinhado com a candidatura ativa mais recente:
@@ -263,6 +273,117 @@ public sealed class CandidaturaService : ICandidaturaService
         {
             _logger.LogWarning(ex, "Falha best-effort ao notificar mudança de etapa da candidatura {CandidaturaId} ({EtapaAnterior}→{EtapaNova})", cand.Id, etapaAnterior, novaEtapa);
         }
+
+        return await BuildSingle(cand.Id, ct);
+    }
+
+    private async Task CriarEventoEntrevistaAsync(Candidatura cand, EtapaMacroCandidatura etapa, AgendarEntrevistaCandidaturaRequest request, CancellationToken ct)
+    {
+        if (request.DuracaoMinutos < 15 || request.DuracaoMinutos > 480)
+            throw new InvalidOperationException("Informe uma duração de entrevista entre 15 e 480 minutos.");
+
+        var formato = request.Formato.Trim();
+        if (!string.Equals(formato, "Presencial", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(formato, "Online", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Formato da entrevista deve ser Presencial ou Online.");
+
+        var responsavel = request.Responsavel.Trim();
+        if (string.IsNullOrWhiteSpace(responsavel))
+            throw new InvalidOperationException("Informe o responsável pela entrevista.");
+
+        var inicioUtc = request.InicioUtc.Kind == DateTimeKind.Utc
+            ? request.InicioUtc
+            : DateTime.SpecifyKind(request.InicioUtc, DateTimeKind.Local).ToUniversalTime();
+        var fimUtc = inicioUtc.AddMinutes(request.DuracaoMinutos);
+
+        var type = await _db.AgendaEventTypes.FirstOrDefaultAsync(x => x.Code == "entrevista", ct);
+        if (type is null)
+        {
+            type = new AgendaEventType
+            {
+                Id = Guid.NewGuid(),
+                Code = "entrevista",
+                Label = "Entrevista",
+                Color = "#1f6feb",
+                Icon = "bi-camera-video",
+                SortOrder = 1,
+                IsActive = true,
+            };
+            _db.AgendaEventTypes.Add(type);
+        }
+
+        var details = await (
+            from c in _db.Candidaturas.AsNoTracking()
+            join candidato in _db.Candidatos.AsNoTracking() on c.CandidatoId equals candidato.Id
+            join vaga in _db.Vagas.AsNoTracking() on c.VagaId equals vaga.Id into vagaJoin
+            from vaga in vagaJoin.DefaultIfEmpty()
+            where c.Id == cand.Id
+            select new
+            {
+                CandidatoNome = candidato.Nome,
+                VagaTitulo = vaga != null ? vaga.Titulo : null,
+                VagaCodigo = vaga != null ? vaga.Codigo : null,
+            }
+        ).FirstOrDefaultAsync(ct);
+
+        var nomeCandidato = details?.CandidatoNome ?? "candidato";
+        var local = string.Equals(formato, "Online", StringComparison.OrdinalIgnoreCase)
+            ? (string.IsNullOrWhiteSpace(request.Local) ? "Online" : request.Local.Trim())
+            : (string.IsNullOrWhiteSpace(request.Local) ? "Presencial" : request.Local.Trim());
+
+        var notes = string.Join("\n", new[]
+        {
+            $"CandidaturaId: {cand.Id}",
+            $"Formato: {formato}",
+            $"Responsável: {responsavel}",
+            $"Duração: {request.DuracaoMinutos} minutos",
+            string.IsNullOrWhiteSpace(request.Observacao) ? null : $"Observação: {request.Observacao.Trim()}",
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+        var tituloEtapa = etapa == EtapaMacroCandidatura.EntrevistaTecnica ? "Entrevista técnica" : "Entrevista";
+
+        _db.AgendaEvents.Add(new AgendaEvent
+        {
+            Id = Guid.NewGuid(),
+            Type = type,
+            Title = $"{tituloEtapa} - {nomeCandidato}",
+            StartAtUtc = inicioUtc,
+            EndAtUtc = fimUtc,
+            AllDay = false,
+            Status = "confirmado",
+            Location = local,
+            Owner = responsavel,
+            Candidate = nomeCandidato,
+            VagaTitle = details?.VagaTitulo,
+            VagaCode = details?.VagaCodigo,
+            Notes = notes,
+        });
+    }
+
+    public async Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct)
+    {
+        var text = observacao.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            throw new InvalidOperationException("Informe uma observação.");
+
+        var cand = await _db.Candidaturas.FirstOrDefaultAsync(x => x.Id == candidaturaId, ct);
+        if (cand is null) return null;
+
+        var now = DateTimeOffset.UtcNow;
+        _db.CandidaturaEtapaHistoricos.Add(new CandidaturaEtapaHistorico
+        {
+            Id = Guid.NewGuid(),
+            TenantId = cand.TenantId,
+            CandidaturaId = cand.Id,
+            EtapaAnterior = cand.EtapaMacro,
+            EtapaNova = cand.EtapaMacro,
+            Observacao = text,
+            UserId = _currentUser.UserId,
+            EmUtc = now,
+        });
+
+        cand.UpdatedAtUtc = now;
+        await _db.SaveChangesAsync(ct);
 
         return await BuildSingle(cand.Id, ct);
     }
@@ -303,6 +424,8 @@ public sealed class CandidaturaService : ICandidaturaService
                     c.CandidatoId,
                     CandidatoNome = cand.Nome,
                     CandidatoEmail = cand.Email,
+                    CandidatoFone = cand.Fone,
+                    CandidatoCelular = cand.Celular,
                     CandidatoAvatar = cand.AvatarFileName,
                     c.VagaId,
                     VagaCodigo = v != null ? v.Codigo : null,
@@ -346,6 +469,7 @@ public sealed class CandidaturaService : ICandidaturaService
             (EtapaMacroCandidatura.Aplicada, "Aplicada"),
             (EtapaMacroCandidatura.EmTriagem, "Em triagem"),
             (EtapaMacroCandidatura.Entrevista, "Entrevista"),
+            (EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista técnica"),
             (EtapaMacroCandidatura.Teste, "Teste"),
             (EtapaMacroCandidatura.Proposta, "Proposta"),
             (EtapaMacroCandidatura.Contratado, "Contratado"),
@@ -374,6 +498,8 @@ public sealed class CandidaturaService : ICandidaturaService
                         r.CandidatoId,
                         r.CandidatoNome,
                         r.CandidatoEmail,
+                        r.CandidatoFone,
+                        r.CandidatoCelular,
                         r.CandidatoAvatar,
                         r.VagaId,
                         r.VagaCodigo,
@@ -516,6 +642,7 @@ public sealed class CandidaturaService : ICandidaturaService
             (EtapaMacroCandidatura.Aplicada,    "Aplicada"),
             (EtapaMacroCandidatura.EmTriagem,   "Em Triagem"),
             (EtapaMacroCandidatura.Entrevista,  "Entrevista"),
+            (EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista Técnica"),
             (EtapaMacroCandidatura.Teste,       "Teste"),
             (EtapaMacroCandidatura.Proposta,    "Proposta"),
             (EtapaMacroCandidatura.Contratado,  "Contratado"),
@@ -614,7 +741,7 @@ public sealed class CandidaturaService : ICandidaturaService
             try
             {
                 // Reusa lógica de AvancarEtapaAsync (validações, histórico, notificação)
-                var result = await AvancarEtapaAsync(id, request.NovaEtapa, request.Observacao, ct);
+                var result = await AvancarEtapaAsync(id, request.NovaEtapa, request.Observacao, null, ct);
                 if (result is null)
                 {
                     resultados.Add(new BulkAvancarEtapaItemResult(id, false, nome, "Falha ao avançar etapa."));
@@ -648,6 +775,7 @@ public sealed class CandidaturaService : ICandidaturaService
         EtapaMacroCandidatura.Aplicada    => 2,
         EtapaMacroCandidatura.EmTriagem   => 5,
         EtapaMacroCandidatura.Entrevista  => 10,
+        EtapaMacroCandidatura.EntrevistaTecnica => 10,
         EtapaMacroCandidatura.Teste       => 7,
         EtapaMacroCandidatura.Proposta    => 5,
         EtapaMacroCandidatura.Contratado  => 365, // terminal
@@ -655,4 +783,7 @@ public sealed class CandidaturaService : ICandidaturaService
         EtapaMacroCandidatura.Desistiu    => 365, // terminal
         _                                 => 7,
     };
+
+    private static bool IsEtapaComAgendaEntrevista(EtapaMacroCandidatura etapa)
+        => etapa is EtapaMacroCandidatura.Entrevista or EtapaMacroCandidatura.EntrevistaTecnica;
 }

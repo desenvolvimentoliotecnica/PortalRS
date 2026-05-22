@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   avancarEtapa,
   bulkAvancarEtapa,
@@ -10,6 +20,7 @@ import {
   getKanban,
   getKanbanVagas,
   resolveEtapa,
+  type AgendarEntrevistaCandidaturaRequest,
   type EtapaMacroCandidatura,
   type KanbanCandidaturaItem,
   type KanbanCandidaturasResponse,
@@ -22,6 +33,7 @@ const ETAPA_LABELS: Record<EtapaMacroCandidatura, string> = {
   Aplicada: "Aplicada",
   EmTriagem: "Em triagem",
   Entrevista: "Entrevista",
+  EntrevistaTecnica: "Entrevista técnica",
   Teste: "Teste",
   Proposta: "Proposta",
   Contratado: "Contratado",
@@ -33,11 +45,28 @@ const ETAPA_STYLES: Record<EtapaMacroCandidatura, { header: string; accent: stri
   Aplicada:   { header: "bg-sky-50 text-sky-900",         accent: "border-sky-200" },
   EmTriagem:  { header: "bg-indigo-50 text-indigo-900",   accent: "border-indigo-200" },
   Entrevista: { header: "bg-violet-50 text-violet-900",   accent: "border-violet-200" },
+  EntrevistaTecnica: { header: "bg-purple-50 text-purple-900", accent: "border-purple-200" },
   Teste:      { header: "bg-fuchsia-50 text-fuchsia-900", accent: "border-fuchsia-200" },
   Proposta:   { header: "bg-amber-50 text-amber-900",     accent: "border-amber-200" },
   Contratado: { header: "bg-emerald-50 text-emerald-900", accent: "border-emerald-200" },
   Recusado:   { header: "bg-rose-50 text-rose-900",       accent: "border-rose-200" },
   Desistiu:   { header: "bg-neutral-100 text-neutral-700", accent: "border-neutral-200" },
+};
+
+type ResponsavelEntrevistaOption = {
+  id: string;
+  nome: string;
+  email?: string | null;
+};
+
+type InterviewDraft = {
+  data: string;
+  horario: string;
+  duracaoMinutos: number;
+  formato: "Presencial" | "Online";
+  responsavel: string;
+  local: string;
+  observacao: string;
 };
 
 function formatDate(iso: string | null) {
@@ -49,7 +78,47 @@ function formatDate(iso: string | null) {
   }
 }
 
+type MoveDialogState = {
+  item: KanbanCandidaturaItem;
+  origem: EtapaMacroCandidatura;
+  destino: EtapaMacroCandidatura;
+  observacao: string;
+  entrevista: InterviewDraft;
+  saving: boolean;
+};
+
+function toDateInputValue(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function toTimeInputValue(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function defaultInterviewDraft(responsavel: string): InterviewDraft {
+  const nextHour = new Date();
+  nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+  return {
+    data: toDateInputValue(nextHour),
+    horario: toTimeInputValue(nextHour),
+    duracaoMinutos: 60,
+    formato: "Online",
+    responsavel,
+    local: "Online",
+    observacao: "",
+  };
+}
+
+function shouldScheduleInterview(etapa: EtapaMacroCandidatura) {
+  return etapa === "Entrevista" || etapa === "EntrevistaTecnica";
+}
+
 export default function CandidaturasKanbanScreen() {
+  const { me } = useAuth();
   const [data, setData] = useState<KanbanCandidaturasResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [vagaId, setVagaId] = useState<string>("");
@@ -57,6 +126,8 @@ export default function CandidaturasKanbanScreen() {
   const [dragging, setDragging] = useState<KanbanCandidaturaItem | null>(null);
   const [hoverEtapa, setHoverEtapa] = useState<EtapaMacroCandidatura | null>(null);
   const [detailItem, setDetailItem] = useState<KanbanCandidaturaItem | null>(null);
+  const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
+  const [responsaveis, setResponsaveis] = useState<ResponsavelEntrevistaOption[]>([]);
   // Sessão 31.8 — explicabilidade do matching
   const matchDialog = useMatchingBreakdownDialog();
 
@@ -123,6 +194,23 @@ export default function CandidaturasKanbanScreen() {
     })();
   }, []);
 
+  useEffect(() => {
+    let alive = true;
+    void apiFetch("/api/lookup/funcionarios?pageSize=200&onlyActive=true")
+      .then((res) => res.ok ? res.json() : { items: [] })
+      .then((data: { items?: Array<{ id?: string; nome?: string; email?: string | null }> }) => {
+        if (!alive) return;
+        const items = (data.items ?? [])
+          .map((f) => ({ id: String(f.id ?? ""), nome: String(f.nome ?? ""), email: f.email ?? null }))
+          .filter((f) => f.id && f.nome);
+        setResponsaveis(items);
+      })
+      .catch(() => {
+        if (alive) setResponsaveis([]);
+      });
+    return () => { alive = false; };
+  }, []);
+
   const columns = useMemo(() => {
     const map = new Map<EtapaMacroCandidatura, KanbanCandidaturaItem[]>();
     for (const e of ETAPAS_KANBAN) map.set(e, []);
@@ -141,7 +229,7 @@ export default function CandidaturasKanbanScreen() {
     return t;
   }, [columns]);
 
-  const onDropTo = async (etapa: EtapaMacroCandidatura) => {
+  const onDropTo = (etapa: EtapaMacroCandidatura) => {
     setHoverEtapa(null);
     const item = dragging;
     setDragging(null);
@@ -149,20 +237,56 @@ export default function CandidaturasKanbanScreen() {
     const atual = resolveEtapa(item.etapaMacro);
     if (atual === etapa) return;
 
-    const obs = window.prompt(
-      `Mover "${item.candidatoNome}" de ${ETAPA_LABELS[atual]} para ${ETAPA_LABELS[etapa]}. Observação (opcional):`,
-      "",
-    );
-    if (obs === null) return;
+    setMoveDialog({
+      item,
+      origem: atual,
+      destino: etapa,
+      observacao: "",
+      entrevista: defaultInterviewDraft(me?.displayName || me?.email || "Analista de RH"),
+      saving: false,
+    });
+  };
 
+  async function confirmMove() {
+    if (!moveDialog) return;
+    const { item, destino, observacao, entrevista } = moveDialog;
+    let entrevistaPayload: AgendarEntrevistaCandidaturaRequest | null = null;
+
+    if (shouldScheduleInterview(destino)) {
+      if (!entrevista.data || !entrevista.horario) {
+        toast.error("Informe a data e o horário da entrevista.");
+        return;
+      }
+      if (!entrevista.responsavel.trim()) {
+        toast.error("Informe o responsável pela entrevista.");
+        return;
+      }
+      const inicioLocal = new Date(`${entrevista.data}T${entrevista.horario}:00`);
+      if (Number.isNaN(inicioLocal.getTime())) {
+        toast.error("Data ou horário da entrevista inválidos.");
+        return;
+      }
+      entrevistaPayload = {
+        inicioUtc: inicioLocal.toISOString(),
+        duracaoMinutos: entrevista.duracaoMinutos,
+        formato: entrevista.formato,
+        responsavel: entrevista.responsavel.trim(),
+        local: entrevista.local.trim() || null,
+        observacao: entrevista.observacao.trim() || null,
+      };
+    }
+
+    setMoveDialog((prev) => prev ? { ...prev, saving: true } : prev);
     try {
-      await avancarEtapa(item.id, etapa, obs.trim() || null);
-      toast.success(`Movido para ${ETAPA_LABELS[etapa]}.`);
+      await avancarEtapa(item.id, destino, observacao.trim() || null, entrevistaPayload);
+      toast.success(shouldScheduleInterview(destino) ? `Movido para ${ETAPA_LABELS[destino]} e compromisso criado na agenda.` : `Movido para ${ETAPA_LABELS[destino]}.`);
+      setMoveDialog(null);
       await load();
     } catch (err) {
       toast.error((err as Error).message ?? "Falha ao mover.");
+      setMoveDialog((prev) => prev ? { ...prev, saving: false } : prev);
     }
-  };
+  }
 
   return (
     <section className="flex min-h-[calc(100vh-5rem)] flex-col space-y-4 p-4">
@@ -208,7 +332,9 @@ export default function CandidaturasKanbanScreen() {
             onChange={(e) => setBulkTargetEtapa(e.target.value as EtapaMacroCandidatura | "")}
           >
             <option value="">Mover para...</option>
-            {ETAPAS_KANBAN.map((e) => <option key={e} value={e}>{e}</option>)}
+            {ETAPAS_KANBAN
+              .filter((e) => !shouldScheduleInterview(e))
+              .map((e) => <option key={e} value={e}>{ETAPA_LABELS[e]}</option>)}
           </select>
           <Button
             size="sm"
@@ -346,6 +472,194 @@ export default function CandidaturasKanbanScreen() {
         item={detailItem}
         onClose={() => setDetailItem(null)}
       />
+
+      <Dialog
+        open={!!moveDialog}
+        onOpenChange={(open) => {
+          if (!open && !moveDialog?.saving) setMoveDialog(null);
+        }}
+      >
+        <DialogContent className={moveDialog && shouldScheduleInterview(moveDialog.destino) ? "sm:max-w-2xl" : "sm:max-w-md"}>
+          <DialogHeader>
+            <DialogTitle>Mover candidato</DialogTitle>
+            <DialogDescription>
+              Confirme a alteração de etapa e registre uma observação, se necessário.
+            </DialogDescription>
+          </DialogHeader>
+
+          {moveDialog && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950">
+                <div className="font-medium">{moveDialog.item.candidatoNome}</div>
+                <div className="mt-1 text-xs">
+                  De <strong>{ETAPA_LABELS[moveDialog.origem]}</strong> para{" "}
+                  <strong>{ETAPA_LABELS[moveDialog.destino]}</strong>
+                </div>
+              </div>
+
+              {shouldScheduleInterview(moveDialog.destino) && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-violet-950">Dados da entrevista</h3>
+                    <p className="mt-0.5 text-xs text-violet-800">
+                      Estes dados serão gravados como compromisso na agenda.
+                    </p>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block text-xs font-medium text-neutral-700">
+                      Data desejada
+                      <input
+                        type="date"
+                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        value={moveDialog.entrevista.data}
+                        disabled={moveDialog.saving}
+                        onChange={(e) => setMoveDialog((prev) => prev ? {
+                          ...prev,
+                          entrevista: { ...prev.entrevista, data: e.target.value },
+                        } : prev)}
+                      />
+                    </label>
+
+                    <label className="block text-xs font-medium text-neutral-700">
+                      Horário
+                      <input
+                        type="time"
+                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        value={moveDialog.entrevista.horario}
+                        disabled={moveDialog.saving}
+                        onChange={(e) => setMoveDialog((prev) => prev ? {
+                          ...prev,
+                          entrevista: { ...prev.entrevista, horario: e.target.value },
+                        } : prev)}
+                      />
+                    </label>
+
+                    <label className="block text-xs font-medium text-neutral-700">
+                      Tempo da entrevista
+                      <select
+                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        value={moveDialog.entrevista.duracaoMinutos}
+                        disabled={moveDialog.saving}
+                        onChange={(e) => setMoveDialog((prev) => prev ? {
+                          ...prev,
+                          entrevista: { ...prev.entrevista, duracaoMinutos: Number(e.target.value) },
+                        } : prev)}
+                      >
+                        <option value={30}>30 minutos</option>
+                        <option value={45}>45 minutos</option>
+                        <option value={60}>1 hora</option>
+                        <option value={90}>1h30</option>
+                        <option value={120}>2 horas</option>
+                      </select>
+                    </label>
+
+                    <label className="block text-xs font-medium text-neutral-700">
+                      Formato
+                      <select
+                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        value={moveDialog.entrevista.formato}
+                        disabled={moveDialog.saving}
+                        onChange={(e) => {
+                          const formato = e.target.value as "Presencial" | "Online";
+                          setMoveDialog((prev) => prev ? {
+                            ...prev,
+                            entrevista: {
+                              ...prev.entrevista,
+                              formato,
+                              local: formato === "Online" ? "Online" : "",
+                            },
+                          } : prev);
+                        }}
+                      >
+                        <option value="Online">Online</option>
+                        <option value="Presencial">Presencial</option>
+                      </select>
+                    </label>
+
+                    <label className="block text-xs font-medium text-neutral-700 sm:col-span-2">
+                      Responsável pela entrevista
+                      <input
+                        list="responsaveis-entrevista"
+                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        value={moveDialog.entrevista.responsavel}
+                        disabled={moveDialog.saving}
+                        placeholder="Analista de RH responsável"
+                        onChange={(e) => setMoveDialog((prev) => prev ? {
+                          ...prev,
+                          entrevista: { ...prev.entrevista, responsavel: e.target.value },
+                        } : prev)}
+                      />
+                      <datalist id="responsaveis-entrevista">
+                        {responsaveis.map((r) => (
+                          <option key={r.id} value={r.email ? `${r.nome} <${r.email}>` : r.nome} />
+                        ))}
+                      </datalist>
+                    </label>
+
+                    <label className="block text-xs font-medium text-neutral-700 sm:col-span-2">
+                      Local ou link da entrevista
+                      <input
+                        className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        value={moveDialog.entrevista.local}
+                        disabled={moveDialog.saving}
+                        placeholder={moveDialog.entrevista.formato === "Online" ? "Ex.: Teams, Google Meet ou link" : "Ex.: Sala, unidade ou endereço"}
+                        onChange={(e) => setMoveDialog((prev) => prev ? {
+                          ...prev,
+                          entrevista: { ...prev.entrevista, local: e.target.value },
+                        } : prev)}
+                      />
+                    </label>
+
+                    <label className="block text-xs font-medium text-neutral-700 sm:col-span-2">
+                      Observações da entrevista
+                      <textarea
+                        className="mt-1 min-h-[72px] w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
+                        value={moveDialog.entrevista.observacao}
+                        disabled={moveDialog.saving}
+                        placeholder="Ex.: entrevista técnica com gestor, levar portfólio, link será enviado posteriormente..."
+                        onChange={(e) => setMoveDialog((prev) => prev ? {
+                          ...prev,
+                          entrevista: { ...prev.entrevista, observacao: e.target.value },
+                        } : prev)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-600">
+                  Observação opcional
+                </label>
+                <textarea
+                  className="min-h-[96px] w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-70"
+                  placeholder="Ex.: candidato validado em triagem, aguardando entrevista..."
+                  value={moveDialog.observacao}
+                  disabled={moveDialog.saving}
+                  onChange={(e) => setMoveDialog((prev) => prev ? { ...prev, observacao: e.target.value } : prev)}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMoveDialog(null)}
+              disabled={moveDialog?.saving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => void confirmMove()}
+              disabled={!moveDialog || moveDialog.saving}
+            >
+              {moveDialog?.saving ? "Movendo..." : "Confirmar movimentação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

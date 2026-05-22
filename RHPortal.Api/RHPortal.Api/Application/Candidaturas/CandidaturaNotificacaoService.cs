@@ -369,6 +369,9 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         EtapaMacroCandidatura.Entrevista => (
             $"Próximo passo: entrevista para {vaga}",
             $"Olá, {nome}!\nVocê avançou para a etapa de entrevista na vaga {vaga}. Nossa equipe entrará em contato para agendar."),
+        EtapaMacroCandidatura.EntrevistaTecnica => (
+            $"Próximo passo: entrevista técnica para {vaga}",
+            $"Olá, {nome}!\nVocê avançou para a etapa de entrevista técnica na vaga {vaga}. Nossa equipe entrará em contato com os detalhes."),
         EtapaMacroCandidatura.Teste => (
             $"Teste técnico liberado — {vaga}",
             $"Olá, {nome}!\nLiberamos a etapa de testes para a vaga {vaga}. Acompanhe seu e-mail para as instruções."),

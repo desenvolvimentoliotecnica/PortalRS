@@ -33,6 +33,7 @@ function normalizePerfilBasico(raw: unknown): CandidatoPortalPerfilCompleto["per
     nome: (pick(o, "nome", "Nome") as string | null | undefined) ?? null,
     email: (pick(o, "email", "Email") as string | null | undefined) ?? null,
     fone: (pick(o, "fone", "Fone") as string | null | undefined) ?? null,
+    celular: (pick(o, "celular", "Celular") as string | null | undefined) ?? null,
     cidade: (pick(o, "cidade", "Cidade") as string | null | undefined) ?? null,
     uf: (pick(o, "uf", "Uf") as string | null | undefined) ?? null,
     linkedinUrl: (pick(o, "linkedinUrl", "LinkedinUrl") as string | null | undefined) ?? null,

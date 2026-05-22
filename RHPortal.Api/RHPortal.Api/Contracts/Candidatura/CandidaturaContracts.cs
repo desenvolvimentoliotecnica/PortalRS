@@ -28,7 +28,21 @@ public sealed record CandidaturaEtapaHistoricoItem(
 
 public sealed record AvancarEtapaRequest(
     EtapaMacroCandidatura NovaEtapa,
+    string? Observacao,
+    AgendarEntrevistaCandidaturaRequest? Entrevista = null
+);
+
+public sealed record AgendarEntrevistaCandidaturaRequest(
+    DateTime InicioUtc,
+    int DuracaoMinutos,
+    string Formato,
+    string Responsavel,
+    string? Local,
     string? Observacao
+);
+
+public sealed record RegistrarObservacaoCandidaturaRequest(
+    string Observacao
 );
 
 /// <summary>Item leve usado no kanban admin — sem histórico, apenas o essencial para cards.</summary>
@@ -37,6 +51,8 @@ public sealed record KanbanCandidaturaItem(
     Guid CandidatoId,
     string CandidatoNome,
     string? CandidatoEmail,
+    string? CandidatoFone,
+    string? CandidatoCelular,
     string? CandidatoAvatarUrl,
     Guid VagaId,
     string? VagaCodigo,

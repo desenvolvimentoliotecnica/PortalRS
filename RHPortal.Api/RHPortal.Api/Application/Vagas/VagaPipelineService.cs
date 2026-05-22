@@ -112,6 +112,7 @@ public sealed class VagaPipelineService : IVagaPipelineService
                 EmSelecao = g.Count(c => c.Status == CandidaturaStatus.Ativa &&
                     (c.EtapaMacro == EtapaMacroCandidatura.EmTriagem
                   || c.EtapaMacro == EtapaMacroCandidatura.Entrevista
+                  || c.EtapaMacro == EtapaMacroCandidatura.EntrevistaTecnica
                   || c.EtapaMacro == EtapaMacroCandidatura.Teste)),
                 Aplicadas = g.Count(c => c.Status == CandidaturaStatus.Ativa && c.EtapaMacro == EtapaMacroCandidatura.Aplicada),
             })

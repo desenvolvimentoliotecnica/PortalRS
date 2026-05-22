@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Mail, Paperclip } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,14 @@ import {
   buildCandidatoDocumentoDownloadPath,
   downloadCandidatoDocumento,
 } from "@/features/recrutamento/candidatos/candidatoDocumentoDownload";
-import type { KanbanCandidaturaItem } from "./candidaturaApi";
+import {
+  listarCandidaturasDoCandidato,
+  registrarObservacaoCandidatura,
+  resolveEtapa,
+  type CandidaturaDetalhe,
+  type CandidaturaHistoricoItem,
+  type KanbanCandidaturaItem,
+} from "./candidaturaApi";
 
 type MatchBreakdown = {
   scoreFinal: number;
@@ -44,6 +51,12 @@ type Props = {
   onClose: () => void;
 };
 
+type EmailFeedbackState = {
+  recipient: string;
+  subject: string;
+  attachments: number;
+};
+
 const tabContentClass = "mt-4 min-h-0 flex-1 overflow-y-auto pr-2";
 
 function formatDate(iso: string | null | undefined) {
@@ -63,6 +76,30 @@ function readApiMessage(raw: string, fallback: string) {
   } catch {
     return raw;
   }
+}
+
+function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("pt-BR");
+  } catch {
+    return iso;
+  }
+}
+
+function etapaLabel(value: CandidaturaHistoricoItem["etapaNova"]) {
+  const etapa = resolveEtapa(value);
+  return {
+    Aplicada: "Aplicada",
+    EmTriagem: "Em triagem",
+    Entrevista: "Entrevista",
+    EntrevistaTecnica: "Entrevista técnica",
+    Teste: "Teste",
+    Proposta: "Proposta",
+    Contratado: "Contratado",
+    Recusado: "Recusado",
+    Desistiu: "Desistiu",
+  }[etapa] ?? etapa;
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -87,8 +124,18 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
   const [emailFiles, setEmailFiles] = useState<File[]>([]);
   const [emailSending, setEmailSending] = useState(false);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [candidaturaDetail, setCandidaturaDetail] = useState<CandidaturaDetalhe | null>(null);
+  const [observacoesLoading, setObservacoesLoading] = useState(false);
+  const [observacoesError, setObservacoesError] = useState<string | null>(null);
+  const [newObservacao, setNewObservacao] = useState("");
+  const [savingObservacao, setSavingObservacao] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState<EmailFeedbackState | null>(null);
 
   const docs = portalPerfil?.portalDocuments?.items ?? [];
+  const perfilBasico = portalPerfil?.perfilBasico;
+  const resumoEmail = item?.candidatoEmail || perfilBasico?.email || "—";
+  const resumoTelefone = item?.candidatoFone || perfilBasico?.fone || "—";
+  const resumoCelular = item?.candidatoCelular || perfilBasico?.celular || "—";
 
   useEffect(() => {
     if (!open || !item) return;
@@ -97,6 +144,10 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
     setPortalError(null);
     setMatch(null);
     setMatchError(null);
+    setCandidaturaDetail(null);
+    setObservacoesError(null);
+    setNewObservacao("");
+    setEmailFeedback(null);
     setEmailSubject(`Contato sobre sua candidatura${item.vagaTitulo ? ` - ${item.vagaTitulo}` : ""}`);
     setEmailBody(`Olá ${item.candidatoNome},\n\n`);
 
@@ -108,6 +159,20 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
         setPortalPerfil(result.data);
         setPortalError(result.error);
         setPortalLoading(false);
+      }
+    })();
+
+    void (async () => {
+      setObservacoesLoading(true);
+      try {
+        const candidaturas = await listarCandidaturasDoCandidato(item.candidatoId);
+        if (!cancelled) {
+          setCandidaturaDetail(candidaturas.find((c) => c.id === item.id) ?? null);
+        }
+      } catch (e) {
+        if (!cancelled) setObservacoesError(e instanceof Error ? e.message : "Falha ao carregar observações.");
+      } finally {
+        if (!cancelled) setObservacoesLoading(false);
       }
     })();
 
@@ -140,6 +205,33 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
     return `${emailFiles.length} anexo(s): ${emailFiles.map((f) => f.name).join(", ")}`;
   }, [emailFiles]);
 
+  const observacoes = useMemo(() => {
+    return (candidaturaDetail?.historico ?? [])
+      .filter((h) => h.observacao?.trim())
+      .sort((a, b) => new Date(b.emUtc).getTime() - new Date(a.emUtc).getTime());
+  }, [candidaturaDetail]);
+
+  async function saveObservacao() {
+    if (!item || savingObservacao) return;
+    const text = newObservacao.trim();
+    if (!text) {
+      toast.error("Informe uma observação.");
+      return;
+    }
+
+    setSavingObservacao(true);
+    try {
+      const updated = await registrarObservacaoCandidatura(item.id, text);
+      setCandidaturaDetail(updated);
+      setNewObservacao("");
+      toast.success("Observação registrada.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao registrar observação.");
+    } finally {
+      setSavingObservacao(false);
+    }
+  }
+
   async function sendEmail() {
     if (!item || emailSending) return;
     const subject = emailSubject.trim();
@@ -166,7 +258,11 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
       const raw = await res.text().catch(() => "");
       if (!res.ok) throw new Error(readApiMessage(raw, `HTTP ${res.status}`));
 
-      toast.success("Email e notificação enviados ao candidato.");
+      setEmailFeedback({
+        recipient: item.candidatoNome,
+        subject,
+        attachments: emailFiles.length,
+      });
       setEmailFiles([]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao enviar email.");
@@ -178,6 +274,7 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
   if (!item) return null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="flex h-[85vh] flex-col overflow-hidden sm:max-w-6xl">
         <DialogHeader>
@@ -193,13 +290,16 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
             <TabsTrigger value="match">Match</TabsTrigger>
             <TabsTrigger value="perfil">Perfil do Portal</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
+            <TabsTrigger value="observacoes">Observações</TabsTrigger>
             <TabsTrigger value="email">Enviar Email</TabsTrigger>
           </TabsList>
 
           <TabsContent value="resumo" className={`${tabContentClass} space-y-4`}>
             <div className="grid gap-3 md:grid-cols-3">
               <Field label="Candidato" value={item.candidatoNome} />
-              <Field label="Email" value={item.candidatoEmail ?? "—"} />
+              <Field label="Email" value={resumoEmail} />
+              <Field label="Telefone" value={resumoTelefone} />
+              <Field label="Celular" value={resumoCelular} />
               <Field label="Vaga" value={[item.vagaTitulo, item.vagaCodigo].filter(Boolean).join(" · ")} />
               <Field label="Aplicada em" value={formatDate(item.aplicadaEmUtc)} />
               <Field label="SLA da etapa" value={`${item.diasNaEtapa}d / ${item.slaDiasEtapa}d`} />
@@ -307,6 +407,67 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
             )}
           </TabsContent>
 
+          <TabsContent value="observacoes" className={`${tabContentClass} space-y-4`}>
+            <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
+              As observações registradas ao mover o card aparecem aqui. Você também pode adicionar novas observações sem alterar a etapa da candidatura.
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold">Nova observação</label>
+              <textarea
+                className="min-h-28 w-full rounded-md border border-border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                placeholder="Registre uma observação sobre a candidatura..."
+                value={newObservacao}
+                disabled={savingObservacao}
+                maxLength={2000}
+                onChange={(e) => setNewObservacao(e.target.value)}
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => void saveObservacao()}
+                  disabled={savingObservacao || !newObservacao.trim()}
+                >
+                  {savingObservacao ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                  Registrar observação
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-sm font-semibold">Histórico de observações</div>
+              {observacoesLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Carregando observações...
+                </div>
+              ) : observacoesError ? (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">{observacoesError}</div>
+              ) : observacoes.length === 0 ? (
+                <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  Nenhuma observação registrada ainda.
+                </div>
+              ) : (
+                observacoes.map((h, index) => {
+                  const origem = etapaLabel(h.etapaAnterior);
+                  const destino = etapaLabel(h.etapaNova);
+                  const moved = origem !== destino;
+                  return (
+                    <div key={`${h.emUtc}-${index}`} className="rounded-xl border border-border/40 bg-card p-4 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-semibold">
+                          {moved ? `${origem} -> ${destino}` : destino}
+                        </div>
+                        <div className="text-xs text-muted-foreground">{formatDateTime(h.emUtc)}</div>
+                      </div>
+                      <div className="mt-2 whitespace-pre-wrap text-muted-foreground">{h.observacao}</div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </TabsContent>
+
           <TabsContent value="email" className={`${tabContentClass} space-y-4`}>
             <div className="rounded-xl border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
               O mesmo assunto e corpo serão enviados por email e aparecerão como mensagem interna no portal do candidato.
@@ -354,5 +515,42 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <Dialog open={!!emailFeedback} onOpenChange={(v) => !v && setEmailFeedback(null)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="mb-2 flex justify-center">
+            <span className="inline-flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
+              <CheckCircle2 className="size-8" />
+            </span>
+          </div>
+          <DialogTitle className="text-center">Email enviado com sucesso</DialogTitle>
+          <DialogDescription className="text-center">
+            A mensagem também foi registrada como notificação interna no portal do candidato.
+          </DialogDescription>
+        </DialogHeader>
+
+        {emailFeedback && (
+          <div className="space-y-2 rounded-xl border border-border/40 bg-muted/20 p-4 text-sm">
+            <div>
+              <span className="font-semibold">Candidato: </span>
+              {emailFeedback.recipient}
+            </div>
+            <div>
+              <span className="font-semibold">Assunto: </span>
+              {emailFeedback.subject}
+            </div>
+            <div>
+              <span className="font-semibold">Anexos: </span>
+              {emailFeedback.attachments > 0 ? `${emailFeedback.attachments} arquivo(s)` : "Nenhum"}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button onClick={() => setEmailFeedback(null)}>OK</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
