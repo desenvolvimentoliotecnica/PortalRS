@@ -25,7 +25,7 @@ public sealed class PropostasVagaController : ControllerBase
         _userContext = userContext;
     }
 
-    private bool PodeGerenciar() => _userContext.IsAdmin || _userContext.IsOwner || _userContext.IsRH;
+    private bool PodeGerenciar() => _userContext.HasPermission("propostas-vaga.view");
 
     [RequirePermission("propostas-vaga.view")]
     [HttpGet]
