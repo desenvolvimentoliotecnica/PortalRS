@@ -130,6 +130,29 @@ interface CandidateRow {
   celular: string | null;
   status: string;
   createdAtUtc: string;
+  candidaturaId?: string | null;
+  etapaMacro?: string | number | null;
+}
+
+type KanbanCandidaturaLite = {
+  id: string;
+  candidatoId: string;
+  etapaMacro: string | number;
+};
+
+type KanbanCandidaturasLiteResponse = {
+  colunas?: Array<{ itens?: KanbanCandidaturaLite[] }>;
+};
+
+function normalizeEtapaMacro(value: string | number | null | undefined): string {
+  if (typeof value === "number") {
+    return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu"][value] ?? "Aplicada";
+  }
+  return value ?? "Aplicada";
+}
+
+function isCandidateReadyForApproval(candidate: CandidateRow): boolean {
+  return normalizeEtapaMacro(candidate.etapaMacro) === "Proposta";
 }
 
 interface AdmissaoDialogState {
@@ -570,6 +593,8 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   /** Documentos já persistidos (ex.: CV do portal) — preenchido ao abrir edição via GET /api/candidatos/{id}. */
   const [existingCandDocs, setExistingCandDocs] = useState<CandidateDocRow[]>([]);
   const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
+  const [candidateFormMode, setCandidateFormMode] = useState<"create" | "edit" | "view">("create");
+  const candidateFormReadOnly = candidateFormMode === "view";
 
   const [solicitacoesLinked, setSolicitacoesLinked] = useState<SolicitacaoLinked[]>([]);
   const [cancelSolWorking, setCancelSolWorking] = useState<string | null>(null);
@@ -654,10 +679,11 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
     if (!vagaId) return;
     try {
       setLoading(true);
-      const [data, candListData, wfData] = await Promise.all([
+      const [data, candListData, wfData, kanbanData] = await Promise.all([
         fetchJson<VagaData>(`/api/vagas/${encodeURIComponent(vagaId)}`),
         fetchJson<{ totalCount?: number; items?: CandidateRow[] }>(`/api/candidatos?vagaId=${encodeURIComponent(vagaId)}&pageSize=100`).catch(() => null),
         fetchJson<any>(`/api/workflow-rh?vagaId=${encodeURIComponent(vagaId)}&pageSize=1`).catch(() => null),
+        fetchJson<KanbanCandidaturasLiteResponse>(`/api/candidaturas/kanban?vagaId=${encodeURIComponent(vagaId)}`).catch(() => null),
       ]);
       setVaga(data);
 
@@ -682,7 +708,18 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       } else {
         setSolicitacoesLinked([]);
       }
-      const items = candListData?.items ?? [];
+      const candidaturaByCandidateId = new Map<string, KanbanCandidaturaLite>();
+      for (const coluna of kanbanData?.colunas ?? []) {
+        for (const item of coluna.itens ?? []) {
+          candidaturaByCandidateId.set(item.candidatoId, item);
+        }
+      }
+      const items = (candListData?.items ?? []).map((candidate) => {
+        const candidatura = candidaturaByCandidateId.get(candidate.id);
+        return candidatura
+          ? { ...candidate, candidaturaId: candidatura.id, etapaMacro: candidatura.etapaMacro }
+          : candidate;
+      });
       setCandidates(items);
       setCandidateCount(candListData?.totalCount ?? items.length);
       // Workflow RH associated with this vaga
@@ -764,7 +801,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
     }
   }
 
-  async function openEditCandidate(candidateId: string) {
+  async function openEditCandidate(candidateId: string, mode: "edit" | "view" = "edit") {
     try {
       const docQ = vagaId ? `?vagaId=${encodeURIComponent(vagaId)}` : "";
       const data = await fetchJson<Record<string, unknown>>(`/api/candidatos/${encodeURIComponent(candidateId)}${docQ}`);
@@ -786,6 +823,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       setNewCandDocDesc("");
       setNewCandDocFile(null);
       setEditingCandidateId(candidateId);
+      setCandidateFormMode(mode);
       setNewCandidateOpen(true);
     } catch {
       toast.error("Erro ao carregar candidato");
@@ -795,6 +833,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   function closeCandidateForm() {
     setNewCandidateOpen(false);
     setEditingCandidateId(null);
+    setCandidateFormMode("create");
     setNewCandForm({ nome: "", email: "", fone: "", celular: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
     setNewCandPendingDocs([]);
     setExistingCandDocs([]);
@@ -1180,13 +1219,19 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             isReadOnly={isReadOnly}
             onAddCandidate={() => {
               setEditingCandidateId(null);
+              setCandidateFormMode("create");
               setExistingCandDocs([]);
               setNewCandForm({ nome: "", email: "", fone: "", celular: "", cidade: "", uf: "SP", fonte: "Email", pretensaoSalarial: "", trabalhandoAtualmente: "", linkedinUrl: "", obs: "" });
               setNewCandPendingDocs([]);
               setNewCandidateOpen(true);
             }}
+            onViewCandidate={(id) => void openEditCandidate(id, "view")}
             onEditCandidate={(id) => void openEditCandidate(id)}
             onApproveCandidate={(c) => {
+              if (!isCandidateReadyForApproval(c)) {
+                toast.error("A aprovação do candidato só fica disponível após a candidatura chegar na etapa Proposta.");
+                return;
+              }
               const semEmail = !c.email?.trim();
               const semCelular = !c.celular?.trim();
               if (semEmail || semCelular) {
@@ -1561,8 +1606,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-6xl p-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">{editingCandidateId ? "Editar candidato" : "Novo candidato"}</p>
-                <div className="text-lg font-extrabold">Cadastro</div>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+                  {candidateFormReadOnly ? "Visualizar candidato" : editingCandidateId ? "Editar candidato" : "Novo candidato"}
+                </p>
+                <div className="text-lg font-extrabold">{candidateFormReadOnly ? "Dados do candidato" : "Cadastro"}</div>
               </div>
               <Button variant="outline" size="sm" onClick={closeCandidateForm}>Fechar</Button>
             </div>
@@ -1579,31 +1626,31 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
                 <div className="md:col-span-6">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Nome *</label>
-                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandForm.nome} onChange={(e) => setNewCandForm(f => ({ ...f, nome: e.target.value }))} placeholder="Nome completo" />
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" value={newCandForm.nome} onChange={(e) => setNewCandForm(f => ({ ...f, nome: e.target.value }))} placeholder="Nome completo" readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
                 <div className="md:col-span-6">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Email *</label>
-                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="email" value={newCandForm.email} onChange={(e) => setNewCandForm(f => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" />
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" type="email" value={newCandForm.email} onChange={(e) => setNewCandForm(f => ({ ...f, email: e.target.value }))} placeholder="email@exemplo.com" readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
                 <div className="md:col-span-4">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Telefone</label>
-                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandForm.fone} onChange={(e) => setNewCandForm(f => ({ ...f, fone: e.target.value }))} placeholder="(11) 99999-0000" />
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" value={newCandForm.fone} onChange={(e) => setNewCandForm(f => ({ ...f, fone: e.target.value }))} placeholder="(11) 99999-0000" readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
                 <div className="md:col-span-4">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Celular *</label>
-                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandForm.celular} onChange={(e) => setNewCandForm(f => ({ ...f, celular: e.target.value }))} placeholder="(11) 99999-0000" />
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" value={newCandForm.celular} onChange={(e) => setNewCandForm(f => ({ ...f, celular: e.target.value }))} placeholder="(11) 99999-0000" readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
                 <div className="md:col-span-4">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Cidade</label>
-                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandForm.cidade} onChange={(e) => setNewCandForm(f => ({ ...f, cidade: e.target.value }))} placeholder="São Paulo" />
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" value={newCandForm.cidade} onChange={(e) => setNewCandForm(f => ({ ...f, cidade: e.target.value }))} placeholder="São Paulo" readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">UF</label>
-                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" maxLength={2} value={newCandForm.uf} onChange={(e) => setNewCandForm(f => ({ ...f, uf: e.target.value.toUpperCase() }))} placeholder="SP" />
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" maxLength={2} value={newCandForm.uf} onChange={(e) => setNewCandForm(f => ({ ...f, uf: e.target.value.toUpperCase() }))} placeholder="SP" readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Fonte</label>
-                  <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={newCandForm.fonte} onChange={(e) => setNewCandForm(f => ({ ...f, fonte: e.target.value }))}>
+                  <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" value={newCandForm.fonte} onChange={(e) => setNewCandForm(f => ({ ...f, fonte: e.target.value }))} disabled={candidateFormReadOnly}>
                     {["Email","Site","Indicacao","LinkedIn","Pasta"].map(f => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
@@ -1616,11 +1663,11 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
                 <div className="md:col-span-4">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Pretensão salarial (R$)</label>
-                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="number" min={0} step={100} placeholder="Ex: 5000" value={newCandForm.pretensaoSalarial} onChange={(e) => setNewCandForm(f => ({ ...f, pretensaoSalarial: e.target.value }))} />
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" type="number" min={0} step={100} placeholder="Ex: 5000" value={newCandForm.pretensaoSalarial} onChange={(e) => setNewCandForm(f => ({ ...f, pretensaoSalarial: e.target.value }))} readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
                 <div className="md:col-span-4">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Trabalhando atualmente?</label>
-                  <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={newCandForm.trabalhandoAtualmente} onChange={(e) => setNewCandForm(f => ({ ...f, trabalhandoAtualmente: e.target.value }))}>
+                  <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" value={newCandForm.trabalhandoAtualmente} onChange={(e) => setNewCandForm(f => ({ ...f, trabalhandoAtualmente: e.target.value }))} disabled={candidateFormReadOnly}>
                     <option value="">Não informado</option>
                     <option value="sim">Sim</option>
                     <option value="nao">Não</option>
@@ -1634,11 +1681,11 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                 </div>
                 <div className="md:col-span-8">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">LinkedIn</label>
-                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="url" placeholder="https://linkedin.com/in/..." value={newCandForm.linkedinUrl} onChange={(e) => setNewCandForm(f => ({ ...f, linkedinUrl: e.target.value }))} />
+                  <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" type="url" placeholder="https://linkedin.com/in/..." value={newCandForm.linkedinUrl} onChange={(e) => setNewCandForm(f => ({ ...f, linkedinUrl: e.target.value }))} readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
                 <div className="md:col-span-12">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Observações</label>
-                  <textarea className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={2} value={newCandForm.obs} onChange={(e) => setNewCandForm(f => ({ ...f, obs: e.target.value }))} placeholder="Observações sobre o candidato..." />
+                  <textarea className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70" rows={2} value={newCandForm.obs} onChange={(e) => setNewCandForm(f => ({ ...f, obs: e.target.value }))} placeholder="Observações sobre o candidato..." readOnly={candidateFormReadOnly} disabled={candidateFormReadOnly} />
                 </div>
               </div>
             </div>
@@ -1671,36 +1718,40 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                 ) : editingCandidateId ? (
                   <p className="text-sm text-muted-foreground mb-3">Nenhum documento cadastrado ainda neste perfil.</p>
                 ) : null}
-                <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-sm mb-3">
-                  Arquivos na fila <span className="font-medium">Pendentes</span> são enviados automaticamente após salvar (criar ou atualizar o candidato).
-                </div>
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                  <div>
-                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Tipo</label>
-                    <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={newCandDocTipo} onChange={(e) => setNewCandDocTipo(e.target.value)}>
-                      <option value="curriculo">Currículo</option>
-                      <option value="documento">Documento</option>
-                      <option value="outros">Outros</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Descrição</label>
-                    <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandDocDesc} onChange={(e) => setNewCandDocDesc(e.target.value)} placeholder="Ex.: CV atualizado" />
-                  </div>
-                  <div className="overflow-hidden">
-                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Arquivo</label>
-                    <input className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-blue-700" type="file" onChange={(e) => setNewCandDocFile(e.currentTarget.files?.[0] ?? null)} />
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <Button variant="outline" size="sm" onClick={() => {
-                    if (!newCandDocFile) return toast.error("Selecione um arquivo.");
-                    setNewCandPendingDocs(prev => [...prev, { id: crypto.randomUUID(), tipo: newCandDocTipo, desc: newCandDocDesc, file: newCandDocFile, name: newCandDocFile.name, size: newCandDocFile.size }]);
-                    setNewCandDocDesc("");
-                    setNewCandDocFile(null);
-                    toast.success("Documento adicionado. Será enviado ao salvar.");
-                  }}>Adicionar documento</Button>
-                </div>
+                {!candidateFormReadOnly && (
+                  <>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-sm mb-3">
+                      Arquivos na fila <span className="font-medium">Pendentes</span> são enviados automaticamente após salvar (criar ou atualizar o candidato).
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Tipo</label>
+                        <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={newCandDocTipo} onChange={(e) => setNewCandDocTipo(e.target.value)}>
+                          <option value="curriculo">Currículo</option>
+                          <option value="documento">Documento</option>
+                          <option value="outros">Outros</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Descrição</label>
+                        <input className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={newCandDocDesc} onChange={(e) => setNewCandDocDesc(e.target.value)} placeholder="Ex.: CV atualizado" />
+                      </div>
+                      <div className="overflow-hidden">
+                        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Arquivo</label>
+                        <input className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm file:mr-2 file:rounded file:border-0 file:bg-blue-50 file:px-2 file:py-1 file:text-xs file:font-medium file:text-blue-700" type="file" onChange={(e) => setNewCandDocFile(e.currentTarget.files?.[0] ?? null)} />
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <Button variant="outline" size="sm" onClick={() => {
+                        if (!newCandDocFile) return toast.error("Selecione um arquivo.");
+                        setNewCandPendingDocs(prev => [...prev, { id: crypto.randomUUID(), tipo: newCandDocTipo, desc: newCandDocDesc, file: newCandDocFile, name: newCandDocFile.name, size: newCandDocFile.size }]);
+                        setNewCandDocDesc("");
+                        setNewCandDocFile(null);
+                        toast.success("Documento adicionado. Será enviado ao salvar.");
+                      }}>Adicionar documento</Button>
+                    </div>
+                  </>
+                )}
                 {newCandPendingDocs.length > 0 && (
                   <div className="mt-3 space-y-2">
                     <div className="font-medium text-sm">Pendentes ({newCandPendingDocs.length})</div>
@@ -1719,7 +1770,8 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             </div>
           </div>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={closeCandidateForm}>Cancelar</Button>
+            <Button variant="outline" size="sm" onClick={closeCandidateForm}>{candidateFormReadOnly ? "Fechar" : "Cancelar"}</Button>
+            {!candidateFormReadOnly && (
             <Button disabled={!newCandForm.nome.trim() || !newCandForm.email.trim() || !newCandForm.celular.trim() || newCandWorking} onClick={async () => {
               setNewCandWorking(true);
               try {
@@ -1790,6 +1842,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             }}>
               {newCandWorking ? "Salvando..." : "Salvar"}
             </Button>
+            )}
             </div>
           </div>
         </div>
