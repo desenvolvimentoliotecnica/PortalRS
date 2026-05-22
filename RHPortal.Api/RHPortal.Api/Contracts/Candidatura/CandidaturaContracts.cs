@@ -37,6 +37,7 @@ public sealed record AgendarEntrevistaCandidaturaRequest(
     int DuracaoMinutos,
     string Formato,
     string Responsavel,
+    IReadOnlyList<string>? ParticipantesOpcionais,
     string? Local,
     string? Observacao
 );

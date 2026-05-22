@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
@@ -65,6 +66,9 @@ type InterviewDraft = {
   duracaoMinutos: number;
   formato: "Presencial" | "Online";
   responsavel: string;
+  responsavelBusca: string;
+  participanteBusca: string;
+  participantesOpcionais: string[];
   local: string;
   observacao: string;
 };
@@ -108,6 +112,9 @@ function defaultInterviewDraft(responsavel: string): InterviewDraft {
     duracaoMinutos: 60,
     formato: "Online",
     responsavel,
+    responsavelBusca: responsavel,
+    participanteBusca: "",
+    participantesOpcionais: [],
     local: "Online",
     observacao: "",
   };
@@ -117,7 +124,12 @@ function shouldScheduleInterview(etapa: EtapaMacroCandidatura) {
   return etapa === "Entrevista" || etapa === "EntrevistaTecnica";
 }
 
+function optionLabel(option: ResponsavelEntrevistaOption) {
+  return option.email ? `${option.nome} <${option.email}>` : option.nome;
+}
+
 export default function CandidaturasKanbanScreen() {
+  const router = useRouter();
   const { me } = useAuth();
   const [data, setData] = useState<KanbanCandidaturasResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,6 +140,9 @@ export default function CandidaturasKanbanScreen() {
   const [detailItem, setDetailItem] = useState<KanbanCandidaturaItem | null>(null);
   const [moveDialog, setMoveDialog] = useState<MoveDialogState | null>(null);
   const [responsaveis, setResponsaveis] = useState<ResponsavelEntrevistaOption[]>([]);
+  const [responsavelOpen, setResponsavelOpen] = useState(false);
+  const [participanteOpen, setParticipanteOpen] = useState(false);
+  const [proposalRedirect, setProposalRedirect] = useState<KanbanCandidaturaItem | null>(null);
   // Sessão 31.8 — explicabilidade do matching
   const matchDialog = useMatchingBreakdownDialog();
 
@@ -229,6 +244,28 @@ export default function CandidaturasKanbanScreen() {
     return t;
   }, [columns]);
 
+  const filteredResponsaveis = useMemo(() => {
+    const q = moveDialog?.entrevista.responsavelBusca.trim().toLowerCase() ?? "";
+    return responsaveis
+      .filter((r) => {
+        if (!q) return true;
+        return r.nome.toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q);
+      })
+      .slice(0, 12);
+  }, [moveDialog?.entrevista.responsavelBusca, responsaveis]);
+
+  const filteredParticipantes = useMemo(() => {
+    const q = moveDialog?.entrevista.participanteBusca.trim().toLowerCase() ?? "";
+    const selected = new Set(moveDialog?.entrevista.participantesOpcionais.map((p) => p.toLowerCase()) ?? []);
+    return responsaveis
+      .filter((r) => !selected.has(optionLabel(r).toLowerCase()))
+      .filter((r) => {
+        if (!q) return true;
+        return r.nome.toLowerCase().includes(q) || (r.email ?? "").toLowerCase().includes(q);
+      })
+      .slice(0, 12);
+  }, [moveDialog?.entrevista.participanteBusca, moveDialog?.entrevista.participantesOpcionais, responsaveis]);
+
   const onDropTo = (etapa: EtapaMacroCandidatura) => {
     setHoverEtapa(null);
     const item = dragging;
@@ -271,6 +308,7 @@ export default function CandidaturasKanbanScreen() {
         duracaoMinutos: entrevista.duracaoMinutos,
         formato: entrevista.formato,
         responsavel: entrevista.responsavel.trim(),
+        participantesOpcionais: entrevista.participantesOpcionais,
         local: entrevista.local.trim() || null,
         observacao: entrevista.observacao.trim() || null,
       };
@@ -282,6 +320,9 @@ export default function CandidaturasKanbanScreen() {
       toast.success(shouldScheduleInterview(destino) ? `Movido para ${ETAPA_LABELS[destino]} e compromisso criado na agenda.` : `Movido para ${ETAPA_LABELS[destino]}.`);
       setMoveDialog(null);
       await load();
+      if (destino === "Proposta") {
+        setProposalRedirect(item);
+      }
     } catch (err) {
       toast.error((err as Error).message ?? "Falha ao mover.");
       setMoveDialog((prev) => prev ? { ...prev, saving: false } : prev);
@@ -577,25 +618,159 @@ export default function CandidaturasKanbanScreen() {
                       </select>
                     </label>
 
-                    <label className="block text-xs font-medium text-neutral-700 sm:col-span-2">
-                      Responsável pela entrevista
+                    <div className="relative sm:col-span-2">
+                      <label className="block text-xs font-medium text-neutral-700">
+                        Responsável pela entrevista
+                      </label>
                       <input
-                        list="responsaveis-entrevista"
                         className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
-                        value={moveDialog.entrevista.responsavel}
+                        value={moveDialog.entrevista.responsavelBusca}
                         disabled={moveDialog.saving}
-                        placeholder="Analista de RH responsável"
-                        onChange={(e) => setMoveDialog((prev) => prev ? {
-                          ...prev,
-                          entrevista: { ...prev.entrevista, responsavel: e.target.value },
-                        } : prev)}
+                        placeholder="Busque pelo nome ou e-mail do responsável"
+                        onFocus={() => setResponsavelOpen(true)}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setResponsavelOpen(true);
+                          setMoveDialog((prev) => prev ? {
+                            ...prev,
+                            entrevista: { ...prev.entrevista, responsavelBusca: value, responsavel: "" },
+                          } : prev);
+                        }}
                       />
-                      <datalist id="responsaveis-entrevista">
-                        {responsaveis.map((r) => (
-                          <option key={r.id} value={r.email ? `${r.nome} <${r.email}>` : r.nome} />
-                        ))}
-                      </datalist>
-                    </label>
+                      {responsavelOpen && !moveDialog.saving && (
+                        <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-violet-200 bg-white py-1 text-sm shadow-lg">
+                          {filteredResponsaveis.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-neutral-500">Nenhum usuário encontrado.</div>
+                          ) : (
+                            filteredResponsaveis.map((r) => {
+                              const label = optionLabel(r);
+                              return (
+                                <button
+                                  key={r.id}
+                                  type="button"
+                                  className="block w-full px-3 py-2 text-left hover:bg-violet-50"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    setMoveDialog((prev) => prev ? {
+                                      ...prev,
+                                      entrevista: { ...prev.entrevista, responsavel: label, responsavelBusca: label },
+                                    } : prev);
+                                    setResponsavelOpen(false);
+                                  }}
+                                >
+                                  <span className="block font-medium text-neutral-900">{r.nome}</span>
+                                  {r.email && <span className="block text-xs text-neutral-500">{r.email}</span>}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative sm:col-span-2">
+                      <label className="block text-xs font-medium text-neutral-700">
+                        Participantes opcionais
+                      </label>
+                      <div className="mt-1 flex gap-2">
+                        <input
+                          className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-70"
+                          value={moveDialog.entrevista.participanteBusca}
+                          disabled={moveDialog.saving}
+                          placeholder="Busque e adicione gestor, técnico ou convidado"
+                          onFocus={() => setParticipanteOpen(true)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setParticipanteOpen(true);
+                            setMoveDialog((prev) => prev ? {
+                              ...prev,
+                              entrevista: { ...prev.entrevista, participanteBusca: value },
+                            } : prev);
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={moveDialog.saving || !moveDialog.entrevista.participanteBusca.trim()}
+                          onClick={() => {
+                            const value = moveDialog.entrevista.participanteBusca.trim();
+                            if (!value) return;
+                            setMoveDialog((prev) => prev ? {
+                              ...prev,
+                              entrevista: {
+                                ...prev.entrevista,
+                                participanteBusca: "",
+                                participantesOpcionais: prev.entrevista.participantesOpcionais.some((p) => p.toLowerCase() === value.toLowerCase())
+                                  ? prev.entrevista.participantesOpcionais
+                                  : [...prev.entrevista.participantesOpcionais, value],
+                              },
+                            } : prev);
+                            setParticipanteOpen(false);
+                          }}
+                        >
+                          Adicionar
+                        </Button>
+                      </div>
+                      {participanteOpen && !moveDialog.saving && (
+                        <div className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-violet-200 bg-white py-1 text-sm shadow-lg">
+                          {filteredParticipantes.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-neutral-500">Nenhum usuário encontrado.</div>
+                          ) : (
+                            filteredParticipantes.map((r) => {
+                              const label = optionLabel(r);
+                              return (
+                                <button
+                                  key={r.id}
+                                  type="button"
+                                  className="block w-full px-3 py-2 text-left hover:bg-violet-50"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    setMoveDialog((prev) => prev ? {
+                                      ...prev,
+                                      entrevista: {
+                                        ...prev.entrevista,
+                                        participanteBusca: "",
+                                        participantesOpcionais: [...prev.entrevista.participantesOpcionais, label],
+                                      },
+                                    } : prev);
+                                    setParticipanteOpen(false);
+                                  }}
+                                >
+                                  <span className="block font-medium text-neutral-900">{r.nome}</span>
+                                  {r.email && <span className="block text-xs text-neutral-500">{r.email}</span>}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                      {moveDialog.entrevista.participantesOpcionais.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {moveDialog.entrevista.participantesOpcionais.map((participante) => (
+                            <span
+                              key={participante}
+                              className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-white px-2 py-1 text-xs text-violet-900"
+                            >
+                              {participante}
+                              <button
+                                type="button"
+                                className="font-semibold text-violet-500 hover:text-violet-800"
+                                disabled={moveDialog.saving}
+                                onClick={() => setMoveDialog((prev) => prev ? {
+                                  ...prev,
+                                  entrevista: {
+                                    ...prev.entrevista,
+                                    participantesOpcionais: prev.entrevista.participantesOpcionais.filter((p) => p !== participante),
+                                  },
+                                } : prev)}
+                              >
+                                x
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     <label className="block text-xs font-medium text-neutral-700 sm:col-span-2">
                       Local ou link da entrevista
@@ -656,6 +831,51 @@ export default function CandidaturasKanbanScreen() {
               disabled={!moveDialog || moveDialog.saving}
             >
               {moveDialog?.saving ? "Movendo..." : "Confirmar movimentação"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!proposalRedirect}
+        onOpenChange={(open) => {
+          if (!open) setProposalRedirect(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Criar proposta para o candidato?</DialogTitle>
+            <DialogDescription>
+              A candidatura foi movida para Proposta. Deseja abrir a criação da proposta agora para enviar ao candidato?
+            </DialogDescription>
+          </DialogHeader>
+
+          {proposalRedirect && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              <div className="font-medium">{proposalRedirect.candidatoNome}</div>
+              <div className="mt-1 text-xs">
+                {proposalRedirect.vagaTitulo ?? proposalRedirect.vagaId.slice(0, 8)}
+                {proposalRedirect.vagaCodigo ? ` · ${proposalRedirect.vagaCodigo}` : ""}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProposalRedirect(null)}>
+              Agora não
+            </Button>
+            <Button
+              onClick={() => {
+                if (!proposalRedirect) return;
+                const params = new URLSearchParams({
+                  new: "1",
+                  vagaId: proposalRedirect.vagaId,
+                  candidatoId: proposalRedirect.candidatoId,
+                });
+                router.push(`/recrutamento/propostas-vaga?${params.toString()}`);
+              }}
+            >
+              Criar proposta
             </Button>
           </DialogFooter>
         </DialogContent>
