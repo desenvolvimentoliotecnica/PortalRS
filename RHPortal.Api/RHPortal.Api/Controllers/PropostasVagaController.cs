@@ -27,6 +27,7 @@ public sealed class PropostasVagaController : ControllerBase
 
     private bool PodeGerenciar() => _userContext.IsAdmin || _userContext.IsOwner || _userContext.IsRH;
 
+    [RequirePermission("propostas-vaga.view")]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<PropostaVagaResponse>>> List(
         [FromQuery] Guid? vagaId,
@@ -38,6 +39,7 @@ public sealed class PropostasVagaController : ControllerBase
         return Ok(items);
     }
 
+    [RequirePermission("propostas-vaga.view")]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PropostaVagaResponse>> GetById(Guid id, CancellationToken ct)
     {
@@ -45,6 +47,7 @@ public sealed class PropostasVagaController : ControllerBase
         return result is null ? NotFound() : Ok(result);
     }
 
+    [RequirePermission("propostas-vaga.view")]
     [HttpPost]
     public async Task<ActionResult<PropostaVagaResponse>> Create([FromBody] PropostaVagaCreateRequest request, CancellationToken ct)
     {
@@ -60,6 +63,7 @@ public sealed class PropostasVagaController : ControllerBase
         }
     }
 
+    [RequirePermission("propostas-vaga.view")]
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<PropostaVagaResponse>> Update(Guid id, [FromBody] PropostaVagaUpdateRequest request, CancellationToken ct)
     {
@@ -75,6 +79,7 @@ public sealed class PropostasVagaController : ControllerBase
         }
     }
 
+    [RequirePermission("propostas-vaga.view")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
@@ -90,6 +95,7 @@ public sealed class PropostasVagaController : ControllerBase
         }
     }
 
+    [RequirePermission("propostas-vaga.view")]
     [HttpPost("{id:guid}/enviar")]
     public async Task<ActionResult<PropostaVagaResponse>> Enviar(
         Guid id, [FromBody] EnviarPropostaRequest? request, CancellationToken ct)
@@ -106,6 +112,7 @@ public sealed class PropostasVagaController : ControllerBase
         }
     }
 
+    [RequirePermission("propostas-vaga.view")]
     [HttpPost("{id:guid}/cancelar")]
     public async Task<ActionResult<PropostaVagaResponse>> Cancelar(Guid id, CancellationToken ct)
     {

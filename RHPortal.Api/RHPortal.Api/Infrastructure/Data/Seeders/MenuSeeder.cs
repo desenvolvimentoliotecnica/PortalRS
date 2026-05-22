@@ -180,6 +180,7 @@ public static class MenuSeeder
         ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
         ("/Matching", "bi-stars", 5, "matching.view", true, "Seed.Menu.Matching", null),
         ("/Triagem", "bi-funnel", 6, "triagem.view", false, "Seed.Menu.Triagem", null),
+        ("/Recrutamento/Propostas-Vaga", "bi-file-earmark-text", 6, "propostas-vaga.view", false, "Seed.Menu.PropostasVaga", null),
         ("/Gestao/Processo-Seletivo", "listchecks", 7, "processo-seletivo.view", false, "Seed.Menu.ProcessoSeletivo", null),
         ("/Admissao", "usercheck", 8, "admissao.view", false, "Seed.Menu.Admissao", null),
         // ── Itens ocultos no sidebar (mantidos para permissões e rotas legadas) ──

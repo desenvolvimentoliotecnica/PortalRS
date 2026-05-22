@@ -135,6 +135,9 @@
   <data name="Seed.Menu.Triagem" xml:space="preserve">
     <value>Screening</value>
   </data>
+  <data name="Seed.Menu.PropostasVaga" xml:space="preserve">
+    <value>Offers</value>
+  </data>
   <data name="Seed.Menu.Matching" xml:space="preserve">
     <value>Matching</value>
   </data>

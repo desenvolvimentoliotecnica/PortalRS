@@ -27,6 +27,7 @@ public static class RolePermissionManifest
         "admissao.view",
         "candidatos.view",
         "triagem.view",
+        "propostas-vaga.view",
         "matching.view",
         "portalvagas.view",
         "entrada.view",
