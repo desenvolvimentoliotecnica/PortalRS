@@ -16,6 +16,52 @@ import {
 type VagaLite = { id: string; titulo: string | null };
 type CandidatoLite = { id: string; nome: string | null; email: string | null };
 
+type AnyRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): AnyRecord | null {
+  return value && typeof value === "object" ? (value as AnyRecord) : null;
+}
+
+function extractItems(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  const record = asRecord(value);
+  const items = record?.items ?? record?.Items;
+  return Array.isArray(items) ? items : [];
+}
+
+function toVagaLite(value: unknown): VagaLite | null {
+  const record = asRecord(value);
+  const id = typeof record?.id === "string" ? record.id : typeof record?.Id === "string" ? record.Id : "";
+  if (!id) return null;
+  const titulo = typeof record?.titulo === "string"
+    ? record.titulo
+    : typeof record?.Titulo === "string"
+      ? record.Titulo
+      : null;
+  return { id, titulo };
+}
+
+function toCandidatoLite(value: unknown): CandidatoLite | null {
+  const record = asRecord(value);
+  const id = typeof record?.id === "string" ? record.id : typeof record?.Id === "string" ? record.Id : "";
+  if (!id) return null;
+  const nome = typeof record?.nome === "string"
+    ? record.nome
+    : typeof record?.Nome === "string"
+      ? record.Nome
+      : typeof record?.nomeCompleto === "string"
+        ? record.nomeCompleto
+        : typeof record?.NomeCompleto === "string"
+          ? record.NomeCompleto
+          : null;
+  const email = typeof record?.email === "string"
+    ? record.email
+    : typeof record?.Email === "string"
+      ? record.Email
+      : null;
+  return { id, nome, email };
+}
+
 function formatMoney(value: number | null, moeda: string | null) {
   if (value == null) return "—";
   try {
@@ -91,12 +137,12 @@ export default function PropostasVagaScreen() {
     (async () => {
       try {
         const [vs, cs] = await Promise.all([
-          apiJson<VagaLite[]>("/api/vagas").catch(() => [] as VagaLite[]),
-          apiJson<CandidatoLite[]>("/api/candidatos").catch(() => [] as CandidatoLite[]),
+          apiJson<unknown>("/api/vagas").catch(() => []),
+          apiJson<unknown>("/api/candidatos").catch(() => []),
         ]);
         if (!ac.signal.aborted) {
-          setVagas(vs);
-          setCandidatos(cs);
+          setVagas(extractItems(vs).map(toVagaLite).filter((v): v is VagaLite => v !== null));
+          setCandidatos(extractItems(cs).map(toCandidatoLite).filter((c): c is CandidatoLite => c !== null));
         }
       } catch { /* ignore */ }
     })();
