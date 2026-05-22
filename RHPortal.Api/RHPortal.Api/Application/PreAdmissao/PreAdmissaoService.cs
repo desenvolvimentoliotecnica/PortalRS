@@ -1009,11 +1009,38 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     // ── Admissão Manual — RH inicia a partir de candidato aprovado ──
 
+    private async Task EnsureCandidaturaReadyForPreAdmissaoAsync(Guid candidatoId, Guid? vagaId, CancellationToken ct)
+    {
+        var query = _db.Candidaturas
+            .AsNoTracking()
+            .Where(c => c.CandidatoId == candidatoId);
+
+        if (vagaId.HasValue && vagaId.Value != Guid.Empty)
+            query = query.Where(c => c.VagaId == vagaId.Value);
+
+        var candidaturas = await query
+            .OrderByDescending(c => c.Status == CandidaturaStatus.Ativa)
+            .ThenByDescending(c => c.AplicadaEmUtc)
+            .ToListAsync(ct);
+
+        if (candidaturas.Count == 0)
+            return;
+
+        var candidatura = candidaturas[0];
+        if (candidatura.EtapaMacro is not (EtapaMacroCandidatura.Proposta or EtapaMacroCandidatura.Contratado))
+        {
+            throw new InvalidOperationException(
+                "Candidato ainda não está na etapa Proposta. Avance a candidatura pelo Kanban antes de iniciar a pré-admissão.");
+        }
+    }
+
     public async Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct)
     {
         var candidato = await _db.Set<Candidato>()
             .FirstOrDefaultAsync(c => c.Id == request.CandidatoId && c.TenantId == _tenantContext.TenantId, ct)
             ?? throw new InvalidOperationException("Candidato não encontrado.");
+
+        await EnsureCandidaturaReadyForPreAdmissaoAsync(candidato.Id, candidato.VagaId, ct);
 
         // Auto-aprovar candidato ao iniciar admissão
         if (candidato.Status != CandidateStatus.Aprovado)
@@ -1178,6 +1205,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     public async Task<PreAdmissaoDetailResponse> AprovarContratacaoAsync(AprovarContratacaoRequest request, CancellationToken ct)
     {
+        if (request.CandidatoId.HasValue)
+            await EnsureCandidaturaReadyForPreAdmissaoAsync(request.CandidatoId.Value, null, ct);
+
         var entity = new Domain.Entities.PreAdmissao
         {
             Id = Guid.NewGuid(),

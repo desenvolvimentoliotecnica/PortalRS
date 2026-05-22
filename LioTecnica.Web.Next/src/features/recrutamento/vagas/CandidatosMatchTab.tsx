@@ -8,6 +8,7 @@ import {
     Bot,
     Brain,
     Download,
+    Eye,
     Loader2,
     Mail,
     MoreHorizontal,
@@ -54,6 +55,8 @@ export interface HubCandidateRow {
     celular: string | null;
     status: string;
     createdAtUtc: string;
+    candidaturaId?: string | null;
+    etapaMacro?: string | number | null;
 }
 
 export interface CandidatosMatchTabProps {
@@ -63,6 +66,7 @@ export interface CandidatosMatchTabProps {
     matchMinimoPercentual: number;
     isReadOnly: boolean;
     onAddCandidate: () => void;
+    onViewCandidate: (id: string) => void | Promise<void>;
     onEditCandidate: (id: string) => void | Promise<void>;
     onApproveCandidate: (c: HubCandidateRow) => void;
     onAcompanharAdmissao: (candidatoId: string) => Promise<void>;
@@ -125,6 +129,7 @@ export default function CandidatosMatchTab({
     matchMinimoPercentual,
     isReadOnly,
     onAddCandidate,
+    onViewCandidate,
     onEditCandidate,
     onApproveCandidate,
     onAcompanharAdmissao,
@@ -530,7 +535,12 @@ export default function CandidatosMatchTab({
                                 rows.map((r) => {
                                     const m = r.m;
                                     return (
-                                        <tr key={r.id} className="hover:bg-muted/20 align-middle">
+                                        <tr
+                                            key={r.id}
+                                            className="cursor-pointer hover:bg-muted/20 align-middle"
+                                            onClick={() => void onViewCandidate(r.id)}
+                                            title="Clique para visualizar os dados do candidato"
+                                        >
                                             <td className="px-3 py-2">
                                                 <div className="font-medium">{r.nome}</div>
                                                 <div className="text-[11px] text-muted-foreground">{r.email ?? "—"}</div>
@@ -543,7 +553,7 @@ export default function CandidatosMatchTab({
                                             <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
                                                 {new Date(r.createdAtUtc).toLocaleDateString("pt-BR")}
                                             </td>
-                                            <td className="px-3 py-2 text-center whitespace-nowrap">
+                                            <td className="px-3 py-2 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                                 {!temDescricaoCargo ? (
                                                     <span className="text-xs text-muted-foreground">—</span>
                                                 ) : (
@@ -570,7 +580,7 @@ export default function CandidatosMatchTab({
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-2 text-right">
+                                            <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                                                 <RowActions
                                                     candidato={r}
                                                     m={m}
@@ -579,6 +589,7 @@ export default function CandidatosMatchTab({
                                                     onCalcularMatch={() => void calcularMatch(r)}
                                                     onBreakdown={() => breakdownDialog.open(vagaId, r.id, r.nome)}
                                                     onAnaliseIa={() => llmDialog.open(vagaId, r.id, r.nome)}
+                                                    onView={() => void onViewCandidate(r.id)}
                                                     onEdit={() => void onEditCandidate(r.id)}
                                                     onDownloadCv={() => void baixarCurriculo(r)}
                                                     onApprove={() => onApproveCandidate(r)}
@@ -592,19 +603,6 @@ export default function CandidatosMatchTab({
                             )}
                         </tbody>
                     </table>
-                </div>
-            )}
-
-            {temDescricaoCargo && candidates.length > 0 && (
-                <div className="text-xs text-muted-foreground space-y-1 px-1">
-                    <div className="flex items-start gap-1.5">
-                        <Sparkles className="size-3.5 shrink-0 mt-0.5 text-violet-600" />
-                        <span>
-                            Use <strong>Calcular match</strong> por candidato. <strong>Compatibilidade</strong> mostra o
-                            detalhamento por critério; <strong>Análise IA</strong> é opcional e mais demorada.
-                            Diferença &gt; {MATCHING_SCORE_DIVERGENCE_THRESHOLD} pts entre métodos é esperada.
-                        </span>
-                    </div>
                 </div>
             )}
 
@@ -715,6 +713,17 @@ function missingCandidateFields(candidato: HubCandidateRow): string[] {
     return fields;
 }
 
+function normalizeEtapaMacro(value: string | number | null | undefined): string {
+    if (typeof value === "number") {
+        return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu"][value] ?? "Aplicada";
+    }
+    return value ?? "Aplicada";
+}
+
+function canApproveCandidate(candidato: HubCandidateRow): boolean {
+    return normalizeEtapaMacro(candidato.etapaMacro) === "Proposta";
+}
+
 function MatchScoreCell({ m, onCalcular }: { m?: MatchRow; onCalcular: () => void }) {
     if (m?.loading) {
         return (
@@ -784,6 +793,7 @@ function RowActions({
     onCalcularMatch,
     onBreakdown,
     onAnaliseIa,
+    onView,
     onEdit,
     onDownloadCv,
     onApprove,
@@ -797,6 +807,7 @@ function RowActions({
     onCalcularMatch: () => void;
     onBreakdown: () => void;
     onAnaliseIa: () => void;
+    onView: () => void;
     onEdit: () => void;
     onDownloadCv: () => void;
     onApprove: () => void;
@@ -806,9 +817,10 @@ function RowActions({
     const breakdownLabel = m?.calculated ? `Compatibilidade ${m.scoreFinal}%` : "Compatibilidade";
     const analiseIaLabel = m?.llmScore != null ? `Análise IA ${m.llmScore}%` : "Análise IA";
     const missingFields = missingCandidateFields(candidato);
+    const approvalAvailable = canApproveCandidate(candidato);
 
     return (
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             {temDescricaoCargo && (
                 <>
                     <Button
@@ -872,6 +884,10 @@ function RowActions({
                             Editar candidato
                         </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={onView}>
+                        <Eye className="size-4 mr-2" />
+                        Visualizar candidato
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={onDownloadCv}>
                         <Download className="size-4 mr-2" />
                         Baixar CV
@@ -882,10 +898,16 @@ function RowActions({
                             Avisar candidato
                         </DropdownMenuItem>
                     )}
-                    {!isReadOnly && (
+                    {!isReadOnly && approvalAvailable && (
                         <DropdownMenuItem onClick={onApprove}>
                             <Mail className="size-4 mr-2" />
                             {candidato.status === "Aprovado" ? "Reenviar aprovação" : "Aprovar candidato"}
+                        </DropdownMenuItem>
+                    )}
+                    {!isReadOnly && !approvalAvailable && (
+                        <DropdownMenuItem disabled title="Avance a candidatura até Proposta antes de aprovar.">
+                            <Mail className="size-4 mr-2" />
+                            Aprovar candidato indisponível
                         </DropdownMenuItem>
                     )}
                     {candidato.status === "Aprovado" && (
