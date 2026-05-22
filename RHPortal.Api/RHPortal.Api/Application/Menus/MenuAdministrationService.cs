@@ -35,6 +35,7 @@ public sealed class MenuAdministrationService
             ["admissao.view"] = "Seed.Menu.Admissao",
             ["candidatos.view"] = "Seed.Menu.Candidatos",
             ["triagem.view"] = "Seed.Menu.Triagem",
+            ["propostas-vaga.view"] = "Seed.Menu.PropostasVaga",
             ["matching.view"] = "Seed.Menu.Matching",
             ["portalvagas.view"] = "Seed.Menu.PortalVagas",
             ["entrada.view"] = "Seed.Menu.Entrada",
