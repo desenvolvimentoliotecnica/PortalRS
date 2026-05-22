@@ -69,13 +69,35 @@ public sealed class CandidaturasController : ControllerBase
     {
         try
         {
-            var resp = await _service.AvancarEtapaAsync(id, request.NovaEtapa, request.Observacao, ct);
+            var resp = await _service.AvancarEtapaAsync(id, request.NovaEtapa, request.Observacao, request.Entrevista, ct);
             if (resp is null) return NotFound();
             return Ok(resp);
         }
         catch (InvalidOperationException ex)
         {
             return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Registra uma observação na candidatura sem alterar a etapa atual.</summary>
+    [HttpPost("{id:guid}/observacoes")]
+    [ProducesResponseType(typeof(CandidaturaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CandidaturaResponse>> RegistrarObservacao(
+        Guid id,
+        [FromBody] RegistrarObservacaoCandidaturaRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var resp = await _service.RegistrarObservacaoAsync(id, request.Observacao, ct);
+            if (resp is null) return NotFound();
+            return Ok(resp);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 

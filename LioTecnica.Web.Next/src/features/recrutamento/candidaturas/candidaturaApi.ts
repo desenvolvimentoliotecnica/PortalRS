@@ -6,6 +6,7 @@ export type EtapaMacroCandidatura =
   | "Aplicada"
   | "EmTriagem"
   | "Entrevista"
+  | "EntrevistaTecnica"
   | "Teste"
   | "Proposta"
   | "Contratado"
@@ -16,6 +17,7 @@ export const ETAPAS_KANBAN: EtapaMacroCandidatura[] = [
   "Aplicada",
   "EmTriagem",
   "Entrevista",
+  "EntrevistaTecnica",
   "Teste",
   "Proposta",
   "Contratado",
@@ -23,7 +25,17 @@ export const ETAPAS_KANBAN: EtapaMacroCandidatura[] = [
   "Desistiu",
 ];
 
-const ETAPA_BY_INDEX: EtapaMacroCandidatura[] = [...ETAPAS_KANBAN];
+const ETAPA_BY_INDEX: Record<number, EtapaMacroCandidatura> = {
+  0: "Aplicada",
+  1: "EmTriagem",
+  2: "Entrevista",
+  3: "Teste",
+  4: "Proposta",
+  5: "Contratado",
+  6: "Recusado",
+  7: "Desistiu",
+  8: "EntrevistaTecnica",
+};
 
 export function resolveEtapa(v: number | string): EtapaMacroCandidatura {
   if (typeof v === "number") return ETAPA_BY_INDEX[v] ?? "Aplicada";
@@ -51,6 +63,28 @@ export function resolveCandidaturaStatus(v: number | string): CandidaturaStatus 
   if (typeof v === "number") return STATUS_BY_INDEX[v] ?? "Ativa";
   return (v as CandidaturaStatus) ?? "Ativa";
 }
+
+export type CandidaturaHistoricoItem = {
+  etapaAnterior: number | EtapaMacroCandidatura;
+  etapaNova: number | EtapaMacroCandidatura;
+  emUtc: string;
+  observacao: string | null;
+};
+
+export type CandidaturaDetalhe = {
+  id: string;
+  candidatoId: string;
+  vagaId: string;
+  vagaCodigo: string | null;
+  vagaTitulo: string | null;
+  vagaLocal: string | null;
+  status: number | CandidaturaStatus;
+  etapaMacro: number | EtapaMacroCandidatura;
+  aplicadaEmUtc: string;
+  etapaAtualDesdeUtc: string | null;
+  updatedAtUtc: string;
+  historico: CandidaturaHistoricoItem[];
+};
 
 export type SlaSemaforo = "verde" | "amarelo" | "vermelho";
 
@@ -108,6 +142,8 @@ export type KanbanCandidaturaItem = {
   candidatoId: string;
   candidatoNome: string;
   candidatoEmail: string | null;
+  candidatoFone: string | null;
+  candidatoCelular: string | null;
   candidatoAvatarUrl: string | null;
   vagaId: string;
   vagaCodigo: string | null;
@@ -155,11 +191,12 @@ export async function avancarEtapa(
   candidaturaId: string,
   novaEtapa: EtapaMacroCandidatura,
   observacao?: string | null,
+  entrevista?: AgendarEntrevistaCandidaturaRequest | null,
 ) {
   const res = await apiFetch(`/api/candidaturas/${candidaturaId}/avancar-etapa`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ novaEtapa, observacao: observacao ?? null }),
+    body: JSON.stringify({ novaEtapa, observacao: observacao ?? null, entrevista: entrevista ?? null }),
   });
   if (!res.ok) {
     let msg = "Falha ao avançar etapa.";
@@ -170,6 +207,36 @@ export async function avancarEtapa(
     throw new Error(msg);
   }
   return res.json();
+}
+
+export type AgendarEntrevistaCandidaturaRequest = {
+  inicioUtc: string;
+  duracaoMinutos: number;
+  formato: "Presencial" | "Online";
+  responsavel: string;
+  local?: string | null;
+  observacao?: string | null;
+};
+
+export function listarCandidaturasDoCandidato(candidatoId: string) {
+  return apiJson<CandidaturaDetalhe[]>(`/api/candidaturas/candidato/${encodeURIComponent(candidatoId)}`);
+}
+
+export async function registrarObservacaoCandidatura(candidaturaId: string, observacao: string) {
+  const res = await apiFetch(`/api/candidaturas/${encodeURIComponent(candidaturaId)}/observacoes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ observacao }),
+  });
+  if (!res.ok) {
+    let msg = "Falha ao registrar observação.";
+    try {
+      const body = (await res.json()) as { message?: string };
+      if (body?.message) msg = body.message;
+    } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  return res.json() as Promise<CandidaturaDetalhe>;
 }
 
 // ── Auditoria de logs de notificação ─────────────────────────────────────────

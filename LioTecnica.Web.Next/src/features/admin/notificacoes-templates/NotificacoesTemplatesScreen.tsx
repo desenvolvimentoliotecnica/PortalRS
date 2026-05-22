@@ -29,6 +29,7 @@ import {
 const ETAPAS_EDITAVEIS: EtapaMacroCandidatura[] = [
   "EmTriagem",
   "Entrevista",
+  "EntrevistaTecnica",
   "Teste",
   "Proposta",
   "Contratado",
@@ -42,6 +43,7 @@ const ETAPA_LABEL: Record<EtapaMacroCandidatura, string> = {
   Aplicada: "Aplicada",
   EmTriagem: "Em triagem",
   Entrevista: "Entrevista",
+  EntrevistaTecnica: "Entrevista técnica",
   Teste: "Teste",
   Proposta: "Proposta",
   Contratado: "Contratado",
@@ -53,6 +55,7 @@ const ETAPA_COLOR: Record<EtapaMacroCandidatura, string> = {
   Aplicada: "bg-sky-50 text-sky-800 border-sky-200",
   EmTriagem: "bg-indigo-50 text-indigo-800 border-indigo-200",
   Entrevista: "bg-violet-50 text-violet-800 border-violet-200",
+  EntrevistaTecnica: "bg-purple-50 text-purple-800 border-purple-200",
   Teste: "bg-amber-50 text-amber-800 border-amber-200",
   Proposta: "bg-cyan-50 text-cyan-800 border-cyan-200",
   Contratado: "bg-emerald-50 text-emerald-800 border-emerald-200",

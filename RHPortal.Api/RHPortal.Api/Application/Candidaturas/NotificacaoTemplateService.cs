@@ -64,6 +64,7 @@ public sealed class NotificacaoTemplateService : INotificacaoTemplateService
     {
         EtapaMacroCandidatura.EmTriagem,
         EtapaMacroCandidatura.Entrevista,
+        EtapaMacroCandidatura.EntrevistaTecnica,
         EtapaMacroCandidatura.Teste,
         EtapaMacroCandidatura.Proposta,
         EtapaMacroCandidatura.Contratado,
@@ -242,6 +243,9 @@ public sealed class NotificacaoTemplateService : INotificacaoTemplateService
         EtapaMacroCandidatura.Entrevista => (
             "Próximo passo: entrevista para {vagaTitulo}",
             "Olá, {candidatoNome}!\nVocê avançou para a etapa de entrevista na vaga {vagaTitulo}. Nossa equipe entrará em contato para agendar."),
+        EtapaMacroCandidatura.EntrevistaTecnica => (
+            "Próximo passo: entrevista técnica para {vagaTitulo}",
+            "Olá, {candidatoNome}!\nVocê avançou para a etapa de entrevista técnica na vaga {vagaTitulo}. Nossa equipe entrará em contato com os detalhes."),
         EtapaMacroCandidatura.Teste => (
             "Teste técnico liberado — {vagaTitulo}",
             "Olá, {candidatoNome}!\nLiberamos a etapa de testes para a vaga {vagaTitulo}. Acompanhe seu e-mail para as instruções."),

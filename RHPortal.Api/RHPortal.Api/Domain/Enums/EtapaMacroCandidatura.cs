@@ -15,6 +15,7 @@ public enum EtapaMacroCandidatura
     Contratado = 5,
     Recusado = 6,
     Desistiu = 7,
+    EntrevistaTecnica = 8,
 }
 
 /// <summary>
