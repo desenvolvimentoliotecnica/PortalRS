@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+using RhPortal.Api.Application.Blip;
 using RhPortal.Api.Application.ItaloIntegracao;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
@@ -12,6 +14,7 @@ using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Storage;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
+using RHPortal.Api.Domain.Enums;
 using Xunit;
 
 namespace RhPortal.Api.Tests.PreAdmissao;
@@ -39,7 +42,7 @@ public sealed class IniciarManualServiceTests
 
         var userStore = new Mock<IUserStore<ApplicationUser>>();
         var userManager = new Mock<UserManager<ApplicationUser>>(
-            userStore.Object, null, null, null, null, null, null, null, null);
+            userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
         userManager
             .Setup(x => x.FindByEmailAsync(It.IsAny<string>()))
@@ -64,11 +67,19 @@ public sealed class IniciarManualServiceTests
 
         var logger = new Mock<ILogger<PreAdmissaoService>>();
         var httpAccessor = new Mock<IHttpContextAccessor>();
+        var ocupacaoService = new Mock<IOcupacaoHistoricoService>();
+        var httpClientFactory = new Mock<IHttpClientFactory>();
+        var blipMessaging = new BlipMessagingService(
+            db,
+            httpClientFactory.Object,
+            new Mock<ILogger<BlipMessagingService>>().Object);
 
         var service = new PreAdmissaoService(
             db, tenantMock.Object, userManager.Object,
             emailQueue.Object, italoService.Object, storageMock.Object, logger.Object,
             httpAccessor.Object,
+            ocupacaoService.Object,
+            blipMessaging,
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
 
         return (db, service, storageMock);
@@ -91,6 +102,50 @@ public sealed class IniciarManualServiceTests
         db.Set<Candidato>().Add(candidato);
         db.SaveChanges();
         return candidato.Id;
+    }
+
+    private static (Guid CandidatoId, Guid VagaId, Guid CandidaturaId) SeedCandidatoComCandidaturaEmProposta(
+        AppDbContext db,
+        string tenantId = TenantTeste)
+    {
+        var vaga = new global::RHPortal.Api.Domain.Entities.Vaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Titulo = "Analista de Infraestrutura SR",
+            Status = VagaStatus.Aberta,
+        };
+        db.Vagas.Add(vaga);
+
+        var candidato = new Candidato
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Nome = "João da Silva",
+            Email = "joao@exemplo.com",
+            Fone = "11999999999",
+            Status = CandidateStatus.Aprovado,
+            VagaId = vaga.Id,
+        };
+        db.Set<Candidato>().Add(candidato);
+
+        var candidatura = new Candidatura
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CandidatoId = candidato.Id,
+            VagaId = vaga.Id,
+            Status = CandidaturaStatus.Ativa,
+            EtapaMacro = EtapaMacroCandidatura.Proposta,
+            AplicadaEmUtc = DateTimeOffset.UtcNow,
+            EtapaAtualDesdeUtc = DateTimeOffset.UtcNow,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        db.Candidaturas.Add(candidatura);
+        db.SaveChanges();
+
+        return (candidato.Id, vaga.Id, candidatura.Id);
     }
 
     // ── IniciarManualAsync ────────────────────────────────────────────────────
@@ -137,6 +192,27 @@ public sealed class IniciarManualServiceTests
         Assert.NotNull(result);
         var c = await db.Candidatos.IgnoreQueryFilters().FirstAsync(x => x.Id == candidatoId);
         Assert.Equal(CandidateStatus.Aprovado, c.Status);
+    }
+
+    [Fact]
+    public async Task IniciarManual_CandidaturaEmProposta_MarcaComoContratado()
+    {
+        var (db, svc, _) = CriarServico();
+        var (candidatoId, _, candidaturaId) = SeedCandidatoComCandidaturaEmProposta(db);
+
+        await svc.IniciarManualAsync(
+            new IniciarManualRequest(candidatoId, null, null, null, null, null, null),
+            CancellationToken.None);
+
+        var candidatura = await db.Candidaturas.FirstAsync(c => c.Id == candidaturaId);
+        Assert.Equal(CandidaturaStatus.Contratado, candidatura.Status);
+        Assert.Equal(EtapaMacroCandidatura.Contratado, candidatura.EtapaMacro);
+        Assert.NotNull(candidatura.EtapaAtualDesdeUtc);
+        Assert.Contains(await db.Set<CandidaturaEtapaHistorico>().ToListAsync(), h =>
+            h.CandidaturaId == candidaturaId
+            && h.EtapaAnterior == EtapaMacroCandidatura.Proposta
+            && h.EtapaNova == EtapaMacroCandidatura.Contratado
+            && h.Observacao == "Pré-admissão iniciada pelo RH.");
     }
 
     [Fact]

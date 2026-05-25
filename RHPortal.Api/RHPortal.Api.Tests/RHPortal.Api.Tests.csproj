@@ -45,7 +45,6 @@
     <!-- PreAdmissaoService ganhou parâmetros (blipMessaging, ocupacaoService) e DTO mudou -->
     <Compile Remove="PreAdmissao\CriarPreAdmissaoServiceTests.cs" />
     <Compile Remove="PreAdmissao\IntegracaoTotvsServiceTests.cs" />
-    <Compile Remove="PreAdmissao\IniciarManualServiceTests.cs" />
     <Compile Remove="PreAdmissao\PreAdmissaoDefaultsIntegracaoTests.cs" />
     <Compile Remove="PreAdmissao\PreAdmissaoWorkflowTests.cs" />
   </ItemGroup>
