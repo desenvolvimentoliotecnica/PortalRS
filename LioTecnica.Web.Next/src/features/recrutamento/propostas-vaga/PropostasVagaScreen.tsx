@@ -272,7 +272,7 @@ export default function PropostasVagaScreen() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            const url = `${window.location.origin}/PortalVagas/Proposta/${p.accessToken}?tenantId=${encodeURIComponent(
+                            const url = `${window.location.origin}/app/PortalVagas/Proposta?token=${encodeURIComponent(p.accessToken ?? "")}&tenantId=${encodeURIComponent(
                               (localStorage.getItem("tenantId") ?? "").trim(),
                             )}`;
                             navigator.clipboard.writeText(url).then(

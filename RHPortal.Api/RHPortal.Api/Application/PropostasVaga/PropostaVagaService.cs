@@ -277,7 +277,7 @@ public sealed class PropostaVagaService : IPropostaVagaService
 
         var tenantId = _tenant.TenantId ?? "";
         var link = _frontendUrls.BuildAbsoluteUrl(
-            $"/PortalVagas/Proposta/{Uri.EscapeDataString(row.Proposta.AccessToken)}?tenantId={Uri.EscapeDataString(tenantId)}");
+            $"/app/PortalVagas/Proposta?token={Uri.EscapeDataString(row.Proposta.AccessToken)}&tenantId={Uri.EscapeDataString(tenantId)}");
         var candidatoNome = row.Candidato.Nome?.Trim();
         var vagaTitulo = row.Vaga?.Titulo?.Trim();
         var empresaNome = await ResolverEmpresaNomeAsync(ct);
