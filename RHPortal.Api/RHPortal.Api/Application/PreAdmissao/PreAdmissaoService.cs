@@ -1009,10 +1009,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     // ── Admissão Manual — RH inicia a partir de candidato aprovado ──
 
-    private async Task EnsureCandidaturaReadyForPreAdmissaoAsync(Guid candidatoId, Guid? vagaId, CancellationToken ct)
+    private async Task MarcarCandidaturaContratadaParaPreAdmissaoAsync(Guid candidatoId, Guid? vagaId, CancellationToken ct)
     {
         var query = _db.Candidaturas
-            .AsNoTracking()
             .Where(c => c.CandidatoId == candidatoId);
 
         if (vagaId.HasValue && vagaId.Value != Guid.Empty)
@@ -1032,6 +1031,31 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             throw new InvalidOperationException(
                 "Candidato ainda não está na etapa Proposta. Avance a candidatura pelo Kanban antes de iniciar a pré-admissão.");
         }
+
+        var etapaAnterior = candidatura.EtapaMacro;
+        if (candidatura.Status != CandidaturaStatus.Contratado || candidatura.EtapaMacro != EtapaMacroCandidatura.Contratado)
+        {
+            var now = DateTimeOffset.UtcNow;
+            candidatura.Status = CandidaturaStatus.Contratado;
+            candidatura.EtapaMacro = EtapaMacroCandidatura.Contratado;
+            candidatura.EtapaAtualDesdeUtc = now;
+            candidatura.UpdatedAtUtc = now;
+
+            if (etapaAnterior != EtapaMacroCandidatura.Contratado)
+            {
+                _db.Set<CandidaturaEtapaHistorico>().Add(new CandidaturaEtapaHistorico
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = candidatura.TenantId,
+                    CandidaturaId = candidatura.Id,
+                    EtapaAnterior = etapaAnterior,
+                    EtapaNova = EtapaMacroCandidatura.Contratado,
+                    Observacao = "Pré-admissão iniciada pelo RH.",
+                    UserId = null,
+                    EmUtc = now,
+                });
+            }
+        }
     }
 
     public async Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct)
@@ -1040,7 +1064,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .FirstOrDefaultAsync(c => c.Id == request.CandidatoId && c.TenantId == _tenantContext.TenantId, ct)
             ?? throw new InvalidOperationException("Candidato não encontrado.");
 
-        await EnsureCandidaturaReadyForPreAdmissaoAsync(candidato.Id, candidato.VagaId, ct);
+        await MarcarCandidaturaContratadaParaPreAdmissaoAsync(candidato.Id, candidato.VagaId, ct);
 
         // Auto-aprovar candidato ao iniciar admissão
         if (candidato.Status != CandidateStatus.Aprovado)
@@ -1206,7 +1230,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     public async Task<PreAdmissaoDetailResponse> AprovarContratacaoAsync(AprovarContratacaoRequest request, CancellationToken ct)
     {
         if (request.CandidatoId.HasValue)
-            await EnsureCandidaturaReadyForPreAdmissaoAsync(request.CandidatoId.Value, null, ct);
+            await MarcarCandidaturaContratadaParaPreAdmissaoAsync(request.CandidatoId.Value, null, ct);
 
         var entity = new Domain.Entities.PreAdmissao
         {

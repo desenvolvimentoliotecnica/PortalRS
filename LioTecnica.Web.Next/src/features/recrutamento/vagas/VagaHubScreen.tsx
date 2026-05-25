@@ -206,6 +206,27 @@ interface AdmissaoDialogState {
   whatsappEnviado: boolean;
 }
 
+const ADMISSAO_DOCUMENTOS: Record<AdmissaoDialogState["tipoContratacao"], string[]> = {
+  CLT: [
+    "RG",
+    "CPF",
+    "Comprovante de Residência",
+    "CTPS",
+    "Título de Eleitor",
+    "PIS/PASEP",
+    "Certidão",
+    "Escolaridade",
+    "Dados Bancários",
+  ],
+  PJ: [
+    "CNPJ",
+    "Contrato Social/MEI",
+    "RG e CPF do sócio",
+    "Conta Bancária PJ",
+    "Certidões Negativas",
+  ],
+};
+
 function pick(obj: VagaData | null, key: string, fallback = "—"): string {
   if (!obj) return fallback;
   const v = obj[key];
@@ -2185,7 +2206,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
 
       {/* ── Dialog: Aprovar Candidato ── */}
       <Dialog open={admissaoDialog.open} onOpenChange={(o) => !admissaoDialog.working && setAdmissaoDialog((d) => ({ ...d, open: o }))}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Aprovar Candidato — {admissaoDialog.candidate?.nome}</DialogTitle>
           </DialogHeader>
@@ -2234,10 +2255,40 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                     >{tipo}</button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {admissaoDialog.tipoContratacao === "CLT"
-                    ? "Documentos: RG, CPF, Comp. Residência, CTPS, Título Eleitor, PIS, Certidão, Escolaridade, Dados Bancários"
-                    : "Documentos: CNPJ, Contrato Social/MEI, RG+CPF Sócio, Conta PJ, Certidões Negativas"}
+              </div>
+
+              <div className="rounded-xl border border-sky-200 bg-sky-50/80 p-4 shadow-sm dark:border-sky-900/60 dark:bg-sky-950/30">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-white text-sky-700 shadow-sm dark:bg-sky-950 dark:text-sky-300">
+                      <FileText className="size-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-sky-950 dark:text-sky-100">
+                        Documentos que serão solicitados
+                      </div>
+                      <p className="text-xs text-sky-800/80 dark:text-sky-200/80">
+                        Baseado na documentação padrão de admissão para {admissaoDialog.tipoContratacao}.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-sky-700 shadow-sm dark:bg-sky-950 dark:text-sky-300">
+                    {ADMISSAO_DOCUMENTOS[admissaoDialog.tipoContratacao].length} itens
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {ADMISSAO_DOCUMENTOS[admissaoDialog.tipoContratacao].map((doc) => (
+                    <span
+                      key={doc}
+                      className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs font-medium text-sky-900 shadow-sm dark:border-sky-800 dark:bg-sky-950 dark:text-sky-100"
+                    >
+                      <CheckCircle2 className="size-3 text-emerald-600" />
+                      {doc}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-[11px] leading-relaxed text-sky-800/75 dark:text-sky-200/75">
+                  Ao enviar o link, o candidato acessa o Portal de Admissão e envia estes arquivos para validação do RH.
                 </p>
               </div>
 
