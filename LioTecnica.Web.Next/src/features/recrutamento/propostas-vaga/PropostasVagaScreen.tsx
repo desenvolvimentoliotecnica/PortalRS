@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { apiJson } from "@/lib/api";
+import { getAccessToken, getTenantId, setTenantId, tryGetTenantIdFromJwt } from "@/lib/session";
 import {
   cancelarProposta,
   createProposta,
@@ -133,6 +134,24 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
     return false;
   } finally {
     document.body.removeChild(textarea);
+  }
+}
+
+function resolveTenantIdForPublicLink(): string {
+  const sessionTenant = getTenantId();
+  if (sessionTenant) return sessionTenant;
+
+  const token = getAccessToken();
+  const jwtTenant = token ? tryGetTenantIdFromJwt(token) : null;
+  if (jwtTenant) {
+    setTenantId(jwtTenant);
+    return jwtTenant;
+  }
+
+  try {
+    return localStorage.getItem("tenantId")?.trim() || "";
+  } catch {
+    return "";
   }
 }
 
@@ -366,9 +385,20 @@ export default function PropostasVagaScreen() {
 
   const copiarLink = async (p: PropostaVagaResponse) => {
     if (!p.accessToken) return;
-    const url = `${window.location.origin}/app/PortalVagas/Proposta?token=${encodeURIComponent(p.accessToken)}&tenantId=${encodeURIComponent(
-      (localStorage.getItem("tenantId") ?? "").trim(),
-    )}`;
+    const tenantId = resolveTenantIdForPublicLink();
+    if (!tenantId) {
+      toast.error("TenantId não encontrado.");
+      await Swal.fire({
+        title: "Tenant não encontrado",
+        text: "Não foi possível identificar a empresa para montar o link público da proposta. Faça login novamente e tente copiar o link.",
+        icon: "error",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#dc2626",
+      });
+      return;
+    }
+
+    const url = `${window.location.origin}/app/PortalVagas/Proposta?token=${encodeURIComponent(p.accessToken)}&tenantId=${encodeURIComponent(tenantId)}`;
 
     const copied = await copyTextToClipboard(url);
     if (copied) {
