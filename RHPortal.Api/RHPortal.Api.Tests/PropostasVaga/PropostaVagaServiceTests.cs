@@ -70,15 +70,22 @@ public sealed class PropostaVagaServiceTests
         return (db, service, userId);
     }
 
-    private static Guid SeedVaga(AppDbContext db, string titulo = "Dev .NET", Guid? recrutadorUserId = null)
+    private static Guid SeedVaga(
+        AppDbContext db,
+        string titulo = "Dev .NET",
+        Guid? recrutadorUserId = null,
+        VagaStatus status = VagaStatus.Rascunho,
+        int quantidadeVagas = 1)
     {
         var v = new RHPortal.Api.Domain.Entities.Vaga
         {
             Id = Guid.NewGuid(),
             TenantId = TenantTeste,
             Titulo = titulo,
-            Status = VagaStatus.Rascunho,
+            Status = status,
             RecrutadorResponsavelUserId = recrutadorUserId,
+            QuantidadeVagas = quantidadeVagas,
+            HeadcountAutorizado = quantidadeVagas,
         };
         db.Vagas.Add(v);
         db.SaveChanges();
@@ -340,6 +347,45 @@ public sealed class PropostaVagaServiceTests
         Assert.Equal("Fulano de Tal", entity.NomeConfirmadoCandidato);
         Assert.Equal("192.0.2.5", entity.IpOrigemResposta);
         Assert.Equal("Mozilla/5.0 test", entity.UserAgentResposta);
+    }
+
+    [Fact]
+    public async Task AceitarPorToken_MarcaCandidaturaContratadaEPreencheVagaQuandoHeadcountFecha()
+    {
+        var (db, svc, _) = CriarServico();
+        var vagaId = SeedVaga(db, status: VagaStatus.Aberta);
+        var candId = SeedCandidato(db);
+        var r = await svc.CreateAsync(Request(vagaId, candId), CancellationToken.None);
+        var sent = await svc.EnviarAsync(r.Id, null, CancellationToken.None);
+
+        await svc.AceitarPorTokenAsync(sent!.AccessToken!, "Fulano de Tal", "192.0.2.5", "Mozilla/5.0 test", CancellationToken.None);
+
+        var candidatura = await db.Candidaturas.FirstAsync(c => c.Id == r.CandidaturaId);
+        Assert.Equal(CandidaturaStatus.Contratado, candidatura.Status);
+        Assert.Equal(EtapaMacroCandidatura.Contratado, candidatura.EtapaMacro);
+        Assert.NotNull(candidatura.EtapaAtualDesdeUtc);
+        Assert.Contains(await db.Set<CandidaturaEtapaHistorico>().ToListAsync(), h =>
+            h.CandidaturaId == candidatura.Id
+            && h.EtapaNova == EtapaMacroCandidatura.Contratado
+            && h.Observacao == "Proposta aceita pelo candidato.");
+
+        var vaga = await db.Vagas.FirstAsync(v => v.Id == vagaId);
+        Assert.Equal(VagaStatus.Preenchida, vaga.Status);
+    }
+
+    [Fact]
+    public async Task AceitarPorToken_MantemVagaAbertaEnquantoAindaHaHeadcount()
+    {
+        var (db, svc, _) = CriarServico();
+        var vagaId = SeedVaga(db, status: VagaStatus.Aberta, quantidadeVagas: 2);
+        var candId = SeedCandidato(db);
+        var r = await svc.CreateAsync(Request(vagaId, candId), CancellationToken.None);
+        var sent = await svc.EnviarAsync(r.Id, null, CancellationToken.None);
+
+        await svc.AceitarPorTokenAsync(sent!.AccessToken!, "Fulano de Tal", null, null, CancellationToken.None);
+
+        var vaga = await db.Vagas.FirstAsync(v => v.Id == vagaId);
+        Assert.Equal(VagaStatus.Aberta, vaga.Status);
     }
 
     [Fact]
