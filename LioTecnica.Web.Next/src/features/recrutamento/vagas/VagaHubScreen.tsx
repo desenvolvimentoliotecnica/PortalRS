@@ -2206,7 +2206,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
 
       {/* ── Dialog: Aprovar Candidato ── */}
       <Dialog open={admissaoDialog.open} onOpenChange={(o) => !admissaoDialog.working && setAdmissaoDialog((d) => ({ ...d, open: o }))}>
-        <DialogContent className="max-w-[760px] text-base sm:text-lg">
+        <DialogContent className="max-w-[900px] text-base sm:text-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl leading-tight">Aprovar Candidato — {admissaoDialog.candidate?.nome}</DialogTitle>
           </DialogHeader>
@@ -2276,11 +2276,11 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                     {admissaoDialog.tipoContratacao}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {ADMISSAO_DOCUMENTOS[admissaoDialog.tipoContratacao].map((doc) => (
                     <span
                       key={doc}
-                      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-center text-sm font-medium text-sky-900 shadow-sm dark:border-sky-800 dark:bg-sky-950 dark:text-sky-100"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-center text-sm font-medium text-sky-900 shadow-sm dark:border-sky-800 dark:bg-sky-950 dark:text-sky-100"
                     >
                       <CheckCircle2 className="size-4 text-emerald-600" />
                       {doc}
