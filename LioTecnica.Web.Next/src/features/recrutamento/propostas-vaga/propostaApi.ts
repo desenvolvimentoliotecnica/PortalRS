@@ -78,6 +78,8 @@ export type PropostaVagaCreateRequest = {
   observacaoInternaRh?: string | null;
 };
 
+export type PropostaVagaUpdateRequest = Omit<PropostaVagaCreateRequest, "vagaId" | "candidatoId">;
+
 export async function listPropostas(filters: {
   vagaId?: string;
   candidatoId?: string;
@@ -96,6 +98,19 @@ export async function getProposta(id: string): Promise<PropostaVagaResponse> {
 export async function createProposta(req: PropostaVagaCreateRequest): Promise<PropostaVagaResponse> {
   const res = await apiFetch("/api/propostas-vaga", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? `HTTP_${res.status}`);
+  }
+  return (await res.json()) as PropostaVagaResponse;
+}
+
+export async function updateProposta(id: string, req: PropostaVagaUpdateRequest): Promise<PropostaVagaResponse> {
+  const res = await apiFetch(`/api/propostas-vaga/${id}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
