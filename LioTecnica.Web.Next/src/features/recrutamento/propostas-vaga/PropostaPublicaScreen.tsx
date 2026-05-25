@@ -155,137 +155,192 @@ export default function PropostaPublicaScreen({ token }: Props) {
   }
 
   return (
-    <article className="space-y-6">
-      <header className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <p className="text-xs uppercase tracking-wide text-neutral-500">Carta de oferta</p>
-        <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-          {proposta.vagaTitulo ?? "Oferta profissional"}
-        </h1>
-        <p className="mt-1 text-sm text-neutral-600">
-          Para: <span className="font-medium">{proposta.candidatoNome ?? "Candidato"}</span>
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <span className={`rounded-full px-2 py-0.5 font-medium ${
-            respondida ? "bg-emerald-100 text-emerald-800"
-              : bloqueada ? "bg-red-100 text-red-800"
-              : "bg-sky-100 text-sky-800"
-          }`}>Status: {status}</span>
-          {proposta.expiraEmUtc && !respondida && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-900">
-              Expira em {formatDate(proposta.expiraEmUtc)}
-            </span>
-          )}
-        </div>
-      </header>
-
-      <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-neutral-900">Condições da oferta</h2>
-        <dl className="mt-4 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-          <div>
-            <dt className="text-neutral-500">Salário oferecido</dt>
-            <dd className="font-medium text-neutral-900">
-              {formatMoney(proposta.salarioOferecido, proposta.moeda)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-neutral-500">Data prevista de início</dt>
-            <dd className="font-medium text-neutral-900">
-              {formatDateOnly(proposta.dataPrevistaInicio)}
-            </dd>
-          </div>
-          <div className="md:col-span-2">
-            <dt className="text-neutral-500">Benefícios</dt>
-            <dd className="whitespace-pre-wrap text-neutral-900">
-              {proposta.descricaoBeneficios?.trim() || "—"}
-            </dd>
-          </div>
-          {proposta.mensagemPersonalizada?.trim() && (
-            <div className="md:col-span-2">
-              <dt className="text-neutral-500">Mensagem do RH</dt>
-              <dd className="whitespace-pre-wrap text-neutral-900">
-                {proposta.mensagemPersonalizada}
-              </dd>
-            </div>
-          )}
-        </dl>
-      </section>
-
-      {respondida && (
-        <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-sm text-emerald-900">
-          {status === "Aceita"
-            ? "Você aceitou esta proposta. O RH foi notificado."
-            : "Você recusou esta proposta."}
-          <div className="mt-1 text-xs text-emerald-800">
-            Resposta registrada em {formatDate(proposta.respondidaEmUtc)}.
-          </div>
-        </section>
-      )}
-
-      {bloqueada && (
-        <section className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">
-          Esta proposta não está mais disponível ({status.toLowerCase()}).
-        </section>
-      )}
-
-      {!respondida && !bloqueada && (
-        <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-          {mode === "view" && (
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
-              <Button variant="outline" onClick={() => setMode("recusar")}>Recusar</Button>
-              <Button onClick={() => setMode("aceitar")}>Aceitar proposta</Button>
-            </div>
-          )}
-
-          {mode !== "view" && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-neutral-900">
-                {mode === "aceitar" ? "Confirmar aceite" : "Confirmar recusa"}
-              </h3>
-              <p className="text-sm text-neutral-600">
-                Digite seu nome completo como assinatura digital. A data, hora, IP e navegador serão
-                registrados como evidência da resposta.
-              </p>
-
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-neutral-800">Seu nome completo</span>
-                <input
-                  className="w-full rounded-md border border-neutral-300 px-3 py-2"
-                  value={nomeConfirmado}
-                  onChange={(e) => setNomeConfirmado(e.target.value)}
-                  placeholder="Ex.: Maria da Silva"
-                />
-              </label>
-
-              {mode === "recusar" && (
-                <label className="block text-sm">
-                  <span className="mb-1 block font-medium text-neutral-800">
-                    Motivo (opcional)
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-sky-50 px-4 py-8 text-neutral-900">
+      <article className="mx-auto max-w-4xl space-y-6">
+        <header className="overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-xl shadow-sky-950/5">
+          <div className="bg-gradient-to-r from-sky-900 via-sky-800 to-cyan-700 px-6 py-7 text-white md:px-8">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-100">
+                  Carta de oferta
+                </p>
+                <h1 className="mt-3 text-2xl font-bold leading-tight md:text-3xl">
+                  {proposta.vagaTitulo ?? "Oferta profissional"}
+                </h1>
+                <p className="mt-2 text-sm text-sky-100">
+                  Preparada para{" "}
+                  <span className="font-semibold text-white">{proposta.candidatoNome ?? "Candidato"}</span>
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs md:justify-end">
+                <span className={`rounded-full px-3 py-1 font-semibold ${
+                  respondida ? "bg-emerald-100 text-emerald-800"
+                    : bloqueada ? "bg-red-100 text-red-800"
+                    : "bg-white/15 text-white ring-1 ring-white/25"
+                }`}>
+                  Status: {status}
+                </span>
+                {proposta.expiraEmUtc && !respondida && (
+                  <span className="rounded-full bg-amber-300 px-3 py-1 font-semibold text-amber-950">
+                    Expira em {formatDate(proposta.expiraEmUtc)}
                   </span>
-                  <textarea
-                    className="w-full rounded-md border border-neutral-300 px-3 py-2"
-                    rows={3}
-                    value={motivo}
-                    onChange={(e) => setMotivo(e.target.value)}
-                    placeholder="Ex.: aceitei outra proposta"
-                  />
-                </label>
-              )}
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setMode("view")} disabled={submitting}>
-                  Voltar
-                </Button>
-                <Button
-                  onClick={mode === "aceitar" ? handleAceitar : handleRecusar}
-                  disabled={submitting || !nomeConfirmado.trim()}
-                >
-                  {submitting ? "Enviando…" : mode === "aceitar" ? "Confirmar aceite" : "Confirmar recusa"}
-                </Button>
+                )}
               </div>
             </div>
-          )}
+          </div>
+
+          <div className="px-6 py-8 md:px-8">
+            <div className="mx-auto max-w-xl rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-7 text-center shadow-inner">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
+                Valor da proposta
+              </p>
+              <div className="mt-3 text-4xl font-extrabold tracking-tight text-emerald-700 md:text-5xl">
+                {formatMoney(proposta.salarioOferecido, proposta.moeda)}
+              </div>
+              <p className="mt-2 text-xs text-emerald-900/70">
+                Salário oferecido para a posição
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <section className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm md:p-8">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
+                Condições
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-neutral-950">Detalhes da oferta</h2>
+            </div>
+            <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+              <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+                Data prevista de início
+              </div>
+              <div className="mt-1 font-semibold text-neutral-900">
+                {formatDateOnly(proposta.dataPrevistaInicio)}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+              <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Benefícios
+              </div>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-900">
+                {proposta.descricaoBeneficios?.trim() || "—"}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+              <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                Mensagem do RH
+              </div>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-900">
+                {proposta.mensagemPersonalizada?.trim() || "Estamos felizes em avançar com você nesta oportunidade."}
+              </div>
+            </div>
+          </div>
         </section>
-      )}
-    </article>
+
+        {respondida && (
+          <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-sm text-emerald-950 shadow-sm">
+            <div className="text-lg font-semibold">
+              {status === "Aceita" ? "Proposta aceita" : "Resposta registrada"}
+            </div>
+            <p className="mt-1">
+              {status === "Aceita"
+                ? "Você aceitou esta proposta. O RH foi notificado."
+                : "Você recusou esta proposta."}
+            </p>
+            <div className="mt-2 text-xs text-emerald-800">
+              Resposta registrada em {formatDate(proposta.respondidaEmUtc)}.
+            </div>
+          </section>
+        )}
+
+        {bloqueada && (
+          <section className="rounded-3xl border border-red-200 bg-red-50 p-6 text-sm text-red-800 shadow-sm">
+            Esta proposta não está mais disponível ({status.toLowerCase()}).
+          </section>
+        )}
+
+        {!respondida && !bloqueada && (
+          <section className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-lg shadow-slate-950/5 md:p-8">
+            {mode === "view" && (
+              <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-neutral-950">Pronto para responder?</h3>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-neutral-600">
+                    Ao aceitar, você confirmará seu nome completo como assinatura digital.
+                    A data, hora, IP e navegador serão registrados como evidência da resposta.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row md:shrink-0">
+                  <Button variant="outline" className="px-6" onClick={() => setMode("recusar")}>
+                    Recusar
+                  </Button>
+                  <Button className="bg-sky-800 px-7 hover:bg-sky-900" onClick={() => setMode("aceitar")}>
+                    Aceitar proposta
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {mode !== "view" && (
+              <div className="space-y-5">
+                <div>
+                  <h3 className="text-xl font-semibold text-neutral-950">
+                    {mode === "aceitar" ? "Confirmar aceite da proposta" : "Confirmar recusa da proposta"}
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-neutral-600">
+                    Digite seu nome completo como assinatura digital. A data, hora, IP e navegador serão
+                    registrados como evidência da resposta.
+                  </p>
+                </div>
+
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium text-neutral-800">Seu nome completo</span>
+                  <input
+                    className="w-full rounded-xl border border-neutral-300 px-4 py-3 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                    value={nomeConfirmado}
+                    onChange={(e) => setNomeConfirmado(e.target.value)}
+                    placeholder="Ex.: Maria da Silva"
+                  />
+                </label>
+
+                {mode === "recusar" && (
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-neutral-800">
+                      Motivo (opcional)
+                    </span>
+                    <textarea
+                      className="w-full rounded-xl border border-neutral-300 px-4 py-3 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                      rows={3}
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      placeholder="Ex.: aceitei outra proposta"
+                    />
+                  </label>
+                )}
+
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <Button variant="outline" onClick={() => setMode("view")} disabled={submitting}>
+                    Voltar
+                  </Button>
+                  <Button
+                    className={mode === "aceitar" ? "bg-sky-800 hover:bg-sky-900" : ""}
+                    onClick={mode === "aceitar" ? handleAceitar : handleRecusar}
+                    disabled={submitting || !nomeConfirmado.trim()}
+                  >
+                    {submitting ? "Enviando…" : mode === "aceitar" ? "Confirmar aceite" : "Confirmar recusa"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+      </article>
+    </main>
   );
 }
