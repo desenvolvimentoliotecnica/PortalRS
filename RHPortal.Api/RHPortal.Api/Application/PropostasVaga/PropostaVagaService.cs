@@ -21,6 +21,7 @@ public interface IPropostaVagaService
     Task<IReadOnlyList<PropostaVagaResponse>> ListAsync(Guid? vagaId, Guid? candidatoId, PropostaVagaStatus? status, CancellationToken ct);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct);
     Task<PropostaVagaResponse?> EnviarAsync(Guid id, int? prazoDiasResposta, CancellationToken ct);
+    Task<PropostaVagaResponse?> ReenviarEmailAsync(Guid id, CancellationToken ct);
     Task<PropostaVagaResponse?> CancelarAsync(Guid id, CancellationToken ct);
 
     // Fluxo público (via token)
@@ -160,6 +161,27 @@ public sealed class PropostaVagaService : IPropostaVagaService
         entity.UpdatedAtUtc = now;
 
         await _db.SaveChangesAsync(ct);
+        await EnfileirarEmailPropostaAsync(entity.Id, ct);
+        return await BuildResponse(id, ct);
+    }
+
+    public async Task<PropostaVagaResponse?> ReenviarEmailAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.Set<PropostaVaga>().FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (entity is null) return null;
+
+        if (entity.Status is not (PropostaVagaStatus.Enviada or PropostaVagaStatus.Visualizada))
+            throw new InvalidOperationException("Só é possível reenviar propostas já enviadas e ainda não respondidas.");
+        if (string.IsNullOrWhiteSpace(entity.AccessToken))
+            throw new InvalidOperationException("Proposta enviada sem token público. Cancele e crie uma nova proposta.");
+        if (entity.ExpiraEmUtc.HasValue && entity.ExpiraEmUtc.Value < DateTimeOffset.UtcNow)
+        {
+            entity.Status = PropostaVagaStatus.Expirada;
+            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            throw new InvalidOperationException("Proposta expirada. Cancele e crie uma nova proposta para enviar novamente.");
+        }
+
         await EnfileirarEmailPropostaAsync(entity.Id, ct);
         return await BuildResponse(id, ct);
     }

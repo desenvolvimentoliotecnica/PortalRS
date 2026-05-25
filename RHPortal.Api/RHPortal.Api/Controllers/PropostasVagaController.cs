@@ -113,6 +113,22 @@ public sealed class PropostasVagaController : ControllerBase
     }
 
     [RequirePermission("propostas-vaga.view")]
+    [HttpPost("{id:guid}/reenviar-email")]
+    public async Task<ActionResult<PropostaVagaResponse>> ReenviarEmail(Guid id, CancellationToken ct)
+    {
+        if (_userContext.IsReadOnly || !PodeGerenciar()) return Forbid();
+        try
+        {
+            var resent = await _service.ReenviarEmailAsync(id, ct);
+            return resent is null ? NotFound() : Ok(resent);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    [RequirePermission("propostas-vaga.view")]
     [HttpPost("{id:guid}/cancelar")]
     public async Task<ActionResult<PropostaVagaResponse>> Cancelar(Guid id, CancellationToken ct)
     {

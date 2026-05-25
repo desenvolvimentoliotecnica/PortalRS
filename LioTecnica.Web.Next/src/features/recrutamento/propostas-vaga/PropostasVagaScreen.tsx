@@ -9,6 +9,7 @@ import {
   createProposta,
   enviarProposta,
   listPropostas,
+  reenviarEmailProposta,
   resolveStatus,
   type PropostaVagaResponse,
 } from "./propostaApi";
@@ -204,6 +205,16 @@ export default function PropostasVagaScreen() {
     }
   };
 
+  const reenviarEmail = async (p: PropostaVagaResponse) => {
+    try {
+      await reenviarEmailProposta(p.id);
+      toast.success("E-mail da proposta reenviado.");
+      await load();
+    } catch (err) {
+      toast.error((err as Error).message ?? "Falha ao reenviar proposta.");
+    }
+  };
+
   const rows = useMemo(() => items.map((p) => {
     const s = resolveStatus(p.status) as string;
     return { p, statusStr: s };
@@ -271,6 +282,11 @@ export default function PropostasVagaScreen() {
                           }}
                         >
                           Copiar link
+                        </Button>
+                      )}
+                      {(statusStr === "Enviada" || statusStr === "Visualizada") && (
+                        <Button size="sm" variant="outline" onClick={() => void reenviarEmail(p)}>
+                          Reenviar e-mail
                         </Button>
                       )}
                       {statusStr !== "Aceita" && statusStr !== "Recusada" && statusStr !== "Cancelada" && (

@@ -13,6 +13,7 @@ import {
     Mail,
     MoreHorizontal,
     PenSquare,
+    Send,
     Sparkles,
     UserPlus,
     Users,
@@ -69,6 +70,7 @@ export interface CandidatosMatchTabProps {
     onViewCandidate: (id: string) => void | Promise<void>;
     onEditCandidate: (id: string) => void | Promise<void>;
     onApproveCandidate: (c: HubCandidateRow) => void;
+    onReenviarProposta: (c: HubCandidateRow) => void | Promise<void>;
     onAcompanharAdmissao: (candidatoId: string) => Promise<void>;
 }
 
@@ -144,6 +146,7 @@ export default function CandidatosMatchTab({
     onViewCandidate,
     onEditCandidate,
     onApproveCandidate,
+    onReenviarProposta,
     onAcompanharAdmissao,
 }: CandidatosMatchTabProps) {
     const [matchById, setMatchById] = useState<Record<string, MatchRow>>({});
@@ -605,6 +608,7 @@ export default function CandidatosMatchTab({
                                                     onEdit={() => void onEditCandidate(r.id)}
                                                     onDownloadCv={() => void baixarCurriculo(r)}
                                                     onApprove={() => onApproveCandidate(r)}
+                                                    onReenviarProposta={() => void onReenviarProposta(r)}
                                                     onNotify={() => setNotifyTarget(r)}
                                                     onAcompanhar={() => void onAcompanharAdmissao(r.id)}
                                                 />
@@ -815,6 +819,7 @@ function RowActions({
     onEdit,
     onDownloadCv,
     onApprove,
+    onReenviarProposta,
     onNotify,
     onAcompanhar,
 }: {
@@ -829,6 +834,7 @@ function RowActions({
     onEdit: () => void;
     onDownloadCv: () => void;
     onApprove: () => void;
+    onReenviarProposta: () => void;
     onNotify: () => void;
     onAcompanhar: () => void;
 }) {
@@ -910,6 +916,12 @@ function RowActions({
                         <Download className="size-4 mr-2" />
                         Baixar CV
                     </DropdownMenuItem>
+                    {!isReadOnly && approvalAvailable && (
+                        <DropdownMenuItem onClick={onReenviarProposta}>
+                            <Send className="size-4 mr-2" />
+                            Reenviar proposta
+                        </DropdownMenuItem>
+                    )}
                     {!isReadOnly && missingFields.length > 0 && (
                         <DropdownMenuItem onClick={onNotify}>
                             <AlertCircle className="size-4 mr-2" />
