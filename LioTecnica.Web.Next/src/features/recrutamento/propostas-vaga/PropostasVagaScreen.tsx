@@ -162,7 +162,7 @@ export default function PropostasVagaScreen() {
       return;
     }
     try {
-      await createProposta({
+      const criada = await createProposta({
         vagaId: form.vagaId,
         candidatoId: form.candidatoId,
         moeda: form.moeda || null,
@@ -172,7 +172,8 @@ export default function PropostasVagaScreen() {
         mensagemPersonalizada: form.mensagemPersonalizada || null,
         observacaoInternaRh: form.observacaoInternaRh || null,
       });
-      toast.success("Proposta criada em rascunho.");
+      await enviarProposta(criada.id, 7);
+      toast.success("Proposta criada e enviada com validade de 7 dias.");
       setShowNew(false);
       resetForm();
       await load();
@@ -226,7 +227,7 @@ export default function PropostasVagaScreen() {
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900">Propostas / Cartas de oferta</h1>
           <p className="text-sm text-neutral-600">
-            RH cria em rascunho, envia por link único e acompanha aceite digital.
+            RH cria a proposta, envia por link único e acompanha aceite digital.
           </p>
         </div>
         <Button onClick={() => setShowNew(true)}>Nova proposta</Button>
@@ -306,7 +307,7 @@ export default function PropostasVagaScreen() {
           <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-neutral-900">Nova proposta</h2>
             <p className="mt-1 text-sm text-neutral-600">
-              A proposta é criada em rascunho — clique em &quot;Enviar&quot; na listagem para gerar o link e avisar o candidato.
+              Ao criar, a proposta será enviada automaticamente por e-mail com validade de 7 dias.
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
