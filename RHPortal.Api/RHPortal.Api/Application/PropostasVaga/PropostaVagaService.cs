@@ -10,6 +10,7 @@ using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Frontend;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Application.PropostasVaga;
 
@@ -242,6 +243,7 @@ public sealed class PropostaVagaService : IPropostaVagaService
         entity.UserAgentResposta = Truncate(userAgent, 400);
         entity.UpdatedAtUtc = now;
 
+        await AplicarAceiteNoFunilAsync(entity, now, ct);
         await _db.SaveChangesAsync(ct);
         return await BuildPublicResponse(entity.Id, ct);
     }
@@ -268,6 +270,60 @@ public sealed class PropostaVagaService : IPropostaVagaService
     }
 
     // ── helpers ─────────────────────────────────────────────────────
+
+    private async Task AplicarAceiteNoFunilAsync(PropostaVaga proposta, DateTimeOffset now, CancellationToken ct)
+    {
+        var candidatura = proposta.CandidaturaId.HasValue
+            ? await _db.Candidaturas.FirstOrDefaultAsync(c => c.Id == proposta.CandidaturaId.Value, ct)
+            : await _db.Candidaturas.FirstOrDefaultAsync(c => c.VagaId == proposta.VagaId && c.CandidatoId == proposta.CandidatoId, ct);
+
+        if (candidatura is not null)
+        {
+            var etapaAnterior = candidatura.EtapaMacro;
+            if (candidatura.Status != CandidaturaStatus.Contratado || candidatura.EtapaMacro != EtapaMacroCandidatura.Contratado)
+            {
+                candidatura.Status = CandidaturaStatus.Contratado;
+                candidatura.EtapaMacro = EtapaMacroCandidatura.Contratado;
+                candidatura.EtapaAtualDesdeUtc = now;
+                candidatura.UpdatedAtUtc = now;
+            }
+
+            if (etapaAnterior != EtapaMacroCandidatura.Contratado)
+            {
+                _db.Set<CandidaturaEtapaHistorico>().Add(new CandidaturaEtapaHistorico
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = candidatura.TenantId,
+                    CandidaturaId = candidatura.Id,
+                    EtapaAnterior = etapaAnterior,
+                    EtapaNova = EtapaMacroCandidatura.Contratado,
+                    Observacao = "Proposta aceita pelo candidato.",
+                    UserId = null,
+                    EmUtc = now,
+                });
+            }
+        }
+
+        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == proposta.VagaId, ct);
+        if (vaga is null || vaga.Status is VagaStatus.Preenchida or VagaStatus.Cancelada or VagaStatus.Encerrada)
+            return;
+
+        var acceptedCount = 1 + await _db.Set<PropostaVaga>()
+            .AsNoTracking()
+            .CountAsync(p => p.Id != proposta.Id && p.VagaId == proposta.VagaId && p.Status == PropostaVagaStatus.Aceita, ct);
+
+        var headcountProvisorioAtivo = !vaga.HeadcountProvisorioExpiresAtUtc.HasValue
+            || vaga.HeadcountProvisorioExpiresAtUtc.Value >= now
+            ? vaga.HeadcountProvisorio
+            : 0;
+        var capacidade = Math.Max(1, Math.Max(vaga.QuantidadeVagas, vaga.HeadcountAutorizado + headcountProvisorioAtivo));
+
+        if (acceptedCount >= capacidade)
+        {
+            vaga.Status = VagaStatus.Preenchida;
+            vaga.UpdatedAtUtc = now;
+        }
+    }
 
     private async Task EnfileirarEmailPropostaAsync(Guid propostaId, CancellationToken ct)
     {

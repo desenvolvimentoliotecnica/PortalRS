@@ -244,16 +244,35 @@ Candidato aprovado recebe proposta formal ou segue para formalizacao manual cont
 
 ### UAT 9 - Proposta aceita
 
-**Dado que** a proposta foi aceita  
-**Quando** a Analista registrar o aceite  
-**Entao** o candidato deve avancar para **Contratado** ou para o fluxo de pre-admissao.
+**Dado que** a proposta foi enviada pelo link publico  
+**E** o candidato acessou a carta de oferta  
+**Quando** o candidato clicar em **Aceitar proposta** e confirmar o nome completo  
+**Entao** a proposta deve mudar para **Aceita**  
+**E** a candidatura deve avancar automaticamente para **Contratado**  
+**E** o aceite deve registrar evidencia digital.
 
 Checklist:
 
-- [ ] Candidatura pode ser movida para **Contratado**.
-- [ ] Pre-admissao pode ser iniciada, quando aplicavel.
-- [ ] Vaga atualiza ocupacao/headcount conforme regra do produto.
-- [ ] Historico da vaga/candidato mostra a evolucao.
+- [ ] Proposta muda para status **Aceita** na tela `/app/recrutamento/propostas-vaga`.
+- [ ] Sistema registra data/hora da resposta.
+- [ ] Sistema registra nome confirmado pelo candidato.
+- [ ] Sistema registra IP de origem.
+- [ ] Sistema registra navegador/user-agent.
+- [ ] Candidatura vinculada muda para etapa macro **Contratado**.
+- [ ] Candidatura vinculada muda para status **Contratado**.
+- [ ] Historico da candidatura registra a transicao para **Contratado** com observacao de aceite da proposta.
+- [ ] Se a vaga tinha apenas 1 posicao/headcount disponivel, a vaga muda para **Preenchida**.
+- [ ] Vaga **Preenchida** nao aparece mais no Portal de Vagas.
+- [ ] Se a vaga tinha mais de 1 posicao/headcount disponivel, a vaga permanece **Aberta** enquanto ainda houver posicao restante.
+- [ ] Pre-admissao pode ser iniciada depois do aceite, quando aplicavel.
+
+Regra esperada:
+
+```text
+Proposta Aceita -> Candidatura Contratado.
+Vaga so muda para Preenchida quando o total de propostas aceitas alcancar a capacidade da vaga.
+Capacidade considerada: maior valor entre Quantidade de Vagas e Headcount autorizado/provisorio ativo.
+```
 
 ## Fluxo de pre-admissao
 

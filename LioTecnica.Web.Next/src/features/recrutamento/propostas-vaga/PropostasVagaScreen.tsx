@@ -1,9 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, Search } from "lucide-react";
 import Swal from "sweetalert2";
 import { toast } from "sonner";
+import PaginationBar from "@/components/pagination/PaginationBar";
+import { useClientPagination } from "@/hooks/useClientPagination";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -32,8 +37,12 @@ type PropostaSentFeedback = {
   candidatoEmail: string | null;
   expiraEmUtc: string | null;
 };
+type SortCol = "vaga" | "candidato" | "salario" | "status" | "enviadaEm" | "createdAt";
+type SortDir = "asc" | "desc";
 
 type AnyRecord = Record<string, unknown>;
+
+const STATUS_FILTERS = ["Rascunho", "Enviada", "Visualizada", "Aceita", "Recusada", "Expirada", "Cancelada"] as const;
 
 function asRecord(value: unknown): AnyRecord | null {
   return value && typeof value === "object" ? (value as AnyRecord) : null;
@@ -89,6 +98,31 @@ function formatMoney(value: number | null, moeda: string | null) {
   } catch {
     return `${moeda ?? "R$"} ${value.toLocaleString("pt-BR")}`;
   }
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function dateTime(value: string | null | undefined) {
+  if (!value) return 0;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function dateOnlyTime(value: string) {
+  if (!value) return 0;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
 function statusBadgeClass(s: string) {
@@ -163,6 +197,12 @@ export default function PropostasVagaScreen() {
   const [sentFeedback, setSentFeedback] = useState<PropostaSentFeedback | null>(null);
   const [vagas, setVagas] = useState<VagaLite[]>([]);
   const [candidatos, setCandidatos] = useState<CandidatoLite[]>([]);
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [sortCol, setSortCol] = useState<SortCol>("enviadaEm");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const routePrefillHandled = useRef(false);
 
   const [form, setForm] = useState({
@@ -434,6 +474,78 @@ export default function PropostasVagaScreen() {
     return { p, statusStr: s };
   }), [items]);
 
+  const filteredRows = useMemo(() => {
+    const search = q.trim().toLowerCase();
+    const from = dateOnlyTime(dateFrom);
+    const to = dateTo ? dateOnlyTime(dateTo) + 86_399_999 : 0;
+    const dir = sortDir === "asc" ? 1 : -1;
+
+    return rows
+      .filter(({ p, statusStr }) => {
+        if (statusFilter && statusStr !== statusFilter) return false;
+        const sentAt = dateTime(p.enviadaEmUtc);
+        if (from && sentAt < from) return false;
+        if (to && sentAt > to) return false;
+        if (!search) return true;
+        return [
+          p.vagaTitulo,
+          p.candidatoNome,
+          p.candidatoEmail,
+          p.moeda,
+          statusStr,
+        ].some((value) => (value ?? "").toLowerCase().includes(search));
+      })
+      .sort((a, b) => {
+        const pa = a.p;
+        const pb = b.p;
+        switch (sortCol) {
+          case "vaga":
+            return dir * (pa.vagaTitulo ?? "").localeCompare(pb.vagaTitulo ?? "", "pt-BR");
+          case "candidato":
+            return dir * (pa.candidatoNome ?? pa.candidatoEmail ?? "").localeCompare(pb.candidatoNome ?? pb.candidatoEmail ?? "", "pt-BR");
+          case "salario":
+            return dir * ((pa.salarioOferecido ?? -1) - (pb.salarioOferecido ?? -1));
+          case "status":
+            return dir * a.statusStr.localeCompare(b.statusStr, "pt-BR");
+          case "createdAt":
+            return dir * (dateTime(pa.createdAtUtc) - dateTime(pb.createdAtUtc));
+          case "enviadaEm":
+          default:
+            return dir * (dateTime(pa.enviadaEmUtc) - dateTime(pb.enviadaEmUtc));
+        }
+      });
+  }, [dateFrom, dateTo, q, rows, sortCol, sortDir, statusFilter]);
+
+  const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filteredRows.length, {
+    initialPageSize: 20,
+    resetDeps: [q, statusFilter, dateFrom, dateTo, sortCol, sortDir],
+  });
+  const pagedRows = filteredRows.slice(slice.start, slice.end);
+  const hasFilters = Boolean(q || statusFilter || dateFrom || dateTo);
+
+  function toggleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortCol(col);
+    setSortDir(col === "enviadaEm" || col === "createdAt" ? "desc" : "asc");
+  }
+
+  function sortIcon(col: SortCol) {
+    if (sortCol !== col) return <ArrowUpDown className="inline size-3 ml-1 opacity-30" />;
+    return sortDir === "asc"
+      ? <ArrowUp className="inline size-3 ml-1" />
+      : <ArrowDown className="inline size-3 ml-1" />;
+  }
+
+  function clearFilters() {
+    setQ("");
+    setStatusFilter("");
+    setDateFrom("");
+    setDateTo("");
+  }
+
   return (
     <section className="space-y-6 p-4">
       <header className="flex items-center justify-between">
@@ -446,70 +558,172 @@ export default function PropostasVagaScreen() {
         <Button onClick={() => setShowNew(true)}>Nova proposta</Button>
       </header>
 
-      <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
-        {loading ? (
-          <div className="p-6 text-sm text-neutral-500">Carregando…</div>
-        ) : rows.length === 0 ? (
-          <div className="p-6 text-sm text-neutral-500">Nenhuma proposta criada ainda.</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-600">
-              <tr>
-                <th className="px-4 py-3">Vaga</th>
-                <th className="px-4 py-3">Candidato</th>
-                <th className="px-4 py-3">Salário</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ p, statusStr }) => (
-                <tr key={p.id} className="border-t border-neutral-100">
-                  <td className="px-4 py-3">{p.vagaTitulo ?? p.vagaId.slice(0, 8)}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-neutral-900">{p.candidatoNome ?? "—"}</div>
-                    <div className="text-xs text-neutral-500">{p.candidatoEmail ?? ""}</div>
-                  </td>
-                  <td className="px-4 py-3">{formatMoney(p.salarioOferecido, p.moeda)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${statusBadgeClass(statusStr)}`}>
-                      {statusStr}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {statusStr === "Rascunho" && (
-                        <Button size="sm" onClick={() => enviar(p)}>Enviar</Button>
-                      )}
-                      {canEditAndSend(statusStr) && (
-                        <Button size="sm" variant="outline" onClick={() => openEditProposta(p)}>
-                          Editar
-                        </Button>
-                      )}
-                      {p.accessToken && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void copiarLink(p)}
-                        >
-                          Copiar link
-                        </Button>
-                      )}
-                      {(statusStr === "Enviada" || statusStr === "Visualizada") && (
-                        <Button size="sm" variant="outline" onClick={() => void reenviarEmail(p)}>
-                          Reenviar e-mail
-                        </Button>
-                      )}
-                      {statusStr !== "Aceita" && statusStr !== "Recusada" && statusStr !== "Cancelada" && (
-                        <Button size="sm" variant="outline" onClick={() => cancelar(p)}>Cancelar</Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div className="rounded-xl border border-border/40 bg-card shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2.5">
+          <div className="relative min-w-[220px] flex-1 max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="h-8 pl-8 text-sm"
+              placeholder="Buscar vaga, candidato, e-mail ou status..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <select
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filtrar por status"
+          >
+            <option value="">Todos os status</option>
+            {STATUS_FILTERS.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => { setSortCol("enviadaEm"); setSortDir((current) => (current === "desc" ? "asc" : "desc")); }}
+            title={sortDir === "desc" ? "Mais recentes primeiro" : "Mais antigas primeiro"}
+          >
+            <CalendarDays className="size-3" />
+            {sortCol === "enviadaEm" && sortDir === "asc" ? "Antigas" : "Recentes"}
+          </button>
+          <span className="ml-auto text-[10px] text-muted-foreground tabular-nums">
+            {filteredRows.length} resultado(s)
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2">
+          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <CalendarDays className="size-3" /> Enviada em:
+          </span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            title="Data inicial de envio"
+          />
+          <span className="text-xs text-muted-foreground">–</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            title="Data final de envio"
+          />
+          {hasFilters && (
+            <button type="button" onClick={clearFilters} className="ml-auto text-[11px] text-muted-foreground underline hover:text-foreground">
+              Limpar filtros
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-x-auto px-2 py-1">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="min-w-[260px] cursor-pointer select-none" onClick={() => toggleSort("vaga")}>
+                  Vaga {sortIcon("vaga")}
+                </TableHead>
+                <TableHead className="min-w-[220px] cursor-pointer select-none" onClick={() => toggleSort("candidato")}>
+                  Candidato {sortIcon("candidato")}
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("salario")}>
+                  Salário {sortIcon("salario")}
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("enviadaEm")}>
+                  Data envio {sortIcon("enviadaEm")}
+                </TableHead>
+                <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
+                  Status {sortIcon("status")}
+                </TableHead>
+                <TableHead className="min-w-[320px] text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 6 }).map((__, j) => (
+                      <TableCell key={j}>
+                        <div className="h-4 animate-pulse rounded bg-muted" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : pagedRows.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                    {items.length === 0 ? "Nenhuma proposta criada ainda." : "Nenhuma proposta encontrada para os filtros aplicados."}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                pagedRows.map(({ p, statusStr }) => (
+                  <TableRow key={p.id} className="hover:bg-muted/40">
+                    <TableCell>
+                      <div className="font-medium text-foreground">{p.vagaTitulo ?? p.vagaId.slice(0, 8)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-foreground">{p.candidatoNome ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">{p.candidatoEmail ?? ""}</div>
+                    </TableCell>
+                    <TableCell className="text-sm tabular-nums">{formatMoney(p.salarioOferecido, p.moeda)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {formatDateTime(p.enviadaEmUtc)}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${statusBadgeClass(statusStr)}`}>
+                        {statusStr}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {statusStr === "Rascunho" && (
+                          <Button size="sm" onClick={() => enviar(p)}>Enviar</Button>
+                        )}
+                        {canEditAndSend(statusStr) && (
+                          <Button size="sm" variant="outline" onClick={() => openEditProposta(p)}>
+                            Editar
+                          </Button>
+                        )}
+                        {p.accessToken && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void copiarLink(p)}
+                          >
+                            Copiar link
+                          </Button>
+                        )}
+                        {(statusStr === "Enviada" || statusStr === "Visualizada") && (
+                          <Button size="sm" variant="outline" onClick={() => void reenviarEmail(p)}>
+                            Reenviar e-mail
+                          </Button>
+                        )}
+                        {statusStr !== "Aceita" && statusStr !== "Recusada" && statusStr !== "Cancelada" && (
+                          <Button size="sm" variant="outline" onClick={() => cancelar(p)}>Cancelar</Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="border-t border-border/40 px-4 py-3">
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            totalItems={filteredRows.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="proposta(s)"
+          />
+        </div>
       </div>
 
       {(showNew || editingProposta) && (
