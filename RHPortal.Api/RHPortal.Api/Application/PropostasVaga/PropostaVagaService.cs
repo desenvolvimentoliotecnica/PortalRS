@@ -117,6 +117,15 @@ public sealed class PropostaVagaService : IPropostaVagaService
     public async Task<IReadOnlyList<PropostaVagaResponse>> ListAsync(Guid? vagaId, Guid? candidatoId, PropostaVagaStatus? status, CancellationToken ct)
     {
         var q = _db.Set<PropostaVaga>().AsNoTracking().AsQueryable();
+        if (!_currentUser.IsAdmin)
+        {
+            var currentUserId = _currentUser.UserId;
+            q = currentUserId.HasValue
+                ? q.Where(p =>
+                    p.CriadaPorUserId == currentUserId.Value
+                    || _db.Vagas.Any(v => v.Id == p.VagaId && v.RecrutadorResponsavelUserId == currentUserId.Value))
+                : q.Where(_ => false);
+        }
         if (vagaId.HasValue) q = q.Where(p => p.VagaId == vagaId.Value);
         if (candidatoId.HasValue) q = q.Where(p => p.CandidatoId == candidatoId.Value);
         if (status.HasValue) q = q.Where(p => p.Status == status.Value);

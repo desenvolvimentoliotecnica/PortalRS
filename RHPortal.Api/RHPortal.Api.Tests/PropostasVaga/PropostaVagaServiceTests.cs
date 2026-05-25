@@ -35,6 +35,7 @@ public sealed class PropostaVagaServiceTests
         var userId = Guid.NewGuid();
         var userContext = new Mock<ICurrentUserContext>();
         userContext.Setup(x => x.UserId).Returns(userId);
+        userContext.Setup(x => x.IsAdmin).Returns(false);
 
         var notificacaoMock = new Mock<ICandidaturaNotificacaoService>();
         var candidaturaService = new CandidaturaService(
@@ -69,7 +70,7 @@ public sealed class PropostaVagaServiceTests
         return (db, service, userId);
     }
 
-    private static Guid SeedVaga(AppDbContext db, string titulo = "Dev .NET")
+    private static Guid SeedVaga(AppDbContext db, string titulo = "Dev .NET", Guid? recrutadorUserId = null)
     {
         var v = new RHPortal.Api.Domain.Entities.Vaga
         {
@@ -77,6 +78,7 @@ public sealed class PropostaVagaServiceTests
             TenantId = TenantTeste,
             Titulo = titulo,
             Status = VagaStatus.Rascunho,
+            RecrutadorResponsavelUserId = recrutadorUserId,
         };
         db.Vagas.Add(v);
         db.SaveChanges();
@@ -137,6 +139,48 @@ public sealed class PropostaVagaServiceTests
 
         var entity = await db.Set<PropostaVaga>().FirstAsync();
         Assert.Equal(userId, entity.CriadaPorUserId);
+    }
+
+    [Fact]
+    public async Task List_FiltraPorPropostasCriadasOuVagasAtribuidasAoUsuario()
+    {
+        var (db, svc, userId) = CriarServico();
+        var candId = SeedCandidato(db);
+        var vagaCriadaPorMim = SeedVaga(db, "Criada por mim", recrutadorUserId: Guid.NewGuid());
+        var vagaAtribuidaAMim = SeedVaga(db, "Atribuída a mim", recrutadorUserId: userId);
+        var vagaDeOutro = SeedVaga(db, "De outro recrutador", recrutadorUserId: Guid.NewGuid());
+
+        var criadaPorMim = await svc.CreateAsync(Request(vagaCriadaPorMim, candId), CancellationToken.None);
+        var atribuidaAMim = new PropostaVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            VagaId = vagaAtribuidaAMim,
+            CandidatoId = candId,
+            Status = PropostaVagaStatus.Rascunho,
+            CriadaPorUserId = Guid.NewGuid(),
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        var deOutro = new PropostaVaga
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            VagaId = vagaDeOutro,
+            CandidatoId = candId,
+            Status = PropostaVagaStatus.Rascunho,
+            CriadaPorUserId = Guid.NewGuid(),
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+        db.Set<PropostaVaga>().AddRange(atribuidaAMim, deOutro);
+        await db.SaveChangesAsync();
+
+        var result = await svc.ListAsync(null, null, null, CancellationToken.None);
+
+        Assert.Contains(result, p => p.Id == criadaPorMim.Id);
+        Assert.Contains(result, p => p.Id == atribuidaAMim.Id);
+        Assert.DoesNotContain(result, p => p.Id == deOutro.Id);
     }
 
     [Fact]
