@@ -12,7 +12,7 @@ import {
     saveWizardProgress,
     type AdmissaoPortalSession,
 } from "./publicApi";
-import { type DadosPessoais, useAdmissaoWizardStore } from "./useAdmissaoWizardStore";
+import { type DadosPessoais as WizardDadosPessoais, useAdmissaoWizardStore } from "./useAdmissaoWizardStore";
 import WizardLayout from "./components/WizardLayout";
 import WizardSidebar from "./components/WizardSidebar";
 import WelcomeStep from "./steps/WelcomeStep";
@@ -105,7 +105,7 @@ export default function DocumentoAdmissaoScreen() {
             setData(body);
 
             // Hydrate store
-            setFormData(body.dadosPessoais as Partial<DadosPessoais>);
+            setFormData(body.dadosPessoais as Partial<WizardDadosPessoais>);
             setDependentes(body.dependentes ?? []);
             if (body.wizardCurrentStep != null) setStep(body.wizardCurrentStep);
             if (body.dependentes && body.dependentes.length > 0) setHasDependentes(true);
