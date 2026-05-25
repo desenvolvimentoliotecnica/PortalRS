@@ -7,7 +7,9 @@ using RhPortal.Api.Contracts.PropostaVaga;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Frontend;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 using RHPortal.Api.Domain.Enums;
 using Xunit;
 
@@ -40,7 +42,30 @@ public sealed class PropostaVagaServiceTests
             notificacaoMock.Object,
             NullLogger<CandidaturaService>.Instance);
 
-        var service = new PropostaVagaService(db, tenantMock.Object, userContext.Object, candidaturaService);
+        var emailQueue = new Mock<IEmailQueueService>();
+        emailQueue
+            .Setup(x => x.EnqueueRawAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailMessage { Id = Guid.NewGuid(), TenantId = TenantTeste, To = "teste@ex.com", Subject = "teste", BodyHtml = "teste" });
+
+        var frontendUrls = new Mock<IFrontendPublicUrlBuilder>();
+        frontendUrls
+            .Setup(x => x.BuildAbsoluteUrl(It.IsAny<string>()))
+            .Returns((string path) => $"https://portal.test{path}");
+
+        var service = new PropostaVagaService(
+            db,
+            tenantMock.Object,
+            userContext.Object,
+            candidaturaService,
+            emailQueue.Object,
+            frontendUrls.Object);
         return (db, service, userId);
     }
 
