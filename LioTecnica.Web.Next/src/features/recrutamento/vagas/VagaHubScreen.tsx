@@ -20,6 +20,7 @@ import {
   MapPin,
   PenSquare,
   RefreshCw,
+  Send,
   ShieldCheck,
   Sparkles,
   Target,
@@ -144,11 +145,48 @@ type KanbanCandidaturasLiteResponse = {
   colunas?: Array<{ itens?: KanbanCandidaturaLite[] }>;
 };
 
+type PropostaVagaHubResponse = {
+  id: string;
+  status: string | number;
+  accessToken: string | null;
+};
+
+type WorkflowRhHubItem = {
+  id: string;
+  status?: number;
+  statusLabel?: string;
+  totalEtapas?: number;
+  etapasConcluidas?: number;
+  etapas?: Array<{ label: string; status: number; ordem: number }>;
+};
+
+type WorkflowRhHubResponse = WorkflowRhHubItem[] | { items?: WorkflowRhHubItem[] };
+
 function normalizeEtapaMacro(value: string | number | null | undefined): string {
   if (typeof value === "number") {
     return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu"][value] ?? "Aplicada";
   }
   return value ?? "Aplicada";
+}
+
+function resolvePropostaStatus(value: string | number): string {
+  if (typeof value === "number") {
+    return ["Rascunho", "Enviada", "Visualizada", "Aceita", "Recusada", "Expirada", "Cancelada"][value] ?? "Rascunho";
+  }
+  return value;
+}
+
+async function parseApiErrorMessage(res: Response): Promise<string> {
+  const raw = await res.text().catch(() => "");
+  if (!raw.trim()) return `HTTP ${res.status}`;
+  try {
+    const json = JSON.parse(raw) as Record<string, unknown>;
+    const message = json.message ?? json.detail ?? json.title;
+    if (typeof message === "string" && message.trim()) return message.trim();
+  } catch {
+    /* mantém retorno em texto abaixo */
+  }
+  return raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
 }
 
 function isCandidateReadyForApproval(candidate: CandidateRow): boolean {
@@ -419,11 +457,18 @@ function HistoricoTimeline({ vagaId }: { vagaId: string }) {
 
   useEffect(() => {
     if (!vagaId) return;
-    setLoading(true);
-    apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/historico`)
-      .then(async (res) => { if (res.ok) setEvents(await res.json() as HistoricoEvent[]); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let active = true;
+    const loadHistorico = async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/historico`);
+        if (res.ok && active) setEvents(await res.json() as HistoricoEvent[]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadHistorico();
+    return () => { active = false; };
   }, [vagaId]);
 
   if (loading) return <div className="text-center py-6 text-sm text-muted-foreground">Carregando histórico...</div>;
@@ -682,7 +727,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       const [data, candListData, wfData, kanbanData] = await Promise.all([
         fetchJson<VagaData>(`/api/vagas/${encodeURIComponent(vagaId)}`),
         fetchJson<{ totalCount?: number; items?: CandidateRow[] }>(`/api/candidatos?vagaId=${encodeURIComponent(vagaId)}&pageSize=100`).catch(() => null),
-        fetchJson<any>(`/api/workflow-rh?vagaId=${encodeURIComponent(vagaId)}&pageSize=1`).catch(() => null),
+        fetchJson<WorkflowRhHubResponse>(`/api/workflow-rh?vagaId=${encodeURIComponent(vagaId)}&pageSize=1`).catch(() => null),
         fetchJson<KanbanCandidaturasLiteResponse>(`/api/candidaturas/kanban?vagaId=${encodeURIComponent(vagaId)}`).catch(() => null),
       ]);
       setVaga(data);
@@ -798,6 +843,33 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
       toast.error(e instanceof Error ? e.message : "Falha ao publicar vaga.");
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function reenviarPropostaCandidato(candidatoId: string) {
+    try {
+      const params = new URLSearchParams({ vagaId, candidatoId });
+      const propostas = await fetchJson<PropostaVagaHubResponse[]>(`/api/propostas-vaga?${params.toString()}`);
+      const proposta = propostas.find((p) => {
+        const statusProposta = resolvePropostaStatus(p.status);
+        return statusProposta === "Enviada" || statusProposta === "Visualizada";
+      });
+
+      if (!proposta) {
+        toast.error("Nenhuma proposta enviada ou visualizada foi encontrada para este candidato nesta vaga.");
+        return;
+      }
+
+      const res = await apiFetch(`/api/propostas-vaga/${encodeURIComponent(proposta.id)}/reenviar-email`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(await parseApiErrorMessage(res));
+
+      toast.success("E-mail da proposta reenviado.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao reenviar proposta.");
     }
   }
 
@@ -1227,6 +1299,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             }}
             onViewCandidate={(id) => void openEditCandidate(id, "view")}
             onEditCandidate={(id) => void openEditCandidate(id)}
+            onReenviarProposta={(c) => void reenviarPropostaCandidato(c.id)}
             onApproveCandidate={(c) => {
               if (!isCandidateReadyForApproval(c)) {
                 toast.error("A aprovação do candidato só fica disponível após a candidatura chegar na etapa Proposta.");
@@ -1611,7 +1684,20 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                 </p>
                 <div className="text-lg font-extrabold">{candidateFormReadOnly ? "Dados do candidato" : "Cadastro"}</div>
               </div>
-              <Button variant="outline" size="sm" onClick={closeCandidateForm}>Fechar</Button>
+              <div className="flex flex-wrap justify-end gap-2">
+                {candidateFormReadOnly && editingCandidateId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => void reenviarPropostaCandidato(editingCandidateId)}
+                  >
+                    <Send className="size-3.5" />
+                    Reenviar proposta
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={closeCandidateForm}>Fechar</Button>
+              </div>
             </div>
             <div className="mt-4 space-y-4">
             {/* Vaga (travada) */}

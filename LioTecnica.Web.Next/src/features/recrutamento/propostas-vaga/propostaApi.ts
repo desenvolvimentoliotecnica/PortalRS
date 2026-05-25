@@ -119,6 +119,15 @@ export async function enviarProposta(id: string, prazoDiasResposta?: number): Pr
   return (await res.json()) as PropostaVagaResponse;
 }
 
+export async function reenviarEmailProposta(id: string): Promise<PropostaVagaResponse> {
+  const res = await apiFetch(`/api/propostas-vaga/${id}/reenviar-email`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message ?? `HTTP_${res.status}`);
+  }
+  return (await res.json()) as PropostaVagaResponse;
+}
+
 export async function cancelarProposta(id: string): Promise<PropostaVagaResponse> {
   const res = await apiFetch(`/api/propostas-vaga/${id}/cancelar`, { method: "POST" });
   if (!res.ok) {

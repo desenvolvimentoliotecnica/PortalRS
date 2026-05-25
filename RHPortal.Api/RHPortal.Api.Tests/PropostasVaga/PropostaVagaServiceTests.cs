@@ -220,6 +220,41 @@ public sealed class PropostaVagaServiceTests
             svc.EnviarAsync(r.Id, null, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ReenviarEmail_ReaproveitaTokenDePropostaEnviada()
+    {
+        var (db, svc, _) = CriarServico();
+        var vagaId = SeedVaga(db);
+        var candId = SeedCandidato(db);
+        var r = await svc.CreateAsync(Request(vagaId, candId), CancellationToken.None);
+        var sent = await svc.EnviarAsync(r.Id, null, CancellationToken.None);
+        var tokenOriginal = sent!.AccessToken;
+
+        var resent = await svc.ReenviarEmailAsync(r.Id, CancellationToken.None);
+
+        Assert.NotNull(resent);
+        Assert.Equal(PropostaVagaStatus.Enviada, resent!.Status);
+        Assert.Equal(tokenOriginal, resent.AccessToken);
+    }
+
+    [Fact]
+    public async Task ReenviarEmail_Expirada_MarcaExpiradaELancaErro()
+    {
+        var (db, svc, _) = CriarServico();
+        var vagaId = SeedVaga(db);
+        var candId = SeedCandidato(db);
+        var r = await svc.CreateAsync(Request(vagaId, candId), CancellationToken.None);
+        await svc.EnviarAsync(r.Id, null, CancellationToken.None);
+
+        var entity = await db.Set<PropostaVaga>().FirstAsync(p => p.Id == r.Id);
+        entity.ExpiraEmUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.ReenviarEmailAsync(r.Id, CancellationToken.None));
+        Assert.Equal(PropostaVagaStatus.Expirada, entity.Status);
+    }
+
     // ── Fluxo público via token ─────────────────────────────────────
 
     [Fact]
