@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Swal from "sweetalert2";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -288,10 +289,28 @@ export default function PropostasVagaScreen() {
   };
 
   const cancelar = async (p: PropostaVagaResponse) => {
-    if (!window.confirm("Cancelar esta proposta? O candidato não conseguirá mais aceitar.")) return;
+    const result = await Swal.fire({
+      title: "Cancelar proposta?",
+      text: "O candidato não conseguirá mais visualizar ou aceitar esta proposta.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sim, cancelar",
+      cancelButtonText: "Manter proposta",
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#0f766e",
+    });
+    if (!result.isConfirmed) return;
+
     try {
       await cancelarProposta(p.id);
       toast.success("Proposta cancelada.");
+      await Swal.fire({
+        title: "Proposta cancelada",
+        text: "A proposta foi cancelada com sucesso.",
+        icon: "success",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#0f766e",
+      });
       await load();
     } catch (err) {
       toast.error((err as Error).message ?? "Falha ao cancelar.");
@@ -302,9 +321,43 @@ export default function PropostasVagaScreen() {
     try {
       await reenviarEmailProposta(p.id);
       toast.success("E-mail da proposta reenviado.");
+      await Swal.fire({
+        title: "E-mail reenviado!",
+        text: "A proposta foi enviada novamente para o candidato.",
+        icon: "success",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#0f766e",
+      });
       await load();
     } catch (err) {
       toast.error((err as Error).message ?? "Falha ao reenviar proposta.");
+    }
+  };
+
+  const copiarLink = async (p: PropostaVagaResponse) => {
+    if (!p.accessToken) return;
+    const url = `${window.location.origin}/app/PortalVagas/Proposta?token=${encodeURIComponent(p.accessToken)}&tenantId=${encodeURIComponent(
+      (localStorage.getItem("tenantId") ?? "").trim(),
+    )}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado.");
+      await Swal.fire({
+        title: "Link copiado!",
+        text: "O link público da proposta foi copiado para a área de transferência.",
+        icon: "success",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#0f766e",
+      });
+    } catch {
+      toast.error("Falha ao copiar.");
+      await Swal.fire({
+        title: "Não foi possível copiar",
+        text: "Copie o link manualmente ou tente novamente.",
+        icon: "error",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#dc2626",
+      });
     }
   };
 
@@ -369,15 +422,7 @@ export default function PropostasVagaScreen() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            const url = `${window.location.origin}/app/PortalVagas/Proposta?token=${encodeURIComponent(p.accessToken ?? "")}&tenantId=${encodeURIComponent(
-                              (localStorage.getItem("tenantId") ?? "").trim(),
-                            )}`;
-                            navigator.clipboard.writeText(url).then(
-                              () => toast.success("Link copiado."),
-                              () => toast.error("Falha ao copiar."),
-                            );
-                          }}
+                          onClick={() => void copiarLink(p)}
                         >
                           Copiar link
                         </Button>
