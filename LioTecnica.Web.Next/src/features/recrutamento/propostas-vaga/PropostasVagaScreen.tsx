@@ -106,6 +106,36 @@ function canEditAndSend(status: string) {
   return status === "Rascunho" || status === "Enviada" || status === "Visualizada";
 }
 
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Em HTTP/IP local o Clipboard API pode falhar; usamos fallback abaixo.
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
 export default function PropostasVagaScreen() {
   const [items, setItems] = useState<PropostaVagaResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -339,8 +369,9 @@ export default function PropostasVagaScreen() {
     const url = `${window.location.origin}/app/PortalVagas/Proposta?token=${encodeURIComponent(p.accessToken)}&tenantId=${encodeURIComponent(
       (localStorage.getItem("tenantId") ?? "").trim(),
     )}`;
-    try {
-      await navigator.clipboard.writeText(url);
+
+    const copied = await copyTextToClipboard(url);
+    if (copied) {
       toast.success("Link copiado.");
       await Swal.fire({
         title: "Link copiado!",
@@ -349,16 +380,23 @@ export default function PropostasVagaScreen() {
         confirmButtonText: "OK",
         confirmButtonColor: "#0f766e",
       });
-    } catch {
-      toast.error("Falha ao copiar.");
-      await Swal.fire({
-        title: "Não foi possível copiar",
-        text: "Copie o link manualmente ou tente novamente.",
-        icon: "error",
-        confirmButtonText: "OK",
-        confirmButtonColor: "#dc2626",
-      });
+      return;
     }
+
+    toast.error("Falha ao copiar automaticamente.");
+    await Swal.fire({
+      title: "Copie o link manualmente",
+      text: "Seu navegador bloqueou a cópia automática. Selecione o link abaixo e copie.",
+      input: "textarea",
+      inputValue: url,
+      inputAttributes: {
+        readonly: "true",
+        "aria-label": "Link público da proposta",
+      },
+      icon: "info",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#0f766e",
+    });
   };
 
   const rows = useMemo(() => items.map((p) => {
