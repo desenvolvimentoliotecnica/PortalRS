@@ -1,8 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { apiJson } from "@/lib/api";
 import {
   cancelarProposta,
@@ -11,11 +18,18 @@ import {
   listPropostas,
   reenviarEmailProposta,
   resolveStatus,
+  updateProposta,
   type PropostaVagaResponse,
 } from "./propostaApi";
 
 type VagaLite = { id: string; titulo: string | null };
 type CandidatoLite = { id: string; nome: string | null; email: string | null };
+type PropostaSentFeedback = {
+  vagaTitulo: string | null;
+  candidatoNome: string | null;
+  candidatoEmail: string | null;
+  expiraEmUtc: string | null;
+};
 
 type AnyRecord = Record<string, unknown>;
 
@@ -87,12 +101,19 @@ function statusBadgeClass(s: string) {
   }
 }
 
+function canEditAndSend(status: string) {
+  return status === "Rascunho" || status === "Enviada" || status === "Visualizada";
+}
+
 export default function PropostasVagaScreen() {
   const [items, setItems] = useState<PropostaVagaResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
+  const [editingProposta, setEditingProposta] = useState<PropostaVagaResponse | null>(null);
+  const [sentFeedback, setSentFeedback] = useState<PropostaSentFeedback | null>(null);
   const [vagas, setVagas] = useState<VagaLite[]>([]);
   const [candidatos, setCandidatos] = useState<CandidatoLite[]>([]);
+  const routePrefillHandled = useRef(false);
 
   const [form, setForm] = useState({
     vagaId: "",
@@ -120,20 +141,46 @@ export default function PropostasVagaScreen() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
+    if (loading || routePrefillHandled.current) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("new") !== "1") return;
     const prefillVagaId = params.get("vagaId") ?? "";
     const prefillCandidatoId = params.get("candidatoId") ?? "";
+    const existing = items.find((p) => (
+      p.vagaId === prefillVagaId
+      && p.candidatoId === prefillCandidatoId
+      && canEditAndSend(resolveStatus(p.status))
+    ));
+
+    routePrefillHandled.current = true;
+    if (existing) {
+      setForm({
+        vagaId: existing.vagaId,
+        candidatoId: existing.candidatoId,
+        moeda: existing.moeda ?? "BRL",
+        salarioOferecido: existing.salarioOferecido != null ? String(existing.salarioOferecido) : "",
+        descricaoBeneficios: existing.descricaoBeneficios ?? "",
+        dataPrevistaInicio: existing.dataPrevistaInicio ? existing.dataPrevistaInicio.slice(0, 10) : "",
+        mensagemPersonalizada: existing.mensagemPersonalizada ?? "",
+        observacaoInternaRh: existing.observacaoInternaRh ?? "",
+      });
+      setEditingProposta(existing);
+      setShowNew(false);
+      toast.info("Já existe proposta para este candidato nesta vaga. Abrimos para edição e reenvio.");
+      return;
+    }
+
+    setEditingProposta(null);
     setShowNew(true);
     setForm((f) => ({
       ...f,
       vagaId: prefillVagaId || f.vagaId,
       candidatoId: prefillCandidatoId || f.candidatoId,
     }));
-  }, []);
+  }, [items, loading]);
 
   useEffect(() => {
-    if (!showNew) return;
+    if (!showNew && !editingProposta) return;
     const ac = new AbortController();
     (async () => {
       try {
@@ -148,12 +195,46 @@ export default function PropostasVagaScreen() {
       } catch { /* ignore */ }
     })();
     return () => ac.abort();
-  }, [showNew]);
+  }, [showNew, editingProposta]);
 
   const resetForm = () => setForm({
     vagaId: "", candidatoId: "", moeda: "BRL", salarioOferecido: "",
     descricaoBeneficios: "", dataPrevistaInicio: "",
     mensagemPersonalizada: "", observacaoInternaRh: "",
+  });
+
+  function fillFormFromProposta(p: PropostaVagaResponse) {
+    setForm({
+      vagaId: p.vagaId,
+      candidatoId: p.candidatoId,
+      moeda: p.moeda ?? "BRL",
+      salarioOferecido: p.salarioOferecido != null ? String(p.salarioOferecido) : "",
+      descricaoBeneficios: p.descricaoBeneficios ?? "",
+      dataPrevistaInicio: p.dataPrevistaInicio ? p.dataPrevistaInicio.slice(0, 10) : "",
+      mensagemPersonalizada: p.mensagemPersonalizada ?? "",
+      observacaoInternaRh: p.observacaoInternaRh ?? "",
+    });
+  }
+
+  function openEditProposta(p: PropostaVagaResponse) {
+    fillFormFromProposta(p);
+    setEditingProposta(p);
+    setShowNew(false);
+  }
+
+  function closeProposalModal() {
+    setShowNew(false);
+    setEditingProposta(null);
+    resetForm();
+  }
+
+  const propostaPayload = () => ({
+    moeda: form.moeda || null,
+    salarioOferecido: form.salarioOferecido ? Number(form.salarioOferecido) : null,
+    descricaoBeneficios: form.descricaoBeneficios || null,
+    dataPrevistaInicio: form.dataPrevistaInicio || null,
+    mensagemPersonalizada: form.mensagemPersonalizada || null,
+    observacaoInternaRh: form.observacaoInternaRh || null,
   });
 
   const submitNew = async () => {
@@ -162,23 +243,33 @@ export default function PropostasVagaScreen() {
       return;
     }
     try {
+      if (editingProposta) {
+        await updateProposta(editingProposta.id, propostaPayload());
+        const status = resolveStatus(editingProposta.status);
+        const enviada = status === "Rascunho"
+          ? await enviarProposta(editingProposta.id, 7)
+          : await reenviarEmailProposta(editingProposta.id);
+        toast.success(status === "Rascunho"
+          ? "Proposta atualizada e enviada com validade de 7 dias."
+          : "Proposta atualizada e reenviada por e-mail.");
+        setSentFeedback(toSentFeedback(enviada));
+        closeProposalModal();
+        await load();
+        return;
+      }
+
       const criada = await createProposta({
         vagaId: form.vagaId,
         candidatoId: form.candidatoId,
-        moeda: form.moeda || null,
-        salarioOferecido: form.salarioOferecido ? Number(form.salarioOferecido) : null,
-        descricaoBeneficios: form.descricaoBeneficios || null,
-        dataPrevistaInicio: form.dataPrevistaInicio || null,
-        mensagemPersonalizada: form.mensagemPersonalizada || null,
-        observacaoInternaRh: form.observacaoInternaRh || null,
+        ...propostaPayload(),
       });
-      await enviarProposta(criada.id, 7);
+      const enviada = await enviarProposta(criada.id, 7);
       toast.success("Proposta criada e enviada com validade de 7 dias.");
-      setShowNew(false);
-      resetForm();
+      setSentFeedback(toSentFeedback(enviada));
+      closeProposalModal();
       await load();
     } catch (err) {
-      toast.error((err as Error).message ?? "Falha ao criar proposta.");
+      toast.error((err as Error).message ?? "Falha ao salvar proposta.");
     }
   };
 
@@ -187,8 +278,9 @@ export default function PropostasVagaScreen() {
     if (dias === null) return;
     const n = Number(dias);
     try {
-      await enviarProposta(p.id, Number.isFinite(n) && n > 0 ? n : undefined);
+      const enviada = await enviarProposta(p.id, Number.isFinite(n) && n > 0 ? n : undefined);
       toast.success("Proposta enviada — token gerado.");
+      setSentFeedback(toSentFeedback(enviada));
       await load();
     } catch (err) {
       toast.error((err as Error).message ?? "Falha ao enviar.");
@@ -268,6 +360,11 @@ export default function PropostasVagaScreen() {
                       {statusStr === "Rascunho" && (
                         <Button size="sm" onClick={() => enviar(p)}>Enviar</Button>
                       )}
+                      {canEditAndSend(statusStr) && (
+                        <Button size="sm" variant="outline" onClick={() => openEditProposta(p)}>
+                          Editar
+                        </Button>
+                      )}
                       {p.accessToken && (
                         <Button
                           size="sm"
@@ -302,12 +399,16 @@ export default function PropostasVagaScreen() {
         )}
       </div>
 
-      {showNew && (
+      {(showNew || editingProposta) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-neutral-900">Nova proposta</h2>
+            <h2 className="text-lg font-semibold text-neutral-900">
+              {editingProposta ? "Editar proposta" : "Nova proposta"}
+            </h2>
             <p className="mt-1 text-sm text-neutral-600">
-              Ao criar, a proposta será enviada automaticamente por e-mail com validade de 7 dias.
+              {editingProposta
+                ? "Ao salvar, a proposta será atualizada e reenviada por e-mail ao candidato."
+                : "Ao criar, a proposta será enviada automaticamente por e-mail com validade de 7 dias."}
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -317,8 +418,14 @@ export default function PropostasVagaScreen() {
                   className="w-full rounded-md border border-neutral-300 px-3 py-2"
                   value={form.vagaId}
                   onChange={(e) => setForm((f) => ({ ...f, vagaId: e.target.value }))}
+                  disabled={editingProposta !== null}
                 >
                   <option value="">Selecione…</option>
+                  {editingProposta && (
+                    <option value={editingProposta.vagaId}>
+                      {editingProposta.vagaTitulo ?? editingProposta.vagaId.slice(0, 8)}
+                    </option>
+                  )}
                   {vagas.map((v) => (
                     <option key={v.id} value={v.id}>{v.titulo ?? v.id.slice(0, 8)}</option>
                   ))}
@@ -330,8 +437,14 @@ export default function PropostasVagaScreen() {
                   className="w-full rounded-md border border-neutral-300 px-3 py-2"
                   value={form.candidatoId}
                   onChange={(e) => setForm((f) => ({ ...f, candidatoId: e.target.value }))}
+                  disabled={editingProposta !== null}
                 >
                   <option value="">Selecione…</option>
+                  {editingProposta && (
+                    <option value={editingProposta.candidatoId}>
+                      {editingProposta.candidatoNome ?? editingProposta.candidatoEmail ?? editingProposta.candidatoId.slice(0, 8)}
+                    </option>
+                  )}
                   {candidatos.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nome ?? c.email ?? c.id.slice(0, 8)}
@@ -396,12 +509,56 @@ export default function PropostasVagaScreen() {
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setShowNew(false); resetForm(); }}>Cancelar</Button>
-              <Button onClick={submitNew}>Criar proposta</Button>
+              <Button variant="outline" onClick={closeProposalModal}>Cancelar</Button>
+              <Button onClick={submitNew}>
+                {editingProposta
+                  ? resolveStatus(editingProposta.status) === "Rascunho" ? "Salvar e enviar" : "Salvar e reenviar"
+                  : "Criar e enviar"}
+              </Button>
             </div>
           </div>
         </div>
       )}
+
+      <Dialog open={sentFeedback !== null} onOpenChange={(open) => !open && setSentFeedback(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-2 flex size-14 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700">
+              ✓
+            </div>
+            <DialogTitle className="text-center text-xl">Proposta enviada com sucesso!</DialogTitle>
+          </DialogHeader>
+          {sentFeedback && (
+            <div className="space-y-3 rounded-lg bg-emerald-50 p-4 text-sm text-emerald-950">
+              <p>
+                O e-mail da proposta foi enviado para{" "}
+                <strong>{sentFeedback.candidatoNome ?? sentFeedback.candidatoEmail ?? "o candidato"}</strong>.
+              </p>
+              <div className="space-y-1 text-xs text-emerald-900/80">
+                <div>Vaga: <strong>{sentFeedback.vagaTitulo ?? "—"}</strong></div>
+                {sentFeedback.candidatoEmail && <div>E-mail: {sentFeedback.candidatoEmail}</div>}
+                {sentFeedback.expiraEmUtc && (
+                  <div>Validade: {new Date(sentFeedback.expiraEmUtc).toLocaleString("pt-BR")}</div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setSentFeedback(null)}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
+}
+
+function toSentFeedback(proposta: PropostaVagaResponse): PropostaSentFeedback {
+  return {
+    vagaTitulo: proposta.vagaTitulo,
+    candidatoNome: proposta.candidatoNome,
+    candidatoEmail: proposta.candidatoEmail,
+    expiraEmUtc: proposta.expiraEmUtc,
+  };
 }
