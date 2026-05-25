@@ -1,11 +1,15 @@
 using System.Security.Cryptography;
+using System.Globalization;
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Application.Candidaturas;
 using RhPortal.Api.Contracts.PropostaVaga;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Frontend;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.PropostasVaga;
 
@@ -31,17 +35,23 @@ public sealed class PropostaVagaService : IPropostaVagaService
     private readonly ITenantContext _tenant;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICandidaturaService _candidaturaService;
+    private readonly IEmailQueueService _emailQueue;
+    private readonly IFrontendPublicUrlBuilder _frontendUrls;
 
     public PropostaVagaService(
         AppDbContext db,
         ITenantContext tenant,
         ICurrentUserContext currentUser,
-        ICandidaturaService candidaturaService)
+        ICandidaturaService candidaturaService,
+        IEmailQueueService emailQueue,
+        IFrontendPublicUrlBuilder frontendUrls)
     {
         _db = db;
         _tenant = tenant;
         _currentUser = currentUser;
         _candidaturaService = candidaturaService;
+        _emailQueue = emailQueue;
+        _frontendUrls = frontendUrls;
     }
 
     public async Task<PropostaVagaResponse> CreateAsync(PropostaVagaCreateRequest request, CancellationToken ct)
@@ -150,6 +160,7 @@ public sealed class PropostaVagaService : IPropostaVagaService
         entity.UpdatedAtUtc = now;
 
         await _db.SaveChangesAsync(ct);
+        await EnfileirarEmailPropostaAsync(entity.Id, ct);
         return await BuildResponse(id, ct);
     }
 
@@ -226,6 +237,90 @@ public sealed class PropostaVagaService : IPropostaVagaService
     }
 
     // ── helpers ─────────────────────────────────────────────────────
+
+    private async Task EnfileirarEmailPropostaAsync(Guid propostaId, CancellationToken ct)
+    {
+        var row = await (
+            from prop in _db.Set<PropostaVaga>().AsNoTracking()
+            where prop.Id == propostaId
+            join vaga in _db.Vagas.AsNoTracking() on prop.VagaId equals vaga.Id into vagas
+            from vaga in vagas.DefaultIfEmpty()
+            join candidato in _db.Candidatos.AsNoTracking() on prop.CandidatoId equals candidato.Id into candidatos
+            from candidato in candidatos.DefaultIfEmpty()
+            select new { Proposta = prop, Vaga = vaga, Candidato = candidato })
+            .FirstOrDefaultAsync(ct);
+
+        if (row?.Candidato is null || string.IsNullOrWhiteSpace(row.Candidato.Email) || string.IsNullOrWhiteSpace(row.Proposta.AccessToken))
+            return;
+
+        var tenantId = _tenant.TenantId ?? "";
+        var link = _frontendUrls.BuildAbsoluteUrl(
+            $"/PortalVagas/Proposta/{Uri.EscapeDataString(row.Proposta.AccessToken)}?tenantId={Uri.EscapeDataString(tenantId)}");
+        var candidatoNome = row.Candidato.Nome?.Trim();
+        var vagaTitulo = row.Vaga?.Titulo?.Trim();
+        var empresaNome = await ResolverEmpresaNomeAsync(ct);
+        var prazo = row.Proposta.ExpiraEmUtc.HasValue
+            ? row.Proposta.ExpiraEmUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("pt-BR"))
+            : "não informado";
+
+        var subject = $"Proposta enviada — {SafeText(vagaTitulo, "vaga")}";
+        var bodyText = $"""
+            Olá, {SafeText(candidatoNome, "candidato")}!
+
+            Ficamos felizes em te enviar uma proposta para o cargo de "{SafeText(vagaTitulo, "vaga")}".
+            Você pode visualizar e aceitar pelo link abaixo:
+
+            {link}
+
+            Prazo: {prazo}
+
+            {SafeText(empresaNome, "Portal de RH")} — RH
+            """;
+
+        var bodyHtml = $"""
+            <p>Olá, {Html(candidatoNome, "candidato")}!</p>
+            <p>Ficamos felizes em te enviar uma proposta para o cargo de &quot;{Html(vagaTitulo, "vaga")}&quot;.<br>
+            Você pode visualizar e aceitar pelo link abaixo:</p>
+            <p><a href="{WebUtility.HtmlEncode(link)}">{WebUtility.HtmlEncode(link)}</a></p>
+            <p>Prazo: {WebUtility.HtmlEncode(prazo)}</p>
+            <p>{Html(empresaNome, "Portal de RH")} — RH</p>
+            """;
+
+        await _emailQueue.EnqueueRawAsync(
+            row.Candidato.Email.Trim(),
+            subject,
+            bodyHtml,
+            bodyText,
+            isSystem: true,
+            source: "proposta-vaga",
+            ct);
+    }
+
+    private async Task<string> ResolverEmpresaNomeAsync(CancellationToken ct)
+    {
+        var empresa = await _db.Empresas
+            .AsNoTracking()
+            .Where(e => e.IsActive && !string.IsNullOrWhiteSpace(e.Description))
+            .OrderBy(e => e.Description)
+            .Select(e => e.Description)
+            .FirstOrDefaultAsync(ct);
+        if (!string.IsNullOrWhiteSpace(empresa))
+            return empresa.Trim();
+
+        var branding = await _db.TenantBrandings
+            .AsNoTracking()
+            .Where(b => !string.IsNullOrWhiteSpace(b.NomePortal))
+            .Select(b => b.NomePortal)
+            .FirstOrDefaultAsync(ct);
+
+        return string.IsNullOrWhiteSpace(branding) ? "Portal de RH" : branding.Trim();
+    }
+
+    private static string SafeText(string? value, string fallback)
+        => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+
+    private static string Html(string? value, string fallback)
+        => WebUtility.HtmlEncode(SafeText(value, fallback));
 
     private async Task<PropostaVaga?> FindAndMaybeExpireAsync(string token, CancellationToken ct)
     {

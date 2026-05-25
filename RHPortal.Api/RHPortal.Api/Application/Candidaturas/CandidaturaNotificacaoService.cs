@@ -90,6 +90,8 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         CancellationToken ct)
     {
         if (etapaAnterior == etapaNova) return;
+        if (etapaNova == EtapaMacroCandidatura.Proposta)
+            return;
 
         var cand = await _db.Candidaturas
             .AsNoTracking()
