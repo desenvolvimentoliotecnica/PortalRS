@@ -12,7 +12,7 @@ import {
     saveWizardProgress,
     type AdmissaoPortalSession,
 } from "./publicApi";
-import { useAdmissaoWizardStore } from "./useAdmissaoWizardStore";
+import { type DadosPessoais, useAdmissaoWizardStore } from "./useAdmissaoWizardStore";
 import WizardLayout from "./components/WizardLayout";
 import WizardSidebar from "./components/WizardSidebar";
 import WelcomeStep from "./steps/WelcomeStep";
@@ -58,7 +58,18 @@ export default function DocumentoAdmissaoScreen() {
     // Prevents saveWizardProgress from overwriting the server step before loadData has restored it
     const hydratedRef = useRef(false);
 
-    const store = useAdmissaoWizardStore();
+    const {
+        currentStep,
+        formData,
+        reset,
+        setDependentes,
+        setFormData,
+        setHasDependentes,
+        setStep,
+        setUploadedDoc,
+        setUploadedDocVerso,
+        computeCompletionPercent,
+    } = useAdmissaoWizardStore();
 
     // Check existing session
     useEffect(() => {
@@ -76,15 +87,28 @@ export default function DocumentoAdmissaoScreen() {
         setLoading(true);
         try {
             const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}`, session.cpf);
-            if (!res.ok) { toast.error("Erro ao carregar dados."); return; }
+            if (!res.ok) {
+                const body = await res.json().catch(() => null) as { message?: string } | null;
+                if (res.status === 401) {
+                    clearAdmissaoPortalSession(session.tenantId);
+                    setSession(null);
+                    reset();
+                    hydratedRef.current = false;
+                    setPhase("login");
+                    toast.error(body?.message || "Sessão expirada ou CPF não confere. Informe o CPF novamente.");
+                    return;
+                }
+                toast.error(body?.message || "Erro ao carregar dados.");
+                return;
+            }
             const body = await res.json() as PortalData;
             setData(body);
 
             // Hydrate store
-            store.setFormData(body.dadosPessoais as any);
-            store.setDependentes(body.dependentes ?? []);
-            if (body.wizardCurrentStep != null) store.setStep(body.wizardCurrentStep);
-            if (body.dependentes && body.dependentes.length > 0) store.setHasDependentes(true);
+            setFormData(body.dadosPessoais as Partial<DadosPessoais>);
+            setDependentes(body.dependentes ?? []);
+            if (body.wizardCurrentStep != null) setStep(body.wizardCurrentStep);
+            if (body.dependentes && body.dependentes.length > 0) setHasDependentes(true);
             hydratedRef.current = true;
 
             // Hydrate uploaded docs — roteia frente/verso para slots corretos
@@ -97,14 +121,14 @@ export default function DocumentoAdmissaoScreen() {
                     presignedUrl: doc.presignedUrl,
                 };
                 if (doc.lado === 2) { // Verso = 2
-                    store.setUploadedDocVerso(doc.tipo, docData);
+                    setUploadedDocVerso(doc.tipo, docData);
                 } else { // Frente = 1 ou Unico = 0
-                    store.setUploadedDoc(doc.tipo, docData);
+                    setUploadedDoc(doc.tipo, docData);
                 }
             }
         } catch { toast.error("Erro de conexao."); }
         finally { setLoading(false); }
-    }, [session]);
+    }, [reset, session, setDependentes, setFormData, setHasDependentes, setStep, setUploadedDoc, setUploadedDocVerso]);
 
     useEffect(() => {
         if (phase === "main" && session) void loadData();
@@ -113,9 +137,9 @@ export default function DocumentoAdmissaoScreen() {
     // Save wizard progress on step change — only after loadData has hydrated the store
     useEffect(() => {
         if (!session || phase !== "main" || !hydratedRef.current) return;
-        const percent = store.computeCompletionPercent();
-        saveWizardProgress(session, store.currentStep, percent).catch(() => {});
-    }, [store.currentStep, session, phase]);
+        const percent = computeCompletionPercent();
+        saveWizardProgress(session, currentStep, percent).catch(() => {});
+    }, [computeCompletionPercent, currentStep, session, phase]);
 
     async function handleLogin() {
         if (!cpfInput.trim() || !tenantId || !preAdmissaoId) return;
@@ -134,7 +158,7 @@ export default function DocumentoAdmissaoScreen() {
             const sess: AdmissaoPortalSession = { tenantId, preAdmissaoId: body.preAdmissaoId, cpf: cpfInput.replace(/\D/g, ""), nome: body.nome };
             saveAdmissaoPortalSession(sess);
             setSession(sess);
-            store.reset();
+            reset();
             hydratedRef.current = false;
             setPhase("main");
         } catch { toast.error("Erro ao conectar."); }
@@ -145,9 +169,9 @@ export default function DocumentoAdmissaoScreen() {
         if (!session) return;
 
         // Fallback de segurança — ReviewStep já bloqueia e exibe painel inline
-        const missing = validatePortalForm(store.formData as Record<string, unknown>);
+        const missing = validatePortalForm(formData as Record<string, unknown>);
         if (missing.length > 0) {
-            store.setStep(2);
+            setStep(2);
             return;
         }
 
@@ -155,7 +179,7 @@ export default function DocumentoAdmissaoScreen() {
         await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/dados`, session.cpf, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(store.formData),
+            body: JSON.stringify(formData),
         });
         // Submit
         const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/submit`, session.cpf, { method: "POST" });
@@ -170,7 +194,7 @@ export default function DocumentoAdmissaoScreen() {
     function handleLogout() {
         if (tenantId) clearAdmissaoPortalSession(tenantId);
         setSession(null);
-        store.reset();
+        reset();
         setPhase("login");
         setCpfInput("");
     }
@@ -279,14 +303,14 @@ export default function DocumentoAdmissaoScreen() {
                     <div className="flex justify-center py-12"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>
                 ) : data ? (
                     <WizardLayout
-                        hideNext={store.currentStep === 4}
-                        hideBack={store.currentStep === 0}
-                        nextLabel={store.currentStep === 0 ? "Começar" : undefined}
+                        hideNext={currentStep === 4}
+                        hideBack={currentStep === 0}
+                        nextLabel={currentStep === 0 ? "Começar" : undefined}
                     >
-                        {store.currentStep === 0 && (
+                        {currentStep === 0 && (
                             <WelcomeStep nome={data.nome} documentosSolicitados={data.documentosSolicitados} />
                         )}
-                        {store.currentStep === 1 && session && (
+                        {currentStep === 1 && session && (
                             <DocumentUploadStep
                                 session={session}
                                 documentosSolicitados={data.documentosSolicitados}
@@ -294,13 +318,13 @@ export default function DocumentoAdmissaoScreen() {
                                 disabled={isSubmitted}
                             />
                         )}
-                        {store.currentStep === 2 && session && (
+                        {currentStep === 2 && session && (
                             <ReviewDataStep session={session} disabled={isSubmitted} />
                         )}
-                        {store.currentStep === 3 && session && (
+                        {currentStep === 3 && session && (
                             <DependentsStep session={session} disabled={isSubmitted} />
                         )}
-                        {store.currentStep === 4 && (
+                        {currentStep === 4 && (
                             <ReviewStep onSubmit={handleSubmit} disabled={isSubmitted} />
                         )}
                     </WizardLayout>
