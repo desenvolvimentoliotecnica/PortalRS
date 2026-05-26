@@ -22,10 +22,13 @@ interface DashboardKpis {
   vagasVinculadas: number;
   integracoesConcluidas: number;
   falhasIntegracao: number;
+  aprovadasNaoEnfileiradas: number;
+  enfileiradasSemTentativa: number;
   tempoMedioTotal: string;
   percentualVagasVinculadas: number;
   percentualIntegracoesConcluidas: number;
   percentualFalhas: number;
+  percentualNaoEnfileiradas: number;
 }
 
 interface SliceItem {
@@ -66,7 +69,7 @@ interface DashboardResponse {
   taxaSucessoPorPeriodo: DailyPoint[];
 }
 
-const STATUS_COLORS = ["#4f22d8", "#16a34a", "#ef4444", "#64748b"];
+const STATUS_COLORS = ["#4f22d8", "#16a34a", "#ef4444", "#f59e0b", "#64748b"];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -100,6 +103,8 @@ function exportCsv(data: DashboardResponse) {
     ["Vagas vinculadas", String(data.kpis.vagasVinculadas)],
     ["Integrações concluídas", String(data.kpis.integracoesConcluidas)],
     ["Falhas na integração", String(data.kpis.falhasIntegracao)],
+    ["Aprovadas não enfileiradas", String(data.kpis.aprovadasNaoEnfileiradas)],
+    ["Enfileiradas sem tentativa", String(data.kpis.enfileiradasSemTentativa)],
     ["Tempo médio total", data.kpis.tempoMedioTotal],
     [],
     ["Falhas por motivo", "Total", "%"],
@@ -123,7 +128,7 @@ function exportCsv(data: DashboardResponse) {
 
 export default function RmIntegracaoDashboardScreen() {
   const initialAte = todayIso();
-  const [dataDe, setDataDe] = useState(() => addDaysIso(initialAte, -6));
+  const [dataDe, setDataDe] = useState(() => addDaysIso(initialAte, -29));
   const [dataAte, setDataAte] = useState(initialAte);
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -193,11 +198,13 @@ export default function RmIntegracaoDashboardScreen() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
         <KpiCard icon={FileSpreadsheet} label="Solicitações criadas" value={data?.kpis.solicitacoesCriadas ?? 0} sub="Total no período" tone="violet" />
         <KpiCard icon={BriefcaseBusiness} label="Vagas vinculadas" value={data?.kpis.vagasVinculadas ?? 0} sub={`${pct(data?.kpis.percentualVagasVinculadas ?? 0)} do total`} tone="green" />
         <KpiCard icon={CheckCircle2} label="Integrações concluídas" value={data?.kpis.integracoesConcluidas ?? 0} sub={`${pct(data?.kpis.percentualIntegracoesConcluidas ?? 0)} do total`} tone="emerald" />
         <KpiCard icon={XCircle} label="Falhas na integração" value={data?.kpis.falhasIntegracao ?? 0} sub={`${pct(data?.kpis.percentualFalhas ?? 0)} do total`} tone="red" />
+        <KpiCard icon={AlertCircle} label="Aprovadas não enfileiradas" value={data?.kpis.aprovadasNaoEnfileiradas ?? 0} sub={`${pct(data?.kpis.percentualNaoEnfileiradas ?? 0)} do total`} tone="amber" />
+        <KpiCard icon={RefreshCw} label="Enfileiradas sem tentativa" value={data?.kpis.enfileiradasSemTentativa ?? 0} sub="Aguardando worker" tone="blue" />
         <KpiCard icon={Clock3} label="Tempo médio total" value={data?.kpis.tempoMedioTotal ?? "00:00:00"} sub="Do início à integração" tone="purple" />
       </div>
 
@@ -253,7 +260,7 @@ export default function RmIntegracaoDashboardScreen() {
         <div>
           <div className="font-semibold">Dados atualizados em {formatDateTime(data?.atualizadoEmUtc)}</div>
           <div className="text-violet-900/75 dark:text-violet-100/75">
-            As informações são baseadas nas solicitações de aumento de quadro e nas tentativas de integração realizadas no período selecionado.
+            As informações consideram requisições de vaga nova e aumento de quadro. O indicador Aprovadas não enfileiradas mostra solicitações que precisam de reprocessamento ou ajuste de fluxo.
           </div>
         </div>
       </div>
@@ -272,13 +279,15 @@ function KpiCard({
   label: string;
   value: number | string;
   sub: string;
-  tone: "violet" | "green" | "emerald" | "red" | "purple";
+  tone: "violet" | "green" | "emerald" | "red" | "amber" | "blue" | "purple";
 }) {
   const palette = {
     violet: "bg-violet-100 text-violet-700",
     green: "bg-green-100 text-green-700",
     emerald: "bg-emerald-100 text-emerald-700",
     red: "bg-red-100 text-red-700",
+    amber: "bg-amber-100 text-amber-700",
+    blue: "bg-blue-100 text-blue-700",
     purple: "bg-purple-100 text-purple-700",
   }[tone];
 

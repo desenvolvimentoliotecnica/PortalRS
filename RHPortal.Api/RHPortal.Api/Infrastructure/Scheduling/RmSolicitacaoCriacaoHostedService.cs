@@ -104,7 +104,8 @@ public sealed class RmSolicitacaoCriacaoHostedService : BackgroundService
         var ids = await db.SolicitacoesVaga
             .AsNoTracking()
             .Where(s =>
-                s.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro
+                (s.TipoSolicitacao == TipoSolicitacaoVaga.VagaNova
+                    || s.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro)
                 && s.RmCriacaoSolicitadaEmUtc != null
                 && string.IsNullOrWhiteSpace(s.RmRequisicaoCodigo)
                 && s.IntegracaoResultado != IntegracaoResultado.FalhaDefinitiva
