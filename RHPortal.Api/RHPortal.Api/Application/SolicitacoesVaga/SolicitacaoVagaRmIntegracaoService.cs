@@ -50,8 +50,8 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
         if (!string.IsNullOrEmpty(ctxTenant) && entity.TenantId != ctxTenant)
             throw new InvalidOperationException("Tenant da solicitação não confere com o contexto atual.");
 
-        if (entity.TipoSolicitacao != TipoSolicitacaoVaga.AumentoQuadro)
-            throw new InvalidOperationException("A criação assíncrona de requisição RM está habilitada apenas para AumentoQuadro.");
+        if (entity.TipoSolicitacao is not (TipoSolicitacaoVaga.VagaNova or TipoSolicitacaoVaga.AumentoQuadro))
+            throw new InvalidOperationException("A criação assíncrona de requisição RM está habilitada apenas para VagaNova e AumentoQuadro.");
 
         if (entity.Status is SolicitacaoStatus.Reprovada or SolicitacaoStatus.Cancelada)
             throw new InvalidOperationException($"Solicitação em estado terminal não pode ser enviada ao RM (atual: {entity.Status}).");

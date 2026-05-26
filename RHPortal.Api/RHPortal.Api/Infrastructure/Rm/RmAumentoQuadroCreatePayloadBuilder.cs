@@ -13,8 +13,8 @@ internal static class RmAumentoQuadroCreatePayloadBuilder
         RmRequisicaoCreateOptions options,
         DateTimeOffset nowLocal)
     {
-        if (solicitacao.TipoSolicitacao != TipoSolicitacaoVaga.AumentoQuadro)
-            throw new InvalidOperationException("A criação RM via RhuReqAumentoQuadroData está restrita a solicitações de AumentoQuadro.");
+        if (solicitacao.TipoSolicitacao is not (TipoSolicitacaoVaga.VagaNova or TipoSolicitacaoVaga.AumentoQuadro))
+            throw new InvalidOperationException("A criação RM via RhuReqAumentoQuadroData está restrita a solicitações de VagaNova e AumentoQuadro.");
 
         var codColRequisicao = options.CodColRequisicaoDefault
             ?? throw new InvalidOperationException("Configure RmRequisicaoCreate:CodColRequisicaoDefault para criar requisições no RM.");

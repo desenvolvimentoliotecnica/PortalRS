@@ -310,7 +310,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 .AsNoTracking()
                 .Include(s => s.Solicitante)
                 .Where(s =>
-                    s.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro
+                    (s.TipoSolicitacao == TipoSolicitacaoVaga.VagaNova
+                        || s.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro)
                     && (s.RmCriacaoSolicitadaEmUtc != null
                         || !string.IsNullOrWhiteSpace(s.RmRequisicaoCodigo)
                         || s.IntegracaoResultado != null))
@@ -400,7 +401,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
     {
         var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
         var dataAte = query.DataAte ?? hoje;
-        var dataDe = query.DataDe ?? dataAte.AddDays(-6);
+        var dataDe = query.DataDe ?? dataAte.AddDays(-29);
         if (dataDe > dataAte)
             (dataDe, dataAte) = (dataAte, dataDe);
 
@@ -409,7 +410,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
 
         var rows = await _db.SolicitacoesVaga
             .AsNoTracking()
-            .Where(s => s.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro
+            .Where(s => (s.TipoSolicitacao == TipoSolicitacaoVaga.VagaNova
+                    || s.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro)
                 && s.CreatedAtUtc >= inicio
                 && s.CreatedAtUtc < fimExclusive)
             .Select(s => new
@@ -500,8 +502,18 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         var vagasVinculadas = rows.Count(r => r.VagaId.HasValue);
         var integradas = rows.Count(Integrada);
         var falhas = rows.Count(Falha);
+        var aprovadasNaoEnfileiradas = rows.Count(r =>
+            r.Status == SolicitacaoStatus.Aprovada
+            && r.RmCriacaoSolicitadaEmUtc == null
+            && string.IsNullOrWhiteSpace(r.RmRequisicaoCodigo)
+            && r.IntegracaoResultado == null);
+        var enfileiradasSemTentativa = rows.Count(r =>
+            r.RmCriacaoSolicitadaEmUtc != null
+            && r.TentativasIntegracao == 0
+            && !Integrada(r)
+            && !Falha(r));
         var emProcessamento = rows.Count(r => r.RmCriacaoSolicitadaEmUtc.HasValue && !Integrada(r) && !Falha(r));
-        var outras = Math.Max(0, total - integradas - falhas - emProcessamento);
+        var outras = Math.Max(0, total - integradas - falhas - emProcessamento - aprovadasNaoEnfileiradas);
 
         var totalDurations = rows
             .Where(Integrada)
@@ -513,16 +525,20 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             vagasVinculadas,
             integradas,
             falhas,
+            aprovadasNaoEnfileiradas,
+            enfileiradasSemTentativa,
             FormatDuration(AverageDuration(totalDurations)),
             Percent(vagasVinculadas, total),
             Percent(integradas, total),
-            Percent(falhas, total));
+            Percent(falhas, total),
+            Percent(aprovadasNaoEnfileiradas, total));
 
         var statusSlices = new[]
             {
                 new RmRequisicoesDashboardSlice("Integradas", integradas, Percent(integradas, total)),
                 new RmRequisicoesDashboardSlice("Em processamento", emProcessamento, Percent(emProcessamento, total)),
                 new RmRequisicoesDashboardSlice("Falha", falhas, Percent(falhas, total)),
+                new RmRequisicoesDashboardSlice("Aprovadas não enfileiradas", aprovadasNaoEnfileiradas, Percent(aprovadasNaoEnfileiradas, total)),
                 new RmRequisicoesDashboardSlice("Outras", outras, Percent(outras, total))
             }
             .Where(x => x.Total > 0 || total == 0)

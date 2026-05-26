@@ -648,7 +648,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         m is MotivoRequisicaoVaga.PedidoDemissao or MotivoRequisicaoVaga.DesligamentoSemJustaCausa;
 
     private static bool ShouldQueueRmCreation(SolicitacaoVaga entity) =>
-        entity.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro
+        entity.TipoSolicitacao is TipoSolicitacaoVaga.VagaNova or TipoSolicitacaoVaga.AumentoQuadro
         && string.IsNullOrWhiteSpace(entity.RmRequisicaoCodigo);
 
     private static void MarkRmCreationQueued(SolicitacaoVaga entity)

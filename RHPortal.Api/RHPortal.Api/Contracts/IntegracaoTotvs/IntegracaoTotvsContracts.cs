@@ -52,10 +52,13 @@ public sealed record RmRequisicoesDashboardKpis(
     int VagasVinculadas,
     int IntegracoesConcluidas,
     int FalhasIntegracao,
+    int AprovadasNaoEnfileiradas,
+    int EnfileiradasSemTentativa,
     string TempoMedioTotal,
     decimal PercentualVagasVinculadas,
     decimal PercentualIntegracoesConcluidas,
-    decimal PercentualFalhas
+    decimal PercentualFalhas,
+    decimal PercentualNaoEnfileiradas
 );
 
 public sealed record RmRequisicoesDashboardSlice(

@@ -262,7 +262,8 @@ public sealed class SolicitacaoVagaRmAsyncTests
     private static SolicitacaoVaga SeedSolicitacaoAumentoQuadro(
         AppDbContext db,
         SolicitacaoStatus status,
-        IntegracaoResultado? integracaoResultado = null)
+        IntegracaoResultado? integracaoResultado = null,
+        TipoSolicitacaoVaga tipoSolicitacao = TipoSolicitacaoVaga.AumentoQuadro)
     {
         var ids = SeedBaseCatalog(db);
         var now = DateTimeOffset.UtcNow;
@@ -276,14 +277,14 @@ public sealed class SolicitacaoVagaRmAsyncTests
             UnitId = ids.UnitId,
             EmpresaId = ids.EmpresaId,
             CentroCustoId = ids.CentroCustoId,
-            Titulo = "Aumento quadro RM",
+            Titulo = tipoSolicitacao == TipoSolicitacaoVaga.VagaNova ? "Vaga nova RM" : "Aumento quadro RM",
             CodFuncaoRm = "00001",
             FuncaoNomeRm = "Diretor",
             Justificativa = "Expansão do time",
             QtdPosicoes = 1,
             Urgencia = SolicitacaoVagaUrgencia.Alta,
             Status = status,
-            TipoSolicitacao = TipoSolicitacaoVaga.AumentoQuadro,
+            TipoSolicitacao = tipoSolicitacao,
             TipoContrato = TipoContratoVaga.CLT,
             MotivoRequisicao = MotivoRequisicaoVaga.ExpansaoBase,
             MotivoRequisicaoId = ids.MotivoId,
@@ -339,6 +340,42 @@ public sealed class SolicitacaoVagaRmAsyncTests
     }
 
     [Fact]
+    public async Task Create_VagaNova_EnfileiraCriacaoRmSemBloquearSave()
+    {
+        var (db, tenantContext) = CreateDb();
+        var service = CreateSolicitacaoService(db, tenantContext.Object);
+        var ids = SeedBaseCatalog(db);
+
+        var request = new SolicitacaoVagaCreateRequest
+        {
+            Titulo = "Vaga nova teste",
+            Justificativa = "Nova posição",
+            QtdPosicoes = 1,
+            Urgencia = SolicitacaoVagaUrgencia.Media,
+            TipoSolicitacao = TipoSolicitacaoVaga.VagaNova,
+            TipoContrato = TipoContratoVaga.CLT,
+            DecisaoRH = TipoDecisaoHeadcount.AumentoDefinitivo,
+            JobPositionId = ids.JobPositionId,
+            UnitId = ids.UnitId,
+            EmpresaId = ids.EmpresaId,
+            CentroCustoId = ids.CentroCustoId,
+            MotivoRequisicaoId = ids.MotivoId,
+            FaixaSalarialMin = 1200,
+            FaixaSalarialMax = 1800,
+            CodFuncaoRm = "00001",
+            EscalaTrabalho = "5x2",
+        };
+
+        var result = await service.CreateAsync(request, ids.FuncionarioId, CancellationToken.None);
+        var entity = await db.SolicitacoesVaga.FirstAsync(x => x.Id == result.Id);
+
+        Assert.NotNull(entity.RmCriacaoSolicitadaEmUtc);
+        Assert.Null(entity.IntegracaoResultado);
+        Assert.Equal("Aguardando envio assíncrono da requisição ao RM.", entity.IntegracaoMensagem);
+        Assert.Equal(0, entity.TentativasIntegracao);
+    }
+
+    [Fact]
     public async Task ExecutarCriacaoRm_Sucesso_PersisteVinculoSemAlterarWorkflow()
     {
         var (db, tenantContext) = CreateDb();
@@ -376,6 +413,47 @@ public sealed class SolicitacaoVagaRmAsyncTests
         Assert.Equal(290, updated.RmIdReq);
         Assert.Equal("AUMENTO_QUADRO|1|290", updated.RmRequisicaoCodigo);
         Assert.Equal((short)6, updated.RmCodStatus);
+        Assert.Equal(1, updated.TentativasIntegracao);
+    }
+
+    [Fact]
+    public async Task ExecutarCriacaoRm_VagaNova_Sucesso_PersisteVinculoRm()
+    {
+        var (db, tenantContext) = CreateDb();
+        var entity = SeedSolicitacaoAumentoQuadro(
+            db,
+            SolicitacaoStatus.Aprovada,
+            tipoSolicitacao: TipoSolicitacaoVaga.VagaNova);
+        entity.RmCriacaoSolicitadaEmUtc = DateTimeOffset.UtcNow.AddMinutes(-5);
+        db.SaveChanges();
+
+        var rmClient = new Mock<IRmRequisicaoCreateClient>();
+        rmClient
+            .Setup(x => x.EnviarOuObterJaCriadoAsync(It.IsAny<SolicitacaoVaga>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RmCreateRequisicaoOutcome(
+                true,
+                false,
+                null,
+                6,
+                null,
+                200,
+                1,
+                291));
+
+        var service = new SolicitacaoVagaRmIntegracaoService(
+            db,
+            tenantContext.Object,
+            rmClient.Object,
+            Options.Create(new RmRequisicaoCreateOptions { MaxTentativas = 3 }),
+            new StatusHistoricoService(db, tenantContext.Object),
+            Mock.Of<ICurrentUserContext>());
+
+        await service.ExecutarCriacaoRequisicaoRmAsync(entity.Id, CancellationToken.None);
+
+        var updated = await db.SolicitacoesVaga.FirstAsync(x => x.Id == entity.Id);
+        Assert.Equal(SolicitacaoStatus.Aprovada, updated.Status);
+        Assert.Equal(IntegracaoResultado.Sucesso, updated.IntegracaoResultado);
+        Assert.Equal("AUMENTO_QUADRO|1|291", updated.RmRequisicaoCodigo);
         Assert.Equal(1, updated.TentativasIntegracao);
     }
 
