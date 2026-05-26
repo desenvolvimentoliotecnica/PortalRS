@@ -7,7 +7,6 @@ import {
     Clock,
     ArrowRightLeft,
     Search,
-    RefreshCw,
 } from "lucide-react";
 import {
     Table,
@@ -199,6 +198,7 @@ export default function IntegracaoTotvsScreen() {
         try {
             const res = await apiFetch("/api/integracao-totvs/configuracao-rm-requisicao", {
                 method: "PUT",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     endpointUrl: rmEndpointUrl.trim() || null,
                     username: rmUsername.trim() || null,
