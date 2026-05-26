@@ -50,6 +50,19 @@ public sealed class IntegracaoTotvsController : ControllerBase
         return Ok(await _service.ListPainelAsync(query, ct));
     }
 
+    /// <summary>Dashboard agregado das requisições de pessoal integradas ao RM.</summary>
+    [HttpGet("requisicoes-rm/dashboard")]
+    [ProducesResponseType(typeof(RmRequisicoesDashboardResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> RmRequisicoesDashboard(
+        [FromQuery] DateOnly? dataDe,
+        [FromQuery] DateOnly? dataAte,
+        CancellationToken ct)
+    {
+        return Ok(await _service.GetRmRequisicoesDashboardAsync(
+            new RmRequisicoesDashboardQuery(dataDe, dataAte),
+            ct));
+    }
+
     /// <summary>
     /// Configuração por tenant da integração RM para criação de requisições de pessoal.
     /// </summary>
