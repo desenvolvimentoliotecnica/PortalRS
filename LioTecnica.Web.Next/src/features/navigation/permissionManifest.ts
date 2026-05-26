@@ -93,6 +93,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-admin-tenant-config",       label: "Configurações",               href: "/admin/tenant-configuracao",      icon: "bi-gear",           permission: "access.manage" },
     { id: "nav-admin-ia",                  label: "Configuração de IA",          href: "/admin/ia",                       icon: "brain",             permission: "ai.config" },
     { id: "nav-admin-documentacao-padrao", label: "Documentação Padrão",         href: "/admin/documentacao-padrao",      icon: "file-text",         permission: "documentacao-padrao.manage" },
+    { id: "nav-admin-integracao-totvs",    label: "Integração TOTVS",            href: "/integracao-totvs",               icon: "arrow-right-left",   permission: "access.manage" },
     { id: "nav-admin-requisicoes-rm",        label: "Requisições RM",               href: "/admin/requisicoes-rm",           icon: "clipboardlist",      permission: "access.manage" },
     { id: "nav-admin-rm-requisicao-status", label: "Status RM ⇄ Requisição",      href: "/admin/rm-requisicao-status",    icon: "arrow-right-left",   permission: "access.manage" },
     { id: "nav-admin-api-keys",            label: "Chaves de API",               href: "/admin/api-keys",                 icon: "bi-key-fill",       permission: "api-keys.manage" },
