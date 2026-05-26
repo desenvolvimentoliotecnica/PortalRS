@@ -8,6 +8,7 @@ namespace RhPortal.Api.Application.IntegracaoTotvs;
 public interface IIntegracaoTotvsService
 {
     Task<IntegracaoTotvsPainelResponse> ListPainelAsync(IntegracaoTotvsPainelQuery query, CancellationToken ct);
+    Task<RmRequisicoesDashboardResponse> GetRmRequisicoesDashboardAsync(RmRequisicoesDashboardQuery query, CancellationToken ct);
     Task<object?> GetDetalheAsync(TipoIntegracao tipo, Guid id, CancellationToken ct);
     Task<IReadOnlyList<object>> ListDesligamentosPayloadAsync(SolicitacaoStatus[] statuses, CancellationToken ct);
     Task VoltarPendenteAsync(TipoIntegracao tipo, Guid id, ICurrentUserContext currentUser, CancellationToken ct);

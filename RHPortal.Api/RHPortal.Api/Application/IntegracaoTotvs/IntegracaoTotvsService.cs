@@ -394,6 +394,219 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         return new IntegracaoTotvsPainelResponse(items, total, pendentes, sucesso, falha);
     }
 
+    public async Task<RmRequisicoesDashboardResponse> GetRmRequisicoesDashboardAsync(
+        RmRequisicoesDashboardQuery query,
+        CancellationToken ct)
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+        var dataAte = query.DataAte ?? hoje;
+        var dataDe = query.DataDe ?? dataAte.AddDays(-6);
+        if (dataDe > dataAte)
+            (dataDe, dataAte) = (dataAte, dataDe);
+
+        var inicio = new DateTimeOffset(dataDe.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var fimExclusive = new DateTimeOffset(dataAte.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
+        var rows = await _db.SolicitacoesVaga
+            .AsNoTracking()
+            .Where(s => s.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro
+                && s.CreatedAtUtc >= inicio
+                && s.CreatedAtUtc < fimExclusive)
+            .Select(s => new
+            {
+                s.Id,
+                s.Titulo,
+                s.Status,
+                s.CreatedAtUtc,
+                s.UpdatedAtUtc,
+                s.VagaId,
+                UnidadeNome = s.Unit != null ? s.Unit.Name : null,
+                s.RmCriacaoSolicitadaEmUtc,
+                s.RmRequisicaoCodigo,
+                s.RmCodColRequisicao,
+                s.RmIdReq,
+                s.RmCodStatus,
+                s.IntegracaoResultado,
+                s.IntegracaoMensagem,
+                s.TentativasIntegracao,
+                s.UltimaTentativaUtc,
+                s.IntegradaEmUtc
+            })
+            .ToListAsync(ct);
+
+        var ids = rows.Select(r => r.Id).ToList();
+        var tentativas = ids.Count == 0
+            ? []
+            : await _db.SolicitacoesVagaIntegracaoTentativas
+                .AsNoTracking()
+                .Where(t => ids.Contains(t.SolicitacaoVagaId))
+                .Select(t => new
+                {
+                    t.SolicitacaoVagaId,
+                    t.TentativaEmUtc,
+                    t.Sucesso,
+                    t.MensagemErro,
+                    t.CodigoTecnico
+                })
+                .ToListAsync(ct);
+
+        var tentativasPorSolicitacao = tentativas
+            .GroupBy(t => t.SolicitacaoVagaId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(t => t.TentativaEmUtc).ToList());
+
+        static bool Integrada(dynamic r) =>
+            r.IntegracaoResultado == IntegracaoResultado.Sucesso
+            || !string.IsNullOrWhiteSpace(r.RmRequisicaoCodigo)
+            || r.RmIdReq != null;
+
+        static bool Falha(dynamic r) =>
+            r.IntegracaoResultado is IntegracaoResultado.Falha or IntegracaoResultado.FalhaDefinitiva;
+
+        decimal Percent(int value, int total) =>
+            total <= 0 ? 0 : Math.Round(value * 100m / total, 1);
+
+        string FormatDuration(TimeSpan? value)
+        {
+            if (value is null || value.Value <= TimeSpan.Zero)
+                return "00:00:00";
+            var ts = value.Value;
+            return $"{(int)ts.TotalHours:00}:{ts.Minutes:00}:{ts.Seconds:00}";
+        }
+
+        TimeSpan? AverageDuration(IEnumerable<TimeSpan> values)
+        {
+            var list = values.Where(v => v > TimeSpan.Zero).ToList();
+            if (list.Count == 0) return null;
+            return TimeSpan.FromTicks((long)list.Average(v => v.Ticks));
+        }
+
+        DateOnly ToDate(DateTimeOffset value) => DateOnly.FromDateTime(value.UtcDateTime);
+
+        string ClassificarFalha(string? mensagem, int? codigoTecnico)
+        {
+            var msg = (mensagem ?? string.Empty).Trim().ToLowerInvariant();
+            if (codigoTecnico is 408 or 504 || msg.Contains("timeout") || msg.Contains("tempo"))
+                return "Timeout API RM";
+            if (msg.Contains("duplic") || msg.Contains("já existente") || msg.Contains("ja existente"))
+                return "Vaga duplicada";
+            if (msg.Contains("payload") || msg.Contains("json") || msg.Contains("inválid") || msg.Contains("invalid"))
+                return "Payload inválido";
+            if (msg.Contains("obrigatório") || msg.Contains("obrigatorio") || msg.Contains("sem cargo") || msg.Contains("sem unidade") || msg.Contains("faixa salarial"))
+                return "Dados inválidos";
+            return "Outros";
+        }
+
+        var total = rows.Count;
+        var vagasVinculadas = rows.Count(r => r.VagaId.HasValue);
+        var integradas = rows.Count(Integrada);
+        var falhas = rows.Count(Falha);
+        var emProcessamento = rows.Count(r => r.RmCriacaoSolicitadaEmUtc.HasValue && !Integrada(r) && !Falha(r));
+        var outras = Math.Max(0, total - integradas - falhas - emProcessamento);
+
+        var totalDurations = rows
+            .Where(Integrada)
+            .Select(r => ((r.IntegradaEmUtc ?? r.UltimaTentativaUtc ?? r.UpdatedAtUtc) - r.CreatedAtUtc))
+            .ToList();
+
+        var kpis = new RmRequisicoesDashboardKpis(
+            total,
+            vagasVinculadas,
+            integradas,
+            falhas,
+            FormatDuration(AverageDuration(totalDurations)),
+            Percent(vagasVinculadas, total),
+            Percent(integradas, total),
+            Percent(falhas, total));
+
+        var statusSlices = new[]
+            {
+                new RmRequisicoesDashboardSlice("Integradas", integradas, Percent(integradas, total)),
+                new RmRequisicoesDashboardSlice("Em processamento", emProcessamento, Percent(emProcessamento, total)),
+                new RmRequisicoesDashboardSlice("Falha", falhas, Percent(falhas, total)),
+                new RmRequisicoesDashboardSlice("Outras", outras, Percent(outras, total))
+            }
+            .Where(x => x.Total > 0 || total == 0)
+            .ToList();
+
+        var dias = Enumerable.Range(0, dataAte.DayNumber - dataDe.DayNumber + 1)
+            .Select(offset => dataDe.AddDays(offset))
+            .ToList();
+
+        var integracoesPorDia = dias.Select(d =>
+        {
+            var criadasDia = rows.Count(r => ToDate(r.CreatedAtUtc) == d);
+            var integradasDia = rows.Count(r => Integrada(r) && r.IntegradaEmUtc.HasValue && ToDate(r.IntegradaEmUtc.Value) == d);
+            var falhasDia = rows.Count(r =>
+                Falha(r)
+                && ((r.UltimaTentativaUtc.HasValue && ToDate(r.UltimaTentativaUtc.Value) == d)
+                    || (!r.UltimaTentativaUtc.HasValue && ToDate(r.UpdatedAtUtc) == d)));
+            var finalizadasDia = integradasDia + falhasDia;
+            return new RmRequisicoesDashboardDailyPoint(
+                d,
+                criadasDia,
+                integradasDia,
+                falhasDia,
+                finalizadasDia == 0 ? 0 : Math.Round(integradasDia * 100m / finalizadasDia, 1));
+        }).ToList();
+
+        var falhasPorMotivo = rows
+            .Where(Falha)
+            .Select(r =>
+            {
+                tentativasPorSolicitacao.TryGetValue(r.Id, out var lista);
+                var ultima = lista?.LastOrDefault(t => !t.Sucesso) ?? lista?.LastOrDefault();
+                return ClassificarFalha(ultima?.MensagemErro ?? r.IntegracaoMensagem, ultima?.CodigoTecnico);
+            })
+            .GroupBy(label => label)
+            .Select(g => new RmRequisicoesDashboardBar(g.Key, g.Count(), Percent(g.Count(), falhas)))
+            .OrderByDescending(x => x.Total)
+            .ThenBy(x => x.Label)
+            .ToList();
+
+        var vagasPorUnidade = rows
+            .Where(r => r.VagaId.HasValue)
+            .GroupBy(r => string.IsNullOrWhiteSpace(r.UnidadeNome) ? "Sem unidade" : r.UnidadeNome!)
+            .Select(g => new RmRequisicoesDashboardBar(g.Key, g.Count(), Percent(g.Count(), vagasVinculadas)))
+            .OrderByDescending(x => x.Total)
+            .ThenBy(x => x.Label)
+            .Take(8)
+            .ToList();
+
+        var criacaoAteFila = rows
+            .Where(r => r.RmCriacaoSolicitadaEmUtc.HasValue)
+            .Select(r => r.RmCriacaoSolicitadaEmUtc!.Value - r.CreatedAtUtc);
+        var filaAtePrimeiraTentativa = rows
+            .Where(r => r.RmCriacaoSolicitadaEmUtc.HasValue && tentativasPorSolicitacao.ContainsKey(r.Id))
+            .Select(r => tentativasPorSolicitacao[r.Id].First().TentativaEmUtc - r.RmCriacaoSolicitadaEmUtc!.Value);
+        var primeiraAteUltimaTentativa = tentativasPorSolicitacao.Values
+            .Where(t => t.Count > 1)
+            .Select(t => t.Last().TentativaEmUtc - t.First().TentativaEmUtc);
+        var respostaAteConclusao = rows
+            .Where(r => r.IntegradaEmUtc.HasValue && r.UltimaTentativaUtc.HasValue)
+            .Select(r => r.IntegradaEmUtc!.Value - r.UltimaTentativaUtc!.Value);
+
+        var tempos = new List<RmRequisicoesDashboardStageTime>
+        {
+            new("Criação da solicitação", FormatDuration(AverageDuration(criacaoAteFila))),
+            new("Processamento pelo worker", FormatDuration(AverageDuration(filaAtePrimeiraTentativa))),
+            new("Envio ao RM (API)", FormatDuration(AverageDuration(primeiraAteUltimaTentativa))),
+            new("Resposta do RM", FormatDuration(AverageDuration(respostaAteConclusao))),
+            new("Conclusão total", kpis.TempoMedioTotal)
+        };
+
+        return new RmRequisicoesDashboardResponse(
+            dataDe,
+            dataAte,
+            DateTimeOffset.UtcNow,
+            kpis,
+            statusSlices,
+            integracoesPorDia,
+            falhasPorMotivo,
+            vagasPorUnidade,
+            tempos,
+            integracoesPorDia);
+    }
+
     public async Task<object?> GetDetalheAsync(TipoIntegracao tipo, Guid id, CancellationToken ct)
     {
         switch (tipo)

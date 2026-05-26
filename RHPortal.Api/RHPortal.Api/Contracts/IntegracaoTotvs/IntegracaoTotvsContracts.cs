@@ -42,6 +42,60 @@ public sealed record IntegracaoTotvsPainelResponse(
     int Falha
 );
 
+public sealed record RmRequisicoesDashboardQuery(
+    DateOnly? DataDe,
+    DateOnly? DataAte
+);
+
+public sealed record RmRequisicoesDashboardKpis(
+    int SolicitacoesCriadas,
+    int VagasVinculadas,
+    int IntegracoesConcluidas,
+    int FalhasIntegracao,
+    string TempoMedioTotal,
+    decimal PercentualVagasVinculadas,
+    decimal PercentualIntegracoesConcluidas,
+    decimal PercentualFalhas
+);
+
+public sealed record RmRequisicoesDashboardSlice(
+    string Label,
+    int Total,
+    decimal Percentual
+);
+
+public sealed record RmRequisicoesDashboardDailyPoint(
+    DateOnly Data,
+    int Criadas,
+    int Integradas,
+    int Falhas,
+    decimal TaxaSucesso
+);
+
+public sealed record RmRequisicoesDashboardBar(
+    string Label,
+    int Total,
+    decimal Percentual
+);
+
+public sealed record RmRequisicoesDashboardStageTime(
+    string Label,
+    string TempoMedio
+);
+
+public sealed record RmRequisicoesDashboardResponse(
+    DateOnly DataDe,
+    DateOnly DataAte,
+    DateTimeOffset AtualizadoEmUtc,
+    RmRequisicoesDashboardKpis Kpis,
+    IReadOnlyList<RmRequisicoesDashboardSlice> SolicitacoesPorStatus,
+    IReadOnlyList<RmRequisicoesDashboardDailyPoint> IntegracoesPorDia,
+    IReadOnlyList<RmRequisicoesDashboardBar> FalhasPorMotivo,
+    IReadOnlyList<RmRequisicoesDashboardBar> VagasCriadasPorUnidade,
+    IReadOnlyList<RmRequisicoesDashboardStageTime> TempoMedioPorEtapa,
+    IReadOnlyList<RmRequisicoesDashboardDailyPoint> TaxaSucessoPorPeriodo
+);
+
 public sealed record IntegracaoReconciliacaoItemResponse(
     Guid Id,
     short TipoIntegracao,

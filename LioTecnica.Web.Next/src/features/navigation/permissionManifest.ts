@@ -81,6 +81,7 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-bloqueiopessoa",            label: "Bloqueio de Pessoa",          href: "/bloqueiopessoa",                 icon: "user-x",           permission: "funcionarios.view" },
     { id: "nav-talentos",                  label: "Talentos",                    href: "/talentos",                       icon: "sparkles",         permission: "candidatos.view" },
     { id: "nav-relatorios",                label: "Relatórios",                  href: "/relatorios",                     icon: "pie-chart",        permission: "relatorios.view" },
+    { id: "nav-relatorios-integracao-rm",  label: "Dashboard Integração RM",     href: "/relatorios/integracao-rm",       icon: "bi-bar-chart",     permission: "relatorios.view" },
 
     // ── Admin ──────────────────────────────────────────────────────────
     { id: "nav-admin-users",               label: "Usuários",                    href: "/admin/users",                    icon: "users",             permission: "users.read" },
