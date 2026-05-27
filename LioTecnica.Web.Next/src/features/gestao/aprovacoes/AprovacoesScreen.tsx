@@ -162,7 +162,11 @@ interface PortalPendenteApi {
     dataCriacao: string;
     statusLabel: string;
     etapaLabel?: string | null;
+    etapaPendenteCom?: string | null;
     etapaPendenteIsQueue?: boolean;
+    etapaPendenteAprovadorId?: string | null;
+    etapaPendenteAssumedByUserId?: string | null;
+    etapaPendenteCanAssume?: boolean;
 }
 
 function mapPortalPendenteToRow(p: PortalPendenteApi): GenericRow & { _tabId: string; _portalTipoFluxo: string } {
@@ -176,7 +180,11 @@ function mapPortalPendenteToRow(p: PortalPendenteApi): GenericRow & { _tabId: st
         tipoDescricao: p.tipoLabel,
         statusDescricao: p.statusLabel,
         etapaPendenteLabel: p.etapaLabel ?? "",
+        etapaPendenteCom: p.etapaPendenteCom ?? "",
         etapaPendenteIsQueue: Boolean(p.etapaPendenteIsQueue),
+        etapaPendenteAprovadorId: p.etapaPendenteAprovadorId ?? null,
+        etapaPendenteAssumedByUserId: p.etapaPendenteAssumedByUserId ?? null,
+        etapaPendenteCanAssume: Boolean(p.etapaPendenteCanAssume),
         createdAtUtc: iso,
         dataAbertura: iso,
     };
@@ -204,8 +212,16 @@ function mapSolicitacaoVagaGridApiToPortalRow(r: Record<string, unknown>): Gener
         funcionarioNome: r.solicitanteNome != null ? String(r.solicitanteNome) : "—",
         tipoDescricao: tipoLabel,
         statusDescricao: solicitacaoVagaStatusBadgeMeta(r.status as string | number).label,
+        statusRaw: r.status,
         etapaPendenteLabel: r.etapaPendenteLabel != null ? String(r.etapaPendenteLabel) : "",
+        etapaPendenteCom: r.etapaPendenteCom != null ? String(r.etapaPendenteCom) : "",
         etapaPendenteIsQueue: Boolean(r.etapaPendenteIsQueue),
+        etapaPendenteAprovadorId: r.etapaPendenteAprovadorId != null ? String(r.etapaPendenteAprovadorId) : null,
+        etapaPendenteAssumedByUserId: r.etapaPendenteAssumedByUserId != null ? String(r.etapaPendenteAssumedByUserId) : null,
+        etapaPendenteCanAssume: Boolean(r.etapaPendenteCanAssume),
+        qtdPosicoes: r.qtdPosicoes,
+        urgencia: r.urgencia,
+        tipoSolicitacao: r.tipoSolicitacao,
         createdAtUtc: iso,
         dataAbertura: iso,
         centroCustoNome: r.centroCustoNome != null ? String(r.centroCustoNome) : "",
@@ -290,6 +306,10 @@ function formatDateTime(iso: string | null | undefined) {
     }
 }
 
+function formatDateTimeDisplay(iso: string | null | undefined) {
+    return formatDateTime(iso) ?? "—";
+}
+
 const APPROVAL_STATUS: Record<number, { label: string; color: string }> = {
     0: { label: "Pendente", color: "bg-amber-500/15 text-amber-700" },
     1: { label: "Aprovado", color: "bg-emerald-500/15 text-emerald-700" },
@@ -327,7 +347,7 @@ const MOTIVO_REQUISICAO_MAP: Record<number, string> = {
 };
 
 const TIPO_SOLICITACAO_MAP: Record<number, string> = {
-    0: "Vaga Nova", 1: "Substituição",
+    0: "Vaga Nova", 1: "Substituição", 2: "Aumento de Quadro",
 };
 
 const TIPO_DESLIGAMENTO_MAP: Record<number, string> = {
@@ -531,6 +551,38 @@ const TABS: TabDef[] = [
     },
 ];
 
+const PORTAL_CONTRATACAO_COLUMNS: TabDef["columns"] = [
+    { key: "titulo", label: "Título", render: (r) => <span className="font-semibold">{pick(r, "titulo")}</span> },
+    { key: "tipoSolicitacao", label: "Tipo", render: (r) => {
+        const raw = r.tipoSolicitacao;
+        const n = typeof raw === "number" ? raw : raw != null ? Number(raw) : NaN;
+        return TIPO_SOLICITACAO_MAP[Number.isNaN(n) ? -1 : n] ?? pick(r, "tipoDescricao");
+    }},
+    { key: "qtdPosicoes", label: "Posições", render: (r) => pick(r, "qtdPosicoes") },
+    { key: "urgencia", label: "Urgência", render: (r) => {
+        const raw = r.urgencia;
+        const n = typeof raw === "number" ? raw : raw != null ? Number(raw) : NaN;
+        return Number.isNaN(n) ? "—" : urgenciaBadge(n);
+    }},
+    { key: "statusDescricao", label: "Status", render: (r) => {
+        const raw = r.statusRaw;
+        const n = typeof raw === "number" ? raw : raw != null ? Number(raw) : NaN;
+        return Number.isNaN(n) ? pick(r, "statusDescricao") : <SolicitacaoVagaStatusBadgeEl raw={n} />;
+    }},
+    { key: "etapaPendenteCom", label: "Aguardando", render: (r) => {
+        const etapa = pick(r, "etapaPendenteLabel");
+        const quem = pick(r, "etapaPendenteCom");
+        if (etapa === "—" && quem === "—") return "—";
+        return (
+            <div className="text-xs leading-tight">
+                {etapa !== "—" && <div className="font-medium">{etapa}</div>}
+                {quem !== "—" && <div className="text-muted-foreground">{quem}</div>}
+            </div>
+        );
+    }},
+    { key: "createdAtUtc", label: "Aberta em", render: (r) => formatDateTimeDisplay(pick(r, "createdAtUtc") !== "—" ? pick(r, "createdAtUtc") : null) },
+];
+
 /* ──────────────────────────── component ──────────────────────────── */
 
 const VALID_TAB_IDS: TabId[] = ["_all", "contratacao", "promocao", "desligamento"];
@@ -612,6 +664,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     /* ── Contratação detail (real API) ── */
     const [detailOpen, setDetailOpen] = useState(false);
     const [detail, setDetail] = useState<SolicitacaoDetail | null>(null);
+    const [detailSourceRow, setDetailSourceRow] = useState<GenericRow | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [lastApproved, setLastApproved] = useState<{ titulo: string } | null>(null);
 
@@ -693,11 +746,20 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         return true;
     }, []);
 
+    const canActOnPortalRow = useCallback((row: GenericRow | null | undefined): boolean => {
+        if (!row) return false;
+        if (row.etapaPendenteCanAssume === true) return true;
+        if (myFuncionarioId && String(row.etapaPendenteAprovadorId ?? "") === myFuncionarioId) return true;
+        if (myUserId && String(row.etapaPendenteAssumedByUserId ?? "") === myUserId) return true;
+        return false;
+    }, [myFuncionarioId, myUserId]);
+
     /** Grid /api/solicitacoes-vaga sem duplicar o que já veio de /api/aprovacoes/pendentes (mesmo SolicitacaoId). */
     const portalExtrasDaListaVaga = useMemo(() => {
         const ids = new Set(portalPendentes.map((p) => p.id));
-        return solicitacaoVagaPendenciaRows.filter((r) => !ids.has(r.id));
-    }, [portalPendentes, solicitacaoVagaPendenciaRows]);
+        if (!meLoaded) return [];
+        return solicitacaoVagaPendenciaRows.filter((r) => !ids.has(r.id) && canActOnPortalRow(r));
+    }, [canActOnPortalRow, meLoaded, portalPendentes, solicitacaoVagaPendenciaRows]);
 
     const allMergedPortalRows = useMemo(
         () => [...portalPendentes, ...portalExtrasDaListaVaga],
@@ -871,7 +933,10 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     }, [dataMap, activeTab, q, isMyRow, isAllMode, typeFilter, allMergedPortalRows, showRmLegacy]);
 
     /* ── Selectable rows (non-fila items I can directly approve/reject) ── */
-    const selectableRows = useMemo(() => filtered.filter(r => !isFilaRow(r)), [filtered]);
+    const selectableRows = useMemo(
+        () => filtered.filter(r => !isFilaRow(r) && canActOnPortalRow(r)),
+        [canActOnPortalRow, filtered],
+    );
     const selectedRows = useMemo(() => selectableRows.filter(r => selectedIds.has(r.id)), [selectableRows, selectedIds]);
     const allSelectableSelected = selectableRows.length > 0 && selectableRows.every(r => selectedIds.has(r.id));
     const someSelected = selectedIds.size > 0;
@@ -892,6 +957,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     async function openContratacaoDetail(row: GenericRow) {
         setDetailOpen(true);
         setDetailLoading(true);
+        setDetailSourceRow(row);
         setApprovalObs("");
         try {
             const d = await fetchJson<SolicitacaoDetail>(`/api/solicitacoes-vaga/${row.id}`);
@@ -899,6 +965,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
         } catch {
             toast.error("Falha ao carregar detalhes.");
             setDetailOpen(false);
+            setDetailSourceRow(null);
         } finally {
             setDetailLoading(false);
         }
@@ -918,6 +985,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                 setLastApproved({ titulo: detail.titulo });
             }
             setDetailOpen(false);
+            setDetailSourceRow(null);
             pendencias.refresh();
             refreshAll();
         } catch (e) {
@@ -1079,7 +1147,12 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
     const isLoading = isAllMode
         ? Object.entries(loadingMap).some(([k, v]) => k !== "_all" && v) || portalLoading
         : loadingMap[activeTab];
-    const displayColumns = isAllMode ? allColumns : activeTabDef.columns;
+    const displayColumns = isAllMode
+        ? allColumns
+        : activeTab === "contratacao" && !showRmLegacy
+            ? PORTAL_CONTRATACAO_COLUMNS
+            : activeTabDef.columns;
+    const detailCanAct = canActOnPortalRow(detailSourceRow);
 
     return (
         <section className="space-y-4">
@@ -1269,6 +1342,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                             : firstCol?.render ? firstCol.render(row) : pick(row, firstCol?.key ?? "id");
                         const metaCols = (tabDef?.columns.slice(1, 3) ?? []).filter(c => c.key !== "etapaPendenteLabel");
                         const isSelected = selectedIds.has(row.id);
+                        const isSelectable = !isFila && canActOnPortalRow(row);
 
                         return (
                             <div
@@ -1279,7 +1353,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                             >
                                 {/* Card header */}
                                 <div className="flex items-start gap-3">
-                                    {!isFila && (
+                                    {isSelectable && (
                                         <input
                                             type="checkbox"
                                             className="mt-0.5 size-5 rounded border-gray-300 accent-primary cursor-pointer shrink-0"
@@ -1356,8 +1430,6 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                 </TableRow>
                             ) : filtered.length ? (
                                 filtered.map((row) => {
-                                    const isFila = isFilaRow(row);
-                                    const isSelected = selectedIds.has(row.id);
                                     const rowTabId = isAllMode ? ((row as GenericRow & { _tabId?: string })._tabId ?? "contratacao") : activeTab;
                                     const openDetail = () => handleOpenRowDetail(row);
                                     return (
@@ -1465,15 +1537,24 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
             </Dialog>
 
             {/* ── Contratação Detail Dialog ── */}
-            <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+            <Dialog open={detailOpen} onOpenChange={(open) => {
+                setDetailOpen(open);
+                if (!open) {
+                    setDetail(null);
+                    setDetailSourceRow(null);
+                    setApprovalObs("");
+                }
+            }}>
                 <DialogContent className="flex h-[90vh] max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
                     <div className="shrink-0 border-b bg-background px-6 pt-6 pb-4 pr-14">
                         <DialogHeader className="space-y-2 text-left">
                             <DialogTitle className="flex items-center gap-2">
-                                Analisar Solicitação de Contratação
+                                Detalhes da Solicitação de Contratação
                                 {detail && isFilaRow(detail) && <FilaBadge />}
                             </DialogTitle>
-                            <DialogDescription>Revise os detalhes e tome uma ação.</DialogDescription>
+                            <DialogDescription>
+                                Revise os detalhes da requisição e o fluxo de aprovação atual.
+                            </DialogDescription>
                         </DialogHeader>
                     </div>
 
@@ -1483,7 +1564,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                         </div>
                     ) : detail ? (
                         <>
-                            <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
+                            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-4">
                                 <SolicitacaoForm
                                     key={detail.id}
                                     active={detailOpen}
@@ -1495,7 +1576,7 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                 />
                             </div>
 
-                            {solicitacaoVagaStatusAllowsApprovalActions(detail.status) && (
+                            {solicitacaoVagaStatusAllowsApprovalActions(detail.status) && detailCanAct ? (
                                 <div className="shrink-0 space-y-3 border-t bg-background px-6 py-4">
                                     <div className="text-sm font-semibold">Ações de aprovação</div>
                                     <textarea
@@ -1538,7 +1619,11 @@ export default function AprovacoesScreen({ initialTab }: { initialTab?: string }
                                         </Button>
                                     </div>
                                 </div>
-                            )}
+                            ) : solicitacaoVagaStatusAllowsApprovalActions(detail.status) ? (
+                                <div className="shrink-0 border-t bg-muted/30 px-6 py-3 text-sm text-muted-foreground">
+                                    Esta solicitação está aguardando ação de outro aprovador ou fila. Para editar uma requisição sua em ajuste, use a tela de Solicitações de Vaga.
+                                </div>
+                            ) : null}
                         </>
                     ) : null}
                 </DialogContent>
