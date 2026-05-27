@@ -524,7 +524,6 @@ public sealed class SolicitacaoVagaRmAsyncTests
             rmRead.Object,
             syncRuns.Object,
             new StatusHistoricoService(db, tenantContext.Object),
-            Options.Create(new RmConnectionOptions { ConnectionString = "Server=fake;" }),
             Mock.Of<ILogger<SolicitacaoVagaRmCodStatusSyncService>>());
 
         var result = await service.RunBatchAsync(new RmSolicitacaoStatusSyncRequest(), 10, CancellationToken.None);

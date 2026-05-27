@@ -1802,6 +1802,30 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
             case TipoDecisaoHeadcount.AumentoDefinitivo:
             {
+                if (entity.TipoSolicitacao == TipoSolicitacaoVaga.AumentoQuadro)
+                {
+                    vaga.HeadcountAutorizado += entity.QtdPosicoes;
+                    vaga.HeadcountPendente = Math.Max(0, vaga.HeadcountPendente - entity.QtdPosicoes);
+                    vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                    if (vaga.Status == VagaStatus.Preenchida)
+                        vaga.Status = VagaStatus.Aberta;
+
+                    entity.Status = SolicitacaoStatus.Aprovada;
+                    await _statusHistorico.RegistrarAsync(TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
+                        statusAnterior, entity.Status.ToString(), _currentUser, observacao, ct);
+                    await _db.SaveChangesAsync(ct);
+
+                    await _workflow.NotifyByFuncionarioIdAsync(
+                        entity.SolicitanteId,
+                        "Solicitação de vaga aprovada — aumento de quadro",
+                        $"Sua solicitação \"{entity.Titulo}\" foi aprovada pelo gestor direto.",
+                        SolicitacaoVagaFrontendLinks.SolicitacaoVagaRelativeEdit(entity.Id),
+                        ct);
+
+                    await _recruiterNotifier.NotifyFinalizadaAsync(entity.Id, ct);
+                    break;
+                }
+
                 // Aumento permanente requer aprovação extra (Diretoria) via fluxo AumentoHeadcount
                 var etapasConfig = await _db.EtapasConfigAprovacao
                     .AsNoTracking()

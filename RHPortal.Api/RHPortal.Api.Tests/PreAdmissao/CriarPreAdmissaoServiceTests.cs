@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+using RhPortal.Api.Application.Blip;
 using RhPortal.Api.Application.ItaloIntegracao;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Enums;
@@ -50,6 +52,14 @@ public sealed class CriarPreAdmissaoServiceTests
                .Returns("https://s3.mock/presigned");
         var logger = new Mock<ILogger<PreAdmissaoService>>();
         var httpAccessor = new Mock<IHttpContextAccessor>();
+        var ocupacaoService = new Mock<IOcupacaoHistoricoService>();
+        var hostEnvironment = new Mock<Microsoft.Extensions.Hosting.IHostEnvironment>();
+        hostEnvironment.Setup(x => x.ContentRootPath).Returns(Path.GetTempPath());
+        var httpClientFactory = new Mock<IHttpClientFactory>();
+        var blipMessaging = new BlipMessagingService(
+            db,
+            httpClientFactory.Object,
+            new Mock<ILogger<BlipMessagingService>>().Object);
 
         var service = new PreAdmissaoService(
             db,
@@ -60,7 +70,10 @@ public sealed class CriarPreAdmissaoServiceTests
             storage.Object,
             logger.Object,
             httpAccessor.Object,
-            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
+            ocupacaoService.Object,
+            blipMessaging,
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
+            hostEnvironment.Object);
 
         return (db, service);
     }
