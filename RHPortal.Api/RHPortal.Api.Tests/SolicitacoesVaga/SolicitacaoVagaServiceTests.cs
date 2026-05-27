@@ -820,11 +820,25 @@ public sealed class SolicitacaoVagaServiceTests
     }
 
     [Fact]
-    public async Task Submit_AumentoQuadro_ComCamposMinimos_VaiParaPendenteTriagem_SemEtapas()
+    public async Task Submit_AumentoQuadro_ComCamposMinimos_VaiParaPendenteAprovacao_ComEtapas()
     {
         var (db, svc, _, _) = CriarServico();
         var solicitanteUserId = Guid.NewGuid();
         var funcId = SeedFuncionario(db, solicitanteUserId);
+        var aprovadorFakeId = SeedFuncionario(db, Guid.NewGuid());
+        db.Set<EtapaConfigAprovacao>().Add(new EtapaConfigAprovacao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            TipoFluxo = TipoFluxoAprovacao.RequisicaoPessoal,
+            Ordem = 1,
+            Label = "Aprovacao",
+            TipoAprovador = TipoAprovador.FuncionarioFixo,
+            FuncionarioFixoId = aprovadorFakeId,
+            Ativo = true,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        });
+        db.SaveChanges();
         var jpId = SeedJobPosition(db);
         var ccId = Guid.NewGuid();
         var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, ccId);
@@ -832,20 +846,22 @@ public sealed class SolicitacaoVagaServiceTests
         Assert.True(await svc.SubmitAsync(id, CancellationToken.None));
 
         var entity = await db.SolicitacoesVaga.IgnoreQueryFilters().FirstAsync(x => x.Id == id);
-        Assert.Equal(SolicitacaoStatus.PendenteTriagem, entity.Status);
-        var countEtapas = await db.SolicitacoesAprovacaoEtapa.IgnoreQueryFilters()
-            .CountAsync(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal);
-        Assert.Equal(0, countEtapas);
+        Assert.Equal(SolicitacaoStatus.PendenteAprovacao, entity.Status);
+        var etapa = await db.SolicitacoesAprovacaoEtapa.IgnoreQueryFilters()
+            .SingleAsync(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal);
+        Assert.Equal(aprovadorFakeId, etapa.AprovadorId);
     }
 
     [Fact]
-    public async Task Approve_AumentoQuadro_EmPendenteTriagem_LancaPorFluxoTriagem()
+    public async Task Approve_AumentoQuadro_EmPendenteTriagem_LancaPorFluxoTriagemLegado()
     {
         var (db, svc, _, _) = CriarServico();
         var funcId = SeedFuncionario(db, Guid.NewGuid());
         var jpId = SeedJobPosition(db);
         var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, Guid.NewGuid());
-        await svc.SubmitAsync(id, CancellationToken.None);
+        var entity = await db.SolicitacoesVaga.IgnoreQueryFilters().FirstAsync(x => x.Id == id);
+        entity.Status = SolicitacaoStatus.PendenteTriagem;
+        await db.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             svc.ApproveAsync(id, null, CancellationToken.None));
@@ -862,7 +878,9 @@ public sealed class SolicitacaoVagaServiceTests
         var jpId = SeedJobPosition(db);
         var ccId = Guid.NewGuid();
         var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, ccId);
-        await svc.SubmitAsync(id, CancellationToken.None);
+        var triagemEntity = await db.SolicitacoesVaga.IgnoreQueryFilters().FirstAsync(x => x.Id == id);
+        triagemEntity.Status = SolicitacaoStatus.PendenteTriagem;
+        await db.SaveChangesAsync();
 
         var resp = await svc.DevolverTriagemAoGestorAsync(id, " Falta centro detalhado ", CancellationToken.None);
         Assert.NotNull(resp);
@@ -884,7 +902,7 @@ public sealed class SolicitacaoVagaServiceTests
 
         Assert.True(await svc.SubmitAsync(id, CancellationToken.None));
         var entity = await db.SolicitacoesVaga.IgnoreQueryFilters().FirstAsync(x => x.Id == id);
-        Assert.Equal(SolicitacaoStatus.PendenteTriagem, entity.Status);
+        Assert.Equal(SolicitacaoStatus.PendenteAprovacao, entity.Status);
     }
 
     [Fact]
@@ -910,7 +928,9 @@ public sealed class SolicitacaoVagaServiceTests
 
         var jpId = SeedJobPosition(db);
         var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, Guid.NewGuid());
-        await svc.SubmitAsync(id, CancellationToken.None);
+        var triagemEntity = await db.SolicitacoesVaga.IgnoreQueryFilters().FirstAsync(x => x.Id == id);
+        triagemEntity.Status = SolicitacaoStatus.PendenteTriagem;
+        await db.SaveChangesAsync();
         await svc.IniciarTriagemAsync(id, CancellationToken.None);
         var resp = await svc.EncaminharTriagemParaAprovacoesAsync(id, CancellationToken.None);
 
@@ -929,7 +949,9 @@ public sealed class SolicitacaoVagaServiceTests
         var funcId = SeedFuncionario(db, Guid.NewGuid());
         var jpId = SeedJobPosition(db);
         var id = SeedSolicitacaoAumentoQuadroRascunho(db, funcId, jpId, Guid.NewGuid());
-        await svc.SubmitAsync(id, CancellationToken.None);
+        var entity = await db.SolicitacoesVaga.IgnoreQueryFilters().FirstAsync(x => x.Id == id);
+        entity.Status = SolicitacaoStatus.PendenteTriagem;
+        await db.SaveChangesAsync();
 
         var r = await svc.TriagemReprovarAsync(id, "Não aprovado pela triagem.", CancellationToken.None);
         Assert.NotNull(r);
