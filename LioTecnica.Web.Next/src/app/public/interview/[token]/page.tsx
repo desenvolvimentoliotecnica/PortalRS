@@ -1,6 +1,9 @@
-import PublicInterviewScreen from "@/features/recrutamento/entrevistas-publicas/PublicInterviewScreen";
+import PublicInterviewPageClient from "./PublicInterviewPageClient";
 
-export default async function PublicInterviewPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
-  return <PublicInterviewScreen token={token} />;
+export function generateStaticParams() {
+  return [{ token: "__" }];
+}
+
+export default function PublicInterviewPage() {
+  return <PublicInterviewPageClient />;
 }

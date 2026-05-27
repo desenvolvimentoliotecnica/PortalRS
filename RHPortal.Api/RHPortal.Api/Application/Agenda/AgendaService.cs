@@ -6,6 +6,7 @@ using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.Agenda;
 
@@ -15,17 +16,20 @@ public sealed class AgendaService
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly ITenantContext _tenantContext;
     private readonly NotificationPublisher _notifications;
+    private readonly IEmailQueueService _emailQueue;
 
     public AgendaService(
         AppDbContext db,
         IStringLocalizer<ServiceMessages> localizer,
         ITenantContext tenantContext,
-        NotificationPublisher notifications)
+        NotificationPublisher notifications,
+        IEmailQueueService emailQueue)
     {
         _db = db;
         _localizer = localizer;
         _tenantContext = tenantContext;
         _notifications = notifications;
+        _emailQueue = emailQueue;
     }
 
     public async Task<IReadOnlyList<ScheduleEventTypeResponse>> ListTypesAsync(CancellationToken ct)
@@ -229,7 +233,11 @@ public sealed class AgendaService
         entity.Status = "confirmado_candidato";
 
         await _db.SaveChangesAsync(ct);
-        await NotifyResponsibleAsync(entity, "Entrevista confirmada pelo candidato", $"{entity.Candidate ?? "Candidato"} confirmou presença na entrevista.", ct);
+        await NotifyResponsibleAsync(
+            entity,
+            "Entrevista confirmada pelo candidato",
+            $"{entity.Candidate ?? "Candidato"} confirmou presença na entrevista.",
+            ct);
 
         return MapPublic(entity);
     }
@@ -328,15 +336,76 @@ public sealed class AgendaService
 
         if (userIds.Count == 0) return;
 
+        var targetUserIds = userIds.ToList();
         await _notifications.PublishToUsersAsync(
             _tenantContext.TenantId,
-            userIds.ToList(),
+            targetUserIds,
             title,
             message,
             "/app/agendas",
             "info",
             ct);
+
+        await NotifyResponsibleByEmailAsync(entity, targetUserIds, title, message, ct);
     }
+
+    private async Task NotifyResponsibleByEmailAsync(
+        AgendaEvent entity,
+        IReadOnlyCollection<Guid> userIds,
+        string title,
+        string message,
+        CancellationToken ct)
+    {
+        if (userIds.Count == 0) return;
+
+        var recipients = await _db.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id) && u.IsActive && u.Email != null && u.Email != "")
+            .Select(u => new { u.Email, u.FullName })
+            .ToListAsync(ct);
+
+        if (recipients.Count == 0) return;
+
+        var candidate = Html(entity.Candidate ?? "Candidato");
+        var vaga = Html(entity.VagaTitle ?? "vaga não informada");
+        var currentWhen = $"{entity.StartAtUtc.ToLocalTime():dd/MM/yyyy HH:mm} - {entity.EndAtUtc.ToLocalTime():HH:mm}";
+        var suggestedWhen = entity.CandidateSuggestedStartAtUtc.HasValue
+            ? $"{entity.CandidateSuggestedStartAtUtc.Value.ToLocalTime():dd/MM/yyyy HH:mm} - {entity.CandidateSuggestedEndAtUtc?.ToLocalTime():HH:mm}"
+            : null;
+        var responseMessage = string.IsNullOrWhiteSpace(entity.CandidateResponseMessage)
+            ? ""
+            : $"<p><strong>Mensagem do candidato:</strong><br />{Html(entity.CandidateResponseMessage).Replace("\n", "<br />")}</p>";
+        var suggestedHtml = string.IsNullOrWhiteSpace(suggestedWhen)
+            ? ""
+            : $"<p><strong>Novo horário sugerido:</strong> {Html(suggestedWhen)}</p>";
+
+        var bodyHtml = $"""
+            <p>Olá,</p>
+            <p>{Html(message)}</p>
+            <p><strong>Candidato:</strong> {candidate}</p>
+            <p><strong>Vaga:</strong> {vaga}</p>
+            <p><strong>Horário agendado:</strong> {Html(currentWhen)}</p>
+            <p><strong>Local/modalidade:</strong> {Html(entity.Location ?? "A combinar")}</p>
+            {suggestedHtml}
+            {responseMessage}
+            <p>Acesse a agenda do portal para confirmar o agendamento ou enviar um novo horário.</p>
+            """;
+
+        foreach (var recipient in recipients)
+        {
+            await _emailQueue.EnqueueRawAsync(
+                recipient.Email!,
+                title,
+                bodyHtml,
+                null,
+                isSystem: true,
+                source: "agenda-entrevista-candidato",
+                ct);
+        }
+    }
+
+    private static string Html(string value)
+        => System.Net.WebUtility.HtmlEncode(value);
 
     private static PublicInterviewResponse MapPublic(AgendaEvent entity) => new(
         entity.Id,
