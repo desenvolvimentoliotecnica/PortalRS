@@ -131,7 +131,7 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         var entrevistaModalidade = entrevista?.Location;
         var entrevistaLink = entrevista is null || string.IsNullOrWhiteSpace(entrevista.CandidateConfirmationToken)
             ? null
-            : BuildFrontendUrl($"/public/interview/{entrevista.CandidateConfirmationToken}?tenantId={Uri.EscapeDataString(tenantId)}");
+            : BuildFrontendUrl($"/public/interview?token={Uri.EscapeDataString(entrevista.CandidateConfirmationToken)}&tenantId={Uri.EscapeDataString(tenantId)}");
 
         var idiomaCandidato = string.IsNullOrWhiteSpace(pref?.Idioma) ? _waOptions.IdiomaDefault : pref!.Idioma;
         var (assuntoEmail, mensagemEmail) = await ResolverTemplateAsync(etapaNova, CanalNotificacao.Email, candidato.Nome, vagaTitulo, idiomaCandidato, empresaNome, entrevistaData, entrevistaModalidade, entrevistaLink, ct);
