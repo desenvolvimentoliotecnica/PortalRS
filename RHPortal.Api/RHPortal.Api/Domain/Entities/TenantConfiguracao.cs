@@ -89,6 +89,12 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// </summary>
     public string? RmRequisicaoCreateEndpointUrl { get; set; }
 
+    /// <summary>
+    /// URL completa/template do endpoint GET de consulta de requisições RM.
+    /// Ex.: <c>http://host/api/framework/v1/consultaSQLServer/RealizaConsulta/KNG.V.003/0/V/?parameters=COLIGADA={COLIGADA};IDREQ={IDREQ}</c>.
+    /// </summary>
+    public string? RmRequisicaoGetEndpointUrl { get; set; }
+
     /// <summary>Usuário de autenticação BasicAuth para o endpoint RM de criação.</summary>
     public string? RmRequisicaoCreateUsername { get; set; }
 

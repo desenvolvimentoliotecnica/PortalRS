@@ -1,6 +1,5 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using RhPortal.Api.Contracts.Rm;
 using RhPortal.Api.Infrastructure.Rm;
 using RhPortal.Api.Infrastructure.Security;
@@ -14,12 +13,10 @@ namespace RhPortal.Api.Controllers;
 public sealed class RmRequisicoesController : ControllerBase
 {
     private readonly IRmRequisicoesReadService _read;
-    private readonly RmConnectionOptions _rm;
 
-    public RmRequisicoesController(IRmRequisicoesReadService read, IOptions<RmConnectionOptions> rm)
+    public RmRequisicoesController(IRmRequisicoesReadService read)
     {
         _read = read;
-        _rm = rm.Value;
     }
 
     [HttpGet]
@@ -34,16 +31,6 @@ public sealed class RmRequisicoesController : ControllerBase
         [FromQuery] string? q = null,
         CancellationToken ct = default)
     {
-        if (!_rm.IsConfigured)
-        {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
-            {
-                Title = "Integração RM indisponível",
-                Detail = "Configure Rm:ConnectionString (ou Server/Database/UserId/Password).",
-                Status = StatusCodes.Status503ServiceUnavailable
-            });
-        }
-
         try
         {
             var result = await _read.ListAsync(new RmRequisicaoListQuery
