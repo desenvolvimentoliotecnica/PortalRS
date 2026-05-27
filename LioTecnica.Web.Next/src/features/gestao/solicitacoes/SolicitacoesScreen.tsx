@@ -965,7 +965,14 @@ function SolicitacoesVagaContent() {
                                             <span className="text-muted-foreground text-xs">—</span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
+                                    <TableCell>
+                                        <div className="text-xs leading-tight">
+                                            <div className="font-medium text-foreground">{formatDate(r.createdAtUtc)}</div>
+                                            {r.solicitanteNome && (
+                                                <div className="text-muted-foreground">{r.solicitanteNome}</div>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                                             {isExternoAoSolicitanteLista(r) ? (
@@ -1119,7 +1126,10 @@ function SolicitacoesVagaContent() {
                                                             <span>{r.qtdPosicoes} pos.</span>
                                                             <span>{urgenciaBadge(r.urgencia)}</span>
                                                         </div>
-                                                        <div className="mt-2 text-[10px] text-muted-foreground">{formatDate(r.createdAtUtc)}</div>
+                                                        <div className="mt-2 text-[10px] text-muted-foreground">
+                                                            {formatDate(r.createdAtUtc)}
+                                                            {r.solicitanteNome && <> · {r.solicitanteNome}</>}
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
