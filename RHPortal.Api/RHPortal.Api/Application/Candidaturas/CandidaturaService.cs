@@ -327,8 +327,10 @@ public sealed class CandidaturaService : ICandidaturaService
             select new
             {
                 CandidatoNome = candidato.Nome,
+                CandidatoId = candidato.Id,
                 VagaTitulo = vaga != null ? vaga.Titulo : null,
                 VagaCodigo = vaga != null ? vaga.Codigo : null,
+                VagaId = vaga != null ? vaga.Id : (Guid?)null,
             }
         ).FirstOrDefaultAsync(ct);
 
@@ -364,6 +366,11 @@ public sealed class CandidaturaService : ICandidaturaService
             VagaTitle = details?.VagaTitulo,
             VagaCode = details?.VagaCodigo,
             Notes = notes,
+            CandidaturaId = cand.Id,
+            CandidatoId = details?.CandidatoId ?? cand.CandidatoId,
+            VagaId = details?.VagaId ?? cand.VagaId,
+            CandidateConfirmationToken = Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant(),
+            CandidateResponseStatus = "pendente",
         });
     }
 

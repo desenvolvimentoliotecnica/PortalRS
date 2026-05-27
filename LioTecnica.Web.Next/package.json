@@ -10,7 +10,10 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:uat": "powershell -NoProfile -Command \"$env:PLAYWRIGHT_UAT_VIDEO='1'; playwright test --headed\"",
+    "test:e2e:ui": "playwright test --ui",
+    "uat:runner": "python tools/uat_runner.py"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": [

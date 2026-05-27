@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Application.Blip;
 using RhPortal.Api.Application.IntegracaoTotvs;
@@ -81,6 +82,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly IOcupacaoHistoricoService _ocupacaoService;
     private readonly BlipMessagingService _blipMessaging;
     private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _hostEnvironment;
 
     public PreAdmissaoService(
         AppDbContext db,
@@ -93,7 +95,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         IHttpContextAccessor httpContextAccessor,
         IOcupacaoHistoricoService ocupacaoService,
         BlipMessagingService blipMessaging,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment hostEnvironment)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -106,6 +109,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _ocupacaoService = ocupacaoService;
         _blipMessaging = blipMessaging;
         _configuration = configuration;
+        _hostEnvironment = hostEnvironment;
     }
 
     // ── List ──
@@ -702,7 +706,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
         foreach (var doc in e.Documentos)
         {
-            try { await _storage.DeleteAsync(doc.StoragePath, ct); }
+            try { await DeleteStoredDocumentAsync(doc, ct); }
             catch { /* best-effort */ }
         }
 
@@ -737,16 +741,12 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         var pa = await _db.Set<Domain.Entities.PreAdmissao>().AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct)
             ?? throw new InvalidOperationException("Pré-admissão não encontrada.");
-        var folder = pa.CandidatoId.HasValue
-            ? $"{_tenantContext.TenantId}/candidatos/{pa.CandidatoId.Value:N}"
-            : $"{_tenantContext.TenantId}/admissao/{preAdmissaoId:N}";
-        var ext = Path.GetExtension(nomeArquivo);
-        var storagePath = $"{folder}/{(int)tipo}_{Guid.NewGuid():N}{ext}";
-        await _storage.UploadAsync(stream, storagePath, contentType, ct);
+        var documentId = Guid.NewGuid();
+        var storagePath = await SaveDocumentStreamAsync(pa, documentId, nomeArquivo, contentType, stream, ct);
 
         var doc = new PreAdmissaoDocumento
         {
-            Id = Guid.NewGuid(),
+            Id = documentId,
             TenantId = _tenantContext.TenantId,
             PreAdmissaoId = preAdmissaoId,
             Tipo = tipo,
@@ -760,14 +760,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         };
         _db.Set<PreAdmissaoDocumento>().Add(doc);
         await _db.SaveChangesAsync(ct);
-        return new PreAdmissaoDocumentoResponse(doc.Id, doc.Tipo, doc.Lado, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes, doc.Status, null, doc.CreatedAtUtc, _storage.GetPresignedUrl(doc.StoragePath));
+        return new PreAdmissaoDocumentoResponse(doc.Id, doc.Tipo, doc.Lado, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes, doc.Status, null, doc.CreatedAtUtc, ResolveDocumentUrl(doc));
     }
 
     public async Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct)
     {
         var doc = await _db.Set<PreAdmissaoDocumento>().FirstOrDefaultAsync(d => d.Id == docId && d.PreAdmissaoId == preAdmissaoId, ct);
         if (doc is null) return false;
-        await _storage.DeleteAsync(doc.StoragePath, ct);
+        await DeleteStoredDocumentAsync(doc, ct);
         _db.Set<PreAdmissaoDocumento>().Remove(doc);
         await _db.SaveChangesAsync(ct);
         return true;
@@ -1253,6 +1253,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         };
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
+        await AdicionarDocumentosPadraoSolicitadosAsync(entity.Id, entity.JobPositionId, entity.TipoContratacao ?? TipoContratacaoAdmissao.CLT, ct);
 
         // Notifica Ítalo para iniciar coleta de documentos via WhatsApp
         await _italoService.NotificarCandidatoAsync(entity.Id, entity.Nome, entity.Celular, entity.Email, ct);
@@ -1318,17 +1319,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                     _ => Path.GetExtension(request.NomeArquivo ?? "") is { Length: > 0 } x ? x : ".bin",
                 };
                 var nomeArquivo = request.NomeArquivo ?? $"{tipoLower}{ext}";
-                var folder = e.CandidatoId.HasValue
-                    ? $"{_tenantContext.TenantId}/candidatos/{e.CandidatoId.Value:N}"
-                    : $"{_tenantContext.TenantId}/admissao/{id:N}";
-                var storagePath = $"{folder}/{(int)tipoDoc}_{Guid.NewGuid():N}{ext}";
                 var bytes = Convert.FromBase64String(request.DocumentoBase64);
+                var documentId = Guid.NewGuid();
                 using var ms = new MemoryStream(bytes);
-                await _storage.UploadAsync(ms, storagePath, request.ContentType ?? "application/octet-stream", ct);
+                var storagePath = await SaveDocumentStreamAsync(e, documentId, nomeArquivo, request.ContentType ?? "application/octet-stream", ms, ct);
 
                 var doc = new PreAdmissaoDocumento
                 {
-                    Id = Guid.NewGuid(),
+                    Id = documentId,
                     TenantId = _tenantContext.TenantId,
                     PreAdmissaoId = id,
                     Tipo = tipoDoc,
@@ -1378,6 +1376,134 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     }
 
     // ── Helpers ──
+
+    private async Task<string> SaveDocumentStreamAsync(
+        Domain.Entities.PreAdmissao pa,
+        Guid documentId,
+        string nomeArquivo,
+        string contentType,
+        Stream stream,
+        CancellationToken ct)
+    {
+        var ext = Path.GetExtension(nomeArquivo);
+        var s3Folder = pa.CandidatoId.HasValue
+            ? $"{_tenantContext.TenantId}/candidatos/{pa.CandidatoId.Value:N}"
+            : $"{_tenantContext.TenantId}/admissao/{pa.Id:N}";
+        var s3Path = $"{s3Folder}/{documentId:N}{ext}";
+
+        try
+        {
+            if (stream.CanSeek) stream.Position = 0;
+            await _storage.UploadAsync(stream, s3Path, contentType, ct);
+            return s3Path;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("AWS S3 não configurado", StringComparison.OrdinalIgnoreCase))
+        {
+            if (stream.CanSeek) stream.Position = 0;
+            var storageFileName = PreAdmissaoDocumentoStorage.BuildStorageFileName(documentId, nomeArquivo);
+            var folder = PreAdmissaoDocumentoStorage.GetFolder(_hostEnvironment, _tenantContext.TenantId, pa.Id);
+            Directory.CreateDirectory(folder);
+
+            var filePath = Path.Combine(folder, storageFileName);
+            await using var file = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await stream.CopyToAsync(file, ct);
+
+            return PreAdmissaoDocumentoStorage.BuildLocalStoragePath(pa.Id, storageFileName);
+        }
+    }
+
+    private string ResolveDocumentUrl(PreAdmissaoDocumento doc)
+        => PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath)
+            ? string.Empty
+            : _storage.GetPresignedUrl(doc.StoragePath);
+
+    private async Task DeleteStoredDocumentAsync(PreAdmissaoDocumento doc, CancellationToken ct)
+    {
+        if (PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath))
+        {
+            var path = PreAdmissaoDocumentoStorage.TryResolveLocalPath(_hostEnvironment, doc.TenantId, doc.StoragePath);
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                File.Delete(path);
+            return;
+        }
+
+        await _storage.DeleteAsync(doc.StoragePath, ct);
+    }
+
+    private async Task AdicionarDocumentosPadraoSolicitadosAsync(
+        Guid preAdmissaoId,
+        Guid? jobPositionId,
+        TipoContratacaoAdmissao tipoContratacao,
+        CancellationToken ct)
+    {
+        var existentes = await _db.Set<PreAdmissaoDocumentoSolicitado>()
+            .AsNoTracking()
+            .AnyAsync(x => x.PreAdmissaoId == preAdmissaoId, ct);
+        if (existentes) return;
+
+        Guid? nivelCargoId = null;
+        if (jobPositionId is Guid jpId)
+        {
+            nivelCargoId = await _db.Set<JobPosition>()
+                .Where(j => j.Id == jpId)
+                .Select(j => j.NivelCargoId)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        var efetivos = await _db.Set<DocumentacaoPadraoConfig>()
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.TipoDocumento, x => x.Configuracao, ct);
+
+        if (nivelCargoId is Guid nid)
+        {
+            var overrides = await _db.Set<DocumentacaoPadraoPorNivelCargoConfig>()
+                .AsNoTracking()
+                .Where(x => x.NivelCargoId == nid)
+                .ToListAsync(ct);
+            foreach (var o in overrides) efetivos[o.TipoDocumento] = o.Configuracao;
+        }
+
+        if (jobPositionId is Guid cargoId)
+        {
+            var overrides = await _db.Set<DocumentacaoPadraoPorCargoConfig>()
+                .AsNoTracking()
+                .Where(x => x.JobPositionId == cargoId)
+                .ToListAsync(ct);
+            foreach (var o in overrides) efetivos[o.TipoDocumento] = o.Configuracao;
+        }
+
+        var docsConfigurados = efetivos
+            .Where(kv => kv.Value != 2)
+            .Select(kv => ((TipoDocumento)kv.Key, Obrigatorio: kv.Value == 0))
+            .ToList();
+
+        if (docsConfigurados.Count == 0)
+        {
+            var fallback = tipoContratacao == TipoContratacaoAdmissao.PJ
+                ? new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas }
+                : new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario };
+
+            docsConfigurados = fallback
+                .Select(tipo => (tipo, Obrigatorio: true))
+                .ToList();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var (tipo, obrigatorio) in docsConfigurados)
+        {
+            _db.Set<PreAdmissaoDocumentoSolicitado>().Add(new PreAdmissaoDocumentoSolicitado
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId,
+                PreAdmissaoId = preAdmissaoId,
+                TipoDocumento = tipo,
+                Obrigatorio = obrigatorio,
+                CreatedAtUtc = now,
+            });
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
 
     private static bool ValidarCpf(string? cpf)
     {
@@ -1487,7 +1613,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // Documentos
         e.Documentos.Select(d => new PreAdmissaoDocumentoResponse(
             d.Id, d.Tipo, d.Lado, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.Status, d.ObservacaoRh,
-            d.CreatedAtUtc, _storage.GetPresignedUrl(d.StoragePath))).ToList(),
+            d.CreatedAtUtc, ResolveDocumentUrl(d))).ToList(),
         (e.DocumentosSolicitados ?? []).Select(ds => new DocumentoSolicitadoResponse(
             ds.TipoDocumento, TipoDocumentoLabel(ds.TipoDocumento), ds.Obrigatorio)).ToList(),
         // Dependentes

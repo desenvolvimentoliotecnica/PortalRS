@@ -44,7 +44,7 @@ type EventForm = {
   start: string; // yyyy-mm-ddThh:mm
   end: string; // yyyy-mm-ddThh:mm
   location: string;
-  status: "confirmado" | "pendente" | "cancelado";
+  status: "confirmado" | "confirmado_candidato" | "reagendamento_sugerido" | "pendente" | "cancelado";
   owner: string;
   candidateName: string;
   vagaId: string;
@@ -97,6 +97,8 @@ function safeDate(value: unknown): Date | null {
 
 function statusLabel(s: string) {
   if (s === "confirmado") return "Confirmado";
+  if (s === "confirmado_candidato") return "Confirmado pelo candidato";
+  if (s === "reagendamento_sugerido") return "Reagendamento sugerido";
   if (s === "pendente") return "Pendente";
   if (s === "cancelado") return "Cancelado";
   return s || "—";
@@ -715,6 +717,8 @@ export default function AgendasScreen() {
               >
                 <option value="all">Todos</option>
                 <option value="confirmado">Confirmado</option>
+                <option value="confirmado_candidato">Confirmado pelo candidato</option>
+                <option value="reagendamento_sugerido">Reagendamento sugerido</option>
                 <option value="pendente">Pendente</option>
                 <option value="cancelado">Cancelado</option>
               </select>
@@ -924,6 +928,8 @@ export default function AgendasScreen() {
                 <label className="mini-title mb-1 block">Status</label>
                 <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as EventForm["status"] })}>
                   <option value="confirmado">Confirmado</option>
+                  <option value="confirmado_candidato">Confirmado pelo candidato</option>
+                  <option value="reagendamento_sugerido">Reagendamento sugerido</option>
                   <option value="pendente">Pendente</option>
                   <option value="cancelado">Cancelado</option>
                 </select>
@@ -1028,6 +1034,26 @@ export default function AgendasScreen() {
                 <div className="mini-title mb-1">Notas</div>
                 <div className="text-muted-foreground whitespace-pre-wrap text-sm">{selectedEvent.notes ?? "—"}</div>
               </div>
+              {selectedEvent.candidateResponseStatus ? (
+                <div className="card-soft border-amber-200 bg-amber-50 p-3 md:col-span-2" style={{ boxShadow: "none" }}>
+                  <div className="mini-title mb-1">Resposta do candidato</div>
+                  <div className="font-semibold">{statusLabel(String(selectedEvent.candidateResponseStatus).toLowerCase())}</div>
+                  {selectedEvent.candidateRespondedAtUtc ? (
+                    <div className="text-muted-foreground mt-1 text-sm">
+                      Respondido em {fmtTimeRange(safeDate(selectedEvent.candidateRespondedAtUtc), null)}
+                    </div>
+                  ) : null}
+                  {selectedEvent.candidateSuggestedStartAtUtc ? (
+                    <div className="mt-2 text-sm">
+                      <span className="font-medium">Horário sugerido: </span>
+                      {fmtTimeRange(safeDate(selectedEvent.candidateSuggestedStartAtUtc), safeDate(selectedEvent.candidateSuggestedEndAtUtc))}
+                    </div>
+                  ) : null}
+                  {selectedEvent.candidateResponseMessage ? (
+                    <div className="text-muted-foreground mt-2 whitespace-pre-wrap text-sm">{selectedEvent.candidateResponseMessage}</div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
 

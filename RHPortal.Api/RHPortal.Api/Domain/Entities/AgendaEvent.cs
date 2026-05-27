@@ -21,6 +21,17 @@ public sealed class AgendaEvent : ITenantEntity
     public string? VagaCode { get; set; }
     public string? Notes { get; set; }
 
+    public Guid? CandidaturaId { get; set; }
+    public Guid? CandidatoId { get; set; }
+    public Guid? VagaId { get; set; }
+
+    public string? CandidateConfirmationToken { get; set; }
+    public string? CandidateResponseStatus { get; set; }
+    public DateTimeOffset? CandidateRespondedAtUtc { get; set; }
+    public DateTime? CandidateSuggestedStartAtUtc { get; set; }
+    public DateTime? CandidateSuggestedEndAtUtc { get; set; }
+    public string? CandidateResponseMessage { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }
