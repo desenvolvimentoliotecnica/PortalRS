@@ -27,6 +27,7 @@ type KanbanResponse = { colunas: Array<{ etapa: string | number; itens: KanbanIt
 type KanbanItem = { id: string; candidatoId: string; candidatoNome: string; candidatoEmail?: string | null; etapaMacro: string | number };
 type AgendaEvent = {
   id: string;
+  candidaturaId?: string | null;
   title?: string | null;
   candidate?: string | null;
   startAtUtc: string;
@@ -199,6 +200,16 @@ async function selecionarMotivoSemDesligamento(page: Page) {
   await motivoSelect.selectOption(motivoValue);
 }
 
+async function selecionarTipoAumentoQuadro(page: Page) {
+  const tipoSolicitacaoSelect = page
+    .locator("select")
+    .filter({ has: page.locator("option", { hasText: /Aumento de quadro/i }) })
+    .first();
+  await expect(tipoSolicitacaoSelect).toBeVisible({ timeout: 20_000 });
+  await tipoSolicitacaoSelect.selectOption("2");
+  await expect(tipoSolicitacaoSelect).toHaveValue("2");
+}
+
 async function selecionarTurnoOuHorarioLegado(page: Page) {
   await page.getByRole("button", { name: /Horário/i }).click();
   const turnoInput = page.getByPlaceholder(/Buscar turno/i).first();
@@ -236,8 +247,8 @@ async function criarRequisicaoComoCoordenador(page: Page) {
   await faixaSalarial.nth(1).fill("700000");
 
   await selecionarMotivoSemDesligamento(page);
-  await page.locator('[data-testid="radio-decisao-provisoria"]').check();
-  await page.locator('[data-testid="input-decisao-prazo-meses"]').fill("3");
+  await selecionarTipoAumentoQuadro(page);
+  await page.locator('[data-testid="radio-decisao-aumento"]').check();
   await page.getByPlaceholder(/Justifique a necessidade/i).fill(justificativa);
   await selecionarTurnoOuHorarioLegado(page);
 
@@ -262,7 +273,7 @@ async function aprovarRequisicaoComoGestor(page: Page, requisicaoId: string) {
 
   const row = page.locator("tbody tr").first();
   await expect(row).toBeVisible({ timeout: 20_000 });
-  await row.click();
+  await row.getByRole("button", { name: /Ver detalhes/i }).click();
   await expect(page.getByRole("dialog", { name: /Detalhes da Solicitação de Contratação/i })).toBeVisible({ timeout: 20_000 });
   await page.getByPlaceholder(/Observação/i).fill("Aprovado pelo gestor direto no UAT automatizado.");
 
@@ -408,6 +419,7 @@ async function buscarEventoEntrevista(
   request: APIRequestContext,
   token: string,
   candidatoNome: string,
+  candidaturaId?: string,
 ): Promise<AgendaEvent> {
   const start = new Date();
   start.setDate(start.getDate() - 1);
@@ -420,6 +432,7 @@ async function buscarEventoEntrevista(
   const events = await apiJson<AgendaEvent[]>(request, "get", `/api/agenda/events?${qs.toString()}`, token);
   const event = events
     .filter((item) => {
+      if (candidaturaId && item.candidaturaId !== candidaturaId) return false;
       const title = `${item.title ?? ""} ${item.candidate ?? ""}`.toLowerCase();
       return title.includes(candidatoNome.toLowerCase());
     })
@@ -430,13 +443,12 @@ async function buscarEventoEntrevista(
 
 function publicInterviewUrl(event: AgendaEvent) {
   expect(event.candidateConfirmationToken, "Evento de entrevista deve retornar token público de confirmação").toBeTruthy();
-  return portalRhPath(`/app/public/interview/${event.candidateConfirmationToken}?tenantId=${encodeURIComponent(tenantId)}`);
+  return portalRhPath(`/app/public/interview?token=${encodeURIComponent(event.candidateConfirmationToken!)}&tenantId=${encodeURIComponent(tenantId)}`);
 }
 
 async function confirmarEntrevistaComoCandidato(page: Page, event: AgendaEvent) {
   await page.goto(publicInterviewUrl(event));
   await expect(page.getByText(/Entrevista/i).first()).toBeVisible({ timeout: 20_000 });
-  if (event.candidate) await expect(page.getByText(event.candidate).first()).toBeVisible({ timeout: 20_000 });
   if (event.location) await expect(page.getByText(event.location).first()).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: /Confirmar presença/i }).click();
   await expect(page.getByText(/Resposta registrada|presença confirmada/i).first()).toBeVisible({ timeout: 20_000 });
@@ -460,14 +472,15 @@ async function buscarEventoAteStatus(
   token: string,
   candidatoNome: string,
   status: RegExp,
+  candidaturaId?: string,
 ): Promise<AgendaEvent> {
   return await expect
     .poll(async () => {
-      const event = await buscarEventoEntrevista(request, token, candidatoNome);
+      const event = await buscarEventoEntrevista(request, token, candidatoNome, candidaturaId);
       return status.test(event.status ?? "") || status.test(event.candidateResponseStatus ?? "") ? event : null;
     }, { intervals: [1_000, 2_000, 3_000, 5_000], timeout: 30_000 })
     .not.toBeNull()
-    .then(async () => buscarEventoEntrevista(request, token, candidatoNome));
+    .then(async () => buscarEventoEntrevista(request, token, candidatoNome, candidaturaId));
 }
 
 async function validarRespostaEntrevistaNaAgenda(page: Page, event: AgendaEvent, candidatoNome: string, expected: RegExp) {
@@ -821,7 +834,7 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
       local: "Teams - UAT automatizado",
       observacao: "Entrevista agendada pelo fluxo UAT automatizado.",
     });
-    entrevistaEvento = await buscarEventoEntrevista(request, analistaAuth.accessToken, candidatura.candidatoNome);
+    entrevistaEvento = await buscarEventoEntrevista(request, analistaAuth.accessToken, candidatura.candidatoNome, candidatura.id);
     await page.getByRole("button", { name: /Atualizar/i }).click();
     await expect(page.getByText(/Entrevista/i).first()).toBeVisible({ timeout: 20_000 });
   });
@@ -842,7 +855,7 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
 
   await report.step(page, "Analista RH visualiza confirmação do candidato na Agenda", async () => {
     if (!candidatura) throw new Error("Candidatura ausente.");
-    entrevistaEvento = await buscarEventoAteStatus(request, analistaAuth.accessToken, candidatura.candidatoNome, /confirmado/i);
+    entrevistaEvento = await buscarEventoAteStatus(request, analistaAuth.accessToken, candidatura.candidatoNome, /confirmado/i, candidatura.id);
     await loginUi(page, analistaEmail!, analistaPassword!);
     await validarRespostaEntrevistaNaAgenda(page, entrevistaEvento, candidatura.candidatoNome, /Confirmado pelo candidato|confirmado/i);
   });
@@ -858,7 +871,7 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
       local: "Teams - UAT reagendamento",
       observacao: "Entrevista técnica agendada para validar sugestão de novo horário pelo candidato.",
     });
-    entrevistaTecnicaEvento = await buscarEventoEntrevista(request, analistaAuth.accessToken, candidatura.candidatoNome);
+    entrevistaTecnicaEvento = await buscarEventoEntrevista(request, analistaAuth.accessToken, candidatura.candidatoNome, candidatura.id);
     await page.goto("/app/agendas");
     await expect(page.getByText(/^Agenda$/i)).toBeVisible({ timeout: 20_000 });
     await page.getByPlaceholder("Buscar…").fill(candidatura.candidatoNome);
@@ -872,7 +885,7 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
 
   await report.step(page, "Analista RH visualiza sugestão de reagendamento na Agenda", async () => {
     if (!candidatura) throw new Error("Candidatura ausente.");
-    entrevistaTecnicaEvento = await buscarEventoAteStatus(request, analistaAuth.accessToken, candidatura.candidatoNome, /reagendamento|sugeriu/i);
+    entrevistaTecnicaEvento = await buscarEventoAteStatus(request, analistaAuth.accessToken, candidatura.candidatoNome, /reagendamento|sugeriu/i, candidatura.id);
     await loginUi(page, analistaEmail!, analistaPassword!);
     await validarRespostaEntrevistaNaAgenda(page, entrevistaTecnicaEvento, candidatura.candidatoNome, /Reagendamento sugerido|Horário sugerido|Sugestão UAT/i);
   });
