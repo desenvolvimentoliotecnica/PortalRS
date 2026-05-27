@@ -33,6 +33,7 @@ public sealed record ScheduleEventResponse(
     DateTime? CandidateSuggestedStartAtUtc,
     DateTime? CandidateSuggestedEndAtUtc,
     string? CandidateResponseMessage,
+    string? CandidateConfirmationToken,
     string TypeCode,
     string TypeLabel,
     string TypeColor,
