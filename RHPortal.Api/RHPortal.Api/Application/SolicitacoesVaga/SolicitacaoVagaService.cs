@@ -1181,29 +1181,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var statusAnteriorSubmit = entity.Status.ToString();
 
         if (SolicitacaoVagaFluxoAumentoQuadro.IsFluxo(entity))
-        {
-            if (!SolicitacaoVagaFluxoAumentoQuadro.PodeGestorSubmitar(entity.Status))
-                throw new InvalidOperationException(
-                    "Não é possível submeter enquanto a solicitação aguarda triagem ou já foi encaminhada para aprovação.");
-
             await EnsureCamposMinimosEnvioAumentoQuadroAsync(entity, ct);
-
-            entity.Status = SolicitacaoStatus.PendenteTriagem;
-            entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoVaga, entity.Id,
-                statusAnteriorSubmit, entity.Status.ToString(), _currentUser, null, ct);
-
-            var remover = _db.SolicitacoesAprovacaoEtapa
-                .Where(e => e.SolicitacaoId == id && e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal);
-            _db.SolicitacoesAprovacaoEtapa.RemoveRange(remover);
-
-            await _db.SaveChangesAsync(ct);
-            await NotificarNovaTriagemRHAsync(entity, ct);
-            await _recruiterNotifier.NotifyNovaEnviadaAsync(entity, ct);
-            return true;
-        }
 
         entity.Status = SolicitacaoStatus.PendenteAprovacao;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -1710,7 +1688,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             }
             else
             {
-                // VagaNova: aplica a decisão de headcount que o gestor escolheu na criação.
+                // VagaNova/AumentoQuadro: aplica a decisão de headcount que o gestor escolheu na criação.
                 // A partir de agora o RH não decide mais — essa escolha já veio no payload.
                 await AplicarDecisaoHeadcountAsync(entity, statusAnteriorApprove, observacao, ct);
                 return await GetByIdAsync(id, ct);

@@ -4,7 +4,7 @@ using RhPortal.Api.Domain.Enums;
 namespace RhPortal.Api.Application.SolicitacoesVaga;
 
 /// <summary>
-/// Regras puras do fluxo <see cref="TipoSolicitacaoVaga.AumentoQuadro"/> (triagem → aprovações → RM na Fase 3).
+/// Regras auxiliares do fluxo <see cref="TipoSolicitacaoVaga.AumentoQuadro"/>.
 /// </summary>
 public static class SolicitacaoVagaFluxoAumentoQuadro
 {

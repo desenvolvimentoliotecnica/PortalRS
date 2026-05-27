@@ -1117,14 +1117,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 }
                 if (effectiveResubmitAfterSave) {
                     await fetchJson(`${API}/${editId}/submit`, { method: "POST" });
-                    setStatusCarregado(
-                        draft.tipoSolicitacao === 2
-                            ? SolicitacaoVagaOrdinal.PendenteTriagem
-                            : SolicitacaoVagaOrdinal.PendenteAprovacao,
-                    );
+                    setStatusCarregado(SolicitacaoVagaOrdinal.PendenteAprovacao);
                     toast.success(
                         draft.tipoSolicitacao === 2
-                            ? "Solicitação atualizada e reenviada para triagem RH!"
+                            ? "Solicitação atualizada e reenviada para aprovação!"
                             : "Solicitação atualizada e reenviada para aprovação!",
                     );
                 } else {
@@ -1163,7 +1159,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                     if (submitRes.ok || submitRes.status === 204) {
                         toast.success(
                             tipoSolicitacaoStr === "AumentoQuadro"
-                                ? "Solicitação criada e encaminhada para triagem RH!"
+                                ? "Solicitação criada e enviada para aprovação!"
                                 : "Solicitação criada e enviada para aprovação!",
                         );
                     } else {
@@ -1450,7 +1446,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                         </select>
                                         {draft.tipoSolicitacao === 2 && (
                                             <p className="text-[11px] text-muted-foreground mt-1">
-                                                Esta opção vai para triagem RH antes das aprovações de requisição.
+                                                Esta opção segue para aprovação do gestor direto antes da distribuição ao RH.
                                             </p>
                                         )}
                                     </div>
@@ -1589,7 +1585,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             Decisão de headcount *
                                             <span className="ml-2 font-normal text-[11px] text-sky-700/80">
                                                 {draft.tipoSolicitacao === 2
-                                                    ? "Como esta vaga afeta o quadro? Defina antes de enviar para triagem RH."
+                                                    ? "Como esta vaga afeta o quadro? Defina antes de enviar para aprovação."
                                                     : "Como esta vaga afeta o quadro? Escolha antes de enviar para aprovação."}
                                             </span>
                                         </div>

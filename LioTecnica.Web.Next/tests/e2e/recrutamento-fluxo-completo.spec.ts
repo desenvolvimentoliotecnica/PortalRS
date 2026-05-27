@@ -248,6 +248,7 @@ async function criarRequisicaoComoCoordenador(page: Page) {
 
   await selecionarMotivoSemDesligamento(page);
   await selecionarTipoAumentoQuadro(page);
+  await selecionarPrimeiraOpcaoAutocomplete(page, /Buscar cargo/i);
   await page.locator('[data-testid="radio-decisao-aumento"]').check();
   await page.getByPlaceholder(/Justifique a necessidade/i).fill(justificativa);
   await selecionarTurnoOuHorarioLegado(page);

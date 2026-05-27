@@ -332,7 +332,7 @@ public sealed class SolicitacaoVagaRmAsyncTests
         var result = await service.CreateAsync(request, ids.FuncionarioId, CancellationToken.None);
         var entity = await db.SolicitacoesVaga.FirstAsync(x => x.Id == result.Id);
 
-        Assert.Equal(SolicitacaoStatus.PendenteTriagem, result.Status);
+        Assert.Equal(SolicitacaoStatus.PendenteAprovacao, result.Status);
         Assert.NotNull(entity.RmCriacaoSolicitadaEmUtc);
         Assert.Null(entity.IntegracaoResultado);
         Assert.Equal("Aguardando envio assíncrono da requisição ao RM.", entity.IntegracaoMensagem);
