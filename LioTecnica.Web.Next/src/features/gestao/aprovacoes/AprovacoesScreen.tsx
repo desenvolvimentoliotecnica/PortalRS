@@ -278,6 +278,32 @@ function urgenciaBadge(urgencia: number) {
     );
 }
 
+function normalizeUrgencia(raw: unknown): number | null {
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    if (typeof raw !== "string") return null;
+
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+
+    const asNumber = Number(trimmed);
+    if (Number.isFinite(asNumber)) return asNumber;
+
+    const key = trimmed
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+    const map: Record<string, number> = {
+        baixa: 0,
+        media: 1,
+        alta: 2,
+        critica: 3,
+        critico: 3,
+    };
+
+    return map[key] ?? null;
+}
+
 function FilaBadge() {
     return (
         <span className="inline-flex items-center rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-700 shrink-0">
@@ -560,9 +586,8 @@ const PORTAL_CONTRATACAO_COLUMNS: TabDef["columns"] = [
     }},
     { key: "qtdPosicoes", label: "Posições", render: (r) => pick(r, "qtdPosicoes") },
     { key: "urgencia", label: "Urgência", render: (r) => {
-        const raw = r.urgencia;
-        const n = typeof raw === "number" ? raw : raw != null ? Number(raw) : NaN;
-        return Number.isNaN(n) ? "—" : urgenciaBadge(n);
+        const n = normalizeUrgencia(r.urgencia);
+        return n == null ? "—" : urgenciaBadge(n);
     }},
     { key: "statusDescricao", label: "Status", render: (r) => {
         const raw = r.statusRaw;
@@ -580,7 +605,17 @@ const PORTAL_CONTRATACAO_COLUMNS: TabDef["columns"] = [
             </div>
         );
     }},
-    { key: "createdAtUtc", label: "Aberta em", render: (r) => formatDateTimeDisplay(pick(r, "createdAtUtc") !== "—" ? pick(r, "createdAtUtc") : null) },
+    { key: "createdAtUtc", label: "Aberta em", render: (r) => {
+        const abertaEm = formatDateTimeDisplay(pick(r, "createdAtUtc") !== "—" ? pick(r, "createdAtUtc") : null);
+        const autor = pick(r, "funcionarioNome");
+        if (autor === "—") return abertaEm;
+        return (
+            <div className="text-xs leading-tight">
+                <div className="font-medium">{abertaEm}</div>
+                <div className="text-muted-foreground">{autor}</div>
+            </div>
+        );
+    }},
 ];
 
 /* ──────────────────────────── component ──────────────────────────── */
