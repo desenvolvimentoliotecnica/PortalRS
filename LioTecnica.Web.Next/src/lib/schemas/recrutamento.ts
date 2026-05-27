@@ -162,6 +162,7 @@ export const AgendaEventApiSchema = z.object({
     candidateSuggestedStartAtUtc: z.string().optional().nullable(),
     candidateSuggestedEndAtUtc: z.string().optional().nullable(),
     candidateResponseMessage: z.string().optional().nullable(),
+    candidateConfirmationToken: z.string().optional().nullable(),
     typeCode: z.string().optional().nullable(),
     typeLabel: z.string().optional().nullable(),
     typeColor: z.string().optional().nullable(),

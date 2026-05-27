@@ -25,7 +25,20 @@ type Vaga = { id: string; titulo?: string | null; status?: string | number; head
 type Candidate = { id: string; nome?: string | null; email?: string | null };
 type KanbanResponse = { colunas: Array<{ etapa: string | number; itens: KanbanItem[] }> };
 type KanbanItem = { id: string; candidatoId: string; candidatoNome: string; candidatoEmail?: string | null; etapaMacro: string | number };
-type AgendaEvent = { id: string; title?: string | null; candidate?: string | null; startAtUtc: string; status?: string | null };
+type AgendaEvent = {
+  id: string;
+  title?: string | null;
+  candidate?: string | null;
+  startAtUtc: string;
+  endAtUtc?: string | null;
+  status?: string | null;
+  location?: string | null;
+  candidateConfirmationToken?: string | null;
+  candidateResponseStatus?: string | null;
+  candidateSuggestedStartAtUtc?: string | null;
+  candidateSuggestedEndAtUtc?: string | null;
+  candidateResponseMessage?: string | null;
+};
 type PropostaVaga = {
   id: string;
   vagaId: string;
@@ -280,25 +293,6 @@ async function publicarVaga(request: APIRequestContext, token: string, vagaId: s
   return { vaga, publicVaga };
 }
 
-async function registrarCandidaturaPublica(request: APIRequestContext, vagaId: string, titulo: string) {
-  const nome = `Leonardo Mendes UAT ${new Date().toISOString().slice(11, 19).replace(/\D/g, "")}`;
-  const res = await request.post(`/api/public/candidaturas?tenantId=${tenantId}`, {
-    multipart: {
-      vagaId,
-      nome,
-      email: candidatoEmail!,
-      fone: "11999999999",
-      cidadeUf: "São Paulo, SP",
-      cargoAtual: "Candidato UAT",
-      anosExperiencia: "5",
-      observacoes: `Candidatura UAT automatizada para ${titulo}`,
-    },
-  });
-  const text = await res.text();
-  expect(res.ok(), `Candidatura pública falhou: ${text}`).toBe(true);
-  return JSON.parse(text) as Candidate;
-}
-
 async function abrirDetalhesDaVagaNoPortal(page: Page, vaga: Vaga) {
   const titulo = vaga.titulo ?? "";
   await page.goto(portalPath(`/?tenantId=${encodeURIComponent(tenantId)}`));
@@ -403,10 +397,10 @@ async function avancarCandidatura(
   });
 }
 
-function proximoHorarioEntrevista() {
+function proximoHorarioEntrevista(offsetDays = 1, hour = 14) {
   const date = new Date();
-  date.setDate(date.getDate() + 1);
-  date.setHours(14, 0, 0, 0);
+  date.setDate(date.getDate() + offsetDays);
+  date.setHours(hour, 0, 0, 0);
   return date.toISOString();
 }
 
@@ -424,12 +418,66 @@ async function buscarEventoEntrevista(
     end: end.toISOString(),
   });
   const events = await apiJson<AgendaEvent[]>(request, "get", `/api/agenda/events?${qs.toString()}`, token);
-  const event = events.find((item) => {
-    const title = `${item.title ?? ""} ${item.candidate ?? ""}`.toLowerCase();
-    return title.includes(candidatoNome.toLowerCase());
-  });
+  const event = events
+    .filter((item) => {
+      const title = `${item.title ?? ""} ${item.candidate ?? ""}`.toLowerCase();
+      return title.includes(candidatoNome.toLowerCase());
+    })
+    .sort((a, b) => new Date(b.startAtUtc).getTime() - new Date(a.startAtUtc).getTime())[0];
   expect(event, `Evento de entrevista deve existir para ${candidatoNome}`).toBeTruthy();
   return event!;
+}
+
+function publicInterviewUrl(event: AgendaEvent) {
+  expect(event.candidateConfirmationToken, "Evento de entrevista deve retornar token público de confirmação").toBeTruthy();
+  return portalRhPath(`/app/public/interview/${event.candidateConfirmationToken}?tenantId=${encodeURIComponent(tenantId)}`);
+}
+
+async function confirmarEntrevistaComoCandidato(page: Page, event: AgendaEvent) {
+  await page.goto(publicInterviewUrl(event));
+  await expect(page.getByText(/Entrevista/i).first()).toBeVisible({ timeout: 20_000 });
+  if (event.candidate) await expect(page.getByText(event.candidate).first()).toBeVisible({ timeout: 20_000 });
+  if (event.location) await expect(page.getByText(event.location).first()).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: /Confirmar presença/i }).click();
+  await expect(page.getByText(/Resposta registrada|presença confirmada/i).first()).toBeVisible({ timeout: 20_000 });
+}
+
+async function sugerirReagendamentoComoCandidato(page: Page, event: AgendaEvent) {
+  await page.goto(publicInterviewUrl(event));
+  await expect(page.getByText(/Entrevista/i).first()).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: /Sugerir outra data\/horário/i }).click();
+  const suggestion = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
+  suggestion.setHours(16, 0, 0, 0);
+  const localValue = suggestion.toISOString().slice(0, 16);
+  await page.locator('input[type="datetime-local"]').fill(localValue);
+  await page.getByPlaceholder(/Informe sua disponibilidade/i).fill("Sugestão UAT: candidato prefere este novo horário.");
+  await page.getByRole("button", { name: /Enviar sugestão/i }).click();
+  await expect(page.getByText(/Resposta registrada|novo horário sugerido/i).first()).toBeVisible({ timeout: 20_000 });
+}
+
+async function buscarEventoAteStatus(
+  request: APIRequestContext,
+  token: string,
+  candidatoNome: string,
+  status: RegExp,
+): Promise<AgendaEvent> {
+  return await expect
+    .poll(async () => {
+      const event = await buscarEventoEntrevista(request, token, candidatoNome);
+      return status.test(event.status ?? "") || status.test(event.candidateResponseStatus ?? "") ? event : null;
+    }, { intervals: [1_000, 2_000, 3_000, 5_000], timeout: 30_000 })
+    .not.toBeNull()
+    .then(async () => buscarEventoEntrevista(request, token, candidatoNome));
+}
+
+async function validarRespostaEntrevistaNaAgenda(page: Page, event: AgendaEvent, candidatoNome: string, expected: RegExp) {
+  await page.goto("/app/agendas");
+  await expect(page.getByText(/^Agenda$/i)).toBeVisible({ timeout: 20_000 });
+  await page.getByPlaceholder("Buscar…").fill(candidatoNome);
+  await expect(page.getByText(event.title ?? candidatoNome).first()).toBeVisible({ timeout: 20_000 });
+  await page.getByText(event.title ?? candidatoNome).first().click();
+  await expect(page.getByText(/Detalhes/i).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(expected).first()).toBeVisible({ timeout: 20_000 });
 }
 
 async function criarEEnviarProposta(
@@ -595,13 +643,20 @@ async function salvarDadosAdmissaoViaApi(request: APIRequestContext, setup: PreA
   expect(res.ok(), `Salvar dados admissionais falhou: ${text}`).toBe(true);
 }
 
-async function anexarDocumentosSolicitados(page: Page, documentoPath: string) {
+async function anexarDocumentosSolicitados(page: Page, documentoPath: string, documentosSolicitados: DocumentoSolicitado[]) {
   await page.getByRole("button", { name: /Começar|Próximo/i }).click();
   await expect(page.getByText(/Tire uma foto de cada documento|documento/i).first()).toBeVisible({ timeout: 20_000 });
+
+  for (const documento of documentosSolicitados.slice(0, 4)) {
+    if (documento.label) {
+      await expect(page.getByText(documento.label).first()).toBeVisible({ timeout: 20_000 });
+    }
+  }
 
   const inputs = page.locator('input[type="file"][accept="image/*"]');
   const total = await inputs.count();
   expect(total, "deve haver inputs de upload para os documentos solicitados").toBeGreaterThan(0);
+  expect(total, "deve haver pelo menos um input por documento padrão solicitado").toBeGreaterThanOrEqual(documentosSolicitados.length);
 
   for (let index = 0; index < total; index += 1) {
     const uploadResponse = page.waitForResponse((response) => (
@@ -611,6 +666,7 @@ async function anexarDocumentosSolicitados(page: Page, documentoPath: string) {
     const response = await uploadResponse;
     const text = await response.text();
     expect(response.ok(), `Upload de documento ${index + 1} falhou: ${text}`).toBe(true);
+    await expect(page.getByText(/AWS S3 não configurado|S3 não configurado|erro ao enviar/i)).toHaveCount(0);
   }
 
   await expect(page.getByText(/documento-uat\.png|Documento salvo|Reconhecido|Enviar outro/i).first()).toBeVisible({ timeout: 20_000 });
@@ -652,6 +708,7 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
   let candidato: Candidate | null = null;
   let candidatura: KanbanItem | null = null;
   let entrevistaEvento: AgendaEvent | null = null;
+  let entrevistaTecnicaEvento: AgendaEvent | null = null;
   let proposta: (PropostaVaga & { publicUrl: string }) | null = null;
   let preAdmissao: PreAdmissaoSetup | null = null;
   const curriculoPath = testInfo.outputPath("curriculo-uat.pdf");
@@ -778,6 +835,48 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
     await expect(page.getByText(candidatura.candidatoNome).first()).toBeVisible({ timeout: 20_000 });
   });
 
+  await report.step(page, "Candidato acessa o link público e confirma presença na entrevista", async () => {
+    if (!entrevistaEvento) throw new Error("Evento de entrevista ausente.");
+    await confirmarEntrevistaComoCandidato(page, entrevistaEvento);
+  });
+
+  await report.step(page, "Analista RH visualiza confirmação do candidato na Agenda", async () => {
+    if (!candidatura) throw new Error("Candidatura ausente.");
+    entrevistaEvento = await buscarEventoAteStatus(request, analistaAuth.accessToken, candidatura.candidatoNome, /confirmado/i);
+    await loginUi(page, analistaEmail!, analistaPassword!);
+    await validarRespostaEntrevistaNaAgenda(page, entrevistaEvento, candidatura.candidatoNome, /Confirmado pelo candidato|confirmado/i);
+  });
+
+  await report.step(page, "Analista RH agenda entrevista técnica para validar reagendamento", async () => {
+    if (!candidatura) throw new Error("Candidatura ausente.");
+    await avancarCandidatura(request, analistaAuth.accessToken, candidatura.id, "EntrevistaTecnica", {
+      inicioUtc: proximoHorarioEntrevista(2, 15),
+      duracaoMinutos: 60,
+      formato: "Online",
+      responsavel: `Analista RH <${analistaEmail}>`,
+      participantesOpcionais: [`Gestor direto <${gestorEmail}>`],
+      local: "Teams - UAT reagendamento",
+      observacao: "Entrevista técnica agendada para validar sugestão de novo horário pelo candidato.",
+    });
+    entrevistaTecnicaEvento = await buscarEventoEntrevista(request, analistaAuth.accessToken, candidatura.candidatoNome);
+    await page.goto("/app/agendas");
+    await expect(page.getByText(/^Agenda$/i)).toBeVisible({ timeout: 20_000 });
+    await page.getByPlaceholder("Buscar…").fill(candidatura.candidatoNome);
+    await expect(page.getByText(entrevistaTecnicaEvento.title ?? candidatura.candidatoNome).first()).toBeVisible({ timeout: 20_000 });
+  });
+
+  await report.step(page, "Candidato sugere outro horário pelo link público da entrevista técnica", async () => {
+    if (!entrevistaTecnicaEvento) throw new Error("Evento de entrevista técnica ausente.");
+    await sugerirReagendamentoComoCandidato(page, entrevistaTecnicaEvento);
+  });
+
+  await report.step(page, "Analista RH visualiza sugestão de reagendamento na Agenda", async () => {
+    if (!candidatura) throw new Error("Candidatura ausente.");
+    entrevistaTecnicaEvento = await buscarEventoAteStatus(request, analistaAuth.accessToken, candidatura.candidatoNome, /reagendamento|sugeriu/i);
+    await loginUi(page, analistaEmail!, analistaPassword!);
+    await validarRespostaEntrevistaNaAgenda(page, entrevistaTecnicaEvento, candidatura.candidatoNome, /Reagendamento sugerido|Horário sugerido|Sugestão UAT/i);
+  });
+
   await report.step(page, "Analista RH avança candidatura para Proposta", async () => {
     if (!candidatura || !vaga?.id) throw new Error("Candidatura ou vaga ausente.");
     await page.goto("/app/recrutamento/candidaturas");
@@ -817,7 +916,7 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
 
   await report.step(page, "Candidato anexa os documentos solicitados pela analista RH", async () => {
     if (!preAdmissao) throw new Error("Pré-admissão ausente.");
-    await anexarDocumentosSolicitados(page, documentoPath);
+    await anexarDocumentosSolicitados(page, documentoPath, preAdmissao.documentosSolicitados);
   });
 
   await report.step(page, "Candidato preenche e revisa os dados do formulário admissional", async () => {
