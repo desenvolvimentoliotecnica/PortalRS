@@ -73,6 +73,7 @@ public sealed class MenuAdministrationService
             ["email-config.manage"] = "Seed.Menu.ConfigEmail",
             ["entra-config.manage"] = "Seed.Menu.ConfigEntraId",
             ["localization-config.manage"] = "Seed.Menu.Idioma",
+            ["integracao-totvs.view"] = "Seed.Menu.IntegracaoTotvs",
             ["aws-settings.manage"] = "Seed.Menu.ConfigAws"
         };
 
