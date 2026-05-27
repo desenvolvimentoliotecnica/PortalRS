@@ -276,6 +276,9 @@
   <data name="Seed.Menu.DocumentacaoPadrao" xml:space="preserve">
     <value>Documentação Padrão</value>
   </data>
+  <data name="Seed.Menu.IntegracaoTotvs" xml:space="preserve">
+    <value>Integração TOTVS</value>
+  </data>
   <data name="Seed.Menu.LogsTransacionais" xml:space="preserve">
     <value>Logs Transacionais</value>
   </data>
