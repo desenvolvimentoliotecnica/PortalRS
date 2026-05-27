@@ -200,6 +200,16 @@ async function selecionarMotivoSemDesligamento(page: Page) {
   await motivoSelect.selectOption(motivoValue);
 }
 
+async function selecionarTipoAumentoQuadro(page: Page) {
+  const tipoSolicitacaoSelect = page
+    .locator("select")
+    .filter({ has: page.locator("option", { hasText: /Aumento de quadro/i }) })
+    .first();
+  await expect(tipoSolicitacaoSelect).toBeVisible({ timeout: 20_000 });
+  await tipoSolicitacaoSelect.selectOption("2");
+  await expect(tipoSolicitacaoSelect).toHaveValue("2");
+}
+
 async function selecionarTurnoOuHorarioLegado(page: Page) {
   await page.getByRole("button", { name: /Horário/i }).click();
   const turnoInput = page.getByPlaceholder(/Buscar turno/i).first();
@@ -237,8 +247,8 @@ async function criarRequisicaoComoCoordenador(page: Page) {
   await faixaSalarial.nth(1).fill("700000");
 
   await selecionarMotivoSemDesligamento(page);
-  await page.locator('[data-testid="radio-decisao-provisoria"]').check();
-  await page.locator('[data-testid="input-decisao-prazo-meses"]').fill("3");
+  await selecionarTipoAumentoQuadro(page);
+  await page.locator('[data-testid="radio-decisao-aumento"]').check();
   await page.getByPlaceholder(/Justifique a necessidade/i).fill(justificativa);
   await selecionarTurnoOuHorarioLegado(page);
 
