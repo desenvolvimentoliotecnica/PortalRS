@@ -1,12 +1,30 @@
 import path from "path";
+import { execSync } from "child_process";
 import type { NextConfig } from "next";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const { version } = require("./package.json") as { version: string };
 
+function resolveAppVersion() {
+  const explicitVersion = process.env.NEXT_PUBLIC_APP_VERSION?.trim();
+  if (explicitVersion) return explicitVersion;
+
+  try {
+    const commitCount = execSync("git rev-list --count HEAD", {
+      cwd: path.resolve(__dirname, ".."),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+
+    return commitCount ? `${version}.${commitCount}` : version;
+  } catch {
+    return version;
+  }
+}
+
 const nextConfig: NextConfig = {
   env: {
-    NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_APP_VERSION: resolveAppVersion(),
   },
   // StrictMode em dev causa double-render de todos os componentes (consumo extra de RAM/CPU).
   // Reabilite antes de build de produção para pegar efeitos colaterais.
