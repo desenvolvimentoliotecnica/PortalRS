@@ -47,6 +47,7 @@ public sealed class ConfiguracaoHeadcountRequest
 public sealed class ConfiguracaoRmRequisicaoDto
 {
     public string? EndpointUrl { get; set; }
+    public string? GetEndpointUrl { get; set; }
     public string? Username { get; set; }
     public string? Password { get; set; }
 }
@@ -54,6 +55,7 @@ public sealed class ConfiguracaoRmRequisicaoDto
 public sealed class ConfiguracaoRmRequisicaoRequest
 {
     public string? EndpointUrl { get; set; }
+    public string? GetEndpointUrl { get; set; }
     public string? Username { get; set; }
     public string? Password { get; set; }
 }
@@ -242,6 +244,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         return new ConfiguracaoRmRequisicaoDto
         {
             EndpointUrl = config.RmRequisicaoCreateEndpointUrl,
+            GetEndpointUrl = config.RmRequisicaoGetEndpointUrl,
             Username = config.RmRequisicaoCreateUsername,
             Password = config.RmRequisicaoCreatePassword,
         };
@@ -261,6 +264,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         }
 
         config.RmRequisicaoCreateEndpointUrl = NullIfBlank(request.EndpointUrl);
+        config.RmRequisicaoGetEndpointUrl = NullIfBlank(request.GetEndpointUrl);
         config.RmRequisicaoCreateUsername = NullIfBlank(request.Username);
         config.RmRequisicaoCreatePassword = NullIfBlank(request.Password);
         config.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -270,6 +274,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         return new ConfiguracaoRmRequisicaoDto
         {
             EndpointUrl = config.RmRequisicaoCreateEndpointUrl,
+            GetEndpointUrl = config.RmRequisicaoGetEndpointUrl,
             Username = config.RmRequisicaoCreateUsername,
             Password = config.RmRequisicaoCreatePassword,
         };

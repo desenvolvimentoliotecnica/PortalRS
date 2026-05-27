@@ -1,5 +1,10 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
+using RhPortal.Api.Application.TenantConfiguracao;
 using RhPortal.Api.Contracts.Rm;
 
 namespace RhPortal.Api.Infrastructure.Rm;
@@ -7,11 +12,25 @@ namespace RhPortal.Api.Infrastructure.Rm;
 public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 {
     private readonly RmConnectionOptions _opts;
+    private readonly ITenantConfiguracaoService _tenantConfiguracaoService;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public RmRequisicoesReadService(IOptions<RmConnectionOptions> opts) => _opts = opts.Value;
+    public RmRequisicoesReadService(
+        IOptions<RmConnectionOptions> opts,
+        ITenantConfiguracaoService tenantConfiguracaoService,
+        IHttpClientFactory httpClientFactory)
+    {
+        _opts = opts.Value;
+        _tenantConfiguracaoService = tenantConfiguracaoService;
+        _httpClientFactory = httpClientFactory;
+    }
 
     public async Task<RmRequisicaoListResponse> ListAsync(RmRequisicaoListQuery query, CancellationToken ct)
     {
+        var tenantConfig = await _tenantConfiguracaoService.GetRmRequisicaoConfigAsync(ct);
+        if (!string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
+            return await ListFromRestAsync(query, tenantConfig, ct);
+
         var page = Math.Max(1, query.Page);
         const int maxPageSize = 50;
         var pageSize = Math.Clamp(query.PageSize < 1 ? 20 : query.PageSize, 1, maxPageSize);
@@ -56,6 +75,10 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         if (!RmPortalRequisicaoVinculo.TryParse(rmRequisicaoCodigo, out var tipo, out var codCol, out var idReq))
             return null;
 
+        var tenantConfig = await _tenantConfiguracaoService.GetRmRequisicaoConfigAsync(ct);
+        if (!string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
+            return await TryGetCodStatusFromRestAsync(tenantConfig, tipo, codCol, idReq, ct);
+
         var cs = _opts.GetConnectionString();
         await using var conn = new SqlConnection(cs);
         await conn.OpenAsync(ct);
@@ -76,6 +99,235 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             SafeString(reader, "TIPO_REQUISICAO") ?? tipo,
             SafeInt(reader, "CODCOLREQUISICAO") ?? codCol,
             SafeInt(reader, "IDREQ") ?? idReq);
+    }
+
+    private async Task<RmRequisicaoListResponse> ListFromRestAsync(
+        RmRequisicaoListQuery query,
+        ConfiguracaoRmRequisicaoDto config,
+        CancellationToken ct)
+    {
+        var page = Math.Max(1, query.Page);
+        const int maxPageSize = 50;
+        var pageSize = Math.Clamp(query.PageSize < 1 ? 20 : query.PageSize, 1, maxPageSize);
+        var offset = (page - 1) * pageSize;
+
+        var items = await FetchRestRowsAsync(config, codCol: null, idReq: null, ct);
+        var filtered = ApplyRestFilters(items, query).ToList();
+
+        return new RmRequisicaoListResponse
+        {
+            Items = filtered.Skip(offset).Take(pageSize).ToList(),
+            TotalCount = filtered.Count
+        };
+    }
+
+    private async Task<RmRequisicaoCodStatusSnapshot?> TryGetCodStatusFromRestAsync(
+        ConfiguracaoRmRequisicaoDto config,
+        string tipo,
+        int codCol,
+        int idReq,
+        CancellationToken ct)
+    {
+        var items = await FetchRestRowsAsync(config, codCol, idReq, ct);
+        var row = items.FirstOrDefault(i =>
+            i.Codcolrequisicao == codCol &&
+            i.Idreq == idReq);
+
+        if (row is null)
+            return null;
+
+        return new RmRequisicaoCodStatusSnapshot(
+            row.Codstatus ?? 0,
+            row.StatusDescricao,
+            string.IsNullOrWhiteSpace(row.TipoRequisicao) ? tipo : row.TipoRequisicao,
+            row.Codcolrequisicao ?? codCol,
+            row.Idreq);
+    }
+
+    private async Task<IReadOnlyList<RmRequisicaoRowDto>> FetchRestRowsAsync(
+        ConfiguracaoRmRequisicaoDto config,
+        int? codCol,
+        int? idReq,
+        CancellationToken ct)
+    {
+        var endpoint = BuildConsultaUri(config.GetEndpointUrl!, codCol, idReq);
+        using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        ApplyBasicAuthentication(request, config);
+
+        var client = _httpClientFactory.CreateClient();
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
+
+        using var response = await client.SendAsync(request, timeoutCts.Token);
+        var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+        if (!response.IsSuccessStatusCode)
+        {
+            var suffix = string.IsNullOrWhiteSpace(body) ? string.Empty : $" Resposta: {body.Trim()}";
+            throw new InvalidOperationException($"Falha ao consultar requisições RM via endpoint GET ({(int)response.StatusCode}).{suffix}");
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("data", out var data))
+                root = data;
+
+            if (root.ValueKind != JsonValueKind.Array)
+                throw new InvalidOperationException("Endpoint GET RM retornou JSON fora do formato esperado (array de requisições).");
+
+            return root.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.Object)
+                .Select(MapRestRow)
+                .ToList();
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Resposta do endpoint GET RM inválida: {ex.Message}", ex);
+        }
+    }
+
+    private static IEnumerable<RmRequisicaoRowDto> ApplyRestFilters(
+        IEnumerable<RmRequisicaoRowDto> items,
+        RmRequisicaoListQuery query)
+    {
+        var tipo = string.IsNullOrWhiteSpace(query.TipoRequisicao) ? null : query.TipoRequisicao.Trim();
+        var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
+
+        foreach (var item in items)
+        {
+            if (!string.IsNullOrWhiteSpace(tipo)
+                && !string.Equals(item.TipoRequisicao, tipo, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (query.DataAberturaDe.HasValue && (!item.Dataabertura.HasValue || DateOnly.FromDateTime(item.Dataabertura.Value) < query.DataAberturaDe.Value))
+                continue;
+
+            if (query.DataAberturaAte.HasValue && (!item.Dataabertura.HasValue || DateOnly.FromDateTime(item.Dataabertura.Value) > query.DataAberturaAte.Value))
+                continue;
+
+            if (!string.IsNullOrWhiteSpace(search)
+                && !ContainsIgnoreCase(item.Idreq.ToString(System.Globalization.CultureInfo.InvariantCulture), search)
+                && !ContainsIgnoreCase(item.Justificativa, search)
+                && !ContainsIgnoreCase(item.Chaparequisitante, search)
+                && !ContainsIgnoreCase(item.Reccreatedby, search))
+                continue;
+
+            yield return item;
+        }
+    }
+
+    private static Uri BuildConsultaUri(string endpointTemplate, int? codCol, int? idReq)
+    {
+        var url = endpointTemplate.Trim();
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            url = "http://" + url;
+
+        if (codCol.HasValue)
+        {
+            url = url.Replace("{COLIGADA}", codCol.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase);
+            url = Regex.Replace(
+                url,
+                @"(?i)(COLIGADA=)[^;&]+",
+                match => $"{match.Groups[1].Value}{codCol.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+
+        if (idReq.HasValue)
+        {
+            url = url.Replace("{IDREQ}", idReq.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase);
+            url = Regex.Replace(
+                url,
+                @"(?i)(IDREQ=)[^;&]+",
+                match => $"{match.Groups[1].Value}{idReq.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+
+        return new Uri(url, UriKind.Absolute);
+    }
+
+    private static void ApplyBasicAuthentication(HttpRequestMessage request, ConfiguracaoRmRequisicaoDto config)
+    {
+        if (string.IsNullOrWhiteSpace(config.Username))
+            return;
+
+        var raw = $"{config.Username}:{config.Password ?? string.Empty}";
+        var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basic);
+    }
+
+    private static RmRequisicaoRowDto MapRestRow(JsonElement item)
+    {
+        return new RmRequisicaoRowDto
+        {
+            TipoRequisicao = "AUMENTO_QUADRO",
+            Codcolrequisicao = JsonInt(item, "CODCOLREQUISICAO"),
+            Idreq = JsonInt(item, "IDREQ") ?? 0,
+            Justificativa = JsonString(item, "JUSTIFICATIVA"),
+            Dataabertura = JsonDate(item, "DATAABERTURA"),
+            Dataprevista = JsonDate(item, "DATAPREVISTA"),
+            Dataconclusao = JsonDate(item, "DATACONCLUSAO"),
+            Datacancelamento = JsonDate(item, "DATACANCELAMENTO"),
+            Codstatus = JsonInt(item, "CODSTATUS"),
+            Codcolrequisitante = JsonInt(item, "CODCOLREQUISITANTE"),
+            Chaparequisitante = JsonString(item, "CHAPAREQUISITANTE"),
+            Codatendimento = JsonInt(item, "CODATENDIMENTO"),
+            Codlocal = JsonInt(item, "CODLOCAL"),
+            Numvagas = JsonInt(item, "NUMVAGAS"),
+            Codfilial = JsonString(item, "CODFILIAL"),
+            Codsecao = JsonString(item, "CODSECAO"),
+            Codfuncao = JsonString(item, "CODFUNCAO"),
+            Vlrsalario = JsonDecimal(item, "VLRSALARIO"),
+            Reccreatedby = JsonString(item, "RECCREATEDBY"),
+            Reccreatedon = JsonDate(item, "RECCREATEDON"),
+            Recmodifiedby = JsonString(item, "RECMODIFIEDBY"),
+            Recmodifiedon = JsonDate(item, "RECMODIFIEDON")
+        };
+    }
+
+    private static string? JsonString(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty(property, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+    }
+
+    private static int? JsonInt(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty(property, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number))
+            return number;
+        return int.TryParse(value.ToString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static decimal? JsonDecimal(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty(property, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out var number))
+            return number;
+        return decimal.TryParse(value.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static DateTime? JsonDate(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty(property, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        if (value.ValueKind == JsonValueKind.String && value.TryGetDateTimeOffset(out var dto))
+            return dto.DateTime;
+        return DateTime.TryParse(value.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static bool ContainsIgnoreCase(string? source, string value)
+    {
+        return source?.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static void AddFilterParameters(

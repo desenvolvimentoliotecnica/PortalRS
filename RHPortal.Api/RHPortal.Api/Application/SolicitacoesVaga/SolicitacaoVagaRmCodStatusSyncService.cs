@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Contracts.IntegracaoTotvs;
@@ -22,7 +21,6 @@ public sealed class SolicitacaoVagaRmCodStatusSyncService : ISolicitacaoVagaRmCo
     private readonly IRmRequisicoesReadService _rmRead;
     private readonly IRmSyncRunService _rmSyncRuns;
     private readonly StatusHistoricoService _historico;
-    private readonly RmConnectionOptions _rmOpts;
     private readonly ILogger<SolicitacaoVagaRmCodStatusSyncService> _logger;
 
     public SolicitacaoVagaRmCodStatusSyncService(
@@ -31,7 +29,6 @@ public sealed class SolicitacaoVagaRmCodStatusSyncService : ISolicitacaoVagaRmCo
         IRmRequisicoesReadService rmRead,
         IRmSyncRunService rmSyncRuns,
         StatusHistoricoService historico,
-        IOptions<RmConnectionOptions> rmOpts,
         ILogger<SolicitacaoVagaRmCodStatusSyncService> logger)
     {
         _db = db;
@@ -39,7 +36,6 @@ public sealed class SolicitacaoVagaRmCodStatusSyncService : ISolicitacaoVagaRmCo
         _rmRead = rmRead;
         _rmSyncRuns = rmSyncRuns;
         _historico = historico;
-        _rmOpts = rmOpts.Value;
         _logger = logger;
     }
 
@@ -150,13 +146,6 @@ public sealed class SolicitacaoVagaRmCodStatusSyncService : ISolicitacaoVagaRmCo
             entity.RmUltimaStatusDescricaoRm = null;
             await _db.SaveChangesAsync(ct);
             return SyncDisposition.Ignored;
-        }
-
-        if (!_rmOpts.IsConfigured)
-        {
-            entity.RmStatusSyncUltimaMensagem = "RM não configurado (syn).";
-            await _db.SaveChangesAsync(ct);
-            return SyncDisposition.Error;
         }
 
         RmRequisicaoCodStatusSnapshot? snap;

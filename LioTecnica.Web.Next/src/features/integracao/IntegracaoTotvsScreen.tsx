@@ -60,6 +60,7 @@ interface IntegracaoTotvsPainelResponse {
 
 interface ConfiguracaoRmRequisicaoDto {
     endpointUrl: string | null;
+    getEndpointUrl: string | null;
     username: string | null;
     password: string | null;
 }
@@ -116,6 +117,7 @@ export default function IntegracaoTotvsScreen() {
     const [configSaving, setConfigSaving] = useState(false);
     const [canManageRmConfig, setCanManageRmConfig] = useState(true);
     const [rmEndpointUrl, setRmEndpointUrl] = useState("");
+    const [rmGetEndpointUrl, setRmGetEndpointUrl] = useState("");
     const [rmUsername, setRmUsername] = useState("");
     const [rmPassword, setRmPassword] = useState("");
 
@@ -180,6 +182,7 @@ export default function IntegracaoTotvsScreen() {
 
                 setCanManageRmConfig(true);
                 setRmEndpointUrl(json.endpointUrl ?? "");
+                setRmGetEndpointUrl(json.getEndpointUrl ?? "");
                 setRmUsername(json.username ?? "");
                 setRmPassword(json.password ?? "");
             } catch {
@@ -201,6 +204,7 @@ export default function IntegracaoTotvsScreen() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     endpointUrl: rmEndpointUrl.trim() || null,
+                    getEndpointUrl: rmGetEndpointUrl.trim() || null,
                     username: rmUsername.trim() || null,
                     password: rmPassword.trim() || null,
                 }),
@@ -215,6 +219,7 @@ export default function IntegracaoTotvsScreen() {
 
             const json = await res.json() as ConfiguracaoRmRequisicaoDto;
             setRmEndpointUrl(json.endpointUrl ?? "");
+            setRmGetEndpointUrl(json.getEndpointUrl ?? "");
             setRmUsername(json.username ?? "");
             setRmPassword(json.password ?? "");
             toast.success("Configuração de requisição RM salva.");
@@ -223,7 +228,7 @@ export default function IntegracaoTotvsScreen() {
         } finally {
             setConfigSaving(false);
         }
-    }, [rmEndpointUrl, rmPassword, rmUsername]);
+    }, [rmEndpointUrl, rmGetEndpointUrl, rmPassword, rmUsername]);
 
     return (
         <section className="space-y-6">
@@ -271,13 +276,13 @@ export default function IntegracaoTotvsScreen() {
                         <div className="mb-3">
                             <h2 className="text-sm font-semibold">Configuração da integração de requisições RM</h2>
                             <p className="text-xs text-muted-foreground mt-1">
-                                Informe a URL completa do endpoint e as credenciais BasicAuth usadas para criar requisições no RM.
+                                Informe as URLs de criação (POST) e consulta (GET) e as credenciais BasicAuth usadas pelo RM.
                             </p>
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-3">
                             <div className="md:col-span-3">
-                                <Label htmlFor="rm-endpoint-url">Endpoint</Label>
+                                <Label htmlFor="rm-endpoint-url">Endpoint POST de criação</Label>
                                 <Input
                                     id="rm-endpoint-url"
                                     value={rmEndpointUrl}
@@ -285,6 +290,20 @@ export default function IntegracaoTotvsScreen() {
                                     placeholder="http://localhost:8051/RMSRestDataServer/rest/RhuReqAumentoQuadroData"
                                     disabled={configLoading || configSaving}
                                 />
+                            </div>
+
+                            <div className="md:col-span-3">
+                                <Label htmlFor="rm-get-endpoint-url">Endpoint GET de consulta</Label>
+                                <Input
+                                    id="rm-get-endpoint-url"
+                                    value={rmGetEndpointUrl}
+                                    onChange={(e) => setRmGetEndpointUrl(e.target.value)}
+                                    placeholder="http://172.19.30.37:8051/api/framework/v1/consultaSQLServer/RealizaConsulta/KNG.V.003/0/V/?parameters=COLIGADA={COLIGADA};IDREQ={IDREQ}"
+                                    disabled={configLoading || configSaving}
+                                />
+                                <p className="mt-1 text-[11px] text-muted-foreground">
+                                    Use <code>{`{COLIGADA}`}</code> e <code>{`{IDREQ}`}</code> como variáveis, ou cole a URL TOTVS com <code>COLIGADA=1;IDREQ=1</code>; o portal troca esses valores ao consultar o status.
+                                </p>
                             </div>
 
                             <div>
