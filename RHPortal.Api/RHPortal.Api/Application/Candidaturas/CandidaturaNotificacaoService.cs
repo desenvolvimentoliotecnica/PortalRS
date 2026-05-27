@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RhPortal.Api.Contracts.Candidatura;
@@ -52,6 +54,8 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
     private readonly ILogger<CandidaturaNotificacaoService> _logger;
     private readonly INotificacaoTemplateService? _templateService;
     private readonly WhatsAppOptions _waOptions;
+    private readonly IConfiguration? _configuration;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
 
     /// <summary>Compat: ctor original usado por testes legados; cria WhatsAppOptions com defaults.</summary>
     public CandidaturaNotificacaoService(
@@ -72,7 +76,9 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         IWhatsAppMessageSender whatsAppSender,
         ILogger<CandidaturaNotificacaoService> logger,
         IOptions<WhatsAppOptions> waOptions,
-        INotificacaoTemplateService? templateService = null)
+        INotificacaoTemplateService? templateService = null,
+        IConfiguration? configuration = null,
+        IHttpContextAccessor? httpContextAccessor = null)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -81,6 +87,8 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         _logger = logger;
         _templateService = templateService;
         _waOptions = waOptions.Value ?? new WhatsAppOptions();
+        _configuration = configuration;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task NotificarMudancaEtapaAsync(
@@ -113,11 +121,22 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
             .Select(v => v.Titulo)
             .FirstOrDefaultAsync(ct);
 
-        var idiomaCandidato = string.IsNullOrWhiteSpace(pref?.Idioma) ? _waOptions.IdiomaDefault : pref!.Idioma;
-        var (assuntoEmail, mensagemEmail) = await ResolverTemplateAsync(etapaNova, CanalNotificacao.Email, candidato.Nome, vagaTitulo, idiomaCandidato, ct);
-        var (_, mensagemWhats) = await ResolverTemplateAsync(etapaNova, CanalNotificacao.WhatsApp, candidato.Nome, vagaTitulo, idiomaCandidato, ct);
-        var now = DateTimeOffset.UtcNow;
         var tenantId = _tenantContext.TenantId ?? "";
+        var empresaNome = await _db.TenantBrandings
+            .AsNoTracking()
+            .Select(x => x.NomePortal)
+            .FirstOrDefaultAsync(ct) ?? "Portal de RH";
+        var entrevista = await BuscarEntrevistaDaCandidaturaAsync(cand.Id, etapaNova, ct);
+        var entrevistaData = entrevista is null ? null : $"{entrevista.StartAtUtc.ToLocalTime():dd/MM/yyyy HH:mm}";
+        var entrevistaModalidade = entrevista?.Location;
+        var entrevistaLink = entrevista is null || string.IsNullOrWhiteSpace(entrevista.CandidateConfirmationToken)
+            ? null
+            : BuildFrontendUrl($"/public/interview/{entrevista.CandidateConfirmationToken}?tenantId={Uri.EscapeDataString(tenantId)}");
+
+        var idiomaCandidato = string.IsNullOrWhiteSpace(pref?.Idioma) ? _waOptions.IdiomaDefault : pref!.Idioma;
+        var (assuntoEmail, mensagemEmail) = await ResolverTemplateAsync(etapaNova, CanalNotificacao.Email, candidato.Nome, vagaTitulo, idiomaCandidato, empresaNome, entrevistaData, entrevistaModalidade, entrevistaLink, ct);
+        var (_, mensagemWhats) = await ResolverTemplateAsync(etapaNova, CanalNotificacao.WhatsApp, candidato.Nome, vagaTitulo, idiomaCandidato, empresaNome, entrevistaData, entrevistaModalidade, entrevistaLink, ct);
+        var now = DateTimeOffset.UtcNow;
 
         // ── Canal E-mail ──────────────────────────────────────────
         await EnviarEmailComLogAsync(cand, candidato, pref, etapaNova, assuntoEmail ?? "", mensagemEmail, tenantId, now, ct);
@@ -139,19 +158,52 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
         string? candidatoNome,
         string? vagaTitulo,
         string? idioma,
+        string? empresaNome,
+        string? entrevistaData,
+        string? entrevistaModalidade,
+        string? entrevistaLink,
         CancellationToken ct)
     {
         if (_templateService is not null)
         {
             var ef = await _templateService.GetEfetivoAsync(etapa, canal, idioma, ct);
-            var assunto = string.IsNullOrWhiteSpace(ef.Assunto) ? null : NotificacaoTemplateService.ResolverPlaceholders(ef.Assunto, candidatoNome, vagaTitulo);
-            var mensagem = NotificacaoTemplateService.ResolverPlaceholders(ef.Corpo, candidatoNome, vagaTitulo);
+            var assunto = string.IsNullOrWhiteSpace(ef.Assunto) ? null : NotificacaoTemplateService.ResolverPlaceholders(ef.Assunto, candidatoNome, vagaTitulo, empresaNome, entrevistaData, entrevistaModalidade, entrevistaLink);
+            var mensagem = NotificacaoTemplateService.ResolverPlaceholders(ef.Corpo, candidatoNome, vagaTitulo, empresaNome, entrevistaData, entrevistaModalidade, entrevistaLink);
+            if (IsEtapaEntrevista(etapa) && !string.IsNullOrWhiteSpace(entrevistaLink) && !mensagem.Contains(entrevistaLink, StringComparison.OrdinalIgnoreCase))
+                mensagem = $"{mensagem.Trim()}\n\nConfirme sua presença ou sugira outro horário: {entrevistaLink}";
             return (assunto, mensagem);
         }
         // Fallback legado: template hardcoded in-memory.
         var (a, m) = BuildTemplate(etapa, candidatoNome ?? string.Empty, vagaTitulo ?? "(vaga)");
         return (canal == CanalNotificacao.WhatsApp ? null : a, m);
     }
+
+    private async Task<AgendaEvent?> BuscarEntrevistaDaCandidaturaAsync(Guid candidaturaId, EtapaMacroCandidatura etapa, CancellationToken ct)
+    {
+        if (!IsEtapaEntrevista(etapa)) return null;
+
+        return await _db.AgendaEvents
+            .AsNoTracking()
+            .Where(e => e.CandidaturaId == candidaturaId)
+            .OrderByDescending(e => e.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private string BuildFrontendUrl(string pathAndQuery)
+    {
+        var baseUrlOverride = _configuration?["Frontend:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(baseUrlOverride))
+            return $"{baseUrlOverride.TrimEnd('/')}{pathAndQuery}";
+
+        var port = _configuration?.GetValue<int?>("Frontend:Port") ?? 3000;
+        var request = _httpContextAccessor?.HttpContext?.Request;
+        var scheme = request?.Scheme ?? "http";
+        var host = request?.Host.Host ?? "localhost";
+        return $"{scheme}://{host}:{port}{pathAndQuery}";
+    }
+
+    private static bool IsEtapaEntrevista(EtapaMacroCandidatura etapa)
+        => etapa is EtapaMacroCandidatura.Entrevista or EtapaMacroCandidatura.EntrevistaTecnica;
 
     private async Task EnviarEmailComLogAsync(
         Candidatura cand,

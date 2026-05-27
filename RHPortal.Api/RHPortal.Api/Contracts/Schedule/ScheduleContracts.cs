@@ -25,6 +25,14 @@ public sealed record ScheduleEventResponse(
     string? VagaTitle,
     string? VagaCode,
     string? Notes,
+    Guid? CandidaturaId,
+    Guid? CandidatoId,
+    Guid? VagaId,
+    string? CandidateResponseStatus,
+    DateTimeOffset? CandidateRespondedAtUtc,
+    DateTime? CandidateSuggestedStartAtUtc,
+    DateTime? CandidateSuggestedEndAtUtc,
+    string? CandidateResponseMessage,
     string TypeCode,
     string TypeLabel,
     string TypeColor,
@@ -67,4 +75,28 @@ public sealed record ScheduleEventUpdateRequest(
     [MaxLength(40)] string? VagaCode,
     [MaxLength(2000)] string? Notes,
     [Required, MaxLength(40)] string TypeCode
+);
+
+public sealed record PublicInterviewResponse(
+    Guid Id,
+    string Title,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    string Status,
+    string? Location,
+    string? Owner,
+    string? Candidate,
+    string? VagaTitle,
+    string? VagaCode,
+    string? CandidateResponseStatus,
+    DateTimeOffset? CandidateRespondedAtUtc,
+    DateTime? CandidateSuggestedStartAtUtc,
+    DateTime? CandidateSuggestedEndAtUtc,
+    string? CandidateResponseMessage
+);
+
+public sealed record SuggestInterviewTimeRequest(
+    [Required] DateTime SuggestedStartAtUtc,
+    [Required] DateTime SuggestedEndAtUtc,
+    [MaxLength(1000)] string? Message
 );

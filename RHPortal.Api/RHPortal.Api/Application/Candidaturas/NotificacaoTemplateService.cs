@@ -270,10 +270,27 @@ public sealed class NotificacaoTemplateService : INotificacaoTemplateService
     /// Substitui placeholders <c>{candidatoNome}</c> / <c>{vagaTitulo}</c> em um texto.
     /// Usado por <see cref="CandidaturaNotificacaoService"/>.
     /// </summary>
-    public static string ResolverPlaceholders(string template, string? candidatoNome, string? vagaTitulo)
+    public static string ResolverPlaceholders(
+        string template,
+        string? candidatoNome,
+        string? vagaTitulo,
+        string? empresaNome = null,
+        string? entrevistaData = null,
+        string? entrevistaModalidade = null,
+        string? entrevistaLink = null)
     {
         return template
             .Replace("{candidatoNome}", candidatoNome ?? string.Empty)
-            .Replace("{vagaTitulo}", vagaTitulo ?? "(vaga)");
+            .Replace("{vagaTitulo}", vagaTitulo ?? "(vaga)")
+            .Replace("{empresaNome}", empresaNome ?? "Portal de RH")
+            .Replace("{entrevistaData}", entrevistaData ?? "a combinar")
+            .Replace("{entrevistaModalidade}", entrevistaModalidade ?? "presencial / online")
+            .Replace("{entrevistaLink}", entrevistaLink ?? string.Empty)
+            .Replace("{{candidato.nome}}", candidatoNome ?? string.Empty)
+            .Replace("{{vaga.titulo}}", vagaTitulo ?? "(vaga)")
+            .Replace("{{empresa.nome}}", empresaNome ?? "Portal de RH")
+            .Replace("{{entrevista.data}}", entrevistaData ?? "a combinar")
+            .Replace("{{entrevista.modalidade}}", entrevistaModalidade ?? "presencial / online")
+            .Replace("{{entrevista.link_confirmacao}}", entrevistaLink ?? string.Empty);
     }
 }

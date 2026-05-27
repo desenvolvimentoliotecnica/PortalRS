@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using RhPortal.Api.Application.Blip;
 using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.AdmissaoPortal;
@@ -39,6 +40,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     private readonly IHubContext<NotificationsHub> _hub;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly BlipDocumentoValidator _blipValidator;
+    private readonly IHostEnvironment _hostEnvironment;
 
     public AdmissaoPortalService(
         AppDbContext db,
@@ -47,7 +49,8 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         DocumentAiExtractor aiExtractor,
         IHubContext<NotificationsHub> hub,
         IHttpClientFactory httpClientFactory,
-        BlipDocumentoValidator blipValidator)
+        BlipDocumentoValidator blipValidator,
+        IHostEnvironment hostEnvironment)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -56,6 +59,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         _hub = hub;
         _httpClientFactory = httpClientFactory;
         _blipValidator = blipValidator;
+        _hostEnvironment = hostEnvironment;
     }
 
     public async Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct)
@@ -114,7 +118,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         var enviados = pa.Documentos.Select(d => new PortalDocumentoEnviadoItem(
             d.Id, (int)d.Tipo, (int)d.Lado, d.NomeArquivo, d.TamanhoBytes,
-            (int)d.Status, d.ObservacaoRh, _storage.GetPresignedUrl(d.StoragePath))).ToList();
+            (int)d.Status, d.ObservacaoRh, ResolveDocumentUrl(d))).ToList();
 
         var dados = new PortalDadosPessoais(
             // Pessoal
@@ -276,17 +280,12 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
         if (pa is null) return null;
 
-        var folder = pa.CandidatoId.HasValue
-            ? $"{_tenantContext.TenantId}/candidatos/{pa.CandidatoId.Value:N}"
-            : $"{_tenantContext.TenantId}/admissao/{preAdmissaoId:N}";
-        var ext = Path.GetExtension(nomeArquivo);
-        var storagePath = $"{folder}/{(int)tipo}_{Guid.NewGuid():N}{ext}";
-
-        await _storage.UploadAsync(stream, storagePath, contentType, ct);
+        var documentId = Guid.NewGuid();
+        var storagePath = await SaveDocumentStreamAsync(pa, documentId, nomeArquivo, contentType, stream, ct);
 
         var doc = new PreAdmissaoDocumento
         {
-            Id = Guid.NewGuid(),
+            Id = documentId,
             TenantId = _tenantContext.TenantId,
             PreAdmissaoId = preAdmissaoId,
             Tipo = tipo,
@@ -311,7 +310,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         return new PreAdmissaoDocumentoResponse(
             doc.Id, doc.Tipo, doc.Lado, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes,
-            doc.Status, null, doc.CreatedAtUtc, _storage.GetPresignedUrl(doc.StoragePath));
+            doc.Status, null, doc.CreatedAtUtc, ResolveDocumentUrl(doc));
     }
 
     public async Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct)
@@ -479,17 +478,13 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             "application/pdf" => ".pdf",
             _ => Path.GetExtension(request.UrlArquivo).Split('?')[0].ToLowerInvariant() is { Length: > 0 } e ? e : ".jpg",
         };
-        var folder = pa.CandidatoId.HasValue
-            ? $"{_tenantContext.TenantId}/candidatos/{pa.CandidatoId.Value:N}"
-            : $"{_tenantContext.TenantId}/admissao/{pa.Id:N}";
-        var storagePath = $"{folder}/{(int)tipo}_{Guid.NewGuid():N}{extFromMime}";
-
+        var docId = Guid.NewGuid();
         using var stream = new MemoryStream(bytes);
-        await _storage.UploadAsync(stream, storagePath, mimeType, ct);
+        var storagePath = await SaveDocumentStreamAsync(pa, docId, $"doc_{(int)tipo}_{lado}{extFromMime}", mimeType, stream, ct);
 
         var doc = new PreAdmissaoDocumento
         {
-            Id = Guid.NewGuid(),
+            Id = docId,
             TenantId = _tenantContext.TenantId,
             PreAdmissaoId = pa.Id,
             Tipo = tipo,
@@ -513,6 +508,46 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         return (200, $"{tipoLabel} validado com sucesso.");
     }
+
+    private async Task<string> SaveDocumentStreamAsync(
+        Domain.Entities.PreAdmissao pa,
+        Guid documentId,
+        string nomeArquivo,
+        string contentType,
+        Stream stream,
+        CancellationToken ct)
+    {
+        var ext = Path.GetExtension(nomeArquivo);
+        var s3Folder = pa.CandidatoId.HasValue
+            ? $"{_tenantContext.TenantId}/candidatos/{pa.CandidatoId.Value:N}"
+            : $"{_tenantContext.TenantId}/admissao/{pa.Id:N}";
+        var s3Path = $"{s3Folder}/{documentId:N}{ext}";
+
+        try
+        {
+            if (stream.CanSeek) stream.Position = 0;
+            await _storage.UploadAsync(stream, s3Path, contentType, ct);
+            return s3Path;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("AWS S3 não configurado", StringComparison.OrdinalIgnoreCase))
+        {
+            if (stream.CanSeek) stream.Position = 0;
+            var storageFileName = PreAdmissaoDocumentoStorage.BuildStorageFileName(documentId, nomeArquivo);
+            var folder = PreAdmissaoDocumentoStorage.GetFolder(_hostEnvironment, _tenantContext.TenantId, pa.Id);
+            Directory.CreateDirectory(folder);
+
+            var filePath = Path.Combine(folder, storageFileName);
+            await using var file = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await stream.CopyToAsync(file, ct);
+
+            return PreAdmissaoDocumentoStorage.BuildLocalStoragePath(pa.Id, storageFileName);
+        }
+    }
+
+    private string ResolveDocumentUrl(PreAdmissaoDocumento doc)
+        => PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath)
+            ? string.Empty
+            : _storage.GetPresignedUrl(doc.StoragePath);
 
     private static string DetectMimeTypeFromUrl(string url)
     {

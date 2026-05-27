@@ -14,6 +14,8 @@
 /coverage
 test-results/
 playwright-report/
+tests/uat-automatizados/*
+!tests/uat-automatizados/README.md
 
 # next.js
 /.next/

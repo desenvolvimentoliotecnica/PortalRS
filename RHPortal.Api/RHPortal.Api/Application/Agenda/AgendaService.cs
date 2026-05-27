@@ -4,6 +4,8 @@ using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Notifications;
+using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.Agenda;
 
@@ -11,11 +13,19 @@ public sealed class AgendaService
 {
     private readonly AppDbContext _db;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
+    private readonly ITenantContext _tenantContext;
+    private readonly NotificationPublisher _notifications;
 
-    public AgendaService(AppDbContext db, IStringLocalizer<ServiceMessages> localizer)
+    public AgendaService(
+        AppDbContext db,
+        IStringLocalizer<ServiceMessages> localizer,
+        ITenantContext tenantContext,
+        NotificationPublisher notifications)
     {
         _db = db;
         _localizer = localizer;
+        _tenantContext = tenantContext;
+        _notifications = notifications;
     }
 
     public async Task<IReadOnlyList<ScheduleEventTypeResponse>> ListTypesAsync(CancellationToken ct)
@@ -86,6 +96,14 @@ public sealed class AgendaService
                 x.VagaTitle,
                 x.VagaCode,
                 x.Notes,
+                x.CandidaturaId,
+                x.CandidatoId,
+                x.VagaId,
+                x.CandidateResponseStatus,
+                x.CandidateRespondedAtUtc,
+                x.CandidateSuggestedStartAtUtc,
+                x.CandidateSuggestedEndAtUtc,
+                x.CandidateResponseMessage,
                 x.Type != null ? x.Type.Code : string.Empty,
                 x.Type != null ? x.Type.Label : string.Empty,
                 x.Type != null ? x.Type.Color : "#6c757d",
@@ -113,6 +131,14 @@ public sealed class AgendaService
                 x.VagaTitle,
                 x.VagaCode,
                 x.Notes,
+                x.CandidaturaId,
+                x.CandidatoId,
+                x.VagaId,
+                x.CandidateResponseStatus,
+                x.CandidateRespondedAtUtc,
+                x.CandidateSuggestedStartAtUtc,
+                x.CandidateSuggestedEndAtUtc,
+                x.CandidateResponseMessage,
                 x.Type != null ? x.Type.Code : string.Empty,
                 x.Type != null ? x.Type.Label : string.Empty,
                 x.Type != null ? x.Type.Color : "#6c757d",
@@ -184,6 +210,55 @@ public sealed class AgendaService
         return true;
     }
 
+    public async Task<PublicInterviewResponse?> GetPublicInterviewAsync(string token, CancellationToken ct)
+    {
+        var entity = await FindByTokenAsync(token, asTracking: false, ct);
+        return entity is null ? null : MapPublic(entity);
+    }
+
+    public async Task<PublicInterviewResponse?> ConfirmPublicInterviewAsync(string token, CancellationToken ct)
+    {
+        var entity = await FindByTokenAsync(token, asTracking: true, ct);
+        if (entity is null) return null;
+
+        entity.CandidateResponseStatus = "confirmado";
+        entity.CandidateRespondedAtUtc = DateTimeOffset.UtcNow;
+        entity.CandidateSuggestedStartAtUtc = null;
+        entity.CandidateSuggestedEndAtUtc = null;
+        entity.CandidateResponseMessage = null;
+        entity.Status = "confirmado_candidato";
+
+        await _db.SaveChangesAsync(ct);
+        await NotifyResponsibleAsync(entity, "Entrevista confirmada pelo candidato", $"{entity.Candidate ?? "Candidato"} confirmou presença na entrevista.", ct);
+
+        return MapPublic(entity);
+    }
+
+    public async Task<PublicInterviewResponse?> SuggestPublicInterviewTimeAsync(string token, SuggestInterviewTimeRequest request, CancellationToken ct)
+    {
+        var entity = await FindByTokenAsync(token, asTracking: true, ct);
+        if (entity is null) return null;
+
+        var start = NormalizeToUtc(request.SuggestedStartAtUtc);
+        var end = NormalizeEnd(start, NormalizeToUtc(request.SuggestedEndAtUtc));
+
+        entity.CandidateResponseStatus = "sugeriu_novo_horario";
+        entity.CandidateRespondedAtUtc = DateTimeOffset.UtcNow;
+        entity.CandidateSuggestedStartAtUtc = start;
+        entity.CandidateSuggestedEndAtUtc = end;
+        entity.CandidateResponseMessage = TrimOrNull(request.Message);
+        entity.Status = "reagendamento_sugerido";
+
+        await _db.SaveChangesAsync(ct);
+        await NotifyResponsibleAsync(
+            entity,
+            "Candidato sugeriu outro horário",
+            $"{entity.Candidate ?? "Candidato"} sugeriu {start.ToLocalTime():dd/MM/yyyy HH:mm} para a entrevista.",
+            ct);
+
+        return MapPublic(entity);
+    }
+
     private async Task<AgendaEventType> GetTypeByCodeAsync(string code, CancellationToken ct)
     {
         var normalized = (code ?? string.Empty).Trim();
@@ -219,4 +294,64 @@ public sealed class AgendaService
 
     private static string? TrimOrNull(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task<AgendaEvent?> FindByTokenAsync(string token, bool asTracking, CancellationToken ct)
+    {
+        var normalized = (token ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(normalized)) return null;
+
+        var query = asTracking ? _db.AgendaEvents.AsQueryable() : _db.AgendaEvents.AsNoTracking();
+        return await query.FirstOrDefaultAsync(x => x.CandidateConfirmationToken == normalized, ct);
+    }
+
+    private async Task NotifyResponsibleAsync(AgendaEvent entity, string title, string message, CancellationToken ct)
+    {
+        var userIds = new HashSet<Guid>();
+
+        if (entity.VagaId is Guid vagaId)
+        {
+            var vagaUserId = await _db.Vagas
+                .AsNoTracking()
+                .Where(v => v.Id == vagaId)
+                .Select(v => v.RecrutadorResponsavelUserId)
+                .FirstOrDefaultAsync(ct);
+            if (vagaUserId is Guid vu) userIds.Add(vu);
+
+            var analistaUserId = await _db.SolicitacoesVaga
+                .AsNoTracking()
+                .Where(s => s.VagaId == vagaId && s.AnalistaRhResponsavelUserId != null)
+                .OrderByDescending(s => s.CreatedAtUtc)
+                .Select(s => s.AnalistaRhResponsavelUserId)
+                .FirstOrDefaultAsync(ct);
+            if (analistaUserId is Guid au) userIds.Add(au);
+        }
+
+        if (userIds.Count == 0) return;
+
+        await _notifications.PublishToUsersAsync(
+            _tenantContext.TenantId,
+            userIds.ToList(),
+            title,
+            message,
+            "/app/agendas",
+            "info",
+            ct);
+    }
+
+    private static PublicInterviewResponse MapPublic(AgendaEvent entity) => new(
+        entity.Id,
+        entity.Title,
+        entity.StartAtUtc,
+        entity.EndAtUtc,
+        entity.Status,
+        entity.Location,
+        entity.Owner,
+        entity.Candidate,
+        entity.VagaTitle,
+        entity.VagaCode,
+        entity.CandidateResponseStatus,
+        entity.CandidateRespondedAtUtc,
+        entity.CandidateSuggestedStartAtUtc,
+        entity.CandidateSuggestedEndAtUtc,
+        entity.CandidateResponseMessage);
 }

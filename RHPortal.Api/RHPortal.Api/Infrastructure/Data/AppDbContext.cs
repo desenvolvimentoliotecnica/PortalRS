@@ -2815,6 +2815,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.VagaTitle).HasMaxLength(200);
             b.Property(x => x.VagaCode).HasMaxLength(40);
             b.Property(x => x.Notes).HasMaxLength(2000);
+            b.Property(x => x.CandidateConfirmationToken).HasMaxLength(80);
+            b.Property(x => x.CandidateResponseStatus).HasMaxLength(40);
+            b.Property(x => x.CandidateResponseMessage).HasMaxLength(1000);
 
             b.HasOne(x => x.Type)
                 .WithMany()
@@ -2822,6 +2825,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .OnDelete(DeleteBehavior.Restrict);
 
             b.HasIndex(x => new { x.TenantId, x.StartAtUtc });
+            b.HasIndex(x => new { x.TenantId, x.CandidateConfirmationToken });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
