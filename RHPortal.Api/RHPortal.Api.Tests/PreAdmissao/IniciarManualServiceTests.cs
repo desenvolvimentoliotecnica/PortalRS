@@ -68,6 +68,8 @@ public sealed class IniciarManualServiceTests
         var logger = new Mock<ILogger<PreAdmissaoService>>();
         var httpAccessor = new Mock<IHttpContextAccessor>();
         var ocupacaoService = new Mock<IOcupacaoHistoricoService>();
+        var hostEnvironment = new Mock<Microsoft.Extensions.Hosting.IHostEnvironment>();
+        hostEnvironment.Setup(x => x.ContentRootPath).Returns(Path.GetTempPath());
         var httpClientFactory = new Mock<IHttpClientFactory>();
         var blipMessaging = new BlipMessagingService(
             db,
@@ -80,7 +82,8 @@ public sealed class IniciarManualServiceTests
             httpAccessor.Object,
             ocupacaoService.Object,
             blipMessaging,
-            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
+            hostEnvironment.Object);
 
         return (db, service, storageMock);
     }
