@@ -1230,7 +1230,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     public async Task<PreAdmissaoDetailResponse> AprovarContratacaoAsync(AprovarContratacaoRequest request, CancellationToken ct)
     {
         if (request.CandidatoId.HasValue)
-            await MarcarCandidaturaContratadaParaPreAdmissaoAsync(request.CandidatoId.Value, null, ct);
+            await MarcarCandidaturaContratadaParaPreAdmissaoAsync(request.CandidatoId.Value, request.VagaId, ct);
 
         var entity = new Domain.Entities.PreAdmissao
         {
@@ -1243,6 +1243,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Cpf = request.Cpf?.Trim(),
             Email = request.Email?.Trim(),
             Celular = request.Celular?.Trim(),
+            VagaId = request.VagaId,
             UnitId = request.UnitId,
             CentroCustoId = request.CentroCustoId,
             JobPositionId = request.JobPositionId,

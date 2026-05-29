@@ -418,6 +418,8 @@ public sealed record OwnerPainelIntegracaoRow(
 public sealed record AprovarContratacaoRequest(
     /// <summary>ID do candidato no módulo de R&amp;S (opcional — para vincular à pré-admissão).</summary>
     Guid? CandidatoId,
+    /// <summary>ID da vaga/recrutamento que originou a pré-admissão.</summary>
+    Guid? VagaId,
     /// <summary>Nome completo do candidato.</summary>
     string Nome,
     /// <summary>CPF do candidato (opcional — Ítalo pode confirmar via OCR).</summary>

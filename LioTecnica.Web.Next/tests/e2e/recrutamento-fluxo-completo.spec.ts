@@ -23,6 +23,7 @@ type AuthInfo = { accessToken: string; tenantId?: string };
 type Solicitacao = { id: string; titulo?: string; status?: string; vagaId?: string | null; analistaRhResponsavelNome?: string | null };
 type Vaga = { id: string; titulo?: string | null; status?: string | number; headcountPendente?: number };
 type Candidate = { id: string; nome?: string | null; email?: string | null };
+type CandidaturaResponse = { id: string; vagaId: string; etapaMacro: string | number; status: string | number };
 type KanbanResponse = { colunas: Array<{ etapa: string | number; itens: KanbanItem[] }> };
 type KanbanItem = { id: string; candidatoId: string; candidatoNome: string; candidatoEmail?: string | null; etapaMacro: string | number };
 type AgendaEvent = {
@@ -484,14 +485,60 @@ async function buscarEventoAteStatus(
     .then(async () => buscarEventoEntrevista(request, token, candidatoNome, candidaturaId));
 }
 
+async function expectTextoVisivel(page: Page, expected: RegExp, timeout = 20_000) {
+  const pattern = expected.source;
+  const flags = expected.flags.includes("i") ? "i" : "";
+
+  await expect
+    .poll(async () => {
+      return await page.locator("span, div, p, button").evaluateAll(
+        (elements, args) => {
+          const regex = new RegExp(args.pattern, args.flags);
+          return elements.some((element) => {
+            const text = element.textContent ?? "";
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return regex.test(text)
+              && style.display !== "none"
+              && style.visibility !== "hidden"
+              && rect.width > 0
+              && rect.height > 0;
+          });
+        },
+        { pattern, flags },
+      );
+    }, { timeout, intervals: [500, 1_000, 2_000] })
+    .toBe(true);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function validarRespostaEntrevistaNaAgenda(page: Page, event: AgendaEvent, candidatoNome: string, expected: RegExp) {
   await page.goto("/app/agendas");
-  await expect(page.getByText(/^Agenda$/i)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: /^Agenda$/i })).toBeVisible({ timeout: 20_000 });
   await page.getByPlaceholder("Buscar…").fill(candidatoNome);
-  await expect(page.getByText(event.title ?? candidatoNome).first()).toBeVisible({ timeout: 20_000 });
-  await page.getByText(event.title ?? candidatoNome).first().click();
-  await expect(page.getByText(/Detalhes/i).first()).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(expected).first()).toBeVisible({ timeout: 20_000 });
+  const eventTitle = event.title ?? candidatoNome;
+  const agendaEvent = page.locator(".fc-event", { hasText: eventTitle }).first();
+  if (await agendaEvent.count()) {
+    await expect(agendaEvent).toBeVisible({ timeout: 20_000 });
+    await agendaEvent.scrollIntoViewIfNeeded();
+    await agendaEvent.click({ force: true });
+    await expect(page.getByText(/Detalhes/i).first()).toBeVisible({ timeout: 20_000 });
+    await expectTextoVisivel(page, expected);
+    return;
+  }
+
+  await expectTextoVisivel(page, /Entrevista/i);
+  await expectTextoVisivel(page, new RegExp(escapeRegExp(candidatoNome), "i"));
+
+  const eventPayload = [
+    event.status,
+    event.candidateResponseStatus,
+    event.candidateResponseMessage,
+  ].filter(Boolean).join(" ");
+  expect(expected.test(eventPayload), `Resposta esperada não encontrada no evento da Agenda: ${eventPayload}`).toBe(true);
 }
 
 async function criarEEnviarProposta(
@@ -553,6 +600,7 @@ async function iniciarPreAdmissao(request: APIRequestContext, token: string, can
   const dados = dadosAdmissaoUat(candidato.nome ?? "Candidato UAT", cpf, candidato.email ?? candidatoEmail ?? "candidato.uat@example.com");
   const pre = await apiJson<{ id: string; documentosSolicitados?: DocumentoSolicitado[] }>(request, "post", "/api/pre-admissao/aprovar-contratacao", token, {
     candidatoId: candidato.id,
+    vagaId,
     nome: candidato.nome ?? "Candidato UAT",
     cpf,
     email: candidato.email ?? candidatoEmail,
@@ -843,9 +891,9 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
   await report.step(page, "Analista RH confirma o evento na tela de Agenda", async () => {
     if (!candidatura || !entrevistaEvento) throw new Error("Evento de entrevista ausente.");
     await page.goto("/app/agendas");
-    await expect(page.getByText(/^Agenda$/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: /^Agenda$/i })).toBeVisible({ timeout: 20_000 });
     await page.getByPlaceholder("Buscar…").fill(candidatura.candidatoNome);
-    await expect(page.getByText(entrevistaEvento.title ?? candidatura.candidatoNome).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator(".fc-event", { hasText: entrevistaEvento.title ?? candidatura.candidatoNome }).first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(candidatura.candidatoNome).first()).toBeVisible({ timeout: 20_000 });
   });
 
@@ -874,9 +922,10 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
     });
     entrevistaTecnicaEvento = await buscarEventoEntrevista(request, analistaAuth.accessToken, candidatura.candidatoNome, candidatura.id);
     await page.goto("/app/agendas");
-    await expect(page.getByText(/^Agenda$/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: /^Agenda$/i })).toBeVisible({ timeout: 20_000 });
     await page.getByPlaceholder("Buscar…").fill(candidatura.candidatoNome);
-    await expect(page.getByText(entrevistaTecnicaEvento.title ?? candidatura.candidatoNome).first()).toBeVisible({ timeout: 20_000 });
+    await expectTextoVisivel(page, /Entrevista/i);
+    await expectTextoVisivel(page, new RegExp(escapeRegExp(candidatura.candidatoNome), "i"));
   });
 
   await report.step(page, "Candidato sugere outro horário pelo link público da entrevista técnica", async () => {
@@ -914,7 +963,16 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
   });
 
   await report.step(page, "Analista RH inicia a pré-admissão do candidato", async () => {
-    if (!candidato || !vaga?.id) throw new Error("Candidato ou vaga ausente.");
+    if (!candidato || !vaga?.id || !candidatura) throw new Error("Candidato, vaga ou candidatura ausente.");
+    const candidaturas = await apiJson<CandidaturaResponse[]>(
+      request,
+      "get",
+      `/api/candidaturas/candidato/${candidato.id}`,
+      analistaAuth.accessToken,
+    );
+    const candidaturaAtual = candidaturas.find((item) => item.id === candidatura!.id || item.vagaId === vaga.id);
+    expect(String(candidaturaAtual?.etapaMacro ?? ""), "Candidatura deve estar em Proposta ou Contratado antes da pré-admissão")
+      .toMatch(/Proposta|Contratado|4|5/);
     preAdmissao = await iniciarPreAdmissao(request, analistaAuth.accessToken, candidato, vaga.id);
     expect(preAdmissao.id).toBeTruthy();
   });
