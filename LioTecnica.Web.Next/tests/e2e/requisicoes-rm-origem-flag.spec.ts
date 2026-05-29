@@ -104,8 +104,9 @@ test("flag de requisições RM oculta criação e mantém rastreabilidade", asyn
       expect(res.ok(), `Importação RM falhou: ${text}`).toBe(true);
       const body = JSON.parse(text) as { totalLidos: number; criados: number; atualizados: number; ignorados: number };
       expect(body.totalLidos).toBeGreaterThanOrEqual(0);
-      await page.goto("/app/integracao-totvs");
-      await expect(page.getByText(/Integração TOTVS|Requisições\/Solicitações RM/i).first()).toBeVisible({ timeout: 20_000 });
+      await page.goto("/app/admin/requisicoes-rm");
+      await expect(page.getByText(/Requisições RM/i).first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole("button", { name: /Importar aprovadas/i })).toBeVisible({ timeout: 20_000 });
     });
   } finally {
     await putTenantConfig(request, auth.accessToken, originalConfig).catch(() => undefined);

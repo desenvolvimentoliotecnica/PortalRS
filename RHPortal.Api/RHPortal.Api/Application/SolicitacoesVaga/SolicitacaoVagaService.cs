@@ -343,6 +343,20 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             }
         }
 
+        var requisicoesOrigemRmAtiva = await _db.TenantConfiguracoes
+            .AsNoTracking()
+            .Select(c => c.RequisicoesVagaOrigemRm)
+            .FirstOrDefaultAsync(ct);
+
+        if (requisicoesOrigemRmAtiva)
+        {
+            q = q.Where(s =>
+                s.RmRequisicaoCodigo != null
+                && s.RmRequisicaoCodigo != ""
+                && !s.RmRequisicaoCodigo.StartsWith("STUB-")
+                && s.RmCriacaoSolicitadaEmUtc == null);
+        }
+
         if (query.Statuses is { Length: > 0 })
             q = q.Where(s => query.Statuses.Contains(s.Status));
         else if (query.Status.HasValue)
