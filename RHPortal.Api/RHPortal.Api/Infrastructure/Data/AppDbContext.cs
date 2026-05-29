@@ -2355,6 +2355,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.RmRequisicaoGetEndpointUrl).HasMaxLength(1000);
             b.Property(x => x.RmRequisicaoCreateUsername).HasMaxLength(200);
             b.Property(x => x.RmRequisicaoCreatePassword).HasMaxLength(500);
+            b.Property(x => x.RequisicoesVagaOrigemRm).HasDefaultValue(false);
 
             b.HasOne(x => x.AprovadorRh)
                 .WithMany()

@@ -17,6 +17,13 @@ public sealed class TenantConfiguracao : ITenantEntity
     public bool RhDeveAprovarAposGestor { get; set; } = false;
 
     /// <summary>
+    /// Quando true, requisições de vaga são consideradas originadas do RM já aprovadas.
+    /// O Portal mantém rastreabilidade, mas oculta criação/aprovação interna e materializa
+    /// vagas a partir da sincronização RM.
+    /// </summary>
+    public bool RequisicoesVagaOrigemRm { get; set; } = false;
+
+    /// <summary>
     /// Funcionário RH designado como aprovador da etapa de RH.
     /// Null = não há aprovador fixo (qualquer admin/recrutador pode aprovar via endpoint).
     /// </summary>

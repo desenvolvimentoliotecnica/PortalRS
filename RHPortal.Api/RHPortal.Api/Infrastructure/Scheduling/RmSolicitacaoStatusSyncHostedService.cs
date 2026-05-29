@@ -90,6 +90,20 @@ public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
         tenantContext.SetTenantId(tenantId);
 
         var sync = scope.ServiceProvider.GetRequiredService<ISolicitacaoVagaRmCodStatusSyncService>();
+        var import = scope.ServiceProvider.GetRequiredService<ISolicitacaoVagaRmImportService>();
+        var importResult = await import.ImportarAprovadasAsync(new RmRequisicaoImportRequest
+        {
+            PageSize = maxPerRun
+        }, ct);
+
+        if (importResult.Criados > 0 || importResult.Atualizados > 0 || importResult.Erros > 0)
+        {
+            _logger.LogInformation(
+                "Rm import tenant {TenantId}: lidos={Total}, criados={Criados}, atualizados={Atualizados}, vagas={Vagas}, ign={Ign}, err={Err}",
+                tenantId, importResult.TotalLidos, importResult.Criados, importResult.Atualizados,
+                importResult.VagasCriadas, importResult.Ignorados, importResult.Erros);
+        }
+
         var result = await sync.RunBatchAsync(new RmSolicitacaoStatusSyncRequest(), maxPerRun, ct);
 
         if (result.Erros > 0 || result.Mensagem is not null)

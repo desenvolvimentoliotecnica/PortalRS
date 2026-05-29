@@ -159,7 +159,7 @@ async function apiJson<T>(
   return (text ? JSON.parse(text) : {}) as T;
 }
 
-async function selecionarPrimeiraOpcaoAutocomplete(page: Page, placeholder: RegExp) {
+async function selecionarPrimeiraOpcaoAutocomplete(page: Page, placeholder: RegExp, termoBusca?: string) {
   const initialInput = page.getByPlaceholder(placeholder).first();
   if ((await initialInput.count()) === 0) return;
   await expect(initialInput).toBeVisible({ timeout: 20_000 });
@@ -177,6 +177,9 @@ async function selecionarPrimeiraOpcaoAutocomplete(page: Page, placeholder: RegE
   }
 
   const opcao = page.locator(".absolute.z-50 button").first();
+  if (!(await opcao.isVisible({ timeout: 5_000 }).catch(() => false)) && termoBusca) {
+    await page.getByPlaceholder(placeholder).first().fill(termoBusca);
+  }
   await expect(opcao).toBeVisible({ timeout: 20_000 });
   await opcao.click();
 }
@@ -241,7 +244,7 @@ async function criarRequisicaoComoCoordenador(page: Page) {
   await selecionarPrimeiraOpcaoAutocomplete(page, /Buscar empresa/i);
   await selecionarPrimeiraOpcaoAutocomplete(page, /Buscar filial/i);
   await selecionarPrimeiraOpcaoAutocomplete(page, /Buscar seção/i);
-  await selecionarPrimeiraOpcaoAutocomplete(page, /Buscar função RM/i);
+  await selecionarPrimeiraOpcaoAutocomplete(page, /Buscar função RM/i, "analista");
 
   const faixaSalarial = page.getByPlaceholder("R$ 0,00");
   await faixaSalarial.nth(0).fill("500000");
@@ -249,7 +252,7 @@ async function criarRequisicaoComoCoordenador(page: Page) {
 
   await selecionarMotivoSemDesligamento(page);
   await selecionarTipoAumentoQuadro(page);
-  await selecionarPrimeiraOpcaoAutocomplete(page, /Buscar cargo/i);
+  await selecionarPrimeiraOpcaoAutocomplete(page, /Buscar cargo/i, "analista");
   await page.locator('[data-testid="radio-decisao-aumento"]').check();
   await page.getByPlaceholder(/Justifique a necessidade/i).fill(justificativa);
   await selecionarTurnoOuHorarioLegado(page);
@@ -738,7 +741,9 @@ async function validarFormularioAdmissaoPreenchido(page: Page, request: APIReque
   await salvarDadosAdmissaoViaApi(request, setup);
   await page.reload();
   await expect(page.getByText(/Seus Dados|Revise os dados/i).first()).toBeVisible({ timeout: 20_000 });
-  await page.getByRole("button", { name: /Seus Dados Pessoais/i }).click().catch(() => {});
+  if (await page.locator("input").count() === 0) {
+    await page.getByRole("button", { name: /Seus Dados Pessoais/i }).click();
+  }
   await expect.poll(async () => (
     page.locator("input").evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value))
   ), { timeout: 20_000 }).toContain(String(setup.dados.nome));

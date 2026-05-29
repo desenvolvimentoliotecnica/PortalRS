@@ -455,6 +455,8 @@ public sealed class WorkflowRHService : IWorkflowRHService
                     sol.EscalaTrabalho,
                     null, null, null, // empresa/cc/ul names
                     sol.Solicitante?.Name ?? "",
+                    !string.IsNullOrWhiteSpace(sol.RmRequisicaoCodigo),
+                    sol.RmRequisicaoCodigo,
                     sol.CreatedAtUtc
                 );
             }

@@ -94,6 +94,8 @@ export interface DadosSolicitacao {
   centroCustoNome: string | null;
   unidadeLotacaoNome: string | null;
   solicitanteNome: string;
+  requisicaoOrigemRm?: boolean;
+  rmRequisicaoCodigo?: string | null;
   solicitacaoCriadaEm: string;
 }
 
@@ -142,8 +144,8 @@ export default function WorkflowRHDetailScreen({ workflowId }: { workflowId: str
         if (active) setActiveEtapaId(active.id);
         else if (data.etapas.length > 0) setActiveEtapaId(data.etapas[0].id);
       }
-    } catch (err: any) {
-      toast.error(err.message ?? "Erro ao carregar workflow");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar workflow");
     } finally {
       setLoading(false);
     }
@@ -170,8 +172,8 @@ export default function WorkflowRHDetailScreen({ workflowId }: { workflowId: str
       }
       toast.success(`Etapa ${action === "iniciar" ? "iniciada" : action === "concluir" ? "concluida" : action === "pular" ? "pulada" : "atualizada"}`);
       await fetchWorkflow();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar etapa");
     } finally {
       setActionLoading(false);
     }

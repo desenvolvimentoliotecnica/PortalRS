@@ -97,6 +97,8 @@ public sealed record DadosSolicitacaoSnapshot(
     string? CentroCustoNome,
     string? UnidadeLotacaoNome,
     string  SolicitanteNome,
+    bool    RequisicaoOrigemRm,
+    string? RmRequisicaoCodigo,
     DateTimeOffset SolicitacaoCriadaEm
 );
 

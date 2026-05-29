@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Settings2, Users, Clock, ChevronDown, ChevronRight, Lock, MessageCircle } from "lucide-react";
+import { Save, Settings2, Users, Clock, ChevronDown, ChevronRight, Lock, MessageCircle, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ──────────────────────────── types ──────────────────────────── */
@@ -17,6 +17,12 @@ interface ConfiguracaoHeadcountDto {
     blipNumeroHospedeiro: string | null;
     blipApiUrl: string | null;
     blipApiKey: string | null;
+}
+
+interface TenantConfiguracaoDto {
+    rhDeveAprovarAposGestor: boolean;
+    requisicoesVagaOrigemRm: boolean;
+    aprovadorRhId: string | null;
 }
 
 interface SlaStatusConfigItem {
@@ -194,6 +200,7 @@ export default function TenantConfiguracaoScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [savingBlip, setSavingBlip] = useState(false);
+    const [savingRecrutamento, setSavingRecrutamento] = useState(false);
     const [savingSla, setSavingSla] = useState(false);
 
     const [diasProvisao, setDiasProvisao] = useState(30);
@@ -201,6 +208,9 @@ export default function TenantConfiguracaoScreen() {
     const [blipNumero, setBlipNumero] = useState<string>("");
     const [blipApiUrl, setBlipApiUrl] = useState<string>("");
     const [blipApiKey, setBlipApiKey] = useState<string>("");
+    const [rhDeveAprovarAposGestor, setRhDeveAprovarAposGestor] = useState(false);
+    const [requisicoesVagaOrigemRm, setRequisicoesVagaOrigemRm] = useState(false);
+    const [aprovadorRhId, setAprovadorRhId] = useState<string | null>(null);
 
     const [slaGroups, setSlaGroups] = useState<SlaStatusConfigGroup[]>([]);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -211,9 +221,12 @@ export default function TenantConfiguracaoScreen() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [headcountRes, slaRes] = await Promise.all([
+            const [headcountRes, tenantRes, slaRes] = await Promise.all([
                 apiFetch("/api/admin/configuracoes-headcount").then(
                     (r) => r.json() as Promise<ConfiguracaoHeadcountDto>
+                ),
+                apiFetch("/api/tenant-configuracao").then(
+                    (r) => r.json() as Promise<TenantConfiguracaoDto>
                 ),
                 apiFetch("/api/configuracoes/sla-status").then(
                     (r) => r.json() as Promise<SlaStatusConfigGroup[]>
@@ -225,6 +238,9 @@ export default function TenantConfiguracaoScreen() {
             setBlipNumero(headcountRes.blipNumeroHospedeiro ?? "");
             setBlipApiUrl(headcountRes.blipApiUrl ?? "");
             setBlipApiKey(headcountRes.blipApiKey ?? "");
+            setRhDeveAprovarAposGestor(!!tenantRes.rhDeveAprovarAposGestor);
+            setRequisicoesVagaOrigemRm(!!tenantRes.requisicoesVagaOrigemRm);
+            setAprovadorRhId(tenantRes.aprovadorRhId ?? null);
             setSlaGroups(slaRes);
 
             const edits: Record<string, { slaHoras: number; ativo: boolean }> = {};
@@ -291,6 +307,31 @@ export default function TenantConfiguracaoScreen() {
             toast.error(`Falha ao salvar: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
             setSavingBlip(false);
+        }
+    }
+
+    async function saveRecrutamento() {
+        setSavingRecrutamento(true);
+        try {
+            const res = await apiFetch("/api/tenant-configuracao", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    rhDeveAprovarAposGestor,
+                    requisicoesVagaOrigemRm,
+                    aprovadorRhId,
+                }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json = await res.json() as TenantConfiguracaoDto;
+            setRhDeveAprovarAposGestor(!!json.rhDeveAprovarAposGestor);
+            setRequisicoesVagaOrigemRm(!!json.requisicoesVagaOrigemRm);
+            setAprovadorRhId(json.aprovadorRhId ?? null);
+            toast.success("Configurações de recrutamento salvas.");
+        } catch (e) {
+            toast.error(`Falha ao salvar recrutamento: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setSavingRecrutamento(false);
         }
     }
 
@@ -411,6 +452,40 @@ export default function TenantConfiguracaoScreen() {
                             <Button onClick={() => void save()} disabled={saving}>
                                 <Save className="size-4 mr-1.5" />
                                 {saving ? "Salvando…" : "Salvar headcount"}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* ── Recrutamento ── */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Briefcase className="size-4 text-muted-foreground" />
+                            <h2 className="text-base font-semibold">Recrutamento</h2>
+                        </div>
+
+                        <div className="rounded-xl border border-border/40 bg-card p-6 space-y-4 max-w-2xl">
+                            <label className="flex items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={requisicoesVagaOrigemRm}
+                                    onChange={(e) => setRequisicoesVagaOrigemRm(e.target.checked)}
+                                    className="mt-1 h-4 w-4 rounded border-border accent-primary"
+                                />
+                                <span>
+                                    <span className="block text-sm font-medium">Requisições de vaga vêm aprovadas do RM</span>
+                                    <span className="mt-1 block text-xs text-muted-foreground leading-relaxed">
+                                        Quando ativo, o Portal oculta criação/edição/aprovação interna de requisições.
+                                        A sincronização RM cria a vaga pronta para distribuição pela Especialista de RH.
+                                        Desligar esta flag é o rollback operacional para voltar ao fluxo legado do Portal.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div>
+                            <Button onClick={() => void saveRecrutamento()} disabled={savingRecrutamento}>
+                                <Save className="size-4 mr-1.5" />
+                                {savingRecrutamento ? "Salvando…" : "Salvar recrutamento"}
                             </Button>
                         </div>
                     </div>

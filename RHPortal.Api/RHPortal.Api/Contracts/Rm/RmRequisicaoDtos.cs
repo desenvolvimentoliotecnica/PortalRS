@@ -67,3 +67,20 @@ public sealed class RmRequisicaoRowDto
     public string? Recmodifiedby { get; init; }
     public DateTime? Recmodifiedon { get; init; }
 }
+
+public sealed class RmRequisicaoImportRequest
+{
+    public int PageSize { get; init; } = 100;
+    public DateOnly? DataAberturaDe { get; init; }
+    public DateOnly? DataAberturaAte { get; init; }
+    public string? TipoRequisicao { get; init; }
+}
+
+public sealed record RmRequisicaoImportResponse(
+    int TotalLidos,
+    int Criados,
+    int Atualizados,
+    int VagasCriadas,
+    int Ignorados,
+    int Erros,
+    IReadOnlyList<string> Mensagens);
