@@ -70,6 +70,10 @@ function formatDt(s: string | null): string {
   return Number.isNaN(d.getTime()) ? s : d.toLocaleString("pt-BR");
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.trim() ? error.message : fallback;
+}
+
 export default function AdminRmRequisicoesScreen() {
   const [rows, setRows] = useState<RmRequisicaoRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -108,7 +112,7 @@ export default function AdminRmRequisicoesScreen() {
       if (dataAte.trim()) params.set("dataAberturaAte", dataAte.trim());
       if (qDebounced) params.set("q", qDebounced);
 
-      const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" });
+      const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" }, 75_000);
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { detail?: string; title?: string } | null;
         const msg =
@@ -125,8 +129,9 @@ export default function AdminRmRequisicoesScreen() {
       const data = (await res.json()) as RmRequisicaoListResponse;
       setRows(data.items ?? []);
       setTotal(data.totalCount ?? 0);
-    } catch {
-      toast.error("Falha ao carregar requisições do RM.");
+    } catch (error) {
+      const message = getErrorMessage(error, "Falha ao carregar requisições do RM.");
+      toast.error(message);
       setRows([]);
       setTotal(0);
     } finally {
@@ -142,16 +147,20 @@ export default function AdminRmRequisicoesScreen() {
     setImporting(true);
     setImportResult(null);
     try {
-      const res = await apiFetch("/api/rm/solicitacao-vaga/importar-aprovadas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pageSize: 100,
-          tipoRequisicao: tipo.trim() || null,
-          dataAberturaDe: dataDe.trim() || null,
-          dataAberturaAte: dataAte.trim() || null,
-        }),
-      });
+      const res = await apiFetch(
+        "/api/rm/solicitacao-vaga/importar-aprovadas",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pageSize: 100,
+            tipoRequisicao: tipo.trim() || null,
+            dataAberturaDe: dataDe.trim() || null,
+            dataAberturaAte: dataAte.trim() || null,
+          }),
+        },
+        90_000,
+      );
 
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { detail?: string; title?: string; message?: string } | null;
@@ -163,7 +172,7 @@ export default function AdminRmRequisicoesScreen() {
       toast.success(`Importação concluída: ${result.criados} criadas, ${result.atualizados} atualizadas, ${result.vagasCriadas} vagas criadas.`);
       await load();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao importar requisições aprovadas do RM.";
+      const message = getErrorMessage(error, "Falha ao importar requisições aprovadas do RM.");
       toast.error(message);
       setImportResult({
         totalLidos: 0,
