@@ -357,6 +357,7 @@ builder.Services.Configure<RmConnectionOptions>(builder.Configuration.GetSection
 builder.Services.Configure<RmSolicitacaoStatusSyncOptions>(
     builder.Configuration.GetSection(RmSolicitacaoStatusSyncOptions.SectionName));
 builder.Services.AddScoped<ISolicitacaoVagaRmCodStatusSyncService, SolicitacaoVagaRmCodStatusSyncService>();
+builder.Services.AddScoped<ISolicitacaoVagaRmImportService, SolicitacaoVagaRmImportService>();
 builder.Services.AddHostedService<RmSolicitacaoStatusSyncHostedService>();
 builder.Services.AddScoped<IRmRequisicoesReadService, RmRequisicoesReadService>();
 

@@ -14,13 +14,16 @@ namespace RhPortal.Api.Controllers;
 public sealed class RmSolicitacaoStatusSyncController : ControllerBase
 {
     private readonly ISolicitacaoVagaRmCodStatusSyncService _sync;
+    private readonly ISolicitacaoVagaRmImportService _import;
     private readonly RmSolicitacaoStatusSyncOptions _opts;
 
     public RmSolicitacaoStatusSyncController(
         ISolicitacaoVagaRmCodStatusSyncService sync,
+        ISolicitacaoVagaRmImportService import,
         IOptions<RmSolicitacaoStatusSyncOptions> opts)
     {
         _sync = sync;
+        _import = import;
         _opts = opts.Value;
     }
 
@@ -36,6 +39,21 @@ public sealed class RmSolicitacaoStatusSyncController : ControllerBase
         request ??= new RmSolicitacaoStatusSyncRequest();
         var max = request.Ids is { Count: > 0 } ? (int?)null : _opts.MaxPerRun;
         var result = await _sync.RunBatchAsync(request, max, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Importa requisições aprovadas no RM para o Portal, criando a solicitação rastreável e a vaga rascunho.
+    /// Só executa quando a flag RequisicoesVagaOrigemRm está ativa no tenant.
+    /// </summary>
+    [HttpPost("importar-aprovadas")]
+    [ProducesResponseType(typeof(RmRequisicaoImportResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<RmRequisicaoImportResponse>> ImportarAprovadas(
+        [FromBody] RmRequisicaoImportRequest? request,
+        CancellationToken ct)
+    {
+        request ??= new RmRequisicaoImportRequest();
+        var result = await _import.ImportarAprovadasAsync(request, ct);
         return Ok(result);
     }
 }

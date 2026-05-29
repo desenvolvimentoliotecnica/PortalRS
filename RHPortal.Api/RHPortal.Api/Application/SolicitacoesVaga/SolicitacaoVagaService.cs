@@ -72,6 +72,7 @@ public interface ISolicitacaoVagaService
     Task<SolicitacaoVagaResponse?> MarcarContratacaoConcluidaAsync(Guid id, string? observacao, CancellationToken ct);
     Task<SolicitacaoVagaResponse?> AssignAnalistaRhAsync(Guid id, Guid? analistaRhResponsavelUserId, CancellationToken ct);
     Task<int> BulkAssignAnalistaRhAsync(IReadOnlyList<Guid> solicitacaoIds, Guid? analistaRhResponsavelUserId, CancellationToken ct);
+    Task<bool> GarantirVagaRascunhoParaSolicitacaoAprovadaAsync(Guid id, CancellationToken ct);
     Task<IReadOnlyList<SolicitacaoVagaIndicacaoDto>> ListIndicacoesAsync(Guid solicitacaoId, CancellationToken ct);
     Task<SolicitacaoVagaIndicacaoDto?> AddIndicacaoAsync(Guid solicitacaoId, SolicitacaoVagaIndicacaoCreateRequest request, CancellationToken ct);
     Task<bool> RemoveIndicacaoAsync(Guid solicitacaoId, Guid indicacaoId, CancellationToken ct);
@@ -224,6 +225,17 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Where(u => u.Id == userId)
             .Select(u => u.FullName ?? u.Email)
             .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task EnsureFluxoPortalRequisicoesAtivoAsync(string acao, CancellationToken ct)
+    {
+        var origemRm = await _db.TenantConfiguracoes
+            .AsNoTracking()
+            .Select(c => c.RequisicoesVagaOrigemRm)
+            .FirstOrDefaultAsync(ct);
+
+        if (origemRm)
+            throw new InvalidOperationException($"Não é possível {acao}: este tenant recebe requisições de vaga já aprovadas do RM.");
     }
 
     private async Task<Vaga?> ObterVagaVinculadaAsync(SolicitacaoVaga entity, CancellationToken ct)
@@ -499,6 +511,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     public async Task<SolicitacaoVagaResponse> CreateAsync(
         SolicitacaoVagaCreateRequest request, Guid? solicitanteId, CancellationToken ct)
     {
+        await EnsureFluxoPortalRequisicoesAtivoAsync("criar requisições de vaga no Portal", ct);
+
         // Sprint P1: ReadOnly guard
         if (_currentUser.IsReadOnly)
             throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar solicitações.");
@@ -992,6 +1006,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     public async Task<SolicitacaoVagaResponse?> UpdateAsync(
         Guid id, SolicitacaoVagaUpdateRequest request, CancellationToken ct)
     {
+        await EnsureFluxoPortalRequisicoesAtivoAsync("editar requisições de vaga no Portal", ct);
+
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
@@ -1154,6 +1170,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         public async Task<bool> SubmitAsync(Guid id, CancellationToken ct)
     {
+        await EnsureFluxoPortalRequisicoesAtivoAsync("enviar requisições de vaga para aprovação no Portal", ct);
+
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
 
@@ -1535,6 +1553,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         public async Task<SolicitacaoVagaResponse?> ApproveAsync(Guid id, string? observacao, CancellationToken ct)
     {
+        await EnsureFluxoPortalRequisicoesAtivoAsync("aprovar requisições de vaga no Portal", ct);
+
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
@@ -2015,6 +2035,31 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         entity.VagaId = vagaId;
     }
 
+    public async Task<bool> GarantirVagaRascunhoParaSolicitacaoAprovadaAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.SolicitacoesVaga
+            .Include(x => x.Solicitante)
+            .Include(x => x.Motivo)
+            .Include(x => x.Turno)
+                .ThenInclude(t => t!.UnidadeLotacao)
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+
+        if (entity is null)
+            return false;
+
+        if (entity.Status is not (SolicitacaoStatus.Aprovada or SolicitacaoStatus.Concluida))
+            throw new InvalidOperationException("A vaga só pode ser materializada a partir de requisição aprovada pelo RM.");
+
+        var vaga = await ObterVagaVinculadaAsync(entity, ct);
+        if (vaga is null)
+            await CriarVagaRascunhoAsync(entity, ct, headcountPendente: entity.QtdPosicoes);
+
+        entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
     private async Task ProvisionarHcPendenteAsync(SolicitacaoVaga entity, CancellationToken ct)
     {
         var vaga = await ObterVagaVinculadaAsync(entity, ct);
@@ -2025,6 +2070,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
     public async Task<SolicitacaoVagaResponse?> RejectAsync(Guid id, string? observacao, CancellationToken ct)
     {
+        await EnsureFluxoPortalRequisicoesAtivoAsync("reprovar requisições de vaga no Portal", ct);
+
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
@@ -2094,6 +2141,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         public async Task<SolicitacaoVagaResponse?> RequestChangesAsync(Guid id, string? observacao, CancellationToken ct)
     {
+        await EnsureFluxoPortalRequisicoesAtivoAsync("solicitar ajustes em requisições de vaga no Portal", ct);
+
         var entity = await _db.SolicitacoesVaga.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
 
