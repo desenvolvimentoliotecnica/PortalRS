@@ -12,6 +12,7 @@ namespace RhPortal.Api.Application.TenantConfiguracao;
 public sealed class TenantConfiguracaoDto
 {
     public bool RhDeveAprovarAposGestor { get; set; }
+    public bool RequisicoesVagaOrigemRm { get; set; }
     public Guid? AprovadorRhId { get; set; }
     public string? AprovadorRhNome { get; set; }
 }
@@ -19,6 +20,7 @@ public sealed class TenantConfiguracaoDto
 public sealed class TenantConfiguracaoUpsertRequest
 {
     public bool RhDeveAprovarAposGestor { get; set; }
+    public bool RequisicoesVagaOrigemRm { get; set; }
     public Guid? AprovadorRhId { get; set; }
 }
 
@@ -179,6 +181,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         }
 
         config.RhDeveAprovarAposGestor = request.RhDeveAprovarAposGestor;
+        config.RequisicoesVagaOrigemRm = request.RequisicoesVagaOrigemRm;
         config.AprovadorRhId = request.AprovadorRhId;
         config.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
@@ -283,6 +286,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
     private static TenantConfiguracaoDto MapToDto(Domain.Entities.TenantConfiguracao c) => new()
     {
         RhDeveAprovarAposGestor = c.RhDeveAprovarAposGestor,
+        RequisicoesVagaOrigemRm = c.RequisicoesVagaOrigemRm,
         AprovadorRhId = c.AprovadorRhId,
         AprovadorRhNome = c.AprovadorRh?.Name,
     };
