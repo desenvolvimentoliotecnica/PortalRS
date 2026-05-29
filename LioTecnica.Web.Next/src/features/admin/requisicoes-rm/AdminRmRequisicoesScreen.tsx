@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ClipboardList, RefreshCw, Search } from "lucide-react";
+import { ClipboardList, DownloadCloud, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -54,6 +54,16 @@ interface RmRequisicaoListResponse {
   totalCount: number;
 }
 
+interface RmRequisicaoImportResponse {
+  totalLidos: number;
+  criados: number;
+  atualizados: number;
+  vagasCriadas: number;
+  ignorados: number;
+  erros: number;
+  mensagens: string[];
+}
+
 function formatDt(s: string | null): string {
   if (!s) return "—";
   const d = new Date(s);
@@ -71,6 +81,8 @@ export default function AdminRmRequisicoesScreen() {
   const [dataAte, setDataAte] = useState("");
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<RmRequisicaoImportResponse | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -126,6 +138,47 @@ export default function AdminRmRequisicoesScreen() {
     void load();
   }, [load]);
 
+  async function importarAprovadas() {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await apiFetch("/api/rm/solicitacao-vaga/importar-aprovadas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageSize: 100,
+          tipoRequisicao: tipo.trim() || null,
+          dataAberturaDe: dataDe.trim() || null,
+          dataAberturaAte: dataAte.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { detail?: string; title?: string; message?: string } | null;
+        throw new Error(body?.detail ?? body?.message ?? body?.title ?? `HTTP ${res.status}`);
+      }
+
+      const result = await res.json() as RmRequisicaoImportResponse;
+      setImportResult(result);
+      toast.success(`Importação concluída: ${result.criados} criadas, ${result.atualizados} atualizadas, ${result.vagasCriadas} vagas criadas.`);
+      await load();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao importar requisições aprovadas do RM.";
+      toast.error(message);
+      setImportResult({
+        totalLidos: 0,
+        criados: 0,
+        atualizados: 0,
+        vagasCriadas: 0,
+        ignorados: 0,
+        erros: 1,
+        mensagens: [message],
+      });
+    } finally {
+      setImporting(false);
+    }
+  }
+
   const totalPages = Math.ceil(total / pageSize) || 1;
 
   return (
@@ -140,10 +193,44 @@ export default function AdminRmRequisicoesScreen() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className="size-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="default" size="sm" onClick={() => void importarAprovadas()} disabled={importing || loading}>
+            <DownloadCloud className="size-4" />
+            {importing ? "Importando..." : "Importar aprovadas"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading || importing}>
+            <RefreshCw className="size-4" />
+          </Button>
+        </div>
       </div>
+
+      {importResult && (
+        <div className={`rounded-xl border p-4 text-sm ${
+          importResult.erros > 0
+            ? "border-red-200 bg-red-50 text-red-900"
+            : "border-emerald-200 bg-emerald-50 text-emerald-900"
+        }`}>
+          <div className="font-semibold">Resultado da importação RM</div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <Metric label="Lidas" value={importResult.totalLidos} />
+            <Metric label="Criadas" value={importResult.criados} />
+            <Metric label="Atualizadas" value={importResult.atualizados} />
+            <Metric label="Vagas criadas" value={importResult.vagasCriadas} />
+            <Metric label="Ignoradas" value={importResult.ignorados} />
+            <Metric label="Erros" value={importResult.erros} />
+          </div>
+          {importResult.mensagens.length > 0 && (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs font-medium">Ver detalhes ({importResult.mensagens.length})</summary>
+              <ul className="mt-2 max-h-48 space-y-1 overflow-auto rounded-md bg-background/70 p-2 text-xs">
+                {importResult.mensagens.slice(0, 100).map((msg, index) => (
+                  <li key={`${index}-${msg}`}>{msg}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
 
       <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
         <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -314,5 +401,14 @@ export default function AdminRmRequisicoesScreen() {
         )}
       </div>
     </section>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg bg-background/70 px-3 py-2">
+      <div className="text-xs opacity-70">{label}</div>
+      <div className="text-lg font-semibold">{value}</div>
+    </div>
   );
 }

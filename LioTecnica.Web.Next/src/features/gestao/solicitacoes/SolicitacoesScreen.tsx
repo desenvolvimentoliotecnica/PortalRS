@@ -807,7 +807,7 @@ function SolicitacoesVagaContent() {
                 )}
                 {requisicoesVagaOrigemRm && (
                     <div className="rounded-full border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
-                        Requisições vêm aprovadas do RM. Criação e aprovação no Portal estão ocultas.
+                        Requisições vêm aprovadas do RM.
                     </div>
                 )}
                 {canDistribuirParaAnalistaRh && (
