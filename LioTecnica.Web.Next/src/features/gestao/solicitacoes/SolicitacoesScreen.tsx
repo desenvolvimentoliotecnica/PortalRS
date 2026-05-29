@@ -90,6 +90,10 @@ interface SolicitacaoGridRow {
     etapaPendenteAprovadorId?: string | null;
 }
 
+interface TenantConfiguracaoDto {
+    requisicoesVagaOrigemRm?: boolean;
+}
+
 function isStatusDistribuivelParaAnalistaRh(status: number | string): boolean {
     const s = String(status);
     return (
@@ -347,6 +351,7 @@ function SolicitacoesVagaContent() {
     const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
     const [pendingRows, setPendingRows] = useState<SolicitacaoGridRow[]>([]);
     const [selectedSolicitacaoIds, setSelectedSolicitacaoIds] = useState<string[]>([]);
+    const [requisicoesVagaOrigemRm, setRequisicoesVagaOrigemRm] = useState(false);
 
     /* ── filters ── */
     const [q, setQ] = useState("");
@@ -396,6 +401,20 @@ function SolicitacoesVagaContent() {
 
     /* ── next step banner after approval ── */
     const [lastApproved, setLastApproved] = useState<{ id: string; titulo: string } | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        void fetchJson<TenantConfiguracaoDto>("/api/tenant-configuracao")
+            .then((config) => {
+                if (!cancelled) setRequisicoesVagaOrigemRm(!!config.requisicoesVagaOrigemRm);
+            })
+            .catch(() => {
+                if (!cancelled) setRequisicoesVagaOrigemRm(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     /* ── resolve meu funcionarioId para filtrar aprovações ── */
     /** Lista: edição/cancelar/copiar só para o solicitante (admin/owner mantém tudo). Terceiros só olham + timeline. */
@@ -514,6 +533,10 @@ function SolicitacoesVagaContent() {
 
     /* ── actions ── */
     function openNovaPosicao() {
+        if (requisicoesVagaOrigemRm) {
+            toast.info("Este tenant recebe requisições aprovadas do RM. Criação no Portal está desativada.");
+            return;
+        }
         setViewId(null);
         setViewMetaRow(null);
         setEditId(null);
@@ -529,6 +552,10 @@ function SolicitacoesVagaContent() {
     }
 
     function openEdit(row: SolicitacaoGridRow) {
+        if (requisicoesVagaOrigemRm) {
+            toast.info("Este tenant recebe requisições aprovadas do RM. Edição no Portal está desativada.");
+            return;
+        }
         setViewId(null);
         setViewMetaRow(null);
         setEditId(row.id);
@@ -543,6 +570,10 @@ function SolicitacoesVagaContent() {
     }
 
     function openEditForApproval(row: SolicitacaoGridRow) {
+        if (requisicoesVagaOrigemRm) {
+            toast.info("Este tenant recebe requisições aprovadas do RM. Reenvio no Portal está desativado.");
+            return;
+        }
         setViewId(null);
         setViewMetaRow(null);
         setEditId(row.id);
@@ -691,6 +722,10 @@ function SolicitacoesVagaContent() {
     }
 
     async function submitForApproval(id: string) {
+        if (requisicoesVagaOrigemRm) {
+            toast.info("Este tenant recebe requisições aprovadas do RM. Envio para aprovação no Portal está desativado.");
+            return;
+        }
         try {
             await fetchJson(`${API}/${id}/submit`, { method: "POST" });
             toast.success("Solicitação enviada para aprovação!");
@@ -702,6 +737,10 @@ function SolicitacoesVagaContent() {
     }
 
     async function doApproval(id: string, action: "approve" | "reject" | "request-changes") {
+        if (requisicoesVagaOrigemRm) {
+            toast.info("Este tenant recebe requisições aprovadas do RM. Aprovação no Portal está desativada.");
+            return;
+        }
         const labels = { approve: "Aprovada", reject: "Reprovada", "request-changes": "Ajustes solicitados" };
         try {
             await fetchJson(`${API}/${id}/${action}`, {
@@ -756,14 +795,21 @@ function SolicitacoesVagaContent() {
         <div className="space-y-4">
             {/* ── primary actions ── */}
             <div className="flex flex-wrap items-center gap-3">
-                <Button
-                    size="sm"
-                    data-testid="btn-nova-posicao"
-                    onClick={() => openNovaPosicao()}
-                >
-                    <Plus className="size-4 mr-1" />
-                    Nova posição
-                </Button>
+                {!requisicoesVagaOrigemRm && (
+                    <Button
+                        size="sm"
+                        data-testid="btn-nova-posicao"
+                        onClick={() => openNovaPosicao()}
+                    >
+                        <Plus className="size-4 mr-1" />
+                        Nova posição
+                    </Button>
+                )}
+                {requisicoesVagaOrigemRm && (
+                    <div className="rounded-full border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
+                        Requisições vêm aprovadas do RM. Criação e aprovação no Portal estão ocultas.
+                    </div>
+                )}
                 {canDistribuirParaAnalistaRh && (
                     <Button
                         size="sm"
@@ -987,7 +1033,7 @@ function SolicitacoesVagaContent() {
                                             ) : (
                                                 <>
                                                     {/* Rascunho: editar, enviar, excluir */}
-                                                    {(r.status === 0 || r.status === "Rascunho") && (
+                                                    {!requisicoesVagaOrigemRm && (r.status === 0 || r.status === "Rascunho") && (
                                                         <>
                                                             <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
                                                                 <Pencil />
@@ -1001,7 +1047,7 @@ function SolicitacoesVagaContent() {
                                                         </>
                                                     )}
                                                     {/* AjustesNecessarios: editar, enviar */}
-                                                    {(r.status === 4 || r.status === "AjustesNecessarios") && (
+                                                    {!requisicoesVagaOrigemRm && (r.status === 4 || r.status === "AjustesNecessarios") && (
                                                         <>
                                                             <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
                                                                 <Pencil />
@@ -1012,7 +1058,7 @@ function SolicitacoesVagaContent() {
                                                         </>
                                                     )}
                                                     {/* Pendente: editar e reenviar + cancelar */}
-                                                    {(r.status === 1 || r.status === "PendenteAprovacao") && (
+                                                    {!requisicoesVagaOrigemRm && (r.status === 1 || r.status === "PendenteAprovacao") && (
                                                         <>
                                                             <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
                                                                 <Pencil />
@@ -1030,7 +1076,7 @@ function SolicitacoesVagaContent() {
                                                         </Button>
                                                     )}
                                                     {/* AguardaRH / AguardaHC: visualizar + cancelar se sem movimentação */}
-                                                    {(r.status === 5 || r.status === "PendenteAprovacaoRh" ||
+                                                    {!requisicoesVagaOrigemRm && (r.status === 5 || r.status === "PendenteAprovacaoRh" ||
                                                       r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
                                                         <>
                                                             <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
@@ -1042,27 +1088,29 @@ function SolicitacoesVagaContent() {
                                                         </>
                                                     )}
                                                     {/* Copiar: todas as linhas */}
-                                                    <Button
-                                                        variant="outline"
-                                                        size="icon-xs"
-                                                        title="Copiar vaga"
-                                                        onClick={() => {
-                                                            setCopySourceId(r.id);
-                                                            setEditId(null);
-                                                            setViewId(null);
-                                                            setViewMetaRow(null);
-                                                            setResubmit(false);
-                                                            setFormInitialData(null);
-                                                            if (prefersMobileForm) {
-                                                                router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(r.id)}`);
-                                                                return;
-                                                            }
-                                                            bumpFormNonce();
-                                                            setFormOpen(true);
-                                                        }}
-                                                    >
-                                                        <Copy className="size-3.5" />
-                                                    </Button>
+                                                    {!requisicoesVagaOrigemRm && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon-xs"
+                                                            title="Copiar vaga"
+                                                            onClick={() => {
+                                                                setCopySourceId(r.id);
+                                                                setEditId(null);
+                                                                setViewId(null);
+                                                                setViewMetaRow(null);
+                                                                setResubmit(false);
+                                                                setFormInitialData(null);
+                                                                if (prefersMobileForm) {
+                                                                    router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(r.id)}`);
+                                                                    return;
+                                                                }
+                                                                bumpFormNonce();
+                                                                setFormOpen(true);
+                                                            }}
+                                                        >
+                                                            <Copy className="size-3.5" />
+                                                        </Button>
+                                                    )}
                                                     {/* Acompanhamento: todas as linhas */}
                                                     <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
                                                         <Activity />
@@ -1184,7 +1232,7 @@ function SolicitacoesVagaContent() {
                                     </div>
                                 </div>
                             )}
-                            {(viewMetaRow.status === 1 || viewMetaRow.status === "PendenteAprovacao") && isAdmin && (
+                            {!requisicoesVagaOrigemRm && (viewMetaRow.status === 1 || viewMetaRow.status === "PendenteAprovacao") && isAdmin && (
                                 <div className="mt-3 space-y-3 rounded-lg border border-border/60 p-3">
                                     <div className="text-sm font-semibold">Ações de aprovação (admin)</div>
                                     <textarea
