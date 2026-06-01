@@ -176,6 +176,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<RmSyncCheckpoint> RmSyncCheckpoints => Set<RmSyncCheckpoint>();
     public DbSet<RmSyncAlerta> RmSyncAlertas => Set<RmSyncAlerta>();
     public DbSet<RmWorkerCycleSettings> RmWorkerCycleSettings => Set<RmWorkerCycleSettings>();
+    public DbSet<RmImportacaoAutomaticaRun> RmImportacaoAutomaticaRuns => Set<RmImportacaoAutomaticaRun>();
     public DbSet<EtapaConfigAprovacao> EtapasConfigAprovacao => Set<EtapaConfigAprovacao>();
     public DbSet<FluxoAprovacaoConfig> FluxosAprovacaoConfig => Set<FluxoAprovacaoConfig>();
     public DbSet<SolicitacaoAprovacaoEtapa> SolicitacoesAprovacaoEtapa => Set<SolicitacaoAprovacaoEtapa>();
@@ -466,6 +467,18 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasKey(x => x.Id);
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.HasIndex(x => x.TenantId).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmImportacaoAutomaticaRun>(b =>
+        {
+            b.ToTable("RmImportacaoAutomaticaRuns");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            b.Property(x => x.Mensagem).HasMaxLength(1000);
+            b.Property(x => x.LogText).HasColumnType("text");
+            b.HasIndex(x => new { x.TenantId, x.StartedAtUtc });
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
