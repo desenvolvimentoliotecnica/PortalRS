@@ -340,6 +340,7 @@ Base AS (
         (@Tipo IS NULL OR TIPO_REQUISICAO = @Tipo)
         AND (@DataDe IS NULL OR DATAABERTURA >= @DataDe)
         AND (@DataAte IS NULL OR DATAABERTURA < DATEADD(day, 1, @DataAte))
+        AND (@CodStatusCsv IS NULL OR CHARINDEX(',' + CAST(CODSTATUS AS VARCHAR(20)) + ',', @CodStatusCsv) > 0)
         AND (@SearchPattern IS NULL OR (
             CAST(IDREQ AS VARCHAR(20)) LIKE @SearchPattern OR JUSTIFICATIVA LIKE @SearchPattern
         ))
