@@ -316,9 +316,6 @@ export default function AdminRmRequisicoesScreen() {
           <ClipboardList className="mt-0.5 size-6 text-primary" />
           <div>
             <h4 className="text-lg font-bold">Requisições RM</h4>
-            <p className="text-muted-foreground text-sm">
-              Lista consolidada do CORPORERM (somente leitura), filtrada para Em andamento e Aprovada.
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -460,11 +457,6 @@ export default function AdminRmRequisicoesScreen() {
 
         <div className="text-muted-foreground mb-3 text-xs">
           Total no filtro atual: <span className="font-semibold text-foreground">{total}</span>
-          <span className="ml-2">
-            {statusFilter === "all"
-              ? `Exibindo CODSTATUS ${CODSTATUS_VISIVEIS.join(" e ")}.`
-              : `Exibindo CODSTATUS ${statusFilter}.`}
-          </span>
         </div>
 
         <div className="overflow-x-auto">
