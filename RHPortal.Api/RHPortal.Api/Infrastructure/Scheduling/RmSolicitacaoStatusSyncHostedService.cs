@@ -1,11 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using Npgsql;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Rm;
 using RhPortal.Api.Infrastructure.Data;
-using RhPortal.Api.Infrastructure.Rm;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Infrastructure.Scheduling;
@@ -15,17 +13,17 @@ namespace RhPortal.Api.Infrastructure.Scheduling;
 /// </summary>
 public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
 {
+    private static readonly TimeSpan DispatcherPollInterval = TimeSpan.FromMinutes(1);
+
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IOptionsMonitor<RmSolicitacaoStatusSyncOptions> _options;
     private readonly ILogger<RmSolicitacaoStatusSyncHostedService> _logger;
+    private readonly Dictionary<string, DateTimeOffset> _lastRunByTenant = new(StringComparer.OrdinalIgnoreCase);
 
     public RmSolicitacaoStatusSyncHostedService(
         IServiceScopeFactory scopeFactory,
-        IOptionsMonitor<RmSolicitacaoStatusSyncOptions> options,
         ILogger<RmSolicitacaoStatusSyncHostedService> logger)
     {
         _scopeFactory = scopeFactory;
-        _options = options;
         _logger = logger;
     }
 
@@ -33,13 +31,9 @@ public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var opts = _options.CurrentValue;
-            var interval = TimeSpan.FromMinutes(Math.Clamp(opts.IntervalMinutes, 5, 1440));
-
             try
             {
-                if (opts.Enabled)
-                    await ProcessAllTenantsAsync(opts.MaxPerRun, stoppingToken);
+                await ProcessAllTenantsAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (ObjectDisposedException) { break; }
@@ -48,12 +42,12 @@ public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
                 _logger.LogError(ex, "RmSolicitacaoStatusSyncHostedService batch failed.");
             }
 
-            try { await Task.Delay(interval, stoppingToken); }
+            try { await Task.Delay(DispatcherPollInterval, stoppingToken); }
             catch (OperationCanceledException) { break; }
         }
     }
 
-    private async Task ProcessAllTenantsAsync(int maxPerRun, CancellationToken ct)
+    private async Task ProcessAllTenantsAsync(CancellationToken ct)
     {
         List<string> tenantIds;
         using (var masterScope = _scopeFactory.CreateScope())
@@ -70,7 +64,7 @@ public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
         {
             try
             {
-                await ProcessTenantAsync(tenantId, maxPerRun, ct);
+                await ProcessTenantAsync(tenantId, ct);
             }
             catch (PostgresException ex) when (ex.SqlState == "42P01")
             {
@@ -83,11 +77,24 @@ public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
         }
     }
 
-    private async Task ProcessTenantAsync(string tenantId, int maxPerRun, CancellationToken ct)
+    private async Task ProcessTenantAsync(string tenantId, CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantContext.SetTenantId(tenantId);
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var config = await db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
+        if (config?.RequisicoesVagaOrigemRm != true || config.RmImportacaoAutomaticaAtiva != true)
+            return;
+
+        var interval = TimeSpan.FromMinutes(Math.Clamp(config.RmImportacaoAutomaticaIntervaloMinutos, 1, 1440));
+        var now = DateTimeOffset.UtcNow;
+        if (_lastRunByTenant.TryGetValue(tenantId, out var lastRun) && now - lastRun < interval)
+            return;
+
+        _lastRunByTenant[tenantId] = now;
+        var maxPerRun = Math.Clamp(config.RmImportacaoAutomaticaMaxPorExecucao, 1, 500);
 
         var sync = scope.ServiceProvider.GetRequiredService<ISolicitacaoVagaRmCodStatusSyncService>();
         var import = scope.ServiceProvider.GetRequiredService<ISolicitacaoVagaRmImportService>();

@@ -22,6 +22,9 @@ interface ConfiguracaoHeadcountDto {
 interface TenantConfiguracaoDto {
     rhDeveAprovarAposGestor: boolean;
     requisicoesVagaOrigemRm: boolean;
+    rmImportacaoAutomaticaAtiva: boolean;
+    rmImportacaoAutomaticaIntervaloMinutos: number;
+    rmImportacaoAutomaticaMaxPorExecucao: number;
     aprovadorRhId: string | null;
 }
 
@@ -210,6 +213,9 @@ export default function TenantConfiguracaoScreen() {
     const [blipApiKey, setBlipApiKey] = useState<string>("");
     const [rhDeveAprovarAposGestor, setRhDeveAprovarAposGestor] = useState(false);
     const [requisicoesVagaOrigemRm, setRequisicoesVagaOrigemRm] = useState(false);
+    const [rmImportacaoAutomaticaAtiva, setRmImportacaoAutomaticaAtiva] = useState(false);
+    const [rmImportacaoAutomaticaIntervaloMinutos, setRmImportacaoAutomaticaIntervaloMinutos] = useState(15);
+    const [rmImportacaoAutomaticaMaxPorExecucao, setRmImportacaoAutomaticaMaxPorExecucao] = useState(50);
     const [aprovadorRhId, setAprovadorRhId] = useState<string | null>(null);
 
     const [slaGroups, setSlaGroups] = useState<SlaStatusConfigGroup[]>([]);
@@ -240,6 +246,9 @@ export default function TenantConfiguracaoScreen() {
             setBlipApiKey(headcountRes.blipApiKey ?? "");
             setRhDeveAprovarAposGestor(!!tenantRes.rhDeveAprovarAposGestor);
             setRequisicoesVagaOrigemRm(!!tenantRes.requisicoesVagaOrigemRm);
+            setRmImportacaoAutomaticaAtiva(!!tenantRes.rmImportacaoAutomaticaAtiva);
+            setRmImportacaoAutomaticaIntervaloMinutos(tenantRes.rmImportacaoAutomaticaIntervaloMinutos ?? 15);
+            setRmImportacaoAutomaticaMaxPorExecucao(tenantRes.rmImportacaoAutomaticaMaxPorExecucao ?? 50);
             setAprovadorRhId(tenantRes.aprovadorRhId ?? null);
             setSlaGroups(slaRes);
 
@@ -311,6 +320,15 @@ export default function TenantConfiguracaoScreen() {
     }
 
     async function saveRecrutamento() {
+        if (rmImportacaoAutomaticaIntervaloMinutos < 1 || rmImportacaoAutomaticaIntervaloMinutos > 1440) {
+            toast.error("O intervalo da importação RM deve ficar entre 1 e 1440 minutos.");
+            return;
+        }
+        if (rmImportacaoAutomaticaMaxPorExecucao < 1 || rmImportacaoAutomaticaMaxPorExecucao > 500) {
+            toast.error("O limite por execução deve ficar entre 1 e 500 requisições.");
+            return;
+        }
+
         setSavingRecrutamento(true);
         try {
             const res = await apiFetch("/api/tenant-configuracao", {
@@ -319,6 +337,9 @@ export default function TenantConfiguracaoScreen() {
                 body: JSON.stringify({
                     rhDeveAprovarAposGestor,
                     requisicoesVagaOrigemRm,
+                    rmImportacaoAutomaticaAtiva,
+                    rmImportacaoAutomaticaIntervaloMinutos,
+                    rmImportacaoAutomaticaMaxPorExecucao,
                     aprovadorRhId,
                 }),
             });
@@ -326,6 +347,9 @@ export default function TenantConfiguracaoScreen() {
             const json = await res.json() as TenantConfiguracaoDto;
             setRhDeveAprovarAposGestor(!!json.rhDeveAprovarAposGestor);
             setRequisicoesVagaOrigemRm(!!json.requisicoesVagaOrigemRm);
+            setRmImportacaoAutomaticaAtiva(!!json.rmImportacaoAutomaticaAtiva);
+            setRmImportacaoAutomaticaIntervaloMinutos(json.rmImportacaoAutomaticaIntervaloMinutos ?? 15);
+            setRmImportacaoAutomaticaMaxPorExecucao(json.rmImportacaoAutomaticaMaxPorExecucao ?? 50);
             setAprovadorRhId(json.aprovadorRhId ?? null);
             toast.success("Configurações de recrutamento salvas.");
         } catch (e) {
@@ -468,7 +492,10 @@ export default function TenantConfiguracaoScreen() {
                                 <input
                                     type="checkbox"
                                     checked={requisicoesVagaOrigemRm}
-                                    onChange={(e) => setRequisicoesVagaOrigemRm(e.target.checked)}
+                                    onChange={(e) => {
+                                        setRequisicoesVagaOrigemRm(e.target.checked);
+                                        if (!e.target.checked) setRmImportacaoAutomaticaAtiva(false);
+                                    }}
                                     className="mt-1 h-4 w-4 rounded border-border accent-primary"
                                 />
                                 <span>
@@ -480,6 +507,61 @@ export default function TenantConfiguracaoScreen() {
                                     </span>
                                 </span>
                             </label>
+
+                            <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-4">
+                                <label className="flex items-start gap-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={rmImportacaoAutomaticaAtiva}
+                                        onChange={(e) => setRmImportacaoAutomaticaAtiva(e.target.checked)}
+                                        disabled={!requisicoesVagaOrigemRm}
+                                        className="mt-1 h-4 w-4 rounded border-border accent-primary disabled:opacity-50"
+                                    />
+                                    <span>
+                                        <span className="block text-sm font-medium">Executar importação automática de requisições RM</span>
+                                        <span className="mt-1 block text-xs text-muted-foreground leading-relaxed">
+                                            Quando ativo, o worker do Portal busca periodicamente requisições RM elegíveis e cria/atualiza a solicitação com vaga vinculada.
+                                            O botão manual permanece apenas como contingência.
+                                        </span>
+                                    </span>
+                                </label>
+
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="rmImportacaoIntervalo">Intervalo do worker (minutos)</Label>
+                                        <Input
+                                            id="rmImportacaoIntervalo"
+                                            type="number"
+                                            min={1}
+                                            max={1440}
+                                            value={rmImportacaoAutomaticaIntervaloMinutos}
+                                            onChange={(e) => setRmImportacaoAutomaticaIntervaloMinutos(Number(e.target.value))}
+                                            disabled={!requisicoesVagaOrigemRm}
+                                            className="w-36"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Frequência de execução automática para este tenant.
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="rmImportacaoMax">Máximo por execução</Label>
+                                        <Input
+                                            id="rmImportacaoMax"
+                                            type="number"
+                                            min={1}
+                                            max={500}
+                                            value={rmImportacaoAutomaticaMaxPorExecucao}
+                                            onChange={(e) => setRmImportacaoAutomaticaMaxPorExecucao(Number(e.target.value))}
+                                            disabled={!requisicoesVagaOrigemRm}
+                                            className="w-36"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Quantidade máxima de requisições lidas do RM por ciclo.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div>
