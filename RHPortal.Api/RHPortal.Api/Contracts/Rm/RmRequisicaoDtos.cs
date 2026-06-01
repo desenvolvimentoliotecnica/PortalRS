@@ -21,6 +21,12 @@ public sealed class RmRequisicaoListQuery
 
     /// <summary>Busca parcial em <c>CAST(IDREQ AS VARCHAR)</c> ou <c>JUSTIFICATIVA</c>.</summary>
     public string? Search { get; init; }
+
+    /// <summary>Coluna de ordenação da listagem RM.</summary>
+    public string? SortBy { get; init; }
+
+    /// <summary>Direção de ordenação: asc ou desc.</summary>
+    public string? SortDir { get; init; }
 }
 
 public sealed class RmRequisicaoListResponse
@@ -58,6 +64,9 @@ public sealed class RmRequisicaoRowDto
     public string? Codfilial { get; init; }
     public string? Codsecao { get; init; }
     public string? Codfuncao { get; init; }
+    public string? Codtabelasalarial { get; init; }
+    public string? Codnivelsalarial { get; init; }
+    public string? Codfaixasalarial { get; init; }
     public string? NomeFuncao { get; init; }
     public string? DescricaoFuncao { get; init; }
     public decimal? Vlrsalario { get; init; }

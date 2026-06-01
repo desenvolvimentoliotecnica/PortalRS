@@ -1,9 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ClipboardList, DownloadCloud, RefreshCw, Search } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  ClipboardList,
+  DownloadCloud,
+  Eye,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableHeader,
@@ -12,6 +31,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import PaginationBar from "@/components/pagination/PaginationBar";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -39,14 +59,34 @@ interface RmRequisicaoRow {
   datacancelamento: string | null;
   codstatus: number | null;
   statusDescricao: string | null;
+  statusPermiteAlterar: boolean | null;
   codcolrequisitante: number | null;
   chaparequisitante: string | null;
   nomeRequisitante: string | null;
+  codatendimento: number | null;
+  codlocal: number | null;
+  atendimentoAssunto: string | null;
+  tiporeqpai: string | null;
+  idreqpai: number | null;
   chapaFuncionario: string | null;
   nomeFuncionarioEnvolvido: string | null;
+  chapaSubstituto: string | null;
   nomeFuncionarioSubstituto: string | null;
+  numvagas: number | null;
+  codfilial: string | null;
+  codsecao: string | null;
+  codfuncao: string | null;
+  codtabelasalarial: string | null;
+  codnivelsalarial: string | null;
+  codfaixasalarial: string | null;
   nomeFuncao: string | null;
+  descricaoFuncao: string | null;
+  codccusto: string | null;
   vlrsalario: string | number | null;
+  reccreatedby: string | null;
+  reccreatedon: string | null;
+  recmodifiedby: string | null;
+  recmodifiedon: string | null;
 }
 
 interface RmRequisicaoListResponse {
@@ -64,6 +104,8 @@ interface RmRequisicaoImportResponse {
   mensagens: string[];
 }
 
+type SortKey = "abertura" | "tipo" | "id" | "status" | "requisitante" | "funcao" | "justificativa";
+
 function formatDt(s: string | null): string {
   if (!s) return "—";
   const d = new Date(s);
@@ -74,12 +116,34 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback;
 }
 
+function isUnmappedStatus(row: RmRequisicaoRow): boolean {
+  return row.codstatus != null && /sem mapa/i.test(row.statusDescricao ?? "");
+}
+
+function formatMoney(value: string | number | null): string {
+  if (value == null || value === "") return "—";
+  if (typeof value === "number") {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+  const parsed = Number(value);
+  if (Number.isFinite(parsed)) {
+    return parsed.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+  return value;
+}
+
 export default function AdminRmRequisicoesScreen() {
   const [rows, setRows] = useState<RmRequisicaoRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(20);
   const [tipo, setTipo] = useState("");
   const [dataDe, setDataDe] = useState("");
   const [dataAte, setDataAte] = useState("");
@@ -87,6 +151,25 @@ export default function AdminRmRequisicoesScreen() {
   const [qDebounced, setQDebounced] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<RmRequisicaoImportResponse | null>(null);
+  const [detailRow, setDetailRow] = useState<RmRequisicaoRow | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("abertura");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  function handleSort(key: SortKey) {
+    setPage(1);
+    if (sortKey === key) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir(key === "abertura" ? "desc" : "asc");
+    }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronsUpDown className="ml-1 inline size-3 text-muted-foreground/50" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="ml-1 inline size-3" />
+      : <ChevronDown className="ml-1 inline size-3" />;
+  }
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -111,6 +194,8 @@ export default function AdminRmRequisicoesScreen() {
       if (dataDe.trim()) params.set("dataAberturaDe", dataDe.trim());
       if (dataAte.trim()) params.set("dataAberturaAte", dataAte.trim());
       if (qDebounced) params.set("q", qDebounced);
+      params.set("sortBy", sortKey);
+      params.set("sortDir", sortDir);
 
       const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" }, 75_000);
       if (!res.ok) {
@@ -137,7 +222,7 @@ export default function AdminRmRequisicoesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [page, tipo, dataDe, dataAte, qDebounced]);
+  }, [page, pageSize, tipo, dataDe, dataAte, qDebounced, sortKey, sortDir]);
 
   useEffect(() => {
     void load();
@@ -188,7 +273,10 @@ export default function AdminRmRequisicoesScreen() {
     }
   }
 
-  const totalPages = Math.ceil(total / pageSize) || 1;
+  const unmappedStatuses = useMemo(
+    () => Array.from(new Set(rows.filter(isUnmappedStatus).map((row) => row.codstatus).filter((status): status is number => status != null))).sort((a, b) => a - b),
+    [rows],
+  );
 
   return (
     <section className="space-y-4">
@@ -212,6 +300,25 @@ export default function AdminRmRequisicoesScreen() {
           </Button>
         </div>
       </div>
+
+      {unmappedStatuses.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex gap-2">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <div className="font-semibold">CODSTATUS sem mapa: {unmappedStatuses.join(", ")}</div>
+                <p className="mt-1 text-xs">
+                  Cadastre o mapa do status RM para o status do Portal. Sem esse mapa, a importação não sabe quais requisições estão aprovadas.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/app/admin/rm-requisicao-status">Configurar mapas</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {importResult && (
         <div className={`rounded-xl border p-4 text-sm ${
@@ -311,32 +418,51 @@ export default function AdminRmRequisicoesScreen() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Abertura</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Requisitante</TableHead>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("abertura")}>
+                  Abertura<SortIcon col="abertura" />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("tipo")}>
+                  Tipo<SortIcon col="tipo" />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("id")}>
+                  ID<SortIcon col="id" />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("status")}>
+                  Status<SortIcon col="status" />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("requisitante")}>
+                  Requisitante<SortIcon col="requisitante" />
+                </TableHead>
                 <TableHead>Envolvido / substituto</TableHead>
-                <TableHead>Função / salário</TableHead>
-                <TableHead>Justificativa</TableHead>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("funcao")}>
+                  Função / salário<SortIcon col="funcao" />
+                </TableHead>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("justificativa")}>
+                  Justificativa<SortIcon col="justificativa" />
+                </TableHead>
+                <TableHead className="w-[48px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-muted-foreground py-10 text-center">
+                  <TableCell colSpan={9} className="text-muted-foreground py-10 text-center">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-muted-foreground py-10 text-center">
+                  <TableCell colSpan={9} className="text-muted-foreground py-10 text-center">
                     Nenhuma requisição encontrada (ou integração RM não configurada).
                   </TableCell>
                 </TableRow>
               ) : (
                 rows.map((r) => (
-                  <TableRow key={`${r.tipoRequisicao}-${r.idreq}-${r.codcolrequisicao ?? ""}`}>
+                  <TableRow
+                    key={`${r.tipoRequisicao}-${r.idreq}-${r.codcolrequisicao ?? ""}`}
+                    className="cursor-pointer"
+                    onClick={() => setDetailRow(r)}
+                  >
                     <TableCell className="whitespace-nowrap text-xs">
                       {formatDt(r.dataabertura)}
                     </TableCell>
@@ -344,8 +470,8 @@ export default function AdminRmRequisicoesScreen() {
                       {r.tipoRequisicao}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-xs">{r.idreq}</TableCell>
-                    <TableCell className="max-w-[160px] text-xs">
-                      {r.statusDescricao ?? (r.codstatus != null ? String(r.codstatus) : "—")}
+                    <TableCell className={`max-w-[160px] text-xs ${isUnmappedStatus(r) ? "text-amber-700" : ""}`}>
+                      {r.statusDescricao ?? (r.codstatus != null ? `CODSTATUS ${r.codstatus}` : "—")}
                     </TableCell>
                     <TableCell className="max-w-[180px] text-xs">
                       <div className="truncate" title={r.nomeRequisitante ?? ""}>
@@ -371,17 +497,25 @@ export default function AdminRmRequisicoesScreen() {
                       <div className="truncate">{r.nomeFuncao ?? "—"}</div>
                       {r.vlrsalario != null && r.vlrsalario !== "" && (
                         <div className="text-muted-foreground text-[11px]">
-                          {typeof r.vlrsalario === "number"
-                            ? r.vlrsalario.toLocaleString("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                              })
-                            : String(r.vlrsalario)}
+                          {formatMoney(r.vlrsalario)}
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="max-w-[280px] text-xs">
                       <div className="line-clamp-2">{r.justificativa ?? "—"}</div>
+                    </TableCell>
+                    <TableCell className="w-[48px] text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        title="Ver detalhes"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDetailRow(r);
+                        }}
+                      >
+                        <Eye />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -390,30 +524,38 @@ export default function AdminRmRequisicoesScreen() {
           </Table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              Anterior
-            </Button>
-            <span className="text-muted-foreground text-sm">
-              Página {page} de {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Próxima
-            </Button>
-          </div>
+        {total > 0 && (
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            totalItems={total}
+            onPageChange={setPage}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPage(1);
+            }}
+          />
         )}
       </div>
+
+      <Dialog open={!!detailRow} onOpenChange={(open) => !open && setDetailRow(null)}>
+        <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes da requisição RM</DialogTitle>
+            <DialogDescription>
+              {detailRow
+                ? `${detailRow.tipoRequisicao} · COL ${detailRow.codcolrequisicao ?? "—"} · IDREQ ${detailRow.idreq}`
+                : "Dados completos recebidos da consulta RM."}
+            </DialogDescription>
+          </DialogHeader>
+          {detailRow && <RmRequisicaoDetail row={detailRow} />}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailRow(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -423,6 +565,108 @@ function Metric({ label, value }: { label: string; value: number }) {
     <div className="rounded-lg bg-background/70 px-3 py-2">
       <div className="text-xs opacity-70">{label}</div>
       <div className="text-lg font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function RmRequisicaoDetail({ row }: { row: RmRequisicaoRow }) {
+  const sections: Array<{ title: string; items: Array<[string, string | number | boolean | null]> }> = [
+    {
+      title: "Identificação",
+      items: [
+        ["Tipo", row.tipoRequisicao],
+        ["Coligada da requisição", row.codcolrequisicao],
+        ["IDREQ", row.idreq],
+        ["Status", row.statusDescricao ?? (row.codstatus != null ? `CODSTATUS ${row.codstatus}` : null)],
+        ["CODSTATUS", row.codstatus],
+        ["Status permite alterar", row.statusPermiteAlterar],
+      ],
+    },
+    {
+      title: "Datas",
+      items: [
+        ["Abertura", formatDt(row.dataabertura)],
+        ["Prevista", formatDt(row.dataprevista)],
+        ["Conclusão", formatDt(row.dataconclusao)],
+        ["Cancelamento", formatDt(row.datacancelamento)],
+        ["Criado no RM", formatDt(row.reccreatedon)],
+        ["Modificado no RM", formatDt(row.recmodifiedon)],
+      ],
+    },
+    {
+      title: "Requisitante",
+      items: [
+        ["Nome", row.nomeRequisitante],
+        ["Chapa", row.chaparequisitante],
+        ["Coligada", row.codcolrequisitante],
+        ["Criado por", row.reccreatedby],
+        ["Modificado por", row.recmodifiedby],
+      ],
+    },
+    {
+      title: "Funcionário / Substituição",
+      items: [
+        ["Chapa funcionário", row.chapaFuncionario],
+        ["Funcionário envolvido", row.nomeFuncionarioEnvolvido],
+        ["Chapa substituto", row.chapaSubstituto],
+        ["Funcionário substituto", row.nomeFuncionarioSubstituto],
+      ],
+    },
+    {
+      title: "Vaga / Função",
+      items: [
+        ["Número de vagas", row.numvagas],
+        ["Código filial", row.codfilial],
+        ["Código seção", row.codsecao],
+        ["Código centro de custo", row.codccusto],
+        ["Código função", row.codfuncao],
+        ["Função", row.nomeFuncao],
+        ["Descrição função", row.descricaoFuncao],
+        ["Salário", formatMoney(row.vlrsalario)],
+        ["Tabela salarial", row.codtabelasalarial],
+        ["Nível salarial", row.codnivelsalarial],
+        ["Faixa salarial", row.codfaixasalarial],
+      ],
+    },
+    {
+      title: "Atendimento / Vínculos",
+      items: [
+        ["Código atendimento", row.codatendimento],
+        ["Código local", row.codlocal],
+        ["Assunto atendimento", row.atendimentoAssunto],
+        ["Tipo requisição pai", row.tiporeqpai],
+        ["ID requisição pai", row.idreqpai],
+      ],
+    },
+  ];
+
+  return (
+    <div className="max-h-[68vh] overflow-y-auto pr-1">
+      <div className="rounded-lg border bg-muted/20 p-3">
+        <div className="text-xs font-medium uppercase text-muted-foreground">Justificativa</div>
+        <p className="mt-1 whitespace-pre-wrap text-sm">{row.justificativa ?? "—"}</p>
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {sections.map((section) => (
+          <div key={section.title} className="rounded-lg border p-3">
+            <div className="mb-2 text-sm font-semibold">{section.title}</div>
+            <div className="grid gap-2">
+              {section.items.map(([label, value]) => (
+                <DetailField key={label} label={label} value={value} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: string | number | boolean | null }) {
+  return (
+    <div className="grid gap-1 sm:grid-cols-[150px_1fr]">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="break-words text-sm">{value == null || value === "" ? "—" : String(value)}</div>
     </div>
   );
 }

@@ -32,7 +32,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             return await ListFromRestAsync(query, tenantConfig, ct);
 
         var page = Math.Max(1, query.Page);
-        const int maxPageSize = 50;
+        const int maxPageSize = 100;
         var pageSize = Math.Clamp(query.PageSize < 1 ? 20 : query.PageSize, 1, maxPageSize);
         var offset = (page - 1) * pageSize;
 
@@ -54,7 +54,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         }
 
         var items = new List<RmRequisicaoRowDto>();
-        await using (var cmdPage = new SqlCommand(RmRequisicoesQueries.SqlPage, conn))
+        await using (var cmdPage = new SqlCommand(RmRequisicoesQueries.SqlPage(query.SortBy, query.SortDir), conn))
         {
             AddFilterParameters(cmdPage, tipo, dataDe, dataAte, searchPattern);
             cmdPage.Parameters.AddWithValue("@Offset", offset);
@@ -107,12 +107,12 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         CancellationToken ct)
     {
         var page = Math.Max(1, query.Page);
-        const int maxPageSize = 50;
+        const int maxPageSize = 100;
         var pageSize = Math.Clamp(query.PageSize < 1 ? 20 : query.PageSize, 1, maxPageSize);
         var offset = (page - 1) * pageSize;
 
         var items = await FetchRestRowsAsync(config, codCol: null, idReq: null, ct);
-        var filtered = ApplyRestFilters(items, query).ToList();
+        var filtered = ApplyRestSort(ApplyRestFilters(items, query), query).ToList();
 
         return new RmRequisicaoListResponse
         {
@@ -218,6 +218,44 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         }
     }
 
+    private static IEnumerable<RmRequisicaoRowDto> ApplyRestSort(
+        IEnumerable<RmRequisicaoRowDto> items,
+        RmRequisicaoListQuery query)
+    {
+        var desc = !string.Equals(query.SortDir, "asc", StringComparison.OrdinalIgnoreCase);
+        var key = query.SortBy?.Trim().ToLowerInvariant();
+
+        IOrderedEnumerable<RmRequisicaoRowDto> ordered = key switch
+        {
+            "tipo" => desc
+                ? items.OrderByDescending(i => i.TipoRequisicao)
+                : items.OrderBy(i => i.TipoRequisicao),
+            "id" => desc
+                ? items.OrderByDescending(i => i.Idreq)
+                : items.OrderBy(i => i.Idreq),
+            "status" => desc
+                ? items.OrderByDescending(i => i.Codstatus ?? int.MinValue)
+                : items.OrderBy(i => i.Codstatus ?? int.MaxValue),
+            "requisitante" => desc
+                ? items.OrderByDescending(i => i.NomeRequisitante ?? i.Chaparequisitante ?? "")
+                : items.OrderBy(i => i.NomeRequisitante ?? i.Chaparequisitante ?? ""),
+            "funcao" => desc
+                ? items.OrderByDescending(i => i.NomeFuncao ?? i.Codfuncao ?? "")
+                : items.OrderBy(i => i.NomeFuncao ?? i.Codfuncao ?? ""),
+            "salario" => desc
+                ? items.OrderByDescending(i => i.Vlrsalario ?? decimal.MinValue)
+                : items.OrderBy(i => i.Vlrsalario ?? decimal.MaxValue),
+            "justificativa" => desc
+                ? items.OrderByDescending(i => i.Justificativa ?? "")
+                : items.OrderBy(i => i.Justificativa ?? ""),
+            _ => desc
+                ? items.OrderByDescending(i => i.Dataabertura ?? DateTime.MinValue)
+                : items.OrderBy(i => i.Dataabertura ?? DateTime.MaxValue)
+        };
+
+        return ordered.ThenByDescending(i => i.Idreq);
+    }
+
     private static Uri BuildConsultaUri(string endpointTemplate, int? codCol, int? idReq)
     {
         var url = endpointTemplate.Trim();
@@ -277,6 +315,9 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             Codfilial = JsonString(item, "CODFILIAL"),
             Codsecao = JsonString(item, "CODSECAO"),
             Codfuncao = JsonString(item, "CODFUNCAO"),
+            Codtabelasalarial = JsonString(item, "CODTABELASALARIAL"),
+            Codnivelsalarial = JsonString(item, "CODNIVELSALARIAL"),
+            Codfaixasalarial = JsonString(item, "CODFAIXASALARIAL"),
             Vlrsalario = JsonDecimal(item, "VLRSALARIO"),
             Reccreatedby = JsonString(item, "RECCREATEDBY"),
             Reccreatedon = JsonDate(item, "RECCREATEDON"),
@@ -407,6 +448,9 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             Codfilial = SafeString(r, "CODFILIAL"),
             Codsecao = SafeString(r, "CODSECAO"),
             Codfuncao = SafeString(r, "CODFUNCAO"),
+            Codtabelasalarial = SafeString(r, "CODTABELASALARIAL"),
+            Codnivelsalarial = SafeString(r, "CODNIVELSALARIAL"),
+            Codfaixasalarial = SafeString(r, "CODFAIXASALARIAL"),
             NomeFuncao = SafeString(r, "NOME_FUNCAO"),
             DescricaoFuncao = SafeString(r, "DESCRICAO_FUNCAO"),
             Vlrsalario = SafeDecimal(r, "VLRSALARIO"),
