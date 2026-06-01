@@ -136,6 +136,12 @@ const VAGAS_FONT_135X_STYLE = `
     }
 `;
 
+function truncateTitle(value: string | null | undefined, maxLength = 30): string {
+    const text = value?.trim();
+    if (!text) return "—";
+    return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
 type VagasPayload = unknown;
 
 interface SolicitacaoRow {
@@ -1308,7 +1314,9 @@ export default function VagasScreen() {
                                     const days = v.createdAtUtc ? Math.floor((Date.now() - new Date(v.createdAtUtc).getTime()) / (1000 * 60 * 60 * 24)) : 0;
                                     return (
                                         <TableRow key={v.id} className="border-amber-100 hover:bg-amber-100/40">
-                                            <TableCell className="font-medium text-amber-900 dark:text-amber-200">{v.titulo}</TableCell>
+                                            <TableCell className="font-medium text-amber-900 dark:text-amber-200">
+                                                <span title={v.titulo ?? ""}>{truncateTitle(v.titulo)}</span>
+                                            </TableCell>
                                             <TableCell className="text-sm text-amber-700 dark:text-amber-400">{v.centroCustoName ?? "—"}</TableCell>
                                             <TableCell className="text-sm text-amber-800 dark:text-amber-300">
                                                 {renderRecrutadorDisplay(v as unknown as Record<string, unknown>, rhRecrutadorLookup)}
@@ -1563,7 +1571,7 @@ export default function VagasScreen() {
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div>
                                                                 <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                                                                    {vaga.titulo ?? "—"}
+                                                                    <span title={vaga.titulo ?? ""}>{truncateTitle(vaga.titulo)}</span>
                                                                     {/* Origem TOTVS RM (refactor 2026-04-26) */}
                                                                     {(() => {
                                                                         const origem = vagaRaw.origemTipo as number | string | undefined;
@@ -1851,7 +1859,9 @@ export default function VagasScreen() {
                                                             className="rounded-lg border border-border/50 bg-card p-3 shadow-sm cursor-grab hover:border-primary/40 hover:shadow-md transition-all active:cursor-grabbing"
                                                             onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(vaga.id)}`)}
                                                         >
-                                                            <div className="text-sm font-medium leading-tight truncate">{vaga.titulo ?? "—"}</div>
+                                                            <div className="text-sm font-medium leading-tight truncate" title={vaga.titulo ?? ""}>
+                                                                {truncateTitle(vaga.titulo)}
+                                                            </div>
                                                             {vaga.codigo && <div className="mt-1 text-[11px] font-mono text-muted-foreground">{vaga.codigo}</div>}
                                                             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                                                                 {vaga.area && <span>{vaga.area}</span>}
