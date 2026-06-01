@@ -155,7 +155,11 @@ function formatTipoRequisicao(tipo: string | null | undefined): string {
     TREINAMENTO: "Treinamento",
     GERAL: "Geral",
   };
-  return labels[value] ?? value.replace(/_/g, " ").toLowerCase().replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase("pt-BR")) || "—";
+  const fallback = value
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase("pt-BR"));
+  return labels[value] ?? (fallback || "—");
 }
 
 function formatFuncao(row: Pick<RmRequisicaoRow, "codfuncao" | "nomeFuncao">): string {
