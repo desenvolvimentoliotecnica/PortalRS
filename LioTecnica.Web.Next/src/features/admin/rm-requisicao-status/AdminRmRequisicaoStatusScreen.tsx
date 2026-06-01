@@ -41,6 +41,7 @@ const PORTAL_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "AjustesNecessarios", label: "Ajustes necessários" },
   { value: "PendenteAprovacaoRh", label: "Pendente aprovação RH" },
   { value: "Cancelada", label: "Cancelada" },
+  { value: "Suspensa", label: "Suspensa" },
   { value: "EmIntegracao", label: "Em integração" },
   { value: "Concluida", label: "Concluída" },
   { value: "PendenteAprovacaoAumentoHC", label: "Pendente aumento HC" },
