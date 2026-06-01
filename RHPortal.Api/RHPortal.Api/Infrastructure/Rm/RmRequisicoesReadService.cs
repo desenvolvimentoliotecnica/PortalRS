@@ -40,6 +40,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         DateTime? dataAte = query.DataAberturaAte?.ToDateTime(TimeOnly.MinValue);
         string? tipo = string.IsNullOrWhiteSpace(query.TipoRequisicao) ? null : query.TipoRequisicao.Trim();
         string? searchPattern = BuildLikePattern(query.Search);
+        string? codStatusCsv = BuildCodStatusCsv(query.CodStatusIn);
 
         var cs = _opts.GetConnectionString();
         await using var conn = new SqlConnection(cs);
@@ -48,7 +49,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         int totalCount;
         await using (var cmdCount = new SqlCommand(RmRequisicoesQueries.SqlCount, conn))
         {
-            AddFilterParameters(cmdCount, tipo, dataDe, dataAte, searchPattern);
+            AddFilterParameters(cmdCount, tipo, dataDe, dataAte, searchPattern, codStatusCsv);
             var scalar = await cmdCount.ExecuteScalarAsync(ct);
             totalCount = scalar is int i ? i : Convert.ToInt32(scalar ?? 0);
         }
@@ -56,7 +57,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         var items = new List<RmRequisicaoRowDto>();
         await using (var cmdPage = new SqlCommand(RmRequisicoesQueries.SqlPage(query.SortBy, query.SortDir), conn))
         {
-            AddFilterParameters(cmdPage, tipo, dataDe, dataAte, searchPattern);
+            AddFilterParameters(cmdPage, tipo, dataDe, dataAte, searchPattern, codStatusCsv);
             cmdPage.Parameters.AddWithValue("@Offset", offset);
             cmdPage.Parameters.AddWithValue("@PageSize", pageSize);
 
@@ -205,6 +206,10 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
                 continue;
 
             if (query.DataAberturaAte.HasValue && (!item.Dataabertura.HasValue || DateOnly.FromDateTime(item.Dataabertura.Value) > query.DataAberturaAte.Value))
+                continue;
+
+            if (query.CodStatusIn is { Length: > 0 }
+                && (!item.Codstatus.HasValue || !query.CodStatusIn.Contains(item.Codstatus.Value)))
                 continue;
 
             if (!string.IsNullOrWhiteSpace(search)
@@ -376,15 +381,28 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         string? tipo,
         DateTime? dataDe,
         DateTime? dataAte,
-        string? searchPattern)
+        string? searchPattern,
+        string? codStatusCsv)
     {
         cmd.Parameters.Add(CreateNullableParam("@Tipo", System.Data.SqlDbType.NVarChar, 80, tipo));
         cmd.Parameters.Add(CreateNullableDateParam("@DataDe", dataDe));
         cmd.Parameters.Add(CreateNullableDateParam("@DataAte", dataAte));
+        cmd.Parameters.Add(CreateNullableParam("@CodStatusCsv", System.Data.SqlDbType.VarChar, 200, codStatusCsv));
         if (searchPattern is null)
             cmd.Parameters.AddWithValue("@SearchPattern", DBNull.Value);
         else
             cmd.Parameters.AddWithValue("@SearchPattern", searchPattern);
+    }
+
+    private static string? BuildCodStatusCsv(int[]? values)
+    {
+        var normalized = values?
+            .Where(v => v >= 0)
+            .Distinct()
+            .OrderBy(v => v)
+            .Select(v => v.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .ToArray();
+        return normalized is { Length: > 0 } ? $",{string.Join(",", normalized)}," : null;
     }
 
     private static SqlParameter CreateNullableDateParam(string name, DateTime? value)

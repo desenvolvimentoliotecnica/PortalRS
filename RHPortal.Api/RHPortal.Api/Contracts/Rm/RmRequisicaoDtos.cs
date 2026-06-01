@@ -22,6 +22,9 @@ public sealed class RmRequisicaoListQuery
     /// <summary>Busca parcial em <c>CAST(IDREQ AS VARCHAR)</c> ou <c>JUSTIFICATIVA</c>.</summary>
     public string? Search { get; init; }
 
+    /// <summary>Filtra por um conjunto de <c>CODSTATUS</c> do RM.</summary>
+    public int[]? CodStatusIn { get; init; }
+
     /// <summary>Coluna de ordenação da listagem RM.</summary>
     public string? SortBy { get; init; }
 
@@ -83,6 +86,7 @@ public sealed class RmRequisicaoImportRequest
     public DateOnly? DataAberturaDe { get; init; }
     public DateOnly? DataAberturaAte { get; init; }
     public string? TipoRequisicao { get; init; }
+    public int[]? CodStatusIn { get; init; }
 }
 
 public sealed record RmRequisicaoImportResponse(

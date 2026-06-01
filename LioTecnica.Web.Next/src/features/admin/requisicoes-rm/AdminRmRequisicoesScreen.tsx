@@ -48,6 +48,10 @@ const TIPO_OPTIONS = [
   { value: "GERAL", label: "Geral" },
 ] as const;
 
+const CODSTATUS_VISIVEIS = [1, 3] as const;
+
+type StatusFilter = "all" | "1" | "3";
+
 interface RmRequisicaoRow {
   tipoRequisicao: string;
   codcolrequisicao: number | null;
@@ -145,6 +149,7 @@ export default function AdminRmRequisicoesScreen() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [tipo, setTipo] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dataDe, setDataDe] = useState("");
   const [dataAte, setDataAte] = useState("");
   const [q, setQ] = useState("");
@@ -194,6 +199,8 @@ export default function AdminRmRequisicoesScreen() {
       if (dataDe.trim()) params.set("dataAberturaDe", dataDe.trim());
       if (dataAte.trim()) params.set("dataAberturaAte", dataAte.trim());
       if (qDebounced) params.set("q", qDebounced);
+      const codStatusFiltro = statusFilter === "all" ? CODSTATUS_VISIVEIS : [Number(statusFilter)];
+      codStatusFiltro.forEach((status) => params.append("codStatusIn", String(status)));
       params.set("sortBy", sortKey);
       params.set("sortDir", sortDir);
 
@@ -222,7 +229,7 @@ export default function AdminRmRequisicoesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, tipo, dataDe, dataAte, qDebounced, sortKey, sortDir]);
+  }, [page, pageSize, tipo, statusFilter, dataDe, dataAte, qDebounced, sortKey, sortDir]);
 
   useEffect(() => {
     void load();
@@ -242,6 +249,7 @@ export default function AdminRmRequisicoesScreen() {
             tipoRequisicao: tipo.trim() || null,
             dataAberturaDe: dataDe.trim() || null,
             dataAberturaAte: dataAte.trim() || null,
+            codStatusIn: statusFilter === "all" ? [...CODSTATUS_VISIVEIS] : [Number(statusFilter)],
           }),
         },
         90_000,
@@ -286,7 +294,7 @@ export default function AdminRmRequisicoesScreen() {
           <div>
             <h4 className="text-lg font-bold">Requisições RM</h4>
             <p className="text-muted-foreground text-sm">
-              Lista consolidada do CORPORERM (somente leitura).
+              Lista consolidada do CORPORERM (somente leitura), filtrada para Em andamento e Aprovada.
             </p>
           </div>
         </div>
@@ -349,7 +357,7 @@ export default function AdminRmRequisicoesScreen() {
       )}
 
       <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-        <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className="text-muted-foreground mb-1 block text-xs font-medium uppercase">
               Tipo
@@ -367,6 +375,23 @@ export default function AdminRmRequisicoesScreen() {
                   {o.label}
                 </option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-muted-foreground mb-1 block text-xs font-medium uppercase">
+              Status
+            </label>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as StatusFilter);
+                setPage(1);
+              }}
+            >
+              <option value="all">Todas</option>
+              <option value="1">Em Andamento</option>
+              <option value="3">Aprovada</option>
             </select>
           </div>
           <div>
@@ -412,6 +437,11 @@ export default function AdminRmRequisicoesScreen() {
 
         <div className="text-muted-foreground mb-3 text-xs">
           Total no filtro atual: <span className="font-semibold text-foreground">{total}</span>
+          <span className="ml-2">
+            {statusFilter === "all"
+              ? `Exibindo CODSTATUS ${CODSTATUS_VISIVEIS.join(" e ")}.`
+              : `Exibindo CODSTATUS ${statusFilter}.`}
+          </span>
         </div>
 
         <div className="overflow-x-auto">

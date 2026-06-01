@@ -34,6 +34,7 @@ public sealed class RmRequisicoesController : ControllerBase
         [FromQuery] DateOnly? dataAberturaDe = null,
         [FromQuery] DateOnly? dataAberturaAte = null,
         [FromQuery] string? q = null,
+        [FromQuery] int[]? codStatusIn = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortDir = null,
         CancellationToken ct = default)
@@ -48,6 +49,7 @@ public sealed class RmRequisicoesController : ControllerBase
                 DataAberturaDe = dataAberturaDe,
                 DataAberturaAte = dataAberturaAte,
                 Search = q,
+                CodStatusIn = codStatusIn,
                 SortBy = sortBy,
                 SortDir = sortDir
             }, ct);

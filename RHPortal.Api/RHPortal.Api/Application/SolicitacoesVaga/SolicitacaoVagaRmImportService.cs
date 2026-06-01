@@ -11,6 +11,8 @@ namespace RhPortal.Api.Application.SolicitacoesVaga;
 
 public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportService
 {
+    private static readonly int[] CodStatusPadraoImportacao = [1, 3];
+
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IRmRequisicoesReadService _rmRead;
@@ -53,6 +55,9 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             TipoRequisicao = request.TipoRequisicao,
             DataAberturaDe = request.DataAberturaDe,
             DataAberturaAte = request.DataAberturaAte,
+            CodStatusIn = request.CodStatusIn is { Length: > 0 }
+                ? request.CodStatusIn
+                : CodStatusPadraoImportacao,
         }, ct);
 
         var criados = 0;
