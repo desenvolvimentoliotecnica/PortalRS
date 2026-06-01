@@ -349,8 +349,13 @@ export default function AdminRmRequisicoesScreen() {
                     </TableCell>
                     <TableCell className="max-w-[180px] text-xs">
                       <div className="truncate" title={r.nomeRequisitante ?? ""}>
-                        {r.nomeRequisitante ?? r.chaparequisitante ?? "—"}
+                        {r.nomeRequisitante ?? (r.chaparequisitante ? `Chapa ${r.chaparequisitante}` : "—")}
                       </div>
+                      {r.codcolrequisitante != null && (
+                        <div className="text-muted-foreground truncate text-[11px]">
+                          Coligada {r.codcolrequisitante}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-[200px] text-xs">
                       <div className="truncate" title={r.nomeFuncionarioEnvolvido ?? ""}>
