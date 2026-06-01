@@ -13,6 +13,9 @@ public sealed class TenantConfiguracaoDto
 {
     public bool RhDeveAprovarAposGestor { get; set; }
     public bool RequisicoesVagaOrigemRm { get; set; }
+    public bool RmImportacaoAutomaticaAtiva { get; set; }
+    public int RmImportacaoAutomaticaIntervaloMinutos { get; set; } = 15;
+    public int RmImportacaoAutomaticaMaxPorExecucao { get; set; } = 50;
     public Guid? AprovadorRhId { get; set; }
     public string? AprovadorRhNome { get; set; }
 }
@@ -21,6 +24,9 @@ public sealed class TenantConfiguracaoUpsertRequest
 {
     public bool RhDeveAprovarAposGestor { get; set; }
     public bool RequisicoesVagaOrigemRm { get; set; }
+    public bool RmImportacaoAutomaticaAtiva { get; set; }
+    public int RmImportacaoAutomaticaIntervaloMinutos { get; set; } = 15;
+    public int RmImportacaoAutomaticaMaxPorExecucao { get; set; } = 50;
     public Guid? AprovadorRhId { get; set; }
 }
 
@@ -182,6 +188,9 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 
         config.RhDeveAprovarAposGestor = request.RhDeveAprovarAposGestor;
         config.RequisicoesVagaOrigemRm = request.RequisicoesVagaOrigemRm;
+        config.RmImportacaoAutomaticaAtiva = request.RmImportacaoAutomaticaAtiva;
+        config.RmImportacaoAutomaticaIntervaloMinutos = Math.Clamp(request.RmImportacaoAutomaticaIntervaloMinutos, 1, 1440);
+        config.RmImportacaoAutomaticaMaxPorExecucao = Math.Clamp(request.RmImportacaoAutomaticaMaxPorExecucao, 1, 500);
         config.AprovadorRhId = request.AprovadorRhId;
         config.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
@@ -287,6 +296,9 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
     {
         RhDeveAprovarAposGestor = c.RhDeveAprovarAposGestor,
         RequisicoesVagaOrigemRm = c.RequisicoesVagaOrigemRm,
+        RmImportacaoAutomaticaAtiva = c.RmImportacaoAutomaticaAtiva,
+        RmImportacaoAutomaticaIntervaloMinutos = c.RmImportacaoAutomaticaIntervaloMinutos,
+        RmImportacaoAutomaticaMaxPorExecucao = c.RmImportacaoAutomaticaMaxPorExecucao,
         AprovadorRhId = c.AprovadorRhId,
         AprovadorRhNome = c.AprovadorRh?.Name,
     };

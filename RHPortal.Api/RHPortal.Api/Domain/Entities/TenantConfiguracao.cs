@@ -24,6 +24,18 @@ public sealed class TenantConfiguracao : ITenantEntity
     public bool RequisicoesVagaOrigemRm { get; set; } = false;
 
     /// <summary>
+    /// Quando true, o worker automático importa periodicamente requisições RM e materializa
+    /// vagas aprovadas sem ação manual.
+    /// </summary>
+    public bool RmImportacaoAutomaticaAtiva { get; set; } = false;
+
+    /// <summary>Intervalo, em minutos, entre ciclos automáticos de importação RM.</summary>
+    public int RmImportacaoAutomaticaIntervaloMinutos { get; set; } = 15;
+
+    /// <summary>Quantidade máxima de requisições RM lidas por ciclo automático.</summary>
+    public int RmImportacaoAutomaticaMaxPorExecucao { get; set; } = 50;
+
+    /// <summary>
     /// Funcionário RH designado como aprovador da etapa de RH.
     /// Null = não há aprovador fixo (qualquer admin/recrutador pode aprovar via endpoint).
     /// </summary>

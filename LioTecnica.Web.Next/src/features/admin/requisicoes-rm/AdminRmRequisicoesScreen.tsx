@@ -169,6 +169,12 @@ function formatFuncao(row: Pick<RmRequisicaoRow, "codfuncao" | "nomeFuncao">): s
   return nome || codigo || "—";
 }
 
+function truncateText(value: string | null | undefined, maxLength = 40): string {
+  const text = value?.trim();
+  if (!text) return "—";
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
 export default function AdminRmRequisicoesScreen() {
   const [rows, setRows] = useState<RmRequisicaoRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -467,16 +473,13 @@ export default function AdminRmRequisicoesScreen() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("abertura")}>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap text-center" onClick={() => handleSort("abertura")}>
                   Abertura<SortIcon col="abertura" />
                 </TableHead>
-                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("tipo")}>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap text-center" onClick={() => handleSort("tipo")}>
                   Tipo<SortIcon col="tipo" />
                 </TableHead>
-                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("id")}>
-                  ID<SortIcon col="id" />
-                </TableHead>
-                <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("status")}>
+                <TableHead className="cursor-pointer select-none whitespace-nowrap text-center" onClick={() => handleSort("status")}>
                   Status<SortIcon col="status" />
                 </TableHead>
                 <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("requisitante")}>
@@ -484,8 +487,9 @@ export default function AdminRmRequisicoesScreen() {
                 </TableHead>
                 <TableHead>Envolvido / substituto</TableHead>
                 <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("funcao")}>
-                  Função / salário<SortIcon col="funcao" />
+                  Função<SortIcon col="funcao" />
                 </TableHead>
+                <TableHead className="whitespace-nowrap">Salário</TableHead>
                 <TableHead className="cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort("justificativa")}>
                   Justificativa<SortIcon col="justificativa" />
                 </TableHead>
@@ -512,25 +516,19 @@ export default function AdminRmRequisicoesScreen() {
                     className="cursor-pointer"
                     onClick={() => setDetailRow(r)}
                   >
-                    <TableCell className="whitespace-nowrap text-xs">
+                    <TableCell className="whitespace-nowrap text-center text-xs">
                       {formatDt(r.dataabertura)}
                     </TableCell>
-                    <TableCell className="max-w-[140px] text-xs font-medium">
+                    <TableCell className="max-w-[140px] text-center text-xs font-medium">
                       {formatTipoRequisicao(r.tipoRequisicao)}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-xs">{r.idreq}</TableCell>
-                    <TableCell className={`max-w-[160px] text-xs ${isUnmappedStatus(r) ? "text-amber-700" : ""}`}>
+                    <TableCell className={`max-w-[160px] text-center text-xs ${isUnmappedStatus(r) ? "text-amber-700" : ""}`}>
                       {r.statusDescricao ?? (r.codstatus != null ? `CODSTATUS ${r.codstatus}` : "—")}
                     </TableCell>
                     <TableCell className="max-w-[180px] text-xs">
                       <div className="truncate" title={r.nomeRequisitante ?? ""}>
                         {r.nomeRequisitante ?? (r.chaparequisitante ? `Chapa ${r.chaparequisitante}` : "—")}
                       </div>
-                      {r.codcolrequisitante != null && (
-                        <div className="text-muted-foreground truncate text-[11px]">
-                          Coligada {r.codcolrequisitante}
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell className="max-w-[200px] text-xs">
                       <div className="truncate" title={r.nomeFuncionarioEnvolvido ?? ""}>
@@ -546,14 +544,19 @@ export default function AdminRmRequisicoesScreen() {
                       <div className="truncate" title={formatFuncao(r)}>
                         {formatFuncao(r)}
                       </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-xs">
                       {r.vlrsalario != null && r.vlrsalario !== "" && (
-                        <div className="text-muted-foreground text-[11px]">
+                        <div>
                           {formatMoney(r.vlrsalario)}
                         </div>
                       )}
+                      {(r.vlrsalario == null || r.vlrsalario === "") && "—"}
                     </TableCell>
                     <TableCell className="max-w-[280px] text-xs">
-                      <div className="line-clamp-2">{r.justificativa ?? "—"}</div>
+                      <div className="truncate" title={r.justificativa ?? ""}>
+                        {truncateText(r.justificativa)}
+                      </div>
                     </TableCell>
                     <TableCell className="w-[48px] text-right">
                       <Button

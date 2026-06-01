@@ -2356,6 +2356,9 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.RmRequisicaoCreateUsername).HasMaxLength(200);
             b.Property(x => x.RmRequisicaoCreatePassword).HasMaxLength(500);
             b.Property(x => x.RequisicoesVagaOrigemRm).HasDefaultValue(false);
+            b.Property(x => x.RmImportacaoAutomaticaAtiva).HasDefaultValue(false);
+            b.Property(x => x.RmImportacaoAutomaticaIntervaloMinutos).HasDefaultValue(15);
+            b.Property(x => x.RmImportacaoAutomaticaMaxPorExecucao).HasDefaultValue(50);
 
             b.HasOne(x => x.AprovadorRh)
                 .WithMany()
