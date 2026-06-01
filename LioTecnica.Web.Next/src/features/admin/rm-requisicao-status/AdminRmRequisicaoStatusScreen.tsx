@@ -35,6 +35,7 @@ import {
 /** Chaves válidas para portalStatusKey (enum SolicitacaoStatus na API). */
 const PORTAL_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "Rascunho", label: "Rascunho" },
+  { value: "EmAndamento", label: "Em andamento" },
   { value: "PendenteAprovacao", label: "Pendente aprovação" },
   { value: "Aprovada", label: "Aprovada" },
   { value: "Reprovada", label: "Reprovada" },

@@ -220,6 +220,7 @@ public sealed class RmRequisicoesController : ControllerBase
             SolicitacaoStatus.Suspensa => "Suspensa",
             SolicitacaoStatus.EncerradaSemContratacao => "Encerrada sem contratação",
             SolicitacaoStatus.ContratacaoConcluida => "Contratação concluída",
+            SolicitacaoStatus.EmAndamento => "Em andamento",
             _ => portalStatusKey
         } : portalStatusKey;
     }
