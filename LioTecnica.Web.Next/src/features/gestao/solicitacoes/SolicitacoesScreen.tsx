@@ -28,6 +28,9 @@ import {
     Ban,
     Copy,
     Plus,
+    ChevronDown,
+    ChevronUp,
+    ChevronsUpDown,
 } from "lucide-react";
 import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
@@ -64,6 +67,7 @@ import {
     type EtapaAprovacaoResponse,
     type SolicitacaoTimelineEventoResponse,
 } from "@/features/gestao/shared/etapaUtils";
+import PaginationBar from "@/components/pagination/PaginationBar";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -174,6 +178,7 @@ interface SolicitacaoDetail {
 
 type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
 type UrgenciaKey = 0 | 1 | 2 | 3 | string;
+type SolicitacaoSortKey = "titulo" | "tipo" | "posicoes" | "urgencia" | "status" | "aguardando" | "data";
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -363,6 +368,27 @@ function SolicitacoesVagaContent() {
         return (localStorage.getItem("renderrh.solicitacoes.viewMode") as "list" | "kanban") || "list";
     });
     const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.solicitacoes.viewMode", m); };
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [sortKey, setSortKey] = useState<SolicitacaoSortKey>("data");
+    const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+    function handleSort(key: SolicitacaoSortKey) {
+        setPage(1);
+        if (sortKey === key) {
+            setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+            return;
+        }
+        setSortKey(key);
+        setSortDir(key === "data" ? "desc" : "asc");
+    }
+
+    function SortIcon({ col }: { col: SolicitacaoSortKey }) {
+        if (sortKey !== col) return <ChevronsUpDown className="ml-1 inline size-3 text-muted-foreground/50" />;
+        return sortDir === "asc"
+            ? <ChevronUp className="ml-1 inline size-3" />
+            : <ChevronDown className="ml-1 inline size-3" />;
+    }
 
     /* ── form modal ── */
     const [formReloadNonce, setFormReloadNonce] = useState(0);
@@ -441,8 +467,8 @@ function SolicitacoesVagaContent() {
         }
 
         const [myData, allData] = await Promise.all([
-            fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true`),
-            fetchJson<SolicitacaoGridRow[]>(API).catch(() => []),
+            fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true&pageSize=100`),
+            fetchJson<SolicitacaoGridRow[]>(`${API}?pageSize=100`).catch(() => []),
         ]);
         const allItems = Array.isArray(allData) ? allData : [];
         const mine = Array.isArray(myData) ? myData : [];
@@ -511,9 +537,40 @@ function SolicitacoesVagaContent() {
             return blob.includes(term);
         });
     }, [q, rows, statusFilter]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [q, statusFilter, pageSize]);
+
+    const sorted = useMemo(() => {
+        const getValue = (r: SolicitacaoGridRow): string | number => {
+            if (sortKey === "titulo") return r.titulo ?? "";
+            if (sortKey === "tipo") return String(r.tipoSolicitacao);
+            if (sortKey === "posicoes") return r.qtdPosicoes ?? 0;
+            if (sortKey === "urgencia") return String(r.urgencia);
+            if (sortKey === "status") return String(r.status);
+            if (sortKey === "aguardando") return r.etapaPendenteCom ?? r.etapaPendenteLabel ?? "";
+            return new Date(r.createdAtUtc).getTime() || 0;
+        };
+
+        return [...filtered].sort((a, b) => {
+            const av = getValue(a);
+            const bv = getValue(b);
+            const result = typeof av === "number" && typeof bv === "number"
+                ? av - bv
+                : String(av).localeCompare(String(bv), "pt-BR", { sensitivity: "base", numeric: true });
+            return sortDir === "asc" ? result : -result;
+        });
+    }, [filtered, sortDir, sortKey]);
+
+    const pagedRows = useMemo(() => {
+        const start = (Math.max(page, 1) - 1) * pageSize;
+        return sorted.slice(start, start + pageSize);
+    }, [page, pageSize, sorted]);
+
     const filteredDistribuiveis = useMemo(
-        () => filtered.filter((r) => isStatusDistribuivelParaAnalistaRh(r.status)),
-        [filtered],
+        () => pagedRows.filter((r) => isStatusDistribuivelParaAnalistaRh(r.status)),
+        [pagedRows],
     );
     const allDistribuiveisSelecionados = filteredDistribuiveis.length > 0
         && filteredDistribuiveis.every((r) => selectedSolicitacaoIds.includes(r.id));
@@ -919,6 +976,7 @@ function SolicitacoesVagaContent() {
                 </div>
 
                 {viewMode === "list" ? (
+                <>
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -942,13 +1000,27 @@ function SolicitacoesVagaContent() {
                                     />
                                 </TableHead>
                             )}
-                            <TableHead>Título</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Posições</TableHead>
-                            <TableHead>Urgência</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Aguardando</TableHead>
-                            <TableHead>Data</TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("titulo")}>
+                                Título<SortIcon col="titulo" />
+                            </TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("tipo")}>
+                                Tipo<SortIcon col="tipo" />
+                            </TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("posicoes")}>
+                                Posições<SortIcon col="posicoes" />
+                            </TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("urgencia")}>
+                                Urgência<SortIcon col="urgencia" />
+                            </TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
+                                Status<SortIcon col="status" />
+                            </TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("aguardando")}>
+                                Aguardando<SortIcon col="aguardando" />
+                            </TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("data")}>
+                                Data<SortIcon col="data" />
+                            </TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -959,9 +1031,13 @@ function SolicitacoesVagaContent() {
                                     Carregando…
                                 </TableCell>
                             </TableRow>
-                        ) : filtered.length ? (
-                            filtered.map((r) => (
-                                <TableRow key={r.id} className="hover:bg-muted/40">
+                        ) : pagedRows.length ? (
+                            pagedRows.map((r) => (
+                                <TableRow
+                                    key={r.id}
+                                    className="cursor-pointer hover:bg-muted/40"
+                                    onClick={() => openView(r)}
+                                >
                                     {canDistribuirParaAnalistaRh && (
                                         <TableCell onClick={(e) => e.stopPropagation()}>
                                             <input
@@ -1069,7 +1145,8 @@ function SolicitacoesVagaContent() {
                                                         </>
                                                     )}
                                                     {/* Aprovada/Reprovada: apenas visualizar */}
-                                                    {(r.status === 2 || r.status === "Aprovada" ||
+                                                    {(requisicoesVagaOrigemRm ||
+                                                      r.status === 2 || r.status === "Aprovada" ||
                                                       r.status === 3 || r.status === "Reprovada") && (
                                                         <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
                                                             <Eye />
@@ -1132,6 +1209,20 @@ function SolicitacoesVagaContent() {
                         )}
                     </TableBody>
                 </Table>
+                {filtered.length > 0 && (
+                    <PaginationBar
+                        page={page}
+                        pageSize={pageSize}
+                        totalItems={filtered.length}
+                        itemLabel="solicitação(ões)"
+                        onPageChange={setPage}
+                        onPageSizeChange={(nextPageSize) => {
+                            setPageSize(nextPageSize);
+                            setPage(1);
+                        }}
+                    />
+                )}
+                </>
                 ) : (
                     /* ── Kanban View ── */
                     <div className="p-4 overflow-x-auto">
