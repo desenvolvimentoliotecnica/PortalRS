@@ -142,6 +142,29 @@ function formatMoney(value: string | number | null): string {
   return value;
 }
 
+function formatTipoRequisicao(tipo: string | null | undefined): string {
+  const value = (tipo ?? "").trim();
+  const labels: Record<string, string> = {
+    AUMENTO_QUADRO: "Aumento de Quadro",
+    SUBSTITUICAO: "Substituição",
+    DESLIGAMENTO: "Desligamento",
+    PROMOCAO_ALTERACAO_FUNCIONAL: "Promoção / Alteração Funcional",
+    TRANSFERENCIA: "Transferência",
+    TRANSFERENCIA_PROMOCAO: "Transferência + Promoção",
+    TRANSFERENCIA_LOTE: "Transferência em Lote",
+    TREINAMENTO: "Treinamento",
+    GERAL: "Geral",
+  };
+  return labels[value] ?? value.replace(/_/g, " ").toLowerCase().replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase("pt-BR")) || "—";
+}
+
+function formatFuncao(row: Pick<RmRequisicaoRow, "codfuncao" | "nomeFuncao">): string {
+  const codigo = row.codfuncao?.trim();
+  const nome = row.nomeFuncao?.trim();
+  if (codigo && nome) return `${codigo} · ${nome}`;
+  return nome || codigo || "—";
+}
+
 export default function AdminRmRequisicoesScreen() {
   const [rows, setRows] = useState<RmRequisicaoRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -497,7 +520,7 @@ export default function AdminRmRequisicoesScreen() {
                       {formatDt(r.dataabertura)}
                     </TableCell>
                     <TableCell className="max-w-[140px] text-xs font-medium">
-                      {r.tipoRequisicao}
+                      {formatTipoRequisicao(r.tipoRequisicao)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-xs">{r.idreq}</TableCell>
                     <TableCell className={`max-w-[160px] text-xs ${isUnmappedStatus(r) ? "text-amber-700" : ""}`}>
@@ -524,7 +547,9 @@ export default function AdminRmRequisicoesScreen() {
                       )}
                     </TableCell>
                     <TableCell className="max-w-[160px] text-xs">
-                      <div className="truncate">{r.nomeFuncao ?? "—"}</div>
+                      <div className="truncate" title={formatFuncao(r)}>
+                        {formatFuncao(r)}
+                      </div>
                       {r.vlrsalario != null && r.vlrsalario !== "" && (
                         <div className="text-muted-foreground text-[11px]">
                           {formatMoney(r.vlrsalario)}
@@ -574,7 +599,7 @@ export default function AdminRmRequisicoesScreen() {
             <DialogTitle>Detalhes da requisição RM</DialogTitle>
             <DialogDescription>
               {detailRow
-                ? `${detailRow.tipoRequisicao} · COL ${detailRow.codcolrequisicao ?? "—"} · IDREQ ${detailRow.idreq}`
+                ? `${formatTipoRequisicao(detailRow.tipoRequisicao)} · COL ${detailRow.codcolrequisicao ?? "—"} · IDREQ ${detailRow.idreq}`
                 : "Dados completos recebidos da consulta RM."}
             </DialogDescription>
           </DialogHeader>
@@ -604,7 +629,7 @@ function RmRequisicaoDetail({ row }: { row: RmRequisicaoRow }) {
     {
       title: "Identificação",
       items: [
-        ["Tipo", row.tipoRequisicao],
+        ["Tipo", formatTipoRequisicao(row.tipoRequisicao)],
         ["Coligada da requisição", row.codcolrequisicao],
         ["IDREQ", row.idreq],
         ["Status", row.statusDescricao ?? (row.codstatus != null ? `CODSTATUS ${row.codstatus}` : null)],

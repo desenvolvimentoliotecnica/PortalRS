@@ -124,17 +124,42 @@ public sealed class RmRequisicoesController : ControllerBase
                 })
                 .ToDictionaryAsync(x => x.Chapa, x => x.Nome, StringComparer.OrdinalIgnoreCase, ct);
 
+        var codFuncoes = result.Items
+            .Select(i => i.Codfuncao?.Trim())
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var funcoes = codFuncoes.Length == 0
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : await _db.Funcionarios
+                .AsNoTracking()
+                .Where(f => f.CodFuncaoRm != null && codFuncoes.Contains(f.CodFuncaoRm))
+                .GroupBy(f => f.CodFuncaoRm!)
+                .Select(g => new
+                {
+                    Codigo = g.Key,
+                    Nome = g
+                        .OrderByDescending(f => f.Status == FuncionarioStatus.Active)
+                        .ThenBy(f => f.FuncaoNomeRm)
+                        .Select(f => f.FuncaoNomeRm)
+                        .FirstOrDefault()
+                })
+                .Where(x => x.Nome != null && x.Nome != "")
+                .ToDictionaryAsync(x => x.Codigo, x => x.Nome!, StringComparer.OrdinalIgnoreCase, ct);
+
         return new RmRequisicaoListResponse
         {
             TotalCount = result.TotalCount,
-            Items = result.Items.Select(item => EnrichRow(item, statusLabels, requisitantes)).ToList()
+            Items = result.Items.Select(item => EnrichRow(item, statusLabels, requisitantes, funcoes)).ToList()
         };
     }
 
     private static RmRequisicaoRowDto EnrichRow(
         RmRequisicaoRowDto item,
         IReadOnlyDictionary<int, string> statusLabels,
-        IReadOnlyDictionary<string, string> requisitantes)
+        IReadOnlyDictionary<string, string> requisitantes,
+        IReadOnlyDictionary<string, string> funcoes)
     {
         var chapa = item.Chaparequisitante?.Trim();
         var nomeRequisitante = item.NomeRequisitante;
@@ -149,8 +174,17 @@ public sealed class RmRequisicoesController : ControllerBase
         if (string.IsNullOrWhiteSpace(statusDescricao) && item.Codstatus.HasValue)
         {
             statusDescricao = statusLabels.TryGetValue(item.Codstatus.Value, out var label)
-                ? $"{label} (RM {item.Codstatus.Value})"
+                ? label
                 : $"CODSTATUS {item.Codstatus.Value} (sem mapa)";
+        }
+
+        var codFuncao = item.Codfuncao?.Trim();
+        var nomeFuncao = item.NomeFuncao;
+        if (string.IsNullOrWhiteSpace(nomeFuncao)
+            && !string.IsNullOrWhiteSpace(codFuncao)
+            && funcoes.TryGetValue(codFuncao, out var nomeFuncaoPortal))
+        {
+            nomeFuncao = nomeFuncaoPortal;
         }
 
         return new RmRequisicaoRowDto
@@ -185,7 +219,7 @@ public sealed class RmRequisicoesController : ControllerBase
             Codtabelasalarial = item.Codtabelasalarial,
             Codnivelsalarial = item.Codnivelsalarial,
             Codfaixasalarial = item.Codfaixasalarial,
-            NomeFuncao = item.NomeFuncao,
+            NomeFuncao = nomeFuncao,
             DescricaoFuncao = item.DescricaoFuncao,
             Vlrsalario = item.Vlrsalario,
             Codccusto = item.Codccusto,

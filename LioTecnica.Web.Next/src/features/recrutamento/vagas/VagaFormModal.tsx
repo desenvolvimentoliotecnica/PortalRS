@@ -9,7 +9,6 @@ import { getTenantId } from "@/lib/session";
 import { lookupCep } from "@/lib/cepLookup";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
-import { CategoriaSalarialAutocomplete } from "@/components/autocomplete/CategoriaSalarialAutocomplete";
 import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
 import { RecrutadorAutocomplete } from "@/components/autocomplete/RecrutadorAutocomplete";
@@ -1405,13 +1404,21 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                   placeholder="Digite código ou nome do cargo..."
                 />
               </Field>
-              <Field label={draft.funcaoNomeRm ? "Função (TOTVS RM)" : "Função"} span="col-span-12 md:col-span-4">
+              <Field label={draft.funcaoNomeRm ? "Função (TOTVS RM)" : "Função"} span="col-span-12 md:col-span-6">
                 <input
                   readOnly
                   className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
                   placeholder={draft.codFuncaoRm ? "" : "— sem vínculo RM —"}
                   value={draft.funcaoNomeRm ? `${draft.codFuncaoRm} · ${draft.funcaoNomeRm}` : ""}
                   title="Função TOTVS (PFUNCAO) — vem do RM, não editável"
+                />
+              </Field>
+              <Field label="Código CBO" span="col-span-12 md:col-span-6">
+                <input
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  placeholder="0000-00"
+                  value={draft.codigoCbo}
+                  onChange={(e) => set("codigoCbo", e.target.value)}
                 />
               </Field>
               <Field label="Tipo de contratação" span="col-span-12 md:col-span-4">
@@ -1533,28 +1540,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                   <span className="text-sm text-muted-foreground font-medium shrink-0">%</span>
                 </div>
               </Field>
-
-              {/* Seção: Referências */}
-              <SectionHeader title="Referências / Códigos" />
-              <Field label="Categoria salarial" span="col-span-12 md:col-span-6">
-                <CategoriaSalarialAutocomplete
-                  value={draft.categoriaSalarialCode || draft.categoriaSalarialId}
-                  defaultLabel={draft.categoriaSalarialCode ? { code: draft.categoriaSalarialCode, description: draft.categoriaSalarialDescription } : undefined}
-                  onChange={(code) => set("categoriaSalarialCode", code)}
-                  onSelectId={(id) => set("categoriaSalarialId", id)}
-                  onSelectItem={(item) => {
-                    setDraft((d) => ({
-                      ...d,
-                      categoriaSalarialId: item.id,
-                      categoriaSalarialCode: item.code,
-                      categoriaSalarialDescription: item.description,
-                    }));
-                  }}
-                  placeholder="Buscar categoria salarial..."
-                />
-              </Field>
-              <Field label="Código interno" span="col-span-6 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="VAG-2025-0012" maxLength={40} value={draft.codigoInterno} onChange={(e) => set("codigoInterno", e.target.value)} /></Field>
-              <Field label="Código CBO" span="col-span-6 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0000-00" value={draft.codigoCbo} onChange={(e) => set("codigoCbo", e.target.value)} /></Field>
 
               {/* Seção: Descrição e conteúdo */}
               <SectionHeader title="Descrição e conteúdo" />
