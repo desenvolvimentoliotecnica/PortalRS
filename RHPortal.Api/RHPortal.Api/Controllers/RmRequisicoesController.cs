@@ -34,6 +34,8 @@ public sealed class RmRequisicoesController : ControllerBase
         [FromQuery] DateOnly? dataAberturaDe = null,
         [FromQuery] DateOnly? dataAberturaAte = null,
         [FromQuery] string? q = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDir = null,
         CancellationToken ct = default)
     {
         try
@@ -45,7 +47,9 @@ public sealed class RmRequisicoesController : ControllerBase
                 TipoRequisicao = tipoRequisicao,
                 DataAberturaDe = dataAberturaDe,
                 DataAberturaAte = dataAberturaAte,
-                Search = q
+                Search = q,
+                SortBy = sortBy,
+                SortDir = sortDir
             }, ct);
             return Ok(await EnrichAsync(result, ct));
         }
@@ -176,6 +180,9 @@ public sealed class RmRequisicoesController : ControllerBase
             Codfilial = item.Codfilial,
             Codsecao = item.Codsecao,
             Codfuncao = item.Codfuncao,
+            Codtabelasalarial = item.Codtabelasalarial,
+            Codnivelsalarial = item.Codnivelsalarial,
+            Codfaixasalarial = item.Codfaixasalarial,
             NomeFuncao = item.NomeFuncao,
             DescricaoFuncao = item.DescricaoFuncao,
             Vlrsalario = item.Vlrsalario,

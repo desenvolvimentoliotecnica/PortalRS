@@ -328,7 +328,8 @@ Base AS (
 
     internal static string SqlCount => $"{CteAndBase}\nSELECT COUNT(1) FROM Base WHERE {WhereClause};";
 
-    internal static string SqlPage => $"{CteAndBase}\nSELECT * FROM Base WHERE {WhereClause} ORDER BY DATAABERTURA DESC OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+    internal static string SqlPage(string? sortBy, string? sortDir)
+        => $"{CteAndBase}\nSELECT * FROM Base WHERE {WhereClause} ORDER BY {BuildOrderBy(sortBy, sortDir)} OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
 
     /// <summary>Vínculo portal (TIPO_REQUISICAO|CODCOLREQUISICAO|IDREQ) — um registo.</summary>
     internal static string SqlCodStatusPorVinculo =>
@@ -343,4 +344,22 @@ Base AS (
             CAST(IDREQ AS VARCHAR(20)) LIKE @SearchPattern OR JUSTIFICATIVA LIKE @SearchPattern
         ))
         """;
+
+    private static string BuildOrderBy(string? sortBy, string? sortDir)
+    {
+        var column = (sortBy ?? "").Trim().ToLowerInvariant() switch
+        {
+            "tipo" => "TIPO_REQUISICAO",
+            "id" => "IDREQ",
+            "status" => "CODSTATUS",
+            "requisitante" => "NOME_REQUISITANTE",
+            "funcao" => "NOME_FUNCAO",
+            "salario" => "VLRSALARIO",
+            "justificativa" => "JUSTIFICATIVA",
+            _ => "DATAABERTURA"
+        };
+
+        var direction = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
+        return $"{column} {direction}, IDREQ DESC";
+    }
 }
