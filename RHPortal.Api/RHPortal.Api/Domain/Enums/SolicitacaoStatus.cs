@@ -59,4 +59,7 @@ public enum SolicitacaoStatus : short
 
     /// <summary>Contratação concluída no âmbito da seleção — distinto de <see cref="Concluida"/> (headcount/aprovações).</summary>
     ContratacaoConcluida = 20,
+
+    /// <summary>Status espelho para requisições RM em andamento; não representa aprovação para criação de vaga.</summary>
+    EmAndamento = 21,
 }
