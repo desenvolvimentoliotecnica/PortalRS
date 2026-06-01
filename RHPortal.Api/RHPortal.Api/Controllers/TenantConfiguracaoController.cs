@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.TenantConfiguracao;
 using RhPortal.Api.Infrastructure.Tenancy;
+using System.Text;
 
 namespace RhPortal.Api.Controllers;
 
@@ -43,6 +44,43 @@ public sealed class TenantConfiguracaoController : ControllerBase
 
         var dto = await _service.UpsertAsync(request, ct);
         return Ok(dto);
+    }
+
+    [HttpGet("rm-importacao-automatica/execucoes")]
+    [ProducesResponseType(typeof(IReadOnlyList<RmImportacaoAutomaticaRunDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListRmImportacaoAutomaticaRuns([FromQuery] int take = 50, CancellationToken ct = default)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        var runs = await _service.ListRmImportacaoAutomaticaRunsAsync(take, ct);
+        return Ok(runs);
+    }
+
+    [HttpGet("rm-importacao-automatica/execucoes/ultima/log")]
+    public async Task<IActionResult> DownloadLastRmImportacaoAutomaticaRunLog(CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        var log = await _service.GetRmImportacaoAutomaticaRunLogAsync(null, ct);
+        if (log is null)
+            return NotFound(new { message = "Nenhuma execução automática RM encontrada." });
+
+        return File(Encoding.UTF8.GetBytes(log.Content), "text/plain; charset=utf-8", log.FileName);
+    }
+
+    [HttpGet("rm-importacao-automatica/execucoes/{id:guid}/log")]
+    public async Task<IActionResult> DownloadRmImportacaoAutomaticaRunLog(Guid id, CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        var log = await _service.GetRmImportacaoAutomaticaRunLogAsync(id, ct);
+        if (log is null)
+            return NotFound(new { message = "Execução automática RM não encontrada." });
+
+        return File(Encoding.UTF8.GetBytes(log.Content), "text/plain; charset=utf-8", log.FileName);
     }
 
     // ────────── IA por tenant (Fase 3 LLM-agnóstico) ──────────

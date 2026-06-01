@@ -6,7 +6,8 @@ import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Settings2, Users, Clock, ChevronDown, ChevronRight, Lock, MessageCircle, Briefcase } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Save, Settings2, Users, Clock, ChevronDown, ChevronRight, Lock, MessageCircle, Briefcase, Download, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ──────────────────────────── types ──────────────────────────── */
@@ -26,6 +27,26 @@ interface TenantConfiguracaoDto {
     rmImportacaoAutomaticaIntervaloMinutos: number;
     rmImportacaoAutomaticaMaxPorExecucao: number;
     aprovadorRhId: string | null;
+}
+
+interface RmImportacaoAutomaticaRunDto {
+    id: string;
+    startedAtUtc: string;
+    finishedAtUtc: string | null;
+    status: string;
+    intervalMinutes: number;
+    maxPerRun: number;
+    totalLidos: number;
+    criados: number;
+    atualizados: number;
+    vagasCriadas: number;
+    ignorados: number;
+    erros: number;
+    statusSyncTotalLidos: number;
+    statusSyncAtualizados: number;
+    statusSyncIgnorados: number;
+    statusSyncErros: number;
+    mensagem: string | null;
 }
 
 interface SlaStatusConfigItem {
@@ -197,6 +218,13 @@ const STATUS_INFO_BY_TIPO: Record<string, Record<string, StatusInfo>> = {
     Vaga: VAGA_STATUS,
 };
 
+function formatDateTime(value: string | null | undefined): string {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleString("pt-BR");
+}
+
 /* ──────────────────────────── component ──────────────────────────── */
 
 export default function TenantConfiguracaoScreen() {
@@ -217,6 +245,9 @@ export default function TenantConfiguracaoScreen() {
     const [rmImportacaoAutomaticaIntervaloMinutos, setRmImportacaoAutomaticaIntervaloMinutos] = useState(15);
     const [rmImportacaoAutomaticaMaxPorExecucao, setRmImportacaoAutomaticaMaxPorExecucao] = useState(50);
     const [aprovadorRhId, setAprovadorRhId] = useState<string | null>(null);
+    const [rmRunsOpen, setRmRunsOpen] = useState(false);
+    const [rmRunsLoading, setRmRunsLoading] = useState(false);
+    const [rmRuns, setRmRuns] = useState<RmImportacaoAutomaticaRunDto[]>([]);
 
     const [slaGroups, setSlaGroups] = useState<SlaStatusConfigGroup[]>([]);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -356,6 +387,45 @@ export default function TenantConfiguracaoScreen() {
             toast.error(`Falha ao salvar recrutamento: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
             setSavingRecrutamento(false);
+        }
+    }
+
+    async function loadRmRuns() {
+        setRmRunsLoading(true);
+        try {
+            const res = await apiFetch("/api/tenant-configuracao/rm-importacao-automatica/execucoes?take=100");
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            setRmRuns(await res.json() as RmImportacaoAutomaticaRunDto[]);
+        } catch (e) {
+            toast.error(`Falha ao carregar execuções RM: ${e instanceof Error ? e.message : "erro"}`);
+        } finally {
+            setRmRunsLoading(false);
+        }
+    }
+
+    async function openRmRuns() {
+        setRmRunsOpen(true);
+        await loadRmRuns();
+    }
+
+    async function downloadRmLog(runId?: string) {
+        try {
+            const url = runId
+                ? `/api/tenant-configuracao/rm-importacao-automatica/execucoes/${runId}/log`
+                : "/api/tenant-configuracao/rm-importacao-automatica/execucoes/ultima/log";
+            const res = await apiFetch(url);
+            if (!res.ok) throw new Error(res.status === 404 ? "Nenhuma execução encontrada." : `HTTP ${res.status}`);
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const disposition = res.headers.get("content-disposition") ?? "";
+            const fileNameMatch = /filename="?([^"]+)"?/i.exec(disposition);
+            const a = document.createElement("a");
+            a.href = objectUrl;
+            a.download = fileNameMatch?.[1] ?? "rm-importacao-automatica.log";
+            a.click();
+            URL.revokeObjectURL(objectUrl);
+        } catch (e) {
+            toast.error(`Falha ao baixar log: ${e instanceof Error ? e.message : "erro"}`);
         }
     }
 
@@ -560,6 +630,27 @@ export default function TenantConfiguracaoScreen() {
                                             Quantidade máxima de requisições lidas do RM por ciclo.
                                         </p>
                                     </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 border-t border-border/60 pt-4">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => void downloadRmLog()}
+                                    >
+                                        <Download className="mr-1.5 size-4" />
+                                        Baixar último log
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => void openRmRuns()}
+                                    >
+                                        <History className="mr-1.5 size-4" />
+                                        Ver execuções
+                                    </Button>
                                 </div>
                             </div>
                         </div>
@@ -804,6 +895,78 @@ export default function TenantConfiguracaoScreen() {
                     </div>
                 </div>
             )}
+            <Dialog open={rmRunsOpen} onOpenChange={setRmRunsOpen}>
+                <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-5xl">
+                    <DialogHeader>
+                        <DialogTitle>Execuções da importação automática RM</DialogTitle>
+                        <DialogDescription>
+                            Histórico dos últimos ciclos mantido por 60 dias. Use o download para auditar uma execução específica.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="max-h-[65vh] overflow-auto rounded-lg border">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-background">
+                                <tr className="border-b">
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Início</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Fim</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Status</th>
+                                    <th className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Lidos</th>
+                                    <th className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Criados</th>
+                                    <th className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Vagas</th>
+                                    <th className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Erros</th>
+                                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Mensagem</th>
+                                    <th className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Log</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rmRunsLoading ? (
+                                    <tr>
+                                        <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
+                                            Carregando execuções…
+                                        </td>
+                                    </tr>
+                                ) : rmRuns.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
+                                            Nenhuma execução automática registrada.
+                                        </td>
+                                    </tr>
+                                ) : rmRuns.map((run) => (
+                                    <tr key={run.id} className="border-b last:border-0">
+                                        <td className="whitespace-nowrap px-3 py-2 text-xs">{formatDateTime(run.startedAtUtc)}</td>
+                                        <td className="whitespace-nowrap px-3 py-2 text-xs">{formatDateTime(run.finishedAtUtc)}</td>
+                                        <td className="whitespace-nowrap px-3 py-2 text-xs font-medium">{run.status}</td>
+                                        <td className="px-3 py-2 text-right text-xs">{run.totalLidos}</td>
+                                        <td className="px-3 py-2 text-right text-xs">{run.criados}</td>
+                                        <td className="px-3 py-2 text-right text-xs">{run.vagasCriadas}</td>
+                                        <td className="px-3 py-2 text-right text-xs">{run.erros + run.statusSyncErros}</td>
+                                        <td className="max-w-[240px] px-3 py-2 text-xs">
+                                            <div className="truncate" title={run.mensagem ?? ""}>
+                                                {run.mensagem ?? "—"}
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-2 text-right">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => void downloadRmLog(run.id)}
+                                            >
+                                                <Download className="size-4" />
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button type="button" variant="outline" size="sm" onClick={() => void loadRmRuns()} disabled={rmRunsLoading}>
+                            Atualizar lista
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </section>
     );
 }

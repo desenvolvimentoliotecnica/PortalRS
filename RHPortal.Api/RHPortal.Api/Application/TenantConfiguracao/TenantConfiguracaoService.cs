@@ -30,6 +30,27 @@ public sealed class TenantConfiguracaoUpsertRequest
     public Guid? AprovadorRhId { get; set; }
 }
 
+public sealed record RmImportacaoAutomaticaRunDto(
+    Guid Id,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset? FinishedAtUtc,
+    string Status,
+    int IntervalMinutes,
+    int MaxPerRun,
+    int TotalLidos,
+    int Criados,
+    int Atualizados,
+    int VagasCriadas,
+    int Ignorados,
+    int Erros,
+    int StatusSyncTotalLidos,
+    int StatusSyncAtualizados,
+    int StatusSyncIgnorados,
+    int StatusSyncErros,
+    string? Mensagem);
+
+public sealed record RmImportacaoAutomaticaRunLogDto(Guid Id, string FileName, string Content);
+
 // ── DTOs de Headcount ──
 
 public sealed class ConfiguracaoHeadcountDto
@@ -120,6 +141,8 @@ public interface ITenantConfiguracaoService
 {
     Task<TenantConfiguracaoDto> GetAsync(CancellationToken ct);
     Task<TenantConfiguracaoDto> UpsertAsync(TenantConfiguracaoUpsertRequest request, CancellationToken ct);
+    Task<IReadOnlyList<RmImportacaoAutomaticaRunDto>> ListRmImportacaoAutomaticaRunsAsync(int take, CancellationToken ct);
+    Task<RmImportacaoAutomaticaRunLogDto?> GetRmImportacaoAutomaticaRunLogAsync(Guid? id, CancellationToken ct);
     Task<ConfiguracaoHeadcountDto> GetHeadcountConfigAsync(CancellationToken ct);
     Task<ConfiguracaoHeadcountDto> UpsertHeadcountConfigAsync(ConfiguracaoHeadcountRequest request, CancellationToken ct);
     Task<ConfiguracaoRmRequisicaoDto> GetRmRequisicaoConfigAsync(CancellationToken ct);
@@ -200,6 +223,51 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         await _db.Entry(config).Reference(c => c.AprovadorRh).LoadAsync(ct);
 
         return MapToDto(config);
+    }
+
+    public async Task<IReadOnlyList<RmImportacaoAutomaticaRunDto>> ListRmImportacaoAutomaticaRunsAsync(int take, CancellationToken ct)
+    {
+        var limit = Math.Clamp(take, 1, 200);
+        return await _db.RmImportacaoAutomaticaRuns
+            .AsNoTracking()
+            .OrderByDescending(x => x.StartedAtUtc)
+            .Take(limit)
+            .Select(x => new RmImportacaoAutomaticaRunDto(
+                x.Id,
+                x.StartedAtUtc,
+                x.FinishedAtUtc,
+                x.Status,
+                x.IntervalMinutes,
+                x.MaxPerRun,
+                x.TotalLidos,
+                x.Criados,
+                x.Atualizados,
+                x.VagasCriadas,
+                x.Ignorados,
+                x.Erros,
+                x.StatusSyncTotalLidos,
+                x.StatusSyncAtualizados,
+                x.StatusSyncIgnorados,
+                x.StatusSyncErros,
+                x.Mensagem))
+            .ToListAsync(ct);
+    }
+
+    public async Task<RmImportacaoAutomaticaRunLogDto?> GetRmImportacaoAutomaticaRunLogAsync(Guid? id, CancellationToken ct)
+    {
+        var query = _db.RmImportacaoAutomaticaRuns.AsNoTracking();
+        var run = id.HasValue
+            ? await query.FirstOrDefaultAsync(x => x.Id == id.Value, ct)
+            : await query.OrderByDescending(x => x.StartedAtUtc).FirstOrDefaultAsync(ct);
+
+        if (run is null)
+            return null;
+
+        var started = run.StartedAtUtc.ToString("yyyyMMdd-HHmmss");
+        return new RmImportacaoAutomaticaRunLogDto(
+            run.Id,
+            $"rm-importacao-automatica-{started}-{run.Id:N}.log",
+            run.LogText);
     }
 
     public async Task<ConfiguracaoHeadcountDto> GetHeadcountConfigAsync(CancellationToken ct)
