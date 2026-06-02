@@ -439,8 +439,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(x => x.AnalistaRhResponsavelUser)
             .Include(x => x.JobPosition)
             .Include(x => x.Unit)
+                .ThenInclude(u => u!.Empresa)
             .Include(x => x.Empresa)
             .Include(x => x.CentroCusto)
+                .ThenInclude(c => c!.Empresa)
             .Include(x => x.UnidadeLotacao)
             .Include(x => x.Turno)
                 .ThenInclude(t => t!.UnidadeLotacao)
@@ -453,6 +455,20 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
 
         if (!await CanUsuarioVerSolicitacaoVagaAsync(s.SolicitanteId, s.CentroCustoId, s.Id, ct))
             return null;
+
+        if (!string.IsNullOrWhiteSpace(s.CodFuncaoRm)
+            && (string.IsNullOrWhiteSpace(s.FuncaoNomeRm)
+                || string.Equals(s.FuncaoNomeRm.Trim(), s.CodFuncaoRm.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            var funcaoNome = await _db.Funcionarios
+                .AsNoTracking()
+                .Where(f => f.CodFuncaoRm == s.CodFuncaoRm && f.FuncaoNomeRm != null && f.FuncaoNomeRm != "")
+                .OrderByDescending(f => f.Status == FuncionarioStatus.Active)
+                .Select(f => f.FuncaoNomeRm)
+                .FirstOrDefaultAsync(ct);
+            if (!string.IsNullOrWhiteSpace(funcaoNome))
+                s.FuncaoNomeRm = funcaoNome;
+        }
 
         // Fetch all etapas for workflow timeline
         var etapas = await _db.SolicitacoesAprovacaoEtapa
@@ -3137,8 +3153,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.Turno?.EndTime,
         s.Turno?.Notes,
         s.Turno?.UnidadeLotacao?.Description,
-        s.EmpresaId,
-        s.Empresa?.Description,
+        s.EmpresaId ?? s.CentroCusto?.EmpresaId ?? s.Unit?.EmpresaId,
+        s.Empresa?.Description ?? s.CentroCusto?.Empresa?.Description ?? s.Unit?.Empresa?.Description,
         s.CentroCustoId,
         s.CentroCusto?.Description,
         s.UnidadeLotacaoId,

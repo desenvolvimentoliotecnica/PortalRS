@@ -266,6 +266,12 @@ function formatDate(iso: string | null | undefined) {
     }
 }
 
+function truncateTitle(value: string | null | undefined, maxLength = 30) {
+    const text = value?.trim() ?? "";
+    if (!text) return "—";
+    return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
 /* ──────────────────────────── component ──────────────────────────── */
 
 /* ══════════════════════════════════════════════════════════════
@@ -1051,7 +1057,7 @@ function SolicitacoesVagaContent() {
                                     )}
                                     <TableCell>
                                         <div className="flex items-center gap-1.5">
-                                            <span className="font-semibold">{r.titulo}</span>
+                                            <span className="font-semibold" title={r.titulo}>{truncateTitle(r.titulo)}</span>
                                             {r.isConfidencial && (
                                                 <span title="Vaga Confidencial"><Lock className="size-3.5 text-amber-600" /></span>
                                             )}
@@ -1305,13 +1311,8 @@ function SolicitacoesVagaContent() {
                                         disabled={detailAssigning}
                                     />
                                     <div className="flex justify-end gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={detailAssigning}
-                                            onClick={() => setDetailAnalistaRh({ userId: null, nome: null })}
-                                        >
-                                            Limpar
+                                        <Button size="sm" variant="outline" disabled={detailAssigning} onClick={handleFormClose}>
+                                            Fechar
                                         </Button>
                                         <Button
                                             size="sm"

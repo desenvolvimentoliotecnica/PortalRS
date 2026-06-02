@@ -167,7 +167,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         entity.TipoContrato = TipoContratoVaga.CLT;
         entity.DecisaoRH = TipoDecisaoHeadcount.AumentoDefinitivo;
         entity.CodFuncaoRm = TrimTo(row.Codfuncao, 20);
-        entity.FuncaoNomeRm = TrimTo(FirstNonBlank(row.NomeFuncao, row.DescricaoFuncao), 160);
+        entity.FuncaoNomeRm = TrimTo(await ResolveFuncaoNomeRmAsync(row, ct), 160);
         entity.FaixaSalarialMin = row.Vlrsalario;
         entity.FaixaSalarialMax = row.Vlrsalario;
         entity.RmRequisicaoCodigo = RmPortalRequisicaoVinculo.Build(row.TipoRequisicao.Trim(), row.Codcolrequisicao!.Value, row.Idreq);
@@ -180,8 +180,9 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         entity.IntegracaoMensagem = "Requisição importada do RM como origem aprovada.";
         entity.IntegradaEmUtc ??= now;
 
-        entity.CentroCustoId = await ResolveCentroCustoIdAsync(row.Codccusto, ct);
+        entity.CentroCustoId = await ResolveCentroCustoIdAsync(row.Codccusto, row.Codsecao, ct);
         entity.UnitId = await ResolveUnitIdAsync(row.Codfilial, ct);
+        entity.EmpresaId = await ResolveEmpresaIdAsync(row.Codcolrequisicao, entity.CentroCustoId, entity.UnitId, ct);
         entity.JobPositionId = await ResolveJobPositionIdAsync(row.Codfuncao, row.NomeFuncao, ct);
     }
 
@@ -213,12 +214,16 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             .FirstOrDefaultAsync(ct);
     }
 
-    private async Task<Guid?> ResolveCentroCustoIdAsync(string? code, CancellationToken ct)
+    private async Task<Guid?> ResolveCentroCustoIdAsync(string? codCcusto, string? codSecao, CancellationToken ct)
     {
-        var value = code?.Trim();
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        var values = new[] { codCcusto?.Trim(), codSecao?.Trim() }
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (values.Count == 0) return null;
         return await _db.CentrosCusto
-            .Where(c => c.Code == value)
+            .Where(c => values.Contains(c.Code))
+            .OrderByDescending(c => c.IsActive)
             .Select(c => (Guid?)c.Id)
             .FirstOrDefaultAsync(ct);
     }
@@ -231,6 +236,55 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             .Where(u => u.Code == value)
             .Select(u => (Guid?)u.Id)
             .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<Guid?> ResolveEmpresaIdAsync(int? codColigada, Guid? centroCustoId, Guid? unitId, CancellationToken ct)
+    {
+        if (centroCustoId.HasValue)
+        {
+            var empresaId = await _db.CentrosCusto
+                .Where(c => c.Id == centroCustoId.Value)
+                .Select(c => c.EmpresaId)
+                .FirstOrDefaultAsync(ct);
+            if (empresaId.HasValue) return empresaId;
+        }
+
+        if (unitId.HasValue)
+        {
+            var empresaId = await _db.Units
+                .Where(u => u.Id == unitId.Value)
+                .Select(u => u.EmpresaId)
+                .FirstOrDefaultAsync(ct);
+            if (empresaId.HasValue) return empresaId;
+        }
+
+        var code = codColigada?.ToString();
+        if (string.IsNullOrWhiteSpace(code)) return null;
+        return await _db.Empresas
+            .Where(e => e.Code == code)
+            .OrderByDescending(e => e.IsActive)
+            .Select(e => (Guid?)e.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<string?> ResolveFuncaoNomeRmAsync(RmRequisicaoRowDto row, CancellationToken ct)
+    {
+        var direct = FirstNonBlank(row.NomeFuncao, row.DescricaoFuncao);
+        var code = row.Codfuncao?.Trim();
+        if (!string.IsNullOrWhiteSpace(direct) && !string.Equals(direct, code, StringComparison.OrdinalIgnoreCase))
+            return direct;
+
+        if (string.IsNullOrWhiteSpace(code))
+            return direct;
+
+        var local = await _db.Funcionarios
+            .AsNoTracking()
+            .Where(f => f.CodFuncaoRm == code && f.FuncaoNomeRm != null && f.FuncaoNomeRm != "")
+            .OrderByDescending(f => f.Status == FuncionarioStatus.Active)
+            .Select(f => f.FuncaoNomeRm)
+            .FirstOrDefaultAsync(ct);
+
+        return FirstNonBlank(local, direct);
     }
 
     private async Task<Guid?> ResolveJobPositionIdAsync(string? code, string? name, CancellationToken ct)
