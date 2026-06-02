@@ -302,7 +302,13 @@ function AutocompleteSelect({
     }, [disabled]);
 
     const selected = items.find((i) => i.id === value) ?? null;
-    const displayText = selected ? (selected.code ? `${selected.code} – ${selected.name}` : selected.name) : "";
+    const displayText = selected
+        ? selected.code
+            ? selected.name && selected.name !== selected.code
+                ? `${selected.code} – ${selected.name}`
+                : selected.code
+            : selected.name
+        : "";
 
     if (disabled) {
         return (
@@ -381,6 +387,11 @@ function parseFuncaoRmOptionId(id: string): { codigo: string; nome: string | nul
     const tab = id.indexOf("\t");
     if (tab < 0) return { codigo: id, nome: null };
     return { codigo: id.slice(0, tab), nome: id.slice(tab + 1) || null };
+}
+
+function ensureLookupItem(items: LookupItem[], id: string | null, name: string | null, code?: string | null): LookupItem[] {
+    if (!id || !name?.trim() || items.some((item) => item.id === id)) return items;
+    return [{ id, name: name.trim(), code: code?.trim() || undefined }, ...items];
 }
 
 const FUNCIONARIO_SEARCH_MIN = 2;
@@ -558,6 +569,13 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [activeTab, setActiveTab] = useState("identificacao");
     const [observacaoAprovador, setObservacaoAprovador] = useState<string | null>(null);
     const [statusCarregado, setStatusCarregado] = useState<string | number | null>(null);
+    const [rmMeta, setRmMeta] = useState<{
+        requisicaoCodigo: string | null;
+        idReq: string | null;
+        empresaNome: string | null;
+        unitName: string | null;
+        centroCustoNome: string | null;
+    } | null>(null);
 
     /** Salvar + POST /submit quando URL traz resubmit=1 ou quando a solicitação está em Ajustes necessários (devolução do aprovador). */
     const effectiveResubmitAfterSave = useMemo(
@@ -606,6 +624,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const isDesligamentoMotivo = motivoSelecionado
         ? motivoSelecionado.efeitoHeadcount === "Diminui" || motivoSelecionado.efeitoHeadcount === "Ambos"
         : false;
+    const isRmViewOnly = !!viewOnly && !!(rmMeta?.requisicaoCodigo || rmMeta?.idReq);
 
     const loadLookups = useCallback(async (opts?: { setRequisitanteFromMe?: boolean }) => {
         // Lookup de funcionários NÃO é carregado aqui — é responsabilidade do useEffect abaixo,
@@ -708,12 +727,29 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
         setObservacaoAprovador(null);
         setStatusCarregado(null);
+        setRmMeta(null);
         const sourceId = editId ?? copySourceId ?? null;
         if (sourceId) {
             setLoadingEdit(true);
             fetchJson<Record<string, unknown>>(`${API}/${sourceId}`)
                 .then((d) => {
                     setDraft(parseDraft(d, copySourceId ? " (cópia)" : ""));
+                    const empresaId = d?.empresaId != null ? String(d.empresaId) : null;
+                    const empresaNome = d?.empresaNome != null ? String(d.empresaNome) : null;
+                    const unitId = d?.unitId != null ? String(d.unitId) : null;
+                    const unitName = d?.unitName != null ? String(d.unitName) : null;
+                    const centroCustoId = d?.centroCustoId != null ? String(d.centroCustoId) : null;
+                    const centroCustoNome = d?.centroCustoNome != null ? String(d.centroCustoNome) : null;
+                    setEmpresas((items) => ensureLookupItem(items, empresaId, empresaNome));
+                    setUnidades((items) => ensureLookupItem(items, unitId, unitName));
+                    setCentrosCusto((items) => ensureLookupItem(items, centroCustoId, centroCustoNome));
+                    setRmMeta({
+                        requisicaoCodigo: d?.rmRequisicaoCodigo != null ? String(d.rmRequisicaoCodigo).trim() || null : null,
+                        idReq: d?.rmIdReq != null ? String(d.rmIdReq).trim() || null : null,
+                        empresaNome: empresaNome?.trim() || null,
+                        unitName: unitName?.trim() || null,
+                        centroCustoNome: centroCustoNome?.trim() || null,
+                    });
                     if (d?.solicitanteId)
                         setRequisitanteFuncionarioId(String(d.solicitanteId));
                     const sn = d?.solicitanteNome != null ? String(d.solicitanteNome).trim() : "";
@@ -738,8 +774,10 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             merged.faixaSalarialMin = moneyFieldFromApi(merged.faixaSalarialMin ?? "");
             merged.faixaSalarialMax = moneyFieldFromApi(merged.faixaSalarialMax ?? "");
             setDraft(merged);
+            setRmMeta(null);
         } else {
             setDraft({ ...emptyDraft });
+            setRmMeta(null);
         }
     }, [active, editId, copySourceId, initialData, loadLookups, reloadNonce]);
 
@@ -1224,34 +1262,79 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
 
                                 <Section title="Identificação" />
 
-                                <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3">
-                                    <div>
-                                        <label className={L}>{LB.empresa}</label>
-                                        <AutocompleteSelect items={empresas} value={draft.empresaId} onChange={(v) => setDraft((d) => ({ ...d, empresaId: v }))} placeholder="empresa" required disabled={viewOnly || estruturaLocks.empresa} />
+                                {isRmViewOnly && (
+                                    <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                                        <div>
+                                            <label className={L}>Requisitante</label>
+                                            <div className="h-9 rounded-md border border-input bg-muted/40 px-3 text-sm flex items-center text-muted-foreground truncate">
+                                                {requisitanteNomeExibicao || <span className="italic opacity-40">—</span>}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className={L}>ID requisição RM</label>
+                                            <div className="h-9 rounded-md border border-input bg-muted/40 px-3 text-sm flex items-center text-muted-foreground truncate">
+                                                {rmMeta?.idReq || rmMeta?.requisicaoCodigo || <span className="italic opacity-40">—</span>}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className={L}>{LB.filial}</label>
-                                        <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="filial" required disabled={viewOnly || estruturaLocks.unit} />
-                                    </div>
-                                </div>
+                                )}
 
-                                <div className="col-span-3">
-                                    <label className={L}>{LB.secao}</label>
-                                    <AutocompleteSelect
-                                        items={centrosCusto}
-                                        value={draft.centroCustoId}
-                                        onChange={(v) => setDraft((d) => ({ ...d, centroCustoId: v }))}
-                                        placeholder="seção"
-                                        required
-                                        disabled={viewOnly || estruturaLocks.centroCusto}
-                                    />
-                                </div>
+                                {isRmViewOnly ? (
+                                    <>
+                                        <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                                            <div>
+                                                <label className={L}>{LB.empresa}</label>
+                                                <div className="h-9 rounded-md border border-input bg-muted/40 px-3 text-sm flex items-center text-muted-foreground truncate">
+                                                    {rmMeta?.empresaNome || <span className="italic opacity-40">—</span>}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className={L}>{LB.filial}</label>
+                                                <div className="h-9 rounded-md border border-input bg-muted/40 px-3 text-sm flex items-center text-muted-foreground truncate">
+                                                    {rmMeta?.unitName || <span className="italic opacity-40">—</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="col-span-3">
+                                            <label className={L}>{LB.secao}</label>
+                                            <div className="h-9 rounded-md border border-input bg-muted/40 px-3 text-sm flex items-center text-muted-foreground truncate">
+                                                {rmMeta?.centroCustoNome || <span className="italic opacity-40">—</span>}
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3">
+                                            <div>
+                                                <label className={L}>{LB.empresa}</label>
+                                                <AutocompleteSelect items={empresas} value={draft.empresaId} onChange={(v) => setDraft((d) => ({ ...d, empresaId: v }))} placeholder="empresa" required disabled={viewOnly || estruturaLocks.empresa} />
+                                            </div>
+                                            <div>
+                                                <label className={L}>{LB.filial}</label>
+                                                <AutocompleteSelect items={unidades} value={draft.unitId} onChange={(v) => setDraft((d) => ({ ...d, unitId: v }))} placeholder="filial" required disabled={viewOnly || estruturaLocks.unit} />
+                                            </div>
+                                        </div>
+
+                                        <div className="col-span-3">
+                                            <label className={L}>{LB.secao}</label>
+                                            <AutocompleteSelect
+                                                items={centrosCusto}
+                                                value={draft.centroCustoId}
+                                                onChange={(v) => setDraft((d) => ({ ...d, centroCustoId: v }))}
+                                                placeholder="seção"
+                                                required
+                                                disabled={viewOnly || estruturaLocks.centroCusto}
+                                            />
+                                        </div>
+                                    </>
+                                )}
 
                                 <div className="col-span-3 grid grid-cols-2 gap-x-4 gap-y-3">
                                     <div>
                                         <label className={L}>Qtd. Posições</label>
                                         <Input type="number" min={1} value={draft.qtdPosicoes} onChange={(e) => setDraft((d) => ({ ...d, qtdPosicoes: Math.max(1, Number(e.target.value)) }))} disabled={viewOnly} />
                                     </div>
+                                    {!isRmViewOnly && (
                                     <div>
                                         <label className={L}>Urgência</label>
                                         <select className={S} value={draft.urgencia} onChange={(e) => setDraft((d) => ({ ...d, urgencia: Number(e.target.value) }))} disabled={viewOnly}>
@@ -1261,6 +1344,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             <option value={3}>Crítica</option>
                                         </select>
                                     </div>
+                                    )}
                                 </div>
 
                                 <Section title={LB.secaoTituloReq} />
@@ -1302,6 +1386,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             </p>
                                         )}
                                     </div>
+                                    {!isRmViewOnly && (
                                     <div>
                                         <label className={L}>{draft.tipoSolicitacao === 2 ? LB.cargoObrig : LB.cargoOpcional}</label>
                                         <AutocompleteSelect
@@ -1313,6 +1398,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             disabled={viewOnly}
                                         />
                                     </div>
+                                    )}
                                 </div>
 
                                 <div
@@ -1444,12 +1530,13 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             <option value={1}>Substituição</option>
                                             <option value={2}>Aumento de quadro</option>
                                         </select>
-                                        {draft.tipoSolicitacao === 2 && (
+                                        {draft.tipoSolicitacao === 2 && !isRmViewOnly && (
                                             <p className="text-[11px] text-muted-foreground mt-1">
                                                 Esta opção segue para aprovação do gestor direto antes da distribuição ao RH.
                                             </p>
                                         )}
                                     </div>
+                                    {!isRmViewOnly && (
                                     <div>
                                         <label className={L}>{LB.motivo}</label>
                                         <select
@@ -1477,6 +1564,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                             ))}
                                         </select>
                                     </div>
+                                    )}
                                 </div>
 
                                 {draft.tipoSolicitacao === 1 && !isDesligamentoMotivo && (
@@ -1579,7 +1667,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 )}
 
                                 {/* Decisão de headcount — VagaNova e AumentoQuadro (substituição usa provisório por default) */}
-                                {exigeDecisaoHeadcountGestor && (
+                                {exigeDecisaoHeadcountGestor && !isRmViewOnly && (
                                     <div className="col-span-3 rounded-md border border-dashed border-sky-400/70 bg-sky-50/40 p-3" data-testid="bloco-decisao-hc">
                                         <div className="mb-2 text-xs font-semibold text-sky-800">
                                             Decisão de headcount *
@@ -1659,6 +1747,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     </div>
                                 )}
 
+                                {!isRmViewOnly && (
                                 <div className="col-span-3 flex items-center gap-6 py-1">
                                     <label className={`flex items-center gap-2 ${viewOnly ? "cursor-default" : "cursor-pointer"}`}>
                                         <input type="checkbox" checked={draft.cnhObrigatoria} onChange={(e) => setDraft((d) => ({ ...d, cnhObrigatoria: e.target.checked }))} className="rounded border-input" disabled={viewOnly} />
@@ -1673,6 +1762,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                         <span className="text-sm">Confidencial</span>
                                     </label>
                                 </div>
+                                )}
 
                                 <div className="col-span-3">
                                     <label className={L}>
