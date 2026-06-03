@@ -87,6 +87,12 @@ public sealed class CandidatosController : ControllerBase
                 .AnyAsync(s => s.VagaId == vid && s.AnalistaRhResponsavelUserId == uid.Value, ct);
 
             if (!assignedToCurrentAnalyst
+                && IsAnalistaRhRestrito()
+                && uid.HasValue
+                && vagaRow.RecrutadorResponsavelUserId != uid.Value)
+                return NotFound();
+
+            if (!assignedToCurrentAnalyst
                 && _userContext.VagasDataScope == VagasDataScope.ByArea
                 && _userContext.CentroCustoId.HasValue
                 && vagaRow.CentroCustoId != _userContext.CentroCustoId)
@@ -100,7 +106,9 @@ public sealed class CandidatosController : ControllerBase
         }
         else if (!_userContext.IsAdmin && !_userContext.IsInRole("Owner"))
         {
-            if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue)
+            if (IsAnalistaRhRestrito() && _userContext.UserId.HasValue)
+                recrutadorUserId = _userContext.UserId;
+            else if (_userContext.VagasDataScope == VagasDataScope.ByArea && _userContext.CentroCustoId.HasValue)
                 areaId = _userContext.CentroCustoId;
             else if (_userContext.VagasDataScope == VagasDataScope.ByRecrutador && _userContext.UserId.HasValue)
                 recrutadorUserId = _userContext.UserId;
@@ -427,6 +435,12 @@ public sealed class CandidatosController : ControllerBase
                 .AnyAsync(s => s.VagaId == vid.Value && s.AnalistaRhResponsavelUserId == _userContext.UserId!.Value, ct);
 
         if (!assignedToCurrentAnalyst
+            && IsAnalistaRhRestrito()
+            && _userContext.UserId.HasValue
+            && vagaRecrutadorResponsavelUserId != _userContext.UserId)
+            return NotFound();
+
+        if (!assignedToCurrentAnalyst
             && _userContext.VagasDataScope == VagasDataScope.ByArea
             && _userContext.CentroCustoId.HasValue
             && vagaAreaId.HasValue
@@ -441,6 +455,9 @@ public sealed class CandidatosController : ControllerBase
 
         return null;
     }
+
+    private bool IsAnalistaRhRestrito()
+        => _userContext.IsInRole("Analista de RH") && !_userContext.IsInRole("Especialista de RH");
 
     private static PortalCandidateInternalNotificationDto MapPortalNotificacao(
         CandidatoPortalNotificacao n,

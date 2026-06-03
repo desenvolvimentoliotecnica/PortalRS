@@ -136,9 +136,28 @@ public static class DbSeeder
                     await tenantDb.Database.MigrateAsync(ct);
                     await TenantProvisioningService.ApplyOrphanMigrationsAsync(tenantDb, tenantId, ct);
 
+                    var tenantRoleManager = tenantScope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
+                    var tenantLocalizer = tenantScope.ServiceProvider.GetRequiredService<IStringLocalizer<SeedMessages>>();
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
+                        .EnsureRolesExistAsync(tenantRoleManager, tenantLocalizer, ct);
+                    var tenantAdminRole = await tenantRoleManager.Roles.FirstOrDefaultAsync(x => x.Name == "Admin", ct);
+                    if (tenantAdminRole is not null)
+                    {
+                        await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuSeeder
+                            .EnsureAsync(tenantDb, tenantAdminRole, tenantLocalizer, ct);
+                        await global::RhPortal.Api.Infrastructure.Data.Seeders.MenuRoleSeeder
+                            .EnsureDefaultRoleMenuAccessAsync(tenantDb, ct);
+                    }
+
                     // Seeds idempotentes de tabelas parametrizáveis (rodam a cada startup — no-op se já populadas).
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.MotivoRequisicaoVagaSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.RmRequisicaoStatusMapSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.DocumentacaoPadraoConfigSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.ApiKeySeeder
+                        .EnsureAsync(tenantDb, config, tenantId, ct);
 
                     // Templates de avaliação prontos (Entrega 1.1 — Fase 1 Paridade Feedz).
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.AvaliacaoTemplateSeeder
@@ -261,7 +280,6 @@ public static class DbSeeder
     /// </summary>
     public sealed record SeedOverrides(
         bool? SeedEnabled = null,
-        bool? SeedVagasEnabled = null,
         bool? SeedCandidatosEnabled = null,
         bool? SeedInboxEnabled = null,
         bool? SeedPreAdmisoesEnabled = null

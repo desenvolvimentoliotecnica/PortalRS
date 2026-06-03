@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
     CheckCircle2,
     XCircle,
@@ -16,15 +16,10 @@ import {
     TableRow,
     TableCell,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { TableSkeleton } from "@/components/ui/ScreenSkeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import IntegracaoDetalhesDrawer from "./IntegracaoDetalhesDrawer";
-import { apiFetch } from "@/lib/api";
-import { toast } from "sonner";
 
 /* ── types ── */
 
@@ -56,13 +51,6 @@ interface IntegracaoTotvsPainelResponse {
     pendentes: number;
     sucesso: number;
     falha: number;
-}
-
-interface ConfiguracaoRmRequisicaoDto {
-    endpointUrl: string | null;
-    getEndpointUrl: string | null;
-    username: string | null;
-    password: string | null;
 }
 
 /* ── constants ── */
@@ -113,13 +101,6 @@ export default function IntegracaoTotvsScreen() {
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [drawerItem, setDrawerItem] = useState<IntegracaoTotvsListItem | null>(null);
-    const [configLoading, setConfigLoading] = useState(false);
-    const [configSaving, setConfigSaving] = useState(false);
-    const [canManageRmConfig, setCanManageRmConfig] = useState(true);
-    const [rmEndpointUrl, setRmEndpointUrl] = useState("");
-    const [rmGetEndpointUrl, setRmGetEndpointUrl] = useState("");
-    const [rmUsername, setRmUsername] = useState("");
-    const [rmPassword, setRmPassword] = useState("");
 
     // Debounce search
     const searchTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -162,74 +143,6 @@ export default function IntegracaoTotvsScreen() {
         setDrawerItem(null);
     }, [queryClient]);
 
-    useEffect(() => {
-        if (!isSolicitacoesRmTab) return;
-
-        let cancelled = false;
-        setConfigLoading(true);
-
-        (async () => {
-            try {
-                const res = await apiFetch("/api/integracao-totvs/configuracao-rm-requisicao");
-                if (res.status === 403) {
-                    if (!cancelled) setCanManageRmConfig(false);
-                    return;
-                }
-                if (!res.ok) throw new Error(`Erro HTTP ${res.status}`);
-
-                const json = await res.json() as ConfiguracaoRmRequisicaoDto;
-                if (cancelled) return;
-
-                setCanManageRmConfig(true);
-                setRmEndpointUrl(json.endpointUrl ?? "");
-                setRmGetEndpointUrl(json.getEndpointUrl ?? "");
-                setRmUsername(json.username ?? "");
-                setRmPassword(json.password ?? "");
-            } catch {
-                if (!cancelled)
-                    toast.error("Falha ao carregar a configuração de integração RM.");
-            } finally {
-                if (!cancelled) setConfigLoading(false);
-            }
-        })();
-
-        return () => { cancelled = true; };
-    }, [isSolicitacoesRmTab]);
-
-    const handleSaveRmConfig = useCallback(async () => {
-        setConfigSaving(true);
-        try {
-            const res = await apiFetch("/api/integracao-totvs/configuracao-rm-requisicao", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    endpointUrl: rmEndpointUrl.trim() || null,
-                    getEndpointUrl: rmGetEndpointUrl.trim() || null,
-                    username: rmUsername.trim() || null,
-                    password: rmPassword.trim() || null,
-                }),
-            });
-
-            if (res.status === 403)
-                throw new Error("Somente administradores podem alterar essa configuração.");
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({ message: `Erro HTTP ${res.status}` }));
-                throw new Error((body as { message?: string }).message || `Erro HTTP ${res.status}`);
-            }
-
-            const json = await res.json() as ConfiguracaoRmRequisicaoDto;
-            setRmEndpointUrl(json.endpointUrl ?? "");
-            setRmGetEndpointUrl(json.getEndpointUrl ?? "");
-            setRmUsername(json.username ?? "");
-            setRmPassword(json.password ?? "");
-            toast.success("Configuração de requisição RM salva.");
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Falha ao salvar configuração RM.");
-        } finally {
-            setConfigSaving(false);
-        }
-    }, [rmEndpointUrl, rmGetEndpointUrl, rmPassword, rmUsername]);
-
     return (
         <section className="space-y-6">
             {/* header */}
@@ -270,77 +183,6 @@ export default function IntegracaoTotvsScreen() {
                         </button>
                     ))}
                 </div>
-
-                {isSolicitacoesRmTab && canManageRmConfig && (
-                    <div className="mb-6 rounded-xl border border-border/60 bg-muted/20 p-4">
-                        <div className="mb-3">
-                            <h2 className="text-sm font-semibold">Configuração da integração de requisições RM</h2>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Informe as URLs de criação (POST) e consulta (GET) e as credenciais BasicAuth usadas pelo RM.
-                            </p>
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-3">
-                            <div className="md:col-span-3">
-                                <Label htmlFor="rm-endpoint-url">Endpoint POST de criação</Label>
-                                <Input
-                                    id="rm-endpoint-url"
-                                    value={rmEndpointUrl}
-                                    onChange={(e) => setRmEndpointUrl(e.target.value)}
-                                    placeholder="http://localhost:8051/RMSRestDataServer/rest/RhuReqAumentoQuadroData"
-                                    disabled={configLoading || configSaving}
-                                />
-                            </div>
-
-                            <div className="md:col-span-3">
-                                <Label htmlFor="rm-get-endpoint-url">Endpoint GET de consulta</Label>
-                                <Input
-                                    id="rm-get-endpoint-url"
-                                    value={rmGetEndpointUrl}
-                                    onChange={(e) => setRmGetEndpointUrl(e.target.value)}
-                                    placeholder="http://172.19.30.37:8051/api/framework/v1/consultaSQLServer/RealizaConsulta/KNG.V.003/0/V/?parameters=COLIGADA={COLIGADA};IDREQ={IDREQ}"
-                                    disabled={configLoading || configSaving}
-                                />
-                                <p className="mt-1 text-[11px] text-muted-foreground">
-                                    Use <code>{`{COLIGADA}`}</code> e <code>{`{IDREQ}`}</code> como variáveis, ou cole a URL TOTVS com <code>COLIGADA=1;IDREQ=1</code>; o portal troca esses valores ao consultar o status.
-                                </p>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="rm-username">Usuário</Label>
-                                <Input
-                                    id="rm-username"
-                                    value={rmUsername}
-                                    onChange={(e) => setRmUsername(e.target.value)}
-                                    placeholder="usuario.rm"
-                                    disabled={configLoading || configSaving}
-                                />
-                            </div>
-
-                            <div>
-                                <Label htmlFor="rm-password">Senha</Label>
-                                <Input
-                                    id="rm-password"
-                                    type="password"
-                                    value={rmPassword}
-                                    onChange={(e) => setRmPassword(e.target.value)}
-                                    placeholder="Senha BasicAuth"
-                                    disabled={configLoading || configSaving}
-                                />
-                            </div>
-
-                            <div className="flex items-end">
-                                <Button
-                                    onClick={() => void handleSaveRmConfig()}
-                                    disabled={configLoading || configSaving}
-                                    className="w-full"
-                                >
-                                    {configSaving ? "Salvando..." : "Salvar configuração"}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* Filter row */}
                 <div className="flex flex-wrap items-center gap-4 mb-4">

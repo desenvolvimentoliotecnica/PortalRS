@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
-    // Default 7093; override with `npm run dev -- --port 3050` if your local stack uses 3050 (see API WebOrigin).
-    port: 7093,
+    // Porta esperada pelo menu local do Portal Admin (Navegacao:PortalVagasPublicUrl).
+    port: 3050,
     proxy: {
       '/api': {
         target: process.env.VITE_DEV_PROXY_TARGET ?? 'http://localhost:5056',

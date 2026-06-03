@@ -5,6 +5,7 @@ namespace LioTecnica.Api.Contracts.Lookups;
 public sealed class FuncionarioLookupItem
 {
     public Guid Id { get; init; }
+    public Guid? UserId { get; init; }
     public string Nome { get; init; } = "";
     public string? Email { get; init; }
     public string? Cargo { get; init; }

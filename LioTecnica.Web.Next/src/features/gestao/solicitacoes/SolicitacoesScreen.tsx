@@ -6,6 +6,7 @@ import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoF
 import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
 import { useAuth, useHasPermission, useIsAdminOrOwner } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import Swal from "sweetalert2";
 import {
     Search,
     RefreshCw,
@@ -178,7 +179,7 @@ interface SolicitacaoDetail {
 
 type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
 type UrgenciaKey = 0 | 1 | 2 | 3 | string;
-type SolicitacaoSortKey = "titulo" | "tipo" | "posicoes" | "urgencia" | "status" | "aguardando" | "data";
+type SolicitacaoSortKey = "titulo" | "secao" | "tipo" | "posicoes" | "urgencia" | "status" | "aguardando" | "data" | "abertoHa" | "requisitante";
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -219,6 +220,16 @@ const ROW_STATUS_COL_PENDENTE_LIKE = new Set<string>([
     "ErroIntegracaoRm", "15",
     "AguardandoReprocessamentoRm", "16",
 ]);
+
+const SOLICITACAO_STATUS_ATIVOS = new Set([
+    "Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh",
+    "PendenteAprovacaoAumentoHC", "Aprovada", "Concluida", "EmIntegracao",
+    "PendenteTriagem", "EmTriagem", "DevolvidaTriagemGestor",
+    "PendenteIntegracaoRm", "ErroIntegracaoRm", "AguardandoReprocessamentoRm",
+    "0", "1", "2", "4", "5", "7", "8", "10", "11", "12", "13", "14", "15", "16",
+]);
+
+const SOLICITACAO_STATUS_APROVADOS = new Set(["Aprovada", "Concluida", "2", "8"]);
 
 function rowStatusMatchesKanbanCol(r: SolicitacaoGridRow, col: keyof typeof KANBAN_COL_META): boolean {
     const s = String(r.status);
@@ -266,10 +277,39 @@ function formatDate(iso: string | null | undefined) {
     }
 }
 
-function truncateTitle(value: string | null | undefined, maxLength = 30) {
+function formatOpenDays(iso: string | null | undefined) {
+    if (!iso) return "—";
+    const openedAt = new Date(iso).getTime();
+    if (!Number.isFinite(openedAt)) return "—";
+
+    const elapsedMs = Date.now() - openedAt;
+    const days = Math.max(0, Math.floor(elapsedMs / 86_400_000));
+    return days === 1 ? "1 dia" : `${days} dias`;
+}
+
+function truncateTitle(value: string | null | undefined, maxLength = 60) {
     const text = value?.trim() ?? "";
     if (!text) return "—";
     return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+async function showAnalistaRhObrigatoriaAlert() {
+    const previousPointerEvents = document.body.style.pointerEvents;
+
+    await Swal.fire({
+        icon: "warning",
+        title: "Selecione uma Analista de RH",
+        text: "Para distribuir a solicitação, selecione uma Analista de RH.",
+        confirmButtonText: "Entendi",
+        didOpen: () => {
+            document.body.style.pointerEvents = "auto";
+            const container = Swal.getContainer();
+            if (container) container.style.zIndex = "10000";
+        },
+        willClose: () => {
+            document.body.style.pointerEvents = previousPointerEvents;
+        },
+    });
 }
 
 /* ──────────────────────────── component ──────────────────────────── */
@@ -386,7 +426,7 @@ function SolicitacoesVagaContent() {
             return;
         }
         setSortKey(key);
-        setSortDir(key === "data" ? "desc" : "asc");
+        setSortDir(key === "data" || key === "abertoHa" ? "desc" : "asc");
     }
 
     function SortIcon({ col }: { col: SolicitacaoSortKey }) {
@@ -520,21 +560,12 @@ function SolicitacoesVagaContent() {
     }, [syncList]);
 
     /* ── filtering ── */
-    const ATIVAS = new Set([
-        "Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh",
-        "PendenteAprovacaoAumentoHC", "Aprovada", "Concluida", "EmIntegracao",
-        "PendenteTriagem", "EmTriagem", "DevolvidaTriagemGestor",
-        "PendenteIntegracaoRm", "ErroIntegracaoRm", "AguardandoReprocessamentoRm",
-        "0", "1", "2", "4", "5", "7", "8", "10", "11", "12", "13", "14", "15", "16",
-    ]);
-    const APROVADAS = new Set(["Aprovada", "Concluida", "2", "8"]);
-
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
             const s = String(r.status);
-            if (statusFilter === "ativas" && !ATIVAS.has(s)) return false;
-            if (statusFilter === "aprovadas" && !APROVADAS.has(s)) return false;
+            if (statusFilter === "ativas" && !SOLICITACAO_STATUS_ATIVOS.has(s)) return false;
+            if (statusFilter === "aprovadas" && !SOLICITACAO_STATUS_APROVADOS.has(s)) return false;
             if (statusFilter === "reprovadas" && s !== "Reprovada" && s !== "3") return false;
             if (statusFilter === "canceladas" && s !== "Cancelada" && s !== "6") return false;
             // "todas" — sem filtro de status
@@ -551,11 +582,13 @@ function SolicitacoesVagaContent() {
     const sorted = useMemo(() => {
         const getValue = (r: SolicitacaoGridRow): string | number => {
             if (sortKey === "titulo") return r.titulo ?? "";
+            if (sortKey === "secao") return r.centroCustoNome ?? "";
             if (sortKey === "tipo") return String(r.tipoSolicitacao);
             if (sortKey === "posicoes") return r.qtdPosicoes ?? 0;
             if (sortKey === "urgencia") return String(r.urgencia);
             if (sortKey === "status") return String(r.status);
             if (sortKey === "aguardando") return r.etapaPendenteCom ?? r.etapaPendenteLabel ?? "";
+            if (sortKey === "requisitante") return r.solicitanteNome ?? "";
             return new Date(r.createdAtUtc).getTime() || 0;
         };
 
@@ -580,19 +613,6 @@ function SolicitacoesVagaContent() {
     );
     const allDistribuiveisSelecionados = filteredDistribuiveis.length > 0
         && filteredDistribuiveis.every((r) => selectedSolicitacaoIds.includes(r.id));
-
-    /* ── KPIs ── */
-    const kpis = useMemo(() => {
-        const src = rows;
-        const total = src.length;
-        const pendentes = src.filter((r) => ROW_STATUS_COL_PENDENTE_LIKE.has(String(r.status))).length;
-        const aprovadas = src.filter((r) => {
-            const s = String(r.status);
-            return s === "Aprovada" || s === "2" || s === "Concluida" || s === "8";
-        }).length;
-        const reprovadas = src.filter((r) => r.status === 3 || r.status === "Reprovada").length;
-        return { total, pendentes, aprovadas, reprovadas };
-    }, [rows]);
 
     /* ── actions ── */
     function openNovaPosicao() {
@@ -717,6 +737,10 @@ function SolicitacoesVagaContent() {
             toast.error("Selecione ao menos uma solicitação.");
             return;
         }
+        if (!bulkAnalistaRh.userId) {
+            await showAnalistaRhObrigatoriaAlert();
+            return;
+        }
 
         setBulkAssigning(true);
         try {
@@ -742,6 +766,10 @@ function SolicitacoesVagaContent() {
     async function distribuirSolicitacaoDoModal() {
         const id = viewId;
         if (!id) return;
+        if (!detailAnalistaRh.userId) {
+            await showAnalistaRhObrigatoriaAlert();
+            return;
+        }
 
         setDetailAssigning(true);
         try {
@@ -856,9 +884,8 @@ function SolicitacoesVagaContent() {
     /* ──────────────────────────── render ──────────────────────────── */
     return (
         <div className="space-y-4">
-            {/* ── primary actions ── */}
-            <div className="flex flex-wrap items-center gap-3">
-                {!requisicoesVagaOrigemRm && (
+            {!requisicoesVagaOrigemRm && (
+                <div className="flex flex-wrap items-center gap-3">
                     <Button
                         size="sm"
                         data-testid="btn-nova-posicao"
@@ -867,75 +894,42 @@ function SolicitacoesVagaContent() {
                         <Plus className="size-4 mr-1" />
                         Nova posição
                     </Button>
-                )}
-                {requisicoesVagaOrigemRm && (
-                    <div className="rounded-full border border-border/60 bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground">
-                        Requisições vêm aprovadas do RM.
-                    </div>
-                )}
-                {canDistribuirParaAnalistaRh && (
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={selectedSolicitacaoIds.length === 0}
-                        onClick={() => setBulkAssignOpen(true)}
-                    >
-                        Distribuir para Analista de RH
-                    </Button>
-                )}
-                <div className="ml-auto flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            setLoading(true);
-                            syncList()
-                                .catch(() => toast.error("Falha ao atualizar."))
-                                .finally(() => setLoading(false));
-                        }}
-                    >
-                        <RefreshCw className="size-4" />
-                        <span className="hidden sm:inline">Atualizar</span>
-                    </Button>
                 </div>
-            </div>
+            )}
 
             {/* Ao aprovar, troca direto para aba triagem */}
-
-            {/* ── KPIs ── */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {[
-                    { label: "Total", value: kpis.total, color: "text-primary" },
-                    { label: "Pendentes", value: kpis.pendentes, color: "text-amber-600" },
-                    { label: "Aprovadas", value: kpis.aprovadas, color: "text-emerald-600" },
-                    { label: "Reprovadas", value: kpis.reprovadas, color: "text-red-600" },
-                ].map((k) => (
-                    <div
-                        key={k.label}
-                        className="rounded-xl border border-border/40 bg-card p-4 shadow-sm"
-                    >
-                        <div className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-                            {k.label}
-                        </div>
-                        <div className={`mt-1 text-2xl font-bold ${k.color}`}>
-                            {k.value}
-                        </div>
-                    </div>
-                ))}
-            </div>
 
             {/* ── filters + table ── */}
             <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
                 {/* ── Header + filtros ── */}
                 <div className="mb-3 space-y-3">
-                    {/* linha 1: título + busca + view toggle */}
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <div className="font-semibold">Minhas solicitações</div>
-                            <div className="text-muted-foreground text-sm">
-                                {loading ? "Carregando…" : `${filtered.length} solicitação${filtered.length !== 1 ? "ões" : ""}`}
-                            </div>
-                        </div>
+                    {/* linha 1: filtros + busca + ações */}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        {(() => {
+                            const chips = [
+                                { key: "ativas",     label: "Ativas",      count: rows.filter(r => SOLICITACAO_STATUS_ATIVOS.has(String(r.status))).length,                                          cls: "bg-amber-500/10 text-amber-700 border-amber-300 data-[active=true]:bg-amber-500 data-[active=true]:text-white data-[active=true]:border-amber-500" },
+                                { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => SOLICITACAO_STATUS_APROVADOS.has(String(r.status))).length,           cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
+                                { key: "reprovadas", label: "Reprovadas",  count: rows.filter(r => String(r.status) === "Reprovada" || String(r.status) === "3").length,           cls: "bg-red-500/10 text-red-700 border-red-300 data-[active=true]:bg-red-600 data-[active=true]:text-white data-[active=true]:border-red-600" },
+                                { key: "canceladas", label: "Canceladas",  count: rows.filter(r => String(r.status) === "Cancelada" || String(r.status) === "6").length,           cls: "bg-zinc-500/10 text-zinc-600 border-zinc-300 data-[active=true]:bg-zinc-600 data-[active=true]:text-white data-[active=true]:border-zinc-600" },
+                                { key: "todas",      label: "Todas",       count: rows.length,                                                                                     cls: "bg-muted text-muted-foreground border-border data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:border-foreground" },
+                            ] as const;
+                            return (
+                                <div className="flex flex-wrap justify-end gap-1.5">
+                                    {chips.map(c => (
+                                        <button
+                                            key={c.key}
+                                            type="button"
+                                            data-active={statusFilter === c.key}
+                                            onClick={() => setStatusFilter(c.key)}
+                                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-medium transition-all ${c.cls}`}
+                                        >
+                                            {c.label}
+                                            <span className="rounded-full bg-black/10 px-1.5 py-px text-[10px] font-semibold tabular-nums">{c.count}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            );
+                        })()}
                         <div className="flex items-center gap-2">
                             <div className="relative min-w-[200px]">
                                 <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -951,34 +945,30 @@ function SolicitacoesVagaContent() {
                                 <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban"><Columns3 className="size-3.5" /></button>
                             </div>
                         </div>
+                        {canDistribuirParaAnalistaRh && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={selectedSolicitacaoIds.length === 0}
+                                onClick={() => setBulkAssignOpen(true)}
+                            >
+                                Distribuir para Analista de RH
+                            </Button>
+                        )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setLoading(true);
+                                syncList()
+                                    .catch(() => toast.error("Falha ao atualizar."))
+                                    .finally(() => setLoading(false));
+                            }}
+                        >
+                            <RefreshCw className="size-4" />
+                            <span className="hidden sm:inline">Atualizar</span>
+                        </Button>
                     </div>
-
-                    {/* linha 2: chips de filtro por status */}
-                    {(() => {
-                        const chips = [
-                            { key: "ativas",     label: "Ativas",      count: rows.filter(r => ATIVAS.has(String(r.status))).length,                                          cls: "bg-amber-500/10 text-amber-700 border-amber-300 data-[active=true]:bg-amber-500 data-[active=true]:text-white data-[active=true]:border-amber-500" },
-                            { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => APROVADAS.has(String(r.status))).length,           cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
-                            { key: "reprovadas", label: "Reprovadas",  count: rows.filter(r => String(r.status) === "Reprovada" || String(r.status) === "3").length,           cls: "bg-red-500/10 text-red-700 border-red-300 data-[active=true]:bg-red-600 data-[active=true]:text-white data-[active=true]:border-red-600" },
-                            { key: "canceladas", label: "Canceladas",  count: rows.filter(r => String(r.status) === "Cancelada" || String(r.status) === "6").length,           cls: "bg-zinc-500/10 text-zinc-600 border-zinc-300 data-[active=true]:bg-zinc-600 data-[active=true]:text-white data-[active=true]:border-zinc-600" },
-                            { key: "todas",      label: "Todas",       count: rows.length,                                                                                     cls: "bg-muted text-muted-foreground border-border data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:border-foreground" },
-                        ] as const;
-                        return (
-                            <div className="flex flex-wrap gap-1.5">
-                                {chips.map(c => (
-                                    <button
-                                        key={c.key}
-                                        type="button"
-                                        data-active={statusFilter === c.key}
-                                        onClick={() => setStatusFilter(c.key)}
-                                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-medium transition-all ${c.cls}`}
-                                    >
-                                        {c.label}
-                                        <span className="rounded-full bg-black/10 px-1.5 py-px text-[10px] font-semibold tabular-nums">{c.count}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        );
-                    })()}
                 </div>
 
                 {viewMode === "list" ? (
@@ -1009,31 +999,37 @@ function SolicitacoesVagaContent() {
                             <TableHead className="cursor-pointer select-none" onClick={() => handleSort("titulo")}>
                                 Título<SortIcon col="titulo" />
                             </TableHead>
-                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("tipo")}>
+                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("secao")}>
+                                Seção<SortIcon col="secao" />
+                            </TableHead>
+                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("tipo")}>
                                 Tipo<SortIcon col="tipo" />
                             </TableHead>
-                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("posicoes")}>
+                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("posicoes")}>
                                 Posições<SortIcon col="posicoes" />
                             </TableHead>
-                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("urgencia")}>
-                                Urgência<SortIcon col="urgencia" />
-                            </TableHead>
-                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")}>
+                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("status")}>
                                 Status<SortIcon col="status" />
                             </TableHead>
-                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("aguardando")}>
+                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("aguardando")}>
                                 Aguardando<SortIcon col="aguardando" />
                             </TableHead>
-                            <TableHead className="cursor-pointer select-none" onClick={() => handleSort("data")}>
+                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("data")}>
                                 Data<SortIcon col="data" />
                             </TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
+                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("abertoHa")}>
+                                Aberto há<SortIcon col="abertoHa" />
+                            </TableHead>
+                            <TableHead className="w-1 whitespace-nowrap text-left cursor-pointer select-none" onClick={() => handleSort("requisitante")}>
+                                Requisitante<SortIcon col="requisitante" />
+                            </TableHead>
+                            <TableHead className="w-1 whitespace-nowrap text-center">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 9 : 8} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 11 : 10} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -1074,14 +1070,18 @@ function SolicitacoesVagaContent() {
                                         )}
                                     </TableCell>
                                     <TableCell>
+                                        <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={r.centroCustoNome ?? ""}>
+                                            {r.centroCustoNome ?? "—"}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap text-center">
                                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${r.tipoSolicitacao === 1 ? "bg-blue-500/15 text-blue-700" : "bg-sky-500/15 text-sky-700"}`}>
                                             {r.tipoSolicitacao === 1 ? "Substituição" : "Nova"}
                                         </span>
                                     </TableCell>
-                                    <TableCell className="text-sm font-mono">{r.qtdPosicoes}</TableCell>
-                                    <TableCell>{urgenciaBadge(r.urgencia)}</TableCell>
-                                    <TableCell>{statusBadge(r.status)}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="whitespace-nowrap text-center text-sm font-mono">{r.qtdPosicoes}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-center">{statusBadge(r.status)}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-center">
                                         {(r.status === 1 || r.status === "PendenteAprovacao" || r.status === 5 || r.status === "PendenteAprovacaoRh") && r.etapaPendenteLabel ? (
                                             <div className="text-xs leading-tight">
                                                 <div className="text-muted-foreground">{r.etapaPendenteLabel}</div>
@@ -1093,16 +1093,19 @@ function SolicitacoesVagaContent() {
                                             <span className="text-muted-foreground text-xs">—</span>
                                         )}
                                     </TableCell>
-                                    <TableCell>
-                                        <div className="text-xs leading-tight">
-                                            <div className="font-medium text-foreground">{formatDate(r.createdAtUtc)}</div>
-                                            {r.solicitanteNome && (
-                                                <div className="text-muted-foreground">{r.solicitanteNome}</div>
-                                            )}
+                                    <TableCell className="whitespace-nowrap text-center">
+                                        <span className="text-xs font-medium text-foreground">{formatDate(r.createdAtUtc)}</span>
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap text-center">
+                                        <span className="text-xs text-muted-foreground">{formatOpenDays(r.createdAtUtc)}</span>
+                                    </TableCell>
+                                    <TableCell className="text-left">
+                                        <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={r.solicitanteNome ?? ""}>
+                                            {r.solicitanteNome ?? "—"}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <TableCell className="whitespace-nowrap text-center">
+                                        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                                             {isExternoAoSolicitanteLista(r) ? (
                                                 <>
                                                     <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
@@ -1206,7 +1209,7 @@ function SolicitacoesVagaContent() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 9 : 8} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 11 : 10} className="text-center text-muted-foreground py-8">
                                     {statusFilter === "ativas"
                                         ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
                                         : "Nenhuma solicitação encontrada para o filtro selecionado."}

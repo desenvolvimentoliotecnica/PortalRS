@@ -1642,6 +1642,20 @@ public sealed class VagaService : IVagaService
             return query;
         var currentUserId = _currentUser.UserId;
 
+        // A Analista de RH trabalha somente a própria carteira distribuída pela Especialista.
+        // Não deve enxergar toda a área/centro de custo.
+        if (IsAnalistaRhRestrito())
+        {
+            if (!currentUserId.HasValue)
+                return query.Where(_ => false);
+
+            return query.Where(v =>
+                v.RecrutadorResponsavelUserId == currentUserId.Value
+                || _db.SolicitacoesVaga.Any(s =>
+                    s.VagaId == v.Id
+                    && s.AnalistaRhResponsavelUserId == currentUserId.Value));
+        }
+
         return _currentUser.VagasDataScope switch
         {
             // 31.2: escopo por área agora é escopo por Centro de Custo (absorveu Area).
@@ -1673,4 +1687,7 @@ public sealed class VagaService : IVagaService
             _ => query // All or no centro-custo/userId/funcionarioId resolved
         };
     }
+
+    private bool IsAnalistaRhRestrito()
+        => _currentUser.IsInRole("Analista de RH") && !_currentUser.IsInRole("Especialista de RH");
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Swal from "sweetalert2";
 import {
   AlertTriangle,
   ChevronDown,
@@ -120,6 +122,10 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback;
 }
 
+function isRmIntegrationConfigMissing(message: string): boolean {
+  return /configure\s+rm:connectionstring\s+ou\s+rm:server\s+e\s+rm:database/i.test(message);
+}
+
 function isUnmappedStatus(row: RmRequisicaoRow): boolean {
   return row.codstatus != null && /sem mapa/i.test(row.statusDescricao ?? "");
 }
@@ -176,6 +182,8 @@ function truncateText(value: string | null | undefined, maxLength = 40): string 
 }
 
 export default function AdminRmRequisicoesScreen() {
+  const router = useRouter();
+  const rmConfigAlertOpenRef = useRef(false);
   const [rows, setRows] = useState<RmRequisicaoRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -223,6 +231,22 @@ export default function AdminRmRequisicoesScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    async function showRmConfigMissingAlert() {
+      if (rmConfigAlertOpenRef.current) return;
+      rmConfigAlertOpenRef.current = true;
+      const result = await Swal.fire({
+        icon: "warning",
+        title: "Configuração RM pendente",
+        text: "Faltam configurações da integração RM para carregar as requisições. Deseja configurar agora?",
+        confirmButtonText: "Configurar agora",
+        cancelButtonText: "Depois",
+        showCancelButton: true,
+        reverseButtons: true,
+      });
+      rmConfigAlertOpenRef.current = false;
+      if (result.isConfirmed) router.push("/admin/tenant-configuracao");
+    }
+
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -246,7 +270,8 @@ export default function AdminRmRequisicoesScreen() {
             : typeof body?.title === "string"
               ? body.title
               : `HTTP ${res.status}`;
-        toast.error(msg);
+        if (isRmIntegrationConfigMissing(msg)) await showRmConfigMissingAlert();
+        else toast.error(msg);
         setRows([]);
         setTotal(0);
         return;
@@ -256,13 +281,14 @@ export default function AdminRmRequisicoesScreen() {
       setTotal(data.totalCount ?? 0);
     } catch (error) {
       const message = getErrorMessage(error, "Falha ao carregar requisições do RM.");
-      toast.error(message);
+      if (isRmIntegrationConfigMissing(message)) await showRmConfigMissingAlert();
+      else toast.error(message);
       setRows([]);
       setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, tipo, statusFilter, dataDe, dataAte, qDebounced, sortKey, sortDir]);
+  }, [page, pageSize, tipo, statusFilter, dataDe, dataAte, qDebounced, sortKey, sortDir, router]);
 
   useEffect(() => {
     void load();
@@ -352,7 +378,7 @@ export default function AdminRmRequisicoesScreen() {
               </div>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link href="/app/admin/rm-requisicao-status">Configurar mapas</Link>
+              <Link href="/admin/rm-requisicao-status">Configurar mapas</Link>
             </Button>
           </div>
         </div>

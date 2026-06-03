@@ -271,6 +271,12 @@ public sealed class VagasController : ControllerBase
                 .AnyAsync(s => s.VagaId == id && s.AnalistaRhResponsavelUserId == _userContext.UserId.Value, ct);
 
             if (!assignedToCurrentAnalyst
+                && IsAnalistaRhRestrito()
+                && _userContext.UserId.HasValue
+                && item.RecrutadorResponsavelUserId != _userContext.UserId)
+                return NotFound();
+
+            if (!assignedToCurrentAnalyst
                 && _userContext.VagasDataScope == VagasDataScope.ByArea
                 && _userContext.CentroCustoId.HasValue
                 && item.CentroCustoId != _userContext.CentroCustoId)
@@ -283,6 +289,9 @@ public sealed class VagasController : ControllerBase
         }
         return Ok(item);
     }
+
+    private bool IsAnalistaRhRestrito()
+        => _userContext.IsInRole("Analista de RH") && !_userContext.IsInRole("Especialista de RH");
 
     /// <summary>
     /// Lista candidatos e talentos com score de matching para a vaga (embedding + vetorial + LLM 80/20).

@@ -59,7 +59,19 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
             if (!_currentUser.IsAdmin && !_currentUser.IsOwner)
             {
                 var currentUserId = _currentUser.UserId;
-                vagasQuery = _currentUser.VagasDataScope switch
+                if (IsAnalistaRhRestrito())
+                {
+                    vagasQuery = currentUserId.HasValue
+                        ? vagasQuery.Where(v =>
+                            v.RecrutadorResponsavelUserId == currentUserId.Value
+                            || _db.SolicitacoesVaga.Any(s =>
+                                s.VagaId == v.Id
+                                && s.AnalistaRhResponsavelUserId == currentUserId.Value))
+                        : vagasQuery.Where(_ => false);
+                }
+                else
+                {
+                    vagasQuery = _currentUser.VagasDataScope switch
                 {
                     VagasDataScope.ByArea when _currentUser.CentroCustoId.HasValue =>
                         vagasQuery.Where(v =>
@@ -87,6 +99,7 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
 
                     _ => vagasQuery
                 };
+                }
             }
 
             var vagas = await vagasQuery
@@ -218,4 +231,7 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
             return Array.Empty<VagaListItemResponse>();
         }
     }
+
+    private bool IsAnalistaRhRestrito()
+        => _currentUser.IsInRole("Analista de RH") && !_currentUser.IsInRole("Especialista de RH");
 }

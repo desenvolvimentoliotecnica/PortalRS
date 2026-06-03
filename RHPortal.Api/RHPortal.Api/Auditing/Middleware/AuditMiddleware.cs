@@ -190,8 +190,8 @@ public sealed class AuditMiddleware : IMiddleware
             ResponseIsTruncated = responseBody?.IsTruncated ?? false,
             RequestTruncatedBytes = requestBody?.TruncatedBytes ?? 0,
             ResponseTruncatedBytes = responseBody?.TruncatedBytes ?? 0,
-            ErrorMessage = exception?.Message,
-            ErrorStackTrace = exception is null ? null : Truncate(exception.StackTrace, 8000),
+            ErrorMessage = Limit(exception?.Message, 2000),
+            ErrorStackTrace = exception is null ? null : Limit(exception.StackTrace, 2000),
             CreatedAt = DateTimeOffset.UtcNow
         };
 

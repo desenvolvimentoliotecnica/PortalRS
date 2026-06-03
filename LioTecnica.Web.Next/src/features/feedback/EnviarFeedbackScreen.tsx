@@ -1,12 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Send, Users, Star, FileText } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Send, Users, Star, FileText, Search, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
-interface UserOption { userId: string; fullName: string; email: string; }
+interface FuncionarioOption {
+    id: string;
+    userId: string | null;
+    nome: string;
+    email: string | null;
+    cargo: string | null;
+    area: string | null;
+    unidade: string | null;
+}
+
+interface LookupResponse<T> {
+    items: T[];
+    total: number;
+    hasMore: boolean;
+}
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, { cache: "no-store", ...init });
@@ -57,8 +71,128 @@ const TEMPLATES_LOCAIS: { value: string; label: string; body: string }[] = [
 
 const MAX_CHARS = 4000;
 
+function FuncionarioFeedbackCombobox({
+    value,
+    onChange,
+}: {
+    value: string;
+    onChange: (userOrFuncionarioId: string) => void;
+}) {
+    const [query, setQuery] = useState("");
+    const [items, setItems] = useState<FuncionarioOption[]>([]);
+    const [selected, setSelected] = useState<FuncionarioOption | null>(null);
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        function onClickOutside(event: MouseEvent) {
+            if (!containerRef.current?.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        }
+
+        document.addEventListener("mousedown", onClickOutside);
+        return () => document.removeEventListener("mousedown", onClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (!open) return;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+
+        debounceRef.current = setTimeout(() => {
+            const params = new URLSearchParams({
+                onlyActive: "true",
+                pageSize: "50",
+            });
+            const term = query.trim();
+            if (term) params.set("q", term);
+
+            setLoading(true);
+            fetchJson<LookupResponse<FuncionarioOption>>(`/api/lookup/funcionarios?${params.toString()}`)
+                .then((data) => setItems(data.items ?? []))
+                .catch(() => setItems([]))
+                .finally(() => setLoading(false));
+        }, 250);
+    }, [open, query]);
+
+    function handleSelect(item: FuncionarioOption) {
+        setSelected(item);
+        setQuery("");
+        setOpen(false);
+        onChange(item.userId ?? item.id);
+    }
+
+    function handleClear() {
+        setSelected(null);
+        setQuery("");
+        setItems([]);
+        onChange("");
+    }
+
+    const selectedItem = value ? selected : null;
+
+    return (
+        <div ref={containerRef} className="relative">
+            {selectedItem ? (
+                <div className="flex min-h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                        <div className="truncate font-medium">{selectedItem.nome}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                            {[selectedItem.email, selectedItem.cargo, selectedItem.area].filter(Boolean).join(" · ") || "Funcionário ativo"}
+                        </div>
+                    </div>
+                    <button type="button" onClick={handleClear} className="ml-2 text-muted-foreground hover:text-foreground">
+                        <X className="size-4" />
+                    </button>
+                </div>
+            ) : (
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                        className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        onFocus={() => setOpen(true)}
+                        placeholder="Pesquise por nome, email, cargo ou área..."
+                    />
+                    {loading && (
+                        <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    )}
+                </div>
+            )}
+
+            {open && !selectedItem && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-input bg-popover shadow-md">
+                    {items.length > 0 ? (
+                        <div className="max-h-72 overflow-y-auto">
+                            {items.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleSelect(item)}
+                                    className="w-full border-b border-border/30 px-3 py-2 text-left text-sm transition-colors last:border-0 hover:bg-accent hover:text-accent-foreground"
+                                >
+                                    <div className="font-medium">{item.nome}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {[item.email, item.cargo, item.area, item.unidade].filter(Boolean).join(" · ") || "Funcionário ativo"}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="p-3 text-center text-sm text-muted-foreground">
+                            {loading ? "Buscando..." : query ? "Nenhum colaborador ativo encontrado" : "Digite para buscar ou veja os primeiros ativos"}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function EnviarFeedbackScreen() {
-    const [users, setUsers] = useState<UserOption[]>([]);
     const [toUserId, setToUserId] = useState("");
     const [content, setContent] = useState("");
     const [privateNotes, setPrivateNotes] = useState("");
@@ -73,9 +207,6 @@ export default function EnviarFeedbackScreen() {
     const [starFoco, setStarFoco] = useState(0);
 
     useEffect(() => {
-        fetchJson<UserOption[]>("/api/feedback/celebrations/mention-users?take=200")
-            .then(setUsers)
-            .catch(() => { });
         // Carrega templates de mensagem do servidor (12 do seeder + customizados do tenant).
         fetchJson<FeedbackTemplateResponse[]>("/api/feedback/items/templates")
             .then(setServerTemplates)
@@ -144,16 +275,7 @@ export default function EnviarFeedbackScreen() {
                 {/* ── Colaborador ── */}
                 <div className="space-y-1.5">
                     <label className="text-sm font-bold flex items-center gap-1"><Users className="size-4" /> Selecione um colaborador</label>
-                    <select
-                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                        value={toUserId}
-                        onChange={(e) => setToUserId(e.target.value)}
-                    >
-                        <option value="">Selecione um colaborador</option>
-                        {users.map((u, idx) => (
-                            <option key={`${u.userId}-${idx}`} value={u.userId}>{u.fullName} ({u.email})</option>
-                        ))}
-                    </select>
+                    <FuncionarioFeedbackCombobox value={toUserId} onChange={setToUserId} />
                 </div>
 
                 {/* ── Itens da empresa (star ratings) ── */}
