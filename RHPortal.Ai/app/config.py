@@ -6,17 +6,13 @@ from urllib.parse import quote, unquote, urlparse, urlunparse
 
 from dotenv import load_dotenv
 
-# Remove qualquer DATABASE_URL/PG* herdada do shell ou do processo pai (uvicorn --reload).
-for _k in list(os.environ):
-    if _k == "DATABASE_URL" or (len(_k) > 2 and _k.startswith("PG") and _k[2:].isupper()):
-        os.environ.pop(_k, None)
-
 # Carrega .env pelo caminho absoluto (não depende do cwd do processo; worker do --reload pode ter cwd diferente).
+# Em produção/container, variáveis injetadas pelo orquestrador devem prevalecer sobre o .env local.
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 try:
-    load_dotenv(_env_path, encoding="utf-8", override=True)
+    load_dotenv(_env_path, encoding="utf-8", override=False)
 except UnicodeDecodeError:
-    load_dotenv(_env_path, encoding="latin-1", override=True)
+    load_dotenv(_env_path, encoding="latin-1", override=False)
 
 _raw_url = os.getenv("DATABASE_URL", "").strip()
 
