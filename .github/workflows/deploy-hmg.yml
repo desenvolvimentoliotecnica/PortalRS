@@ -1,4 +1,4 @@
-# Deploy automático para homologação (HMG): merge em main → build imagens → GHCR → servidor via SSH.
+# Deploy automático para homologação (HMG): push/merge em portalRH-HML → build imagens → GHCR → servidor via SSH.
 #
 # Job deploy-hmg usa runner self-hosted com label hmg-deploy (rede privada; ex. 10.0.0.80).
 # Registar o agent na mesma LAN/VPN que o servidor — ver docs/HMG-DEPLOY.md (Self-hosted runner).
@@ -8,6 +8,9 @@
 name: Deploy HMG
 
 on:
+  push:
+    branches:
+      - portalRH-HML
   workflow_dispatch:
 
 concurrency:
@@ -114,8 +117,8 @@ jobs:
     name: Deploy via SSH (self-hosted)
     needs: build-and-push
     runs-on: [self-hosted, hmg-deploy]
-    # Push em main → deploy; Run workflow manualmente → deploy (qualquer ramo escolhido no dispatch).
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    # Push em portalRH-HML → deploy; Run workflow manualmente → deploy (qualquer ramo escolhido no dispatch).
+    if: github.ref == 'refs/heads/portalRH-HML' || github.event_name == 'workflow_dispatch'
     defaults:
       run:
         shell: bash

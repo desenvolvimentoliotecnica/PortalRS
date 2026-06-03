@@ -10,6 +10,8 @@ set -euo pipefail
 COMPOSE_DIR="${COMPOSE_DIR:-$HOME/rhportal-hmg}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.hmg.yml}"
 export HMG_ENV_FILE="${HMG_ENV_FILE:-$HOME/.env.hmg}"
+DOCKER_NETWORK_NAME="${DOCKER_NETWORK_NAME:-rhportal-net}"
+DOCKER_NETWORK_SUBNET="${DOCKER_NETWORK_SUBNET:-192.168.241.0/24}"
 
 cd "$COMPOSE_DIR"
 
@@ -18,10 +20,9 @@ if [[ -n "${GHCR_PULL_TOKEN:-}" && -n "${GHCR_PULL_USER:-}" ]]; then
 fi
 
 if [[ ! -f "$HMG_ENV_FILE" ]]; then
-  echo "AVISO: $HMG_ENV_FILE não existe — cria a partir de docs/env.hmg.example (repo)."
+  echo "ERRO: $HMG_ENV_FILE não existe. Crie o arquivo de ambiente antes do deploy."
+  exit 1
 fi
-
-docker network inspect rhportal-net >/dev/null 2>&1 || docker network create rhportal-net
 
 docker compose -f "$COMPOSE_FILE" pull
 
@@ -31,6 +32,17 @@ docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
 for cname in rhportal-api rhportal-web-next rhportal-portal-vagas rhportal-ai; do
   docker rm -f "$cname" >/dev/null 2>&1 || true
 done
+
+current_subnet="$(docker network inspect "$DOCKER_NETWORK_NAME" --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null || true)"
+if [[ -n "$current_subnet" && "$current_subnet" != "$DOCKER_NETWORK_SUBNET" ]]; then
+  echo "Recriando rede $DOCKER_NETWORK_NAME: subnet atual $current_subnet, desejada $DOCKER_NETWORK_SUBNET"
+  docker network rm "$DOCKER_NETWORK_NAME"
+  current_subnet=""
+fi
+
+if [[ -z "$current_subnet" ]]; then
+  docker network create --subnet "$DOCKER_NETWORK_SUBNET" "$DOCKER_NETWORK_NAME"
+fi
 
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 docker compose -f "$COMPOSE_FILE" ps

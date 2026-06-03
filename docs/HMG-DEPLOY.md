@@ -1,6 +1,6 @@
 # Deploy automático HMG (GitHub Actions)
 
-Fluxo: **push em `main`** (por exemplo merge de um PR da branch de trabalho) dispara [`.github/workflows/deploy-hmg.yml`](../.github/workflows/deploy-hmg.yml):
+Fluxo: **push/merge em `portalRH-HML`** (por exemplo merge de um PR vindo de `portalRH-DEV`) dispara [`.github/workflows/deploy-hmg.yml`](../.github/workflows/deploy-hmg.yml):
 
 1. **Job `build-and-push`** (runner hospedado pela Microsoft — `ubuntu-latest`): build das imagens e push para **GHCR**.
 2. **Job `deploy-hmg`** (runner **self-hosted** com label `hmg-deploy`): corre **dentro da tua rede** e faz SCP/SSH para o host onde corre o Docker (ex. `10.0.0.80`), executando `docker compose pull` e `up`.
@@ -90,9 +90,15 @@ Na raiz do repo: [`docker-compose.hmg.yml`](../docker-compose.hmg.yml). Variáve
 - `HMG_IMAGE_TAG` — ex.: SHA completo do commit
 - `HMG_ENV_FILE` — opcional; por defeito `.env.hmg` ao lado do compose
 
-## Fluxo manual antigo (tar + docker load)
+## Fluxo manual antigo (GUI/tar + docker load)
 
-Os scripts em [`__scripts__/deploy/`](../__scripts__/deploy/) continuam disponíveis para cenários sem GHCR (build local e `docker load`). Para deploy regular, prefere o workflow.
+O fluxo regular de HML deve usar PR para `portalRH-HML` + GitHub Actions.
+
+A ferramenta antiga em [`__scripts__/deploy/gui/deploy_gui.py`](../__scripts__/deploy/gui/deploy_gui.py) deixava artefatos em `~/rh-deploys` e subia a stack a partir de `~/rh-deploys/current-src`. Ao migrar para o fluxo novo:
+
+- Pare/substitua somente a stack `rhportal-hmg`.
+- Use `~/rhportal-hmg/` como diretório operacional do workflow.
+- Só remova `~/rh-deploys` depois de confirmar que o deploy novo está saudável.
 
 ## Segurança
 
