@@ -138,17 +138,13 @@ jobs:
       - name: Pull images and recreate stack
         run: |
           set -euo pipefail
-          if [[ -z "${{ secrets.GHCR_PULL_TOKEN }}" || -z "${{ secrets.GHCR_PULL_USER }}" ]]; then
-            echo "Defina os secrets GHCR_PULL_TOKEN e GHCR_PULL_USER no repositório."
-            exit 1
-          fi
           LOCAL_ENV="${RUNNER_TEMP}/portalrh-dev-deploy.env"
           {
             echo "DEV_REGISTRY_PREFIX=${{ needs.build-and-push.outputs.image_prefix }}"
             echo "DEV_IMAGE_TAG=${{ github.sha }}"
             echo "DEV_PORTAL_VAGAS_URL=${{ vars.DEV_NEXT_PUBLIC_PORTAL_VAGAS_URL || 'http://10.0.0.79:3050' }}"
-            echo "GHCR_PULL_USER=${{ secrets.GHCR_PULL_USER }}"
-            echo "GHCR_PULL_TOKEN=${{ secrets.GHCR_PULL_TOKEN }}"
+            echo "GHCR_PULL_USER=${{ github.actor }}"
+            echo "GHCR_PULL_TOKEN=${{ secrets.GITHUB_TOKEN }}"
           } > "$LOCAL_ENV"
           chmod 600 "$LOCAL_ENV"
           cp "$LOCAL_ENV" ~/rhportal-dev/.deploy.env
