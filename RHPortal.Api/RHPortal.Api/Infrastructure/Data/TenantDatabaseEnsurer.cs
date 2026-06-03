@@ -40,14 +40,14 @@ public static class TenantDatabaseEnsurer
         await conn.OpenAsync(ct);
 
         var exists = await DatabaseExistsAsync(conn, tenantDbName, ct);
-        if (exists)
-            return;
-
-        await using (var cmd = new NpgsqlCommand(
-            $"CREATE DATABASE \"{tenantDbName.Replace("\"", "\"\"")}\"", conn))
+        if (!exists)
         {
+            await using var cmd = new NpgsqlCommand(
+                $"CREATE DATABASE \"{tenantDbName.Replace("\"", "\"\"")}\"", conn);
             await cmd.ExecuteNonQueryAsync(ct);
         }
+
+        await EnsureRequiredExtensionsAsync(tenantConn, ct);
     }
 
     private static async Task<bool> DatabaseExistsAsync(
@@ -60,5 +60,18 @@ public static class TenantDatabaseEnsurer
         cmd.Parameters.AddWithValue("name", databaseName);
         var result = await cmd.ExecuteScalarAsync(ct);
         return result is not null;
+    }
+
+    private static async Task EnsureRequiredExtensionsAsync(
+        string tenantConnectionString,
+        CancellationToken ct)
+    {
+        await using var conn = new NpgsqlConnection(tenantConnectionString);
+        await conn.OpenAsync(ct);
+
+        await using var cmd = new NpgsqlCommand(
+            "CREATE EXTENSION IF NOT EXISTS vector;",
+            conn);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 }
