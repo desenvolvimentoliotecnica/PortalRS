@@ -173,7 +173,7 @@ public sealed class VagaService : IVagaService
             .GroupBy(r => r.VagaId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Numero).First());
 
-        IReadOnlyDictionary<Guid, (Guid? UserId, string? Nome)>? analistaPorVagaId = null;
+        IReadOnlyDictionary<Guid, (Guid? UserId, string? Nome, string? CodigoRm, DateTimeOffset? DataRequisicao)>? analistaPorVagaId = null;
         if (vagaIds.Count > 0)
         {
             var solicRows = await _db.SolicitacoesVaga.AsNoTracking()
@@ -192,7 +192,14 @@ public sealed class VagaService : IVagaService
                         var nome = u is null
                             ? null
                             : (!string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : u.UserName);
-                        return (best.AnalistaRhResponsavelUserId, nome);
+                        var codigoRm = best.RmIdReq.HasValue
+                            ? best.RmIdReq.Value.ToString()
+                            : best.RmRequisicaoCodigo;
+                        return (
+                            UserId: best.AnalistaRhResponsavelUserId,
+                            Nome: (string?)nome,
+                            CodigoRm: (string?)codigoRm,
+                            DataRequisicao: (DateTimeOffset?)best.CreatedAtUtc);
                     });
         }
 
@@ -228,6 +235,15 @@ public sealed class VagaService : IVagaService
                 if (recNome is { Length: > 120 })
                     recNome = recNome[..120];
 
+                var codigoRmOrigem = !string.IsNullOrWhiteSpace(v.IdReqRmOrigem)
+                    ? v.IdReqRmOrigem
+                    : analistaPorVagaId is not null && analistaPorVagaId.TryGetValue(v.Id, out var rm)
+                        ? rm.CodigoRm
+                        : null;
+                var dataRequisicao = analistaPorVagaId is not null && analistaPorVagaId.TryGetValue(v.Id, out var req)
+                    ? req.DataRequisicao
+                    : null;
+
                 return new VagaListItemResponse(
                     v.Id, v.Codigo, v.Titulo, v.Status,
                     v.CentroCustoId, v.CentroCustoCode, v.CentroCustoNome,
@@ -251,7 +267,8 @@ public sealed class VagaService : IVagaService
                     v.SubstituindoNome,
                     v.HierarquiaId,
                     v.HierarquiaDescricao,
-                    v.IdReqRmOrigem,
+                    codigoRmOrigem,
+                    dataRequisicao,
                     v.CodFuncaoRm,
                     v.FuncaoNomeRm,
                     recUserId,

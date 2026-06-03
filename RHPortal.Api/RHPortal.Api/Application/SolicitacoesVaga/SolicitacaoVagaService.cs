@@ -381,7 +381,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .Include(s => s.Aprovador)
             .Select(s => new
             {
-                s.Id, s.Titulo, s.Urgencia, s.Status,
+                s.Id, s.Titulo, s.Urgencia, s.Status, s.VagaId,
                 s.SolicitanteId,
                 SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
                 AprovadorId = s.AprovadorId,
@@ -426,7 +426,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 r.RmCodStatus, r.RmUltimaStatusDescricaoRm, r.RmStatusSyncUltimaMensagem,
                 r.RmUltimaSincronizacaoUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,
-                ep?.CanAssume ?? false);
+                ep?.CanAssume ?? false, r.VagaId);
         }).ToList();
     }
 
@@ -2016,6 +2016,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             Titulo = entity.Titulo,
             CodFuncaoRm = entity.CodFuncaoRm,
             FuncaoNomeRm = entity.FuncaoNomeRm,
+            IdReqRmOrigem = entity.RmIdReq.HasValue ? entity.RmIdReq.Value.ToString() : null,
             Status = VagaStatus.Rascunho,
             QuantidadeVagas = entity.QtdPosicoes,
             DescricaoInterna = entity.Justificativa,
@@ -2080,15 +2081,30 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (entity.Status is not (SolicitacaoStatus.Aprovada or SolicitacaoStatus.Concluida))
             throw new InvalidOperationException("A vaga só pode ser materializada a partir de requisição aprovada pelo RM.");
 
+        var isRmAprovada = IsRequisicaoRmAprovadaImportada(entity);
         var vaga = await ObterVagaVinculadaAsync(entity, ct);
         if (vaga is null)
-            await CriarVagaRascunhoAsync(entity, ct, headcountPendente: entity.QtdPosicoes);
+        {
+            await CriarVagaRascunhoAsync(
+                entity,
+                ct,
+                headcountPendente: isRmAprovada ? 0 : entity.QtdPosicoes);
+        }
+        else if (isRmAprovada && vaga.HeadcountPendente > 0)
+        {
+            vaga.HeadcountPendente = 0;
+            vaga.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
 
         entity.ApprovedAtUtc ??= DateTimeOffset.UtcNow;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         return true;
     }
+
+    private static bool IsRequisicaoRmAprovadaImportada(SolicitacaoVaga entity)
+        => entity.RmIdReq.HasValue
+           && entity.Status is SolicitacaoStatus.Aprovada or SolicitacaoStatus.Concluida;
 
     private async Task ProvisionarHcPendenteAsync(SolicitacaoVaga entity, CancellationToken ct)
     {
