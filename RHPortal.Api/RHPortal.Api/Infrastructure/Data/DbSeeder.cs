@@ -106,6 +106,22 @@ public static class DbSeeder
                 }
 
                 // ---------------------------
+                // 2b. Bootstrap tenants declarados em configuração.
+                // Em servidor virgem, isso registra tenants base antes da etapa
+                // que aplica migrations/seeds em todos os tenants existentes.
+                // ---------------------------
+                var bootstrapTenants = GetBootstrapTenants(config);
+                if (bootstrapTenants.Count > 0)
+                {
+                    await ReportAsync("bootstrap-tenants", "Registrando tenants iniciais...", 24);
+                    foreach (var bootstrapTenant in bootstrapTenants)
+                    {
+                        await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantSeeder
+                            .EnsureAsync(masterDb, bootstrapTenant.TenantId, bootstrapTenant.Name, createdByOwnerId: null, ct);
+                    }
+                }
+
+                // ---------------------------
                 // 3. Migrar todos os tenants existentes
                 // MigrateAsync é idempotente: só aplica migrations PENDENTES.
                 // Tenants já atualizados terminam em milissegundos.
@@ -252,6 +268,31 @@ public static class DbSeeder
             resetState?.SetResetting(false);
         }
     }
+
+    private static IReadOnlyList<BootstrapTenant> GetBootstrapTenants(IConfiguration config)
+    {
+        var tenants = new List<BootstrapTenant>();
+        foreach (var child in config.GetSection("BootstrapTenants").GetChildren())
+        {
+            var enabled = child.GetValue("Enabled", true);
+            if (!enabled)
+                continue;
+
+            var tenantId = child["TenantId"]?.Trim().ToLowerInvariant();
+            var name = child["Name"]?.Trim();
+            if (string.IsNullOrWhiteSpace(tenantId) || string.IsNullOrWhiteSpace(name))
+                continue;
+
+            tenants.Add(new BootstrapTenant(tenantId, name));
+        }
+
+        return tenants
+            .GroupBy(x => x.TenantId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+    }
+
+    private sealed record BootstrapTenant(string TenantId, string Name);
 
     private static async Task ClearAllDataAsync(AppDbContext db, CancellationToken ct)
     {
