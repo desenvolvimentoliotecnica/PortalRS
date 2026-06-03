@@ -1,0 +1,16 @@
+---
+description: Perguntar sobre commit e push ao finalizar alteracoes
+alwaysApply: true
+---
+
+# Commit E Push Apos Alteracoes
+
+Sempre que uma alteracao de codigo, configuracao, documentacao ou infraestrutura for finalizada:
+
+- Antes de encerrar a resposta final, perguntar ao usuario se deseja fazer commit e push.
+- Usar pergunta estruturada quando a ferramenta estiver disponivel, com opcoes semelhantes a:
+  - `Sim, fazer commit e push na branch atual`
+  - `Nao, deixar apenas implementado localmente por enquanto`
+- Nao fazer commit nem push sem confirmacao explicita do usuario.
+- Se o usuario confirmar, seguir o protocolo seguro de git: revisar status, diff e historico recente antes de commitar.
+- Informar a branch e o commit gerado ao final.
