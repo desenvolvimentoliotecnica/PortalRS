@@ -43,13 +43,4 @@
     <Folder Include="Swagger\Controllers\" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Update="Infrastructure\Data\SeedData\vaga-patterns.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Update="Infrastructure\Data\SeedData\vaga-requisitos.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
 </Project>

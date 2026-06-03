@@ -438,11 +438,15 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await AdminAccessSeeder.EnsureAsync(db, userManager, roleManager, tenantId, emailDomain, adminPassword, 0, localizer, ct, null);
         // Garante roles padrão (Operacional, Gestor, Recrutador) — necessárias para atribuição de perfis.
         await MenuRoleSeeder.EnsureRolesExistAsync(roleManager, localizer, ct);
+        await MenuRoleSeeder.EnsureDefaultRoleMenuAccessAsync(db, ct);
         // Sessão 31.2: AreaDepartmentSeeder foi substituído por CentroCustoSeeder após consolidação.
         await CentroCustoSeeder.EnsureAsync(db, ct);
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
         await MotivoRequisicaoVagaSeeder.EnsureAsync(db, tenantId, ct);
+        await RmRequisicaoStatusMapSeeder.EnsureAsync(db, tenantId, ct);
+        await DocumentacaoPadraoConfigSeeder.EnsureAsync(db, tenantId, ct);
+        await ApiKeySeeder.EnsureAsync(db, _configuration, tenantId, ct);
     }
 
     private async Task RunSeedAsync(string tenantId, IServiceProvider scopedProvider, CancellationToken ct)
@@ -456,10 +460,14 @@ public sealed class TenantProvisioningService : ITenantProvisioningService
         await AdminAccessSeeder.EnsureAsync(db, userManager, roleManager, tenantId, emailDomain, adminPassword, 0, localizer, ct, null);
         // Garante roles padrão (Operacional, Gestor, Recrutador) no provisionamento de novo tenant.
         await MenuRoleSeeder.EnsureRolesExistAsync(roleManager, localizer, ct);
+        await MenuRoleSeeder.EnsureDefaultRoleMenuAccessAsync(db, ct);
         // Sessão 31.2: AreaDepartmentSeeder foi substituído por CentroCustoSeeder após consolidação.
         await CentroCustoSeeder.EnsureAsync(db, ct);
         await AgendaTypeSeeder.EnsureDefaultAsync(db, localizer, ct);
         await UnitSeeder.EnsureAsync(db, ct);
         await MotivoRequisicaoVagaSeeder.EnsureAsync(db, tenantId, ct);
+        await RmRequisicaoStatusMapSeeder.EnsureAsync(db, tenantId, ct);
+        await DocumentacaoPadraoConfigSeeder.EnsureAsync(db, tenantId, ct);
+        await ApiKeySeeder.EnsureAsync(db, _configuration, tenantId, ct);
     }
 }

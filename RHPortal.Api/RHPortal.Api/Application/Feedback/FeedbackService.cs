@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Contracts.Feedback;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -20,12 +21,13 @@ public sealed class FeedbackService
     public async Task<FeedbackItemResponse> CreateAsync(FeedbackCreateRequest request, Guid fromUserId, CancellationToken ct)
     {
         var tenantId = _tenantContext.TenantId ?? throw new InvalidOperationException("Tenant context required.");
+        var toUserId = await EnsureRecipientUserAsync(request.ToUserId, tenantId, ct);
         var item = new FeedbackItem
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             FromUserId = fromUserId,
-            ToUserId = request.ToUserId,
+            ToUserId = toUserId,
             Content = request.Content.Trim(),
             Tipo = request.Tipo?.Trim().Length > 0 ? request.Tipo.Trim() : null,
             IsPresencial = request.IsPresencial,
@@ -59,6 +61,66 @@ public sealed class FeedbackService
         if (created is null)
             throw new InvalidOperationException("Feedback not found after create.");
         return MapToResponse(created);
+    }
+
+    private async Task<Guid> EnsureRecipientUserAsync(Guid requestedId, string tenantId, CancellationToken ct)
+    {
+        var userExists = await _db.Users
+            .IgnoreQueryFilters()
+            .AnyAsync(x => x.TenantId == tenantId && x.Id == requestedId && x.IsActive, ct);
+
+        if (userExists)
+            return requestedId;
+
+        var funcionario = await _db.Funcionarios
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId
+                && x.Status == FuncionarioStatus.Active
+                && (x.Id == requestedId || x.UserId == requestedId), ct);
+
+        if (funcionario is null)
+            throw new InvalidOperationException("Destinatário do feedback não encontrado ou inativo.");
+
+        var targetUserId = funcionario.UserId ?? funcionario.Id;
+        var targetUserExists = await _db.Users
+            .IgnoreQueryFilters()
+            .AnyAsync(x => x.TenantId == tenantId && x.Id == targetUserId, ct);
+
+        if (targetUserExists)
+            return targetUserId;
+
+        var name = string.IsNullOrWhiteSpace(funcionario.Name)
+            ? $"Funcionário {funcionario.Id:N}"
+            : funcionario.Name.Trim();
+        var email = string.IsNullOrWhiteSpace(funcionario.Email)
+            ? $"f-{funcionario.Id:N}@shadow.local"
+            : funcionario.Email.Trim();
+        var now = DateTimeOffset.UtcNow;
+
+        _db.Users.Add(new ApplicationUser
+        {
+            Id = targetUserId,
+            TenantId = tenantId,
+            FullName = name,
+            Email = email,
+            NormalizedEmail = email.ToUpperInvariant(),
+            UserName = email,
+            NormalizedUserName = email.ToUpperInvariant(),
+            IsActive = true,
+            FuncionarioId = funcionario.Id,
+            EmailConfirmed = false,
+            LockoutEnabled = true,
+            AccessFailedCount = 0,
+            TwoFactorEnabled = false,
+            PhoneNumberConfirmed = false,
+            ConcurrencyStamp = Guid.NewGuid().ToString(),
+            SecurityStamp = Guid.NewGuid().ToString(),
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+        });
+        funcionario.UserId = targetUserId;
+
+        return targetUserId;
     }
 
     public async Task<FeedbackListResponse> ListMineAsync(Guid userId, string filter = "all", int page = 1, int pageSize = 20, CancellationToken ct = default)

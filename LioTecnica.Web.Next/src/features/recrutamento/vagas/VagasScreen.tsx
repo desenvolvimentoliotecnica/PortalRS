@@ -12,7 +12,6 @@ import {
     Briefcase,
     CalendarDays,
     CheckCircle2,
-    ChevronDown,
     Clock,
     Columns3,
     Copy,
@@ -36,6 +35,7 @@ import type { VagaListItem } from "@/lib/schemas/recrutamento";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
+import { getAccessToken, tryGetUserIdFromJwt } from "@/lib/session";
 import { getScreenCache, setScreenCache } from "@/lib/screenCache";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -43,17 +43,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import EmptyState from "@/components/ui/EmptyState";
 import {
-  AGING_BUCKETS,
-  type AgingBucket,
-  daysSince,
-  matchesAgingBucket,
-} from "@/features/shared/urgencia";
-import {
     Table, TableHeader, TableHead, TableBody, TableRow, TableCell,
 } from "@/components/ui/table";
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-    DropdownMenuCheckboxItem, DropdownMenuSeparator,
+    DropdownMenuSeparator,
     DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -338,15 +332,6 @@ function normalizeVagaOrigemTipo(value: unknown): number {
     return 0;
 }
 
-/**
- * Com "Exibir RM" desligado, omitimos só vagas de origem **Direta** (carga típica VRS/RM sem requisição-pai;
- * ver `VagaOrigemTipo` na API). Vagas Manual, AumentoQuadro, substituições etc. permanecem — antes
- * filtrávamos só `Manual` e sumiam vagas do fluxo de solicitação após integração/publicação.
- */
-function isRmCatalogOnlyVaga(vaga: VagaListItem): boolean {
-    return normalizeVagaOrigemTipo((vaga as Record<string, unknown>).origemTipo) === 4;
-}
-
 /** Manual (0) = criada no portal sem origem TOTVS; 1–4 = fluxos RM / sync. */
 function isVagaOrigemPortal(origemTipo: unknown): boolean {
     return normalizeVagaOrigemTipo(origemTipo) === 0;
@@ -441,6 +426,11 @@ function mapVagasPayload(payload: VagasPayload): VagaListItem[] {
     const items = r?.items;
     if (Array.isArray(items)) return (items as unknown[]).map(mapVagaItem);
     return [];
+}
+
+function vagaResponsavelUserId(vaga: VagaListItem): string {
+    const raw = vaga as Record<string, unknown>;
+    return pickString(raw.recrutadorResponsavelUserId ?? raw.RecrutadorResponsavelUserId, "").trim().toLowerCase();
 }
 
 function calcReqTotals(v: VagaListItem) {
@@ -578,22 +568,24 @@ export default function VagasScreen() {
     const searchParams = useSearchParams();
     const { me } = useAuth();
     const deeplinkHandled = useRef(false);
-    /** Pendências ativas por padrão; desligar explicitamente com ?pendencias=0 */
-    const pendenciasParam = searchParams.get("pendencias");
-    const pendenciasMode =
-        pendenciasParam !== "0"
-        && (pendenciasParam === "1" || pendenciasParam === null || searchParams.get("mode") === "pendencias");
 
     const isGestor = useMemo(
         () => (me?.roles ?? []).some((r) => r.toLowerCase() === "gestor"),
         [me?.roles],
     );
+    const isAnalistaRhRestrito = useMemo(() => {
+        const roles = (me?.roles ?? []).map((r) => r.toLowerCase());
+        return roles.includes("analista de rh") && !roles.includes("especialista de rh");
+    }, [me?.roles]);
+    const currentUserId = useMemo(() => {
+        const token = getAccessToken();
+        return token ? tryGetUserIdFromJwt(token)?.toLowerCase() ?? null : null;
+    }, [me]);
     const showManagerSections = isGestor;
 
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<VagaListItem[]>([]);
     const [q, setQ] = useState("");
-    const [status, setStatus] = useState<string[]>([]);
     const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
         if (typeof window === "undefined") return "list";
         return (localStorage.getItem("renderrh.vagas.viewMode") as "list" | "kanban") || "list";
@@ -609,17 +601,6 @@ export default function VagasScreen() {
     const sortIcon = (col: SortCol) => sortCol === col
         ? (sortDir === "asc" ? <ArrowUp className="inline size-3 ml-1" /> : <ArrowDown className="inline size-3 ml-1" />)
         : <ArrowUpDown className="inline size-3 ml-1 opacity-30" />;
-    const [dateFrom, setDateFrom] = useState("");
-    const [dateTo, setDateTo] = useState("");
-    const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
-    const [showRmImported, setShowRmImported] = useState(false);
-
-    useEffect(() => {
-        if (!pendenciasMode) return;
-        setStatus([]);
-        setQ("");
-    }, [pendenciasMode]);
-
     const [solicitacoes, setSolicitacoes] = useState<SolicitacaoRow[]>([]);
     const [approvals, setApprovals] = useState<SolicitacaoRow[]>([]);
     const [loadingSolic, setLoadingSolic] = useState(false);
@@ -726,12 +707,11 @@ export default function VagasScreen() {
     }, [fromSolicId]);
 
     const syncList = useCallback(async () => {
-        const endpoint = pendenciasMode ? `${BASE}/api/vagas/pendencias-rh` : `${BASE}/api/vagas`;
-        const payload = await fetchJson<VagasPayload>(endpoint);
+        const payload = await fetchJson<VagasPayload>(`${BASE}/api/vagas`);
         const list = mapVagasPayload(payload);
         setRows(list);
-        setScreenCache(pendenciasMode ? "/vagas?pendencias=1" : "/vagas?pendencias=0", list);
-    }, [pendenciasMode]);
+        setScreenCache(`/vagas:${currentUserId ?? "anon"}`, list);
+    }, [currentUserId]);
 
     // ── Drag-drop status change ──
     const STATUS_MAP_DND: Record<string, string> = { rascunho: "Rascunho", aberta: "Aberta", pausada: "Pausada", fechada: "Encerrada" };
@@ -794,7 +774,7 @@ export default function VagasScreen() {
 
     useEffect(() => {
         let alive = true;
-        const cacheKey = pendenciasMode ? "/vagas?pendencias=1" : "/vagas?pendencias=0";
+        const cacheKey = `/vagas:${currentUserId ?? "anon"}`;
         const cached = getScreenCache<VagaListItem[]>(cacheKey);
         if (cached) {
             setRows(cached);
@@ -807,7 +787,7 @@ export default function VagasScreen() {
             .finally(() => { if (alive) setLoading(false); });
 
         return () => { alive = false; };
-    }, [syncList]);
+    }, [currentUserId, syncList]);
 
     useEffect(() => {
         void loadSolicitacoes();
@@ -833,24 +813,14 @@ export default function VagasScreen() {
         }
     }, [searchParams]);
 
-    const rowsByOrigin = useMemo(
-        () => (showRmImported ? rows : rows.filter((v) => !isRmCatalogOnlyVaga(v))),
-        [rows, showRmImported],
-    );
+    const rowsByResponsavel = useMemo(() => {
+        if (!isAnalistaRhRestrito || !currentUserId) return rows;
+        return rows.filter((v) => vagaResponsavelUserId(v) === currentUserId);
+    }, [currentUserId, isAnalistaRhRestrito, rows]);
 
     const filtered = useMemo(() => {
         const qq = q.trim().toLowerCase();
-        const result = rowsByOrigin.filter((v) => {
-            if (status.length > 0 && !status.includes((v.status ?? "").toLowerCase())) return false;
-            // F1 — Date range filter. Prioriza dataAbertura (real do RM ou quando passou a Aberta) sobre createdAtUtc (importação).
-            const vr = v as Record<string, unknown>;
-            const dateField = (vr.dataAbertura as string | null | undefined)
-                ?? (vr.createdAtUtc as string | null | undefined)
-                ?? v.updatedAt;
-            if (dateFrom && dateField && new Date(dateField) < new Date(dateFrom)) return false;
-            if (dateTo && dateField && new Date(dateField) > new Date(`${dateTo}T23:59:59`)) return false;
-            // F2 — Aging bucket filter
-            if (!matchesAgingBucket(dateField ?? null, agingBucket)) return false;
+        const result = rowsByResponsavel.filter((v) => {
             if (!qq) return true;
             return [v.codigo, v.titulo, v.area, v.modalidade, v.cidade, v.uf]
                 .filter(Boolean)
@@ -887,24 +857,13 @@ export default function VagasScreen() {
             }
         });
         return result;
-    }, [rowsByOrigin, q, status, sortCol, sortDir, dateFrom, dateTo, agingBucket]);
+    }, [rowsByResponsavel, q, sortCol, sortDir]);
 
     const { page, setPage, pageSize, setPageSize, slice } = useClientPagination(filtered.length, {
         initialPageSize: 20,
-        resetDeps: [q, status.join(","), dateFrom, dateTo, agingBucket, showRmImported ? "all-origins" : "portal-only"],
+        resetDeps: [q],
     });
     const paged = useMemo(() => filtered.slice(slice.start, slice.end), [filtered, slice]);
-
-    const vagaCounts = useMemo(() => {
-        const openStatuses = new Set(["aberta", "ativa"]);
-        const prepStatuses = new Set(["rascunho", "pausada"]);
-        return {
-            total: rowsByOrigin.length,
-            open: rowsByOrigin.filter((row) => openStatuses.has((row.status ?? "").toLowerCase())).length,
-            preparation: rowsByOrigin.filter((row) => prepStatuses.has((row.status ?? "").toLowerCase())).length,
-            closed: rowsByOrigin.filter((row) => ["fechada", "encerrada"].includes((row.status ?? "").toLowerCase())).length,
-        };
-    }, [rowsByOrigin]);
 
     function persistMatchingContext(vagaId: string) {
         try {
@@ -1357,86 +1316,12 @@ export default function VagasScreen() {
 
             {/* Main panel */}
             <div className="rounded-xl border border-border/40 bg-card shadow-sm">
-                {/* Filters bar — row 1: busca, status, sort, toggle */}
+                {/* Filters bar — row 1: busca e visualização */}
                 <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2.5">
                     <div className="relative min-w-[180px] flex-1 max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                         <Input className="pl-8 h-8 text-sm" placeholder="Buscar vaga..." value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
-                    {/* Multi-select — Status */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild disabled={pendenciasMode}>
-                            <button type="button" className={`inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-2 text-xs transition-colors ${pendenciasMode ? "opacity-50 cursor-not-allowed text-muted-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                                {status.length === 0
-                                    ? `Todos (${rowsByOrigin.length})`
-                                    : status.length === 1
-                                        ? status[0].charAt(0).toUpperCase() + status[0].slice(1)
-                                        : `${status.length} status`}
-                                <ChevronDown className="size-3 opacity-60" />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="min-w-[160px]">
-                            <DropdownMenuCheckboxItem
-                                checked={status.length === 0}
-                                onCheckedChange={() => setStatus([])}
-                            >
-                                Todos ({rowsByOrigin.length})
-                            </DropdownMenuCheckboxItem>
-                            <DropdownMenuSeparator />
-                            {[
-                                { value: "aberta",   label: `Abertas (${vagaCounts.open})` },
-                                { value: "rascunho", label: `Rascunho (${vagaCounts.preparation})` },
-                                { value: "pausada",  label: "Pausada" },
-                                { value: "fechada",  label: `Fechada (${vagaCounts.closed})` },
-                            ].map((opt) => (
-                                <DropdownMenuCheckboxItem
-                                    key={opt.value}
-                                    checked={status.includes(opt.value)}
-                                    onCheckedChange={(checked) =>
-                                        setStatus(prev => checked ? [...prev, opt.value] : prev.filter(s => s !== opt.value))
-                                    }
-                                >
-                                    {opt.label}
-                                </DropdownMenuCheckboxItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <button type="button" className="inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => { setSortCol("createdAt"); setSortDir(d => d === "desc" ? "asc" : "desc"); }} title={sortDir === "desc" ? "Mais novas primeiro" : "Mais antigas primeiro"}>
-                        <CalendarDays className="size-3" />
-                        {sortDir === "desc" ? "Recentes" : "Antigas"}
-                    </button>
-                    <button
-                        type="button"
-                        className={`inline-flex items-center gap-1 h-8 rounded-md border px-2 text-xs font-medium transition-colors ${pendenciasMode ? "bg-primary text-primary-foreground border-primary" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}
-                        onClick={() => {
-                            if (pendenciasMode) {
-                                setStatus([]);
-                                void router.replace("/vagas?pendencias=0");
-                            } else {
-                                void router.replace("/vagas");
-                            }
-                        }}
-                        title="Vagas aguardando ação do RH (rascunhos aprovados e headcount pendente)"
-                    >
-                        Pendências
-                        {!pendenciasMode && rows.filter(v => !!((v as Record<string, unknown>).headcountPendente as number | undefined)).length > 0 && (
-                            <span className="rounded-full bg-amber-500 text-white text-[9px] px-1 leading-tight">
-                                {rows.filter(v => !!((v as Record<string, unknown>).headcountPendente as number | undefined)).length}
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        className={`inline-flex items-center gap-1 h-8 rounded-md border px-2 text-xs font-medium transition-colors ${
-                            showRmImported
-                                ? "bg-sky-600 text-white border-sky-600 hover:bg-sky-700"
-                                : "border-input bg-background text-muted-foreground hover:text-foreground"
-                        }`}
-                        onClick={() => setShowRmImported((prev) => !prev)}
-                        title="Quando desligado, oculta vagas de origem Direta (catálogo VRS). Liga para listar também essas importações."
-                    >
-                        {showRmImported ? "Ocultando RM" : "Exibir RM"}
-                    </button>
                     <div className="flex items-center rounded-md border border-input bg-background p-0.5">
                         <button type="button" className={`inline-flex items-center justify-center rounded-sm px-1.5 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
                             <List className="size-3" />
@@ -1446,56 +1331,6 @@ export default function VagasScreen() {
                         </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">{filtered.length} resultado(s)</span>
-                </div>
-                <div className="border-b border-border/40 px-3 py-1.5 text-[11px] text-muted-foreground">
-                    {showRmImported
-                        ? "Exibindo vagas do portal e importações RM (incl. origem Direta)."
-                        : "Ocultando vagas só de catálogo RM (origem Direta). Demais origens — Manual, aumento de quadro, substituição — seguem visíveis."}
-                </div>
-
-                {/* Filters bar — row 2: date range (F1) + aging chips (F2) */}
-                <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2">
-                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <CalendarDays className="size-3" /> Criada em:
-                    </span>
-                    <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                        title="Data inicial"
-                    />
-                    <span className="text-xs text-muted-foreground">–</span>
-                    <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                        title="Data final"
-                    />
-                    {(dateFrom || dateTo) && (
-                        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-[11px] text-muted-foreground hover:text-foreground underline">
-                            Limpar
-                        </button>
-                    )}
-                    <span className="text-[11px] text-muted-foreground ml-2 flex items-center gap-1">
-                        <Clock className="size-3" /> Aging:
-                    </span>
-                    {AGING_BUCKETS.map((b) => (
-                        <button
-                            key={b.value}
-                            type="button"
-                            onClick={() => setAgingBucket(prev => prev === b.value ? "" : b.value)}
-                            className={`inline-flex h-6 items-center rounded-full border px-2 text-[11px] font-medium transition-colors ${agingBucket === b.value ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}
-                        >
-                            {b.label}
-                        </button>
-                    ))}
-                    {(dateFrom || dateTo || agingBucket) && (
-                        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); setAgingBucket(""); }} className="ml-auto text-[11px] text-muted-foreground hover:text-foreground underline">
-                            Limpar datas/aging
-                        </button>
-                    )}
                 </div>
 
                 {viewMode === "list" ? (
@@ -1541,7 +1376,7 @@ export default function VagasScreen() {
                                                     actions={
                                                         rows.length === 0
                                                             ? []
-                                                            : [{ label: "Limpar filtros", onClick: () => { setQ(""); setStatus([]); setDateFrom(""); setDateTo(""); setAgingBucket(""); } }]
+                                                            : [{ label: "Limpar busca", onClick: () => setQ("") }]
                                                     }
                                                 />
                                             </TableCell>
@@ -1633,9 +1468,9 @@ export default function VagasScreen() {
                                                     <TableCell className="text-sm">
                                                         {renderRecrutadorDisplay(vaga as Record<string, unknown>, rhRecrutadorLookup)}
                                                     </TableCell>
-                                                    <TableCell onClick={(e) => { e.stopPropagation(); const s = (vaga.status ?? "").toLowerCase(); if (s) setStatus(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]); }}>
+                                                    <TableCell>
                                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                                            <span className="cursor-pointer"><VagaStatusBadge status={vaga.status} /></span>
+                                                            <VagaStatusBadge status={vaga.status} />
                                                             {(() => {
                                                                 const raw = vaga as Record<string, unknown>;
                                                                 const rodadaNum = raw.rodadaAtivaNumero as number | null | undefined;

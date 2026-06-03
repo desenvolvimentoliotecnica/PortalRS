@@ -311,26 +311,26 @@ export default function AdminUserFormModal({ open, editId, onClose, onSaved }: P
 
     return (
         <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
+            <DialogContent className="flex h-[560px] max-h-[90vh] flex-col overflow-hidden sm:max-w-xl">
+                <DialogHeader className="shrink-0">
                     <DialogTitle className="text-base font-semibold">
                         {editId ? "Editar Usuário" : "Novo Usuário"}
                     </DialogTitle>
                 </DialogHeader>
 
                 {loadingEdit ? (
-                    <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-1 items-center justify-center py-12">
                         <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                     </div>
                 ) : (
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-1">
-                        <TabsList className="mb-4">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-1 flex min-h-0 flex-1 flex-col">
+                        <TabsList className="mb-4 shrink-0">
                             <TabsTrigger value="usuario">Usuário</TabsTrigger>
                             <TabsTrigger value="colaborador">Colaborador</TabsTrigger>
                         </TabsList>
 
                         {/* ── Tab 1: Dados do Usuário ── */}
-                        <TabsContent value="usuario">
+                        <TabsContent value="usuario" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
                             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                                 <Section title="Dados de Acesso" />
 
@@ -422,7 +422,7 @@ export default function AdminUserFormModal({ open, editId, onClose, onSaved }: P
                         </TabsContent>
 
                         {/* ── Tab 2: Colaborador ── */}
-                        <TabsContent value="colaborador">
+                        <TabsContent value="colaborador" className="mt-0 min-h-0 flex-1 overflow-y-auto pr-1">
                             <div className="space-y-3">
                                 <Section title="Vínculo com Colaborador" />
 
@@ -456,7 +456,7 @@ export default function AdminUserFormModal({ open, editId, onClose, onSaved }: P
                     </Tabs>
                 )}
 
-                <DialogFooter className="mt-4">
+                <DialogFooter className="mt-4 shrink-0">
                     <Button variant="outline" onClick={onClose} disabled={saving}>
                         Cancelar
                     </Button>

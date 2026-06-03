@@ -196,8 +196,8 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
                         TenantId = tenantId,
                         AuditEntityChangeId = changeId,
                         PropertyName = prop.PropertyName,
-                        BeforeValue = prop.BeforeValue,
-                        AfterValue = prop.AfterValue,
+                        BeforeValue = Truncate(prop.BeforeValue, 2000),
+                        AfterValue = Truncate(prop.AfterValue, 2000),
                         IsSensitive = prop.IsSensitive,
                         CreatedAt = DateTimeOffset.UtcNow
                     });
@@ -235,6 +235,14 @@ public sealed class AuditSaveChangesInterceptor : SaveChangesInterceptor
             dict[prop.Metadata.Name] = AuditJsonMasker.IsSensitive(prop.Metadata.Name) ? "***" : prop.CurrentValue;
         }
         return AuditValueFormatter.SerializeDictionary(dict);
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
+            return value;
+
+        return value[..maxLength];
     }
 
     private static string? CaptureOriginalValues(EntityEntry entry, out string source)

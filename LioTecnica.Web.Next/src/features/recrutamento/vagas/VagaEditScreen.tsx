@@ -104,9 +104,6 @@ export default function VagaEditScreen({ editId, defaultTab }: Props) {
         </Button>
         <div>
           <h1 className="text-xl font-bold">{editId ? "Editar Vaga" : "Nova Vaga"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {editId ? "Edite os dados da vaga e salve" : "Preencha os dados para criar uma nova vaga"}
-          </p>
         </div>
       </div>
 

@@ -129,6 +129,25 @@ export function tryGetTenantIdFromJwt(token: string): string | null {
   }
 }
 
+export function tryGetUserIdFromJwt(token: string): string | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const payloadJson = base64UrlDecode(parts[1]);
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    const userId =
+      (typeof payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] === "string" && payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]) ||
+      (typeof payload.nameid === "string" && payload.nameid) ||
+      (typeof payload.sub === "string" && payload.sub) ||
+      (typeof payload.user_id === "string" && payload.user_id) ||
+      (typeof payload.UserId === "string" && payload.UserId) ||
+      null;
+    return userId ? userId.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function tryGetPermissionsFromJwt(token: string): string[] {
   try {
     const parts = token.split(".");

@@ -133,12 +133,13 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             if (solicitante is null)
                 return ImportLineResult.Ignored($"{BuildHumanKey(row)}: requisitante RM não encontrado no Portal.");
 
+            var dataAberturaRm = ResolveDataAberturaRm(row, now);
             entity = new SolicitacaoVaga
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 SolicitanteId = solicitante.Id,
-                CreatedAtUtc = now,
+                CreatedAtUtc = dataAberturaRm,
             };
             _db.SolicitacoesVaga.Add(entity);
         }
@@ -162,6 +163,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         entity.QtdPosicoes = Math.Max(1, row.Numvagas ?? 1);
         entity.Status = status == SolicitacaoStatus.Concluida ? SolicitacaoStatus.Aprovada : status;
         entity.ApprovedAtUtc ??= now;
+        entity.CreatedAtUtc = ResolveDataAberturaRm(row, entity.CreatedAtUtc);
         entity.UpdatedAtUtc = now;
         entity.TipoSolicitacao = MapTipoSolicitacao(row.TipoRequisicao);
         entity.TipoContrato = TipoContratoVaga.CLT;
@@ -184,6 +186,19 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         entity.UnitId = await ResolveUnitIdAsync(row.Codfilial, ct);
         entity.EmpresaId = await ResolveEmpresaIdAsync(row.Codcolrequisicao, entity.CentroCustoId, entity.UnitId, ct);
         entity.JobPositionId = await ResolveJobPositionIdAsync(row.Codfuncao, row.NomeFuncao, ct);
+    }
+
+    private static DateTimeOffset ResolveDataAberturaRm(RmRequisicaoRowDto row, DateTimeOffset fallback)
+    {
+        var source = row.Dataabertura ?? row.Reccreatedon;
+        if (!source.HasValue)
+            return fallback;
+
+        var value = source.Value;
+        if (value.Kind == DateTimeKind.Unspecified)
+            value = DateTime.SpecifyKind(value, DateTimeKind.Local);
+
+        return new DateTimeOffset(value).ToUniversalTime();
     }
 
     private async Task<Funcionario?> ResolveSolicitanteAsync(RmRequisicaoRowDto row, CancellationToken ct)

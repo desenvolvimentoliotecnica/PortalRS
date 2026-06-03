@@ -39,27 +39,6 @@
   <data name="SeedErrors.TitlePatternsMissing" xml:space="preserve">
     <value>Seed title patterns nao encontrados para a area '{0}' e '{1}'.</value>
   </data>
-  <data name="SeedErrors.PatternsFileRequired" xml:space="preserve">
-    <value>Seed:Vagas:PatternsFile e obrigatorio.</value>
-  </data>
-  <data name="SeedErrors.PatternsFileNotFound" xml:space="preserve">
-    <value>Arquivo de patterns do seed nao encontrado: {0}</value>
-  </data>
-  <data name="SeedErrors.PatternsFileInvalid" xml:space="preserve">
-    <value>Arquivo de patterns do seed e invalido.</value>
-  </data>
-  <data name="SeedErrors.RequirementsFileRequired" xml:space="preserve">
-    <value>Seed:Vagas:RequirementsFile e obrigatorio.</value>
-  </data>
-  <data name="SeedErrors.RequirementsFileNotFound" xml:space="preserve">
-    <value>Arquivo de requisitos do seed nao encontrado: {0}</value>
-  </data>
-  <data name="SeedErrors.RequirementsFileInvalid" xml:space="preserve">
-    <value>Arquivo de requisitos do seed e invalido.</value>
-  </data>
-  <data name="SeedErrors.RequirementsMissingForArea" xml:space="preserve">
-    <value>Requisitos do seed ausentes para a area '{0}'.</value>
-  </data>
   <data name="SeedErrors.RequirementsEmptyForArea" xml:space="preserve">
     <value>Requisitos do seed vazios para a area '{0}'.</value>
   </data>

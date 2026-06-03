@@ -205,18 +205,12 @@ function parseDecimalBrInput(s: string): number | null {
     return parseBrlCurrencyInput(s);
 }
 
-/** Mín. e máx. obrigatórios quando um dos campos tem conteúdo; mínimo estritamente menor que o máximo. `null` = sem erro (ex.: ambos vazios). */
-function faixaSalarialMensagemErro(minStr: string, maxStr: string): string | null {
-    const tMin = (minStr ?? "").trim();
-    const tMax = (maxStr ?? "").trim();
-    const nMin = parseDecimalBrInput(minStr);
-    const nMax = parseDecimalBrInput(maxStr);
-    const minOk = tMin.length > 0 && nMin != null;
-    const maxOk = tMax.length > 0 && nMax != null;
-    if (!minOk && !maxOk) return null;
-    if (!minOk) return "Informe o valor mínimo da proposta.";
-    if (!maxOk) return "Informe o valor máximo da proposta.";
-    if (nMin! >= nMax!) return "O mínimo deve ser menor que o máximo.";
+/** Proposta salarial obrigatória quando informada no fluxo de criação/edição. `null` = sem erro. */
+function propostaSalarialMensagemErro(valueStr: string): string | null {
+    const trimmed = (valueStr ?? "").trim();
+    const value = parseDecimalBrInput(valueStr);
+    if (!trimmed) return null;
+    if (value == null) return "Informe a proposta salarial.";
     return null;
 }
 
@@ -259,8 +253,7 @@ const LB = {
     funcao: "Função *",
     cargoOpcional: "Cargo",
     cargoObrig: "Cargo *",
-    faixaMin: "Proposta faixa salarial — mín. *",
-    faixaMax: "Proposta faixa salarial — máx. *",
+    faixaMin: "Proposta Salarial *",
     tipoSolicitacao: "Tipo de solicitação",
     motivo: "Motivo *",
     justificativa: "Justificativa",
@@ -674,8 +667,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             urgencia: (() => { const map: Record<string, number> = { Baixa: 0, Media: 1, Alta: 2, Critica: 3 }; const v = d?.urgencia; return typeof v === "number" ? v : (map[v as string] ?? 1); })(),
             jobPositionId: d?.jobPositionId ? String(d.jobPositionId) : null,
             jobPositionName: d?.jobPositionName != null && String(d.jobPositionName).trim() !== "" ? String(d.jobPositionName).trim() : null,
-            faixaSalarialMin: moneyFieldFromApi(d?.faixaSalarialMin ?? d?.FaixaSalarialMin),
-            faixaSalarialMax: moneyFieldFromApi(d?.faixaSalarialMax ?? d?.FaixaSalarialMax),
+            faixaSalarialMin: moneyFieldFromApi(d?.faixaSalarialMin ?? d?.FaixaSalarialMin ?? d?.faixaSalarialMax ?? d?.FaixaSalarialMax),
+            faixaSalarialMax: moneyFieldFromApi(d?.faixaSalarialMax ?? d?.FaixaSalarialMax ?? d?.faixaSalarialMin ?? d?.FaixaSalarialMin),
             origemVaga: "nova",
             unitId: d?.unitId ? String(d.unitId) : null,
             aprovadorId: d?.aprovadorId ? String(d.aprovadorId) : null,
@@ -771,8 +764,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 .finally(() => setLoadingEdit(false));
         } else if (initialData) {
             const merged: SolicitacaoDraft = { ...emptyDraft, ...initialData, origemVaga: "nova" };
-            merged.faixaSalarialMin = moneyFieldFromApi(merged.faixaSalarialMin ?? "");
-            merged.faixaSalarialMax = moneyFieldFromApi(merged.faixaSalarialMax ?? "");
+            const propostaSalarial = moneyFieldFromApi(merged.faixaSalarialMin || merged.faixaSalarialMax || "");
+            merged.faixaSalarialMin = propostaSalarial;
+            merged.faixaSalarialMax = moneyFieldFromApi(merged.faixaSalarialMax || merged.faixaSalarialMin || "");
             setDraft(merged);
             setRmMeta(null);
         } else {
@@ -866,6 +860,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             .then((f) => {
                 if (cancelled) return;
                 setRequisitanteMatriculaExibicao(f?.matriculaRm != null ? String(f.matriculaRm) : null);
+                const gdId = f?.gestorDiretoId != null ? String(f.gestorDiretoId).trim() : "";
+                if (gdId) {
+                    setGestorDiretoId(gdId);
+                    setDraft((d) => d.aprovadorId ? d : { ...d, aprovadorId: gdId });
+                }
             })
             .catch(() => {
                 if (!cancelled) setRequisitanteMatriculaExibicao(null);
@@ -1008,8 +1007,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const exigeDecisaoHeadcountGestor = draft.tipoSolicitacao === 0 || draft.tipoSolicitacao === 2;
 
     const faixaSalarialErroInline = useMemo(
-        () => (viewOnly ? null : faixaSalarialMensagemErro(draft.faixaSalarialMin, draft.faixaSalarialMax)),
-        [draft.faixaSalarialMin, draft.faixaSalarialMax, viewOnly],
+        () => (viewOnly ? null : propostaSalarialMensagemErro(draft.faixaSalarialMin)),
+        [draft.faixaSalarialMin, viewOnly],
     );
 
     async function save() {
@@ -1053,16 +1052,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             errors.push("Turno ou horário legado");
             setActiveTab("horario");
         }
-        const faixaMinNum = parseDecimalBrInput(draft.faixaSalarialMin);
-        const faixaMaxNum = parseDecimalBrInput(draft.faixaSalarialMax);
-        const msgFaixa = faixaSalarialMensagemErro(draft.faixaSalarialMin, draft.faixaSalarialMax);
-        if (faixaMinNum == null || faixaMaxNum == null) {
-            errors.push(msgFaixa ?? "Proposta faixa salarial (mínimo e máximo)");
+        const propostaSalarialNum = parseDecimalBrInput(draft.faixaSalarialMin);
+        const msgFaixa = propostaSalarialMensagemErro(draft.faixaSalarialMin);
+        if (propostaSalarialNum == null) {
+            errors.push(msgFaixa ?? "Proposta Salarial");
             setActiveTab("identificacao");
-        } else if (faixaMinNum >= faixaMaxNum) {
-            toast.error(msgFaixa ?? "O mínimo deve ser menor que o máximo.");
-            setActiveTab("identificacao");
-            return;
         }
         if (errors.length > 0) {
             toast.error(`Campos obrigatórios: ${errors.join(", ")}.`);
@@ -1110,8 +1104,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                 : null,
             decisaoRHPrazoMeses: draft.decisaoRH === 1 ? draft.decisaoRHPrazoMeses : null,
             decisaoRHPrazoDataAlvo: draft.decisaoRH === 1 ? draft.decisaoRHPrazoDataAlvo : null,
-            faixaSalarialMin: faixaMinNum,
-            faixaSalarialMax: faixaMaxNum,
+            faixaSalarialMin: propostaSalarialNum,
+            faixaSalarialMax: propostaSalarialNum,
         };
 
         function hintTabFromMvcKeys(body: Record<string, unknown>): "identificacao" | "horario" | "aprovacao" | null {
@@ -1404,8 +1398,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                 <div
                                     className={
                                         draft.tipoContrato !== 0
-                                            ? "col-span-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4"
-                                            : "col-span-3 grid grid-cols-3 gap-x-4 gap-y-3"
+                                            ? "col-span-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3"
+                                            : "col-span-3 grid grid-cols-2 gap-x-4 gap-y-3"
                                     }
                                 >
                                     <div>
@@ -1426,65 +1420,25 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                                 setDraft((d) => ({
                                                     ...d,
                                                     faixaSalarialMin: formatBrlCurrencyFromDigits(e.target.value.replace(/\D/g, "")),
-                                                }))
-                                            }
-                                            onCompositionEnd={(e) => {
-                                                const v = formatBrlCurrencyFromDigits(e.currentTarget.value.replace(/\D/g, ""));
-                                                setDraft((d) => ({ ...d, faixaSalarialMin: v }));
-                                            }}
-                                            onPaste={(e) => {
-                                                const formatted = applyPastedMoneyToField(e.clipboardData.getData("text"));
-                                                if (formatted != null) {
-                                                    e.preventDefault();
-                                                    setDraft((d) => ({ ...d, faixaSalarialMin: formatted }));
-                                                }
-                                            }}
-                                            onDrop={(e) => {
-                                                const formatted = applyPastedMoneyToField(e.dataTransfer.getData("text/plain"));
-                                                if (formatted != null) {
-                                                    e.preventDefault();
-                                                    setDraft((d) => ({ ...d, faixaSalarialMin: formatted }));
-                                                }
-                                            }}
-                                            disabled={viewOnly}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className={L}>{LB.faixaMax}</label>
-                                        <Input
-                                            type="text"
-                                            inputMode="numeric"
-                                            autoComplete="off"
-                                            autoCorrect="off"
-                                            spellCheck={false}
-                                            placeholder="R$ 0,00"
-                                            title="Digite apenas números; o valor é montado em reais com centavos (ex.: para R$ 5.000,00 digite 500000)."
-                                            className={`tabular-nums${faixaSalarialErroInline ? " border-destructive" : ""}`}
-                                            aria-invalid={faixaSalarialErroInline ? true : undefined}
-                                            value={draft.faixaSalarialMax}
-                                            onKeyDown={blockNonDigitMoneyKeys}
-                                            onChange={(e) =>
-                                                setDraft((d) => ({
-                                                    ...d,
                                                     faixaSalarialMax: formatBrlCurrencyFromDigits(e.target.value.replace(/\D/g, "")),
                                                 }))
                                             }
                                             onCompositionEnd={(e) => {
                                                 const v = formatBrlCurrencyFromDigits(e.currentTarget.value.replace(/\D/g, ""));
-                                                setDraft((d) => ({ ...d, faixaSalarialMax: v }));
+                                                setDraft((d) => ({ ...d, faixaSalarialMin: v, faixaSalarialMax: v }));
                                             }}
                                             onPaste={(e) => {
                                                 const formatted = applyPastedMoneyToField(e.clipboardData.getData("text"));
                                                 if (formatted != null) {
                                                     e.preventDefault();
-                                                    setDraft((d) => ({ ...d, faixaSalarialMax: formatted }));
+                                                    setDraft((d) => ({ ...d, faixaSalarialMin: formatted, faixaSalarialMax: formatted }));
                                                 }
                                             }}
                                             onDrop={(e) => {
                                                 const formatted = applyPastedMoneyToField(e.dataTransfer.getData("text/plain"));
                                                 if (formatted != null) {
                                                     e.preventDefault();
-                                                    setDraft((d) => ({ ...d, faixaSalarialMax: formatted }));
+                                                    setDraft((d) => ({ ...d, faixaSalarialMin: formatted, faixaSalarialMax: formatted }));
                                                 }
                                             }}
                                             disabled={viewOnly}
@@ -1868,10 +1822,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         {/* ══════════════ TAB 4 — Aprovação (fluxo visual superior → requisitante) ══════════════ */}
                         <TabsContent value="aprovacao" className="mt-0">
                             <div className="flex flex-col items-center px-2 py-4 sm:py-8">
-                                <p className="text-center text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
-                                    A solicitação é analisada primeiro pelo superior direto; abaixo você enxerga onde se posiciona neste fluxo.
-                                </p>
-
                                 <div className="w-full max-w-sm rounded-2xl border border-border/80 bg-card shadow-sm px-5 py-5 text-center">
                                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                                         Superior direto (aprovador)
@@ -1911,11 +1861,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                     )}
                                 </div>
 
-                                {gestorDiretoId && draft.aprovadorId === gestorDiretoId && (
-                                    <p className="mt-6 max-w-sm text-center text-xs text-muted-foreground">
-                                        Superior direto detectado automaticamente a partir do seu cadastro no portal.
-                                    </p>
-                                )}
                             </div>
 
                             {!gestorDiretoId && !viewOnly && (

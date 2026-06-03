@@ -431,6 +431,7 @@ public sealed class LookupController : ControllerBase
             .Select(x => new FuncionarioLookupItem
             {
                 Id = x.Id,
+                UserId = x.UserId,
                 Nome = x.Name,
                 Email = x.Email,
 

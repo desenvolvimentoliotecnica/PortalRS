@@ -9,9 +9,7 @@ import { getTenantId } from "@/lib/session";
 import { lookupCep } from "@/lib/cepLookup";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
-import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
-import { RecrutadorAutocomplete } from "@/components/autocomplete/RecrutadorAutocomplete";
 import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
@@ -55,7 +53,6 @@ const PCD_MATCH_OPTIONS = [
   { code: "S", text: "Sim (preferência PCD)" },
   { code: "N", text: "Não" },
 ];
-const CNH_CATS = ["A", "B", "AB", "C", "D", "E"];
 
 type EnumOption = { code: string; text: string };
 type EnumData = Record<string, EnumOption[]>;
@@ -589,7 +586,7 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     observacoesDeslocamento: emptyToNull(d.observacoesDeslocamento),
     moeda: emptyToNull(d.moeda) ?? "brl",
     salarioMinimo: d.salarioMinimo ? parseMoneyInput(d.salarioMinimo) : null,
-    salarioMaximo: d.salarioMaximo ? parseMoneyInput(d.salarioMaximo) : null,
+    salarioMaximo: d.salarioMinimo ? parseMoneyInput(d.salarioMinimo) : null,
     periodicidade: emptyToNull(d.periodicidade) ?? "mensal",
     bonusTipo: emptyToNull(d.bonusTipo),
     bonusPercentual: d.bonusPercentual ? Number(d.bonusPercentual.replace(",", ".")) || null : null,
@@ -1125,8 +1122,8 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         cep: pick(v.cep), logradouro: pick(v.logradouro), numero: pick(v.numero), bairro: pick(v.bairro),
         cidade: pick(v.cidade), uf: pick(v.uf), politicaTrabalho: pick(v.politicaTrabalho),
         observacoesDeslocamento: pick(v.observacoesDeslocamento),
-        moeda: pickEnum(v.moeda, "brl"), salarioMinimo: formatMoneyValue(v.salarioMinimo),
-        salarioMaximo: formatMoneyValue(v.salarioMaximo),
+        moeda: pickEnum(v.moeda, "brl"), salarioMinimo: formatMoneyValue(v.salarioMinimo ?? v.salarioMaximo),
+        salarioMaximo: formatMoneyValue(v.salarioMinimo ?? v.salarioMaximo),
         periodicidade: pickEnum(v.periodicidade, "mensal"), bonusTipo: pickEnum(v.bonusTipo),
         bonusPercentual: v.bonusPercentual != null ? String(v.bonusPercentual) : "",
         observacoesRemuneracao: pick(v.observacoesRemuneracao),
@@ -1404,7 +1401,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                   placeholder="Digite código ou nome do cargo..."
                 />
               </Field>
-              <Field label={draft.funcaoNomeRm ? "Função (TOTVS RM)" : "Função"} span="col-span-12 md:col-span-6">
+              <Field label="Função" span="col-span-12 md:col-span-6">
                 <input
                   readOnly
                   className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
@@ -1413,55 +1410,26 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                   title="Função TOTVS (PFUNCAO) — vem do RM, não editável"
                 />
               </Field>
-              <Field label="Código CBO" span="col-span-12 md:col-span-6">
-                <input
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  placeholder="0000-00"
-                  value={draft.codigoCbo}
-                  onChange={(e) => set("codigoCbo", e.target.value)}
-                />
-              </Field>
               <Field label="Tipo de contratação" span="col-span-12 md:col-span-4">
                 <EnumSelect value={draft.tipoContratacao} onChange={(v) => set("tipoContratacao", v)} options={enumOpts(enums, "vagaTipoContratacao", "Selecionar")} />
               </Field>
 
               <Field label="Centro de custo" span="col-span-12 md:col-span-6">
-                <CentroCustoAutocomplete
-                  value={draft.centroCustoCode || draft.centroCustoId}
-                  defaultLabel={draft.centroCustoCode ? { code: draft.centroCustoCode, description: draft.centroCustoDescription } : undefined}
-                  onChange={(code) => set("centroCustoCode", code)}
-                  onSelectId={(id) => set("centroCustoId", id)}
-                  onSelectItem={(item) => {
-                    setDraft((d) => ({
-                      ...d,
-                      centroCustoId: item.id,
-                      centroCustoCode: item.code,
-                      centroCustoDescription: item.description,
-                    }));
-                  }}
-                  placeholder="Buscar centro de custo..."
+                <input
+                  readOnly
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={[draft.centroCustoCode, draft.centroCustoDescription].filter(Boolean).join(" - ")}
+                  placeholder="—"
                 />
               </Field>
 
               <Field label="Qtd. vagas" span="col-span-6 md:col-span-3">
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={1} value={draft.quantidadeVagas} onChange={(e) => set("quantidadeVagas", Math.max(1, Number(e.target.value) || 1))} />
               </Field>
-              <Field label="Prioridade / Urgência" span="col-span-6 md:col-span-3">
-                <EnumSelect value={draft.prioridade} onChange={(v) => set("prioridade", v)} options={enumOpts(enums, "vagaPrioridade", "Selecionar")} />
-              </Field>
 
               <Field label="Justificativa / Desc. interna" span="col-span-12">
                 <textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Contexto da contratação, justificativa do requisitante, notas para o recrutador..." value={draft.descricaoInterna} onChange={(e) => set("descricaoInterna", e.target.value)} />
               </Field>
-
-              <div className="col-span-12 rounded-lg border border-border bg-muted/20 p-4">
-                <p className="text-xs font-medium text-muted-foreground mb-3">Configurações rápidas</p>
-                <div className="flex flex-wrap gap-6">
-                  <Toggle label="Confidencial — ocultar empresa/gestor em canais públicos" checked={draft.confidencial} onChange={(v) => set("confidencial", v)} />
-                  <Toggle label="Exige CNH" checked={draft.exigeCnh} onChange={(v) => set("exigeCnh", v)} />
-                  <Toggle label="Disponibilidade para viagens" checked={draft.disponibilidadeViagens} onChange={(v) => set("disponibilidadeViagens", v)} />
-                </div>
-              </div>
             </div>
           )}
 
@@ -1505,7 +1473,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
 
               {/* Seção: Identificação */}
               <SectionHeader title="Código e posicionamento" description="Código, status e hierarquia interna da vaga." />
-              <Field label="Código" span="col-span-12 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: MKT-JR-001" value={draft.codigo} onChange={(e) => set("codigo", e.target.value)} /></Field>
               <Field label="Status" required span="col-span-12 md:col-span-3"><EnumSelect value={draft.status} onChange={(v) => set("status", v)} options={enumOpts(enums, "vagaStatus")} /></Field>
               <Field label="Nome interno (engessado)" span="col-span-12 md:col-span-5">
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de TI Sênior" value={draft.nomeEngessado} onChange={(e) => set("nomeEngessado", e.target.value)} maxLength={200} />
@@ -1517,44 +1484,16 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <Field label="Senioridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.senioridade} onChange={(v) => set("senioridade", v)} options={enumOpts(enums, "vagaSenioridade", "Selecionar")} /></Field>
               <Field label="Motivo de abertura" span="col-span-6 md:col-span-3"><EnumSelect value={draft.motivoAbertura} onChange={(v) => set("motivoAbertura", v)} options={enumOpts(enums, "vagaMotivoAbertura", "Selecionar")} /></Field>
               <Field label="Orçamento aprovado" span="col-span-6 md:col-span-3"><EnumSelect value={draft.orcamentoAprovado} onChange={(v) => set("orcamentoAprovado", v)} options={enumOpts(enums, "vagaOrcamentoAprovado", "Selecionar")} /></Field>
-              <Field label="Área/Time" span="col-span-6 md:col-span-3"><EnumSelect value={draft.areaTime} onChange={(v) => set("areaTime", v)} options={enumOpts(enums, "vagaAreaTime", "Selecionar")} /></Field>
 
               {/* Seção: Responsáveis */}
               <SectionHeader title="Responsáveis" />
               <Field label="Gestor requisitante" span="col-span-12 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Nome do gestor" maxLength={120} value={draft.gestorRequisitante} onChange={(e) => set("gestorRequisitante", e.target.value)} /></Field>
-              <Field label="Recrutador responsável" span="col-span-12 md:col-span-4">
-                <RecrutadorAutocomplete
-                  value={draft.recrutadorResponsavelUserId}
-                  onChange={(userId, name) => {
-                    set("recrutadorResponsavelUserId", userId);
-                    // Mantém a string sincronizada com o nome escolhido (back também sincroniza,
-                    // mas atualizar local melhora UX e evita race com refresh).
-                    set("recrutadorResponsavel", name ?? "");
-                  }}
-                  defaultLabel={draft.recrutadorResponsavel ? { name: draft.recrutadorResponsavel } : undefined}
-                />
-              </Field>
-              <Field label="Match mínimo (IA)" span="col-span-12 md:col-span-4">
-                <div className="flex items-center gap-2">
-                  <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.matchMinimoPercentual} onChange={(e) => set("matchMinimoPercentual", clamp(Number(e.target.value) || 0, 0, 100))} />
-                  <span className="text-sm text-muted-foreground font-medium shrink-0">%</span>
-                </div>
-              </Field>
 
               {/* Seção: Descrição e conteúdo */}
               <SectionHeader title="Descrição e conteúdo" />
               <Field label="Resumo / pitch da vaga" span="col-span-12"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} placeholder="Descreva brevemente o propósito da vaga e o diferencial para atrair candidatos." value={draft.resumoPitch} onChange={(e) => set("resumoPitch", e.target.value)} /></Field>
               <Field label="Responsabilidades (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Ex.: triagem de currículos; entrevistas; alinhamento com gestores" value={draft.tagsResponsabilidades} onChange={(e) => set("tagsResponsabilidades", e.target.value)} /></Field>
               <Field label="Palavras-chave (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Ex.: recrutamento; ATS; entrevistas por competência" value={draft.tagsKeywords} onChange={(e) => set("tagsKeywords", e.target.value)} /></Field>
-
-              {/* Seção: Flags */}
-              <div className="col-span-12 rounded-lg border border-border bg-muted/20 p-4">
-                <p className="text-xs font-medium text-muted-foreground mb-3">Configurações rápidas</p>
-                <div className="flex flex-wrap gap-6">
-                  <Toggle label="Aceita PCD — vaga inclusiva" checked={draft.aceitaPcd} onChange={(v) => set("aceitaPcd", v)} />
-                  <Toggle label="Urgente — SLA curto" checked={draft.urgente} onChange={(v) => set("urgente", v)} />
-                </div>
-              </div>
 
             </div>
           )}
@@ -1631,15 +1570,27 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                 <SugerirSalarioButton
                   vagaId={vagaId}
                   onAplicar={(min, max) => {
-                    set("salarioMinimo", min.toFixed(2).replace(".", ","));
-                    set("salarioMaximo", max.toFixed(2).replace(".", ","));
+                    const valor = min > 0 ? min : max;
+                    const formatted = valor.toFixed(2).replace(".", ",");
+                    set("salarioMinimo", formatted);
+                    set("salarioMaximo", formatted);
                   }}
                 />
               </div>
               <Field label="Moeda" span="col-span-6 md:col-span-2"><EnumSelect value={draft.moeda || "brl"} onChange={(v) => set("moeda", v || "brl")} options={enumOpts(enums, "vagaMoeda")} /></Field>
-              <Field label="Salário mínimo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" inputMode="numeric" placeholder="0,00" value={draft.salarioMinimo} onChange={(e) => set("salarioMinimo", formatMoneyInput(e.target.value))} /></Field>
-              <Field label="Salário máximo" span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" inputMode="numeric" placeholder="0,00" value={draft.salarioMaximo} onChange={(e) => set("salarioMaximo", formatMoneyInput(e.target.value))} /></Field>
-              <Field label="Periodicidade" span="col-span-6 md:col-span-4"><EnumSelect value={draft.periodicidade || "mensal"} onChange={(v) => set("periodicidade", v || "mensal")} options={enumOpts(enums, "vagaRemuneracaoPeriodicidade")} /></Field>
+              <Field label="Salário" span="col-span-6 md:col-span-4">
+                <input
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  inputMode="numeric"
+                  placeholder="0,00"
+                  value={draft.salarioMinimo}
+                  onChange={(e) => {
+                    const value = formatMoneyInput(e.target.value);
+                    setDraft((d) => ({ ...d, salarioMinimo: value, salarioMaximo: value }));
+                  }}
+                />
+              </Field>
+              <Field label="Periodicidade" span="col-span-6 md:col-span-6"><EnumSelect value={draft.periodicidade || "mensal"} onChange={(v) => set("periodicidade", v || "mensal")} options={enumOpts(enums, "vagaRemuneracaoPeriodicidade")} /></Field>
               <Field label="Tipo de bônus / extra" span="col-span-12 md:col-span-4"><EnumSelect value={draft.bonusTipo} onChange={(v) => set("bonusTipo", v)} options={enumOpts(enums, "vagaBonusTipo", "Selecionar")} /></Field>
               <Field label="% bônus" span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="0%" value={draft.bonusPercentual} onChange={(e) => set("bonusPercentual", e.target.value)} /></Field>
               <Field label="Observações de remuneração" span="col-span-12 md:col-span-6"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: faixa depende de senioridade" value={draft.observacoesRemuneracao} onChange={(e) => set("observacoesRemuneracao", e.target.value)} /></Field>
@@ -1721,14 +1672,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <Field label="PCD" span="col-span-6 md:col-span-3"><EnumSelect value={draft.matchingPcd} onChange={(v) => set("matchingPcd", v)} options={PCD_MATCH_OPTIONS} /></Field>
               <Field label="Idade mín." span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMin} onChange={(e) => set("matchingIdadeMin", e.target.value)} /></Field>
               <Field label="Idade máx." span="col-span-6 md:col-span-2"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={14} max={100} placeholder="—" value={draft.matchingIdadeMax} onChange={(e) => set("matchingIdadeMax", e.target.value)} /></Field>
-              <div className="col-span-12 md:col-span-5 flex items-end gap-3 pb-1">
-                <Toggle label="Requer CNH" checked={draft.matchingRequerCnh} onChange={(v) => set("matchingRequerCnh", v)} />
-                {draft.matchingRequerCnh && (
-                  <select className="h-9 rounded-md border border-input bg-background px-3 text-sm w-auto" value={draft.matchingCnhCategoria} onChange={(e) => set("matchingCnhCategoria", e.target.value)}>
-                    {CNH_CATS.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                )}
-              </div>
               <Field label="Habilidades desejadas" span="col-span-12"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: .NET, SQL, APIs REST (separadas por vírgula)" value={draft.matchingHabilidades} onChange={(e) => set("matchingHabilidades", e.target.value)} /></Field>
               <Field label="Observações adicionais (opcional)" span="col-span-12"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={2} placeholder="Outros critérios em texto livre" value={draft.matchingObs} onChange={(e) => set("matchingObs", e.target.value)} /></Field>
 
@@ -1778,6 +1721,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               </Field>
 
               <SectionHeader title="Pesos do matching (calibragem por vaga)" description="Distribua o peso entre as 7 dimensões — total recomendado: 100." />
+              <Field label="Match mínimo (IA)" span="col-span-12 md:col-span-3">
+                <div className="flex items-center gap-2">
+                  <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.matchMinimoPercentual} onChange={(e) => set("matchMinimoPercentual", clamp(Number(e.target.value) || 0, 0, 100))} />
+                  <span className="text-sm text-muted-foreground font-medium shrink-0">%</span>
+                </div>
+              </Field>
               <Field label={`Competência (${draft.weightsCompetencia})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsCompetencia} onChange={(e) => set("weightsCompetencia", Number(e.target.value) || 0)} /></Field>
               <Field label={`Experiência (${draft.weightsExperiencia})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsExperiencia} onChange={(e) => set("weightsExperiencia", Number(e.target.value) || 0)} /></Field>
               <Field label={`Formação (${draft.weightsFormacao})`} span="col-span-6 md:col-span-3"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" type="number" min={0} max={100} value={draft.weightsFormacao} onChange={(e) => set("weightsFormacao", Number(e.target.value) || 0)} /></Field>

@@ -1376,18 +1376,39 @@ public sealed class OwnerController : ControllerBase
             return Path.GetFullPath(configured);
 
         var workerPath = _configuration["RmSync:WorkerProjectPath"];
-        var baseDir = !string.IsNullOrWhiteSpace(workerPath)
+        var configuredWorkerDir = !string.IsNullOrWhiteSpace(workerPath)
             ? Directory.GetParent(Path.GetFullPath(workerPath))?.FullName
             : null;
+        var resolvedWorkerDir = ResolveRmSyncWorkerDirectory(workerPath);
+        var repoRoot = Directory.GetParent(resolvedWorkerDir)?.FullName;
 
         var candidates = new[]
         {
-            Path.Combine(baseDir ?? AppContext.BaseDirectory, "Liotecnica.Integration.RM.Logs", "extraction.log"),
+            Path.Combine(configuredWorkerDir ?? AppContext.BaseDirectory, "Liotecnica.Integration.RM.Logs", "extraction.log"),
+            Path.Combine(repoRoot ?? AppContext.BaseDirectory, "Liotecnica.Integration.RM.Logs", "extraction.log"),
             Path.Combine(AppContext.BaseDirectory, "Liotecnica.Integration.RM.Logs", "extraction.log"),
             "/app/Liotecnica.Integration.RM.Logs/extraction.log",
         };
 
         return candidates.FirstOrDefault(System.IO.File.Exists) ?? candidates[0];
+    }
+
+    private static string ResolveRmSyncWorkerDirectory(string? configured)
+    {
+        if (!string.IsNullOrWhiteSpace(configured))
+            return Path.GetFullPath(configured);
+
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Liotecnica.Integration.RM"),
+            "/app/Liotecnica.Integration.RM",
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "Liotecnica.Integration.RM"),
+        };
+
+        return candidates
+            .Select(Path.GetFullPath)
+            .FirstOrDefault(Directory.Exists)
+            ?? Path.GetFullPath(candidates[^1]);
     }
 
     private static IReadOnlyList<string> ReadLastLines(string path, int tail)

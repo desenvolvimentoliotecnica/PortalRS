@@ -100,11 +100,10 @@ public sealed class OpsController : ControllerBase
             // ✅ Overrides finos (sem mexer no appsettings)
             // Quando reseed=true, forçamos:
             // - SeedEnabled = true
-            // - Vagas/Candidatos/Inbox = true (mesmo que no appsettings esteja false)
+            // - Candidatos/Inbox = true (mesmo que no appsettings esteja false)
             // Quando reseed=false, desligamos tudo.
             var overrides = new DbSeeder.SeedOverrides(
                 SeedEnabled: reseed,
-                SeedVagasEnabled: reseed,
                 SeedCandidatosEnabled: reseed,
                 SeedInboxEnabled: reseed
             );

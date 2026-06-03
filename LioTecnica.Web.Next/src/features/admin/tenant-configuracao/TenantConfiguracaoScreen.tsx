@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Save, Settings2, Users, Clock, ChevronDown, ChevronRight, Lock, MessageCircle, Briefcase, Download, History } from "lucide-react";
 import { cn } from "@/lib/utils";
+import RmRequisicaoConfigCard from "./RmRequisicaoConfigCard";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -579,6 +580,8 @@ export default function TenantConfiguracaoScreen() {
                             </label>
 
                             <div className="rounded-lg border border-border/60 bg-muted/20 p-4 space-y-4">
+                                <RmRequisicaoConfigCard />
+
                                 <label className="flex items-start gap-3">
                                     <input
                                         type="checkbox"

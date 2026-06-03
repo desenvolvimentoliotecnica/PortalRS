@@ -9,7 +9,7 @@ namespace RhPortal.Api.Infrastructure.Data.Seeders;
 /// Consolidação Sessão 31.2: substitui o antigo <c>AreaDepartmentSeeder</c>.
 /// O cadastro unificado de CentroCusto absorve o que antes eram Area + Department,
 /// então este seeder popula a estrutura organizacional mínima que outros seeders
-/// (JobPositionSeeder, VagaSeeder, CandidatoSeeder, AgendaEventSeeder) esperam
+/// (JobPositionSeeder, CandidatoSeeder, AgendaEventSeeder) esperam
 /// encontrar por <see cref="CentroCusto.Code"/>.
 ///
 /// Idempotente: verifica por <c>Code</c> antes de inserir.

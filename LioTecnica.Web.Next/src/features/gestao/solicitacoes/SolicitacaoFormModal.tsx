@@ -42,6 +42,7 @@ export default function SolicitacaoFormModal({ open, editId, onClose, onSaved, v
                         onCancel={onClose}
                         onSuccess={onSaved}
                         viewOnly={viewOnly}
+                        hideFooter={!!footerExtra}
                         resubmitAfterSave={resubmitAfterSave}
                         copySourceId={copySourceId}
                         initialData={initialData}
