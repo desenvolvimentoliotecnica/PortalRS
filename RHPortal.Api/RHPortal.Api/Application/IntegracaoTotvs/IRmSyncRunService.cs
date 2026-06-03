@@ -53,7 +53,7 @@ public interface IRmSyncRunService
     /// Dispara um ciclo do worker em background via Process.Start (apenas dev/on-prem).
     /// Retorna o PID se conseguiu iniciar; null se já há outro ciclo manual rodando.
     /// </summary>
-    Task<int?> TriggerRunNowAsync(CancellationToken ct);
+    Task<int?> TriggerRunNowAsync(CancellationToken ct, bool forceFull = false);
 
     /// <summary>Solicita interrupção cooperativa do ciclo RM em execução.</summary>
     Task<OwnerRmSyncCancelResponse> RequestCancelAsync(CancellationToken ct);

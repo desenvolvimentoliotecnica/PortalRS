@@ -232,7 +232,7 @@ public sealed class RmSyncRunService : IRmSyncRunService
         await _db.SaveChangesAsync(ct);
     }
 
-    public Task<int?> TriggerRunNowAsync(CancellationToken ct)
+    public Task<int?> TriggerRunNowAsync(CancellationToken ct, bool forceFull = false)
     {
         // Resolve o caminho do worker. Em container ele é publicado junto da API; no dev local
         // mantemos fallback para o projeto fonte.
@@ -283,6 +283,8 @@ public sealed class RmSyncRunService : IRmSyncRunService
             {
                 psi.ArgumentList.Add("Liotecnica.Integration.RM.dll");
                 psi.ArgumentList.Add("sync");
+                if (forceFull)
+                    psi.ArgumentList.Add("--full");
             }
             else if (File.Exists(workerProject))
             {
@@ -291,6 +293,8 @@ public sealed class RmSyncRunService : IRmSyncRunService
                 psi.ArgumentList.Add(workerProject);
                 psi.ArgumentList.Add("--");
                 psi.ArgumentList.Add("sync");
+                if (forceFull)
+                    psi.ArgumentList.Add("--full");
             }
             else
             {
