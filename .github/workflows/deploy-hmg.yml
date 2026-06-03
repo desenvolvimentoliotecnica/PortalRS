@@ -146,16 +146,12 @@ jobs:
       - name: Pull images and recreate stack
         run: |
           set -euo pipefail
-          if [[ -z "${{ secrets.GHCR_PULL_TOKEN }}" || -z "${{ secrets.GHCR_PULL_USER }}" ]]; then
-            echo "Defina os secrets GHCR_PULL_TOKEN e GHCR_PULL_USER no repositório."
-            exit 1
-          fi
           LOCAL_ENV="${RUNNER_TEMP}/hmg-deploy.env"
           {
             echo "HMG_REGISTRY_PREFIX=${{ needs.build-and-push.outputs.image_prefix }}"
             echo "HMG_IMAGE_TAG=${{ github.sha }}"
-            echo "GHCR_PULL_USER=${{ secrets.GHCR_PULL_USER }}"
-            echo "GHCR_PULL_TOKEN=${{ secrets.GHCR_PULL_TOKEN }}"
+            echo "GHCR_PULL_USER=${{ github.actor }}"
+            echo "GHCR_PULL_TOKEN=${{ secrets.GITHUB_TOKEN }}"
           } > "$LOCAL_ENV"
           chmod 600 "$LOCAL_ENV"
           scp -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
