@@ -277,6 +277,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.Owner.TotvsGestorHierarchySy
 builder.Services.AddScoped<RhPortal.Api.Application.Owner.ITotvsGestorHierarchyOwnerService,
     RhPortal.Api.Application.Owner.TotvsGestorHierarchyOwnerService>();
 builder.Services.AddHostedService<RhPortal.Api.Application.Owner.RmBootstrapHostedService>();
+builder.Services.AddHostedService<RhPortal.Api.Application.Owner.BootstrapUsersHostedService>();
 builder.Services.AddHttpClient("totvsGestorHierarchy", client =>
 {
     client.Timeout = TimeSpan.FromMinutes(3);
