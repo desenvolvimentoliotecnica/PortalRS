@@ -32,8 +32,8 @@ def _normalize_database_url(url: str) -> str:
         parsed = urlparse(url)
         if not parsed.hostname:
             return _ensure_ascii(url)
-        user = parsed.username or ""
-        password = parsed.password or ""
+        user = unquote(parsed.username or "")
+        password = unquote(parsed.password or "")
         user_enc = quote(user, safe="") if user else ""
         password_enc = quote(password, safe="") if password else ""
         if not user_enc and not password_enc:
