@@ -44,12 +44,12 @@ Os defaults no workflow apontam para `http://10.0.0.80:5000` (API), `http://10.0
 | `SSH_PRIVATE_KEY` | Chave SSH privada (formato OpenSSH), só para deploy — **sem passphrase** ou usa agent no runner com cuidado |
 | `SSH_HOST` | Destino SCP/SSH: normalmente `10.0.0.80` (ou `127.0.0.1` se o runner for o próprio servidor e o sshd aceitar loopback) |
 | `SSH_USER` | Utilizador SSH (ex.: `administrator`) |
-| `GHCR_PULL_USER` | Utilizador GitHub com permissão **read:packages** sobre imagens do repositório |
-| `GHCR_PULL_TOKEN` | PAT clássico ou fine-grained com **read:packages** (e leitura ao repo se as imagens forem privadas) |
+| `GHCR_PULL_USER` | Opcional. Use apenas em deploy manual fora do GitHub Actions |
+| `GHCR_PULL_TOKEN` | Opcional. Use apenas em deploy manual fora do GitHub Actions |
 
-O workflow faz login em `ghcr.io` **no servidor** com estes dois últimos secrets para executar `docker compose pull`.
+O workflow faz login em `ghcr.io` **no servidor** com `${{ github.actor }}` + `${{ secrets.GITHUB_TOKEN }}` para executar `docker compose pull`, igual ao fluxo DEV. Isso evita depender de PAT separado com escopo de pacotes.
 
-**Nota:** O `GITHUB_TOKEN` do workflow só serve no runner para **push** das imagens; no servidor remoto é obrigatório um PAT com pull.
+**Nota:** Para execução manual do script fora do GitHub Actions, ainda é possível exportar `GHCR_PULL_USER` e `GHCR_PULL_TOKEN` antes de rodar `hmg-compose-pull-up.sh`.
 
 ## Primeira configuração no servidor
 
