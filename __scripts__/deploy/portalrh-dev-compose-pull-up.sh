@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Executar NO SERVIDOR DEV após login GHCR (docker compose pull / up).
+# Variáveis obrigatórias: DEV_REGISTRY_PREFIX, DEV_IMAGE_TAG
+# Opcional: GHCR_PULL_USER + GHCR_PULL_TOKEN (se ainda não fizeste docker login nesta sessão)
+set -euo pipefail
+
+: "${DEV_REGISTRY_PREFIX:?defina DEV_REGISTRY_PREFIX (ex.: ghcr.io/org/repo)}"
+: "${DEV_IMAGE_TAG:?defina DEV_IMAGE_TAG (SHA do commit)}"
+
+COMPOSE_DIR="${COMPOSE_DIR:-$HOME/rhportal-dev}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.portalrh-dev.yml}"
+export DEV_ENV_FILE="${DEV_ENV_FILE:-$HOME/.env.portalrh-dev}"
+
+cd "$COMPOSE_DIR"
+
+if [[ -n "${GHCR_PULL_TOKEN:-}" && -n "${GHCR_PULL_USER:-}" ]]; then
+  echo "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "$GHCR_PULL_USER" --password-stdin
+fi
+
+if [[ ! -f "$DEV_ENV_FILE" ]]; then
+  echo "ERRO: $DEV_ENV_FILE não existe. Crie o arquivo de ambiente antes do deploy."
+  exit 1
+fi
+
+docker network inspect rhportal-net >/dev/null 2>&1 || docker network create rhportal-net
+
+docker compose -f "$COMPOSE_FILE" pull
+
+# Parar stack antiga e libertar nomes fixos (container_name).
+docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+for cname in rhportal-dev-api rhportal-dev-web-next rhportal-dev-portal-vagas rhportal-dev-ai; do
+  docker rm -f "$cname" >/dev/null 2>&1 || true
+done
+
+docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+docker compose -f "$COMPOSE_FILE" ps
+
+sleep 8
+curl -fsS "http://127.0.0.1:5000/health" | head -c 400 || echo "(verifica logs da API se health falhar)"

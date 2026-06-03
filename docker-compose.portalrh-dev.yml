@@ -1,0 +1,86 @@
+# Stack DEV (portalRH-DEV) — GitHub Actions faz build/push das imagens; no servidor: pull + up.
+#
+# Variáveis esperadas no shell ou num ficheiro `.env` ao lado deste ficheiro:
+#   DEV_REGISTRY_PREFIX  ex.: ghcr.io/org/repo   (sem barra final)
+#   DEV_IMAGE_TAG        ex.: sha do commit ou latest
+#   DEV_ENV_FILE         caminho absoluto opcional para .env (default: .env.portalrh-dev)
+
+name: rhportal-dev
+
+services:
+  api:
+    image: ${DEV_REGISTRY_PREFIX}/rhportal-api:${DEV_IMAGE_TAG}
+    container_name: rhportal-dev-api
+    restart: unless-stopped
+    ports:
+      - "5000:80"
+    environment:
+      Navegacao__PortalVagasPublicUrl: ${DEV_PORTAL_VAGAS_URL:-http://10.0.0.79:3050}
+      RmSync__WorkerProjectPath: /app/Liotecnica.Integration.RM
+      Portal__BaseUrl: http://localhost/
+      Portal__TenantId: liotecnica
+    env_file:
+      - ${DEV_ENV_FILE:-.env.portalrh-dev}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${DEV_API_APP_DATA_DIR:-/home/administrator/rhportal-dev/api-app-data}:/app/App_Data
+    networks:
+      - rhportal-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  web-next:
+    image: ${DEV_REGISTRY_PREFIX}/rhportal-web-next:${DEV_IMAGE_TAG}
+    container_name: rhportal-dev-web-next
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - rhportal-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  portal-vagas:
+    image: ${DEV_REGISTRY_PREFIX}/rhportal-portal-vagas:${DEV_IMAGE_TAG}
+    container_name: rhportal-dev-portal-vagas
+    restart: unless-stopped
+    ports:
+      - "3050:8080"
+    networks:
+      - rhportal-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  ai:
+    image: ${DEV_REGISTRY_PREFIX}/rhportal-ai:${DEV_IMAGE_TAG}
+    container_name: rhportal-dev-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ${DEV_ENV_FILE:-.env.portalrh-dev}
+    networks:
+      - rhportal-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health/live > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+networks:
+  rhportal-net:
+    external: true
