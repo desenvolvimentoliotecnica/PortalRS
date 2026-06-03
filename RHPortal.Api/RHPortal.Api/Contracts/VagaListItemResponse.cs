@@ -73,6 +73,8 @@ public sealed record VagaListItemResponse(
     string? HierarquiaDescricao,
     /// <summary>IDREQ da requisição-mãe no TOTVS (informativo, rastreável).</summary>
     string? IdReqRmOrigem,
+    /// <summary>Data de abertura da requisição RM/solicitação que originou a vaga.</summary>
+    DateTimeOffset? DataRequisicao,
     /// <summary>Código da função TOTVS (PFUNC.CODFUNCAO).</summary>
     string? CodFuncaoRm,
     /// <summary>Nome específico da função TOTVS (PFUNCAO.NOME). Ex.: "ANALISTA DE PRICING SR".</summary>

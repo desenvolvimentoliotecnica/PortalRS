@@ -35,6 +35,7 @@ import type { VagaListItem } from "@/lib/schemas/recrutamento";
 import PaginationBar from "@/components/pagination/PaginationBar";
 import { useClientPagination } from "@/hooks/useClientPagination";
 import { apiFetch } from "@/lib/api";
+import { env } from "@/lib/env";
 import { getAccessToken, tryGetUserIdFromJwt } from "@/lib/session";
 import { getScreenCache, setScreenCache } from "@/lib/screenCache";
 import { confirmDialog } from "@/lib/confirm-dialog";
@@ -130,7 +131,7 @@ const VAGAS_FONT_135X_STYLE = `
     }
 `;
 
-function truncateTitle(value: string | null | undefined, maxLength = 30): string {
+function truncateTitle(value: string | null | undefined, maxLength = 60): string {
     const text = value?.trim();
     if (!text) return "—";
     return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
@@ -148,6 +149,8 @@ interface SolicitacaoRow {
     solicitanteNome?: string | null;
     qtdPosicoes: number;
     createdAtUtc: string;
+    vagaId?: string | null;
+    rmIdReq?: number | string | null;
 }
 
 interface SolicitacaoDetail extends SolicitacaoRow {
@@ -316,73 +319,6 @@ function mapSolicitacaoToVagaPrefill(solic: SolicitacaoDetail): Record<string, u
     };
 }
 
-function normalizeVagaOrigemTipo(value: unknown): number {
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string") {
-        const numeric = Number(value);
-        if (Number.isFinite(numeric)) return numeric;
-        return ({
-            Manual: 0,
-            AumentoQuadro: 1,
-            SubstituicaoDesligamento: 2,
-            SubstituicaoPromocao: 3,
-            Direta: 4,
-        } as Record<string, number>)[value] ?? 0;
-    }
-    return 0;
-}
-
-/** Manual (0) = criada no portal sem origem TOTVS; 1–4 = fluxos RM / sync. */
-function isVagaOrigemPortal(origemTipo: unknown): boolean {
-    return normalizeVagaOrigemTipo(origemTipo) === 0;
-}
-
-type RhLookupUserRow = { id?: string; name?: string; email?: string };
-
-function mergeRhLookupUsers(lists: RhLookupUserRow[][]): Record<string, string> {
-    const out: Record<string, string> = {};
-    for (const list of lists) {
-        for (const u of list) {
-            const id = pickString(u.id, "").trim().toLowerCase();
-            if (!id) continue;
-            const label = pickString(u.name, "").trim() || pickString(u.email, "").trim();
-            if (label) out[id] = label.length > 120 ? label.slice(0, 120) : label;
-        }
-    }
-    return out;
-}
-
-function collectPortalRecrutadorUidsNeedingLabel(
-    rows: VagaListItem[],
-    filaRows: Array<Record<string, unknown>>,
-): string[] {
-    const ids = new Set<string>();
-    const scan = (raw: Record<string, unknown>) => {
-        if (!isVagaOrigemPortal(raw.origemTipo)) return;
-        const nome = pickString(raw.recrutadorResponsavel, "").trim();
-        const uid = pickString(raw.recrutadorResponsavelUserId, "").trim().toLowerCase();
-        if (!nome && uid) ids.add(uid);
-    };
-    for (const v of rows) scan(v as Record<string, unknown>);
-    for (const v of filaRows) scan(v);
-    return [...ids];
-}
-
-function renderRecrutadorDisplay(
-    raw: Record<string, unknown>,
-    lookup: Record<string, string>,
-) {
-    const nome = pickString(raw.recrutadorResponsavel, "").trim();
-    if (nome) return <span title="Recrutador responsável">{nome}</span>;
-    const portal = isVagaOrigemPortal(raw.origemTipo);
-    const uid = pickString(raw.recrutadorResponsavelUserId, "").trim().toLowerCase();
-    if (portal && uid) {
-        const fb = lookup[uid];
-        if (fb) return <span title="Recrutador responsável">{fb}</span>;
-    }
-    return <span className="text-xs text-muted-foreground italic">não atribuído</span>;
-}
-
 function formatDate(value: string | null | undefined) {
     if (!value) return "—";
     try {
@@ -428,19 +364,88 @@ function mapVagasPayload(payload: VagasPayload): VagaListItem[] {
     return [];
 }
 
+function mergeDataRequisicaoFromSolicitacoes(
+    vagas: VagaListItem[],
+    solicitacoes: SolicitacaoRow[],
+): VagaListItem[] {
+    if (!solicitacoes.length) return vagas;
+
+    const byVagaId = new Map<string, string>();
+    const byRmIdReq = new Map<string, string>();
+    for (const s of solicitacoes) {
+        if (!s.createdAtUtc) continue;
+        if (s.vagaId) byVagaId.set(s.vagaId.toLowerCase(), s.createdAtUtc);
+        if (s.rmIdReq != null) byRmIdReq.set(String(s.rmIdReq), s.createdAtUtc);
+    }
+
+    return vagas.map((vaga) => {
+        const raw = vaga as Record<string, unknown>;
+        if (raw.dataRequisicao) return vaga;
+
+        const dataRequisicao = byVagaId.get(vaga.id.toLowerCase())
+            ?? byRmIdReq.get(vagaCodigoRm(vaga));
+        return dataRequisicao
+            ? ({ ...raw, dataRequisicao } as VagaListItem)
+            : vaga;
+    });
+}
+
 function vagaResponsavelUserId(vaga: VagaListItem): string {
     const raw = vaga as Record<string, unknown>;
     return pickString(raw.recrutadorResponsavelUserId ?? raw.RecrutadorResponsavelUserId, "").trim().toLowerCase();
 }
 
-function calcReqTotals(v: VagaListItem) {
-    const reqs = Array.isArray(v.requisitos) ? v.requisitos : [];
-    const total = typeof v.requisitosTotal === "number" ? v.requisitosTotal
-        : Number.isFinite(Number(v.requisitosTotal)) ? Number(v.requisitosTotal) : reqs.length;
-    const obrig = typeof v.requisitosObrigatorios === "number" ? v.requisitosObrigatorios
-        : Number.isFinite(Number(v.requisitosObrigatorios)) ? Number(v.requisitosObrigatorios)
-        : reqs.filter((x) => !!asRecord(x)?.obrigatorio).length;
-    return { total: Number(total) || 0, obrig: Number(obrig) || 0 };
+function vagaCodigoRm(vaga: VagaListItem): string {
+    const raw = vaga as Record<string, unknown>;
+    return pickString(raw.idReqRmOrigem ?? raw.rmIdReq ?? vaga.codigo, "").trim();
+}
+
+function vagaDataAbertura(vaga: VagaListItem): string {
+    const raw = vaga as Record<string, unknown>;
+    return pickString(raw.dataAbertura ?? vaga.createdAtUtc ?? vaga.updatedAt, "");
+}
+
+function vagaDataRequisicao(vaga: VagaListItem): string {
+    const raw = vaga as Record<string, unknown>;
+    return pickString(raw.dataRequisicao, "");
+}
+
+function vagaSecao(vaga: VagaListItem): string {
+    const raw = vaga as Record<string, unknown>;
+    return pickString(raw.centroCustoNome ?? raw.centroCustoName ?? vaga.area, "").trim();
+}
+
+function vagaPosicoes(vaga: VagaListItem): number {
+    return pickNumber((vaga as Record<string, unknown>).quantidadeVagas, 0);
+}
+
+function compareDateStrings(a: string, b: string): number {
+    const da = a ? new Date(a).getTime() || 0 : 0;
+    const db = b ? new Date(b).getTime() || 0 : 0;
+    return da - db;
+}
+
+function formatOpenDays(iso: string | null | undefined) {
+    if (!iso) return "—";
+    const openedAt = new Date(iso).getTime();
+    if (!Number.isFinite(openedAt)) return "—";
+
+    const elapsedMs = Date.now() - openedAt;
+    const days = Math.max(0, Math.floor(elapsedMs / 86_400_000));
+    return days === 1 ? "1 dia" : `${days} dias`;
+}
+
+function resolvePortalVagasBaseUrl(): string {
+    const configured = env.PORTAL_VAGAS_URL.trim().replace(/\/$/, "");
+    if (configured) return configured;
+
+    if (typeof window === "undefined") return "http://localhost:3050";
+
+    const current = new URL(window.location.origin);
+    if ((current.hostname === "localhost" || current.hostname === "127.0.0.1") && current.port === "3000") {
+        current.port = "3050";
+    }
+    return current.origin;
 }
 
 function isVagaDeleteRestrictedByCandidates(message: string) {
@@ -591,7 +596,7 @@ export default function VagasScreen() {
         return (localStorage.getItem("renderrh.vagas.viewMode") as "list" | "kanban") || "list";
     });
     const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.vagas.viewMode", m); };
-    type SortCol = "codigo" | "titulo" | "createdAt" | "status" | "requisitos" | "headcount";
+    type SortCol = "codigo" | "titulo" | "secao" | "posicoes" | "createdAt" | "dataRequisicao" | "abertoHa" | "status";
     const [sortCol, setSortCol] = useState<SortCol>("createdAt");
     const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
     const toggleSort = (col: SortCol) => {
@@ -628,68 +633,6 @@ export default function VagasScreen() {
     /* ── next step banner after vaga creation ── */
     const [lastCreatedVagaId, setLastCreatedVagaId] = useState<string | null>(null);
 
-    /* ── Fila de Análise RH ── */
-    interface FilaRhItem {
-        id: string;
-        titulo: string;
-        centroCustoName: string | null;
-        createdAtUtc: string;
-        origemTipo?: unknown;
-        recrutadorResponsavel?: unknown;
-        recrutadorResponsavelUserId?: unknown;
-    }
-    const [filaRh, setFilaRh] = useState<FilaRhItem[]>([]);
-    const [filaRhLoading, setFilaRhLoading] = useState(false);
-
-    /** Nomes (analistas + recrutadores) para fallback só em vagas origem Manual (portal). */
-    const [rhRecrutadorLookup, setRhRecrutadorLookup] = useState<Record<string, string>>({});
-
-    const portalRecrLookupKey = useMemo(
-        () => collectPortalRecrutadorUidsNeedingLabel(rows, (filaRh as unknown as Array<Record<string, unknown>>)).sort().join(","),
-        [rows, filaRh],
-    );
-
-    useEffect(() => {
-        const need = collectPortalRecrutadorUidsNeedingLabel(rows, (filaRh as unknown as Array<Record<string, unknown>>))
-            .filter((id) => !rhRecrutadorLookup[id]);
-        if (need.length === 0) return;
-        let cancelled = false;
-        void (async () => {
-            try {
-                const [analistas, recrutadores] = await Promise.all([
-                    fetchJson<RhLookupUserRow[]>("/api/lookup/users-analistas-rh"),
-                    fetchJson<RhLookupUserRow[]>("/api/lookup/users-recrutadores"),
-                ]);
-                if (cancelled) return;
-                const merged = mergeRhLookupUsers([analistas ?? [], recrutadores ?? []]);
-                setRhRecrutadorLookup((prev) => {
-                    const next = { ...prev };
-                    let changed = false;
-                    for (const id of need) {
-                        if (merged[id]) {
-                            next[id] = merged[id];
-                            changed = true;
-                        }
-                    }
-                    return changed ? next : prev;
-                });
-            } catch {
-                /* silencioso */
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [portalRecrLookupKey, rows, filaRh, rhRecrutadorLookup]);
-
-    const loadFilaRh = useCallback(async () => {
-        setFilaRhLoading(true);
-        try {
-            const data = await fetchJson<FilaRhItem[]>("/api/vagas/pendencias-rh");
-            setFilaRh(Array.isArray(data) ? data : []);
-        } catch { /* silencioso */ } finally {
-            setFilaRhLoading(false);
-        }
-    }, []);
-
     /* ── prefill from solicitação (deep-link: ?newFromSolicitacao=ID) ── */
     const [prefillFromSolic, setPrefillFromSolic] = useState<Record<string, unknown> | null>(null);
     const fromSolicId = searchParams.get("newFromSolicitacao");
@@ -708,7 +651,13 @@ export default function VagasScreen() {
 
     const syncList = useCallback(async () => {
         const payload = await fetchJson<VagasPayload>(`${BASE}/api/vagas`);
-        const list = mapVagasPayload(payload);
+        let list = mapVagasPayload(payload);
+        try {
+            const solicitacoesRows = await fetchJson<SolicitacaoRow[]>("/api/solicitacoes-vaga");
+            list = mergeDataRequisicaoFromSolicitacoes(list, Array.isArray(solicitacoesRows) ? solicitacoesRows : []);
+        } catch {
+            // A listagem de vagas já contém dataRequisicao nas versões atualizadas da API.
+        }
         setRows(list);
         setScreenCache(`/vagas:${currentUserId ?? "anon"}`, list);
     }, [currentUserId]);
@@ -792,8 +741,7 @@ export default function VagasScreen() {
     useEffect(() => {
         void loadSolicitacoes();
         void loadApprovals();
-        void loadFilaRh();
-    }, [loadSolicitacoes, loadApprovals, loadFilaRh]);
+    }, [loadSolicitacoes, loadApprovals]);
 
     useEffect(() => {
         if (deeplinkHandled.current) return;
@@ -822,7 +770,7 @@ export default function VagasScreen() {
         const qq = q.trim().toLowerCase();
         const result = rowsByResponsavel.filter((v) => {
             if (!qq) return true;
-            return [v.codigo, v.titulo, v.area, v.modalidade, v.cidade, v.uf]
+            return [vagaCodigoRm(v), v.titulo, vagaSecao(v), v.modalidade, v.cidade, v.uf]
                 .filter(Boolean)
                 .join(" ")
                 .toLowerCase()
@@ -832,27 +780,22 @@ export default function VagasScreen() {
         result.sort((a, b) => {
             switch (sortCol) {
                 case "codigo":
-                    return dir * (a.codigo ?? "").localeCompare(b.codigo ?? "");
+                    return dir * vagaCodigoRm(a).localeCompare(vagaCodigoRm(b));
                 case "titulo":
                     return dir * (a.titulo ?? "").localeCompare(b.titulo ?? "");
+                case "secao":
+                    return dir * vagaSecao(a).localeCompare(vagaSecao(b));
+                case "posicoes":
+                    return dir * (vagaPosicoes(a) - vagaPosicoes(b));
                 case "status":
                     return dir * (a.status ?? "").localeCompare(b.status ?? "");
-                case "requisitos": {
-                    const ta = calcReqTotals(a).total;
-                    const tb = calcReqTotals(b).total;
-                    return dir * (ta - tb);
-                }
-                case "headcount":
-                    return dir * (pickNumber(a.headcountAutorizado, 0) - pickNumber(b.headcountAutorizado, 0));
+                case "dataRequisicao":
+                    return dir * compareDateStrings(vagaDataRequisicao(a), vagaDataRequisicao(b));
+                case "abertoHa":
+                    return dir * compareDateStrings(vagaDataRequisicao(a), vagaDataRequisicao(b));
                 case "createdAt":
                 default: {
-                    const ra = a as Record<string, unknown>;
-                    const rb = b as Record<string, unknown>;
-                    const dva = (ra.dataAbertura as string | undefined) ?? (ra.createdAtUtc as string | undefined) ?? pickString(a.updatedAt) ?? "";
-                    const dvb = (rb.dataAbertura as string | undefined) ?? (rb.createdAtUtc as string | undefined) ?? pickString(b.updatedAt) ?? "";
-                    const da = new Date(dva).getTime() || 0;
-                    const db = new Date(dvb).getTime() || 0;
-                    return dir * (da - db);
+                    return dir * compareDateStrings(vagaDataAbertura(a), vagaDataAbertura(b));
                 }
             }
         });
@@ -881,8 +824,10 @@ export default function VagasScreen() {
     async function copyPortalLink(vagaId: string) {
         const tenantId = me?.tenantId;
         if (!tenantId) { toast.error("TenantId não encontrado."); return; }
-        const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(vagaId)}`;
-        try { await navigator.clipboard.writeText(url); toast.success("Link do portal copiado!"); }
+        const url = new URL(resolvePortalVagasBaseUrl());
+        url.searchParams.set("tenantId", tenantId);
+        url.searchParams.set("vagaId", vagaId);
+        try { await navigator.clipboard.writeText(url.toString()); toast.success("Link do portal copiado!"); }
         catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao copiar link."); }
     }
 
@@ -929,7 +874,7 @@ export default function VagasScreen() {
             );
             setSolicDetailOpen(false);
             setSolicDetail(null);
-            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals(), loadFilaRh()]);
+            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals()]);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Falha ao processar aprovação.");
         } finally {
@@ -949,7 +894,7 @@ export default function VagasScreen() {
             toast.success("Aprovação RH registrada. Vaga gerada em rascunho.");
             setSolicDetailOpen(false);
             setSolicDetail(null);
-            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals(), loadFilaRh()]);
+            await Promise.all([syncList(), loadSolicitacoes(), loadApprovals()]);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Falha ao aprovar como RH.");
         } finally {
@@ -1240,80 +1185,6 @@ export default function VagasScreen() {
                 />
             )}
 
-            {/* ── Fila de Análise RH ── */}
-            {(filaRhLoading || filaRh.length > 0) && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-900/10 p-4 shadow-sm space-y-3">
-                    <div className="flex items-center gap-2">
-                        <svg className="size-5 text-amber-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
-                        <div>
-                            <span className="font-semibold text-sm text-amber-900 dark:text-amber-300">Vagas aguardando acao do RH</span>
-                            {!filaRhLoading && (
-                                <span className="ml-2 inline-flex items-center rounded-full bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 text-xs font-semibold px-2 py-0.5">
-                                    {filaRh.length} {filaRh.length === 1 ? "vaga" : "vagas"} aguardando preenchimento
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                    {filaRhLoading ? (
-                        <div className="text-sm text-amber-700 animate-pulse">Carregando…</div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent border-amber-200">
-                                    <TableHead className="text-amber-800 dark:text-amber-300">Título</TableHead>
-                                    <TableHead className="text-amber-800 dark:text-amber-300">Lotação</TableHead>
-                                    <TableHead className="text-amber-800 dark:text-amber-300">Analista / Recrutador</TableHead>
-                                    <TableHead className="text-amber-800 dark:text-amber-300">Criada em</TableHead>
-                                    <TableHead className="text-amber-800 dark:text-amber-300">Dias</TableHead>
-                                    <TableHead className="text-right text-amber-800 dark:text-amber-300">Ações</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filaRh.map((v) => {
-                                    const days = v.createdAtUtc ? Math.floor((Date.now() - new Date(v.createdAtUtc).getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                                    return (
-                                        <TableRow key={v.id} className="border-amber-100 hover:bg-amber-100/40">
-                                            <TableCell className="font-medium text-amber-900 dark:text-amber-200">
-                                                <span title={v.titulo ?? ""}>{truncateTitle(v.titulo)}</span>
-                                            </TableCell>
-                                            <TableCell className="text-sm text-amber-700 dark:text-amber-400">{v.centroCustoName ?? "—"}</TableCell>
-                                            <TableCell className="text-sm text-amber-800 dark:text-amber-300">
-                                                {renderRecrutadorDisplay(v as unknown as Record<string, unknown>, rhRecrutadorLookup)}
-                                            </TableCell>
-                                            <TableCell className="text-sm text-amber-700 dark:text-amber-400">{formatDate(v.createdAtUtc)}</TableCell>
-                                            <TableCell>
-                                                <span className={`text-xs font-medium ${days > 7 ? "text-red-600" : days > 3 ? "text-amber-700" : "text-amber-600"}`}>
-                                                    {days}d
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex gap-1.5 justify-end">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="border-amber-300 text-amber-700 hover:bg-amber-100"
-                                                        onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(v.id)}`)}
-                                                    >
-                                                        Ver Hub
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-amber-600 hover:bg-amber-700 text-white"
-                                                        onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(v.id)}`)}
-                                                    >
-                                                        Preencher
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    )}
-                </div>
-            )}
-
             {/* Main panel */}
             <div className="rounded-xl border border-border/40 bg-card shadow-sm">
                 {/* Filters bar — row 1: busca e visualização */}
@@ -1323,10 +1194,10 @@ export default function VagasScreen() {
                         <Input className="pl-8 h-8 text-sm" placeholder="Buscar vaga..." value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
                     <div className="flex items-center rounded-md border border-input bg-background p-0.5">
-                        <button type="button" className={`inline-flex items-center justify-center rounded-sm px-1.5 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
+                        <button type="button" className={`inline-flex h-8 w-10 items-center justify-center rounded-sm text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
                             <List className="size-3" />
                         </button>
-                        <button type="button" className={`inline-flex items-center justify-center rounded-sm px-1.5 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban">
+                        <button type="button" className={`inline-flex h-8 w-10 items-center justify-center rounded-sm text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban">
                             <Columns3 className="size-3" />
                         </button>
                     </div>
@@ -1339,14 +1210,14 @@ export default function VagasScreen() {
                             <Table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
-                                        <TableHead className="min-w-[260px] cursor-pointer select-none" onClick={() => toggleSort("titulo")}>Vaga {sortIcon("titulo")}</TableHead>
-                                        <TableHead className="w-28 cursor-pointer select-none" onClick={() => toggleSort("codigo")}>Código {sortIcon("codigo")}</TableHead>
-                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("requisitos")}>Requisitos {sortIcon("requisitos")}</TableHead>
-                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>Data abertura {sortIcon("createdAt")}</TableHead>
-                                        <TableHead>Data importação</TableHead>
-                                        <TableHead>Recrutador</TableHead>
-                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("status")}>Status {sortIcon("status")}</TableHead>
-                                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("headcount")}>Headcount {sortIcon("headcount")}</TableHead>
+                                        <TableHead className="w-32 cursor-pointer select-none text-center" onClick={() => toggleSort("codigo")}>Código RM {sortIcon("codigo")}</TableHead>
+                                        <TableHead className="min-w-[360px] cursor-pointer select-none" onClick={() => toggleSort("titulo")}>Vaga {sortIcon("titulo")}</TableHead>
+                                        <TableHead className="min-w-[180px] cursor-pointer select-none" onClick={() => toggleSort("secao")}>Seção {sortIcon("secao")}</TableHead>
+                                        <TableHead className="w-24 cursor-pointer select-none text-center" onClick={() => toggleSort("posicoes")}>Posições {sortIcon("posicoes")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none text-center" onClick={() => toggleSort("dataRequisicao")}>Data Requisição {sortIcon("dataRequisicao")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none text-center" onClick={() => toggleSort("createdAt")}>Data Abertura {sortIcon("createdAt")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none text-center" onClick={() => toggleSort("abertoHa")}>Aberto há {sortIcon("abertoHa")}</TableHead>
+                                        <TableHead className="cursor-pointer select-none text-center" onClick={() => toggleSort("status")}>Status {sortIcon("status")}</TableHead>
                                         <TableHead className="w-12" />
                                     </TableRow>
                                 </TableHeader>
@@ -1354,7 +1225,7 @@ export default function VagasScreen() {
                                     {loading ? (
                                         Array.from({ length: 5 }).map((_, i) => (
                                             <TableRow key={i}>
-                                                {Array.from({ length: 8 }).map((__, j) => (
+                                                {Array.from({ length: 9 }).map((__, j) => (
                                                     <TableCell key={j}>
                                                         <div className="h-4 animate-pulse rounded bg-muted" />
                                                     </TableCell>
@@ -1364,7 +1235,7 @@ export default function VagasScreen() {
                                     ) : paged.length === 0 ? (
                                         /* J2 — Rich empty state */
                                         <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={8} className="py-4">
+                                            <TableCell colSpan={9} className="py-4">
                                                 <EmptyState
                                                     icon={Briefcase}
                                                     title={rows.length === 0 ? "Nenhuma vaga ainda" : "Nenhuma vaga encontrada"}
@@ -1383,9 +1254,6 @@ export default function VagasScreen() {
                                         </TableRow>
                                     ) : (
                                         paged.map((vaga) => {
-                                            const { total, obrig } = calcReqTotals(vaga);
-                                            const threshold = clamp(pickNumber(vaga.threshold ?? vaga.matchMinimoPercentual, 0), 0, 100);
-                                            const location = [vaga.cidade, vaga.uf].filter(Boolean).join(" / ");
                                             // A2 — Stale/aging visual treatment
                                             const vagaRaw = vaga as Record<string, unknown>;
                                             const rowAlertaAtivo = !!(vagaRaw.alertaVagaSemFill as boolean | undefined);
@@ -1395,13 +1263,15 @@ export default function VagasScreen() {
                                                     ? "border-l-4 border-red-400"
                                                     : "border-l-4 border-amber-400"
                                                 : "";
-
                                             return (
                                                 <TableRow
                                                     key={vaga.id}
                                                     className={`cursor-pointer hover:bg-muted/40 ${rowBorderCls}`}
                                                     onClick={() => router.push(`/vagas/hub?id=${encodeURIComponent(vaga.id)}`)}
                                                 >
+                                                    <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                                                        {vagaCodigoRm(vaga) || "—"}
+                                                    </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div>
@@ -1427,55 +1297,41 @@ export default function VagasScreen() {
                                                                         );
                                                                     })()}
                                                                 </div>
-                                                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                                                                    {(vagaRaw.unidadeLotacaoCode as string | undefined) && <><span className="font-mono">{vagaRaw.unidadeLotacaoCode as string}</span><span>·</span></>}
-                                                                    <span>{vagaRaw.unidadeLotacaoName as string | undefined ?? "—"}</span>
-                                                                    {location && <><span>·</span><span>{location}</span></>}
-                                                                    {(vagaRaw.hierarquiaDescricao as string | undefined) && (
-                                                                        <><span>·</span><span title="Hierarquia TOTVS">{vagaRaw.hierarquiaDescricao as string}</span></>
-                                                                    )}
-                                                                </div>
                                                             </div>
                                                             {typeof vaga.hasDetail === "boolean" && vaga.hasDetail && (
                                                                 <Badge variant="secondary" className="shrink-0">Detalhes</Badge>
                                                             )}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="font-mono text-xs text-muted-foreground">
-                                                        {vaga.codigo ?? "—"}
-                                                    </TableCell>
                                                     <TableCell>
-                                                        <div className="flex items-center gap-2 text-xs">
-                                                            <span className="text-muted-foreground">{total} requisito(s)</span>
-                                                            {obrig > 0 && (
-                                                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                                                                    {obrig} obrigatório(s)
-                                                                </span>
-                                                            )}
+                                                        <div className="max-w-[220px] truncate text-xs text-muted-foreground" title={vagaSecao(vaga)}>
+                                                            {vagaSecao(vaga) || "—"}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground">
+                                                    <TableCell className="text-center text-sm font-mono">
+                                                        {vagaPosicoes(vaga) || "—"}
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-xs text-muted-foreground">
+                                                        {vagaDataRequisicao(vaga) ? new Date(vagaDataRequisicao(vaga)).toLocaleDateString("pt-BR") : "—"}
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-xs text-muted-foreground">
                                                         {(() => {
-                                                            const dt = (vagaRaw.dataAbertura as string | undefined)
-                                                                ?? (vaga.createdAtUtc as string | undefined)
-                                                                ?? (vaga.updatedAt as string | undefined);
+                                                            const dt = vagaDataAbertura(vaga);
                                                             return dt ? new Date(dt).toLocaleDateString("pt-BR") : "—";
                                                         })()}
                                                     </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground">
-                                                        {vaga.createdAtUtc ? new Date(vaga.createdAtUtc as string).toLocaleDateString("pt-BR") : "—"}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        {renderRecrutadorDisplay(vaga as Record<string, unknown>, rhRecrutadorLookup)}
+                                                    <TableCell className="text-center text-xs text-muted-foreground">
+                                                        {formatOpenDays(vagaDataRequisicao(vaga))}
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                                             <VagaStatusBadge status={vaga.status} />
                                                             {(() => {
                                                                 const raw = vaga as Record<string, unknown>;
                                                                 const rodadaNum = raw.rodadaAtivaNumero as number | null | undefined;
                                                                 const rodadaCands = (raw.rodadaAtivaCandidatos as number | undefined) ?? 0;
-                                                                if (rodadaNum == null) return null;
+                                                                const statusAtual = (vaga.status ?? "").toLowerCase();
+                                                                if (rodadaNum == null || statusAtual === "rascunho") return null;
                                                                 return (
                                                                     <>
                                                                         <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
@@ -1488,72 +1344,6 @@ export default function VagasScreen() {
                                                                 );
                                                             })()}
                                                         </div>
-                                                    </TableCell>
-                                                    <TableCell onClick={(e) => e.stopPropagation()}>
-                                                        {(() => {
-                                                            const raw = vaga as Record<string, unknown>;
-                                                            const ocupado = (raw.headcountOcupado as number | undefined) ?? 0;
-                                                            const autorizado = (raw.headcountAutorizado as number | undefined) ?? 1;
-                                                            const provisorio = (raw.headcountProvisorio as number | undefined) ?? 0;
-                                                            const pendente = (raw.headcountPendente as number | undefined) ?? 0;
-                                                            const limite = autorizado + provisorio;
-                                                            const acima = ocupado > autorizado;
-                                                            const muitoAcima = ocupado > autorizado + 1;
-                                                            const alertaAtivo = !!(raw.alertaVagaSemFill as boolean | undefined);
-                                                            const diasSemFill = raw.alertaDiasSemFill as number | undefined;
-                                                            const provisorioExpira = raw.headcountProvisorioExpiresAtUtc as string | undefined;
-                                                            const alertaHCProvVencido = !!(raw.alertaHCProvVencido as boolean | undefined);
-
-                                                            const corTexto = muitoAcima
-                                                                ? "text-red-600 dark:text-red-400 font-semibold"
-                                                                : acima
-                                                                    ? "text-orange-600 dark:text-orange-400 font-medium"
-                                                                    : ocupado === autorizado
-                                                                        ? "text-green-600 dark:text-green-400"
-                                                                        : "text-muted-foreground";
-
-                                                            const tooltip = acima && provisorioExpira
-                                                                ? `${provisorio} slot${provisorio > 1 ? "s" : ""} provisório${provisorio > 1 ? "s" : ""} (substituição em andamento) — expira ${new Date(provisorioExpira).toLocaleDateString("pt-BR")}`
-                                                                : undefined;
-
-                                                            return (
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                                                        <span
-                                                                            className={`text-xs tabular-nums ${corTexto}`}
-                                                                            title={tooltip}
-                                                                        >
-                                                                            {pendente > 0 ? `(${ocupado}/${limite})` : `${ocupado}/${limite}`}
-                                                                            {acima && " ⚠"}
-                                                                        </span>
-                                                                        {provisorio > 0 && (
-                                                                            <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                                                                +{provisorio} prov.
-                                                                            </span>
-                                                                        )}
-                                                                        {pendente > 0 && (
-                                                                            <button
-                                                                                onClick={(e) => { e.stopPropagation(); router.push(`/vagas/hub?id=${encodeURIComponent(vaga.id)}&tab=posicao`); }}
-                                                                                className="rounded-full px-1.5 py-0.5 text-[10px] bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 font-medium hover:bg-violet-200 transition-colors"
-                                                                                title="Headcount aprovado aguardando decisão do RH — clique para decidir"
-                                                                            >
-                                                                                +{pendente} HC pend.
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
-                                                                    {alertaAtivo && (
-                                                                        <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 w-fit">
-                                                                            Sem fill há {diasSemFill}d
-                                                                        </span>
-                                                                    )}
-                                                                    {alertaHCProvVencido && (
-                                                                        <span className="rounded-full px-1.5 py-0.5 text-[10px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 w-fit" title="Prazo do headcount provisório expirou — RH deve revisar">
-                                                                            HC Prov. Vencido
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })()}
                                                     </TableCell>
                                                     <TableCell onClick={(e) => e.stopPropagation()}>
                                                         <DropdownMenu>
@@ -1793,7 +1583,8 @@ export default function VagasScreen() {
                                                                 const raw = vaga as Record<string, unknown>;
                                                                 const rodadaNum = raw.rodadaAtivaNumero as number | null | undefined;
                                                                 const rodadaCands = (raw.rodadaAtivaCandidatos as number | undefined) ?? 0;
-                                                                if (rodadaNum == null) return null;
+                                                                const statusAtual = (vaga.status ?? "").toLowerCase();
+                                                                if (rodadaNum == null || statusAtual === "rascunho") return null;
                                                                 return (
                                                                     <div className="mt-1.5 flex items-center gap-1.5">
                                                                         <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">

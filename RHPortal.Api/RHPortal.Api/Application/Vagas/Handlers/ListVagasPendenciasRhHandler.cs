@@ -128,7 +128,7 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                          || vagaIdHCPendenteSet.Contains(v.Id))
                 .ToList();
 
-            IReadOnlyDictionary<Guid, (Guid? UserId, string? Nome)>? analistaPorVagaId = null;
+            IReadOnlyDictionary<Guid, (Guid? UserId, string? Nome, string? CodigoRm, DateTimeOffset? DataRequisicao)>? analistaPorVagaId = null;
             if (filtered.Count > 0)
             {
                 var ids = filtered.Select(v => v.Id).ToList();
@@ -148,7 +148,14 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                             var nome = u is null
                                 ? null
                                 : (!string.IsNullOrWhiteSpace(u.FullName) ? u.FullName : u.UserName);
-                            return (best.AnalistaRhResponsavelUserId, nome);
+                            var codigoRm = best.RmIdReq.HasValue
+                                ? best.RmIdReq.Value.ToString()
+                                : best.RmRequisicaoCodigo;
+                            return (
+                                UserId: best.AnalistaRhResponsavelUserId,
+                                Nome: (string?)nome,
+                                CodigoRm: (string?)codigoRm,
+                                DataRequisicao: (DateTimeOffset?)best.CreatedAtUtc);
                         });
             }
 
@@ -170,6 +177,15 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
 
                 if (recNome is { Length: > 120 })
                     recNome = recNome[..120];
+
+                var codigoRmOrigem = !string.IsNullOrWhiteSpace(v.IdReqRmOrigem)
+                    ? v.IdReqRmOrigem
+                    : analistaPorVagaId is not null && analistaPorVagaId.TryGetValue(v.Id, out var rm)
+                        ? rm.CodigoRm
+                        : null;
+                var dataRequisicao = analistaPorVagaId is not null && analistaPorVagaId.TryGetValue(v.Id, out var req)
+                    ? req.DataRequisicao
+                    : null;
 
                 result.Add(new VagaListItemResponse(
                     v.Id,
@@ -215,7 +231,8 @@ public sealed class ListVagasPendenciasRhHandler : IListVagasPendenciasRhHandler
                     null,
                     v.HierarquiaId,
                     null,
-                    v.IdReqRmOrigem,
+                    codigoRmOrigem,
+                    dataRequisicao,
                     v.CodFuncaoRm,
                     v.FuncaoNomeRm,
                     recUserId,

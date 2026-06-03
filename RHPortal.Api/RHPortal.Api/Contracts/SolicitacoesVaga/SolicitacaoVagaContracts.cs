@@ -357,7 +357,8 @@ public sealed record SolicitacaoVagaGridRow(
     bool EtapaPendenteIsQueue,
     Guid? EtapaPendenteAprovadorId,
     Guid? EtapaPendenteAssumedByUserId,
-    bool EtapaPendenteCanAssume
+    bool EtapaPendenteCanAssume,
+    Guid? VagaId
 );
 
 // ── Indicações internas (SEL‑03) ──

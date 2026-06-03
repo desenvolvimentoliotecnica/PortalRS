@@ -278,6 +278,20 @@ function fmtSalary(min: unknown, max: unknown): string {
   return fmt(a || b);
 }
 
+function initials(value: string): string {
+  const parts = value
+    .replace("—", "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return "—";
+  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
+}
+
+function displayValue(value: string): string {
+  return value && value !== "—" ? value : "—";
+}
+
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   aberta: { label: "Aberta", cls: "bg-emerald-500/15 text-emerald-700" },
   rascunho: { label: "Rascunho", cls: "bg-amber-500/15 text-amber-700" },
@@ -1136,13 +1150,6 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
         </div>
       </div>
 
-      {/* ── Indicador rascunho ── */}
-      {isRascunho && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
-          Vaga em <b>rascunho</b> — preencha os dados e clique em <b>Publicar</b> quando estiver pronta.
-        </div>
-      )}
-
       {/* ── Indicador cancelada/encerrada ── */}
       {isCancelada && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
@@ -1166,140 +1173,162 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             .finally(() => setRodadasLoading(false));
         }
       }}>
-        <TabsList className="w-full justify-start flex-wrap">
-          <TabsTrigger value="resumo">Resumo</TabsTrigger>
-          <TabsTrigger value="candidatos" className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+        <TabsList className="!grid h-auto w-full grid-cols-6 rounded-xl border border-border/40 bg-card p-1 shadow-sm">
+          <TabsTrigger value="resumo" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2 data-[state=active]:text-[#105290]">
+            <FileText className="size-4 shrink-0" />
+            <span className="truncate">Resumo</span>
+          </TabsTrigger>
+          <TabsTrigger value="candidatos" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
             <Sparkles className="size-3.5 shrink-0" />
-            <span>Candidatos & Match</span>
+            <span className="truncate">Candidatos & Match</span>
             {candidateCount > 0 && (
               <span className="shrink-0 text-[10px] bg-primary/15 text-primary rounded-full px-1.5 leading-none py-0.5">
                 {candidateCount}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="publicacoes">
-            Publicações {rodadas.length > 0 && <span className="ml-1 text-[10px] bg-emerald-500/15 text-emerald-700 rounded-full px-1.5">{rodadas.length}</span>}
+          <TabsTrigger value="publicacoes" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
+            <Send className="size-4 shrink-0" />
+            <span className="truncate">Publicações</span>
+            {rodadas.length > 0 && <span className="ml-1 shrink-0 text-[10px] bg-emerald-500/15 text-emerald-700 rounded-full px-1.5">{rodadas.length}</span>}
           </TabsTrigger>
-          <TabsTrigger value="config">Etapas</TabsTrigger>
+          <TabsTrigger value="config" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
+            <Target className="size-4 shrink-0" />
+            <span className="truncate">Etapas</span>
+          </TabsTrigger>
           {workflowData && <TabsTrigger value="workflow">Workflow</TabsTrigger>}
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
-          <TabsTrigger value="posicao">
-            Posição {isEstrutural && <span className="ml-1 text-[10px] bg-blue-500/15 text-blue-700 rounded-full px-1.5">{headcountOcupado}/{headcountAutorizado}</span>}
+          <TabsTrigger value="historico" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
+            <Clock className="size-4 shrink-0" />
+            <span className="truncate">Histórico</span>
+          </TabsTrigger>
+          <TabsTrigger value="posicao" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
+            <Users className="size-4 shrink-0" />
+            <span className="truncate">Posição</span>
+            {isEstrutural && <span className="ml-1 shrink-0 text-[10px] bg-blue-500/15 text-blue-700 rounded-full px-1.5">{headcountOcupado}/{headcountAutorizado}</span>}
           </TabsTrigger>
         </TabsList>
 
         {/* ── Tab: Resumo ── */}
         <TabsContent value="resumo" className="space-y-4 mt-4">
-          {/* Responsáveis */}
-          {(recrutador || gestor) && (
-            <div className="flex flex-wrap gap-6 text-sm">
-              {recrutador && recrutador !== "—" && (
-                <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Recrutador</div><div className="font-medium">{recrutador}</div></div>
-              )}
-              {gestor && gestor !== "—" && (
-                <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Gestor requisitante</div><div className="font-medium">{gestor}</div></div>
-              )}
-            </div>
-          )}
-
-          {/* Data de criação — inline */}
-
-          {/* Info grid */}
-          <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 text-sm">
-            <div className="flex items-center gap-2">
-              <Briefcase className="size-4 text-muted-foreground shrink-0" />
-              <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Modalidade</div><div className="font-medium">{modalidadeStr || "—"}</div></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Target className="size-4 text-muted-foreground shrink-0" />
-              <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Senioridade</div><div className="font-medium">{senioridadeStr || "—"}</div></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="size-4 text-muted-foreground shrink-0" />
-              <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Local</div><div className="font-medium">{localStr}</div></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Banknote className="size-4 text-muted-foreground shrink-0" />
-              <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Faixa salarial</div><div className="font-medium">{fmtSalary(vaga?.salarioMinimo, vaga?.salarioMaximo)}</div></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <FileText className="size-4 text-muted-foreground shrink-0" />
-              <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Contratação</div><div className="font-medium">{tipoContratacao || "—"}</div></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="size-4 text-muted-foreground shrink-0" />
-              <div><div className="text-[10px] uppercase text-muted-foreground tracking-wider">Vagas</div><div className="font-medium">{qtdVagas}</div></div>
-            </div>
-          </div>
-
-          {/* Dates */}
-          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground border-t border-border/30 pt-3">
-            <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" /> Início: {fmtDate(pick(vaga, "dataInicio", ""))}</span>
-            <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> Encerramento: {fmtDate(pick(vaga, "dataEncerramento", ""))}</span>
-            <span className="inline-flex items-center gap-1"><ShieldCheck className="size-3.5" /> Match min: <strong className="text-foreground">{matchMin}%</strong></span>
-          </div>
-
-          {/* Resumo */}
-          {resumo && resumo !== "—" && (
-            <div className="rounded-lg bg-muted/30 border border-border/40 p-4">
-              <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1.5">Resumo</div>
-              <div className="text-sm leading-relaxed whitespace-pre-line">{resumo}</div>
-            </div>
-          )}
-
-          {/* Descrição Pública */}
-          {descPublica && descPublica !== "—" && (
-            <div className="rounded-lg bg-muted/30 border border-border/40 p-4">
-              <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1.5">Descrição pública</div>
-              <div className="text-sm leading-relaxed whitespace-pre-line">{descPublica}</div>
-            </div>
-          )}
-
-          {/* Tags */}
-          {tags !== "—" && (
-            <div className="flex flex-wrap gap-1.5">
-              {tags.split(/[;,]/).filter(Boolean).map((tag, i) => (
-                <Badge key={i} variant="secondary" className="text-xs font-normal">{tag.trim()}</Badge>
-              ))}
-            </div>
-          )}
-
-          {/* Requisitos */}
-          {requisitos.length > 0 && (
-            <div className="rounded-lg border border-border/40 p-4">
-              <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Requisitos ({requisitos.length})</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {requisitos.map((r, i) => {
-                  const req = r as Record<string, unknown>;
-                  return (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <div className={`size-2 rounded-full shrink-0 ${Boolean(req.obrigatorio) ? "bg-red-500" : "bg-blue-400"}`} />
-                      <span className="truncate">{String(req.nome ?? req.keyword ?? "")}</span>
-                      {Boolean(req.obrigatorio) && <span className="text-[10px] text-red-600 font-medium shrink-0">obrig.</span>}
-                    </div>
-                  );
-                })}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {[
+              { label: "Recrutador", name: displayValue(recrutador), role: "Analista de Recrutamento & Seleção" },
+              { label: "Gestor requisitante", name: displayValue(gestor), role: pick(vaga, "gestorRequisitanteCargo", "Gerente de P&D") },
+            ].map((person) => (
+              <div key={person.label} className="flex items-center justify-between rounded-xl border border-border/40 bg-card p-4 shadow-sm">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-sm font-semibold text-[#105290]">
+                    {initials(person.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{person.label}</div>
+                    <div className="truncate text-sm font-semibold text-foreground">{person.name}</div>
+                    <div className="truncate text-xs text-muted-foreground">{person.role}</div>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon-sm" title={`Enviar mensagem para ${person.name}`}>
+                  <Mail className="size-4 text-muted-foreground" />
+                </Button>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
 
-          {/* Checklist */}
-          <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
-            <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Checklist da vaga</div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {[
+              { label: "Modalidade", value: displayValue(modalidadeStr), icon: Briefcase },
+              { label: "Senioridade", value: displayValue(senioridadeStr), icon: Target },
+              { label: "Local", value: localStr, icon: MapPin },
+              { label: "Faixa salarial", value: fmtSalary(vaga?.salarioMinimo, vaga?.salarioMaximo), icon: Banknote },
+              { label: "Contratação", value: displayValue(tipoContratacao), icon: FileText },
+              { label: "Vagas", value: qtdVagas, icon: Users },
+            ].map((item) => (
+              <div key={item.label} className="flex min-h-[92px] items-center gap-4 rounded-xl border border-border/40 bg-card p-4 shadow-sm">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-[#105290]">
+                  <item.icon className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{item.label}</div>
+                  <div className="truncate text-base font-semibold text-foreground">{item.value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-border/40 bg-slate-50/80 px-4 py-3 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Início: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataInicio", ""))}</strong></span>
+            <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Encerramento: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataEncerramento", ""))}</strong></span>
+            <span className="inline-flex items-center gap-2"><Target className="size-4 text-[#105290]" /> Match mín: <strong className="font-semibold text-[#105290]">{matchMin}%</strong></span>
+          </div>
+
+          <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
+            <div className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <FileText className="size-4 text-[#105290]" />
+              Checklist da vaga
+            </div>
+            <div className="grid gap-4 md:grid-cols-4">
               {[
-                { label: "Dados básicos", done: title !== "—" && title !== "Carregando..." },
-                { label: "Requisitos", done: requisitos.length > 0 },
-                { label: "Etapas de seleção", done: etapas.length > 0 },
-                { label: "Publicação", done: status === "aberta" },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-1.5">
-                  <CheckCircle2 className={`size-3.5 ${item.done ? "text-emerald-600" : "text-muted-foreground/30"}`} />
-                  <span className={item.done ? "text-foreground" : "text-muted-foreground"}>{item.label}</span>
+                { label: "Dados básicos", statusLabel: "Concluído", done: title !== "—" && title !== "Carregando..." },
+                { label: "Requisitos", statusLabel: requisitos.length > 0 ? "Concluído" : "Pendente", done: requisitos.length > 0 },
+                { label: "Etapas de seleção", statusLabel: etapas.length > 0 ? "Concluído" : "Pendente", done: etapas.length > 0 },
+                { label: "Publicação", statusLabel: status === "aberta" ? "Concluído" : "Pendente", done: status === "aberta" },
+              ].map((item, index, arr) => (
+                <div key={item.label} className="relative flex flex-col items-center text-center">
+                  {index < arr.length - 1 && (
+                    <div className={`absolute left-1/2 top-4 hidden h-px w-full border-t md:block ${item.done ? "border-emerald-300" : "border-dashed border-border"}`} />
+                  )}
+                  <div className={`relative z-10 flex size-9 items-center justify-center rounded-full border-2 bg-card text-sm font-semibold ${item.done ? "border-emerald-500 text-emerald-600" : "border-border text-muted-foreground"}`}>
+                    {item.done ? <CheckCircle2 className="size-5" /> : index + 1}
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-foreground">{item.label}</div>
+                  <div className={`text-[11px] ${item.done ? "text-emerald-600" : "text-muted-foreground"}`}>{item.statusLabel}</div>
                 </div>
               ))}
             </div>
           </div>
+
+          {(resumo && resumo !== "—") || (descPublica && descPublica !== "—") || tags !== "—" || requisitos.length > 0 ? (
+            <div className="space-y-3">
+              {resumo && resumo !== "—" && (
+                <div className="rounded-lg bg-muted/30 border border-border/40 p-4">
+                  <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1.5">Resumo</div>
+                  <div className="text-sm leading-relaxed whitespace-pre-line">{resumo}</div>
+                </div>
+              )}
+
+              {descPublica && descPublica !== "—" && (
+                <div className="rounded-lg bg-muted/30 border border-border/40 p-4">
+                  <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1.5">Descrição pública</div>
+                  <div className="text-sm leading-relaxed whitespace-pre-line">{descPublica}</div>
+                </div>
+              )}
+
+              {tags !== "—" && (
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.split(/[;,]/).filter(Boolean).map((tag, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs font-normal">{tag.trim()}</Badge>
+                  ))}
+                </div>
+              )}
+
+              {requisitos.length > 0 && (
+                <div className="rounded-lg border border-border/40 p-4">
+                  <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-2">Requisitos ({requisitos.length})</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {requisitos.map((r, i) => {
+                      const req = r as Record<string, unknown>;
+                      return (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <div className={`size-2 rounded-full shrink-0 ${Boolean(req.obrigatorio) ? "bg-red-500" : "bg-blue-400"}`} />
+                          <span className="truncate">{String(req.nome ?? req.keyword ?? "")}</span>
+                          {Boolean(req.obrigatorio) && <span className="text-[10px] text-red-600 font-medium shrink-0">obrig.</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
         </TabsContent>
 
         {/* ── Tab: Candidatos & Match ── */}

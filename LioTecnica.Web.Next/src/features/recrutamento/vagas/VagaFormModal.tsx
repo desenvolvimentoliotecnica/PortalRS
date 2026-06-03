@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
+import { env } from "@/lib/env";
 import { getTenantId } from "@/lib/session";
 import { lookupCep } from "@/lib/cepLookup";
 import { confirmDialog } from "@/lib/confirm-dialog";
@@ -14,6 +15,22 @@ import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioBut
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
 
 const BASE = "/app";
+
+function buildPortalVagasUrl(vagaId: string, tenantId: string): string {
+  const configured = env.PORTAL_VAGAS_URL.trim().replace(/\/$/, "");
+  const base = configured || (() => {
+    if (typeof window === "undefined") return "http://localhost:3050";
+    const current = new URL(window.location.origin);
+    if ((current.hostname === "localhost" || current.hostname === "127.0.0.1") && current.port === "3000") {
+      current.port = "3050";
+    }
+    return current.origin;
+  })();
+  const url = new URL(base);
+  url.searchParams.set("tenantId", tenantId);
+  url.searchParams.set("vagaId", vagaId);
+  return url.toString();
+}
 
 /** Alinhado a TurnoEscalaTrabalhoRawMapper.HasPopulatedGrid (API): JSON com grid e ao menos uma célula não vazia. */
 function horarioRawHasPopulatedGrid(raw: string | undefined | null): boolean {
@@ -1829,12 +1846,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                     <div>
                       <div className="text-sm font-semibold">Link do Portal de Candidatura</div>
                       <div className="text-xs text-muted-foreground mt-0.5 font-mono truncate max-w-xs">
-                        {typeof window !== "undefined" ? `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(getTenantId() ?? "")}&vagaId=${encodeURIComponent(draft.id)}` : `/app/PortalVagas?vagaId=${draft.id}`}
+                        {buildPortalVagasUrl(draft.id, getTenantId() ?? "")}
                       </div>
                     </div>
                     <Button size="sm" variant="outline" type="button" onClick={() => {
                       const tenantId = getTenantId() ?? "";
-                      const url = `${window.location.origin}/app/PortalVagas?tenantId=${encodeURIComponent(tenantId)}&vagaId=${encodeURIComponent(draft.id ?? "")}`;
+                      const url = buildPortalVagasUrl(draft.id ?? "", tenantId);
                       void navigator.clipboard.writeText(url).then(() => toast.success("Link copiado!"));
                     }}>
                       Copiar link
