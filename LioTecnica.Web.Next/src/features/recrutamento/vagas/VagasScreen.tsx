@@ -385,7 +385,7 @@ function mergeDataRequisicaoFromSolicitacoes(
         const dataRequisicao = byVagaId.get(vaga.id.toLowerCase())
             ?? byRmIdReq.get(vagaCodigoRm(vaga));
         return dataRequisicao
-            ? ({ ...raw, dataRequisicao } as VagaListItem)
+            ? { ...vaga, dataRequisicao }
             : vaga;
     });
 }
