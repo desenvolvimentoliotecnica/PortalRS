@@ -354,8 +354,7 @@ public sealed class PortalTalentoSyncService
 
             response.Dispose();
             var nextAttempt = attempt + 1;
-            _logWriter.WriteLine($"Sync Talentos: concorrencia transitoria no {operation} Email={email}; tentando novamente ({nextAttempt}/{maxAttempts}).");
-            _logger.LogWarning("Sync Talentos: concorrencia transitoria no {Operation} para {Email}; retry {Attempt}/{MaxAttempts}.", operation, email, nextAttempt, maxAttempts);
+            _logger.LogInformation("Sync Talentos: concorrencia transitoria no {Operation} para {Email}; retry {Attempt}/{MaxAttempts}.", operation, email, nextAttempt, maxAttempts);
             await Task.Delay(TimeSpan.FromMilliseconds(350 * attempt), ct);
         }
 

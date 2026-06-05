@@ -257,6 +257,18 @@ public sealed class TalentoService : ITalentoService
             MapToOrigemPessoa(request.Origem),
             ct);
 
+        var existingTalentoForPessoa = await _db.Talentos
+            .AsTracking()
+            .Include(t => t.Pessoa)
+            .FirstOrDefaultAsync(t => t.TenantId == _tenantContext.TenantId && t.PessoaId == pessoa.Id, ct);
+        if (existingTalentoForPessoa is not null)
+        {
+            await UpdateExistingTalentoFromCreateRequestAsync(existingTalentoForPessoa, request, ct);
+            TryGenerateTalentoEmbeddingAsync(existingTalentoForPessoa.Id);
+            var existingResponse = (await GetByIdAsync(existingTalentoForPessoa.Id, ct))!;
+            return new CreateTalentoResult(existingResponse, false, null, null);
+        }
+
         var entity = new Talento
         {
             Id = Guid.NewGuid(),
@@ -285,6 +297,33 @@ public sealed class TalentoService : ITalentoService
         TryGenerateTalentoEmbeddingAsync(entity.Id);
         var created = (await GetByIdAsync(entity.Id, ct))!;
         return new CreateTalentoResult(created, false, null, null);
+    }
+
+    private async Task UpdateExistingTalentoFromCreateRequestAsync(Talento existingTalento, TalentoCreateRequest request, CancellationToken ct)
+    {
+        await _db.Entry(existingTalento).Collection(x => x.Competencias).LoadAsync(ct);
+        await _db.Entry(existingTalento).Collection(x => x.Experiencias).LoadAsync(ct);
+        await _db.Entry(existingTalento).Collection(x => x.Treinamentos).LoadAsync(ct);
+        await _db.Entry(existingTalento).Collection(x => x.Formacao).LoadAsync(ct);
+
+        existingTalento.Competencias.Clear();
+        existingTalento.Experiencias.Clear();
+        existingTalento.Treinamentos.Clear();
+        existingTalento.Formacao.Clear();
+
+        ApplyCompetencias(existingTalento, request.Competencias);
+        ApplyExperiencias(existingTalento, request.Experiencias);
+        ApplyTreinamentos(existingTalento, request.Treinamentos);
+        ApplyFormacao(existingTalento, request.Formacao);
+
+        existingTalento.Origem = request.Origem;
+        existingTalento.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        existingTalento.Versao++;
+        if (existingTalento.Pessoa is null)
+            await _db.Entry(existingTalento).Reference(x => x.Pessoa).LoadAsync(ct);
+        existingTalento.CvProfileJson = BuildCvProfileJson(existingTalento);
+
+        await _db.SaveChangesAsync(ct);
     }
 
     private void ApplyDocumentos(Talento entity, IReadOnlyList<TalentoDocumentoMetaItem>? documentos)

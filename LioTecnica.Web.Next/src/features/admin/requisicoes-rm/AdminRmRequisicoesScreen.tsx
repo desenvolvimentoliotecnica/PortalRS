@@ -12,6 +12,7 @@ import {
   ClipboardList,
   DownloadCloud,
   Eye,
+  Loader2,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -412,7 +413,24 @@ export default function AdminRmRequisicoesScreen() {
         </div>
       )}
 
-      <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+      <div className="card-soft relative overflow-hidden rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
+        {loading && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center bg-background/75 px-4 backdrop-blur-sm"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-border/60 bg-card/95 px-6 py-5 text-center shadow-lg">
+              <Loader2 className="size-8 animate-spin text-primary" />
+              <div>
+                <div className="text-sm font-semibold text-foreground">Consultando requisições no RM...</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Aguarde enquanto buscamos os dados no sistema externo. Essa consulta pode levar alguns instantes.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className="text-muted-foreground mb-1 block text-xs font-medium uppercase">
