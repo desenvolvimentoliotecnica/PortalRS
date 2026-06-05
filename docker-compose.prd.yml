@@ -1,0 +1,119 @@
+# Stack PRD (portalRH-PRD) - GitHub Actions faz build/push das imagens; no servidor: pull + up.
+#
+# Variaveis esperadas no shell ou num ficheiro `.env` ao lado deste ficheiro:
+#   PRD_REGISTRY_PREFIX  ex.: ghcr.io/org/repo   (sem barra final)
+#   PRD_IMAGE_TAG        ex.: sha do commit ou latest
+#   PRD_ENV_FILE         caminho absoluto opcional para .env (default: .env.prd)
+
+name: rhportal-prd
+
+services:
+  api:
+    image: ${PRD_REGISTRY_PREFIX}/rhportal-api:${PRD_IMAGE_TAG}
+    container_name: rhportal-prd-api
+    restart: unless-stopped
+    ports:
+      - "5000:80"
+    environment:
+      Navegacao__PortalVagasPublicUrl: ${PRD_PORTAL_VAGAS_URL:-http://10.0.0.88:3050}
+      RmSync__WorkerProjectPath: /app/Liotecnica.Integration.RM
+      Portal__BaseUrl: http://localhost/
+      Portal__TenantId: liotecnica
+      BootstrapUsers__Enabled: "true"
+      BootstrapUsers__ResetPassword: "true"
+      BootstrapUsers__InitialDelaySeconds: "180"
+      BootstrapUsers__RetryDelaySeconds: "60"
+      BootstrapUsers__MaxAttempts: "60"
+      BootstrapUsers__Tenants__0__Enabled: "true"
+      BootstrapUsers__Tenants__0__TenantId: liotecnica
+      BootstrapUsers__Tenants__0__Users__0__Email: lucas.machado@liotecnica.com.br
+      BootstrapUsers__Tenants__0__Users__0__FullName: Lucas Muniz Machado
+      BootstrapUsers__Tenants__0__Users__0__FuncionarioMatriculaRm: "00000581"
+      BootstrapUsers__Tenants__0__Users__0__RequireFuncionario: "true"
+      BootstrapUsers__Tenants__0__Users__0__Roles__0: Gestor
+      BootstrapUsers__Tenants__0__Users__1__Email: julia.machado@liotecnica.com.br
+      BootstrapUsers__Tenants__0__Users__1__FullName: Julia Machado Silva
+      BootstrapUsers__Tenants__0__Users__1__FuncionarioMatriculaRm: "00002910"
+      BootstrapUsers__Tenants__0__Users__1__RequireFuncionario: "true"
+      BootstrapUsers__Tenants__0__Users__1__Roles__0: Analista de RH
+      BootstrapUsers__Tenants__0__Users__2__Email: telma.montini@liotecnica.com.br
+      BootstrapUsers__Tenants__0__Users__2__FullName: TELMA LIGIA DA SILVA ANTONELLI MONTINI
+      BootstrapUsers__Tenants__0__Users__2__FuncionarioMatriculaRm: "00000622"
+      BootstrapUsers__Tenants__0__Users__2__RequireFuncionario: "true"
+      BootstrapUsers__Tenants__0__Users__2__Roles__0: Especialista de RH
+      BootstrapUsers__Tenants__0__Users__3__Email: fabio@liotecnica.com.br
+      BootstrapUsers__Tenants__0__Users__3__FullName: Fabio Barreto Diniz
+      BootstrapUsers__Tenants__0__Users__3__FuncionarioMatriculaRm: "00000076"
+      BootstrapUsers__Tenants__0__Users__3__RequireFuncionario: "true"
+      BootstrapUsers__Tenants__0__Users__3__Roles__0: Gestor
+      BootstrapUsers__Tenants__0__Users__4__Email: admin@dev.local
+      BootstrapUsers__Tenants__0__Users__4__FullName: LioTecnica Administrador
+      BootstrapUsers__Tenants__0__Users__4__RequireFuncionario: "false"
+      BootstrapUsers__Tenants__0__Users__4__Roles__0: Admin
+    env_file:
+      - ${PRD_ENV_FILE:-.env.prd}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${PRD_API_APP_DATA_DIR:-/dados/rhportal-prd/api-app-data}:/app/App_Data
+    networks:
+      - rhportal-prd-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  web-next:
+    image: ${PRD_REGISTRY_PREFIX}/rhportal-web-next:${PRD_IMAGE_TAG}
+    container_name: rhportal-prd-web-next
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - rhportal-prd-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  portal-vagas:
+    image: ${PRD_REGISTRY_PREFIX}/rhportal-portal-vagas:${PRD_IMAGE_TAG}
+    container_name: rhportal-prd-portal-vagas
+    restart: unless-stopped
+    ports:
+      - "3050:8080"
+    networks:
+      - rhportal-prd-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  ai:
+    image: ${PRD_REGISTRY_PREFIX}/rhportal-ai:${PRD_IMAGE_TAG}
+    container_name: rhportal-prd-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ${PRD_ENV_FILE:-.env.prd}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - rhportal-prd-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health/live > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+networks:
+  rhportal-prd-net:
+    external: true
