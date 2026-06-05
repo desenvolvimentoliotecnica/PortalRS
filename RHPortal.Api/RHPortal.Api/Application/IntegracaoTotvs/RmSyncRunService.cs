@@ -45,7 +45,7 @@ public sealed class RmSyncRunService : IRmSyncRunService
             Operacao = string.IsNullOrWhiteSpace(request.Operacao) ? "full" : request.Operacao.Trim(),
             StartedAtUtc = DateTimeOffset.UtcNow,
             Status = RmSyncStatus.InProgress,
-            WatermarkAplicadoUtc = request.WatermarkAplicadoUtc,
+            WatermarkAplicadoUtc = NormalizeUtc(request.WatermarkAplicadoUtc),
         };
         _db.RmSyncRuns.Add(run);
         await _db.SaveChangesAsync(ct);
@@ -66,7 +66,7 @@ public sealed class RmSyncRunService : IRmSyncRunService
         run.ErroMensagem = string.IsNullOrWhiteSpace(request.ErroMensagem)
             ? null
             : request.ErroMensagem.Length > 2000 ? request.ErroMensagem[..2000] : request.ErroMensagem;
-        run.WatermarkNovoUtc = request.WatermarkNovoUtc;
+        run.WatermarkNovoUtc = NormalizeUtc(request.WatermarkNovoUtc);
 
         await _db.SaveChangesAsync(ct);
     }
@@ -151,11 +151,24 @@ public sealed class RmSyncRunService : IRmSyncRunService
             _db.RmSyncCheckpoints.Add(existing);
         }
 
-        existing.LastRecModifiedOn = request.LastRecModifiedOn;
+        existing.LastRecModifiedOn = NormalizeUtc(request.LastRecModifiedOn);
         existing.LastRunAtUtc = DateTimeOffset.UtcNow;
         existing.LastRunStatus = request.LastRunStatus;
 
         await _db.SaveChangesAsync(ct);
+    }
+
+    private static DateTime? NormalizeUtc(DateTime? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        return value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
     }
 
     public async Task ResetCheckpointAsync(string entidade, CancellationToken ct)
