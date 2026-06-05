@@ -1,0 +1,156 @@
+# Deploy automatico para PRD: push em portalRH-PRD -> build imagens -> GHCR -> compose no servidor.
+#
+# O job deploy-prd usa runner self-hosted com label prd-deploy instalado no servidor 10.0.0.88.
+
+name: Deploy PortalRH PRD
+
+on:
+  push:
+    branches:
+      - portalRH-PRD
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_prefix: ${{ steps.meta.outputs.image_prefix }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image prefix (GHCR exige minusculas)
+        id: meta
+        run: |
+          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_prefix=${REGISTRY}/${REPO_LC}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_PREFIX=${REGISTRY}/${REPO_LC}" >> "$GITHUB_ENV"
+        env:
+          REGISTRY: ghcr.io
+
+      - name: Public URLs for PRD static builds
+        id: urls
+        shell: bash
+        run: |
+          NEXT_API="${{ vars.PRD_NEXT_PUBLIC_API_BASE }}"
+          NEXT_ORIGIN="${{ vars.PRD_NEXT_PUBLIC_PORTAL_ORIGIN }}"
+          NEXT_PORTAL_VAGAS="${{ vars.PRD_NEXT_PUBLIC_PORTAL_VAGAS_URL }}"
+          VITE_API="${{ vars.PRD_VITE_API_BASE_URL }}"
+          VITE_TENANT="${{ vars.PRD_VITE_DEFAULT_TENANT }}"
+          echo "next_public_api=${NEXT_API:-http://10.0.0.88:5000}" >> "$GITHUB_OUTPUT"
+          echo "next_public_origin=${NEXT_ORIGIN:-http://10.0.0.88:3000}" >> "$GITHUB_OUTPUT"
+          echo "next_public_portal_vagas=${NEXT_PORTAL_VAGAS:-http://10.0.0.88:3050}" >> "$GITHUB_OUTPUT"
+          echo "vite_api=${VITE_API:-http://10.0.0.88:5000}" >> "$GITHUB_OUTPUT"
+          echo "vite_tenant=${VITE_TENANT:-liotecnica}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: RHPortal.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/rhportal-api:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/rhportal-api:portalrh-prd-latest
+
+      - name: Build & push Portal Admin (Web.Next)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: LioTecnica.Web.Next/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE=${{ steps.urls.outputs.next_public_api }}
+            NEXT_PUBLIC_PORTAL_ORIGIN=${{ steps.urls.outputs.next_public_origin }}
+            NEXT_PUBLIC_PORTAL_VAGAS_URL=${{ steps.urls.outputs.next_public_portal_vagas }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/rhportal-web-next:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/rhportal-web-next:portalrh-prd-latest
+
+      - name: Build & push Portal de Vagas (React)
+        uses: docker/build-push-action@v6
+        with:
+          context: LioTecnica.PortalVagas.React
+          file: LioTecnica.PortalVagas.React/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=${{ steps.urls.outputs.vite_api }}
+            VITE_DEFAULT_TENANT=${{ steps.urls.outputs.vite_tenant }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/rhportal-portal-vagas:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/rhportal-portal-vagas:portalrh-prd-latest
+
+      - name: Build & push RHPortal.Ai
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: RHPortal.Ai/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/rhportal-ai:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/rhportal-ai:portalrh-prd-latest
+
+  deploy-prd:
+    name: Deploy local no servidor PRD (self-hosted)
+    needs: build-and-push
+    runs-on: [self-hosted, prd-deploy]
+    if: github.ref == 'refs/heads/portalRH-PRD' || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare compose directory
+        run: |
+          mkdir -p ~/rhportal-prd
+
+      - name: Copy compose + deploy script
+        run: |
+          cp docker-compose.prd.yml ~/rhportal-prd/
+          cp __scripts__/deploy/prd-compose-pull-up.sh ~/rhportal-prd/
+
+      - name: Pull images and recreate stack
+        run: |
+          set -euo pipefail
+          LOCAL_ENV="${RUNNER_TEMP}/portalrh-prd-deploy.env"
+          {
+            echo "PRD_REGISTRY_PREFIX=${{ needs.build-and-push.outputs.image_prefix }}"
+            echo "PRD_IMAGE_TAG=${{ github.sha }}"
+            echo "PRD_PORTAL_VAGAS_URL=${{ vars.PRD_NEXT_PUBLIC_PORTAL_VAGAS_URL || 'http://10.0.0.88:3050' }}"
+            echo "GHCR_PULL_USER=${{ github.actor }}"
+            echo "GHCR_PULL_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+          } > "$LOCAL_ENV"
+          chmod 600 "$LOCAL_ENV"
+          cp "$LOCAL_ENV" ~/rhportal-prd/.deploy.env
+          rm -f "$LOCAL_ENV"
+          set -a
+          source ~/rhportal-prd/.deploy.env
+          set +a
+          chmod +x ~/rhportal-prd/prd-compose-pull-up.sh
+          bash ~/rhportal-prd/prd-compose-pull-up.sh
+          rm -f ~/rhportal-prd/.deploy.env
