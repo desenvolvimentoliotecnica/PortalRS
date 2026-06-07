@@ -51,8 +51,12 @@ jobs:
           NEXT_ORIGIN="${{ vars.HMG_NEXT_PUBLIC_PORTAL_ORIGIN }}"
           VITE_API="${{ vars.HMG_VITE_API_BASE_URL }}"
           VITE_TENANT="${{ vars.HMG_VITE_DEFAULT_TENANT }}"
+          PACKAGE_VERSION="$(node -p "require('./LioTecnica.Web.Next/package.json').version")"
+          SHORT_SHA="${GITHUB_SHA::7}"
           echo "next_public_api=${NEXT_API:-http://10.0.0.80:5000}" >> "$GITHUB_OUTPUT"
           echo "next_public_origin=${NEXT_ORIGIN:-http://10.0.0.80:3000}" >> "$GITHUB_OUTPUT"
+          echo "next_public_app_environment=HMG" >> "$GITHUB_OUTPUT"
+          echo "next_public_app_version=${PACKAGE_VERSION}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           echo "vite_api=${VITE_API:-http://10.0.0.80:5000}" >> "$GITHUB_OUTPUT"
           echo "vite_tenant=${VITE_TENANT:-liotecnica}" >> "$GITHUB_OUTPUT"
 
@@ -86,6 +90,8 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_BASE=${{ steps.urls.outputs.next_public_api }}
             NEXT_PUBLIC_PORTAL_ORIGIN=${{ steps.urls.outputs.next_public_origin }}
+            NEXT_PUBLIC_APP_ENVIRONMENT=${{ steps.urls.outputs.next_public_app_environment }}
+            NEXT_PUBLIC_APP_VERSION=${{ steps.urls.outputs.next_public_app_version }}
           tags: |
             ${{ env.IMAGE_PREFIX }}/rhportal-web-next:${{ github.sha }}
             ${{ env.IMAGE_PREFIX }}/rhportal-web-next:latest
