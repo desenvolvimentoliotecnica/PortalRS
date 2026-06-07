@@ -7,6 +7,8 @@ import { useSidebar } from "@/contexts/SidebarContext";
 
 export default function Sidebar({ grupos }: { grupos: NavGrupoResponse[] }) {
   const { isCollapsed } = useSidebar();
+  const environment = process.env.NEXT_PUBLIC_APP_ENVIRONMENT?.trim() || "LOCAL";
+  const version = process.env.NEXT_PUBLIC_APP_VERSION?.trim() || "dev";
 
   return (
     <div className="flex h-full flex-col">
@@ -18,7 +20,7 @@ export default function Sidebar({ grupos }: { grupos: NavGrupoResponse[] }) {
         <div className="border-t border-white/10 bg-black/5 px-4 py-4">
           <div className="text-xs font-semibold text-white/85">Ambiente</div>
           <div className="text-xs text-white/70">
-            DEV <span className="text-white/40">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
+            {environment} <span className="text-white/40">v{version}</span>
           </div>
         </div>
       )}
