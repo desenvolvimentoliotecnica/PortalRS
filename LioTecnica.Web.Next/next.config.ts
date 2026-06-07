@@ -5,6 +5,10 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const { version } = require("./package.json") as { version: string };
 
+function resolveAppEnvironment() {
+  return process.env.NEXT_PUBLIC_APP_ENVIRONMENT?.trim() || "LOCAL";
+}
+
 function resolveAppVersion() {
   const explicitVersion = process.env.NEXT_PUBLIC_APP_VERSION?.trim();
   if (explicitVersion) return explicitVersion;
@@ -24,6 +28,7 @@ function resolveAppVersion() {
 
 const nextConfig: NextConfig = {
   env: {
+    NEXT_PUBLIC_APP_ENVIRONMENT: resolveAppEnvironment(),
     NEXT_PUBLIC_APP_VERSION: resolveAppVersion(),
   },
   // StrictMode em dev causa double-render de todos os componentes (consumo extra de RAM/CPU).
