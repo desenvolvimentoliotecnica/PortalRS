@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { AlertTriangle, ArrowRight, Award, Briefcase, Check, Download, Eye, FileText, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1443,46 +1442,47 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
         </div>
       </div>
     </div>
-    {pdfPreview && typeof document !== "undefined" && createPortal(
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
-        <div className="flex h-[90vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
-          <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-            <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold text-slate-800">Ver Curriculum</h3>
-              <p className="truncate text-xs text-muted-foreground">{pdfPreview.nomeArquivo}</p>
+    <Dialog open={!!pdfPreview} onOpenChange={(open) => { if (!open) closePdfPreview(); }}>
+      <DialogContent className="flex h-[90vh] w-[95vw] !max-w-[1400px] flex-col overflow-hidden p-0">
+        {pdfPreview && (
+          <>
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3 pr-12">
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-sm font-semibold text-slate-800">Ver Curriculum</DialogTitle>
+                <DialogDescription className="truncate text-xs text-muted-foreground">{pdfPreview.nomeArquivo}</DialogDescription>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = pdfPreview.url;
+                    a.download = pdfPreview.nomeArquivo || "curriculo.pdf";
+                    a.rel = "noopener";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  <Download className="mr-1 size-4" />
+                  Baixar CV
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={closePdfPreview}>
+                  Fechar
+                </Button>
+              </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const a = document.createElement("a");
-                  a.href = pdfPreview.url;
-                  a.download = pdfPreview.nomeArquivo || "curriculo.pdf";
-                  a.rel = "noopener";
-                  document.body.appendChild(a);
-                  a.click();
-                  a.remove();
-                }}
-              >
-                <Download className="mr-1 size-4" />
-                Baixar CV
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={closePdfPreview}>
-                Fechar
-              </Button>
-            </div>
-          </div>
-          <iframe
-            title={`Curriculum - ${pdfPreview.nomeArquivo}`}
-            src={pdfPreview.url}
-            className="min-h-0 flex-1 bg-slate-100"
-          />
-        </div>
-      </div>,
-      document.body,
-    )}
+            <iframe
+              title={`Curriculum - ${pdfPreview.nomeArquivo}`}
+              src={pdfPreview.url}
+              className="min-h-0 flex-1 bg-slate-100"
+            />
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
