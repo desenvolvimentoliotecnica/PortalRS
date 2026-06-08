@@ -591,6 +591,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [empresas, setEmpresas] = useState<LookupItem[]>([]);
     const [centrosCusto, setCentrosCusto] = useState<LookupItem[]>([]);
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
+    const [requisitanteNomeExibicao, setRequisitanteNomeExibicao] = useState<string | null>(null);
     /** Campos vindos de GET /api/me — bloqueados para não divergir do vínculo do gestor. */
     const [estruturaLocks, setEstruturaLocks] = useState({
         empresa: false,
@@ -714,6 +715,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         setActiveTab("identificacao");
         setRmPareceres([]);
         setRequisitanteFuncionarioId(null);
+        setRequisitanteNomeExibicao(null);
         setGestorDiretoId(null);
         loadLookups({ setRequisitanteFromMe: !editId && !copySourceId });
 
@@ -758,6 +760,17 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         : []);
                     if (d?.solicitanteId)
                         setRequisitanteFuncionarioId(String(d.solicitanteId));
+                    const sn = d?.solicitanteNome != null ? String(d.solicitanteNome).trim() : "";
+                    if (sn) {
+                        setRequisitanteNomeExibicao(sn);
+                    } else if (d?.solicitanteId) {
+                        void fetchJson<Record<string, unknown>>(`/api/funcionarios/${String(d.solicitanteId)}`)
+                            .then((f) => {
+                                const n = f?.name != null ? String(f.name).trim() : "";
+                                if (n) setRequisitanteNomeExibicao(n);
+                            })
+                            .catch(() => { /* ignore */ });
+                    }
                     setObservacaoAprovador(d?.observacaoAprovador ? String(d.observacaoAprovador) : null);
                     const s = d?.status;
                     setStatusCarregado(typeof s === "string" || typeof s === "number" ? s : null);
