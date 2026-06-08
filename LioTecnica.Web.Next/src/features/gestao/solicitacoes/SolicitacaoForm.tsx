@@ -383,6 +383,21 @@ function formatDateTimeForDisplay(value?: string | null): string {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString("pt-BR");
 }
 
+function formatRmCodStatusLabel(value: RmParecerItem["codStatus"]): string | null {
+    if (value == null || value === "") return null;
+    const code = Number(value);
+    if (!Number.isFinite(code)) return String(value);
+    const labels: Record<number, string> = {
+        1: "Em andamento",
+        2: "Reprovada",
+        3: "Aprovada",
+        4: "Concluída",
+        5: "Pendente aprovação",
+        6: "Cancelada",
+    };
+    return labels[code] ?? `CODSTATUS ${code}`;
+}
+
 function parseFuncaoRmOptionId(id: string): { codigo: string; nome: string | null } {
     const tab = id.indexOf("\t");
     if (tab < 0) return { codigo: id, nome: null };
@@ -1827,8 +1842,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                                         </div>
                                                     </div>
                                                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                                                        {parecer.codStatus != null && (
-                                                            <span className="rounded-full border bg-background px-2 py-0.5">CODSTATUS {parecer.codStatus}</span>
+                                                        {formatRmCodStatusLabel(parecer.codStatus) && (
+                                                            <span className="rounded-full border bg-background px-2 py-0.5">{formatRmCodStatusLabel(parecer.codStatus)}</span>
                                                         )}
                                                         {parecer.status && (
                                                             <span className="rounded-full border bg-background px-2 py-0.5">{parecer.status}</span>
