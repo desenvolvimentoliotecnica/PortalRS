@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, Award, Briefcase, Check, Download, FileText, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
+import { AlertTriangle, ArrowRight, Award, Briefcase, Check, Download, Eye, FileText, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -175,6 +175,10 @@ function formatBytes(value: unknown): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function isPdfDocument(nomeArquivo: string, contentType?: string | null): boolean {
+  return contentType?.toLowerCase().includes("pdf") === true || nomeArquivo.toLowerCase().endsWith(".pdf");
 }
 
 async function downloadArquivo(path: string, suggestedName: string): Promise<void> {
@@ -850,6 +854,8 @@ function periodo(inicio?: string | null, fim?: string | null): string {
 
 function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [previewingDocId, setPreviewingDocId] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; nomeArquivo: string } | null>(null);
   const nome = str(data.nome, "—");
   const email = str(data.email, "");
   const fone = str(data.fone, "");
@@ -882,6 +888,12 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
   const endereco = [logradouro, numero, bairro].filter(Boolean).join(", ");
   const hasPerfil = Boolean(resumo || obs || competencias.length || experiencias.length || treinamentos.length || formacao.length);
 
+  useEffect(() => {
+    return () => {
+      if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url);
+    };
+  }, [pdfPreview?.url]);
+
   async function handleDownload(path: string, nomeArquivo: string, id: string) {
     setDownloadingDocId(id);
     try {
@@ -891,6 +903,34 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
     } finally {
       setDownloadingDocId(null);
     }
+  }
+
+  async function handlePreviewPdf(path: string, nomeArquivo: string, id: string) {
+    setPreviewingDocId(id);
+    try {
+      const res = await apiFetch(path, { method: "GET", headers: { Accept: "application/pdf,*/*" } }, 120_000);
+      if (!res.ok) {
+        const raw = await res.text().catch(() => "");
+        throw new Error(raw?.trim() || `Falha ao abrir currículo (${res.status}).`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" }));
+      setPdfPreview((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { url: objectUrl, nomeArquivo };
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo.");
+    } finally {
+      setPreviewingDocId(null);
+    }
+  }
+
+  function closePdfPreview() {
+    setPdfPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
   }
 
   const compTipos = ["Idioma", "Ferramenta", "Técnica", "Comportamental"] as const;
@@ -912,6 +952,7 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
   );
 
   return (
+    <>
     <div className="mt-2 space-y-3">
       {/* Header card — full width, denso */}
       <div className="rounded-xl border bg-gradient-to-r from-slate-50 to-white px-4 py-3">
@@ -992,6 +1033,8 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
                 {documentos.map((doc) => {
                   const id = str(doc.id, "");
                   const nomeArquivo = str(doc.nomeArquivo, "curriculo.pdf");
+                  const contentType = str(doc.contentType, "");
+                  const isPdf = isPdfDocument(nomeArquivo, contentType);
                   const size = formatBytes(doc.tamanhoBytes);
                   const path = `${BASE}/api/talentos/${encodeURIComponent(str(data.id, ""))}/documentos/${encodeURIComponent(id)}/download`;
                   return (
@@ -1000,20 +1043,35 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
                         <div className="min-w-0">
                           <div className="truncate text-[12px] font-medium">{nomeArquivo}</div>
                           <div className="text-[10px] text-muted-foreground">
-                            {[str(doc.contentType, ""), size, fmtDate(doc.createdAtUtc as string | null)].filter(Boolean).join(" · ")}
+                            {[contentType, size, fmtDate(doc.createdAtUtc as string | null)].filter(Boolean).join(" · ")}
                           </div>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          disabled={!id || downloadingDocId === id}
-                          onClick={() => void handleDownload(path, nomeArquivo, id)}
-                        >
-                          {downloadingDocId === id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Download className="mr-1 size-3" />}
-                          Baixar
-                        </Button>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          {isPdf && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-[11px]"
+                              disabled={!id || previewingDocId === id}
+                              onClick={() => void handlePreviewPdf(path, nomeArquivo, id)}
+                            >
+                              {previewingDocId === id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Eye className="mr-1 size-3" />}
+                              Ver Curriculum
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-[11px]"
+                            disabled={!id || downloadingDocId === id}
+                            onClick={() => void handleDownload(path, nomeArquivo, id)}
+                          >
+                            {downloadingDocId === id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Download className="mr-1 size-3" />}
+                            Baixar
+                          </Button>
+                        </div>
                       </div>
                     </li>
                   );
@@ -1143,6 +1201,8 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
                   const docId = str(doc.id, "");
                   const nomeArquivo = str(doc.nomeArquivo, "curriculo.pdf");
                   const tipo = str(doc.tipo, "Documento");
+                  const contentType = str(doc.contentType, "");
+                  const isPdf = isPdfDocument(nomeArquivo, contentType);
                   const descricao = str(doc.descricao, "");
                   const size = formatBytes(doc.tamanhoBytes);
                   const temArquivo = doc.temArquivo === true || String(doc.temArquivo).toLowerCase() === "true";
@@ -1164,16 +1224,30 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
                             <span>{fmtDateTime(str(doc.createdAtUtc, ""))}</span>
                           </div>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={!temArquivo || downloadingDocId === downloadId}
-                          onClick={() => void handleDownload(path, nomeArquivo, downloadId)}
-                        >
-                          {downloadingDocId === downloadId ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Download className="mr-1 size-4" />}
-                          {temArquivo ? "Baixar CV" : "Sem arquivo"}
-                        </Button>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                          {temArquivo && isPdf && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={previewingDocId === downloadId}
+                              onClick={() => void handlePreviewPdf(path, nomeArquivo, downloadId)}
+                            >
+                              {previewingDocId === downloadId ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Eye className="mr-1 size-4" />}
+                              Ver Curriculum
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={!temArquivo || downloadingDocId === downloadId}
+                            onClick={() => void handleDownload(path, nomeArquivo, downloadId)}
+                          >
+                            {downloadingDocId === downloadId ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Download className="mr-1 size-4" />}
+                            {temArquivo ? "Baixar CV" : "Sem arquivo"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1254,6 +1328,46 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
         </div>
       </div>
     </div>
+    {pdfPreview && (
+      <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
+        <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+          <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-semibold text-slate-800">Ver Curriculum</h3>
+              <p className="truncate text-xs text-muted-foreground">{pdfPreview.nomeArquivo}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = pdfPreview.url;
+                  a.download = pdfPreview.nomeArquivo || "curriculo.pdf";
+                  a.rel = "noopener";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                }}
+              >
+                <Download className="mr-1 size-4" />
+                Baixar CV
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={closePdfPreview}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+          <iframe
+            title={`Curriculum - ${pdfPreview.nomeArquivo}`}
+            src={pdfPreview.url}
+            className="min-h-0 flex-1 bg-slate-100"
+          />
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
