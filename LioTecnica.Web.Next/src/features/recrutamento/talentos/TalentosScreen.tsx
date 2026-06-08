@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, Award, Briefcase, Check, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
+import { AlertTriangle, ArrowRight, Award, Briefcase, Check, Download, FileText, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -156,6 +156,45 @@ function fmtDate(iso?: string | null): string {
   try { return new Date(iso).toLocaleDateString("pt-BR"); } catch { return iso; }
 }
 
+function fmtDateTime(iso?: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch { return iso; }
+}
+
+function formatBytes(value: unknown): string {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+async function downloadArquivo(path: string, suggestedName: string): Promise<void> {
+  const res = await apiFetch(path, { method: "GET", headers: { Accept: "*/*" } }, 120_000);
+  if (!res.ok) {
+    const raw = await res.text().catch(() => "");
+    throw new Error(raw?.trim() || `Falha ao baixar arquivo (${res.status}).`);
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = suggestedName.trim() || "curriculo";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 function origemBadge(o: string | null | undefined) {
   const map: Record<string, string> = {
     Email: "bg-blue-100 text-blue-700",
@@ -211,7 +250,6 @@ export default function TalentosScreen() {
   useEffect(() => {
     void load(1, 20, "", "");
     void loadVagas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadVagas() {
@@ -811,6 +849,7 @@ function periodo(inicio?: string | null, fim?: string | null): string {
 }
 
 function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const nome = str(data.nome, "—");
   const email = str(data.email, "");
   const fone = str(data.fone, "");
@@ -818,15 +857,41 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
   const uf = str(data.uf, "");
   const linkedin = str(data.linkedinUrl, "");
   const cpf = str(data.cpf, "");
+  const cep = str(data.cep, "");
+  const logradouro = str(data.logradouro, "");
+  const numero = str(data.numero, "");
+  const bairro = str(data.bairro, "");
   const origem = str(data.origem, "");
   const resumo = str(data.resumoProfissional, "");
+  const obs = str(data.obs, "");
+  const createdAt = str(data.createdAtUtc, "");
+  const updatedAt = str(data.updatedAtUtc, "");
+  const versao = str(data.versao, "");
 
   const competencias = asArr(data.competencias);
   const experiencias = asArr(data.experiencias);
   const treinamentos = asArr(data.treinamentos);
   const formacao = asArr(data.formacao);
+  const documentos = asArr(data.documentos);
+  const candidaturas = asArr(data.candidaturas);
+  const candidaturaDocumentos = candidaturas.flatMap((cand) =>
+    asArr(cand.documentos).map((doc) => ({ cand, doc }))
+  );
 
   const local = [cidade, uf].filter(Boolean).join(" / ");
+  const endereco = [logradouro, numero, bairro].filter(Boolean).join(", ");
+  const hasPerfil = Boolean(resumo || obs || competencias.length || experiencias.length || treinamentos.length || formacao.length);
+
+  async function handleDownload(path: string, nomeArquivo: string, id: string) {
+    setDownloadingDocId(id);
+    try {
+      await downloadArquivo(path, nomeArquivo);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao baixar documento.");
+    } finally {
+      setDownloadingDocId(null);
+    }
+  }
 
   const compTipos = ["Idioma", "Ferramenta", "Técnica", "Comportamental"] as const;
   const compsByTipo = compTipos
@@ -872,12 +937,93 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
             </div>
           </div>
         </div>
+        <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div className="rounded-lg border bg-white/80 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Experiências</div>
+            <div className="text-lg font-semibold tabular-nums">{experiencias.length}</div>
+          </div>
+          <div className="rounded-lg border bg-white/80 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Competências</div>
+            <div className="text-lg font-semibold tabular-nums">{competencias.length}</div>
+          </div>
+          <div className="rounded-lg border bg-white/80 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Documentos</div>
+            <div className="text-lg font-semibold tabular-nums">{documentos.length + candidaturaDocumentos.length}</div>
+          </div>
+          <div className="rounded-lg border bg-white/80 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Candidaturas</div>
+            <div className="text-lg font-semibold tabular-nums">{candidaturas.length}</div>
+          </div>
+        </div>
       </div>
 
       {/* Layout 2 colunas: sidebar + main */}
       <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-3">
         {/* ─── Sidebar ─── */}
         <div className="space-y-3">
+          <SectionCard icon={<Users className="size-3.5" />} title="Dados cadastrais" dense>
+            <dl className="grid grid-cols-1 gap-2 text-[12px]">
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Cadastro</dt>
+                <dd>{fmtDateTime(createdAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Última atualização</dt>
+                <dd>{fmtDateTime(updatedAt)}</dd>
+              </div>
+              {versao && (
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Versão do perfil</dt>
+                  <dd>{versao}</dd>
+                </div>
+              )}
+              {(endereco || cep) && (
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Endereço</dt>
+                  <dd>{endereco || "—"}{cep && <span className="block text-muted-foreground">CEP {cep}</span>}</dd>
+                </div>
+              )}
+            </dl>
+          </SectionCard>
+
+          <SectionCard icon={<FileText className="size-3.5" />} title={`Documentos do talento (${documentos.length})`} dense>
+            {documentos.length > 0 ? (
+              <ul className="space-y-2">
+                {documentos.map((doc) => {
+                  const id = str(doc.id, "");
+                  const nomeArquivo = str(doc.nomeArquivo, "curriculo.pdf");
+                  const size = formatBytes(doc.tamanhoBytes);
+                  const path = `${BASE}/api/talentos/${encodeURIComponent(str(data.id, ""))}/documentos/${encodeURIComponent(id)}/download`;
+                  return (
+                    <li key={id} className="rounded-md border bg-slate-50/70 p-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-[12px] font-medium">{nomeArquivo}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {[str(doc.contentType, ""), size, fmtDate(doc.createdAtUtc as string | null)].filter(Boolean).join(" · ")}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          disabled={!id || downloadingDocId === id}
+                          onClick={() => void handleDownload(path, nomeArquivo, id)}
+                        >
+                          {downloadingDocId === id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Download className="mr-1 size-3" />}
+                          Baixar
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-[12px] text-muted-foreground">Nenhum documento importado diretamente no banco de talentos.</p>
+            )}
+          </SectionCard>
+
           {competencias.length > 0 && (
             <SectionCard icon={<Sparkles className="size-3.5" />} title={`Competências (${competencias.length})`} dense>
               <div className="space-y-2">
@@ -983,6 +1129,82 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
             </SectionCard>
           )}
 
+          {obs && (
+            <SectionCard icon={<FileText className="size-3.5" />} title="Observações internas" dense>
+              <p className="text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">{obs}</p>
+            </SectionCard>
+          )}
+
+          <SectionCard icon={<Download className="size-3.5" />} title={`CVs enviados pelo Portal de Vagas (${candidaturaDocumentos.length})`} dense>
+            {candidaturaDocumentos.length > 0 ? (
+              <div className="grid gap-2">
+                {candidaturaDocumentos.map(({ cand, doc }) => {
+                  const candidatoId = str(cand.id, "");
+                  const docId = str(doc.id, "");
+                  const nomeArquivo = str(doc.nomeArquivo, "curriculo.pdf");
+                  const tipo = str(doc.tipo, "Documento");
+                  const descricao = str(doc.descricao, "");
+                  const size = formatBytes(doc.tamanhoBytes);
+                  const temArquivo = doc.temArquivo === true || String(doc.temArquivo).toLowerCase() === "true";
+                  const vagaTitulo = str(cand.vagaTitulo, "");
+                  const downloadId = `${candidatoId}:${docId}`;
+                  const path = `${BASE}/api/candidatos/${encodeURIComponent(candidatoId)}/documentos/${encodeURIComponent(docId)}/download`;
+                  return (
+                    <div key={downloadId} className="rounded-lg border bg-white p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">{tipo}</span>
+                            {vagaTitulo && <span className="text-[11px] text-muted-foreground">Vaga: {vagaTitulo}</span>}
+                          </div>
+                          <div className="mt-1 truncate text-sm font-medium">{nomeArquivo}</div>
+                          <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                            {descricao && <span>{descricao}</span>}
+                            {size && <span>{size}</span>}
+                            <span>{fmtDateTime(str(doc.createdAtUtc, ""))}</span>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={!temArquivo || downloadingDocId === downloadId}
+                          onClick={() => void handleDownload(path, nomeArquivo, downloadId)}
+                        >
+                          {downloadingDocId === downloadId ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Download className="mr-1 size-4" />}
+                          {temArquivo ? "Baixar CV" : "Sem arquivo"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[12px] text-muted-foreground">Nenhum currículo de candidatura vinculado a este talento.</p>
+            )}
+          </SectionCard>
+
+          {candidaturas.length > 0 && (
+            <SectionCard icon={<UserCheck className="size-3.5" />} title={`Candidaturas vinculadas (${candidaturas.length})`} dense>
+              <div className="grid gap-2 md:grid-cols-2">
+                {candidaturas.map((cand) => (
+                  <div key={str(cand.id, "")} className="rounded-lg border bg-slate-50/60 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{str(cand.vagaTitulo, "Sem vaga vinculada")}</div>
+                        <div className="text-[11px] text-muted-foreground">{fmtDateTime(str(cand.createdAtUtc, ""))}</div>
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{str(cand.status, "—")}</span>
+                    </div>
+                    <div className="mt-2 text-[11px] text-muted-foreground">
+                      Origem: {str(cand.fonte, "—")} · Documentos: {asArr(cand.documentos).length}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          )}
+
           {experiencias.length > 0 && (
             <SectionCard icon={<Briefcase className="size-3.5" />} title={`Experiência profissional (${experiencias.length})`} dense>
               <ol className="space-y-3 relative before:absolute before:left-[6px] before:top-1.5 before:bottom-1.5 before:w-px before:bg-slate-200">
@@ -1018,6 +1240,16 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
                 })}
               </ol>
             </SectionCard>
+          )}
+
+          {!hasPerfil && documentos.length === 0 && candidaturaDocumentos.length === 0 && candidaturas.length === 0 && (
+            <div className="rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
+              <Users className="mx-auto size-8 text-slate-300" />
+              <h4 className="mt-2 text-sm font-semibold text-slate-700">Perfil ainda incompleto</h4>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Este talento ainda não tem resumo, experiências, competências, formação ou documentos vinculados.
+              </p>
+            </div>
           )}
         </div>
       </div>

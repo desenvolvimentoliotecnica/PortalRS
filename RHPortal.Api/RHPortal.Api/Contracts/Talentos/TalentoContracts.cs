@@ -54,6 +54,31 @@ public sealed record TalentoDocumentoSummary(
     DateTimeOffset CreatedAtUtc
 );
 
+public sealed record TalentoCandidaturaDocumentoSummary(
+    Guid Id,
+    CandidateDocumentType Tipo,
+    string NomeArquivo,
+    string? ContentType,
+    string? Descricao,
+    long? TamanhoBytes,
+    DateTimeOffset CreatedAtUtc,
+    Guid? VagaId,
+    bool TemArquivo
+);
+
+public sealed record TalentoCandidaturaSummary(
+    Guid Id,
+    string Nome,
+    string Email,
+    CandidateOrigin Fonte,
+    CandidateStatus Status,
+    Guid? VagaId,
+    string? VagaTitulo,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    IReadOnlyList<TalentoCandidaturaDocumentoSummary> Documentos
+);
+
 /// <summary>Metadados de documento para criar no talento (sem arquivo; ex.: integração RM).</summary>
 public sealed record TalentoDocumentoMetaItem(
     [Required, MaxLength(200)] string NomeArquivo,
@@ -168,6 +193,7 @@ public sealed record TalentoResponse(
     IReadOnlyList<TalentoTreinamentoItem> Treinamentos,
     IReadOnlyList<TalentoFormacaoItem> Formacao,
     IReadOnlyList<TalentoDocumentoSummary> Documentos,
+    IReadOnlyList<TalentoCandidaturaSummary> Candidaturas,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     int Versao,
