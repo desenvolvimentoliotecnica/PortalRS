@@ -14,13 +14,10 @@ type JobItem = {
   tagsKeywordsRaw?: string | null;
   tagsStackRaw?: string | null;
   tagsResponsabilidadesRaw?: string | null;
-  salarioMinimo?: number | null;
-  salarioMaximo?: number | null;
   empresaNome?: string | null;
   tenantName?: string | null;
   urgente?: boolean | null;
   aceitaPcd?: boolean | null;
-  quantidadeVagas?: number | null;
 };
 
 const HERO_GRADIENTS = [
@@ -44,12 +41,6 @@ function buildTags(job: JobItem): string[] {
     ...parseTags(job.tagsResponsabilidadesRaw),
   ];
   return Array.from(new Set(all)).slice(0, 6);
-}
-
-function money(min?: number | null, max?: number | null) {
-  if (!max) return "A combinar";
-  const f = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-  return `${f(min || 0)} - ${f(max)}`;
 }
 
 function formatLocation(job: JobItem) {
@@ -91,9 +82,6 @@ export default function JobCard({ job, index, onDetails, onApply }: JobCardProps
           {job.aceitaPcd && (
             <span className="rounded-full bg-emerald-600/80 px-2 py-0.5 text-xs font-semibold shrink-0">PCD</span>
           )}
-          {job.quantidadeVagas != null && job.quantidadeVagas > 1 && (
-            <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium shrink-0">{job.quantidadeVagas} vagas</span>
-          )}
         </div>
         <h3 className="font-extrabold text-lg leading-tight">{job.titulo}</h3>
         <div className="flex flex-wrap gap-1.5 mt-2">
@@ -120,8 +108,7 @@ export default function JobCard({ job, index, onDetails, onApply }: JobCardProps
             <span className="rounded-full border border-border/60 px-2 py-0.5 text-xs bg-slate-50">Geral</span>
           )}
         </div>
-        <div className="text-sm text-muted-foreground mt-auto">Faixa: {money(job.salarioMinimo, job.salarioMaximo)}</div>
-        <div className="mt-3 flex gap-2">
+        <div className="mt-auto flex gap-2 pt-3">
           <Button variant="outline" size="sm" onClick={onDetails}>
             Detalhes
           </Button>

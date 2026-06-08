@@ -107,16 +107,6 @@ function filterLabel(value: string, options: readonly (readonly [string, string]
   return options.find(([v]) => v === value)?.[1] ?? placeholder;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function money(min?: number | null, max?: number | null) {
-  if (!max && !min) return "A combinar";
-  const f = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-  if (min && max) return `${f(min)} – ${f(max)}`;
-  if (max) return `Até ${f(max)}`;
-  return `A partir de ${f(min!)}`;
-}
-
 function hasAllowedExt(name: string) {
   return APPLY_ALLOWED_EXT.some(e => name.toLowerCase().endsWith(e));
 }
@@ -645,7 +635,6 @@ export default function PortalVagasScreen() {
                     onChange={e => setSort(e.target.value)}
                   >
                     <option value="recent">Mais recentes</option>
-                    <option value="salaryDesc">Maior salário</option>
                     <option value="companyAsc">Empresa A-Z</option>
                   </select>
                   {hasFilters && (
@@ -726,8 +715,6 @@ export default function PortalVagasScreen() {
                 {selectedJob.tipoContratacao && <span className="rounded-full border border-border/60 bg-slate-50 px-3 py-1 text-xs font-medium">{selectedJob.tipoContratacao}</span>}
                 {selectedJob.senioridade && <span className="rounded-full border border-border/60 bg-slate-50 px-3 py-1 text-xs font-medium">{selectedJob.senioridade}</span>}
                 {(selectedJob.cidade || selectedJob.uf) && <span className="rounded-full border border-border/60 bg-slate-50 px-3 py-1 text-xs font-medium">{[selectedJob.cidade, selectedJob.uf].filter(Boolean).join(", ")}</span>}
-                {(selectedJob.salarioMinimo || selectedJob.salarioMaximo) && <span className="rounded-full border border-[#105290]/30 bg-[#105290]/5 px-3 py-1 text-xs font-medium text-[#105290]">{money(selectedJob.salarioMinimo, selectedJob.salarioMaximo)}</span>}
-                {selectedJob.quantidadeVagas != null && selectedJob.quantidadeVagas > 1 && <span className="rounded-full border border-border/60 bg-slate-50 px-3 py-1 text-xs font-medium">{selectedJob.quantidadeVagas} vagas</span>}
               </div>
 
               {/* Description */}
