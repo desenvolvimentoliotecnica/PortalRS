@@ -1491,20 +1491,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               {/* Seção: Identificação */}
               <SectionHeader title="Código e posicionamento" description="Código, status e hierarquia interna da vaga." />
               <Field label="Status" required span="col-span-12 md:col-span-3"><EnumSelect value={draft.status} onChange={(v) => set("status", v)} options={enumOpts(enums, "vagaStatus")} /></Field>
-              <Field label="Nome interno (engessado)" span="col-span-12 md:col-span-5">
-                <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de TI Sênior" value={draft.nomeEngessado} onChange={(e) => set("nomeEngessado", e.target.value)} maxLength={200} />
-                <p className="text-xs text-muted-foreground mt-1">Nome fixo para referência interna de cargo.</p>
-              </Field>
+              <Field label="Gestor requisitante" span="col-span-12 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Nome do gestor" maxLength={120} value={draft.gestorRequisitante} onChange={(e) => set("gestorRequisitante", e.target.value)} /></Field>
               {/* Seção: Configurações */}
               <SectionHeader title="Configurações da vaga" />
               <Field label="Modalidade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.modalidade} onChange={(v) => set("modalidade", v)} options={enumOpts(enums, "vagaModalidade")} /></Field>
               <Field label="Senioridade" span="col-span-6 md:col-span-3"><EnumSelect value={draft.senioridade} onChange={(v) => set("senioridade", v)} options={enumOpts(enums, "vagaSenioridade", "Selecionar")} /></Field>
-              <Field label="Motivo de abertura" span="col-span-6 md:col-span-3"><EnumSelect value={draft.motivoAbertura} onChange={(v) => set("motivoAbertura", v)} options={enumOpts(enums, "vagaMotivoAbertura", "Selecionar")} /></Field>
-              <Field label="Orçamento aprovado" span="col-span-6 md:col-span-3"><EnumSelect value={draft.orcamentoAprovado} onChange={(v) => set("orcamentoAprovado", v)} options={enumOpts(enums, "vagaOrcamentoAprovado", "Selecionar")} /></Field>
-
-              {/* Seção: Responsáveis */}
-              <SectionHeader title="Responsáveis" />
-              <Field label="Gestor requisitante" span="col-span-12 md:col-span-4"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Nome do gestor" maxLength={120} value={draft.gestorRequisitante} onChange={(e) => set("gestorRequisitante", e.target.value)} /></Field>
+              <Field label="Motivo de abertura" span="col-span-12 md:col-span-3"><EnumSelect value={draft.motivoAbertura} onChange={(v) => set("motivoAbertura", v)} options={enumOpts(enums, "vagaMotivoAbertura", "Selecionar")} /></Field>
 
               {/* Seção: Descrição e conteúdo */}
               <SectionHeader title="Descrição e conteúdo" />
