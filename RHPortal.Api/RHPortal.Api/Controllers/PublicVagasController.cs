@@ -38,8 +38,8 @@ public sealed class PublicVagasController : ControllerBase
     /// <param name="type">Tipo de contratação (ex.: CLT, PJ).</param>
     /// <param name="level">Senioridade (ex.: Junior, Pleno, Senior).</param>
     /// <param name="area">Área da vaga.</param>
-    /// <param name="minSalary">Filtra por salário máximo maior/igual a este valor.</param>
-    /// <param name="sort">Ordenação: salaryDesc, companyAsc ou recent (padrão).</param>
+    /// <param name="minSalary">Parâmetro legado ignorado; salário não é exposto no portal público.</param>
+    /// <param name="sort">Ordenação: companyAsc ou recent (padrão).</param>
     /// <param name="page">Página (1‑based).</param>
     /// <param name="pageSize">Quantidade por página (1 a 100). Valores fora disso voltam para 12.</param>
     /// <param name="ct">Token de cancelamento.</param>
@@ -141,14 +141,8 @@ public sealed class PublicVagasController : ControllerBase
         if (TryParseEnum(level, out VagaSenioridade senioridade))
             query = query.Where(v => v.Senioridade == senioridade);
 
-        if (minSalary.HasValue)
-        {
-            query = query.Where(v => v.SalarioMaximo.HasValue && v.SalarioMaximo.Value >= minSalary.Value);
-        }
-
         query = sort switch
         {
-            "salaryDesc" => query.OrderByDescending(v => v.SalarioMaximo ?? 0),
             "companyAsc" => query.OrderBy(v => v.Titulo),
             _ => query.OrderByDescending(v => v.CreatedAtUtc)
         };
@@ -171,14 +165,14 @@ public sealed class PublicVagasController : ControllerBase
                 v.TagsKeywordsRaw,
                 v.TagsStackRaw,
                 v.TagsResponsabilidadesRaw,
-                v.SalarioMinimo,
-                v.SalarioMaximo,
+                null,
+                null,
                 v.CreatedAtUtc,
                 tenantName,
                 v.DescricaoPublica,
                 v.Urgente,
                 v.AceitaPcd,
-                v.QuantidadeVagas,
+                null,
                 v.Etapas.OrderBy(e => e.Ordem).Select(e => e.Nome).ToList()))
             .ToListAsync(ct);
 
@@ -234,14 +228,14 @@ public sealed class PublicVagasController : ControllerBase
                 v.TagsKeywordsRaw,
                 v.TagsStackRaw,
                 v.TagsResponsabilidadesRaw,
-                v.SalarioMinimo,
-                v.SalarioMaximo,
+                null,
+                null,
                 v.CreatedAtUtc,
                 tenantName,
                 v.DescricaoPublica,
                 v.Urgente,
                 v.AceitaPcd,
-                v.QuantidadeVagas,
+                null,
                 v.Etapas.OrderBy(e => e.Ordem).Select(e => e.Nome).ToList()))
             .FirstOrDefaultAsync(ct);
 
