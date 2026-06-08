@@ -184,7 +184,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
 
         entity.CentroCustoId = await ResolveCentroCustoIdAsync(row.Codccusto, row.Codsecao, ct);
         entity.UnitId = await ResolveUnitIdAsync(row.Codfilial, ct);
-        entity.EmpresaId = await ResolveEmpresaIdAsync(row.Codcolrequisicao, entity.CentroCustoId, entity.UnitId, ct);
+        entity.EmpresaId = await ResolveEmpresaIdAsync(row.Codcolrequisicao, row.Codfilial, entity.CentroCustoId, entity.UnitId, ct);
         entity.JobPositionId = await ResolveJobPositionIdAsync(row.Codfuncao, row.NomeFuncao, ct);
     }
 
@@ -253,7 +253,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             .FirstOrDefaultAsync(ct);
     }
 
-    private async Task<Guid?> ResolveEmpresaIdAsync(int? codColigada, Guid? centroCustoId, Guid? unitId, CancellationToken ct)
+    private async Task<Guid?> ResolveEmpresaIdAsync(int? codColigada, string? codFilial, Guid? centroCustoId, Guid? unitId, CancellationToken ct)
     {
         if (centroCustoId.HasValue)
         {
@@ -273,13 +273,40 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             if (empresaId.HasValue) return empresaId;
         }
 
-        var code = codColigada?.ToString();
-        if (string.IsNullOrWhiteSpace(code)) return null;
+        var codes = BuildEmpresaCodeCandidates(codFilial, codColigada).ToList();
+        if (codes.Count == 0) return null;
         return await _db.Empresas
-            .Where(e => e.Code == code)
+            .Where(e => codes.Contains(e.Code))
             .OrderByDescending(e => e.IsActive)
             .Select(e => (Guid?)e.Id)
             .FirstOrDefaultAsync(ct);
+    }
+
+    private static IEnumerable<string> BuildEmpresaCodeCandidates(string? codFilial, int? codColigada)
+    {
+        foreach (var code in BuildCodeCandidates(codFilial))
+            yield return code;
+
+        if (codColigada.HasValue)
+        {
+            foreach (var code in BuildCodeCandidates(codColigada.Value.ToString()))
+                yield return code;
+        }
+    }
+
+    private static IEnumerable<string> BuildCodeCandidates(string? rawCode)
+    {
+        var value = rawCode?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            yield break;
+
+        yield return value;
+
+        if (int.TryParse(value, out var numeric))
+        {
+            yield return numeric.ToString();
+            yield return numeric.ToString().PadLeft(2, '0');
+        }
     }
 
     private async Task<string?> ResolveFuncaoNomeRmAsync(RmRequisicaoRowDto row, CancellationToken ct)
