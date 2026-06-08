@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { AlertTriangle, ArrowRight, Award, Briefcase, Check, Download, Eye, FileText, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1449,9 +1450,9 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
         </div>
       </div>
     </div>
-    {pdfPreview && (
-      <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
-        <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+    {pdfPreview && typeof document !== "undefined" && createPortal(
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true">
+        <div className="flex h-[90vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
           <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
             <div className="min-w-0">
               <h3 className="truncate text-sm font-semibold text-slate-800">Ver Curriculum</h3>
@@ -1486,7 +1487,8 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
             className="min-h-0 flex-1 bg-slate-100"
           />
         </div>
-      </div>
+      </div>,
+      document.body,
     )}
     </>
   );
