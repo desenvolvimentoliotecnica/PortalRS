@@ -1483,7 +1483,7 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
           </div>
           <iframe
             title={`Curriculum - ${pdfPreview.nomeArquivo}`}
-            src={pdfPreview.url}
+            src={`${pdfPreview.url}#toolbar=1&navpanes=0&view=FitH`}
             className="min-h-0 flex-1 bg-slate-100"
           />
         </div>
