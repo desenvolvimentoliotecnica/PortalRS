@@ -238,12 +238,9 @@ export default function TalentosScreen() {
   // Modais
   const [newOpen, setNewOpen] = useState(false);
   const [newDraft, setNewDraft] = useState({ nome: "", email: "", fone: "", cidade: "", uf: "", origem: "Manual", cpf: "", linkedin: "", resumoProfissional: "" });
+  const [newCvFile, setNewCvFile] = useState<File | null>(null);
+  const [newCvUseAi, setNewCvUseAi] = useState(true);
   const [newSaving, setNewSaving] = useState(false);
-
-  const [importOpen, setImportOpen] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importGpt, setImportGpt] = useState(true);
-  const [importLoading, setImportLoading] = useState(false);
 
   const [cadOpen, setCadOpen] = useState(false);
   const [cadTalentoId, setCadTalentoId] = useState("");
@@ -317,38 +314,42 @@ export default function TalentosScreen() {
   async function handleSaveNew() {
     if (!newDraft.nome.trim()) { toast.error("Nome é obrigatório."); return; }
     if (!newDraft.email.trim()) { toast.error("E-mail é obrigatório."); return; }
+    if (newCvFile && !isPdfDocument(newCvFile.name, newCvFile.type)) {
+      toast.error("O currículo deve ser um arquivo PDF.");
+      return;
+    }
     setNewSaving(true);
     try {
-      await fetchJson(`${BASE}/api/talentos`, {
+      const created = await fetchJson<unknown>(`${BASE}/api/talentos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newDraft),
       });
-      toast.success("Talento cadastrado.");
+      const createdId = str(asRec(created)?.id, "");
+
+      if (newCvFile && createdId) {
+        try {
+          const form = new FormData();
+          form.append("arquivo", newCvFile);
+          form.append("enviarParaGpt", newCvUseAi ? "true" : "false");
+          form.append("talentoId", createdId);
+          await fetchJson<unknown>(`${BASE}/api/talentos/import-pdf`, { method: "POST", body: form });
+          toast.success(newCvUseAi ? "Talento cadastrado e CV enviado para processamento." : "Talento cadastrado com CV anexado.");
+        } catch (uploadError) {
+          toast.error(uploadError instanceof Error ? `Talento cadastrado, mas falhou ao anexar o CV: ${uploadError.message}` : "Talento cadastrado, mas falhou ao anexar o CV.");
+        }
+      } else {
+        toast.success("Talento cadastrado.");
+      }
+
       setNewOpen(false);
       setNewDraft({ nome: "", email: "", fone: "", cidade: "", uf: "", origem: "Manual", cpf: "", linkedin: "", resumoProfissional: "" });
+      setNewCvFile(null);
+      setNewCvUseAi(true);
       await load(1, pageSize, q, origem);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao salvar.");
     } finally { setNewSaving(false); }
-  }
-
-  async function handleImportPdf() {
-    if (!importFile) { toast.error("Selecione um arquivo PDF."); return; }
-    setImportLoading(true);
-    try {
-      const form = new FormData();
-      form.append("arquivo", importFile);
-      form.append("enviarParaGpt", importGpt ? "true" : "false");
-      const resp = await fetchJson<unknown>(`${BASE}/api/talentos/import-pdf`, { method: "POST", body: form });
-      const r = asRec(resp) ?? {};
-      toast.success(str(r.jobId, "") ? `Importação iniciada (job ${str(r.jobId, "")}).` : "Importação concluída.");
-      setImportOpen(false);
-      setImportFile(null);
-      await load(1, pageSize, q, origem);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao importar PDF.");
-    } finally { setImportLoading(false); }
   }
 
   async function openCadastrarCandidato(t: TalentItem) {
@@ -477,9 +478,6 @@ export default function TalentosScreen() {
           <Button variant="outline" size="sm" onClick={() => void load(page, pageSize, q, origem)}>
             <RefreshCw className="size-4" /> Atualizar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-            <FileUp className="size-4" /> Importar PDF
-          </Button>
           <Button size="sm" onClick={() => setNewOpen(true)}>
             <Plus className="size-4" /> Novo talento
           </Button>
@@ -565,7 +563,7 @@ export default function TalentosScreen() {
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <Users className="size-10 opacity-20" />
                       <p className="text-sm font-medium">Nenhum talento encontrado</p>
-                      <p className="text-xs opacity-60">Cadastre manualmente ou importe um currículo em PDF.</p>
+                      <p className="text-xs opacity-60">Cadastre manualmente e, se houver, anexe o currículo em PDF.</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -652,7 +650,7 @@ export default function TalentosScreen() {
           <DialogHeader>
             <DialogTitle>Novo talento</DialogTitle>
             <DialogDescription>
-              Cadastro manual na base de talentos. Depois você pode candidatá-lo a uma vaga específica.
+              Cadastro manual na base de talentos. Você também pode anexar o CV em PDF neste cadastro.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 mt-2">
@@ -708,41 +706,36 @@ export default function TalentosScreen() {
                 placeholder="Experiência, habilidades principais…"
               />
             </div>
+            <div className="col-span-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-3">
+              <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-700">
+                <FileUp className="size-4 text-primary" />
+                Curriculum em PDF
+              </label>
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground"
+                disabled={newSaving}
+                onChange={(e) => setNewCvFile(e.currentTarget.files?.[0] ?? null)}
+              />
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>{newCvFile ? `${newCvFile.name} (${formatBytes(newCvFile.size)})` : "Nenhum arquivo selecionado."}</span>
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={newCvUseAi}
+                    disabled={newSaving || !newCvFile}
+                    onChange={(e) => setNewCvUseAi(e.target.checked)}
+                  />
+                  Usar IA para extrair dados
+                </label>
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-2 mt-2">
             <Button variant="outline" onClick={() => setNewOpen(false)}>Cancelar</Button>
             <Button disabled={newSaving} onClick={() => void handleSaveNew()}>
               {newSaving && <Loader2 className="size-4 animate-spin mr-1" />} Salvar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Modal: Importar PDF ─── */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Importar currículo (PDF)</DialogTitle>
-            <DialogDescription>
-              O sistema extrai os dados automaticamente com IA e cria o talento.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 mt-2">
-            <input
-              type="file"
-              accept="application/pdf"
-              className="w-full text-sm"
-              onChange={(e) => setImportFile(e.currentTarget.files?.[0] ?? null)}
-            />
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={importGpt} onChange={(e) => setImportGpt(e.target.checked)} />
-              Usar IA (GPT) para extrair dados do currículo
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancelar</Button>
-            <Button disabled={importLoading || !importFile} onClick={() => void handleImportPdf()}>
-              {importLoading && <Loader2 className="size-4 animate-spin mr-1" />} Importar
             </Button>
           </div>
         </DialogContent>
