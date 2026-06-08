@@ -806,6 +806,12 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     }, [active, editId, copySourceId, initialData, loadLookups, reloadNonce]);
 
     useEffect(() => {
+        if (viewOnly && activeTab === "horario") {
+            setActiveTab("identificacao");
+        }
+    }, [activeTab, viewOnly]);
+
+    useEffect(() => {
         if (!active || viewOnly || editId || copySourceId) {
             setEstruturaLocks({ empresa: false, unit: false, centroCusto: false });
             return;
@@ -1235,7 +1241,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
                         <TabsList className="mb-2 shrink-0 border-b border-border/60 pb-2">
                             <TabsTrigger value="identificacao">Identificação</TabsTrigger>
-                            <TabsTrigger value="horario">Horário</TabsTrigger>
+                            {!viewOnly && <TabsTrigger value="horario">Horário</TabsTrigger>}
                             <TabsTrigger value="aprovacao">Aprovações</TabsTrigger>
                         </TabsList>
 
