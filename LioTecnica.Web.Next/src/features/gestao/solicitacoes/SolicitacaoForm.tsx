@@ -1819,11 +1819,11 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                         </p>
                                         <h4 className="text-sm font-semibold text-foreground">Pareceres e aprovações da requisição</h4>
                                     </div>
-                                    <ol className="relative space-y-4 pl-7">
-                                        <span className="absolute bottom-0 left-2 top-0 w-px bg-border" aria-hidden />
+                                    <ol className="relative space-y-4">
+                                        <span className="absolute bottom-0 left-4 top-0 w-px bg-border" aria-hidden />
                                         {rmPareceres.map((parecer) => (
-                                            <li key={parecer.idParecer} className="relative grid grid-cols-[1rem_minmax(0,1fr)] items-center gap-3">
-                                                <span className="z-10 flex size-4 items-center justify-center rounded-full border border-primary/30 bg-background">
+                                            <li key={parecer.idParecer} className="relative grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3">
+                                                <span className="z-10 flex size-4 items-center justify-center justify-self-center rounded-full border border-primary/30 bg-background">
                                                     <span className="size-2 rounded-full bg-primary" />
                                                 </span>
                                                 <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
