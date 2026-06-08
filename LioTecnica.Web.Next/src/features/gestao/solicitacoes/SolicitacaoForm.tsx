@@ -5,7 +5,6 @@ import {
     normalizeSolicitacaoStatusOrdinal,
     SolicitacaoVagaOrdinal,
 } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
-import { ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -378,14 +377,6 @@ function tituloFromFuncaoRm(cod: string | null | undefined, nome: string | null 
     return base.length > 160 ? base.slice(0, 160) : base;
 }
 
-function iniciaisNome(nome: string | null | undefined): string {
-    const n = (nome ?? "").trim();
-    if (!n) return "?";
-    const partes = n.split(/\s+/).filter(Boolean);
-    if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-    return `${partes[0][0] ?? ""}${partes[partes.length - 1][0] ?? ""}`.toUpperCase() || "?";
-}
-
 function formatDateTimeForDisplay(value?: string | null): string {
     if (!value) return "—";
     const date = new Date(value);
@@ -600,11 +591,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [empresas, setEmpresas] = useState<LookupItem[]>([]);
     const [centrosCusto, setCentrosCusto] = useState<LookupItem[]>([]);
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
-    const [requisitanteNomeExibicao, setRequisitanteNomeExibicao] = useState<string | null>(null);
-    const [requisitanteMatriculaExibicao, setRequisitanteMatriculaExibicao] = useState<string | null>(null);
-    const [superiorNomeExibicao, setSuperiorNomeExibicao] = useState<string | null>(null);
-    const [superiorMatriculaExibicao, setSuperiorMatriculaExibicao] = useState<string | null>(null);
-    const [superiorCarregando, setSuperiorCarregando] = useState(false);
     /** Campos vindos de GET /api/me — bloqueados para não divergir do vínculo do gestor. */
     const [estruturaLocks, setEstruturaLocks] = useState({
         empresa: false,
@@ -659,9 +645,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             const myFuncId = meRes?.funcionarioId as string | null;
             if (opts?.setRequisitanteFromMe && myFuncId)
                 setRequisitanteFuncionarioId(myFuncId);
-            const meNome = meRes?.fullName != null ? String(meRes.fullName).trim() : "";
-            if (opts?.setRequisitanteFromMe && meNome)
-                setRequisitanteNomeExibicao(meNome);
             if (myFuncId) {
                 const funcRes = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${myFuncId}`);
                 const gdId = funcRes?.gestorDiretoId as string | null;
@@ -731,8 +714,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         setActiveTab("identificacao");
         setRmPareceres([]);
         setRequisitanteFuncionarioId(null);
-        setRequisitanteNomeExibicao(null);
-        setRequisitanteMatriculaExibicao(null);
         setGestorDiretoId(null);
         loadLookups({ setRequisitanteFromMe: !editId && !copySourceId });
 
@@ -777,17 +758,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         : []);
                     if (d?.solicitanteId)
                         setRequisitanteFuncionarioId(String(d.solicitanteId));
-                    const sn = d?.solicitanteNome != null ? String(d.solicitanteNome).trim() : "";
-                    if (sn) {
-                        setRequisitanteNomeExibicao(sn);
-                    } else if (d?.solicitanteId) {
-                        void fetchJson<Record<string, unknown>>(`/api/funcionarios/${String(d.solicitanteId)}`)
-                            .then((f) => {
-                                const n = f?.name != null ? String(f.name).trim() : "";
-                                if (n) setRequisitanteNomeExibicao(n);
-                            })
-                            .catch(() => { /* ignore */ });
-                    }
                     setObservacaoAprovador(d?.observacaoAprovador ? String(d.observacaoAprovador) : null);
                     const s = d?.status;
                     setStatusCarregado(typeof s === "string" || typeof s === "number" ? s : null);
@@ -847,60 +817,20 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     }, [gestorDiretoId, editId, draft.aprovadorId]);
 
     useEffect(() => {
-        if (!active) {
-            setSuperiorNomeExibicao(null);
-            setSuperiorMatriculaExibicao(null);
-            setSuperiorCarregando(false);
-            return;
-        }
-        const id = draft.aprovadorId?.trim();
-        if (!id) {
-            setSuperiorNomeExibicao(null);
-            setSuperiorMatriculaExibicao(null);
-            setSuperiorCarregando(false);
-            return;
-        }
-        let cancelled = false;
-        setSuperiorCarregando(true);
-        void fetchJson<Record<string, unknown>>(`/api/funcionarios/${id}`)
-            .then((f) => {
-                if (cancelled) return;
-                setSuperiorNomeExibicao(f?.name != null ? String(f.name) : null);
-                setSuperiorMatriculaExibicao(f?.matriculaRm != null ? String(f.matriculaRm) : null);
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setSuperiorNomeExibicao(null);
-                    setSuperiorMatriculaExibicao(null);
-                }
-            })
-            .finally(() => {
-                if (!cancelled) setSuperiorCarregando(false);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [active, draft.aprovadorId]);
-
-    useEffect(() => {
         if (!active || !requisitanteFuncionarioId?.trim()) {
-            setRequisitanteMatriculaExibicao(null);
             return;
         }
         let cancelled = false;
         void fetchJson<Record<string, unknown>>(`/api/funcionarios/${requisitanteFuncionarioId.trim()}`)
             .then((f) => {
                 if (cancelled) return;
-                setRequisitanteMatriculaExibicao(f?.matriculaRm != null ? String(f.matriculaRm) : null);
                 const gdId = f?.gestorDiretoId != null ? String(f.gestorDiretoId).trim() : "";
                 if (gdId) {
                     setGestorDiretoId(gdId);
                     setDraft((d) => d.aprovadorId ? d : { ...d, aprovadorId: gdId });
                 }
             })
-            .catch(() => {
-                if (!cancelled) setRequisitanteMatriculaExibicao(null);
-            });
+            .catch(() => { /* ignore */ });
         return () => {
             cancelled = true;
         };
@@ -1851,9 +1781,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                             </div>
                         </TabsContent>
 
-                        {/* ══════════════ TAB 4 — Aprovações (RM + fluxo visual superior → requisitante) ══════════════ */}
+                        {/* ══════════════ TAB 4 — Aprovações RM ══════════════ */}
                         <TabsContent value="aprovacao" className="mt-0">
-                            {rmPareceres.length > 0 && (
+                            {rmPareceres.length > 0 ? (
                                 <div className="mx-auto mb-4 max-w-2xl rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
                                     <div className="mb-4">
                                         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1898,48 +1828,14 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                                         ))}
                                     </ol>
                                 </div>
+                            ) : (
+                                <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-border/80 bg-muted/20 p-6 text-center">
+                                    <p className="text-sm font-medium text-foreground">Nenhuma aprovação RM importada ainda.</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Reimporte as requisições aprovadas para carregar o histórico de pareceres do RM.
+                                    </p>
+                                </div>
                             )}
-                            <div className="flex flex-col items-center px-2 py-4 sm:py-8">
-                                <div className="w-full max-w-sm rounded-2xl border border-border/80 bg-card shadow-sm px-5 py-5 text-center">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                                        Superior direto (aprovador)
-                                    </p>
-                                    <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-primary/35 bg-gradient-to-b from-primary/10 to-primary/5 text-base font-bold text-primary tabular-nums">
-                                        {superiorCarregando ? (
-                                            <span className="size-5 animate-pulse rounded-full bg-primary/25" aria-hidden />
-                                        ) : (
-                                            iniciaisNome(superiorNomeExibicao)
-                                        )}
-                                    </div>
-                                    <p className="text-sm font-semibold text-foreground leading-snug break-words">
-                                        {superiorCarregando ? "Carregando…" : (superiorNomeExibicao ?? (draft.aprovadorId ? "—" : "Ainda não definido"))}
-                                    </p>
-                                    {!!superiorMatriculaExibicao?.trim() && !superiorCarregando && (
-                                        <p className="mt-1 font-mono text-xs text-muted-foreground">{superiorMatriculaExibicao}</p>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-col items-center py-3" aria-hidden>
-                                    <span className="h-6 w-px bg-border" />
-                                    <ArrowDown className="size-5 text-muted-foreground/90" strokeWidth={2.2} />
-                                </div>
-
-                                <div className="w-full max-w-sm rounded-2xl border border-dashed border-primary/25 bg-muted/30 px-5 py-5 text-center">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                                        Requisitante
-                                    </p>
-                                    <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-muted-foreground/25 bg-background text-base font-bold text-muted-foreground">
-                                        {iniciaisNome(requisitanteNomeExibicao)}
-                                    </div>
-                                    <p className="text-sm font-semibold text-foreground leading-snug break-words">
-                                        {requisitanteNomeExibicao ?? "—"}
-                                    </p>
-                                    {!!requisitanteMatriculaExibicao?.trim() && (
-                                        <p className="mt-1 font-mono text-xs text-muted-foreground">{requisitanteMatriculaExibicao}</p>
-                                    )}
-                                </div>
-
-                            </div>
 
                             {!gestorDiretoId && !viewOnly && (
                                 <div className="mx-auto mt-2 max-w-lg border-t border-border pt-6 pb-2">

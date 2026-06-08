@@ -537,8 +537,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         var rmPareceres = await _db.RmRequisicaoPareceres
             .AsNoTracking()
             .Where(p => p.SolicitacaoVagaId == s.Id)
-            .OrderBy(p => p.DataParecer ?? DateTimeOffset.MinValue)
-            .ThenBy(p => p.IdParecer)
+            .OrderByDescending(p => p.DataParecer ?? DateTimeOffset.MinValue)
+            .ThenByDescending(p => p.IdParecer)
             .Select(p => new SolicitacaoVagaRmParecerInfo(
                 p.IdParecer,
                 p.DataParecer,
