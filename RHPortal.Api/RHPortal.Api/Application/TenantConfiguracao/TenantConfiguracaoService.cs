@@ -77,6 +77,7 @@ public sealed class ConfiguracaoRmRequisicaoDto
 {
     public string? EndpointUrl { get; set; }
     public string? GetEndpointUrl { get; set; }
+    public string? ParecerEndpointUrl { get; set; }
     public string? Username { get; set; }
     public string? Password { get; set; }
 }
@@ -85,6 +86,7 @@ public sealed class ConfiguracaoRmRequisicaoRequest
 {
     public string? EndpointUrl { get; set; }
     public string? GetEndpointUrl { get; set; }
+    public string? ParecerEndpointUrl { get; set; }
     public string? Username { get; set; }
     public string? Password { get; set; }
 }
@@ -157,6 +159,9 @@ public interface ITenantConfiguracaoService
 
 public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 {
+    private const string DefaultRmRequisicaoParecerEndpointUrl =
+        "http://172.19.30.37:8051/RMSRestDataServer/rest/RhuReqAumentoQuadroParecerData?limit=50&filter=[\"IDREQ= :P1 AND CODCOLREQUISICAO=:P2\",\"{IDREQ}\",\"{COLIGADA}\"]";
+
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IAiProviderFactory _aiProviderFactory;
@@ -318,13 +323,31 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 
     public async Task<ConfiguracaoRmRequisicaoDto> GetRmRequisicaoConfigAsync(CancellationToken ct)
     {
-        var config = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
-        if (config is null) return new ConfiguracaoRmRequisicaoDto();
+        var config = await _db.TenantConfiguracoes.FirstOrDefaultAsync(ct);
+        if (config is null)
+        {
+            config = new Domain.Entities.TenantConfiguracao
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _tenantContext.TenantId ?? "",
+                RmRequisicaoParecerEndpointUrl = DefaultRmRequisicaoParecerEndpointUrl,
+                UpdatedAtUtc = DateTimeOffset.UtcNow,
+            };
+            _db.TenantConfiguracoes.Add(config);
+            await _db.SaveChangesAsync(ct);
+        }
+        else if (string.IsNullOrWhiteSpace(config.RmRequisicaoParecerEndpointUrl))
+        {
+            config.RmRequisicaoParecerEndpointUrl = DefaultRmRequisicaoParecerEndpointUrl;
+            config.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+        }
 
         return new ConfiguracaoRmRequisicaoDto
         {
             EndpointUrl = config.RmRequisicaoCreateEndpointUrl,
             GetEndpointUrl = config.RmRequisicaoGetEndpointUrl,
+            ParecerEndpointUrl = config.RmRequisicaoParecerEndpointUrl,
             Username = config.RmRequisicaoCreateUsername,
             Password = config.RmRequisicaoCreatePassword,
         };
@@ -345,6 +368,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 
         config.RmRequisicaoCreateEndpointUrl = NullIfBlank(request.EndpointUrl);
         config.RmRequisicaoGetEndpointUrl = NullIfBlank(request.GetEndpointUrl);
+        config.RmRequisicaoParecerEndpointUrl = NullIfBlank(request.ParecerEndpointUrl);
         config.RmRequisicaoCreateUsername = NullIfBlank(request.Username);
         config.RmRequisicaoCreatePassword = NullIfBlank(request.Password);
         config.UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -355,6 +379,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         {
             EndpointUrl = config.RmRequisicaoCreateEndpointUrl,
             GetEndpointUrl = config.RmRequisicaoGetEndpointUrl,
+            ParecerEndpointUrl = config.RmRequisicaoParecerEndpointUrl,
             Username = config.RmRequisicaoCreateUsername,
             Password = config.RmRequisicaoCreatePassword,
         };

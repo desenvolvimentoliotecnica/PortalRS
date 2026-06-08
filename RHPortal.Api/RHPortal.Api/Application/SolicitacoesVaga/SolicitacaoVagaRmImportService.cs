@@ -16,6 +16,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IRmRequisicoesReadService _rmRead;
+    private readonly IRmRequisicaoParecerReadService _parecerRead;
     private readonly ISolicitacaoVagaService _solicitacaoVagaService;
     private readonly ILogger<SolicitacaoVagaRmImportService> _logger;
 
@@ -23,12 +24,14 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         AppDbContext db,
         ITenantContext tenantContext,
         IRmRequisicoesReadService rmRead,
+        IRmRequisicaoParecerReadService parecerRead,
         ISolicitacaoVagaService solicitacaoVagaService,
         ILogger<SolicitacaoVagaRmImportService> logger)
     {
         _db = db;
         _tenantContext = tenantContext;
         _rmRead = rmRead;
+        _parecerRead = parecerRead;
         _solicitacaoVagaService = solicitacaoVagaService;
         _logger = logger;
     }
@@ -148,11 +151,67 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         await _db.SaveChangesAsync(ct);
 
         await _solicitacaoVagaService.GarantirVagaRascunhoParaSolicitacaoAprovadaAsync(entity.Id, ct);
+        await ImportarPareceresAsync(entity, row, now, ct);
         await _db.Entry(entity).ReloadAsync(ct);
 
         var vagaCriada = !vagaAntes.HasValue && entity.VagaId.HasValue;
         var status = created ? ImportLineStatus.Created : ImportLineStatus.Updated;
         return new ImportLineResult(status, vagaCriada, $"{BuildHumanKey(row)}: {(created ? "importada" : "atualizada")} e vaga {(vagaCriada ? "criada" : "mantida")}.");
+    }
+
+    private async Task ImportarPareceresAsync(SolicitacaoVaga entity, RmRequisicaoRowDto row, DateTimeOffset now, CancellationToken ct)
+    {
+        if (!row.Codcolrequisicao.HasValue || row.Idreq <= 0 || string.IsNullOrWhiteSpace(row.TipoRequisicao))
+            return;
+
+        IReadOnlyList<RmRequisicaoParecerRowDto> pareceres;
+        try
+        {
+            pareceres = await _parecerRead.ListAsync(row.Codcolrequisicao.Value, row.Idreq, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Falha ao importar pareceres RM {Tipo}/{CodCol}/{IdReq}", row.TipoRequisicao, row.Codcolrequisicao, row.Idreq);
+            return;
+        }
+
+        foreach (var parecer in pareceres)
+        {
+            var existing = await _db.RmRequisicaoPareceres.FirstOrDefaultAsync(x =>
+                x.TipoRequisicao == row.TipoRequisicao.Trim()
+                && x.CodColRequisicao == (short)parecer.CodColRequisicao
+                && x.IdReq == parecer.IdReq
+                && x.IdParecer == parecer.IdParecer, ct);
+
+            if (existing is null)
+            {
+                existing = new RmRequisicaoParecer
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = entity.TenantId,
+                    TipoRequisicao = row.TipoRequisicao.Trim(),
+                    CodColRequisicao = (short)parecer.CodColRequisicao,
+                    IdReq = parecer.IdReq,
+                    IdParecer = parecer.IdParecer,
+                    CreatedAtUtc = now,
+                };
+                _db.RmRequisicaoPareceres.Add(existing);
+            }
+
+            existing.SolicitacaoVagaId = entity.Id;
+            existing.DataParecer = parecer.DataParecer;
+            existing.CodStatus = (short?)parecer.CodStatus;
+            existing.Suspensao = (short?)parecer.Suspensao;
+            existing.Solicitante = TrimTo(parecer.Solicitante, 200);
+            existing.Img1 = (short?)parecer.Img1;
+            existing.CodColSolicitante = (short?)parecer.CodColSolicitante;
+            existing.ChapaSolicitante = TrimTo(parecer.ChapaSolicitante, 30);
+            existing.Parecer = TrimTo(parecer.Parecer, 4000);
+            existing.Status = TrimTo(parecer.Status, 120);
+            existing.UpdatedAtUtc = now;
+        }
+
+        await _db.SaveChangesAsync(ct);
     }
 
     private async Task MapRowAsync(SolicitacaoVaga entity, RmRequisicaoRowDto row, SolicitacaoStatus status, DateTimeOffset now, CancellationToken ct)

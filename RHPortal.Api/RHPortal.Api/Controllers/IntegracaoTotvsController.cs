@@ -96,6 +96,16 @@ public sealed class IntegracaoTotvsController : ControllerBase
         {
             return BadRequest(new { message = "Informe uma URL absoluta válida para o endpoint RM." });
         }
+        if (!string.IsNullOrWhiteSpace(request.GetEndpointUrl)
+            && !Uri.TryCreate(request.GetEndpointUrl.Trim(), UriKind.Absolute, out _))
+        {
+            return BadRequest(new { message = "Informe uma URL absoluta válida para o endpoint GET RM." });
+        }
+        if (!string.IsNullOrWhiteSpace(request.ParecerEndpointUrl)
+            && !Uri.TryCreate(request.ParecerEndpointUrl.Trim(), UriKind.Absolute, out _))
+        {
+            return BadRequest(new { message = "Informe uma URL absoluta válida para o endpoint de pareceres RM." });
+        }
 
         return Ok(await _tenantConfiguracaoService.UpsertRmRequisicaoConfigAsync(request, ct));
     }

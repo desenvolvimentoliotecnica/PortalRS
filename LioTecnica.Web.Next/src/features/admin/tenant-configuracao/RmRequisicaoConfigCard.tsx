@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 interface ConfiguracaoRmRequisicaoDto {
     endpointUrl: string | null;
     getEndpointUrl: string | null;
+    parecerEndpointUrl: string | null;
     username: string | null;
     password: string | null;
 }
@@ -20,6 +21,7 @@ export default function RmRequisicaoConfigCard() {
     const [canManage, setCanManage] = useState(true);
     const [endpointUrl, setEndpointUrl] = useState("");
     const [getEndpointUrl, setGetEndpointUrl] = useState("");
+    const [parecerEndpointUrl, setParecerEndpointUrl] = useState("");
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
 
@@ -42,6 +44,7 @@ export default function RmRequisicaoConfigCard() {
                 setCanManage(true);
                 setEndpointUrl(json.endpointUrl ?? "");
                 setGetEndpointUrl(json.getEndpointUrl ?? "");
+                setParecerEndpointUrl(json.parecerEndpointUrl ?? "");
                 setUsername(json.username ?? "");
                 setPassword(json.password ?? "");
             } catch {
@@ -63,6 +66,7 @@ export default function RmRequisicaoConfigCard() {
                 body: JSON.stringify({
                     endpointUrl: endpointUrl.trim() || null,
                     getEndpointUrl: getEndpointUrl.trim() || null,
+                    parecerEndpointUrl: parecerEndpointUrl.trim() || null,
                     username: username.trim() || null,
                     password: password.trim() || null,
                 }),
@@ -78,6 +82,7 @@ export default function RmRequisicaoConfigCard() {
             const json = await res.json() as ConfiguracaoRmRequisicaoDto;
             setEndpointUrl(json.endpointUrl ?? "");
             setGetEndpointUrl(json.getEndpointUrl ?? "");
+            setParecerEndpointUrl(json.parecerEndpointUrl ?? "");
             setUsername(json.username ?? "");
             setPassword(json.password ?? "");
             toast.success("Configuração de requisição RM salva.");
@@ -86,7 +91,7 @@ export default function RmRequisicaoConfigCard() {
         } finally {
             setSaving(false);
         }
-    }, [endpointUrl, getEndpointUrl, password, username]);
+    }, [endpointUrl, getEndpointUrl, parecerEndpointUrl, password, username]);
 
     if (!canManage) return null;
 
@@ -122,6 +127,20 @@ export default function RmRequisicaoConfigCard() {
                     />
                     <p className="mt-1 text-[11px] text-muted-foreground">
                         Use <code>{`{COLIGADA}`}</code> e <code>{`{IDREQ}`}</code> como variáveis, ou cole a URL TOTVS com <code>COLIGADA=1;IDREQ=1</code>; o portal troca esses valores ao consultar o status.
+                    </p>
+                </div>
+
+                <div className="md:col-span-3">
+                    <Label htmlFor="tenant-rm-parecer-endpoint-url">Endpoint GET de pareceres / aprovações</Label>
+                    <Input
+                        id="tenant-rm-parecer-endpoint-url"
+                        value={parecerEndpointUrl}
+                        onChange={(e) => setParecerEndpointUrl(e.target.value)}
+                        placeholder='http://172.19.30.37:8051/RMSRestDataServer/rest/RhuReqAumentoQuadroParecerData?limit=50&filter=["IDREQ= :P1 AND CODCOLREQUISICAO=:P2","{IDREQ}","{COLIGADA}"]'
+                        disabled={loading || saving}
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                        Use <code>{`{IDREQ}`}</code> e <code>{`{COLIGADA}`}</code> como variáveis. Esse endpoint alimenta a aba <strong>Aprovações</strong> no detalhe da requisição.
                     </p>
                 </div>
 

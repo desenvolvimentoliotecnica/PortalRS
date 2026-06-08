@@ -362,6 +362,7 @@ builder.Services.AddScoped<ISolicitacaoVagaRmCodStatusSyncService, SolicitacaoVa
 builder.Services.AddScoped<ISolicitacaoVagaRmImportService, SolicitacaoVagaRmImportService>();
 builder.Services.AddHostedService<RmSolicitacaoStatusSyncHostedService>();
 builder.Services.AddScoped<IRmRequisicoesReadService, RmRequisicoesReadService>();
+builder.Services.AddScoped<IRmRequisicaoParecerReadService, RmRequisicaoParecerReadService>();
 
 builder.Services.Configure<RmRequisicaoCreateOptions>(builder.Configuration.GetSection(RmRequisicaoCreateOptions.SectionName));
 builder.Services.AddHttpClient<IRmRequisicaoCreateClient, RmRequisicaoCreateRestClient>();
