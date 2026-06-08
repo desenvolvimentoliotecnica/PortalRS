@@ -79,6 +79,16 @@ public sealed record TalentoCandidaturaSummary(
     IReadOnlyList<TalentoCandidaturaDocumentoSummary> Documentos
 );
 
+public sealed record TalentoEnviarEmailResponse(
+    Guid EmailMessageId,
+    Guid TalentoId,
+    string TalentoNome,
+    string Destinatario,
+    string Assunto,
+    int Anexos,
+    DateTimeOffset EnfileiradoEmUtc
+);
+
 /// <summary>Metadados de documento para criar no talento (sem arquivo; ex.: integração RM).</summary>
 public sealed record TalentoDocumentoMetaItem(
     [Required, MaxLength(200)] string NomeArquivo,

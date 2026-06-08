@@ -1,7 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Net;
 using RhPortal.Api.Application.Talentos;
 using RhPortal.Api.Contracts.Talentos;
+using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Tenancy;
+using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Controllers;
 
@@ -18,6 +23,13 @@ public sealed class TalentoCurriculoExtrairInput
     public bool EnviarParaGpt { get; set; } = true;
 }
 
+public sealed class TalentoEnviarEmailInput
+{
+    public string? Assunto { get; set; }
+    public string? Corpo { get; set; }
+    public List<IFormFile>? Anexos { get; set; }
+}
+
 /// <summary>
 /// Base de talentos — listagem e CRUD de talentos (pessoa na base de talentos).
 /// </summary>
@@ -26,6 +38,10 @@ public sealed class TalentoCurriculoExtrairInput
 [Authorize]
 public sealed class TalentosController : ControllerBase
 {
+    private const int MaxMensagemAnexos = 5;
+    private const long MaxMensagemAnexoBytes = 10 * 1024 * 1024;
+    private const long MaxMensagemAnexosTotalBytes = 20 * 1024 * 1024;
+
     /// <summary>
     /// Lista talentos com filtros (busca, origem) e paginação.
     /// </summary>
@@ -87,6 +103,78 @@ public sealed class TalentosController : ControllerBase
     {
         var result = await service.UpdateAsync(id, request, ct);
         return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>
+    /// Envia uma mensagem livre do RH por e-mail ao talento.
+    /// </summary>
+    [HttpPost("{id:guid}/email")]
+    [RequestSizeLimit(25 * 1024 * 1024)]
+    [ProducesResponseType(typeof(TalentoEnviarEmailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TalentoEnviarEmailResponse>> EnviarEmail(
+        [FromRoute] Guid id,
+        [FromForm] TalentoEnviarEmailInput request,
+        [FromServices] AppDbContext db,
+        [FromServices] IEmailQueueService emailQueue,
+        [FromServices] IEmailConfigService emailConfig,
+        [FromServices] ICurrentUserContext userContext,
+        CancellationToken ct)
+    {
+        if (!userContext.IsAdmin && !userContext.IsInRole("Owner") && userContext.IsReadOnly)
+            return Forbid();
+
+        var assunto = (request.Assunto ?? string.Empty).Trim();
+        var corpo = (request.Corpo ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(assunto) || string.IsNullOrWhiteSpace(corpo))
+            return BadRequest(new { message = "Informe assunto e corpo da mensagem." });
+
+        var talento = await db.Talentos
+            .AsNoTracking()
+            .Include(t => t.Pessoa)
+            .Where(t => t.Id == id)
+            .Select(t => new { t.Id, t.TenantId, Nome = t.Pessoa != null ? t.Pessoa.Nome : "", Email = t.Pessoa != null ? t.Pessoa.Email : "" })
+            .FirstOrDefaultAsync(ct);
+        if (talento is null)
+            return NotFound();
+
+        var attachmentsResult = await BuildEmailAttachmentsAsync(request.Anexos, ct);
+        if (attachmentsResult.Error is not null)
+            return BadRequest(new { message = attachmentsResult.Error });
+
+        var to = NormalizeEmailDestination(talento.Email);
+        if (to is null)
+        {
+            var cfg = await emailConfig.GetDecryptedAsync(ct);
+            if (cfg?.SmtpUseTestRedirect == true && !string.IsNullOrWhiteSpace(cfg.SmtpTestRedirectAddress))
+                to = "talento-sem-email@renderrh.local";
+        }
+
+        if (to is null)
+            return BadRequest(new { message = "O talento não possui e-mail cadastrado." });
+
+        var bodyHtml = BuildTalentoEmailHtml(talento.Nome, corpo);
+        var bodyText = BuildTalentoEmailText(talento.Nome, corpo);
+        var message = await emailQueue.EnqueueRawAsync(
+            to,
+            assunto,
+            bodyHtml,
+            bodyText,
+            attachmentsResult.Attachments,
+            isSystem: false,
+            source: "talento-mensagem-rh",
+            ct);
+
+        return Ok(new TalentoEnviarEmailResponse(
+            message.Id,
+            talento.Id,
+            talento.Nome,
+            to,
+            assunto,
+            attachmentsResult.Attachments.Count,
+            message.CreatedAtUtc));
     }
 
     /// <summary>
@@ -254,4 +342,61 @@ public sealed class TalentosController : ControllerBase
             return NotFound();
         return PhysicalFile(file.FilePath, file.ContentType ?? "application/octet-stream", file.FileName);
     }
+
+    private static string? NormalizeEmailDestination(string? email)
+    {
+        var trimmed = (email ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static async Task<(IReadOnlyList<EmailAttachmentPayload> Attachments, string? Error)> BuildEmailAttachmentsAsync(
+        IReadOnlyList<IFormFile>? files,
+        CancellationToken ct)
+    {
+        if (files is null || files.Count == 0)
+            return (Array.Empty<EmailAttachmentPayload>(), null);
+
+        if (files.Count > MaxMensagemAnexos)
+            return (Array.Empty<EmailAttachmentPayload>(), $"Envie no máximo {MaxMensagemAnexos} anexos.");
+
+        var total = files.Sum(f => f.Length);
+        if (total > MaxMensagemAnexosTotalBytes)
+            return (Array.Empty<EmailAttachmentPayload>(), "O tamanho total dos anexos deve ser de até 20 MB.");
+
+        var attachments = new List<EmailAttachmentPayload>();
+        foreach (var file in files)
+        {
+            if (file.Length <= 0)
+                continue;
+
+            if (file.Length > MaxMensagemAnexoBytes)
+                return (Array.Empty<EmailAttachmentPayload>(), $"O arquivo {file.FileName} excede 10 MB.");
+
+            await using var ms = new MemoryStream();
+            await file.CopyToAsync(ms, ct);
+            attachments.Add(new EmailAttachmentPayload(
+                Path.GetFileName(file.FileName),
+                file.ContentType,
+                ms.ToArray()));
+        }
+
+        return (attachments, null);
+    }
+
+    private static string BuildTalentoEmailHtml(string talentoNome, string corpo)
+    {
+        var nome = WebUtility.HtmlEncode(talentoNome);
+        var mensagem = WebUtility.HtmlEncode(corpo).Replace("\n", "<br />");
+        return $"""
+            <p>Olá {nome},</p>
+            <p>{mensagem}</p>
+            """;
+    }
+
+    private static string BuildTalentoEmailText(string talentoNome, string corpo)
+        => $"""
+            Olá {talentoNome},
+
+            {corpo}
+            """;
 }

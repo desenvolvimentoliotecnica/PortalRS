@@ -181,6 +181,16 @@ function isPdfDocument(nomeArquivo: string, contentType?: string | null): boolea
   return contentType?.toLowerCase().includes("pdf") === true || nomeArquivo.toLowerCase().endsWith(".pdf");
 }
 
+function readApiMessage(raw: string, fallback: string) {
+  if (!raw.trim()) return fallback;
+  try {
+    const parsed = JSON.parse(raw) as { message?: string; detail?: string; title?: string };
+    return parsed.message || parsed.detail || parsed.title || fallback;
+  } catch {
+    return raw;
+  }
+}
+
 async function downloadArquivo(path: string, suggestedName: string): Promise<void> {
   const res = await apiFetch(path, { method: "GET", headers: { Accept: "*/*" } }, 120_000);
   if (!res.ok) {
@@ -856,6 +866,11 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
   const [previewingDocId, setPreviewingDocId] = useState<string | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; nomeArquivo: string } | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailFiles, setEmailFiles] = useState<File[]>([]);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSentInfo, setEmailSentInfo] = useState<{ subject: string; attachments: number; sentAt: string } | null>(null);
   const nome = str(data.nome, "—");
   const email = str(data.email, "");
   const fone = str(data.fone, "");
@@ -887,12 +902,23 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
   const local = [cidade, uf].filter(Boolean).join(" / ");
   const endereco = [logradouro, numero, bairro].filter(Boolean).join(", ");
   const hasPerfil = Boolean(resumo || obs || competencias.length || experiencias.length || treinamentos.length || formacao.length);
+  const emailFilesLabel = useMemo(() => {
+    if (emailFiles.length === 0) return "Nenhum anexo selecionado";
+    return `${emailFiles.length} anexo(s): ${emailFiles.map((f) => f.name).join(", ")}`;
+  }, [emailFiles]);
 
   useEffect(() => {
     return () => {
       if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url);
     };
   }, [pdfPreview?.url]);
+
+  useEffect(() => {
+    setEmailSubject("Contato do RH");
+    setEmailBody(`Olá ${nome && nome !== "—" ? nome : ""},\n\n`);
+    setEmailFiles([]);
+    setEmailSentInfo(null);
+  }, [data.id, nome]);
 
   async function handleDownload(path: string, nomeArquivo: string, id: string) {
     setDownloadingDocId(id);
@@ -931,6 +957,43 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
       if (current?.url) URL.revokeObjectURL(current.url);
       return null;
     });
+  }
+
+  async function handleSendTalentEmail() {
+    const subject = emailSubject.trim();
+    const body = emailBody.trim();
+    if (!email.trim()) {
+      toast.error("Este talento não possui e-mail cadastrado.");
+      return;
+    }
+    if (!subject || !body) {
+      toast.error("Informe assunto e corpo do e-mail.");
+      return;
+    }
+
+    setEmailSending(true);
+    try {
+      const form = new FormData();
+      form.append("assunto", subject);
+      form.append("corpo", body);
+      for (const file of emailFiles) form.append("anexos", file);
+
+      const res = await apiFetch(
+        `${BASE}/api/talentos/${encodeURIComponent(str(data.id, ""))}/email`,
+        { method: "POST", body: form },
+        120_000,
+      );
+      const raw = await res.text().catch(() => "");
+      if (!res.ok) throw new Error(readApiMessage(raw, `HTTP ${res.status}`));
+
+      setEmailSentInfo({ subject, attachments: emailFiles.length, sentAt: new Date().toISOString() });
+      setEmailFiles([]);
+      toast.success("E-mail enfileirado para envio.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar e-mail.");
+    } finally {
+      setEmailSending(false);
+    }
   }
 
   const compTipos = ["Idioma", "Ferramenta", "Técnica", "Comportamental"] as const;
@@ -1192,6 +1255,64 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
               <p className="text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">{obs}</p>
             </SectionCard>
           )}
+
+          <SectionCard icon={<Mail className="size-3.5" />} title="Enviar e-mail ao talento" dense>
+            <div className="space-y-3">
+              <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-3 text-[12px] text-blue-800">
+                Destinatário: <strong>{email || "e-mail não cadastrado"}</strong>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Assunto</label>
+                <input
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  maxLength={160}
+                  disabled={emailSending}
+                  placeholder="Assunto do e-mail"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Mensagem</label>
+                <textarea
+                  className="min-h-36 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  maxLength={4000}
+                  disabled={emailSending}
+                  placeholder="Escreva a mensagem para o talento..."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Anexos opcionais</label>
+                <input
+                  type="file"
+                  multiple
+                  className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  disabled={emailSending}
+                  onChange={(e) => setEmailFiles(Array.from(e.target.files ?? []))}
+                />
+                <p className="text-[11px] text-muted-foreground">{emailFilesLabel}</p>
+              </div>
+              {emailSentInfo && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-[12px] text-emerald-800">
+                  E-mail enfileirado em {fmtDateTime(emailSentInfo.sentAt)}.
+                  <span className="block">Assunto: {emailSentInfo.subject}</span>
+                  <span className="block">Anexos: {emailSentInfo.attachments > 0 ? `${emailSentInfo.attachments} arquivo(s)` : "nenhum"}</span>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => void handleSendTalentEmail()}
+                  disabled={emailSending || !email.trim()}
+                >
+                  {emailSending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Mail className="mr-2 size-4" />}
+                  {emailSending ? "Enviando..." : "Enviar e-mail"}
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
 
           <SectionCard icon={<Download className="size-3.5" />} title={`CVs enviados pelo Portal de Vagas (${candidaturaDocumentos.length})`} dense>
             {candidaturaDocumentos.length > 0 ? (
