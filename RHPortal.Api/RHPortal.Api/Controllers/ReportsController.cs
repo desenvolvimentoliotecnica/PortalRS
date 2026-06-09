@@ -536,6 +536,200 @@ public sealed class ReportsController : ControllerBase
         return Ok(new SlaVagaReportResponse(porRecrutador, porArea, opts.DiasMetaFechamento));
     }
 
+    [HttpGet("funcionarios-rm")]
+    [RequirePermission("relatorios.view")]
+    [ProducesResponseType(typeof(FuncionarioRmReportResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<FuncionarioRmReportResponse>> GetFuncionariosRm(
+        [FromServices] AppDbContext db,
+        [FromQuery] string? q,
+        [FromQuery] string? status,
+        [FromQuery] bool somenteRm = true,
+        [FromQuery] int take = 5000,
+        CancellationToken ct = default)
+    {
+        var safeTake = Math.Clamp(take <= 0 ? 5000 : take, 1, 10000);
+        var query = db.Funcionarios
+            .AsNoTracking()
+            .Include(f => f.Pessoa)
+            .Include(f => f.CentroCusto)
+            .Include(f => f.JobPosition)
+            .Include(f => f.Unit)
+            .Include(f => f.GestorDireto)
+            .Include(f => f.NivelHierarquico)
+            .Include(f => f.NivelCargo)
+            .Include(f => f.Hierarquia)
+            .AsQueryable();
+
+        if (somenteRm)
+            query = query.Where(f => f.MatriculaRm != null && f.MatriculaRm != "");
+
+        if (TryParseEnum<FuncionarioStatus>(status, out var parsedStatus))
+            query = query.Where(f => f.Status == parsedStatus);
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var text = q.Trim().ToLower();
+            query = query.Where(f =>
+                f.Name.ToLower().Contains(text) ||
+                (f.Email != null && f.Email.ToLower().Contains(text)) ||
+                (f.MatriculaRm != null && f.MatriculaRm.ToLower().Contains(text)) ||
+                (f.CdnFuncionario != null && f.CdnFuncionario.ToLower().Contains(text)) ||
+                (f.CdnEmpresa != null && f.CdnEmpresa.ToLower().Contains(text)) ||
+                (f.CdnEstab != null && f.CdnEstab.ToLower().Contains(text)) ||
+                (f.CodSituacaoRm != null && f.CodSituacaoRm.ToLower().Contains(text)) ||
+                (f.SituacaoRmDescricao != null && f.SituacaoRmDescricao.ToLower().Contains(text)) ||
+                (f.FuncaoNomeRm != null && f.FuncaoNomeRm.ToLower().Contains(text)) ||
+                (f.Pessoa != null && f.Pessoa.Cpf != null && f.Pessoa.Cpf.ToLower().Contains(text)) ||
+                (f.CentroCusto != null && (
+                    f.CentroCusto.Code.ToLower().Contains(text) ||
+                    f.CentroCusto.Description.ToLower().Contains(text))) ||
+                (f.JobPosition != null && (
+                    f.JobPosition.Code.ToLower().Contains(text) ||
+                    f.JobPosition.Name.ToLower().Contains(text))) ||
+                (f.GestorDireto != null && f.GestorDireto.Name.ToLower().Contains(text)) ||
+                (f.Hierarquia != null && f.Hierarquia.Descricao.ToLower().Contains(text)));
+        }
+
+        var totalItems = await query.CountAsync(ct);
+        var funcionarios = await query
+            .OrderBy(f => f.Name)
+            .ThenBy(f => f.MatriculaRm)
+            .Take(safeTake)
+            .ToListAsync(ct);
+
+        static DateOnly? AsDateOnly(DateTime? value) =>
+            value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
+
+        var rows = funcionarios.Select(f =>
+        {
+            var pessoa = f.Pessoa;
+            var nivelNome = f.NivelHierarquico?.Nome
+                ?? f.NivelCargo?.NomComplet
+                ?? f.JobPosition?.NivelCargo?.NomComplet
+                ?? f.CdnNivCargo?.ToString();
+
+            return new FuncionarioRmReportRowResponse(
+                f.CdnEmpresa,
+                f.CdnEstab,
+                f.CdnFuncionario,
+                f.MatriculaRm,
+                f.Name,
+                f.Email,
+                f.Phone,
+                f.Status.ToString(),
+                f.CodSituacaoRm,
+                f.SituacaoRmDescricao,
+                f.DataAdmissao,
+                f.DataNascimento ?? AsDateOnly(pessoa?.DataNascimento),
+                f.Sexo ?? pessoa?.Sexo,
+                pessoa?.Cpf,
+                pessoa?.EstadoCivil,
+                pessoa?.GrauInstrucao,
+                pessoa?.Naturalidade,
+                pessoa?.EstadoNatal,
+                pessoa?.Cep,
+                pessoa?.Logradouro,
+                pessoa?.Numero,
+                pessoa?.Complemento,
+                pessoa?.Bairro,
+                pessoa?.Cidade,
+                pessoa?.Uf,
+                pessoa?.Rg,
+                pessoa?.RgOrgEmissor,
+                pessoa?.RgUf,
+                pessoa?.RgDataEmissao,
+                pessoa?.CarteiraTrabalho,
+                pessoa?.CarteiraTrabalhoSerie,
+                pessoa?.CarteiraTrabalhoUf,
+                pessoa?.CarteiraTrabalhoData,
+                pessoa?.NumeroPis,
+                pessoa?.TituloEleitor,
+                pessoa?.TituloEleitorZona,
+                pessoa?.TituloEleitorSecao,
+                pessoa?.CertificadoReservista,
+                pessoa?.CategoriaMilitar,
+                pessoa?.Nacionalidade,
+                pessoa?.NomePai,
+                pessoa?.NomeMae,
+                f.CentroCusto?.Code,
+                f.CentroCusto?.Description,
+                f.JobPosition?.Code,
+                f.JobPosition?.Name,
+                f.CodFuncaoRm,
+                f.FuncaoNomeRm,
+                f.Unit?.Name,
+                f.GestorDireto?.Name,
+                nivelNome,
+                f.Hierarquia?.Descricao,
+                f.HasIncompleteData,
+                f.UpdatedAtUtc);
+        }).ToList();
+
+        return Ok(new FuncionarioRmReportResponse(
+            DateTimeOffset.UtcNow,
+            totalItems,
+            FuncionarioRmReportColumns,
+            rows));
+    }
+
+    private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportColumns =
+    [
+        new("cdnEmpresa", "Empresa", "Código da coligada/empresa importado de PFUNC.CODCOLIGADA."),
+        new("cdnEstab", "Estab.", "Código do estabelecimento/filial importado de PFUNC.CODFILIAL."),
+        new("cdnFuncionario", "Matrícula", "Matrícula normalizada exibida no Portal; no RM vem da CHAPA."),
+        new("matriculaRm", "Matrícula RM", "CHAPA original do funcionário no TOTVS RM."),
+        new("nome", "Nome", "Nome do colaborador vindo de PPESSOA.NOME, via PFUNC.CODPESSOA."),
+        new("email", "E-mail", "E-mail cadastral vindo de PPESSOA.EMAIL, quando informado."),
+        new("telefone", "Telefone", "Telefone principal vindo de PPESSOA.TELEFONE1."),
+        new("statusPortal", "Status Portal", "Status simplificado usado pelo Portal: Active para A/F/P, Inactive para os demais códigos."),
+        new("codSituacaoRm", "Cód. Situação RM", "Código original de situação do RM em PFUNC.CODSITUACAO."),
+        new("situacaoRmDescricao", "Situação RM", "Descrição amigável do código de situação RM."),
+        new("dataAdmissao", "Data admissão", "Data oficial de admissão vinda de PFUNC.DATAADMISSAO."),
+        new("dataNascimento", "Data nascimento", "Data de nascimento importada de PPESSOA.DTNASCIMENTO."),
+        new("sexo", "Sexo", "Código de sexo vindo de PPESSOA.SEXO."),
+        new("cpf", "CPF", "CPF vindo de PPESSOA.CPF; usado para vincular Pessoa no Portal."),
+        new("estadoCivil", "Estado civil", "Código de estado civil vindo de PPESSOA.ESTADOCIVIL."),
+        new("grauInstrucao", "Grau instrução", "Código de escolaridade vindo de PPESSOA.GRAUINSTRUCAO."),
+        new("naturalidade", "Naturalidade", "Cidade de nascimento vinda de PPESSOA.NATURALIDADE."),
+        new("estadoNatal", "UF nascimento", "UF de nascimento vinda de PPESSOA.ESTADONATAL."),
+        new("cep", "CEP", "CEP residencial vindo de PPESSOA.CEP."),
+        new("logradouro", "Logradouro", "Rua/endereço vindo de PPESSOA.RUA."),
+        new("numeroEndereco", "Número", "Número do endereço vindo de PPESSOA.NUMERO."),
+        new("complemento", "Complemento", "Complemento de endereço vindo de PPESSOA.COMPLEMENTO."),
+        new("bairro", "Bairro", "Bairro vindo de PPESSOA.BAIRRO."),
+        new("cidade", "Cidade", "Cidade residencial vinda de PPESSOA.CIDADE."),
+        new("uf", "UF", "UF residencial vinda de PPESSOA.ESTADO."),
+        new("rg", "RG", "Documento de identidade vindo de PPESSOA.CARTIDENTIDADE."),
+        new("rgOrgEmissor", "Órgão RG", "Órgão emissor do RG vindo de PPESSOA.ORGEMISSORIDENT."),
+        new("rgUf", "UF RG", "UF do RG vinda de PPESSOA.UFCARTIDENT."),
+        new("rgDataEmissao", "Emissão RG", "Data de emissão do RG vinda de PPESSOA.DTEMISSAOIDENT."),
+        new("carteiraTrabalho", "CTPS", "Número da carteira de trabalho vindo de PPESSOA.CARTEIRATRAB."),
+        new("carteiraTrabalhoSerie", "Série CTPS", "Série da carteira de trabalho vinda de PPESSOA.SERIECARTTRAB."),
+        new("carteiraTrabalhoUf", "UF CTPS", "UF da carteira de trabalho vinda de PPESSOA.UFCARTTRAB."),
+        new("carteiraTrabalhoData", "Emissão CTPS", "Data da carteira de trabalho vinda de PPESSOA.DTCARTTRAB."),
+        new("numeroPis", "PIS/PASEP", "Número PIS/PASEP/NIS vindo de PPESSOA.NIT."),
+        new("tituloEleitor", "Título eleitor", "Título de eleitor vindo de PPESSOA.TITULOELEITOR."),
+        new("tituloEleitorZona", "Zona título", "Zona eleitoral vinda de PPESSOA.ZONATITELEITOR."),
+        new("tituloEleitorSecao", "Seção título", "Seção eleitoral vinda de PPESSOA.SECAOTITELEITOR."),
+        new("certificadoReservista", "Reservista", "Certificado de reservista vindo de PPESSOA.CERTIFRESERV."),
+        new("categoriaMilitar", "Categoria militar", "Categoria militar vinda de PPESSOA.CATEGMILITAR."),
+        new("nacionalidade", "Nacionalidade", "Código de nacionalidade vindo de PPESSOA.NACIONALIDADE."),
+        new("nomePai", "Nome do pai", "Filiação paterna vinda de PPESSOA.NOMEPAI, quando disponível no snapshot."),
+        new("nomeMae", "Nome da mãe", "Filiação materna vinda de PPESSOA.NOMEMAE, quando disponível no snapshot."),
+        new("centroCustoCode", "Cód. centro custo", "Centro de custo resolvido a partir de PFUNC.CODSECAO."),
+        new("centroCustoDescricao", "Centro de custo", "Descrição do centro de custo cadastrado no Portal a partir de PSECAO."),
+        new("jobPositionCode", "Cód. cargo", "Código do cargo no Portal, resolvido por PFUNCAO.CARGO/PCARGO."),
+        new("jobPositionName", "Cargo", "Nome do cargo no Portal."),
+        new("codFuncaoRm", "Cód. função RM", "Código de função específico do RM em PFUNC.CODFUNCAO."),
+        new("funcaoNomeRm", "Função RM", "Nome específico da função vindo de PFUNCAO.NOME."),
+        new("unitName", "Filial", "Filial/estabelecimento resolvido a partir de PFUNC.CODFILIAL/GFILIAL."),
+        new("gestorDiretoNome", "Gestor direto", "Gestor direto resolvido por hierarquia de posição ou fallbacks do RM."),
+        new("nivelHierarquicoNome", "Nível", "Nível hierárquico/cargo resolvido no Portal."),
+        new("hierarquiaDescricao", "Hierarquia RM", "Nó do organograma RM associado ao funcionário."),
+        new("hasIncompleteData", "Dados incompletos", "Indica se o Portal detectou campos obrigatórios não resolvidos."),
+        new("updatedAtUtc", "Atualizado em", "Última atualização do registro no Portal.")
+    ];
+
     // ══════════════════════════════════════════════════════════════════
     // Lookup para filtros de relatórios de gestão
     // ══════════════════════════════════════════════════════════════════

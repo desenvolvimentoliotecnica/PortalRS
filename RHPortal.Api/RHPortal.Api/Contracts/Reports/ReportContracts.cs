@@ -21,6 +21,76 @@ public sealed record ReportDataResponse(
     IReadOnlyList<IReadOnlyList<ReportCellResponse>> Rows
 );
 
+public sealed record FuncionarioRmReportColumnResponse(
+    string Key,
+    string Label,
+    string Description
+);
+
+public sealed record FuncionarioRmReportRowResponse(
+    string? CdnEmpresa,
+    string? CdnEstab,
+    string? CdnFuncionario,
+    string? MatriculaRm,
+    string? Nome,
+    string? Email,
+    string? Telefone,
+    string StatusPortal,
+    string? CodSituacaoRm,
+    string? SituacaoRmDescricao,
+    DateOnly? DataAdmissao,
+    DateOnly? DataNascimento,
+    string? Sexo,
+    string? Cpf,
+    string? EstadoCivil,
+    string? GrauInstrucao,
+    string? Naturalidade,
+    string? EstadoNatal,
+    string? Cep,
+    string? Logradouro,
+    string? NumeroEndereco,
+    string? Complemento,
+    string? Bairro,
+    string? Cidade,
+    string? Uf,
+    string? Rg,
+    string? RgOrgEmissor,
+    string? RgUf,
+    DateTime? RgDataEmissao,
+    string? CarteiraTrabalho,
+    string? CarteiraTrabalhoSerie,
+    string? CarteiraTrabalhoUf,
+    DateTime? CarteiraTrabalhoData,
+    string? NumeroPis,
+    string? TituloEleitor,
+    string? TituloEleitorZona,
+    string? TituloEleitorSecao,
+    string? CertificadoReservista,
+    string? CategoriaMilitar,
+    string? Nacionalidade,
+    string? NomePai,
+    string? NomeMae,
+    string? CentroCustoCode,
+    string? CentroCustoDescricao,
+    string? JobPositionCode,
+    string? JobPositionName,
+    string? CodFuncaoRm,
+    string? FuncaoNomeRm,
+    string? UnitName,
+    string? GestorDiretoNome,
+    string? NivelHierarquicoNome,
+    string? HierarquiaDescricao,
+    bool HasIncompleteData,
+    DateTimeOffset UpdatedAtUtc
+);
+
+public sealed record FuncionarioRmReportResponse(
+    DateTimeOffset GeneratedAtUtc,
+    int TotalItems,
+    IReadOnlyList<FuncionarioRmReportColumnResponse> Columns,
+    IReadOnlyList<FuncionarioRmReportRowResponse> Rows
+);
+
 public sealed record ReportLotacaoLookupResponse(
     Guid Id,
     string? Description
