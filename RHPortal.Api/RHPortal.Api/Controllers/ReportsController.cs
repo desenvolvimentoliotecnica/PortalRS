@@ -597,6 +597,20 @@ public sealed class ReportsController : ControllerBase
             .Take(safeTake)
             .ToListAsync(ct);
 
+        var funcionarioIds = funcionarios.Select(f => f.Id).ToList();
+        var salariosAtuais = await db.FuncionarioMovimentacoes
+            .AsNoTracking()
+            .Where(m => m.FuncionarioId != null
+                && funcionarioIds.Contains(m.FuncionarioId.Value)
+                && m.SalarioDestino != null)
+            .OrderByDescending(m => m.DataConclusao ?? m.DataAbertura)
+            .ThenByDescending(m => m.UpdatedAtUtc)
+            .Select(m => new { FuncionarioId = m.FuncionarioId!.Value, m.SalarioDestino })
+            .ToListAsync(ct);
+        var salarioAtualByFuncionarioId = salariosAtuais
+            .GroupBy(x => x.FuncionarioId)
+            .ToDictionary(g => g.Key, g => g.First().SalarioDestino);
+
         static DateOnly? AsDateOnly(DateTime? value) =>
             value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
 
@@ -657,6 +671,7 @@ public sealed class ReportsController : ControllerBase
                 f.JobPosition?.Name,
                 f.CodFuncaoRm,
                 f.FuncaoNomeRm,
+                salarioAtualByFuncionarioId.GetValueOrDefault(f.Id),
                 f.Unit?.Name,
                 f.GestorDireto?.Name,
                 nivelNome,
@@ -722,6 +737,7 @@ public sealed class ReportsController : ControllerBase
         new("jobPositionName", "Cargo", "Nome do cargo no Portal."),
         new("codFuncaoRm", "Cód. função RM", "Código de função específico do RM em PFUNC.CODFUNCAO."),
         new("funcaoNomeRm", "Função RM", "Nome específico da função vindo de PFUNCAO.NOME."),
+        new("salarioAtual", "Salário atual", "Último salário conhecido vindo do histórico salarial RM (PFHSTSAL.SALARIO) ou movimentação mais recente com salário destino."),
         new("unitName", "Filial", "Filial/estabelecimento resolvido a partir de PFUNC.CODFILIAL/GFILIAL."),
         new("gestorDiretoNome", "Gestor direto", "Gestor direto resolvido por hierarquia de posição ou fallbacks do RM."),
         new("nivelHierarquicoNome", "Nível", "Nível hierárquico/cargo resolvido no Portal."),

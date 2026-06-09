@@ -22,9 +22,12 @@ interface ReportResponse {
 
 const DEFAULT_TAKE = 5000;
 
-function formatCell(value: unknown) {
+function formatCell(value: unknown, key?: string) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (key === "salarioAtual" && typeof value === "number") {
+    return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
   if (typeof value === "string") {
     if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(value)) {
       const d = new Date(value.includes("T") ? value : `${value}T00:00:00`);
@@ -35,14 +38,14 @@ function formatCell(value: unknown) {
   return String(value);
 }
 
-function escapeTsv(value: unknown) {
-  return formatCell(value).replace(/\t/g, " ").replace(/\r?\n/g, " ");
+function escapeTsv(value: unknown, key?: string) {
+  return formatCell(value, key).replace(/\t/g, " ").replace(/\r?\n/g, " ");
 }
 
 function exportTsv(data: ReportResponse) {
   const lines = [
     data.columns.map((c) => c.label).join("\t"),
-    ...data.rows.map((row) => data.columns.map((c) => escapeTsv(row[c.key])).join("\t")),
+    ...data.rows.map((row) => data.columns.map((c) => escapeTsv(row[c.key], c.key)).join("\t")),
   ];
   const blob = new Blob([lines.join("\n")], { type: "text/tab-separated-values;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -57,7 +60,7 @@ export default function FuncionarioRmReportScreen() {
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState("Active");
   const [somenteRm, setSomenteRm] = useState(true);
   const [take, setTake] = useState(DEFAULT_TAKE);
 
@@ -187,12 +190,16 @@ export default function FuncionarioRmReportScreen() {
         </div>
       )}
 
-      <div className="rounded-xl border border-border/50 bg-card p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <FileSpreadsheet className="size-4 text-primary" />
-          <h2 className="font-semibold">Descrição dos campos</h2>
-        </div>
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+      <details className="group rounded-xl border border-border/50 bg-card p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+          <span className="flex items-center gap-2">
+            <FileSpreadsheet className="size-4 text-primary" />
+            <span className="font-semibold">Descrição dos campos</span>
+          </span>
+          <span className="text-xs text-muted-foreground group-open:hidden">Expandir</span>
+          <span className="hidden text-xs text-muted-foreground group-open:inline">Recolher</span>
+        </summary>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {(data?.columns ?? []).map((column) => (
             <div key={column.key} className="rounded-lg border border-border/40 bg-background p-3">
               <div className="text-sm font-semibold">{column.label}</div>
@@ -200,7 +207,7 @@ export default function FuncionarioRmReportScreen() {
             </div>
           ))}
         </div>
-      </div>
+      </details>
 
       <div className="rounded-xl border border-border/50 bg-card">
         <div className="border-b px-4 py-3">
@@ -236,7 +243,7 @@ export default function FuncionarioRmReportScreen() {
                   <tr key={`${row.matriculaRm ?? row.cdnFuncionario ?? idx}`} className={idx % 2 ? "bg-muted/25" : ""}>
                     {data.columns.map((column) => (
                       <td key={column.key} className="whitespace-nowrap border-b border-r px-3 py-2">
-                        {formatCell(row[column.key])}
+                        {formatCell(row[column.key], column.key)}
                       </td>
                     ))}
                   </tr>

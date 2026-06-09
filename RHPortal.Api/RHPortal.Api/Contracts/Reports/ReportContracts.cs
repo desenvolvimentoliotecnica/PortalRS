@@ -76,6 +76,7 @@ public sealed record FuncionarioRmReportRowResponse(
     string? JobPositionName,
     string? CodFuncaoRm,
     string? FuncaoNomeRm,
+    decimal? SalarioAtual,
     string? UnitName,
     string? GestorDiretoNome,
     string? NivelHierarquicoNome,
