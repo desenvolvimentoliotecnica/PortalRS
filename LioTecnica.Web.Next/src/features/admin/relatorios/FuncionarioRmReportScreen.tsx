@@ -1,34 +1,19 @@
 "use client";
 
-import type { ElementType, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BadgeCheck,
-  BriefcaseBusiness,
-  Building2,
-  CalendarDays,
   Download,
   Eye,
   FileSpreadsheet,
-  IdCard,
   Printer,
   RefreshCw,
   Search,
-  TrendingUp,
-  UserRound,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 interface ReportColumn {
   key: string;
@@ -124,43 +109,30 @@ function getEmployeeRows(allRows: ReportRow[], selectedRow: ReportRow | null) {
   return allRows.filter((row) => employeeGroupKey(row) === key);
 }
 
-function InfoItem({ label, value, className = "" }: { label: string; value: string; className?: string }) {
-  return (
-    <div className={`border-b border-slate-200 py-1.5 ${className}`}>
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-0.5 text-xs font-semibold text-slate-900">{value}</dd>
-    </div>
-  );
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-function SectionTitle({ number, children }: { number: number; children: ReactNode }) {
-  return (
-    <div className="mb-2 flex items-center gap-2">
-      <span className="flex size-6 items-center justify-center rounded bg-blue-800 text-xs font-bold text-white">{number}</span>
-      <h3 className="text-sm font-extrabold uppercase tracking-wide text-blue-900">{children}</h3>
-    </div>
-  );
+function infoItem(label: string, value: string) {
+  return `<div class="info-item"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
 }
 
-function SummaryLine({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[22px_1fr_1.3fr] items-center gap-2 border-b border-slate-200 py-2 text-xs">
-      <Icon className="size-4 text-blue-800" />
-      <span className="font-bold text-slate-600">{label}</span>
-      <span className="font-extrabold text-slate-900">{value}</span>
-    </div>
-  );
+function sectionTitle(number: number, title: string) {
+  return `<div class="section-title"><span>${number}</span><h3>${escapeHtml(title)}</h3></div>`;
 }
 
-function EmployeeSheet({
-  selectedRow,
-  rows,
-}: {
-  selectedRow: ReportRow | null;
-  rows: ReportRow[];
-}) {
+function summaryLine(label: string, value: string) {
+  return `<div class="summary-line"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+}
+
+function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
   const employeeRows = getEmployeeRows(rows, selectedRow);
-  const baseRow = selectedRow ?? employeeRows[0] ?? null;
+  const baseRow = selectedRow ?? employeeRows[0];
   const movements = employeeRows
     .filter((row) => cellText(row, "movimentacaoIdReqRm") !== "—")
     .sort((a, b) => movementTimestamp(b) - movementTimestamp(a));
@@ -171,153 +143,193 @@ function EmployeeSheet({
   const currentCostCenter = firstCellText(employeeRows, ["centroCustoCode", "centroCustoDescricao"]);
   const latestMovement = movements[0] ? firstCellText([movements[0]], ["movimentacaoTipoCodigo", "movimentacaoTipo"]) : "—";
 
-  return (
-    <div className="max-h-[82vh] overflow-auto rounded-xl bg-slate-100 p-4">
-      <article className="mx-auto max-w-[1120px] rounded-sm bg-white p-6 text-slate-900 shadow-xl">
-        <header className="mb-4 border-b-2 border-blue-900 pb-4">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex size-20 items-center justify-center rounded-full border bg-slate-100">
-                <UserRound className="size-12 text-slate-500" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Portal RH 2.0 · Dados cadastrais e histórico funcional</p>
-                <h2 className="text-3xl font-black uppercase tracking-tight text-blue-950">Ficha do Funcionário</h2>
-                <p className="mt-1 text-lg font-extrabold uppercase text-blue-900">{employeeName}</p>
-              </div>
-            </div>
-            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-bold text-green-700">
-              <BadgeCheck className="mr-1 inline size-4" />
-              {currentStatus}
-            </div>
-          </div>
-        </header>
+  const movementRows = movements.length
+    ? movements.map((row, index) => `
+      <tr class="${index % 2 ? "muted" : ""}">
+        <td>${escapeHtml(cellText(row, "movimentacaoIdReqRm"))}</td>
+        <td>${escapeHtml(firstCellText([row], ["movimentacaoTipoCodigo", "movimentacaoTipo"]))}</td>
+        <td>${escapeHtml(cellText(row, "movimentacaoDataAbertura"))}</td>
+        <td>${escapeHtml(cellText(row, "movimentacaoDataConclusao"))}</td>
+        <td class="ok">${escapeHtml(firstCellText([row], ["movimentacaoCodStatus", "movimentacaoStatus"]))}</td>
+        <td>${escapeHtml(cellText(row, "movimentacaoSalarioOrigem"))}</td>
+        <td><strong>${escapeHtml(cellText(row, "movimentacaoSalarioDestino"))}</strong></td>
+        <td>${escapeHtml(cellText(row, "movimentacaoPeriodoInicio"))} a ${escapeHtml(cellText(row, "movimentacaoPeriodoFim"))}</td>
+        <td>${escapeHtml(cellText(row, "movimentacaoTempoFuncao"))}</td>
+        <td>${escapeHtml(firstCellText([row], ["movimentacaoGestorHistoricoChapaRm", "movimentacaoGestorHistoricoNome"]))}</td>
+        <td>${escapeHtml(cellText(row, "movimentacaoJustificativa"))}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="11" class="empty">Sem movimentações no resultado atual.</td></tr>`;
 
-        <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-          <section className="rounded-lg border border-slate-300 p-3">
-            <SectionTitle number={1}>Identificação</SectionTitle>
-            <dl className="grid gap-x-4 md:grid-cols-2">
-              <InfoItem label="Nome" value={employeeName} />
-              <InfoItem label="Matrícula RM" value={cellText(baseRow, "matriculaRm")} />
-              <InfoItem label="Empresa" value={cellText(baseRow, "cdnEmpresa")} />
-              <InfoItem label="Estab." value={cellText(baseRow, "cdnEstab")} />
-              <InfoItem label="Status Portal" value={cellText(baseRow, "statusPortal")} />
-              <InfoItem label="Situação RM" value={currentStatus} />
-              <InfoItem label="Data admissão" value={cellText(baseRow, "dataAdmissao")} />
-              <InfoItem label="Atualizado em" value={cellText(baseRow, "updatedAtUtc")} />
-            </dl>
-          </section>
+  const timelineItems = timeline.length
+    ? timeline.map((row, index) => `
+      <div class="timeline-card">
+        <div class="timeline-index">${index + 1}</div>
+        <div class="timeline-date">${escapeHtml(cellText(row, "movimentacaoPeriodoInicio"))}</div>
+        <div class="timeline-title">${escapeHtml(firstCellText([row], ["movimentacaoTipoCodigo", "movimentacaoTipo"]))}</div>
+        <div class="timeline-salary">${escapeHtml(cellText(row, "movimentacaoSalarioDestino"))}</div>
+      </div>
+    `).join("")
+    : `<p class="empty-text">Use o modo "Com movimentações" para visualizar a timeline completa.</p>`;
 
-          <section className="rounded-lg border border-slate-300 p-3">
-            <SectionTitle number={2}>Resumo funcional</SectionTitle>
-            <SummaryLine icon={BriefcaseBusiness} label="Função atual" value={currentFunction} />
-            <SummaryLine icon={Building2} label="Centro de custo" value={currentCostCenter} />
-            <SummaryLine icon={UserRound} label="Gestor atual" value={cellText(baseRow, "gestorDiretoNome")} />
-            <SummaryLine icon={TrendingUp} label="Salário atual" value={cellText(baseRow, "salarioAtual")} />
-            <SummaryLine icon={CalendarDays} label="Última movimentação" value={latestMovement} />
-          </section>
+  const title = `Ficha do Funcionário - ${employeeName}`;
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    :root { --blue:#0b3f75; --line:#cbd5e1; --muted:#f8fafc; --text:#0f172a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #e2e8f0; color: var(--text); font-family: Arial, Helvetica, sans-serif; }
+    .toolbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line); }
+    .toolbar button { border: 1px solid var(--line); border-radius: 8px; background: var(--blue); color: #fff; padding: 8px 14px; font-weight: 700; cursor: pointer; }
+    .page { width: 1120px; margin: 24px auto; background: #fff; padding: 28px; box-shadow: 0 20px 50px rgba(15,23,42,.18); }
+    header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 3px solid var(--blue); padding-bottom: 18px; }
+    .brand { display: flex; gap: 18px; align-items: center; }
+    .avatar { width: 82px; height: 82px; border-radius: 999px; display: grid; place-items: center; border: 1px solid var(--line); background: #f1f5f9; font-size: 42px; color: #64748b; }
+    h1 { margin: 0; color: #0f2f5f; font-size: 34px; letter-spacing: -.02em; text-transform: uppercase; }
+    .subtitle { margin: 0 0 4px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+    .employee-name { margin: 4px 0 0; color: var(--blue); font-size: 18px; font-weight: 900; text-transform: uppercase; }
+    .status { align-self: start; border: 1px solid #bbf7d0; background: #f0fdf4; color: #15803d; border-radius: 10px; padding: 10px 16px; font-weight: 800; }
+    .grid { display: grid; gap: 16px; margin-top: 16px; }
+    .grid.two { grid-template-columns: 1.5fr 1fr; }
+    .grid.half { grid-template-columns: 1fr 1fr; }
+    section { border: 1px solid var(--line); border-radius: 10px; padding: 14px; break-inside: avoid; }
+    .section-title { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .section-title span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 5px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 900; }
+    .section-title h3 { margin: 0; color: var(--blue); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+    dl { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; margin: 0; }
+    .info-item { border-bottom: 1px solid #e2e8f0; padding: 7px 0; }
+    .info-item dt { color: #64748b; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
+    .info-item dd { margin: 3px 0 0; font-size: 12px; font-weight: 800; }
+    .summary-line { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; border-bottom: 1px solid #e2e8f0; padding: 9px 0; font-size: 12px; }
+    .summary-line span { color: #475569; font-weight: 800; }
+    .summary-line strong { font-weight: 900; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th { background: var(--blue); color: #fff; text-align: left; padding: 8px; }
+    td { border: 1px solid #dbe3ef; padding: 7px; vertical-align: top; }
+    tr.muted td { background: var(--muted); }
+    .ok { color: #15803d; font-weight: 800; }
+    .empty, .empty-text { color: #64748b; text-align: center; padding: 18px; }
+    .timeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .timeline-card { border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 10px; padding: 12px; }
+    .timeline-index { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 999px; background: var(--blue); color: #fff; font-weight: 900; font-size: 12px; }
+    .timeline-date { margin-top: 8px; color: #0f2f5f; font-size: 11px; font-weight: 900; }
+    .timeline-title { margin-top: 4px; font-size: 13px; font-weight: 900; }
+    .timeline-salary { display: inline-block; margin-top: 10px; border-radius: 5px; background: #fff; color: var(--blue); padding: 5px 8px; font-size: 12px; font-weight: 900; }
+    footer { margin-top: 18px; text-align: center; color: #94a3b8; font-size: 11px; font-weight: 700; }
+    @page { size: A4 landscape; margin: 10mm; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .page { width: auto; margin: 0; padding: 0; box-shadow: none; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><button onclick="window.print()">Imprimir ficha</button></div>
+  <main class="page">
+    <header>
+      <div class="brand">
+        <div class="avatar">👤</div>
+        <div>
+          <p class="subtitle">Portal RH 2.0 · Dados cadastrais e histórico funcional</p>
+          <h1>Ficha do Funcionário</h1>
+          <p class="employee-name">${escapeHtml(employeeName)}</p>
         </div>
-
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <section className="rounded-lg border border-slate-300 p-3">
-            <SectionTitle number={3}>Contato e dados pessoais</SectionTitle>
-            <dl className="grid gap-x-4 md:grid-cols-2">
-              <InfoItem label="E-mail" value={cellText(baseRow, "email")} />
-              <InfoItem label="Telefone" value={cellText(baseRow, "telefone")} />
-              <InfoItem label="CPF" value={cellText(baseRow, "cpf")} />
-              <InfoItem label="Data nascimento" value={cellText(baseRow, "dataNascimento")} />
-              <InfoItem label="Sexo" value={cellText(baseRow, "sexo")} />
-              <InfoItem label="Estado civil" value={cellText(baseRow, "estadoCivil")} />
-              <InfoItem label="Grau instrução" value={cellText(baseRow, "grauInstrucao")} />
-              <InfoItem label="Nacionalidade" value={cellText(baseRow, "nacionalidade")} />
-              <InfoItem label="Nome do pai" value={cellText(baseRow, "nomePai")} />
-              <InfoItem label="Nome da mãe" value={cellText(baseRow, "nomeMae")} />
-            </dl>
-          </section>
-
-          <section className="rounded-lg border border-slate-300 p-3">
-            <SectionTitle number={4}>Endereço e documentos</SectionTitle>
-            <dl className="grid gap-x-4 md:grid-cols-2">
-              <InfoItem label="CEP" value={cellText(baseRow, "cep")} />
-              <InfoItem label="Logradouro" value={cellText(baseRow, "logradouro")} />
-              <InfoItem label="Número" value={cellText(baseRow, "numeroEndereco")} />
-              <InfoItem label="Bairro" value={cellText(baseRow, "bairro")} />
-              <InfoItem label="Cidade/UF" value={`${cellText(baseRow, "cidade")} / ${cellText(baseRow, "uf")}`} />
-              <InfoItem label="RG" value={cellText(baseRow, "rg")} />
-              <InfoItem label="CTPS" value={cellText(baseRow, "carteiraTrabalho")} />
-              <InfoItem label="PIS/PASEP" value={cellText(baseRow, "numeroPis")} />
-            </dl>
-          </section>
-        </div>
-
-        <section className="mt-4 rounded-lg border border-slate-300 p-3">
-          <SectionTitle number={5}>Histórico de movimentações</SectionTitle>
-          <div className="overflow-auto">
-            <table className="w-full min-w-[980px] border-collapse text-xs">
-              <thead>
-                <tr className="bg-blue-900 text-left text-white">
-                  <th className="px-2 py-2">Mov. ID RM</th>
-                  <th className="px-2 py-2">Tipo</th>
-                  <th className="px-2 py-2">Abertura</th>
-                  <th className="px-2 py-2">Conclusão</th>
-                  <th className="px-2 py-2">Status</th>
-                  <th className="px-2 py-2">Salário origem</th>
-                  <th className="px-2 py-2">Salário destino</th>
-                  <th className="px-2 py-2">Período</th>
-                  <th className="px-2 py-2">Tempo</th>
-                  <th className="px-2 py-2">Gestor hist.</th>
-                  <th className="px-2 py-2">Observação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements.length ? movements.map((row, index) => (
-                  <tr key={`${row.movimentacaoIdReqRm ?? index}`} className={index % 2 ? "bg-slate-50" : "bg-white"}>
-                    <td className="border px-2 py-2 font-semibold">{cellText(row, "movimentacaoIdReqRm")}</td>
-                    <td className="border px-2 py-2">{firstCellText([row], ["movimentacaoTipoCodigo", "movimentacaoTipo"])}</td>
-                    <td className="border px-2 py-2">{cellText(row, "movimentacaoDataAbertura")}</td>
-                    <td className="border px-2 py-2">{cellText(row, "movimentacaoDataConclusao")}</td>
-                    <td className="border px-2 py-2 text-green-700">{firstCellText([row], ["movimentacaoCodStatus", "movimentacaoStatus"])}</td>
-                    <td className="border px-2 py-2">{cellText(row, "movimentacaoSalarioOrigem")}</td>
-                    <td className="border px-2 py-2 font-bold">{cellText(row, "movimentacaoSalarioDestino")}</td>
-                    <td className="border px-2 py-2">{cellText(row, "movimentacaoPeriodoInicio")} a {cellText(row, "movimentacaoPeriodoFim")}</td>
-                    <td className="border px-2 py-2">{cellText(row, "movimentacaoTempoFuncao")}</td>
-                    <td className="border px-2 py-2">{firstCellText([row], ["movimentacaoGestorHistoricoChapaRm", "movimentacaoGestorHistoricoNome"])}</td>
-                    <td className="border px-2 py-2">{cellText(row, "movimentacaoJustificativa")}</td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={11} className="border px-3 py-6 text-center text-slate-500">Sem movimentações no resultado atual.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="mt-4 rounded-lg border border-slate-300 p-3">
-          <SectionTitle number={6}>Timeline da carreira</SectionTitle>
-          {timeline.length ? (
-            <div className="grid gap-3 md:grid-cols-4">
-              {timeline.map((row, index) => (
-                <div key={`${row.movimentacaoIdReqRm ?? index}-timeline`} className="relative rounded-lg border border-blue-100 bg-blue-50 p-3">
-                  <div className="mb-2 flex size-7 items-center justify-center rounded-full bg-blue-800 text-xs font-bold text-white">{index + 1}</div>
-                  <p className="text-xs font-bold text-blue-950">{cellText(row, "movimentacaoPeriodoInicio")}</p>
-                  <p className="mt-1 text-sm font-extrabold text-slate-900">{firstCellText([row], ["movimentacaoTipoCodigo", "movimentacaoTipo"])}</p>
-                  <p className="mt-2 inline-block rounded bg-white px-2 py-1 text-xs font-black text-blue-900">{cellText(row, "movimentacaoSalarioDestino")}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Use o modo &quot;Com movimentações&quot; para visualizar a timeline completa.</p>
-          )}
-        </section>
-
-        <footer className="mt-5 text-center text-xs font-semibold text-slate-400">
-          Documento gerado a partir dos dados do relatório RM no Portal RH.
-        </footer>
-      </article>
+      </div>
+      <div class="status">${escapeHtml(currentStatus)}</div>
+    </header>
+    <div class="grid two">
+      <section>
+        ${sectionTitle(1, "Identificação")}
+        <dl>
+          ${infoItem("Nome", employeeName)}
+          ${infoItem("Matrícula RM", cellText(baseRow, "matriculaRm"))}
+          ${infoItem("Empresa", cellText(baseRow, "cdnEmpresa"))}
+          ${infoItem("Estab.", cellText(baseRow, "cdnEstab"))}
+          ${infoItem("Status Portal", cellText(baseRow, "statusPortal"))}
+          ${infoItem("Situação RM", currentStatus)}
+          ${infoItem("Data admissão", cellText(baseRow, "dataAdmissao"))}
+          ${infoItem("Atualizado em", cellText(baseRow, "updatedAtUtc"))}
+        </dl>
+      </section>
+      <section>
+        ${sectionTitle(2, "Resumo funcional")}
+        ${summaryLine("Função atual", currentFunction)}
+        ${summaryLine("Centro de custo", currentCostCenter)}
+        ${summaryLine("Gestor atual", cellText(baseRow, "gestorDiretoNome"))}
+        ${summaryLine("Salário atual", cellText(baseRow, "salarioAtual"))}
+        ${summaryLine("Última movimentação", latestMovement)}
+      </section>
     </div>
-  );
+    <div class="grid half">
+      <section>
+        ${sectionTitle(3, "Contato e dados pessoais")}
+        <dl>
+          ${infoItem("E-mail", cellText(baseRow, "email"))}
+          ${infoItem("Telefone", cellText(baseRow, "telefone"))}
+          ${infoItem("CPF", cellText(baseRow, "cpf"))}
+          ${infoItem("Data nascimento", cellText(baseRow, "dataNascimento"))}
+          ${infoItem("Sexo", cellText(baseRow, "sexo"))}
+          ${infoItem("Estado civil", cellText(baseRow, "estadoCivil"))}
+          ${infoItem("Grau instrução", cellText(baseRow, "grauInstrucao"))}
+          ${infoItem("Nacionalidade", cellText(baseRow, "nacionalidade"))}
+          ${infoItem("Nome do pai", cellText(baseRow, "nomePai"))}
+          ${infoItem("Nome da mãe", cellText(baseRow, "nomeMae"))}
+        </dl>
+      </section>
+      <section>
+        ${sectionTitle(4, "Endereço e documentos")}
+        <dl>
+          ${infoItem("CEP", cellText(baseRow, "cep"))}
+          ${infoItem("Logradouro", cellText(baseRow, "logradouro"))}
+          ${infoItem("Número", cellText(baseRow, "numeroEndereco"))}
+          ${infoItem("Bairro", cellText(baseRow, "bairro"))}
+          ${infoItem("Cidade/UF", `${cellText(baseRow, "cidade")} / ${cellText(baseRow, "uf")}`)}
+          ${infoItem("RG", cellText(baseRow, "rg"))}
+          ${infoItem("CTPS", cellText(baseRow, "carteiraTrabalho"))}
+          ${infoItem("PIS/PASEP", cellText(baseRow, "numeroPis"))}
+        </dl>
+      </section>
+    </div>
+    <section class="grid">
+      ${sectionTitle(5, "Histórico de movimentações")}
+      <table>
+        <thead>
+          <tr>
+            <th>Mov. ID RM</th><th>Tipo</th><th>Abertura</th><th>Conclusão</th><th>Status</th>
+            <th>Salário origem</th><th>Salário destino</th><th>Período</th><th>Tempo</th><th>Gestor hist.</th><th>Observação</th>
+          </tr>
+        </thead>
+        <tbody>${movementRows}</tbody>
+      </table>
+    </section>
+    <section class="grid">
+      ${sectionTitle(6, "Timeline da carreira")}
+      <div class="timeline">${timelineItems}</div>
+    </section>
+    <footer>Documento gerado a partir dos dados do relatório RM no Portal RH.</footer>
+  </main>
+  <script>
+    window.addEventListener("load", () => setTimeout(() => window.print(), 400));
+  </script>
+</body>
+</html>`;
+}
+
+function openEmployeeSheetPrintTab(row: ReportRow, rows: ReportRow[]) {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    toast.error("Não foi possível abrir a nova aba. Verifique o bloqueador de pop-ups do navegador.");
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(buildEmployeeSheetHtml(row, rows));
+  printWindow.document.close();
 }
 
 export default function FuncionarioRmReportScreen() {
@@ -329,7 +341,6 @@ export default function FuncionarioRmReportScreen() {
   const [incluirMovimentacoes, setIncluirMovimentacoes] = useState(false);
   const [take, setTake] = useState(DEFAULT_TAKE);
   const [dataSource, setDataSource] = useState<ReportDataSource>("portal");
-  const [selectedFichaRow, setSelectedFichaRow] = useState<ReportRow | null>(null);
   const requestSeqRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -561,8 +572,8 @@ export default function FuncionarioRmReportScreen() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => setSelectedFichaRow(row)}
-                        title="Ver ficha do funcionário"
+                        onClick={() => openEmployeeSheetPrintTab(row, data?.rows ?? [])}
+                        title="Abrir ficha do funcionário em nova aba"
                       >
                         <Eye className="size-4" />
                         Ficha
@@ -586,21 +597,6 @@ export default function FuncionarioRmReportScreen() {
           </table>
         </div>
       </div>
-
-      <Dialog open={!!selectedFichaRow} onOpenChange={(open) => !open && setSelectedFichaRow(null)}>
-        <DialogContent className="max-h-[95vh] max-w-[96vw] overflow-hidden p-0">
-          <DialogHeader className="border-b px-6 py-4">
-            <DialogTitle className="flex items-center gap-2">
-              <IdCard className="size-5 text-primary" />
-              Ficha do funcionário
-            </DialogTitle>
-            <DialogDescription>
-              Visualização em formato de ficha impressa com histórico funcional e timeline da carreira.
-            </DialogDescription>
-          </DialogHeader>
-          <EmployeeSheet selectedRow={selectedFichaRow} rows={data?.rows ?? []} />
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }
