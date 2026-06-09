@@ -1207,8 +1207,8 @@ public sealed class ReportsController : ControllerBase
                 NULLIF(LTRIM(RTRIM(P.CERTIFRESERV)), '') AS CERTIFICADORESERVISTA,
                 NULLIF(LTRIM(RTRIM(P.CATEGMILITAR)), '') AS CATEGORIAMILITAR,
                 NULLIF(LTRIM(RTRIM(P.NACIONALIDADE)), '') AS NACIONALIDADE,
-                NULLIF(LTRIM(RTRIM(P.NOMEPAI)), '') AS NOMEPAI,
-                NULLIF(LTRIM(RTRIM(P.NOMEMAE)), '') AS NOMEMAE,
+                NULLIF(LTRIM(RTRIM(XPF.NOM_PAI)), '') AS NOMEPAI,
+                NULLIF(LTRIM(RTRIM(XPF.NOM_MAE)), '') AS NOMEMAE,
                 NULLIF(LTRIM(RTRIM(F.CODSECAO)), '') AS CODSECAO,
                 NULLIF(LTRIM(RTRIM(S.DESCRICAO)), '') AS CENTROCUSTODESCRICAO,
                 NULLIF(LTRIM(RTRIM(F.CODFUNCAO)), '') AS CODFUNCAO,
@@ -1223,6 +1223,8 @@ public sealed class ReportsController : ControllerBase
                 ON GC.CODCOLIGADA = F.CODCOLIGADA
             LEFT JOIN PPESSOA P
                 ON P.CODIGO = F.CODPESSOA
+            LEFT JOIN XPESSOAFISICA XPF
+                ON XPF.COD_PESS = P.CODIGO
             LEFT JOIN PSECAO S
                 ON S.CODCOLIGADA = F.CODCOLIGADA
                AND S.CODIGO = F.CODSECAO
