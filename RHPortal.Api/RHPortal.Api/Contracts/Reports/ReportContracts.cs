@@ -82,7 +82,22 @@ public sealed record FuncionarioRmReportRowResponse(
     string? NivelHierarquicoNome,
     string? HierarquiaDescricao,
     bool HasIncompleteData,
-    DateTimeOffset UpdatedAtUtc
+    DateTimeOffset UpdatedAtUtc,
+    string? MovimentacaoIdReqRm,
+    short? MovimentacaoTipoCodigo,
+    string? MovimentacaoTipo,
+    DateTime? MovimentacaoDataAbertura,
+    DateTime? MovimentacaoDataConclusao,
+    int? MovimentacaoCodStatus,
+    string? MovimentacaoStatus,
+    string? MovimentacaoCodFuncaoOrigem,
+    string? MovimentacaoCodFuncaoDestino,
+    string? MovimentacaoCodSecaoOrigem,
+    string? MovimentacaoCodSecaoDestino,
+    decimal? MovimentacaoSalarioOrigem,
+    decimal? MovimentacaoSalarioDestino,
+    string? MovimentacaoJustificativa,
+    bool? MovimentacaoGerouSubstituicao
 );
 
 public sealed record FuncionarioRmReportResponse(

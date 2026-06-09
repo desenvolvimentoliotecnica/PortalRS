@@ -25,7 +25,8 @@ const DEFAULT_TAKE = 5000;
 function formatCell(value: unknown, key?: string) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "Sim" : "Não";
-  if (key === "salarioAtual" && typeof value === "number") {
+  if ((key === "salarioAtual" || key === "movimentacaoSalarioOrigem" || key === "movimentacaoSalarioDestino")
+    && typeof value === "number") {
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
   if (typeof value === "string") {
@@ -62,6 +63,7 @@ export default function FuncionarioRmReportScreen() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("Active");
   const [somenteRm, setSomenteRm] = useState(true);
+  const [incluirMovimentacoes, setIncluirMovimentacoes] = useState(false);
   const [take, setTake] = useState(DEFAULT_TAKE);
 
   const load = useCallback(async () => {
@@ -69,6 +71,7 @@ export default function FuncionarioRmReportScreen() {
     try {
       const params = new URLSearchParams({
         somenteRm: String(somenteRm),
+        incluirMovimentacoes: String(incluirMovimentacoes),
         take: String(take || DEFAULT_TAKE),
       });
       if (q.trim()) params.set("q", q.trim());
@@ -88,7 +91,7 @@ export default function FuncionarioRmReportScreen() {
     } finally {
       setLoading(false);
     }
-  }, [q, somenteRm, status, take]);
+  }, [incluirMovimentacoes, q, somenteRm, status, take]);
 
   useEffect(() => {
     void load();
@@ -125,7 +128,7 @@ export default function FuncionarioRmReportScreen() {
       </div>
 
       <div className="rounded-xl border border-border/50 bg-card p-4">
-        <div className="grid gap-3 lg:grid-cols-[1fr_160px_160px_160px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_180px_160px_160px_160px_auto]">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -155,6 +158,15 @@ export default function FuncionarioRmReportScreen() {
             <option value="true">Somente RM</option>
             <option value="false">Todos</option>
           </select>
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={incluirMovimentacoes ? "movimentacoes" : "consolidado"}
+            onChange={(e) => setIncluirMovimentacoes(e.target.value === "movimentacoes")}
+            title="Modo do relatório"
+          >
+            <option value="consolidado">Consolidado</option>
+            <option value="movimentacoes">Com movimentações</option>
+          </select>
           <Input
             type="number"
             min={1}
@@ -175,6 +187,9 @@ export default function FuncionarioRmReportScreen() {
         <div className="rounded-xl border bg-card p-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Exibidos na tela</p>
           <p className="mt-1 text-2xl font-bold text-primary">{visibleCount}</p>
+          {incluirMovimentacoes && (
+            <p className="mt-1 text-xs text-muted-foreground">1 linha por movimentação; funcionários sem histórico aparecem com movimentação em branco.</p>
+          )}
         </div>
         <div className="rounded-xl border bg-card p-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Gerado em</p>
@@ -214,6 +229,7 @@ export default function FuncionarioRmReportScreen() {
           <h2 className="font-semibold">Tabela HTML</h2>
           <p className="text-xs text-muted-foreground">
             Use a rolagem horizontal para visualizar todos os dados do relatório.
+            {incluirMovimentacoes ? " Neste modo, cada movimentação gera uma linha." : ""}
           </p>
         </div>
         <div className="max-h-[70vh] overflow-auto">

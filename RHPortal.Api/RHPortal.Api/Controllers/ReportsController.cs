@@ -544,6 +544,7 @@ public sealed class ReportsController : ControllerBase
         [FromQuery] string? q,
         [FromQuery] string? status,
         [FromQuery] bool somenteRm = true,
+        [FromQuery] bool incluirMovimentacoes = false,
         [FromQuery] int take = 5000,
         CancellationToken ct = default)
     {
@@ -614,7 +615,7 @@ public sealed class ReportsController : ControllerBase
         static DateOnly? AsDateOnly(DateTime? value) =>
             value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
 
-        var rows = funcionarios.Select(f =>
+        FuncionarioRmReportRowResponse BuildRow(Funcionario f, FuncionarioMovimentacao? mov)
         {
             var pessoa = f.Pessoa;
             var nivelNome = f.NivelHierarquico?.Nome
@@ -677,13 +678,61 @@ public sealed class ReportsController : ControllerBase
                 nivelNome,
                 f.Hierarquia?.Descricao,
                 f.HasIncompleteData,
-                f.UpdatedAtUtc);
-        }).ToList();
+                f.UpdatedAtUtc,
+                mov?.IdReqRm,
+                mov?.TipoMovimentacao,
+                mov?.TipoDescricao,
+                mov?.DataAbertura,
+                mov?.DataConclusao,
+                mov?.CodStatus,
+                mov?.StatusDescricao,
+                mov?.CodFuncaoOrigem,
+                mov?.CodFuncaoDestino,
+                mov?.CodSecaoOrigem,
+                mov?.CodSecaoDestino,
+                mov?.SalarioOrigem,
+                mov?.SalarioDestino,
+                mov?.Justificativa,
+                mov?.GerouSubstituicao);
+        }
+
+        var rows = new List<FuncionarioRmReportRowResponse>();
+        if (incluirMovimentacoes)
+        {
+            var movimentacoes = await db.FuncionarioMovimentacoes
+                .AsNoTracking()
+                .Where(m => m.FuncionarioId != null && funcionarioIds.Contains(m.FuncionarioId.Value))
+                .OrderBy(m => m.FuncionarioId)
+                .ThenByDescending(m => m.DataConclusao ?? m.DataAbertura)
+                .ThenByDescending(m => m.UpdatedAtUtc)
+                .ToListAsync(ct);
+            var movimentacoesByFuncionario = movimentacoes
+                .GroupBy(m => m.FuncionarioId!.Value)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var funcionario in funcionarios)
+            {
+                if (movimentacoesByFuncionario.TryGetValue(funcionario.Id, out var movimentos) && movimentos.Count > 0)
+                {
+                    rows.AddRange(movimentos.Select(m => BuildRow(funcionario, m)));
+                }
+                else
+                {
+                    rows.Add(BuildRow(funcionario, null));
+                }
+            }
+        }
+        else
+        {
+            rows = funcionarios.Select(f => BuildRow(f, null)).ToList();
+        }
 
         return Ok(new FuncionarioRmReportResponse(
             DateTimeOffset.UtcNow,
             totalItems,
-            FuncionarioRmReportColumns,
+            incluirMovimentacoes
+                ? FuncionarioRmReportColumns.Concat(FuncionarioRmReportMovimentacaoColumns).ToList()
+                : FuncionarioRmReportColumns,
             rows));
     }
 
@@ -744,6 +793,25 @@ public sealed class ReportsController : ControllerBase
         new("hierarquiaDescricao", "Hierarquia RM", "Nó do organograma RM associado ao funcionário."),
         new("hasIncompleteData", "Dados incompletos", "Indica se o Portal detectou campos obrigatórios não resolvidos."),
         new("updatedAtUtc", "Atualizado em", "Última atualização do registro no Portal.")
+    ];
+
+    private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportMovimentacaoColumns =
+    [
+        new("movimentacaoIdReqRm", "Mov. ID RM", "Identificador da requisição/movimentação no RM ou ID sintético do histórico salarial."),
+        new("movimentacaoTipoCodigo", "Mov. tipo cód.", "Código interno do tipo de movimentação: 1=Promoção, 2=Transferência, 3=Mudança de função, 4=Aumento salarial, 5=Desligamento, 6=Aumento de quadro, 7=Substituição, 11=Admissão."),
+        new("movimentacaoTipo", "Movimentação", "Descrição do tipo de movimentação importada do RM."),
+        new("movimentacaoDataAbertura", "Mov. abertura", "Data de abertura ou data de mudança da movimentação no RM."),
+        new("movimentacaoDataConclusao", "Mov. conclusão", "Data de conclusão da movimentação, quando informada pelo RM."),
+        new("movimentacaoCodStatus", "Mov. status cód.", "Código de status da movimentação no RM."),
+        new("movimentacaoStatus", "Mov. status", "Descrição amigável do status da movimentação."),
+        new("movimentacaoCodFuncaoOrigem", "Função origem", "Código da função antes da movimentação, quando disponível."),
+        new("movimentacaoCodFuncaoDestino", "Função destino", "Código da função após a movimentação, quando disponível."),
+        new("movimentacaoCodSecaoOrigem", "Seção origem", "Centro de custo/seção antes da movimentação, quando disponível."),
+        new("movimentacaoCodSecaoDestino", "Seção destino", "Centro de custo/seção após a movimentação, quando disponível."),
+        new("movimentacaoSalarioOrigem", "Salário origem", "Salário antes da movimentação, quando informado no histórico RM."),
+        new("movimentacaoSalarioDestino", "Salário destino", "Salário após a movimentação, quando informado no histórico RM."),
+        new("movimentacaoJustificativa", "Mov. justificativa", "Justificativa observada na movimentação ou descrição complementar do histórico salarial."),
+        new("movimentacaoGerouSubstituicao", "Gerou substituição", "Indica se a movimentação de desligamento gerou substituição.")
     ];
 
     // ══════════════════════════════════════════════════════════════════
