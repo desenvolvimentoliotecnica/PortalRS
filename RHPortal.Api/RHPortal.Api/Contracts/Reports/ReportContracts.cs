@@ -113,6 +113,8 @@ public sealed record FuncionarioRmReportRowResponse(
     decimal? MovimentacaoPercentualSalarioAnterior,
     string? MovimentacaoGestorHistoricoChapaRm,
     string? MovimentacaoGestorHistoricoNome,
+    string? MovimentacaoCargoOrigem,
+    string? MovimentacaoCargoDestino,
     string? MovimentacaoJustificativa,
     bool? MovimentacaoGerouSubstituicao
 );

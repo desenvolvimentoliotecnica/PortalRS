@@ -823,6 +823,8 @@ public sealed class ReportsController : ControllerBase
                 calc?.PercentualSalario,
                 FormatCodeDescription(mov?.GestorHistoricoChapaRm, mov?.GestorHistoricoNome),
                 mov?.GestorHistoricoNome,
+                null,
+                null,
                 mov?.Justificativa,
                 mov?.GerouSubstituicao);
         }
@@ -1073,6 +1075,8 @@ public sealed class ReportsController : ControllerBase
                 calc?.PercentualSalario,
                 FormatCodeDescription(mov?.GestorHistoricoChapaRm, mov?.GestorHistoricoNome),
                 mov?.GestorHistoricoNome,
+                mov?.CargoOrigem,
+                mov?.CargoDestino,
                 mov?.Justificativa,
                 mov?.GerouSubstituicao);
         }
@@ -1389,12 +1393,86 @@ public sealed class ReportsController : ControllerBase
             await Task.CompletedTask;
         }, ct);
 
+        var funcaoRows = new List<HistoricoFuncaoRmRow>();
+        await QueryChapaBatchesAsync(conn, chapas, """
+            SELECT
+                CAST(H.CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                NULLIF(LTRIM(RTRIM(H.CHAPA)), '') AS CHAPA,
+                H.DTMUDANCA,
+                NULLIF(LTRIM(RTRIM(H.CODFUNCAO)), '') AS CODFUNCAO,
+                NULLIF(LTRIM(RTRIM(FU.NOME)), '') AS FUNCAONOME,
+                NULLIF(LTRIM(RTRIM(FU.CARGO)), '') AS CODCARGO,
+                NULLIF(LTRIM(RTRIM(C.NOME)), '') AS CARGONOME
+            FROM PFHSTFCO H
+            LEFT JOIN PFUNCAO FU
+                ON FU.CODCOLIGADA = H.CODCOLIGADA
+               AND FU.CODIGO = H.CODFUNCAO
+            LEFT JOIN PCARGO C
+                ON C.CODCOLIGADA = FU.CODCOLIGADA
+               AND C.CODIGO = FU.CARGO
+            WHERE H.CHAPA IN ({0})
+              AND H.DTMUDANCA IS NOT NULL
+            ORDER BY H.CHAPA, H.DTMUDANCA;
+            """, async reader =>
+        {
+            var chapa = DbString(reader, "CHAPA");
+            if (string.IsNullOrWhiteSpace(chapa))
+                return;
+            funcaoRows.Add(new HistoricoFuncaoRmRow(
+                DbString(reader, "CODCOLIGADA"),
+                chapa,
+                DbDateTime(reader, "DTMUDANCA") ?? DateTime.UtcNow,
+                DbString(reader, "CODFUNCAO"),
+                DbString(reader, "FUNCAONOME"),
+                DbString(reader, "CODCARGO"),
+                DbString(reader, "CARGONOME")));
+            await Task.CompletedTask;
+        }, ct);
+
+        var funcaoByEmployee = funcaoRows
+            .Where(r => selectedKeys.Contains(LiveEmployeeKey(r.CodColigada, r.Chapa)))
+            .GroupBy(r => LiveEmployeeKey(r.CodColigada, r.Chapa), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(r => r.DataMudanca).ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
+        static string? CargoDisplay(HistoricoFuncaoRmRow? row) =>
+            FormatCodeDescription(row?.CodCargo, row?.CargoNome) ?? FormatCodeDescription(row?.CodFuncao, row?.FuncaoNome);
+
+        static (HistoricoFuncaoRmRow? Origem, HistoricoFuncaoRmRow? Destino) ResolveHistoricoFuncao(
+            IReadOnlyList<HistoricoFuncaoRmRow>? historico,
+            DateTime dataMovimentacao)
+        {
+            if (historico is null || historico.Count == 0)
+                return (null, null);
+
+            var destinoIndex = -1;
+            for (var i = 0; i < historico.Count; i++)
+            {
+                if (historico[i].DataMudanca <= dataMovimentacao)
+                    destinoIndex = i;
+                else
+                    break;
+            }
+
+            if (destinoIndex < 0)
+                destinoIndex = 0;
+
+            var destino = historico[destinoIndex];
+            var origem = destino.DataMudanca.Date == dataMovimentacao.Date && destinoIndex > 0
+                ? historico[destinoIndex - 1]
+                : destino;
+            return (origem, destino);
+        }
+
         foreach (var group in rows
             .Where(r => selectedKeys.Contains(LiveEmployeeKey(r.CodColigada, r.Chapa)))
             .GroupBy(r => LiveEmployeeKey(r.CodColigada, r.Chapa), StringComparer.OrdinalIgnoreCase))
         {
             decimal? prevSalario = null;
             var seqByKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            funcaoByEmployee.TryGetValue(group.Key, out var historicoFuncao);
             foreach (var row in group.OrderBy(r => r.DataMudanca).ThenBy(r => r.NroSalario ?? 0).ThenBy(r => r.Salario ?? 0))
             {
                 var baseKey = $"{row.Chapa}-{row.DataMudanca:yyyyMMdd}-{row.NroSalario ?? 1}-{(row.Motivo ?? "").Trim()}";
@@ -1402,6 +1480,7 @@ public sealed class ReportsController : ControllerBase
                 seqByKey[baseKey] = seq + 1;
                 var idReq = seq == 0 ? $"HSAL-{baseKey}" : $"HSAL-{baseKey}-{seq}";
                 var (tipo, descricao) = MapHistoricoSalarialMotivo(row.Motivo);
+                var (funcaoOrigem, funcaoDestino) = ResolveHistoricoFuncao(historicoFuncao, row.DataMudanca);
                 result.Add(new LiveMovimentacaoRm(
                     row.CodColigada,
                     row.Chapa,
@@ -1412,12 +1491,14 @@ public sealed class ReportsController : ControllerBase
                     row.DataMudanca,
                     4,
                     "Concluída",
+                    funcaoOrigem?.CodFuncao,
+                    funcaoDestino?.CodFuncao,
                     null,
                     null,
-                    null,
-                    null,
-                    null,
-                    null,
+                    funcaoOrigem?.FuncaoNome,
+                    funcaoDestino?.FuncaoNome,
+                    CargoDisplay(funcaoOrigem),
+                    CargoDisplay(funcaoDestino),
                     null,
                     null,
                     prevSalario,
@@ -1453,6 +1534,10 @@ public sealed class ReportsController : ControllerBase
                 NULLIF(LTRIM(RTRIM(R.CODFUNCAO)), '') AS CODFUNCAO,
                 NULLIF(LTRIM(RTRIM(FO.NOME)), '') AS FUNCAOORIGEMNOME,
                 NULLIF(LTRIM(RTRIM(FD.NOME)), '') AS FUNCAODESTINONOME,
+                NULLIF(LTRIM(RTRIM(FO.CARGO)), '') AS CODCARGOORIGEM,
+                NULLIF(LTRIM(RTRIM(CO.NOME)), '') AS CARGOORIGEMNOME,
+                NULLIF(LTRIM(RTRIM(FD.CARGO)), '') AS CODCARGODESTINO,
+                NULLIF(LTRIM(RTRIM(CD.NOME)), '') AS CARGODESTINONOME,
                 NULLIF(LTRIM(RTRIM(R.CODSECAOORG)), '') AS CODSECAOORG,
                 NULLIF(LTRIM(RTRIM(R.CODSECAO)), '') AS CODSECAO,
                 NULLIF(LTRIM(RTRIM(SO.DESCRICAO)), '') AS SECAOORIGEMDESCRICAO,
@@ -1466,9 +1551,15 @@ public sealed class ReportsController : ControllerBase
             LEFT JOIN PFUNCAO FO
                 ON FO.CODCOLIGADA = R.CODCOLREQUISICAO
                AND FO.CODIGO = R.CODFUNCAOORG
+            LEFT JOIN PCARGO CO
+                ON CO.CODCOLIGADA = FO.CODCOLIGADA
+               AND CO.CODIGO = FO.CARGO
             LEFT JOIN PFUNCAO FD
                 ON FD.CODCOLIGADA = R.CODCOLREQUISICAO
                AND FD.CODIGO = R.CODFUNCAO
+            LEFT JOIN PCARGO CD
+                ON CD.CODCOLIGADA = FD.CODCOLIGADA
+               AND CD.CODIGO = FD.CARGO
             LEFT JOIN PSECAO SO
                 ON SO.CODCOLIGADA = R.CODCOLREQUISICAO
                AND SO.CODIGO = R.CODSECAOORG
@@ -1506,6 +1597,8 @@ public sealed class ReportsController : ControllerBase
                 DbString(reader, "CODSECAO"),
                 DbString(reader, "FUNCAOORIGEMNOME"),
                 DbString(reader, "FUNCAODESTINONOME"),
+                FormatCodeDescription(DbString(reader, "CODCARGOORIGEM"), DbString(reader, "CARGOORIGEMNOME")),
+                FormatCodeDescription(DbString(reader, "CODCARGODESTINO"), DbString(reader, "CARGODESTINONOME")),
                 DbString(reader, "SECAOORIGEMDESCRICAO"),
                 DbString(reader, "SECAODESTINODESCRICAO"),
                 DbDecimal(reader, "VLRSALARIOORG"),
@@ -1562,6 +1655,8 @@ public sealed class ReportsController : ControllerBase
                 DbDateTime(reader, "DATACONCLUSAO"),
                 DbInt(reader, "CODSTATUS") ?? 0,
                 MapStatus(DbInt(reader, "CODSTATUS")),
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -1773,6 +1868,8 @@ public sealed class ReportsController : ControllerBase
         string? CodSecaoDestino,
         string? FuncaoOrigemNome,
         string? FuncaoDestinoNome,
+        string? CargoOrigem,
+        string? CargoDestino,
         string? SecaoOrigemDescricao,
         string? SecaoDestinoDescricao,
         decimal? SalarioOrigem,
@@ -2106,6 +2203,15 @@ public sealed class ReportsController : ControllerBase
         int? NroSalario,
         decimal? Salario,
         decimal? PercentAplicado);
+
+    private sealed record HistoricoFuncaoRmRow(
+        string? CodColigada,
+        string Chapa,
+        DateTime DataMudanca,
+        string? CodFuncao,
+        string? FuncaoNome,
+        string? CodCargo,
+        string? CargoNome);
 
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportColumns =
     [

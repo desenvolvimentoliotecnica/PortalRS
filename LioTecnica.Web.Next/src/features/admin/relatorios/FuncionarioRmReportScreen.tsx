@@ -152,18 +152,17 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
     ? movements.map((row, index) => `
       <tr class="${index % 2 ? "muted" : ""}">
         <td>${escapeHtml(firstCellText([row], ["movimentacaoTipoCodigo", "movimentacaoTipo"]))}</td>
-        <td class="ok">${escapeHtml(firstCellText([row], ["movimentacaoCodStatus", "movimentacaoStatus"]))}</td>
-        <td>${escapeHtml(firstCellText([row], ["movimentacaoCodFuncaoOrigem", "movimentacaoFuncaoOrigemNome"]))}</td>
-        <td>${escapeHtml(firstCellText([row], ["movimentacaoCodFuncaoDestino", "movimentacaoFuncaoDestinoNome"]))}</td>
-        <td>${escapeHtml(cellText(row, "movimentacaoSalarioOrigem"))}</td>
-        <td><strong>${escapeHtml(cellText(row, "movimentacaoSalarioDestino"))}</strong></td>
-        <td>${escapeHtml(cellText(row, "movimentacaoPeriodoInicio"))} a ${escapeHtml(cellText(row, "movimentacaoPeriodoFim"))}</td>
-        <td>${escapeHtml(cellText(row, "movimentacaoTempoFuncao"))}</td>
+        <td>${escapeHtml(firstCellText([row], ["movimentacaoCargoOrigem", "movimentacaoCodFuncaoOrigem", "movimentacaoFuncaoOrigemNome"]))}</td>
+        <td>${escapeHtml(firstCellText([row], ["movimentacaoCargoDestino", "movimentacaoCodFuncaoDestino", "movimentacaoFuncaoDestinoNome"]))}</td>
+        <td class="num">${escapeHtml(cellText(row, "movimentacaoSalarioOrigem"))}</td>
+        <td class="num">${escapeHtml(cellText(row, "movimentacaoSalarioDestino"))}</td>
+        <td class="date">${escapeHtml(cellText(row, "movimentacaoPeriodoInicio"))} a ${escapeHtml(cellText(row, "movimentacaoPeriodoFim"))}</td>
+        <td class="date">${escapeHtml(cellText(row, "movimentacaoTempoFuncao"))}</td>
         <td>${escapeHtml(firstCellText([row], ["movimentacaoGestorHistoricoChapaRm", "movimentacaoGestorHistoricoNome"]))}</td>
-        <td>${escapeHtml(variationText(row))}</td>
+        <td class="num">${escapeHtml(variationText(row))}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="10" class="empty">Sem movimentações no resultado atual.</td></tr>`;
+    : `<tr><td colspan="9" class="empty">Sem movimentações no resultado atual.</td></tr>`;
 
   const timelineItems = timeline.length
     ? timeline.map((row, index) => `
@@ -212,8 +211,10 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
     .summary-line span { color: #475569; font-weight: 800; }
     .summary-line strong { font-weight: 900; }
     table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    th { background: var(--blue); color: #fff; text-align: left; padding: 8px; }
-    td { border: 1px solid #dbe3ef; padding: 7px; vertical-align: top; }
+    th { background: var(--blue); color: #fff; text-align: center; padding: 8px; }
+    td { border: 1px solid #dbe3ef; padding: 7px; vertical-align: top; font-weight: 400; }
+    td.num { text-align: right; white-space: nowrap; }
+    td.date { text-align: center; white-space: nowrap; }
     tr.muted td { background: var(--muted); }
     .ok { color: #15803d; font-weight: 800; }
     .empty, .empty-text { color: #64748b; text-align: center; padding: 18px; }
@@ -305,7 +306,7 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
       <table>
         <thead>
           <tr>
-            <th>Tipo</th><th>Status</th><th>Cargo origem</th><th>Cargo destino</th>
+            <th>Tipo</th><th>Cargo origem</th><th>Cargo destino</th>
             <th>Salário origem</th><th>Salário destino</th><th>Período</th><th>Tempo</th><th>Gestor hist.</th><th>Variação</th>
           </tr>
         </thead>
