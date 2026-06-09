@@ -833,6 +833,8 @@ public sealed class ReportsController : ControllerBase
                 .ThenByDescending(m => m.DataConclusao ?? m.DataAbertura)
                 .ThenByDescending(m => m.UpdatedAtUtc)
                 .ToListAsync(ct);
+            var historicoSalarialRm = await LoadHistoricoSalarialFromRmAsync(rmOptions.Value, funcionarios, movimentacoes, ct);
+            movimentacoes.AddRange(historicoSalarialRm);
             var gestoresHistoricosRm = await LoadGestoresHistoricosFromRmAsync(rmOptions.Value, movimentacoes, ct);
             var movimentacoesByFuncionario = movimentacoes
                 .GroupBy(m => m.FuncionarioId!.Value)
@@ -1048,6 +1050,181 @@ public sealed class ReportsController : ControllerBase
 
         return result;
     }
+
+    private static async Task<List<FuncionarioMovimentacao>> LoadHistoricoSalarialFromRmAsync(
+        RmConnectionOptions options,
+        IReadOnlyList<Funcionario> funcionarios,
+        IReadOnlyList<FuncionarioMovimentacao> movimentacoesExistentes,
+        CancellationToken ct)
+    {
+        var chapas = funcionarios
+            .Select(f => f.MatriculaRm?.Trim())
+            .Where(chapa => !string.IsNullOrWhiteSpace(chapa))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (chapas.Count == 0)
+            return [];
+
+        static string NormalizeColigada(string? value)
+        {
+            var trimmed = value?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) return "";
+            return int.TryParse(trimmed, out var numeric)
+                ? numeric.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : trimmed;
+        }
+
+        static string EmployeeKey(string? coligada, string? chapa) =>
+            $"{NormalizeColigada(coligada)}|{chapa?.Trim() ?? ""}";
+
+        var funcionarioByColigadaChapa = funcionarios
+            .Where(f => !string.IsNullOrWhiteSpace(f.MatriculaRm))
+            .GroupBy(f => EmployeeKey(f.CdnEmpresa, f.MatriculaRm), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var funcionarioByChapa = funcionarios
+            .Where(f => !string.IsNullOrWhiteSpace(f.MatriculaRm))
+            .GroupBy(f => f.MatriculaRm!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var existingIds = movimentacoesExistentes
+            .Select(m => m.IdReqRm)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var rows = new List<HistoricoSalarialRmRow>();
+
+        await using var conn = new SqlConnection(options.GetConnectionString());
+        await conn.OpenAsync(ct);
+
+        const int batchSize = 900;
+        for (var offset = 0; offset < chapas.Count; offset += batchSize)
+        {
+            var batch = chapas.Skip(offset).Take(batchSize).ToList();
+            var parameters = batch.Select((_, index) => $"@p{index}").ToList();
+            var sql = $"""
+                SELECT
+                    CAST(CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                    NULLIF(LTRIM(RTRIM(CHAPA)), '') AS CHAPA,
+                    DTMUDANCA,
+                    NULLIF(LTRIM(RTRIM(MOTIVO)), '') AS MOTIVO,
+                    NROSALARIO,
+                    SALARIO,
+                    PERCENTAPLICADO
+                FROM PFHSTSAL
+                WHERE CHAPA IN ({string.Join(", ", parameters)})
+                  AND DTMUDANCA IS NOT NULL
+                ORDER BY CHAPA, DTMUDANCA, NROSALARIO;
+                """;
+
+            await using var cmd = new SqlCommand(sql, conn);
+            for (var i = 0; i < batch.Count; i++)
+                cmd.Parameters.AddWithValue($"@p{i}", batch[i]!);
+
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var chapa = reader["CHAPA"]?.ToString();
+                if (string.IsNullOrWhiteSpace(chapa))
+                    continue;
+
+                rows.Add(new HistoricoSalarialRmRow(
+                    reader["CODCOLIGADA"]?.ToString(),
+                    chapa.Trim(),
+                    Convert.ToDateTime(reader["DTMUDANCA"], System.Globalization.CultureInfo.InvariantCulture),
+                    reader["MOTIVO"]?.ToString(),
+                    reader["NROSALARIO"] is DBNull ? null : Convert.ToInt32(reader["NROSALARIO"], System.Globalization.CultureInfo.InvariantCulture),
+                    reader["SALARIO"] is DBNull ? null : Convert.ToDecimal(reader["SALARIO"], System.Globalization.CultureInfo.InvariantCulture),
+                    reader["PERCENTAPLICADO"] is DBNull ? null : Convert.ToDecimal(reader["PERCENTAPLICADO"], System.Globalization.CultureInfo.InvariantCulture)));
+            }
+        }
+
+        var result = new List<FuncionarioMovimentacao>();
+        foreach (var group in rows
+            .GroupBy(r => EmployeeKey(r.CodColigada, r.Chapa), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key))
+        {
+            if (!funcionarioByColigadaChapa.TryGetValue(group.Key, out var funcionario)
+                && !funcionarioByChapa.TryGetValue(group.First().Chapa, out funcionario))
+            {
+                continue;
+            }
+
+            decimal? prevSalario = null;
+            var seqByKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in group.OrderBy(r => r.DataMudanca).ThenBy(r => r.NroSalario ?? 0).ThenBy(r => r.Salario ?? 0))
+            {
+                var baseKey = $"{row.Chapa}-{row.DataMudanca:yyyyMMdd}-{row.NroSalario ?? 1}-{(row.Motivo ?? "").Trim()}";
+                seqByKey.TryGetValue(baseKey, out var seq);
+                seqByKey[baseKey] = seq + 1;
+                var idReq = seq == 0 ? $"HSAL-{baseKey}" : $"HSAL-{baseKey}-{seq}";
+                if (existingIds.Contains(idReq))
+                {
+                    prevSalario = row.Salario;
+                    continue;
+                }
+
+                var (tipo, descricao) = MapHistoricoSalarialMotivo(row.Motivo);
+                result.Add(new FuncionarioMovimentacao
+                {
+                    Id = Guid.NewGuid(),
+                    FuncionarioId = funcionario.Id,
+                    ChapaRm = row.Chapa,
+                    IdReqRm = idReq,
+                    TipoMovimentacao = tipo,
+                    TipoDescricao = descricao,
+                    DataAbertura = DateTime.SpecifyKind(row.DataMudanca, DateTimeKind.Utc),
+                    DataConclusao = DateTime.SpecifyKind(row.DataMudanca, DateTimeKind.Utc),
+                    CodStatus = 4,
+                    StatusDescricao = "Concluída",
+                    SalarioOrigem = prevSalario,
+                    SalarioDestino = row.Salario,
+                    Justificativa = row.PercentAplicado is decimal p && p != 0
+                        ? $"Variação {p.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}%"
+                        : null,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow,
+                });
+                prevSalario = row.Salario;
+            }
+        }
+
+        return result;
+    }
+
+    private static (short Tipo, string Descricao) MapHistoricoSalarialMotivo(string? motivo)
+    {
+        var code = (motivo ?? "").Trim();
+        return code switch
+        {
+            "00" or "01" => ((short)11, "Admissão"),
+            "05" => ((short)1, "Promoção"),
+            "12" => ((short)4, "Enquadramento Salarial"),
+            "20" => ((short)4, "Plano de Cargos e Salários"),
+            "21" => ((short)4, "Acordo Coletivo"),
+            "02" => ((short)4, "Mérito"),
+            "03" => ((short)4, "Reajuste"),
+            "04" => ((short)4, "Aumento de Função"),
+            "06" => ((short)4, "Equiparação Salarial"),
+            "07" => ((short)4, "Reclassificação"),
+            "08" => ((short)4, "Cláusula Coletiva"),
+            "09" => ((short)4, "Antecipação"),
+            "11" => ((short)4, "Reenquadramento"),
+            "13" => ((short)4, "Ajuste de Faixa"),
+            "15" => ((short)4, "Aumento Espontâneo"),
+            "16" => ((short)4, "Avaliação"),
+            "17" => ((short)4, "Mudança de Função"),
+            "18" => ((short)4, "Transferência Salarial"),
+            "19" => ((short)4, "Tabela Salarial"),
+            "" => ((short)4, "Mudança Salarial"),
+            _ => ((short)4, $"Mudança Salarial (motivo {code})"),
+        };
+    }
+
+    private sealed record HistoricoSalarialRmRow(
+        string? CodColigada,
+        string Chapa,
+        DateTime DataMudanca,
+        string? Motivo,
+        int? NroSalario,
+        decimal? Salario,
+        decimal? PercentAplicado);
 
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportColumns =
     [
