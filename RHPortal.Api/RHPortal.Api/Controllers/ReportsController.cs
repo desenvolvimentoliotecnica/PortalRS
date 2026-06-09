@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
@@ -8,6 +9,7 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
+using RhPortal.Api.Infrastructure.Rm;
 using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Entities;
@@ -541,6 +543,7 @@ public sealed class ReportsController : ControllerBase
     [ProducesResponseType(typeof(FuncionarioRmReportResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<FuncionarioRmReportResponse>> GetFuncionariosRm(
         [FromServices] AppDbContext db,
+        [FromServices] IOptions<RmConnectionOptions> rmOptions,
         [FromQuery] string? q,
         [FromQuery] string? status,
         [FromQuery] bool somenteRm = true,
@@ -682,6 +685,13 @@ public sealed class ReportsController : ControllerBase
             var value => $"Código {value}"
         };
 
+        static string? NacionalidadeDescricao(string? code) => code?.Trim() switch
+        {
+            "10" => "Brasileira",
+            null or "" => null,
+            var value => $"Código {value}"
+        };
+
         static DateTime MovementDate(FuncionarioMovimentacao mov) =>
             mov.DataConclusao ?? mov.DataAbertura;
 
@@ -751,6 +761,7 @@ public sealed class ReportsController : ControllerBase
                 pessoa?.CertificadoReservista,
                 pessoa?.CategoriaMilitar,
                 pessoa?.Nacionalidade,
+                NacionalidadeDescricao(pessoa?.Nacionalidade),
                 pessoa?.NomePai,
                 pessoa?.NomeMae,
                 f.CentroCusto?.Code,
@@ -796,6 +807,19 @@ public sealed class ReportsController : ControllerBase
                 mov?.GerouSubstituicao);
         }
 
+        static FuncionarioMovimentacao EnrichGestorHistorico(
+            FuncionarioMovimentacao mov,
+            IReadOnlyDictionary<string, (string? Chapa, string? Nome)> gestoresHistoricosRm)
+        {
+            if (gestoresHistoricosRm.TryGetValue(mov.IdReqRm, out var gestor))
+            {
+                mov.GestorHistoricoChapaRm = gestor.Chapa;
+                mov.GestorHistoricoNome = gestor.Nome;
+            }
+
+            return mov;
+        }
+
         var rows = new List<FuncionarioRmReportRowResponse>();
         if (incluirMovimentacoes)
         {
@@ -806,6 +830,7 @@ public sealed class ReportsController : ControllerBase
                 .ThenByDescending(m => m.DataConclusao ?? m.DataAbertura)
                 .ThenByDescending(m => m.UpdatedAtUtc)
                 .ToListAsync(ct);
+            var gestoresHistoricosRm = await LoadGestoresHistoricosFromRmAsync(rmOptions.Value, movimentacoes, ct);
             var movimentacoesByFuncionario = movimentacoes
                 .GroupBy(m => m.FuncionarioId!.Value)
                 .ToDictionary(g => g.Key, g => g.ToList());
@@ -849,7 +874,7 @@ public sealed class ReportsController : ControllerBase
                     rows.AddRange(movimentosCronologicos
                         .OrderByDescending(MovementDate)
                         .ThenByDescending(m => m.UpdatedAtUtc)
-                        .Select(m => BuildRow(funcionario, m, calculos.GetValueOrDefault(m.Id))));
+                        .Select(m => BuildRow(funcionario, EnrichGestorHistorico(m, gestoresHistoricosRm), calculos.GetValueOrDefault(m.Id))));
                 }
                 else
                 {
@@ -869,6 +894,75 @@ public sealed class ReportsController : ControllerBase
                 ? FuncionarioRmReportColumns.Concat(FuncionarioRmReportMovimentacaoColumns).ToList()
                 : FuncionarioRmReportColumns,
             rows));
+    }
+
+    private static async Task<Dictionary<string, (string? Chapa, string? Nome)>> LoadGestoresHistoricosFromRmAsync(
+        RmConnectionOptions options,
+        IReadOnlyList<FuncionarioMovimentacao> movimentacoes,
+        CancellationToken ct)
+    {
+        var transfIds = movimentacoes
+            .Where(m => m.TipoMovimentacao != 5 && !string.IsNullOrWhiteSpace(m.IdReqRm) && !m.IdReqRm.StartsWith("DESL-", StringComparison.OrdinalIgnoreCase))
+            .Select(m => m.IdReqRm.Trim())
+            .Where(id => int.TryParse(id, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var desligamentoIds = movimentacoes
+            .Where(m => m.TipoMovimentacao == 5 || m.IdReqRm.StartsWith("DESL-", StringComparison.OrdinalIgnoreCase))
+            .Select(m => m.IdReqRm.StartsWith("DESL-", StringComparison.OrdinalIgnoreCase) ? m.IdReqRm[5..] : m.IdReqRm)
+            .Where(id => int.TryParse(id, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var result = new Dictionary<string, (string? Chapa, string? Nome)>(StringComparer.OrdinalIgnoreCase);
+        if (transfIds.Count == 0 && desligamentoIds.Count == 0)
+            return result;
+
+        await using var conn = new SqlConnection(options.GetConnectionString());
+        await conn.OpenAsync(ct);
+
+        async Task QueryAsync(string tableName, IReadOnlyList<string> ids, string keyPrefix)
+        {
+            const int batchSize = 900;
+            for (var offset = 0; offset < ids.Count; offset += batchSize)
+            {
+                var batch = ids.Skip(offset).Take(batchSize).ToList();
+                var parameters = batch.Select((_, index) => $"@p{index}").ToList();
+                var sql = $"""
+                    SELECT
+                        CONCAT(@KeyPrefix, CAST(R.IDREQ AS varchar(40))) AS ReportKey,
+                        NULLIF(LTRIM(RTRIM(R.CHAPAREQUISITANTE)), '') AS ChapaRequisitante,
+                        NULLIF(LTRIM(RTRIM(COALESCE(P.NOME, FREQ.NOME))), '') AS NomeRequisitante
+                    FROM {tableName} R
+                    LEFT JOIN PFUNC FREQ
+                        ON FREQ.CODCOLIGADA = R.CODCOLREQUISITANTE
+                       AND FREQ.CHAPA = R.CHAPAREQUISITANTE
+                    LEFT JOIN PPESSOA P
+                        ON P.CODIGO = FREQ.CODPESSOA
+                    WHERE R.IDREQ IN ({string.Join(", ", parameters)});
+                    """;
+
+                await using var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@KeyPrefix", keyPrefix);
+                for (var i = 0; i < batch.Count; i++)
+                    cmd.Parameters.AddWithValue($"@p{i}", int.Parse(batch[i], System.Globalization.CultureInfo.InvariantCulture));
+
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    var key = reader["ReportKey"]?.ToString();
+                    if (string.IsNullOrWhiteSpace(key)) continue;
+                    var chapa = reader["ChapaRequisitante"]?.ToString();
+                    var nome = reader["NomeRequisitante"]?.ToString();
+                    result[key] = (string.IsNullOrWhiteSpace(chapa) ? null : chapa.Trim(), string.IsNullOrWhiteSpace(nome) ? null : nome.Trim());
+                }
+            }
+        }
+
+        await QueryAsync("VREQTRANSFPROMOCAO", transfIds, "");
+        await QueryAsync("VREQDESLIGAMENTO", desligamentoIds, "DESL-");
+
+        return result;
     }
 
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportColumns =
@@ -916,6 +1010,7 @@ public sealed class ReportsController : ControllerBase
         new("certificadoReservista", "Reservista", "Certificado de reservista vindo de PPESSOA.CERTIFRESERV."),
         new("categoriaMilitar", "Categoria militar", "Categoria militar vinda de PPESSOA.CATEGMILITAR."),
         new("nacionalidade", "Nacionalidade", "Código de nacionalidade vindo de PPESSOA.NACIONALIDADE."),
+        new("nacionalidadeDescricao", "Nacionalidade desc.", "Descrição resolvida para o código de nacionalidade do RM. Código 10 = Brasileira."),
         new("nomePai", "Nome do pai", "Filiação paterna vinda de PPESSOA.NOMEPAI, quando disponível no snapshot."),
         new("nomeMae", "Nome da mãe", "Filiação materna vinda de PPESSOA.NOMEMAE, quando disponível no snapshot."),
         new("centroCustoCode", "Cód. centro custo", "Centro de custo resolvido a partir de PFUNC.CODSECAO."),
@@ -946,6 +1041,7 @@ public sealed class ReportsController : ControllerBase
         new("movimentacaoCodFuncaoDestino", "Função destino", "Código da função após a movimentação, quando disponível."),
         new("movimentacaoCodSecaoOrigem", "Seção origem", "Centro de custo/seção antes da movimentação, quando disponível."),
         new("movimentacaoCodSecaoDestino", "Seção destino", "Centro de custo/seção após a movimentação, quando disponível."),
+        new("movimentacaoGerouSubstituicao", "Gerou substituição", "Indica se a movimentação de desligamento gerou substituição."),
         new("movimentacaoFuncaoOrigemNome", "Função origem nome", "Nome da função de origem resolvido por PFUNCAO.NOME quando disponível na importação."),
         new("movimentacaoFuncaoDestinoNome", "Função destino nome", "Nome da função de destino resolvido por PFUNCAO.NOME quando disponível na importação."),
         new("movimentacaoSecaoOrigemDescricao", "Seção origem desc.", "Descrição da seção/centro de custo de origem resolvida pelo cadastro do Portal."),
@@ -961,8 +1057,7 @@ public sealed class ReportsController : ControllerBase
         new("movimentacaoPercentualSalarioAnterior", "% salário", "Percentual calculado da diferença salarial em relação ao salário anterior."),
         new("movimentacaoGestorHistoricoChapaRm", "Gestor hist. chapa", "CHAPA do gestor/requisitante histórico informado na requisição RM."),
         new("movimentacaoGestorHistoricoNome", "Gestor hist. nome", "Nome do gestor/requisitante histórico resolvido a partir de PFUNC/PPESSOA na importação."),
-        new("movimentacaoJustificativa", "Mov. justificativa", "Justificativa observada na movimentação ou descrição complementar do histórico salarial."),
-        new("movimentacaoGerouSubstituicao", "Gerou substituição", "Indica se a movimentação de desligamento gerou substituição.")
+        new("movimentacaoJustificativa", "Mov. justificativa", "Justificativa observada na movimentação ou descrição complementar do histórico salarial.")
     ];
 
     // ══════════════════════════════════════════════════════════════════

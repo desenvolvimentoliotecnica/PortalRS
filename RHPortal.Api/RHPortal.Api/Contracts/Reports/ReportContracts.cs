@@ -71,6 +71,7 @@ public sealed record FuncionarioRmReportRowResponse(
     string? CertificadoReservista,
     string? CategoriaMilitar,
     string? Nacionalidade,
+    string? NacionalidadeDescricao,
     string? NomePai,
     string? NomeMae,
     string? CentroCustoCode,
