@@ -969,16 +969,18 @@ test("fluxo completo de recrutamento até pré-admissão", async ({ page, reques
 
   await report.step(page, "Analista RH inicia a pré-admissão do candidato", async () => {
     if (!candidato || !vaga?.id || !candidatura) throw new Error("Candidato, vaga ou candidatura ausente.");
+    const vagaId = vaga.id;
+    const candidaturaId = candidatura.id;
     const candidaturas = await apiJson<CandidaturaResponse[]>(
       request,
       "get",
       `/api/candidaturas/candidato/${candidato.id}`,
       analistaAuth.accessToken,
     );
-    const candidaturaAtual = candidaturas.find((item) => item.id === candidatura!.id || item.vagaId === vaga.id);
+    const candidaturaAtual = candidaturas.find((item) => item.id === candidaturaId || item.vagaId === vagaId);
     expect(String(candidaturaAtual?.etapaMacro ?? ""), "Candidatura deve estar em Proposta ou Contratado antes da pré-admissão")
       .toMatch(/Proposta|Contratado|4|5/);
-    preAdmissao = await iniciarPreAdmissao(request, analistaAuth.accessToken, candidato, vaga.id);
+    preAdmissao = await iniciarPreAdmissao(request, analistaAuth.accessToken, candidato, vagaId);
     expect(preAdmissao.id).toBeTruthy();
   });
 
