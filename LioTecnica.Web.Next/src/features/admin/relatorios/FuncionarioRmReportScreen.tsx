@@ -130,6 +130,11 @@ function summaryLine(label: string, value: string) {
   return `<div class="summary-line"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 }
 
+function variationText(row: ReportRow) {
+  const text = cellText(row, "movimentacaoJustificativa");
+  return text.replace(/^Variação\s*:?\s*/i, "");
+}
+
 function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
   const employeeRows = getEmployeeRows(rows, selectedRow);
   const baseRow = selectedRow ?? employeeRows[0];
@@ -146,20 +151,19 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
   const movementRows = movements.length
     ? movements.map((row, index) => `
       <tr class="${index % 2 ? "muted" : ""}">
-        <td>${escapeHtml(cellText(row, "movimentacaoIdReqRm"))}</td>
         <td>${escapeHtml(firstCellText([row], ["movimentacaoTipoCodigo", "movimentacaoTipo"]))}</td>
-        <td>${escapeHtml(cellText(row, "movimentacaoDataAbertura"))}</td>
-        <td>${escapeHtml(cellText(row, "movimentacaoDataConclusao"))}</td>
         <td class="ok">${escapeHtml(firstCellText([row], ["movimentacaoCodStatus", "movimentacaoStatus"]))}</td>
+        <td>${escapeHtml(firstCellText([row], ["movimentacaoCodFuncaoOrigem", "movimentacaoFuncaoOrigemNome"]))}</td>
+        <td>${escapeHtml(firstCellText([row], ["movimentacaoCodFuncaoDestino", "movimentacaoFuncaoDestinoNome"]))}</td>
         <td>${escapeHtml(cellText(row, "movimentacaoSalarioOrigem"))}</td>
         <td><strong>${escapeHtml(cellText(row, "movimentacaoSalarioDestino"))}</strong></td>
         <td>${escapeHtml(cellText(row, "movimentacaoPeriodoInicio"))} a ${escapeHtml(cellText(row, "movimentacaoPeriodoFim"))}</td>
         <td>${escapeHtml(cellText(row, "movimentacaoTempoFuncao"))}</td>
         <td>${escapeHtml(firstCellText([row], ["movimentacaoGestorHistoricoChapaRm", "movimentacaoGestorHistoricoNome"]))}</td>
-        <td>${escapeHtml(cellText(row, "movimentacaoJustificativa"))}</td>
+        <td>${escapeHtml(variationText(row))}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="11" class="empty">Sem movimentações no resultado atual.</td></tr>`;
+    : `<tr><td colspan="10" class="empty">Sem movimentações no resultado atual.</td></tr>`;
 
   const timelineItems = timeline.length
     ? timeline.map((row, index) => `
@@ -301,8 +305,8 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
       <table>
         <thead>
           <tr>
-            <th>Mov. ID RM</th><th>Tipo</th><th>Abertura</th><th>Conclusão</th><th>Status</th>
-            <th>Salário origem</th><th>Salário destino</th><th>Período</th><th>Tempo</th><th>Gestor hist.</th><th>Observação</th>
+            <th>Tipo</th><th>Status</th><th>Cargo origem</th><th>Cargo destino</th>
+            <th>Salário origem</th><th>Salário destino</th><th>Período</th><th>Tempo</th><th>Gestor hist.</th><th>Variação</th>
           </tr>
         </thead>
         <tbody>${movementRows}</tbody>
