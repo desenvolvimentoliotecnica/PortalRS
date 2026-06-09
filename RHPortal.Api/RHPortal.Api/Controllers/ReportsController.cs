@@ -602,6 +602,7 @@ public sealed class ReportsController : ControllerBase
             .ToListAsync(ct);
 
         var funcionarioIds = funcionarios.Select(f => f.Id).ToList();
+        var salariosAtuaisRmByFuncionarioId = await LoadSalariosAtuaisFromRmAsync(rmOptions.Value, funcionarios, ct);
         var salariosAtuais = await db.FuncionarioMovimentacoes
             .AsNoTracking()
             .Where(m => m.FuncionarioId != null
@@ -770,7 +771,9 @@ public sealed class ReportsController : ControllerBase
                 f.JobPosition?.Name,
                 f.CodFuncaoRm,
                 f.FuncaoNomeRm,
-                salarioAtualByFuncionarioId.GetValueOrDefault(f.Id),
+                salariosAtuaisRmByFuncionarioId.TryGetValue(f.Id, out var salarioRm)
+                    ? salarioRm
+                    : salarioAtualByFuncionarioId.GetValueOrDefault(f.Id),
                 f.Unit?.Name,
                 f.GestorDireto?.Name,
                 nivelNome,
@@ -965,6 +968,87 @@ public sealed class ReportsController : ControllerBase
         return result;
     }
 
+    private static async Task<Dictionary<Guid, decimal>> LoadSalariosAtuaisFromRmAsync(
+        RmConnectionOptions options,
+        IReadOnlyList<Funcionario> funcionarios,
+        CancellationToken ct)
+    {
+        var chapas = funcionarios
+            .Select(f => f.MatriculaRm?.Trim())
+            .Where(chapa => !string.IsNullOrWhiteSpace(chapa))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var result = new Dictionary<Guid, decimal>();
+        if (chapas.Count == 0)
+            return result;
+
+        static string NormalizeColigada(string? value)
+        {
+            var trimmed = value?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)) return "";
+            return int.TryParse(trimmed, out var numeric)
+                ? numeric.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : trimmed;
+        }
+
+        static string SalaryKey(string? coligada, string? chapa) =>
+            $"{NormalizeColigada(coligada)}|{chapa?.Trim() ?? ""}";
+
+        var salarioByColigadaChapa = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var salarioByChapa = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        await using var conn = new SqlConnection(options.GetConnectionString());
+        await conn.OpenAsync(ct);
+
+        const int batchSize = 900;
+        for (var offset = 0; offset < chapas.Count; offset += batchSize)
+        {
+            var batch = chapas.Skip(offset).Take(batchSize).ToList();
+            var parameters = batch.Select((_, index) => $"@p{index}").ToList();
+            var sql = $"""
+                SELECT
+                    CAST(CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                    NULLIF(LTRIM(RTRIM(CHAPA)), '') AS CHAPA,
+                    SALARIO
+                FROM PFUNC
+                WHERE CHAPA IN ({string.Join(", ", parameters)})
+                  AND SALARIO IS NOT NULL;
+                """;
+
+            await using var cmd = new SqlCommand(sql, conn);
+            for (var i = 0; i < batch.Count; i++)
+                cmd.Parameters.AddWithValue($"@p{i}", batch[i]!);
+
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var coligada = reader["CODCOLIGADA"]?.ToString();
+                var chapa = reader["CHAPA"]?.ToString();
+                if (string.IsNullOrWhiteSpace(chapa) || reader["SALARIO"] is DBNull)
+                    continue;
+
+                var salario = Convert.ToDecimal(reader["SALARIO"], System.Globalization.CultureInfo.InvariantCulture);
+                salarioByColigadaChapa[SalaryKey(coligada, chapa)] = salario;
+                salarioByChapa.TryAdd(chapa.Trim(), salario);
+            }
+        }
+
+        foreach (var funcionario in funcionarios)
+        {
+            var chapa = funcionario.MatriculaRm?.Trim();
+            if (string.IsNullOrWhiteSpace(chapa))
+                continue;
+
+            if (salarioByColigadaChapa.TryGetValue(SalaryKey(funcionario.CdnEmpresa, chapa), out var salario)
+                || salarioByChapa.TryGetValue(chapa, out salario))
+            {
+                result[funcionario.Id] = salario;
+            }
+        }
+
+        return result;
+    }
+
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportColumns =
     [
         new("cdnEmpresa", "Empresa", "Código da coligada/empresa importado de PFUNC.CODCOLIGADA."),
@@ -1019,7 +1103,7 @@ public sealed class ReportsController : ControllerBase
         new("jobPositionName", "Cargo", "Nome do cargo no Portal."),
         new("codFuncaoRm", "Cód. função RM", "Código de função específico do RM em PFUNC.CODFUNCAO."),
         new("funcaoNomeRm", "Função RM", "Nome específico da função vindo de PFUNCAO.NOME."),
-        new("salarioAtual", "Salário atual", "Último salário conhecido vindo do histórico salarial RM (PFHSTSAL.SALARIO) ou movimentação mais recente com salário destino."),
+        new("salarioAtual", "Salário atual", "Salário atual lido diretamente do RM em PFUNC.SALARIO; quando não houver retorno do RM, usa a movimentação mais recente com salário destino."),
         new("unitName", "Filial", "Filial/estabelecimento resolvido a partir de PFUNC.CODFILIAL/GFILIAL."),
         new("gestorDiretoNome", "Gestor direto", "Gestor direto resolvido por hierarquia de posição ou fallbacks do RM."),
         new("nivelHierarquicoNome", "Nível", "Nível hierárquico/cargo resolvido no Portal."),
