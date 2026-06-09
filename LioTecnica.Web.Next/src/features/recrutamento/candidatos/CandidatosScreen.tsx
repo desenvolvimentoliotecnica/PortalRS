@@ -976,10 +976,26 @@ export default function CandidatosScreen() {
                       </TableCell>
                       <TableCell className="text-end whitespace-nowrap">
                         <div className="flex gap-1 justify-end">
-                          <Button variant="outline" size="sm" type="button" onClick={() => void openEdit(c.id)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void openEdit(c.id);
+                            }}
+                          >
                             Editar
                           </Button>
-                          <Button variant="destructive" size="sm" type="button" onClick={() => void deleteCandidate(c.id)}>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void deleteCandidate(c.id);
+                            }}
+                          >
                             Excluir
                           </Button>
                         </div>
