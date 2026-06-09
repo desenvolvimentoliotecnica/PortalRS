@@ -918,6 +918,868 @@ public sealed class ReportsController : ControllerBase
             rows));
     }
 
+    [HttpGet("funcionarios-rm-live")]
+    [RequirePermission("relatorios.view")]
+    [ProducesResponseType(typeof(FuncionarioRmReportResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<FuncionarioRmReportResponse>> GetFuncionariosRmLive(
+        [FromServices] IOptions<RmConnectionOptions> rmOptions,
+        [FromQuery] string? q,
+        [FromQuery] string? status,
+        [FromQuery] bool somenteRm = true,
+        [FromQuery] bool incluirMovimentacoes = false,
+        [FromQuery] int take = 5000,
+        CancellationToken ct = default)
+    {
+        var safeTake = Math.Clamp(take <= 0 ? 5000 : take, 1, 10000);
+        var (funcionarios, totalItems) = await LoadFuncionariosRmLiveAsync(rmOptions.Value, q, status, safeTake, ct);
+
+        var movements = incluirMovimentacoes
+            ? await LoadMovimentacoesRmLiveAsync(rmOptions.Value, funcionarios, ct)
+            : [];
+        var movementsByEmployee = movements
+            .GroupBy(m => LiveEmployeeKey(m.CodColigada, m.Chapa))
+            .ToDictionary(g => g.Key, g => g.OrderBy(LiveMovementDate).ThenBy(m => m.IdReqRm).ToList(), StringComparer.OrdinalIgnoreCase);
+
+        static DateOnly? AsDateOnly(DateTime? value) =>
+            value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
+
+        static string? EstadoCivilDescricao(string? code) => code?.Trim() switch
+        {
+            "0" => "Não informado",
+            "1" => "Solteiro(a)",
+            "2" => "Casado(a)",
+            "3" => "Divorciado(a)",
+            "4" => "Viúvo(a)",
+            "5" => "União estável",
+            "6" => "Separado(a)",
+            "C" => "Casado(a)",
+            "D" => "Divorciado(a)",
+            "I" => "Divorciado(a)",
+            "O" => "Outros",
+            "P" => "Separado(a)",
+            "S" => "Solteiro(a)",
+            "U" => "União estável",
+            "V" => "Viúvo(a)",
+            null or "" => null,
+            var value => $"Código {value}"
+        };
+
+        static string? NacionalidadeDescricao(string? code) => code?.Trim() switch
+        {
+            "10" => "Brasileira",
+            null or "" => null,
+            var value => $"Código {value}"
+        };
+
+        static string? FormatDuration(int? days)
+        {
+            if (!days.HasValue) return null;
+            var years = days.Value / 365;
+            var months = (days.Value % 365) / 30;
+            var remainingDays = (days.Value % 365) % 30;
+            if (years > 0) return $"{years}a {months}m {remainingDays}d";
+            if (months > 0) return $"{months}m {remainingDays}d";
+            return $"{remainingDays}d";
+        }
+
+        static FuncionarioRmReportRowResponse BuildRow(
+            LiveFuncionarioRm f,
+            LiveMovimentacaoRm? mov,
+            (DateTime? Inicio, DateTime? Fim, int? Dias, decimal? SalarioAnterior, decimal? DiferencaSalario, decimal? PercentualSalario)? calc = null)
+        {
+            return new FuncionarioRmReportRowResponse(
+                FormatTwoDigitCodeDescription(f.CodColigada, f.EmpresaDescricao),
+                f.EmpresaDescricao,
+                FormatTwoDigitCodeDescription(f.CodFilial, f.FilialDescricao),
+                f.FilialDescricao,
+                f.Chapa,
+                f.Chapa,
+                f.Nome,
+                f.Email,
+                f.Telefone,
+                f.StatusPortal,
+                FormatCodeDescription(f.CodSituacao, f.SituacaoDescricao),
+                f.SituacaoDescricao,
+                AsDateOnly(f.DataAdmissao),
+                AsDateOnly(f.DataNascimento),
+                f.Sexo,
+                f.Cpf,
+                FormatCodeDescription(f.EstadoCivil, EstadoCivilDescricao(f.EstadoCivil)),
+                EstadoCivilDescricao(f.EstadoCivil),
+                f.GrauInstrucao,
+                f.Naturalidade,
+                f.EstadoNatal,
+                f.Cep,
+                f.Logradouro,
+                f.NumeroEndereco,
+                f.Complemento,
+                f.Bairro,
+                f.Cidade,
+                f.Uf,
+                f.Rg,
+                f.RgOrgEmissor,
+                f.RgUf,
+                f.RgDataEmissao,
+                f.CarteiraTrabalho,
+                f.CarteiraTrabalhoSerie,
+                f.CarteiraTrabalhoUf,
+                f.CarteiraTrabalhoData,
+                f.NumeroPis,
+                f.TituloEleitor,
+                f.TituloEleitorZona,
+                f.TituloEleitorSecao,
+                f.CertificadoReservista,
+                f.CategoriaMilitar,
+                FormatCodeDescription(f.Nacionalidade, NacionalidadeDescricao(f.Nacionalidade)),
+                NacionalidadeDescricao(f.Nacionalidade),
+                f.NomePai,
+                f.NomeMae,
+                FormatCodeDescription(f.CodSecao, f.CentroCustoDescricao),
+                f.CentroCustoDescricao,
+                FormatCodeDescription(f.CodigoCargo, f.CargoNome),
+                f.CargoNome,
+                FormatCodeDescription(f.CodFuncao, f.FuncaoNome),
+                f.FuncaoNome,
+                f.SalarioAtual,
+                f.FilialDescricao,
+                f.GestorDiretoNome,
+                null,
+                f.HierarquiaDescricao,
+                false,
+                DateTimeOffset.UtcNow,
+                mov?.IdReqRm,
+                mov is null ? null : FormatCodeDescription(mov.TipoMovimentacao.ToString(System.Globalization.CultureInfo.InvariantCulture), mov.TipoDescricao),
+                mov?.TipoDescricao,
+                mov?.DataAbertura,
+                mov?.DataConclusao,
+                mov is null ? null : FormatCodeDescription(mov.CodStatus.ToString(System.Globalization.CultureInfo.InvariantCulture), mov.StatusDescricao),
+                mov?.StatusDescricao,
+                FormatCodeDescription(mov?.CodFuncaoOrigem, mov?.FuncaoOrigemNome),
+                FormatCodeDescription(mov?.CodFuncaoDestino, mov?.FuncaoDestinoNome),
+                FormatCodeDescription(mov?.CodSecaoOrigem, mov?.SecaoOrigemDescricao),
+                FormatCodeDescription(mov?.CodSecaoDestino, mov?.SecaoDestinoDescricao),
+                mov?.FuncaoOrigemNome,
+                mov?.FuncaoDestinoNome,
+                mov?.SecaoOrigemDescricao,
+                mov?.SecaoDestinoDescricao,
+                mov?.SalarioOrigem,
+                mov?.SalarioDestino,
+                calc?.Inicio,
+                calc?.Fim,
+                calc?.Dias,
+                FormatDuration(calc?.Dias),
+                calc?.SalarioAnterior,
+                calc?.DiferencaSalario,
+                calc?.PercentualSalario,
+                FormatCodeDescription(mov?.GestorHistoricoChapaRm, mov?.GestorHistoricoNome),
+                mov?.GestorHistoricoNome,
+                mov?.Justificativa,
+                mov?.GerouSubstituicao);
+        }
+
+        var rows = new List<FuncionarioRmReportRowResponse>();
+        foreach (var funcionario in funcionarios)
+        {
+            if (incluirMovimentacoes && movementsByEmployee.TryGetValue(LiveEmployeeKey(funcionario.CodColigada, funcionario.Chapa), out var employeeMovements) && employeeMovements.Count > 0)
+            {
+                var calculos = new Dictionary<string, (DateTime? Inicio, DateTime? Fim, int? Dias, decimal? SalarioAnterior, decimal? DiferencaSalario, decimal? PercentualSalario)>(StringComparer.OrdinalIgnoreCase);
+                decimal? ultimoSalarioDestino = null;
+                for (var i = 0; i < employeeMovements.Count; i++)
+                {
+                    var atual = employeeMovements[i];
+                    var inicio = LiveMovementDate(atual);
+                    DateTime? fim = i + 1 < employeeMovements.Count
+                        ? LiveMovementDate(employeeMovements[i + 1])
+                        : atual.TipoMovimentacao == 5
+                            ? atual.DataConclusao ?? atual.DataAbertura
+                            : DateTime.UtcNow;
+                    int? dias = fim.HasValue && fim.Value >= inicio
+                        ? (int)Math.Floor((fim.Value.Date - inicio.Date).TotalDays)
+                        : null;
+                    var salarioAnterior = atual.SalarioOrigem ?? ultimoSalarioDestino;
+                    var salarioReferencia = atual.SalarioDestino;
+                    var diferencaSalario = salarioReferencia.HasValue && salarioAnterior.HasValue
+                        ? salarioReferencia.Value - salarioAnterior.Value
+                        : (decimal?)null;
+                    var percentualSalario = diferencaSalario.HasValue && salarioAnterior.HasValue && salarioAnterior.Value != 0
+                        ? Math.Round((diferencaSalario.Value / salarioAnterior.Value) * 100, 2)
+                        : (decimal?)null;
+
+                    calculos[atual.IdReqRm] = (inicio, fim, dias, salarioAnterior, diferencaSalario, percentualSalario);
+                    if (atual.SalarioDestino.HasValue)
+                        ultimoSalarioDestino = atual.SalarioDestino;
+                }
+
+                rows.AddRange(employeeMovements
+                    .OrderByDescending(LiveMovementDate)
+                    .ThenByDescending(m => m.IdReqRm)
+                    .Select(m => BuildRow(funcionario, m, calculos.GetValueOrDefault(m.IdReqRm))));
+            }
+            else
+            {
+                rows.Add(BuildRow(funcionario, null));
+            }
+        }
+
+        return Ok(new FuncionarioRmReportResponse(
+            DateTimeOffset.UtcNow,
+            totalItems,
+            incluirMovimentacoes
+                ? FuncionarioRmReportColumns.Concat(FuncionarioRmReportMovimentacaoColumns).ToList()
+                : FuncionarioRmReportColumns,
+            rows));
+    }
+
+    private static async Task<(List<LiveFuncionarioRm> Funcionarios, int TotalItems)> LoadFuncionariosRmLiveAsync(
+        RmConnectionOptions options,
+        string? q,
+        string? status,
+        int take,
+        CancellationToken ct)
+    {
+        var where = new List<string>
+        {
+            "F.CHAPA IS NOT NULL",
+            "LTRIM(RTRIM(F.CHAPA)) <> ''",
+        };
+        if (string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase))
+            where.Add("F.CODSITUACAO IN ('A', 'F', 'P')");
+        else if (string.Equals(status, "Inactive", StringComparison.OrdinalIgnoreCase))
+            where.Add("(F.CODSITUACAO IS NULL OR F.CODSITUACAO NOT IN ('A', 'F', 'P'))");
+
+        var hasSearch = !string.IsNullOrWhiteSpace(q);
+        if (hasSearch)
+        {
+            where.Add("""
+                (
+                    F.CHAPA LIKE @Q OR
+                    F.NOME LIKE @Q OR
+                    P.NOME LIKE @Q OR
+                    P.EMAIL LIKE @Q OR
+                    P.CPF LIKE @Q OR
+                    F.CODSITUACAO LIKE @Q OR
+                    F.CODSECAO LIKE @Q OR
+                    S.DESCRICAO LIKE @Q OR
+                    F.CODFUNCAO LIKE @Q OR
+                    FU.NOME LIKE @Q
+                )
+                """);
+        }
+
+        var sql = $"""
+            SELECT TOP (@Take)
+                COUNT(*) OVER() AS TotalItems,
+                CAST(F.CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                NULLIF(LTRIM(RTRIM(COALESCE(GC.NOMEFANTASIA, GC.NOME))), '') AS EMPRESADESCRICAO,
+                NULLIF(LTRIM(RTRIM(F.CHAPA)), '') AS CHAPA,
+                CAST(F.CODFILIAL AS varchar(20)) AS CODFILIAL,
+                NULLIF(LTRIM(RTRIM(F.CODSITUACAO)), '') AS CODSITUACAO,
+                F.DATAADMISSAO,
+                NULLIF(LTRIM(RTRIM(COALESCE(P.NOME, F.NOME))), '') AS NOME,
+                NULLIF(LTRIM(RTRIM(P.EMAIL)), '') AS EMAIL,
+                NULLIF(LTRIM(RTRIM(P.CPF)), '') AS CPF,
+                NULLIF(LTRIM(RTRIM(P.TELEFONE1)), '') AS TELEFONE,
+                P.DTNASCIMENTO,
+                NULLIF(LTRIM(RTRIM(P.SEXO)), '') AS SEXO,
+                NULLIF(LTRIM(RTRIM(P.ESTADOCIVIL)), '') AS ESTADOCIVIL,
+                NULLIF(LTRIM(RTRIM(P.NATURALIDADE)), '') AS NATURALIDADE,
+                NULLIF(LTRIM(RTRIM(P.ESTADONATAL)), '') AS ESTADONATAL,
+                NULLIF(LTRIM(RTRIM(P.GRAUINSTRUCAO)), '') AS GRAUINSTRUCAO,
+                NULLIF(LTRIM(RTRIM(P.CEP)), '') AS CEP,
+                NULLIF(LTRIM(RTRIM(P.RUA)), '') AS LOGRADOURO,
+                NULLIF(LTRIM(RTRIM(P.NUMERO)), '') AS NUMEROENDERECO,
+                NULLIF(LTRIM(RTRIM(P.COMPLEMENTO)), '') AS COMPLEMENTO,
+                NULLIF(LTRIM(RTRIM(P.BAIRRO)), '') AS BAIRRO,
+                NULLIF(LTRIM(RTRIM(P.CIDADE)), '') AS CIDADE,
+                NULLIF(LTRIM(RTRIM(P.ESTADO)), '') AS UF,
+                NULLIF(LTRIM(RTRIM(P.CARTIDENTIDADE)), '') AS RG,
+                NULLIF(LTRIM(RTRIM(P.ORGEMISSORIDENT)), '') AS RGORGEMISSOR,
+                NULLIF(LTRIM(RTRIM(P.UFCARTIDENT)), '') AS RGUF,
+                P.DTEMISSAOIDENT AS RGDATAEMISSAO,
+                NULLIF(LTRIM(RTRIM(P.CARTEIRATRAB)), '') AS CARTEIRATRABALHO,
+                NULLIF(LTRIM(RTRIM(P.SERIECARTTRAB)), '') AS CARTEIRATRABALHOSERIE,
+                NULLIF(LTRIM(RTRIM(P.UFCARTTRAB)), '') AS CARTEIRATRABALHOUF,
+                P.DTCARTTRAB AS CARTEIRATRABALHODATA,
+                NULLIF(LTRIM(RTRIM(P.NIT)), '') AS NUMEROPIS,
+                NULLIF(LTRIM(RTRIM(P.TITULOELEITOR)), '') AS TITULOELEITOR,
+                NULLIF(LTRIM(RTRIM(P.ZONATITELEITOR)), '') AS TITULOELEITORZONA,
+                NULLIF(LTRIM(RTRIM(P.SECAOTITELEITOR)), '') AS TITULOELEITORSECAO,
+                NULLIF(LTRIM(RTRIM(P.CERTIFRESERV)), '') AS CERTIFICADORESERVISTA,
+                NULLIF(LTRIM(RTRIM(P.CATEGMILITAR)), '') AS CATEGORIAMILITAR,
+                NULLIF(LTRIM(RTRIM(P.NACIONALIDADE)), '') AS NACIONALIDADE,
+                NULLIF(LTRIM(RTRIM(P.NOMEPAI)), '') AS NOMEPAI,
+                NULLIF(LTRIM(RTRIM(P.NOMEMAE)), '') AS NOMEMAE,
+                NULLIF(LTRIM(RTRIM(F.CODSECAO)), '') AS CODSECAO,
+                NULLIF(LTRIM(RTRIM(S.DESCRICAO)), '') AS CENTROCUSTODESCRICAO,
+                NULLIF(LTRIM(RTRIM(F.CODFUNCAO)), '') AS CODFUNCAO,
+                NULLIF(LTRIM(RTRIM(FU.NOME)), '') AS FUNCAONOME,
+                NULLIF(LTRIM(RTRIM(FU.CARGO)), '') AS CODIGOCARGO,
+                NULLIF(LTRIM(RTRIM(C.NOME)), '') AS CARGONOME,
+                F.SALARIO AS SALARIOATUAL,
+                NULLIF(LTRIM(RTRIM(G.NOMEFANTASIA)), '') AS FILIALDESCRICAO,
+                NULLIF(LTRIM(RTRIM(COALESCE(PGEST.NOME, FGEST.NOME))), '') AS GESTORDIRETONOME
+            FROM PFUNC F
+            LEFT JOIN GCOLIGADA GC
+                ON GC.CODCOLIGADA = F.CODCOLIGADA
+            LEFT JOIN PPESSOA P
+                ON P.CODIGO = F.CODPESSOA
+            LEFT JOIN PSECAO S
+                ON S.CODCOLIGADA = F.CODCOLIGADA
+               AND S.CODIGO = F.CODSECAO
+            LEFT JOIN PFUNCAO FU
+                ON FU.CODCOLIGADA = F.CODCOLIGADA
+               AND FU.CODIGO = F.CODFUNCAO
+            LEFT JOIN PCARGO C
+                ON C.CODCOLIGADA = F.CODCOLIGADA
+               AND C.CODIGO = FU.CARGO
+            LEFT JOIN GFILIAL G
+                ON G.CODCOLIGADA = F.CODCOLIGADA
+               AND G.CODFILIAL = F.CODFILIAL
+            OUTER APPLY (
+                SELECT TOP 1 L.CHAPALIDER
+                FROM PFUNCLIDERHRPLATFORM L
+                WHERE L.CODCOLIGADA = F.CODCOLIGADA
+                  AND L.CHAPA = F.CHAPA
+                  AND L.CHAPALIDER IS NOT NULL
+                  AND L.CHAPALIDER <> F.CHAPA
+                ORDER BY CASE WHEN ISNULL(L.[MASTER], 0) = 1 THEN 0 ELSE 1 END
+            ) LIDER
+            LEFT JOIN PFUNC FGEST
+                ON FGEST.CODCOLIGADA = F.CODCOLIGADA
+               AND FGEST.CHAPA = LIDER.CHAPALIDER
+            LEFT JOIN PPESSOA PGEST
+                ON PGEST.CODIGO = FGEST.CODPESSOA
+            WHERE {string.Join(" AND ", where)}
+            ORDER BY COALESCE(P.NOME, F.NOME), F.CHAPA;
+            """;
+
+        var funcionarios = new List<LiveFuncionarioRm>();
+        var totalItems = 0;
+        await using var conn = new SqlConnection(options.GetConnectionString());
+        await conn.OpenAsync(ct);
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Take", take);
+        if (hasSearch)
+            cmd.Parameters.AddWithValue("@Q", $"%{q!.Trim()}%");
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            totalItems = DbInt(reader, "TotalItems") ?? totalItems;
+            var codSituacao = DbString(reader, "CODSITUACAO");
+            funcionarios.Add(new LiveFuncionarioRm(
+                DbString(reader, "CODCOLIGADA"),
+                DbString(reader, "CHAPA") ?? "",
+                DbString(reader, "EMPRESADESCRICAO"),
+                DbString(reader, "CODFILIAL"),
+                codSituacao,
+                SituacaoRmDescricao(codSituacao),
+                IsRmActiveStatus(codSituacao) ? "Active" : "Inactive",
+                DbDateTime(reader, "DATAADMISSAO"),
+                DbString(reader, "NOME"),
+                DbString(reader, "EMAIL"),
+                DbString(reader, "TELEFONE"),
+                DbString(reader, "CPF"),
+                DbDateTime(reader, "DTNASCIMENTO"),
+                DbString(reader, "SEXO"),
+                DbString(reader, "ESTADOCIVIL"),
+                DbString(reader, "GRAUINSTRUCAO"),
+                DbString(reader, "NATURALIDADE"),
+                DbString(reader, "ESTADONATAL"),
+                DbString(reader, "CEP"),
+                DbString(reader, "LOGRADOURO"),
+                DbString(reader, "NUMEROENDERECO"),
+                DbString(reader, "COMPLEMENTO"),
+                DbString(reader, "BAIRRO"),
+                DbString(reader, "CIDADE"),
+                DbString(reader, "UF"),
+                DbString(reader, "RG"),
+                DbString(reader, "RGORGEMISSOR"),
+                DbString(reader, "RGUF"),
+                DbDateTime(reader, "RGDATAEMISSAO"),
+                DbString(reader, "CARTEIRATRABALHO"),
+                DbString(reader, "CARTEIRATRABALHOSERIE"),
+                DbString(reader, "CARTEIRATRABALHOUF"),
+                DbDateTime(reader, "CARTEIRATRABALHODATA"),
+                DbString(reader, "NUMEROPIS"),
+                DbString(reader, "TITULOELEITOR"),
+                DbString(reader, "TITULOELEITORZONA"),
+                DbString(reader, "TITULOELEITORSECAO"),
+                DbString(reader, "CERTIFICADORESERVISTA"),
+                DbString(reader, "CATEGORIAMILITAR"),
+                DbString(reader, "NACIONALIDADE"),
+                DbString(reader, "NOMEPAI"),
+                DbString(reader, "NOMEMAE"),
+                DbString(reader, "CODSECAO"),
+                DbString(reader, "CENTROCUSTODESCRICAO"),
+                DbString(reader, "CODFUNCAO"),
+                DbString(reader, "FUNCAONOME"),
+                DbString(reader, "CODIGOCARGO"),
+                DbString(reader, "CARGONOME"),
+                DbDecimal(reader, "SALARIOATUAL"),
+                DbString(reader, "FILIALDESCRICAO"),
+                DbString(reader, "GESTORDIRETONOME"),
+                null));
+        }
+
+        return (funcionarios, totalItems);
+    }
+
+    private static async Task<List<LiveMovimentacaoRm>> LoadMovimentacoesRmLiveAsync(
+        RmConnectionOptions options,
+        IReadOnlyList<LiveFuncionarioRm> funcionarios,
+        CancellationToken ct)
+    {
+        var chapas = funcionarios
+            .Select(f => f.Chapa.Trim())
+            .Where(chapa => !string.IsNullOrWhiteSpace(chapa))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var selectedKeys = funcionarios
+            .Select(f => LiveEmployeeKey(f.CodColigada, f.Chapa))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var result = new List<LiveMovimentacaoRm>();
+        if (chapas.Count == 0)
+            return result;
+
+        await using var conn = new SqlConnection(options.GetConnectionString());
+        await conn.OpenAsync(ct);
+        await LoadHistoricoSalarialLiveAsync(conn, chapas, selectedKeys, result, ct);
+        await LoadTransfPromocaoLiveAsync(conn, chapas, selectedKeys, result, ct);
+        await LoadDesligamentosLiveAsync(conn, chapas, selectedKeys, result, ct);
+        return result;
+    }
+
+    private static async Task LoadHistoricoSalarialLiveAsync(
+        SqlConnection conn,
+        IReadOnlyList<string> chapas,
+        IReadOnlySet<string> selectedKeys,
+        List<LiveMovimentacaoRm> result,
+        CancellationToken ct)
+    {
+        var rows = new List<HistoricoSalarialRmRow>();
+        await QueryChapaBatchesAsync(conn, chapas, """
+            SELECT
+                CAST(CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                NULLIF(LTRIM(RTRIM(CHAPA)), '') AS CHAPA,
+                DTMUDANCA,
+                NULLIF(LTRIM(RTRIM(MOTIVO)), '') AS MOTIVO,
+                NROSALARIO,
+                SALARIO,
+                PERCENTAPLICADO
+            FROM PFHSTSAL
+            WHERE CHAPA IN ({0})
+              AND DTMUDANCA IS NOT NULL
+            ORDER BY CHAPA, DTMUDANCA, NROSALARIO;
+            """, async reader =>
+        {
+            var chapa = DbString(reader, "CHAPA");
+            if (string.IsNullOrWhiteSpace(chapa))
+                return;
+            rows.Add(new HistoricoSalarialRmRow(
+                DbString(reader, "CODCOLIGADA"),
+                chapa,
+                DbDateTime(reader, "DTMUDANCA") ?? DateTime.UtcNow,
+                DbString(reader, "MOTIVO"),
+                DbInt(reader, "NROSALARIO"),
+                DbDecimal(reader, "SALARIO"),
+                DbDecimal(reader, "PERCENTAPLICADO")));
+            await Task.CompletedTask;
+        }, ct);
+
+        foreach (var group in rows
+            .Where(r => selectedKeys.Contains(LiveEmployeeKey(r.CodColigada, r.Chapa)))
+            .GroupBy(r => LiveEmployeeKey(r.CodColigada, r.Chapa), StringComparer.OrdinalIgnoreCase))
+        {
+            decimal? prevSalario = null;
+            var seqByKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in group.OrderBy(r => r.DataMudanca).ThenBy(r => r.NroSalario ?? 0).ThenBy(r => r.Salario ?? 0))
+            {
+                var baseKey = $"{row.Chapa}-{row.DataMudanca:yyyyMMdd}-{row.NroSalario ?? 1}-{(row.Motivo ?? "").Trim()}";
+                seqByKey.TryGetValue(baseKey, out var seq);
+                seqByKey[baseKey] = seq + 1;
+                var idReq = seq == 0 ? $"HSAL-{baseKey}" : $"HSAL-{baseKey}-{seq}";
+                var (tipo, descricao) = MapHistoricoSalarialMotivo(row.Motivo);
+                result.Add(new LiveMovimentacaoRm(
+                    row.CodColigada,
+                    row.Chapa,
+                    idReq,
+                    tipo,
+                    descricao,
+                    row.DataMudanca,
+                    row.DataMudanca,
+                    4,
+                    "Concluída",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    prevSalario,
+                    row.Salario,
+                    null,
+                    null,
+                    row.PercentAplicado is decimal p && p != 0
+                        ? $"Variação {p.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}%"
+                        : null,
+                    null));
+                prevSalario = row.Salario;
+            }
+        }
+    }
+
+    private static async Task LoadTransfPromocaoLiveAsync(
+        SqlConnection conn,
+        IReadOnlyList<string> chapas,
+        IReadOnlySet<string> selectedKeys,
+        List<LiveMovimentacaoRm> result,
+        CancellationToken ct)
+    {
+        await QueryChapaBatchesAsync(conn, chapas, """
+            SELECT
+                CAST(R.CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                NULLIF(LTRIM(RTRIM(R.CHAPA)), '') AS CHAPA,
+                R.IDREQ,
+                NULLIF(LTRIM(RTRIM(R.CODMOTMUDFUNCAO)), '') AS CODMOTMUDFUNCAO,
+                R.DATAABERTURA,
+                R.DATACONCLUSAO,
+                R.CODSTATUS,
+                NULLIF(LTRIM(RTRIM(R.CODFUNCAOORG)), '') AS CODFUNCAOORG,
+                NULLIF(LTRIM(RTRIM(R.CODFUNCAO)), '') AS CODFUNCAO,
+                NULLIF(LTRIM(RTRIM(FO.NOME)), '') AS FUNCAOORIGEMNOME,
+                NULLIF(LTRIM(RTRIM(FD.NOME)), '') AS FUNCAODESTINONOME,
+                NULLIF(LTRIM(RTRIM(R.CODSECAOORG)), '') AS CODSECAOORG,
+                NULLIF(LTRIM(RTRIM(R.CODSECAO)), '') AS CODSECAO,
+                NULLIF(LTRIM(RTRIM(SO.DESCRICAO)), '') AS SECAOORIGEMDESCRICAO,
+                NULLIF(LTRIM(RTRIM(SD.DESCRICAO)), '') AS SECAODESTINODESCRICAO,
+                R.VLRSALARIOORG,
+                R.VLRSALARIO,
+                NULLIF(LTRIM(RTRIM(R.CHAPAREQUISITANTE)), '') AS CHAPAREQUISITANTE,
+                NULLIF(LTRIM(RTRIM(COALESCE(PREQ.NOME, FREQ.NOME))), '') AS NOMEREQUISITANTE,
+                R.JUSTIFICATIVA
+            FROM VREQTRANSFPROMOCAO R
+            LEFT JOIN PFUNCAO FO
+                ON FO.CODCOLIGADA = R.CODCOLIGADA
+               AND FO.CODIGO = R.CODFUNCAOORG
+            LEFT JOIN PFUNCAO FD
+                ON FD.CODCOLIGADA = R.CODCOLIGADA
+               AND FD.CODIGO = R.CODFUNCAO
+            LEFT JOIN PSECAO SO
+                ON SO.CODCOLIGADA = R.CODCOLIGADA
+               AND SO.CODIGO = R.CODSECAOORG
+            LEFT JOIN PSECAO SD
+                ON SD.CODCOLIGADA = R.CODCOLIGADA
+               AND SD.CODIGO = R.CODSECAO
+            LEFT JOIN PFUNC FREQ
+                ON FREQ.CODCOLIGADA = R.CODCOLREQUISITANTE
+               AND FREQ.CHAPA = R.CHAPAREQUISITANTE
+            LEFT JOIN PPESSOA PREQ
+                ON PREQ.CODIGO = FREQ.CODPESSOA
+            WHERE R.CHAPA IN ({0})
+              AND R.IDREQ IS NOT NULL;
+            """, async reader =>
+        {
+            var codColigada = DbString(reader, "CODCOLIGADA");
+            var chapa = DbString(reader, "CHAPA");
+            if (string.IsNullOrWhiteSpace(chapa) || !selectedKeys.Contains(LiveEmployeeKey(codColigada, chapa)))
+                return;
+
+            var (tipo, descricao) = MapTransfPromocaoMotivo(DbString(reader, "CODMOTMUDFUNCAO"));
+            result.Add(new LiveMovimentacaoRm(
+                codColigada,
+                chapa,
+                DbString(reader, "IDREQ") ?? "",
+                tipo,
+                descricao,
+                DbDateTime(reader, "DATAABERTURA") ?? DateTime.UtcNow,
+                DbDateTime(reader, "DATACONCLUSAO"),
+                DbInt(reader, "CODSTATUS") ?? 0,
+                MapStatus(DbInt(reader, "CODSTATUS")),
+                DbString(reader, "CODFUNCAOORG"),
+                DbString(reader, "CODFUNCAO"),
+                DbString(reader, "CODSECAOORG"),
+                DbString(reader, "CODSECAO"),
+                DbString(reader, "FUNCAOORIGEMNOME"),
+                DbString(reader, "FUNCAODESTINONOME"),
+                DbString(reader, "SECAOORIGEMDESCRICAO"),
+                DbString(reader, "SECAODESTINODESCRICAO"),
+                DbDecimal(reader, "VLRSALARIOORG"),
+                DbDecimal(reader, "VLRSALARIO"),
+                DbString(reader, "CHAPAREQUISITANTE"),
+                DbString(reader, "NOMEREQUISITANTE"),
+                DbString(reader, "JUSTIFICATIVA"),
+                null));
+            await Task.CompletedTask;
+        }, ct);
+    }
+
+    private static async Task LoadDesligamentosLiveAsync(
+        SqlConnection conn,
+        IReadOnlyList<string> chapas,
+        IReadOnlySet<string> selectedKeys,
+        List<LiveMovimentacaoRm> result,
+        CancellationToken ct)
+    {
+        await QueryChapaBatchesAsync(conn, chapas, """
+            SELECT
+                CAST(R.CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                NULLIF(LTRIM(RTRIM(R.CHAPA)), '') AS CHAPA,
+                R.IDREQ,
+                R.DATAABERTURA,
+                R.DATACONCLUSAO,
+                R.CODSTATUS,
+                R.CRIASUBSTITUICAO,
+                NULLIF(LTRIM(RTRIM(R.CHAPAREQUISITANTE)), '') AS CHAPAREQUISITANTE,
+                NULLIF(LTRIM(RTRIM(COALESCE(PREQ.NOME, FREQ.NOME))), '') AS NOMEREQUISITANTE,
+                R.JUSTIFICATIVA
+            FROM VREQDESLIGAMENTO R
+            LEFT JOIN PFUNC FREQ
+                ON FREQ.CODCOLIGADA = R.CODCOLREQUISITANTE
+               AND FREQ.CHAPA = R.CHAPAREQUISITANTE
+            LEFT JOIN PPESSOA PREQ
+                ON PREQ.CODIGO = FREQ.CODPESSOA
+            WHERE R.CHAPA IN ({0})
+              AND R.IDREQ IS NOT NULL;
+            """, async reader =>
+        {
+            var codColigada = DbString(reader, "CODCOLIGADA");
+            var chapa = DbString(reader, "CHAPA");
+            if (string.IsNullOrWhiteSpace(chapa) || !selectedKeys.Contains(LiveEmployeeKey(codColigada, chapa)))
+                return;
+
+            result.Add(new LiveMovimentacaoRm(
+                codColigada,
+                chapa,
+                $"DESL-{DbString(reader, "IDREQ")}",
+                5,
+                "Desligamento",
+                DbDateTime(reader, "DATAABERTURA") ?? DateTime.UtcNow,
+                DbDateTime(reader, "DATACONCLUSAO"),
+                DbInt(reader, "CODSTATUS") ?? 0,
+                MapStatus(DbInt(reader, "CODSTATUS")),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                DbString(reader, "CHAPAREQUISITANTE"),
+                DbString(reader, "NOMEREQUISITANTE"),
+                DbString(reader, "JUSTIFICATIVA"),
+                (DbInt(reader, "CRIASUBSTITUICAO") ?? 0) == 1));
+            await Task.CompletedTask;
+        }, ct);
+    }
+
+    private static async Task QueryChapaBatchesAsync(
+        SqlConnection conn,
+        IReadOnlyList<string> chapas,
+        string sqlTemplate,
+        Func<SqlDataReader, Task> handleRow,
+        CancellationToken ct)
+    {
+        const int batchSize = 900;
+        for (var offset = 0; offset < chapas.Count; offset += batchSize)
+        {
+            var batch = chapas.Skip(offset).Take(batchSize).ToList();
+            var parameters = batch.Select((_, index) => $"@p{index}").ToList();
+            await using var cmd = new SqlCommand(string.Format(System.Globalization.CultureInfo.InvariantCulture, sqlTemplate, string.Join(", ", parameters)), conn);
+            for (var i = 0; i < batch.Count; i++)
+                cmd.Parameters.AddWithValue($"@p{i}", batch[i]);
+
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                await handleRow(reader);
+        }
+    }
+
+    private static string LiveEmployeeKey(string? codColigada, string? chapa) =>
+        $"{NormalizeRmCode(codColigada)}|{chapa?.Trim() ?? ""}";
+
+    private static string NormalizeRmCode(string? value)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) return "";
+        return int.TryParse(trimmed, out var numeric)
+            ? numeric.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : trimmed;
+    }
+
+    private static DateTime LiveMovementDate(LiveMovimentacaoRm mov) =>
+        mov.DataConclusao ?? mov.DataAbertura;
+
+    private static string? FormatCodeDescription(string? code, string? description)
+    {
+        var trimmedCode = code?.Trim();
+        var trimmedDescription = description?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedCode)) return string.IsNullOrWhiteSpace(trimmedDescription) ? null : trimmedDescription;
+        if (string.IsNullOrWhiteSpace(trimmedDescription)) return trimmedCode;
+        return $"{trimmedCode} - {trimmedDescription}";
+    }
+
+    private static string? FormatTwoDigitCodeDescription(string? code, string? description)
+    {
+        var trimmedCode = code?.Trim();
+        if (!string.IsNullOrWhiteSpace(trimmedCode) && int.TryParse(trimmedCode, out var numeric))
+            trimmedCode = numeric.ToString("00", System.Globalization.CultureInfo.InvariantCulture);
+        return FormatCodeDescription(trimmedCode, description);
+    }
+
+    private static string SituacaoRmDescricao(string? code) => code?.Trim().ToUpperInvariant() switch
+    {
+        "A" => "Ativo",
+        "F" => "Férias",
+        "P" => "Pré-admissão",
+        "D" => "Demitido",
+        "I" => "Inativo",
+        "T" => "Transferido",
+        "R" => "Aposentado",
+        "B" => "Beneficiário",
+        "S" => "Substituição",
+        "Z" => "Outros (Z)",
+        "W" => "Outros (W)",
+        "M" => "Outros (M)",
+        null or "" => "Não informado",
+        var value => $"Código {value}"
+    };
+
+    private static bool IsRmActiveStatus(string? code) =>
+        code?.Trim().ToUpperInvariant() is "A" or "F" or "P";
+
+    private static string MapStatus(int? codStatus) => codStatus switch
+    {
+        1 => "Aberta",
+        2 => "Em análise",
+        3 => "Aprovada",
+        4 => "Concluída",
+        5 => "Em andamento",
+        6 => "Cancelada",
+        7 => "Rejeitada",
+        null => "Status não informado",
+        _ => $"Status {codStatus}"
+    };
+
+    private static (short Tipo, string Descricao) MapTransfPromocaoMotivo(string? motivo)
+    {
+        var code = motivo?.Trim();
+        return code switch
+        {
+            "05" or "5" => ((short)1, "Promoção"),
+            "01" or "1" => ((short)3, "Mudança de função"),
+            _ => ((short)2, "Transferência"),
+        };
+    }
+
+    private static string? DbString(SqlDataReader reader, string name)
+    {
+        var value = reader[name];
+        return value is DBNull ? null : value.ToString()?.Trim();
+    }
+
+    private static DateTime? DbDateTime(SqlDataReader reader, string name)
+    {
+        var value = reader[name];
+        return value is DBNull ? null : Convert.ToDateTime(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static decimal? DbDecimal(SqlDataReader reader, string name)
+    {
+        var value = reader[name];
+        return value is DBNull ? null : Convert.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static int? DbInt(SqlDataReader reader, string name)
+    {
+        var value = reader[name];
+        return value is DBNull ? null : Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private sealed record LiveFuncionarioRm(
+        string? CodColigada,
+        string Chapa,
+        string? EmpresaDescricao,
+        string? CodFilial,
+        string? CodSituacao,
+        string SituacaoDescricao,
+        string StatusPortal,
+        DateTime? DataAdmissao,
+        string? Nome,
+        string? Email,
+        string? Telefone,
+        string? Cpf,
+        DateTime? DataNascimento,
+        string? Sexo,
+        string? EstadoCivil,
+        string? GrauInstrucao,
+        string? Naturalidade,
+        string? EstadoNatal,
+        string? Cep,
+        string? Logradouro,
+        string? NumeroEndereco,
+        string? Complemento,
+        string? Bairro,
+        string? Cidade,
+        string? Uf,
+        string? Rg,
+        string? RgOrgEmissor,
+        string? RgUf,
+        DateTime? RgDataEmissao,
+        string? CarteiraTrabalho,
+        string? CarteiraTrabalhoSerie,
+        string? CarteiraTrabalhoUf,
+        DateTime? CarteiraTrabalhoData,
+        string? NumeroPis,
+        string? TituloEleitor,
+        string? TituloEleitorZona,
+        string? TituloEleitorSecao,
+        string? CertificadoReservista,
+        string? CategoriaMilitar,
+        string? Nacionalidade,
+        string? NomePai,
+        string? NomeMae,
+        string? CodSecao,
+        string? CentroCustoDescricao,
+        string? CodFuncao,
+        string? FuncaoNome,
+        string? CodigoCargo,
+        string? CargoNome,
+        decimal? SalarioAtual,
+        string? FilialDescricao,
+        string? GestorDiretoNome,
+        string? HierarquiaDescricao);
+
+    private sealed record LiveMovimentacaoRm(
+        string? CodColigada,
+        string Chapa,
+        string IdReqRm,
+        short TipoMovimentacao,
+        string TipoDescricao,
+        DateTime DataAbertura,
+        DateTime? DataConclusao,
+        int CodStatus,
+        string StatusDescricao,
+        string? CodFuncaoOrigem,
+        string? CodFuncaoDestino,
+        string? CodSecaoOrigem,
+        string? CodSecaoDestino,
+        string? FuncaoOrigemNome,
+        string? FuncaoDestinoNome,
+        string? SecaoOrigemDescricao,
+        string? SecaoDestinoDescricao,
+        decimal? SalarioOrigem,
+        decimal? SalarioDestino,
+        string? GestorHistoricoChapaRm,
+        string? GestorHistoricoNome,
+        string? Justificativa,
+        bool? GerouSubstituicao);
+
     private static async Task<Dictionary<string, (string? Chapa, string? Nome)>> LoadGestoresHistoricosFromRmAsync(
         RmConnectionOptions options,
         IReadOnlyList<FuncionarioMovimentacao> movimentacoes,

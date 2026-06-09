@@ -45,6 +45,7 @@ interface ReportResponse {
 
 const DEFAULT_TAKE = 5000;
 type ReportRow = Record<string, unknown>;
+type ReportDataSource = "portal" | "rm-live";
 
 function formatCell(value: unknown, key?: string) {
   if (value === null || value === undefined || value === "") return "—";
@@ -327,6 +328,7 @@ export default function FuncionarioRmReportScreen() {
   const [somenteRm, setSomenteRm] = useState(true);
   const [incluirMovimentacoes, setIncluirMovimentacoes] = useState(false);
   const [take, setTake] = useState(DEFAULT_TAKE);
+  const [dataSource, setDataSource] = useState<ReportDataSource>("portal");
   const [selectedFichaRow, setSelectedFichaRow] = useState<ReportRow | null>(null);
   const requestSeqRef = useRef(0);
 
@@ -343,7 +345,10 @@ export default function FuncionarioRmReportScreen() {
       if (q.trim()) params.set("q", q.trim());
       if (status !== "all") params.set("status", status);
 
-      const res = await apiFetch(`/api/reports/funcionarios-rm?${params.toString()}`, {
+      const endpoint = dataSource === "rm-live"
+        ? "/api/reports/funcionarios-rm-live"
+        : "/api/reports/funcionarios-rm";
+      const res = await apiFetch(`${endpoint}?${params.toString()}`, {
         cache: "no-store",
       });
       if (!res.ok) {
@@ -364,7 +369,7 @@ export default function FuncionarioRmReportScreen() {
         setLoading(false);
       }
     }
-  }, [incluirMovimentacoes, q, somenteRm, status, take]);
+  }, [dataSource, incluirMovimentacoes, q, somenteRm, status, take]);
 
   useEffect(() => {
     void load();
@@ -383,7 +388,7 @@ export default function FuncionarioRmReportScreen() {
           <div className="text-muted-foreground text-sm">Admin &gt; Relatórios</div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Relatório de Funcionários RM</h1>
           <p className="text-muted-foreground text-sm">
-            Dados importados do TOTVS RM e materializados no Portal para conferência em HTML.
+            Dados de funcionários RM para conferência em HTML, com opção de consulta ao RM em tempo real.
           </p>
         </div>
 
@@ -401,7 +406,7 @@ export default function FuncionarioRmReportScreen() {
       </div>
 
       <div className="rounded-xl border border-border/50 bg-card p-4">
-        <div className="grid gap-3 lg:grid-cols-[1fr_180px_160px_160px_160px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px_160px_160px_160px_auto]">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -414,6 +419,15 @@ export default function FuncionarioRmReportScreen() {
               className="pl-8"
             />
           </div>
+          <select
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            value={dataSource}
+            onChange={(e) => setDataSource(e.target.value as ReportDataSource)}
+            title="Fonte dos dados"
+          >
+            <option value="portal">Portal sincronizado</option>
+            <option value="rm-live">RM tempo real</option>
+          </select>
           <select
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             value={status}
@@ -469,8 +483,17 @@ export default function FuncionarioRmReportScreen() {
           <p className="mt-1 text-sm font-semibold">
             {data?.generatedAtUtc ? new Date(data.generatedAtUtc).toLocaleString("pt-BR") : "—"}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Fonte: {dataSource === "rm-live" ? "Banco RM em tempo real" : "Portal sincronizado"}
+          </p>
         </div>
       </div>
+
+      {dataSource === "rm-live" && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          Modo RM tempo real: a API do Portal consulta diretamente o banco do RM e não usa os dados de funcionários/movimentações já sincronizados no Portal.
+        </div>
+      )}
 
       {truncated && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
