@@ -1442,7 +1442,7 @@ public sealed class ReportsController : ControllerBase
     {
         await QueryChapaBatchesAsync(conn, chapas, """
             SELECT
-                CAST(R.CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                CAST(R.CODCOLREQUISICAO AS varchar(20)) AS CODCOLIGADA,
                 NULLIF(LTRIM(RTRIM(R.CHAPA)), '') AS CHAPA,
                 R.IDREQ,
                 NULLIF(LTRIM(RTRIM(R.CODMOTMUDFUNCAO)), '') AS CODMOTMUDFUNCAO,
@@ -1464,16 +1464,16 @@ public sealed class ReportsController : ControllerBase
                 R.JUSTIFICATIVA
             FROM VREQTRANSFPROMOCAO R
             LEFT JOIN PFUNCAO FO
-                ON FO.CODCOLIGADA = R.CODCOLIGADA
+                ON FO.CODCOLIGADA = R.CODCOLREQUISICAO
                AND FO.CODIGO = R.CODFUNCAOORG
             LEFT JOIN PFUNCAO FD
-                ON FD.CODCOLIGADA = R.CODCOLIGADA
+                ON FD.CODCOLIGADA = R.CODCOLREQUISICAO
                AND FD.CODIGO = R.CODFUNCAO
             LEFT JOIN PSECAO SO
-                ON SO.CODCOLIGADA = R.CODCOLIGADA
+                ON SO.CODCOLIGADA = R.CODCOLREQUISICAO
                AND SO.CODIGO = R.CODSECAOORG
             LEFT JOIN PSECAO SD
-                ON SD.CODCOLIGADA = R.CODCOLIGADA
+                ON SD.CODCOLIGADA = R.CODCOLREQUISICAO
                AND SD.CODIGO = R.CODSECAO
             LEFT JOIN PFUNC FREQ
                 ON FREQ.CODCOLIGADA = R.CODCOLREQUISITANTE
@@ -1527,7 +1527,7 @@ public sealed class ReportsController : ControllerBase
     {
         await QueryChapaBatchesAsync(conn, chapas, """
             SELECT
-                CAST(R.CODCOLIGADA AS varchar(20)) AS CODCOLIGADA,
+                CAST(R.CODCOLREQUISICAO AS varchar(20)) AS CODCOLIGADA,
                 NULLIF(LTRIM(RTRIM(R.CHAPA)), '') AS CHAPA,
                 R.IDREQ,
                 R.DATAABERTURA,
