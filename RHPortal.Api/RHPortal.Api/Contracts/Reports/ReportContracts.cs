@@ -96,6 +96,15 @@ public sealed record FuncionarioRmReportRowResponse(
     string? MovimentacaoCodSecaoDestino,
     decimal? MovimentacaoSalarioOrigem,
     decimal? MovimentacaoSalarioDestino,
+    DateTime? MovimentacaoPeriodoInicio,
+    DateTime? MovimentacaoPeriodoFim,
+    int? MovimentacaoTempoFuncaoDias,
+    string? MovimentacaoTempoFuncao,
+    decimal? MovimentacaoSalarioAnterior,
+    decimal? MovimentacaoDiferencaSalarioAnterior,
+    decimal? MovimentacaoPercentualSalarioAnterior,
+    string? MovimentacaoGestorHistoricoChapaRm,
+    string? MovimentacaoGestorHistoricoNome,
     string? MovimentacaoJustificativa,
     bool? MovimentacaoGerouSubstituicao
 );

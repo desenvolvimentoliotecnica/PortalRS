@@ -387,6 +387,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.CodSecaoDestino).HasMaxLength(60);
             b.Property(x => x.CodFuncaoDestino).HasMaxLength(20);
             b.Property(x => x.FuncaoDestinoNome).HasMaxLength(160);
+            b.Property(x => x.GestorHistoricoChapaRm).HasMaxLength(20);
+            b.Property(x => x.GestorHistoricoNome).HasMaxLength(160);
             b.Property(x => x.SalarioOrigem).HasPrecision(18, 2);
             b.Property(x => x.SalarioDestino).HasPrecision(18, 2);
             b.HasIndex(x => new { x.TenantId, x.IdReqRm }).IsUnique();

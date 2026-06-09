@@ -25,9 +25,16 @@ const DEFAULT_TAKE = 5000;
 function formatCell(value: unknown, key?: string) {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "Sim" : "Não";
-  if ((key === "salarioAtual" || key === "movimentacaoSalarioOrigem" || key === "movimentacaoSalarioDestino")
+  if ((key === "salarioAtual"
+    || key === "movimentacaoSalarioOrigem"
+    || key === "movimentacaoSalarioDestino"
+    || key === "movimentacaoSalarioAnterior"
+    || key === "movimentacaoDiferencaSalarioAnterior")
     && typeof value === "number") {
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+  if (key === "movimentacaoPercentualSalarioAnterior" && typeof value === "number") {
+    return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
   }
   if (typeof value === "string") {
     if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(value)) {

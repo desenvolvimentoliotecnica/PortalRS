@@ -75,6 +75,14 @@ public sealed class FuncionarioMovimentacao : ITenantEntity
     /// <summary>Justificativa do gestor / RH.</summary>
     public string? Justificativa { get; set; }
 
+    /// <summary>Chapa do gestor/requisitante histórico informado pela requisição RM.</summary>
+    [MaxLength(20)]
+    public string? GestorHistoricoChapaRm { get; set; }
+
+    /// <summary>Nome do gestor/requisitante histórico resolvido a partir de PFUNC/PPESSOA no momento da importação.</summary>
+    [MaxLength(160)]
+    public string? GestorHistoricoNome { get; set; }
+
     /// <summary>Quando aplicável (Desligamento), flag se gerou substituição.</summary>
     public bool? GerouSubstituicao { get; set; }
 

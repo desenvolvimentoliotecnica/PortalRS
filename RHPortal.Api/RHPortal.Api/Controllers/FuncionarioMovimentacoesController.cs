@@ -40,7 +40,8 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
                 m.DataAbertura, m.DataConclusao, m.CodStatus, m.StatusDescricao,
                 m.CodFuncaoOrigem, m.CodFuncaoDestino, m.CodSecaoOrigem, m.CodSecaoDestino,
                 m.IdHierarquiaOrigemRm, m.IdHierarquiaDestinoRm,
-                m.SalarioOrigem, m.SalarioDestino, m.GerouSubstituicao))
+                m.SalarioOrigem, m.SalarioDestino, m.GestorHistoricoChapaRm, m.GestorHistoricoNome,
+                m.GerouSubstituicao))
             .ToListAsync(ct);
         return Ok(rows);
     }
@@ -66,7 +67,7 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
                 m.ChapaRm, m.IdReqRm, m.TipoMovimentacao, m.TipoDescricao,
                 m.DataAbertura, m.DataConclusao, m.CodStatus, m.StatusDescricao,
                 m.CodFuncaoOrigem, m.CodFuncaoDestino,
-                m.SalarioOrigem, m.SalarioDestino))
+                m.SalarioOrigem, m.SalarioDestino, m.GestorHistoricoChapaRm, m.GestorHistoricoNome))
             .ToListAsync(ct);
         return Ok(rows);
     }
@@ -137,6 +138,8 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
                 existing.SalarioOrigem = item.SalarioOrigem;
                 existing.SalarioDestino = item.SalarioDestino;
                 existing.Justificativa = item.Justificativa;
+                existing.GestorHistoricoChapaRm = item.GestorHistoricoChapaRm;
+                existing.GestorHistoricoNome = item.GestorHistoricoNome;
                 existing.GerouSubstituicao = item.GerouSubstituicao;
                 existing.UpdatedAtUtc = now;
                 updated++;
@@ -168,6 +171,8 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
                     SalarioOrigem = item.SalarioOrigem,
                     SalarioDestino = item.SalarioDestino,
                     Justificativa = item.Justificativa,
+                    GestorHistoricoChapaRm = item.GestorHistoricoChapaRm,
+                    GestorHistoricoNome = item.GestorHistoricoNome,
                     GerouSubstituicao = item.GerouSubstituicao,
                     CreatedAtUtc = now,
                     UpdatedAtUtc = now,

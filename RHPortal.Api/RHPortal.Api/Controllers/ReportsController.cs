@@ -615,7 +615,24 @@ public sealed class ReportsController : ControllerBase
         static DateOnly? AsDateOnly(DateTime? value) =>
             value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
 
-        FuncionarioRmReportRowResponse BuildRow(Funcionario f, FuncionarioMovimentacao? mov)
+        static DateTime MovementDate(FuncionarioMovimentacao mov) =>
+            mov.DataConclusao ?? mov.DataAbertura;
+
+        static string? FormatDuration(int? days)
+        {
+            if (!days.HasValue) return null;
+            var years = days.Value / 365;
+            var months = (days.Value % 365) / 30;
+            var remainingDays = (days.Value % 365) % 30;
+            if (years > 0) return $"{years}a {months}m {remainingDays}d";
+            if (months > 0) return $"{months}m {remainingDays}d";
+            return $"{remainingDays}d";
+        }
+
+        FuncionarioRmReportRowResponse BuildRow(
+            Funcionario f,
+            FuncionarioMovimentacao? mov,
+            (DateTime? Inicio, DateTime? Fim, int? Dias, decimal? SalarioAnterior, decimal? DiferencaSalario, decimal? PercentualSalario)? calc = null)
         {
             var pessoa = f.Pessoa;
             var nivelNome = f.NivelHierarquico?.Nome
@@ -692,6 +709,15 @@ public sealed class ReportsController : ControllerBase
                 mov?.CodSecaoDestino,
                 mov?.SalarioOrigem,
                 mov?.SalarioDestino,
+                calc?.Inicio,
+                calc?.Fim,
+                calc?.Dias,
+                FormatDuration(calc?.Dias),
+                calc?.SalarioAnterior,
+                calc?.DiferencaSalario,
+                calc?.PercentualSalario,
+                mov?.GestorHistoricoChapaRm,
+                mov?.GestorHistoricoNome,
                 mov?.Justificativa,
                 mov?.GerouSubstituicao);
         }
@@ -714,7 +740,42 @@ public sealed class ReportsController : ControllerBase
             {
                 if (movimentacoesByFuncionario.TryGetValue(funcionario.Id, out var movimentos) && movimentos.Count > 0)
                 {
-                    rows.AddRange(movimentos.Select(m => BuildRow(funcionario, m)));
+                    var movimentosCronologicos = movimentos
+                        .OrderBy(MovementDate)
+                        .ThenBy(m => m.UpdatedAtUtc)
+                        .ToList();
+                    var calculos = new Dictionary<Guid, (DateTime? Inicio, DateTime? Fim, int? Dias, decimal? SalarioAnterior, decimal? DiferencaSalario, decimal? PercentualSalario)>();
+                    decimal? ultimoSalarioDestino = null;
+                    for (var i = 0; i < movimentosCronologicos.Count; i++)
+                    {
+                        var atual = movimentosCronologicos[i];
+                        var inicio = MovementDate(atual);
+                        DateTime? fim = i + 1 < movimentosCronologicos.Count
+                            ? MovementDate(movimentosCronologicos[i + 1])
+                            : atual.TipoMovimentacao == 5
+                                ? atual.DataConclusao ?? atual.DataAbertura
+                                : DateTime.UtcNow;
+                        int? dias = fim.HasValue && fim.Value >= inicio
+                            ? (int)Math.Floor((fim.Value.Date - inicio.Date).TotalDays)
+                            : null;
+                        var salarioAnterior = atual.SalarioOrigem ?? ultimoSalarioDestino;
+                        var salarioReferencia = atual.SalarioDestino;
+                        var diferencaSalario = salarioReferencia.HasValue && salarioAnterior.HasValue
+                            ? salarioReferencia.Value - salarioAnterior.Value
+                            : (decimal?)null;
+                        var percentualSalario = diferencaSalario.HasValue && salarioAnterior.HasValue && salarioAnterior.Value != 0
+                            ? Math.Round((diferencaSalario.Value / salarioAnterior.Value) * 100, 2)
+                            : (decimal?)null;
+
+                        calculos[atual.Id] = (inicio, fim, dias, salarioAnterior, diferencaSalario, percentualSalario);
+                        if (atual.SalarioDestino.HasValue)
+                            ultimoSalarioDestino = atual.SalarioDestino;
+                    }
+
+                    rows.AddRange(movimentosCronologicos
+                        .OrderByDescending(MovementDate)
+                        .ThenByDescending(m => m.UpdatedAtUtc)
+                        .Select(m => BuildRow(funcionario, m, calculos.GetValueOrDefault(m.Id))));
                 }
                 else
                 {
@@ -810,6 +871,15 @@ public sealed class ReportsController : ControllerBase
         new("movimentacaoCodSecaoDestino", "Seção destino", "Centro de custo/seção após a movimentação, quando disponível."),
         new("movimentacaoSalarioOrigem", "Salário origem", "Salário antes da movimentação, quando informado no histórico RM."),
         new("movimentacaoSalarioDestino", "Salário destino", "Salário após a movimentação, quando informado no histórico RM."),
+        new("movimentacaoPeriodoInicio", "Período início", "Data usada como início do período na função/cargo após a movimentação."),
+        new("movimentacaoPeriodoFim", "Período fim", "Próxima movimentação do funcionário ou data atual para a movimentação mais recente; desligamento usa a própria data do evento."),
+        new("movimentacaoTempoFuncaoDias", "Tempo função dias", "Quantidade de dias calculada entre o início e o fim do período da função/cargo."),
+        new("movimentacaoTempoFuncao", "Tempo função", "Tempo calculado em anos, meses e dias para facilitar leitura."),
+        new("movimentacaoSalarioAnterior", "Salário anterior calc.", "Salário usado como base de comparação: salário origem da movimentação ou último salário destino conhecido."),
+        new("movimentacaoDiferencaSalarioAnterior", "Dif. salário", "Diferença calculada entre salário destino e salário anterior."),
+        new("movimentacaoPercentualSalarioAnterior", "% salário", "Percentual calculado da diferença salarial em relação ao salário anterior."),
+        new("movimentacaoGestorHistoricoChapaRm", "Gestor hist. chapa", "CHAPA do gestor/requisitante histórico informado na requisição RM."),
+        new("movimentacaoGestorHistoricoNome", "Gestor hist. nome", "Nome do gestor/requisitante histórico resolvido a partir de PFUNC/PPESSOA na importação."),
         new("movimentacaoJustificativa", "Mov. justificativa", "Justificativa observada na movimentação ou descrição complementar do histórico salarial."),
         new("movimentacaoGerouSubstituicao", "Gerou substituição", "Indica se a movimentação de desligamento gerou substituição.")
     ];
