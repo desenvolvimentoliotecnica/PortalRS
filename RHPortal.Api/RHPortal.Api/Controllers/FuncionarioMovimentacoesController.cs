@@ -38,7 +38,8 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
             .Select(m => new FuncionarioMovimentacaoListItem(
                 m.Id, m.FuncionarioId, m.ChapaRm, m.IdReqRm, m.TipoMovimentacao, m.TipoDescricao,
                 m.DataAbertura, m.DataConclusao, m.CodStatus, m.StatusDescricao,
-                m.CodFuncaoOrigem, m.CodFuncaoDestino, m.CodSecaoOrigem, m.CodSecaoDestino,
+                m.CodFuncaoOrigem, m.CodFuncaoDestino, m.FuncaoOrigemNome, m.FuncaoDestinoNome,
+                m.CodSecaoOrigem, m.CodSecaoDestino,
                 m.IdHierarquiaOrigemRm, m.IdHierarquiaDestinoRm,
                 m.SalarioOrigem, m.SalarioDestino, m.GestorHistoricoChapaRm, m.GestorHistoricoNome,
                 m.GerouSubstituicao))
@@ -66,7 +67,7 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
                 m.Funcionario != null ? m.Funcionario.Name : null,
                 m.ChapaRm, m.IdReqRm, m.TipoMovimentacao, m.TipoDescricao,
                 m.DataAbertura, m.DataConclusao, m.CodStatus, m.StatusDescricao,
-                m.CodFuncaoOrigem, m.CodFuncaoDestino,
+                m.CodFuncaoOrigem, m.CodFuncaoDestino, m.FuncaoOrigemNome, m.FuncaoDestinoNome,
                 m.SalarioOrigem, m.SalarioDestino, m.GestorHistoricoChapaRm, m.GestorHistoricoNome))
             .ToListAsync(ct);
         return Ok(rows);
@@ -129,6 +130,8 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
                 existing.StatusDescricao = item.StatusDescricao;
                 existing.CodFuncaoOrigem = item.CodFuncaoOrigem;
                 existing.CodFuncaoDestino = item.CodFuncaoDestino;
+                existing.FuncaoOrigemNome = item.FuncaoOrigemNome;
+                existing.FuncaoDestinoNome = item.FuncaoDestinoNome;
                 existing.CodSecaoOrigem = item.CodSecaoOrigem;
                 existing.CodSecaoDestino = item.CodSecaoDestino;
                 existing.HierarquiaOrigemId = hierOrigemId;
@@ -162,6 +165,8 @@ public sealed class FuncionarioMovimentacoesController : ControllerBase
                     StatusDescricao = item.StatusDescricao,
                     CodFuncaoOrigem = item.CodFuncaoOrigem,
                     CodFuncaoDestino = item.CodFuncaoDestino,
+                    FuncaoOrigemNome = item.FuncaoOrigemNome,
+                    FuncaoDestinoNome = item.FuncaoDestinoNome,
                     CodSecaoOrigem = item.CodSecaoOrigem,
                     CodSecaoDestino = item.CodSecaoDestino,
                     HierarquiaOrigemId = hierOrigemId,

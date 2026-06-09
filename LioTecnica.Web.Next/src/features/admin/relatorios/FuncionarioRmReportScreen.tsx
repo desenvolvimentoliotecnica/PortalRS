@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSpreadsheet, Printer, RefreshCw, Search } from "lucide-react";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -46,22 +47,16 @@ function formatCell(value: unknown, key?: string) {
   return String(value);
 }
 
-function escapeTsv(value: unknown, key?: string) {
-  return formatCell(value, key).replace(/\t/g, " ").replace(/\r?\n/g, " ");
-}
-
-function exportTsv(data: ReportResponse) {
-  const lines = [
-    data.columns.map((c) => c.label).join("\t"),
-    ...data.rows.map((row) => data.columns.map((c) => escapeTsv(row[c.key], c.key)).join("\t")),
-  ];
-  const blob = new Blob([lines.join("\n")], { type: "text/tab-separated-values;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `relatorio-funcionarios-rm-${new Date().toISOString().slice(0, 10)}.tsv`;
-  a.click();
-  URL.revokeObjectURL(url);
+function exportXlsx(data: ReportResponse) {
+  const rows = data.rows.map((row) => Object.fromEntries(
+    data.columns.map((column) => [column.label, formatCell(row[column.key], column.key)]),
+  ));
+  const worksheet = XLSX.utils.json_to_sheet(rows, {
+    header: data.columns.map((column) => column.label),
+  });
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Funcionarios RM");
+  XLSX.writeFile(workbook, `relatorio-funcionarios-rm-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 export default function FuncionarioRmReportScreen() {
@@ -72,8 +67,11 @@ export default function FuncionarioRmReportScreen() {
   const [somenteRm, setSomenteRm] = useState(true);
   const [incluirMovimentacoes, setIncluirMovimentacoes] = useState(false);
   const [take, setTake] = useState(DEFAULT_TAKE);
+  const requestSeqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -91,12 +89,19 @@ export default function FuncionarioRmReportScreen() {
         const body = await res.json().catch(() => null) as { message?: string; detail?: string } | null;
         throw new Error(body?.message || body?.detail || `HTTP ${res.status}`);
       }
-      setData(await res.json() as ReportResponse);
+      const payload = await res.json() as ReportResponse;
+      if (requestSeqRef.current === requestSeq) {
+        setData(payload);
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao carregar relatório de funcionários RM.");
-      setData(null);
+      if (requestSeqRef.current === requestSeq) {
+        toast.error(error instanceof Error ? error.message : "Falha ao carregar relatório de funcionários RM.");
+        setData(null);
+      }
     } finally {
-      setLoading(false);
+      if (requestSeqRef.current === requestSeq) {
+        setLoading(false);
+      }
     }
   }, [incluirMovimentacoes, q, somenteRm, status, take]);
 
@@ -125,8 +130,8 @@ export default function FuncionarioRmReportScreen() {
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="size-4" /> Imprimir
           </Button>
-          <Button variant="outline" onClick={() => data && exportTsv(data)} disabled={!data || loading}>
-            <Download className="size-4" /> Exportar TSV
+          <Button variant="outline" onClick={() => data && exportXlsx(data)} disabled={!data || loading}>
+            <Download className="size-4" /> Exportar XLSX
           </Button>
           <Button variant="outline" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} /> Atualizar

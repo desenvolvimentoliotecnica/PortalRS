@@ -612,8 +612,75 @@ public sealed class ReportsController : ControllerBase
             .GroupBy(x => x.FuncionarioId)
             .ToDictionary(g => g.Key, g => g.First().SalarioDestino);
 
+        var empresaDescricaoByCode = await db.Empresas
+            .AsNoTracking()
+            .Select(e => new { e.Code, e.Description })
+            .ToListAsync(ct);
+        var estabDescricaoByCode = await db.Units
+            .AsNoTracking()
+            .Select(u => new { u.Code, Description = u.Name })
+            .ToListAsync(ct);
+        var centroCustoDescricaoByCode = await db.CentrosCusto
+            .AsNoTracking()
+            .Select(c => new { c.Code, c.Description })
+            .ToListAsync(ct);
+
+        static void AddCode(Dictionary<string, string> map, string? code, string? description)
+        {
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(description))
+                return;
+            var trimmed = code.Trim();
+            map.TryAdd(trimmed, description.Trim());
+            if (int.TryParse(trimmed, out var numeric))
+            {
+                map.TryAdd(numeric.ToString(), description.Trim());
+                map.TryAdd(numeric.ToString("00"), description.Trim());
+            }
+        }
+
+        var empresaDescricaoMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in empresaDescricaoByCode)
+            AddCode(empresaDescricaoMap, item.Code, item.Description);
+
+        var estabDescricaoMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in estabDescricaoByCode)
+            AddCode(estabDescricaoMap, item.Code, item.Description);
+        foreach (var item in empresaDescricaoByCode)
+            AddCode(estabDescricaoMap, item.Code, item.Description);
+
+        var centroCustoDescricaoMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in centroCustoDescricaoByCode)
+            AddCode(centroCustoDescricaoMap, item.Code, item.Description);
+
         static DateOnly? AsDateOnly(DateTime? value) =>
             value.HasValue ? DateOnly.FromDateTime(value.Value) : null;
+
+        static string? LookupDescription(Dictionary<string, string> map, string? code)
+        {
+            if (string.IsNullOrWhiteSpace(code)) return null;
+            return map.TryGetValue(code.Trim(), out var description) ? description : null;
+        }
+
+        static string? EstadoCivilDescricao(string? code) => code?.Trim() switch
+        {
+            "0" => "Não informado",
+            "1" => "Solteiro(a)",
+            "2" => "Casado(a)",
+            "3" => "Divorciado(a)",
+            "4" => "Viúvo(a)",
+            "5" => "União estável",
+            "6" => "Separado(a)",
+            "C" => "Casado(a)",
+            "D" => "Divorciado(a)",
+            "I" => "Divorciado(a)",
+            "O" => "Outros",
+            "P" => "Separado(a)",
+            "S" => "Solteiro(a)",
+            "U" => "União estável",
+            "V" => "Viúvo(a)",
+            null or "" => null,
+            var value => $"Código {value}"
+        };
 
         static DateTime MovementDate(FuncionarioMovimentacao mov) =>
             mov.DataConclusao ?? mov.DataAbertura;
@@ -642,7 +709,9 @@ public sealed class ReportsController : ControllerBase
 
             return new FuncionarioRmReportRowResponse(
                 f.CdnEmpresa,
+                LookupDescription(empresaDescricaoMap, f.CdnEmpresa) ?? (string.IsNullOrWhiteSpace(f.CdnEmpresa) ? null : $"Coligada {f.CdnEmpresa}"),
                 f.CdnEstab,
+                LookupDescription(estabDescricaoMap, f.CdnEstab),
                 f.CdnFuncionario,
                 f.MatriculaRm,
                 f.Name,
@@ -656,6 +725,7 @@ public sealed class ReportsController : ControllerBase
                 f.Sexo ?? pessoa?.Sexo,
                 pessoa?.Cpf,
                 pessoa?.EstadoCivil,
+                EstadoCivilDescricao(pessoa?.EstadoCivil),
                 pessoa?.GrauInstrucao,
                 pessoa?.Naturalidade,
                 pessoa?.EstadoNatal,
@@ -707,6 +777,10 @@ public sealed class ReportsController : ControllerBase
                 mov?.CodFuncaoDestino,
                 mov?.CodSecaoOrigem,
                 mov?.CodSecaoDestino,
+                mov?.FuncaoOrigemNome ?? (mov?.CodFuncaoOrigem == f.CodFuncaoRm ? f.FuncaoNomeRm : null),
+                mov?.FuncaoDestinoNome ?? (mov?.CodFuncaoDestino == f.CodFuncaoRm ? f.FuncaoNomeRm : null),
+                LookupDescription(centroCustoDescricaoMap, mov?.CodSecaoOrigem),
+                LookupDescription(centroCustoDescricaoMap, mov?.CodSecaoDestino),
                 mov?.SalarioOrigem,
                 mov?.SalarioDestino,
                 calc?.Inicio,
@@ -800,7 +874,9 @@ public sealed class ReportsController : ControllerBase
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportColumns =
     [
         new("cdnEmpresa", "Empresa", "Código da coligada/empresa importado de PFUNC.CODCOLIGADA."),
+        new("cdnEmpresaDescricao", "Empresa desc.", "Descrição resolvida para o código de empresa/coligada quando houver cadastro correspondente no Portal."),
         new("cdnEstab", "Estab.", "Código do estabelecimento/filial importado de PFUNC.CODFILIAL."),
+        new("cdnEstabDescricao", "Estab. desc.", "Descrição do estabelecimento/filial resolvida pelo cadastro de unidades/empresas sincronizado de GFILIAL."),
         new("cdnFuncionario", "Matrícula", "Matrícula normalizada exibida no Portal; no RM vem da CHAPA."),
         new("matriculaRm", "Matrícula RM", "CHAPA original do funcionário no TOTVS RM."),
         new("nome", "Nome", "Nome do colaborador vindo de PPESSOA.NOME, via PFUNC.CODPESSOA."),
@@ -814,6 +890,7 @@ public sealed class ReportsController : ControllerBase
         new("sexo", "Sexo", "Código de sexo vindo de PPESSOA.SEXO."),
         new("cpf", "CPF", "CPF vindo de PPESSOA.CPF; usado para vincular Pessoa no Portal."),
         new("estadoCivil", "Estado civil", "Código de estado civil vindo de PPESSOA.ESTADOCIVIL."),
+        new("estadoCivilDescricao", "Estado civil desc.", "Descrição amigável resolvida a partir do código de estado civil do RM."),
         new("grauInstrucao", "Grau instrução", "Código de escolaridade vindo de PPESSOA.GRAUINSTRUCAO."),
         new("naturalidade", "Naturalidade", "Cidade de nascimento vinda de PPESSOA.NATURALIDADE."),
         new("estadoNatal", "UF nascimento", "UF de nascimento vinda de PPESSOA.ESTADONATAL."),
@@ -869,6 +946,10 @@ public sealed class ReportsController : ControllerBase
         new("movimentacaoCodFuncaoDestino", "Função destino", "Código da função após a movimentação, quando disponível."),
         new("movimentacaoCodSecaoOrigem", "Seção origem", "Centro de custo/seção antes da movimentação, quando disponível."),
         new("movimentacaoCodSecaoDestino", "Seção destino", "Centro de custo/seção após a movimentação, quando disponível."),
+        new("movimentacaoFuncaoOrigemNome", "Função origem nome", "Nome da função de origem resolvido por PFUNCAO.NOME quando disponível na importação."),
+        new("movimentacaoFuncaoDestinoNome", "Função destino nome", "Nome da função de destino resolvido por PFUNCAO.NOME quando disponível na importação."),
+        new("movimentacaoSecaoOrigemDescricao", "Seção origem desc.", "Descrição da seção/centro de custo de origem resolvida pelo cadastro do Portal."),
+        new("movimentacaoSecaoDestinoDescricao", "Seção destino desc.", "Descrição da seção/centro de custo de destino resolvida pelo cadastro do Portal."),
         new("movimentacaoSalarioOrigem", "Salário origem", "Salário antes da movimentação, quando informado no histórico RM."),
         new("movimentacaoSalarioDestino", "Salário destino", "Salário após a movimentação, quando informado no histórico RM."),
         new("movimentacaoPeriodoInicio", "Período início", "Data usada como início do período na função/cargo após a movimentação."),

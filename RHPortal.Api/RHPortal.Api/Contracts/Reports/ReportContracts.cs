@@ -29,7 +29,9 @@ public sealed record FuncionarioRmReportColumnResponse(
 
 public sealed record FuncionarioRmReportRowResponse(
     string? CdnEmpresa,
+    string? CdnEmpresaDescricao,
     string? CdnEstab,
+    string? CdnEstabDescricao,
     string? CdnFuncionario,
     string? MatriculaRm,
     string? Nome,
@@ -43,6 +45,7 @@ public sealed record FuncionarioRmReportRowResponse(
     string? Sexo,
     string? Cpf,
     string? EstadoCivil,
+    string? EstadoCivilDescricao,
     string? GrauInstrucao,
     string? Naturalidade,
     string? EstadoNatal,
@@ -94,6 +97,10 @@ public sealed record FuncionarioRmReportRowResponse(
     string? MovimentacaoCodFuncaoDestino,
     string? MovimentacaoCodSecaoOrigem,
     string? MovimentacaoCodSecaoDestino,
+    string? MovimentacaoFuncaoOrigemNome,
+    string? MovimentacaoFuncaoDestinoNome,
+    string? MovimentacaoSecaoOrigemDescricao,
+    string? MovimentacaoSecaoDestinoDescricao,
     decimal? MovimentacaoSalarioOrigem,
     decimal? MovimentacaoSalarioDestino,
     DateTime? MovimentacaoPeriodoInicio,

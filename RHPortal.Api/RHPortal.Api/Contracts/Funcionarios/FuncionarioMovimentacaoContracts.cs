@@ -13,6 +13,8 @@ public sealed record FuncionarioMovimentacaoListItem(
     string? StatusDescricao,
     string? CodFuncaoOrigem,
     string? CodFuncaoDestino,
+    string? FuncaoOrigemNome,
+    string? FuncaoDestinoNome,
     string? CodSecaoOrigem,
     string? CodSecaoDestino,
     int? IdHierarquiaOrigemRm,
@@ -36,6 +38,8 @@ public sealed class FuncionarioMovimentacaoUpsertRequest
     public string? StatusDescricao { get; set; }
     public string? CodFuncaoOrigem { get; set; }
     public string? CodFuncaoDestino { get; set; }
+    public string? FuncaoOrigemNome { get; set; }
+    public string? FuncaoDestinoNome { get; set; }
     public string? CodSecaoOrigem { get; set; }
     public string? CodSecaoDestino { get; set; }
     public int? IdHierarquiaOrigemRm { get; set; }
@@ -69,6 +73,8 @@ public sealed record FuncionarioMovimentacaoComNomeListItem(
     string? StatusDescricao,
     string? CodFuncaoOrigem,
     string? CodFuncaoDestino,
+    string? FuncaoOrigemNome,
+    string? FuncaoDestinoNome,
     decimal? SalarioOrigem,
     decimal? SalarioDestino,
     string? GestorHistoricoChapaRm,
