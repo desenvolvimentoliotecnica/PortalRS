@@ -665,6 +665,23 @@ public sealed class ReportsController : ControllerBase
             return map.TryGetValue(code.Trim(), out var description) ? description : null;
         }
 
+        static string? FormatCodeDescription(string? code, string? description)
+        {
+            var trimmedCode = code?.Trim();
+            var trimmedDescription = description?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedCode)) return string.IsNullOrWhiteSpace(trimmedDescription) ? null : trimmedDescription;
+            if (string.IsNullOrWhiteSpace(trimmedDescription)) return trimmedCode;
+            return $"{trimmedCode} - {trimmedDescription}";
+        }
+
+        static string? FormatTwoDigitCodeDescription(string? code, string? description)
+        {
+            var trimmedCode = code?.Trim();
+            if (!string.IsNullOrWhiteSpace(trimmedCode) && int.TryParse(trimmedCode, out var numeric))
+                trimmedCode = numeric.ToString("00", System.Globalization.CultureInfo.InvariantCulture);
+            return FormatCodeDescription(trimmedCode, description);
+        }
+
         static string? EstadoCivilDescricao(string? code) => code?.Trim() switch
         {
             "0" => "Não informado",
@@ -719,9 +736,9 @@ public sealed class ReportsController : ControllerBase
                 ?? f.CdnNivCargo?.ToString();
 
             return new FuncionarioRmReportRowResponse(
-                f.CdnEmpresa,
+                FormatTwoDigitCodeDescription(f.CdnEmpresa, LookupDescription(empresaDescricaoMap, f.CdnEmpresa) ?? (string.IsNullOrWhiteSpace(f.CdnEmpresa) ? null : $"Coligada {f.CdnEmpresa}")),
                 LookupDescription(empresaDescricaoMap, f.CdnEmpresa) ?? (string.IsNullOrWhiteSpace(f.CdnEmpresa) ? null : $"Coligada {f.CdnEmpresa}"),
-                f.CdnEstab,
+                FormatTwoDigitCodeDescription(f.CdnEstab, LookupDescription(estabDescricaoMap, f.CdnEstab)),
                 LookupDescription(estabDescricaoMap, f.CdnEstab),
                 f.CdnFuncionario,
                 f.MatriculaRm,
@@ -729,13 +746,13 @@ public sealed class ReportsController : ControllerBase
                 f.Email,
                 f.Phone,
                 f.Status.ToString(),
-                f.CodSituacaoRm,
+                FormatCodeDescription(f.CodSituacaoRm, f.SituacaoRmDescricao),
                 f.SituacaoRmDescricao,
                 f.DataAdmissao,
                 f.DataNascimento ?? AsDateOnly(pessoa?.DataNascimento),
                 f.Sexo ?? pessoa?.Sexo,
                 pessoa?.Cpf,
-                pessoa?.EstadoCivil,
+                FormatCodeDescription(pessoa?.EstadoCivil, EstadoCivilDescricao(pessoa?.EstadoCivil)),
                 EstadoCivilDescricao(pessoa?.EstadoCivil),
                 pessoa?.GrauInstrucao,
                 pessoa?.Naturalidade,
@@ -761,15 +778,15 @@ public sealed class ReportsController : ControllerBase
                 pessoa?.TituloEleitorSecao,
                 pessoa?.CertificadoReservista,
                 pessoa?.CategoriaMilitar,
-                pessoa?.Nacionalidade,
+                FormatCodeDescription(pessoa?.Nacionalidade, NacionalidadeDescricao(pessoa?.Nacionalidade)),
                 NacionalidadeDescricao(pessoa?.Nacionalidade),
                 pessoa?.NomePai,
                 pessoa?.NomeMae,
-                f.CentroCusto?.Code,
+                FormatCodeDescription(f.CentroCusto?.Code, f.CentroCusto?.Description),
                 f.CentroCusto?.Description,
-                f.JobPosition?.Code,
+                FormatCodeDescription(f.JobPosition?.Code, f.JobPosition?.Name),
                 f.JobPosition?.Name,
-                f.CodFuncaoRm,
+                FormatCodeDescription(f.CodFuncaoRm, f.FuncaoNomeRm),
                 f.FuncaoNomeRm,
                 salariosAtuaisRmByFuncionarioId.TryGetValue(f.Id, out var salarioRm)
                     ? salarioRm
@@ -781,16 +798,16 @@ public sealed class ReportsController : ControllerBase
                 f.HasIncompleteData,
                 f.UpdatedAtUtc,
                 mov?.IdReqRm,
-                mov?.TipoMovimentacao,
+                mov is null ? null : FormatCodeDescription(mov.TipoMovimentacao.ToString(System.Globalization.CultureInfo.InvariantCulture), mov.TipoDescricao),
                 mov?.TipoDescricao,
                 mov?.DataAbertura,
                 mov?.DataConclusao,
-                mov?.CodStatus,
+                mov is null ? null : FormatCodeDescription(mov.CodStatus.ToString(System.Globalization.CultureInfo.InvariantCulture), mov.StatusDescricao),
                 mov?.StatusDescricao,
-                mov?.CodFuncaoOrigem,
-                mov?.CodFuncaoDestino,
-                mov?.CodSecaoOrigem,
-                mov?.CodSecaoDestino,
+                FormatCodeDescription(mov?.CodFuncaoOrigem, mov?.FuncaoOrigemNome ?? (mov?.CodFuncaoOrigem == f.CodFuncaoRm ? f.FuncaoNomeRm : null)),
+                FormatCodeDescription(mov?.CodFuncaoDestino, mov?.FuncaoDestinoNome ?? (mov?.CodFuncaoDestino == f.CodFuncaoRm ? f.FuncaoNomeRm : null)),
+                FormatCodeDescription(mov?.CodSecaoOrigem, LookupDescription(centroCustoDescricaoMap, mov?.CodSecaoOrigem)),
+                FormatCodeDescription(mov?.CodSecaoDestino, LookupDescription(centroCustoDescricaoMap, mov?.CodSecaoDestino)),
                 mov?.FuncaoOrigemNome ?? (mov?.CodFuncaoOrigem == f.CodFuncaoRm ? f.FuncaoNomeRm : null),
                 mov?.FuncaoDestinoNome ?? (mov?.CodFuncaoDestino == f.CodFuncaoRm ? f.FuncaoNomeRm : null),
                 LookupDescription(centroCustoDescricaoMap, mov?.CodSecaoOrigem),
@@ -804,7 +821,7 @@ public sealed class ReportsController : ControllerBase
                 calc?.SalarioAnterior,
                 calc?.DiferencaSalario,
                 calc?.PercentualSalario,
-                mov?.GestorHistoricoChapaRm,
+                FormatCodeDescription(mov?.GestorHistoricoChapaRm, mov?.GestorHistoricoNome),
                 mov?.GestorHistoricoNome,
                 mov?.Justificativa,
                 mov?.GerouSubstituicao);
@@ -1228,24 +1245,19 @@ public sealed class ReportsController : ControllerBase
 
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportColumns =
     [
-        new("cdnEmpresa", "Empresa", "Código da coligada/empresa importado de PFUNC.CODCOLIGADA."),
-        new("cdnEmpresaDescricao", "Empresa desc.", "Descrição resolvida para o código de empresa/coligada quando houver cadastro correspondente no Portal."),
-        new("cdnEstab", "Estab.", "Código do estabelecimento/filial importado de PFUNC.CODFILIAL."),
-        new("cdnEstabDescricao", "Estab. desc.", "Descrição do estabelecimento/filial resolvida pelo cadastro de unidades/empresas sincronizado de GFILIAL."),
-        new("cdnFuncionario", "Matrícula", "Matrícula normalizada exibida no Portal; no RM vem da CHAPA."),
-        new("matriculaRm", "Matrícula RM", "CHAPA original do funcionário no TOTVS RM."),
+        new("cdnEmpresa", "Empresa", "Código e descrição da coligada/empresa, no formato código - descrição."),
+        new("cdnEstab", "Estab.", "Código e descrição do estabelecimento/filial, no formato código - descrição."),
+        new("matriculaRm", "Matrícula RM", "CHAPA original do funcionário no TOTVS RM. A matrícula do Portal é uma normalização desse mesmo valor, por isso fica omitida no relatório."),
         new("nome", "Nome", "Nome do colaborador vindo de PPESSOA.NOME, via PFUNC.CODPESSOA."),
         new("email", "E-mail", "E-mail cadastral vindo de PPESSOA.EMAIL, quando informado."),
         new("telefone", "Telefone", "Telefone principal vindo de PPESSOA.TELEFONE1."),
         new("statusPortal", "Status Portal", "Status simplificado usado pelo Portal: Active para A/F/P, Inactive para os demais códigos."),
-        new("codSituacaoRm", "Cód. Situação RM", "Código original de situação do RM em PFUNC.CODSITUACAO."),
-        new("situacaoRmDescricao", "Situação RM", "Descrição amigável do código de situação RM."),
+        new("codSituacaoRm", "Situação RM", "Código e descrição da situação do funcionário no RM, no formato código - descrição."),
         new("dataAdmissao", "Data admissão", "Data oficial de admissão vinda de PFUNC.DATAADMISSAO."),
         new("dataNascimento", "Data nascimento", "Data de nascimento importada de PPESSOA.DTNASCIMENTO."),
         new("sexo", "Sexo", "Código de sexo vindo de PPESSOA.SEXO."),
         new("cpf", "CPF", "CPF vindo de PPESSOA.CPF; usado para vincular Pessoa no Portal."),
-        new("estadoCivil", "Estado civil", "Código de estado civil vindo de PPESSOA.ESTADOCIVIL."),
-        new("estadoCivilDescricao", "Estado civil desc.", "Descrição amigável resolvida a partir do código de estado civil do RM."),
+        new("estadoCivil", "Estado civil", "Código e descrição do estado civil, no formato código - descrição."),
         new("grauInstrucao", "Grau instrução", "Código de escolaridade vindo de PPESSOA.GRAUINSTRUCAO."),
         new("naturalidade", "Naturalidade", "Cidade de nascimento vinda de PPESSOA.NATURALIDADE."),
         new("estadoNatal", "UF nascimento", "UF de nascimento vinda de PPESSOA.ESTADONATAL."),
@@ -1270,16 +1282,12 @@ public sealed class ReportsController : ControllerBase
         new("tituloEleitorSecao", "Seção título", "Seção eleitoral vinda de PPESSOA.SECAOTITELEITOR."),
         new("certificadoReservista", "Reservista", "Certificado de reservista vindo de PPESSOA.CERTIFRESERV."),
         new("categoriaMilitar", "Categoria militar", "Categoria militar vinda de PPESSOA.CATEGMILITAR."),
-        new("nacionalidade", "Nacionalidade", "Código de nacionalidade vindo de PPESSOA.NACIONALIDADE."),
-        new("nacionalidadeDescricao", "Nacionalidade desc.", "Descrição resolvida para o código de nacionalidade do RM. Código 10 = Brasileira."),
+        new("nacionalidade", "Nacionalidade", "Código e descrição da nacionalidade, no formato código - descrição. Código 10 = Brasileira."),
         new("nomePai", "Nome do pai", "Filiação paterna vinda de PPESSOA.NOMEPAI, quando disponível no snapshot."),
         new("nomeMae", "Nome da mãe", "Filiação materna vinda de PPESSOA.NOMEMAE, quando disponível no snapshot."),
-        new("centroCustoCode", "Cód. centro custo", "Centro de custo resolvido a partir de PFUNC.CODSECAO."),
-        new("centroCustoDescricao", "Centro de custo", "Descrição do centro de custo cadastrado no Portal a partir de PSECAO."),
-        new("jobPositionCode", "Cód. cargo", "Código do cargo no Portal, resolvido por PFUNCAO.CARGO/PCARGO."),
-        new("jobPositionName", "Cargo", "Nome do cargo no Portal."),
-        new("codFuncaoRm", "Cód. função RM", "Código de função específico do RM em PFUNC.CODFUNCAO."),
-        new("funcaoNomeRm", "Função RM", "Nome específico da função vindo de PFUNCAO.NOME."),
+        new("centroCustoCode", "Centro de custo", "Código e descrição do centro de custo/seção, no formato código - descrição."),
+        new("jobPositionCode", "Cargo", "Código e nome do cargo no Portal, no formato código - descrição."),
+        new("codFuncaoRm", "Função RM", "Código e nome da função específica do RM, no formato código - descrição."),
         new("salarioAtual", "Salário atual", "Salário atual lido diretamente do RM em PFUNC.SALARIO; quando não houver retorno do RM, usa a movimentação mais recente com salário destino."),
         new("unitName", "Filial", "Filial/estabelecimento resolvido a partir de PFUNC.CODFILIAL/GFILIAL."),
         new("gestorDiretoNome", "Gestor direto", "Gestor direto resolvido por hierarquia de posição ou fallbacks do RM."),
@@ -1292,21 +1300,15 @@ public sealed class ReportsController : ControllerBase
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportMovimentacaoColumns =
     [
         new("movimentacaoIdReqRm", "Mov. ID RM", "Identificador da requisição/movimentação no RM ou ID sintético do histórico salarial."),
-        new("movimentacaoTipoCodigo", "Mov. tipo cód.", "Código interno do tipo de movimentação: 1=Promoção, 2=Transferência, 3=Mudança de função, 4=Aumento salarial, 5=Desligamento, 6=Aumento de quadro, 7=Substituição, 11=Admissão."),
-        new("movimentacaoTipo", "Movimentação", "Descrição do tipo de movimentação importada do RM."),
+        new("movimentacaoTipoCodigo", "Movimentação", "Código e descrição do tipo de movimentação: 1=Promoção, 2=Transferência, 3=Mudança de função, 4=Aumento salarial, 5=Desligamento, 6=Aumento de quadro, 7=Substituição, 11=Admissão."),
         new("movimentacaoDataAbertura", "Mov. abertura", "Data de abertura ou data de mudança da movimentação no RM."),
         new("movimentacaoDataConclusao", "Mov. conclusão", "Data de conclusão da movimentação, quando informada pelo RM."),
-        new("movimentacaoCodStatus", "Mov. status cód.", "Código de status da movimentação no RM."),
-        new("movimentacaoStatus", "Mov. status", "Descrição amigável do status da movimentação."),
-        new("movimentacaoCodFuncaoOrigem", "Função origem", "Código da função antes da movimentação, quando disponível."),
-        new("movimentacaoCodFuncaoDestino", "Função destino", "Código da função após a movimentação, quando disponível."),
-        new("movimentacaoCodSecaoOrigem", "Seção origem", "Centro de custo/seção antes da movimentação, quando disponível."),
-        new("movimentacaoCodSecaoDestino", "Seção destino", "Centro de custo/seção após a movimentação, quando disponível."),
+        new("movimentacaoCodStatus", "Mov. status", "Código e descrição do status da movimentação, no formato código - descrição."),
+        new("movimentacaoCodFuncaoOrigem", "Função origem", "Código e nome da função antes da movimentação, no formato código - descrição."),
+        new("movimentacaoCodFuncaoDestino", "Função destino", "Código e nome da função após a movimentação, no formato código - descrição."),
+        new("movimentacaoCodSecaoOrigem", "Seção origem", "Código e descrição da seção antes da movimentação, no formato código - descrição."),
+        new("movimentacaoCodSecaoDestino", "Seção destino", "Código e descrição da seção após a movimentação, no formato código - descrição."),
         new("movimentacaoGerouSubstituicao", "Gerou substituição", "Indica se a movimentação de desligamento gerou substituição."),
-        new("movimentacaoFuncaoOrigemNome", "Função origem nome", "Nome da função de origem resolvido por PFUNCAO.NOME quando disponível na importação."),
-        new("movimentacaoFuncaoDestinoNome", "Função destino nome", "Nome da função de destino resolvido por PFUNCAO.NOME quando disponível na importação."),
-        new("movimentacaoSecaoOrigemDescricao", "Seção origem desc.", "Descrição da seção/centro de custo de origem resolvida pelo cadastro do Portal."),
-        new("movimentacaoSecaoDestinoDescricao", "Seção destino desc.", "Descrição da seção/centro de custo de destino resolvida pelo cadastro do Portal."),
         new("movimentacaoSalarioOrigem", "Salário origem", "Salário antes da movimentação, quando informado no histórico RM."),
         new("movimentacaoSalarioDestino", "Salário destino", "Salário após a movimentação, quando informado no histórico RM."),
         new("movimentacaoPeriodoInicio", "Período início", "Data usada como início do período na função/cargo após a movimentação."),
@@ -1316,8 +1318,7 @@ public sealed class ReportsController : ControllerBase
         new("movimentacaoSalarioAnterior", "Salário anterior calc.", "Salário usado como base de comparação: salário origem da movimentação ou último salário destino conhecido."),
         new("movimentacaoDiferencaSalarioAnterior", "Dif. salário", "Diferença calculada entre salário destino e salário anterior."),
         new("movimentacaoPercentualSalarioAnterior", "% salário", "Percentual calculado da diferença salarial em relação ao salário anterior."),
-        new("movimentacaoGestorHistoricoChapaRm", "Gestor hist. chapa", "CHAPA do gestor/requisitante histórico informado na requisição RM."),
-        new("movimentacaoGestorHistoricoNome", "Gestor hist. nome", "Nome do gestor/requisitante histórico resolvido a partir de PFUNC/PPESSOA na importação."),
+        new("movimentacaoGestorHistoricoChapaRm", "Gestor hist.", "CHAPA e nome do gestor/requisitante histórico informado na requisição RM, no formato código - descrição."),
         new("movimentacaoJustificativa", "Mov. justificativa", "Justificativa observada na movimentação ou descrição complementar do histórico salarial.")
     ];
 
