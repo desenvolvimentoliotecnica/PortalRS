@@ -1086,7 +1086,7 @@ export default function CandidatosScreen() {
 
       {detailOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setDetailOpen(false)}>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-5xl p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="h-[60vh] w-full max-w-5xl overflow-y-auto rounded-xl border border-border/50 bg-card p-4 shadow-sm" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
                 <div className="size-[52px] rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">
@@ -1187,10 +1187,10 @@ export default function CandidatosScreen() {
                     <div className="font-medium mb-1">Observações</div>
                     <div className="text-muted-foreground text-sm whitespace-pre-wrap">{pickString((detail as Record<string, unknown>)?.obs, "—") || "—"}</div>
 
-                    <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-                      <div>
+                    <div className="mt-3 grid grid-cols-1 gap-2">
+                      <div className="min-w-0 md:max-w-xs">
                         <div className="text-sm text-muted-foreground mb-1">Status</div>
-                        <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={detail.status ?? ""} onChange={(e) => setDetail({ ...detail, status: e.target.value })}>
+                        <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={detail.status ?? ""} onChange={(e) => setDetail({ ...detail, status: e.target.value })}>
                           {statusOptionsEffective.map((opt) => (
                             <option key={opt.code} value={opt.code}>
                               {opt.text}
@@ -1198,10 +1198,10 @@ export default function CandidatosScreen() {
                           ))}
                         </select>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="text-sm text-muted-foreground mb-1">Vaga</div>
                         <select
-                          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                          className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm"
                           value={detail.vagaId ?? ""}
                           onChange={(e) => {
                             const id = e.target.value;
