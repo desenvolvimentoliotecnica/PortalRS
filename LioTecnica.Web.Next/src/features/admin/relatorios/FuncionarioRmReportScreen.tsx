@@ -481,15 +481,99 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
 </html>`;
 }
 
-function openEmployeeSheetPrintTab(row: ReportRow, rows: ReportRow[]) {
+function writeEmployeeSheetLoading(printWindow: Window) {
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Carregando ficha</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: Arial, Helvetica, sans-serif; color: #0f172a; background: #f8fafc; }
+    main { width: min(520px, calc(100vw - 32px)); border: 1px solid #cbd5e1; border-radius: 14px; background: #fff; padding: 28px; text-align: center; box-shadow: 0 20px 50px rgba(15,23,42,.12); }
+    h1 { margin: 0; color: #0b3f75; font-size: 22px; }
+    p { margin: 12px 0 0; color: #64748b; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Carregando ficha completa</h1>
+    <p>Buscando histórico de movimentações e timeline no RM...</p>
+  </main>
+</body>
+</html>`);
+  printWindow.document.close();
+}
+
+function writeEmployeeSheetError(printWindow: Window, message: string) {
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Erro ao carregar ficha</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: Arial, Helvetica, sans-serif; color: #0f172a; background: #fef2f2; }
+    main { width: min(560px, calc(100vw - 32px)); border: 1px solid #fecaca; border-radius: 14px; background: #fff; padding: 28px; text-align: center; box-shadow: 0 20px 50px rgba(127,29,29,.12); }
+    h1 { margin: 0; color: #991b1b; font-size: 22px; }
+    p { margin: 12px 0 0; color: #7f1d1d; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Não foi possível carregar a ficha</h1>
+    <p>${escapeHtml(message)}</p>
+  </main>
+</body>
+</html>`);
+  printWindow.document.close();
+}
+
+async function openCompleteEmployeeSheetPrintTab(row: ReportRow) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     toast.error("Não foi possível abrir a nova aba. Verifique o bloqueador de pop-ups do navegador.");
     return;
   }
-  printWindow.document.open();
-  printWindow.document.write(buildEmployeeSheetHtml(row, rows));
-  printWindow.document.close();
+
+  writeEmployeeSheetLoading(printWindow);
+
+  try {
+    const params = new URLSearchParams({
+      somenteRm: "true",
+      incluirMovimentacoes: "true",
+      take: "1000",
+    });
+    const search = rowString(row, "matriculaRm")
+      || rowString(row, "cdnFuncionario")
+      || rowString(row, "cpf")
+      || rowString(row, "nome");
+    if (search) params.set("q", search);
+
+    const res = await apiFetch(`/api/reports/funcionarios-rm-live?${params.toString()}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { message?: string; detail?: string } | null;
+      throw new Error(body?.message || body?.detail || `HTTP ${res.status}`);
+    }
+
+    const payload = await res.json() as ReportResponse;
+    const selectedKey = employeeGroupKey(row);
+    const employeeRows = payload.rows.filter((item) => employeeGroupKey(item) === selectedKey);
+    const sheetRows = employeeRows.length ? employeeRows : payload.rows;
+    const selectedRow = sheetRows[0] ?? row;
+
+    printWindow.document.open();
+    printWindow.document.write(buildEmployeeSheetHtml(selectedRow, sheetRows.length ? sheetRows : [row]));
+    printWindow.document.close();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Falha ao carregar histórico completo do funcionário.";
+    toast.error(message);
+    writeEmployeeSheetError(printWindow, message);
+  }
 }
 
 export default function FuncionarioRmReportScreen() {
@@ -747,7 +831,7 @@ export default function FuncionarioRmReportScreen() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => openEmployeeSheetPrintTab(row, data?.rows ?? [])}
+                          onClick={() => void openCompleteEmployeeSheetPrintTab(row)}
                           title="Abrir ficha do funcionário em nova aba"
                         >
                           <Eye className="size-4" />
