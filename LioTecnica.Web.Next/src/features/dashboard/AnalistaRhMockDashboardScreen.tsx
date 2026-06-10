@@ -306,12 +306,12 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
     });
 
     void Promise.allSettled([
-      fetchJson<DashboardKpis>("/api/dashboard/kpis"),
-      fetchJson<DashboardSeries>("/api/dashboard/recebidos-series?days=42"),
-      fetchJson<FunilCandidaturas>("/api/candidaturas/funil"),
-      fetchJson<AgendaEvent[]>(`/api/agenda/events?${agendaParams.toString()}`),
-      fetchJson<SolicitacaoVaga[]>("/api/solicitacoes-vaga?pageSize=4"),
-      fetchJson<SolicitacaoVaga[]>("/api/solicitacoes-vaga?statuses=1&statuses=5&pageSize=100"),
+      fetchJson<DashboardKpis>("/api/dashboard/analista-rh/kpis"),
+      fetchJson<DashboardSeries>("/api/dashboard/analista-rh/recebidos-series?days=42"),
+      fetchJson<FunilCandidaturas>("/api/dashboard/analista-rh/funil"),
+      fetchJson<AgendaEvent[]>(`/api/dashboard/analista-rh/agenda-events?${agendaParams.toString()}`),
+      fetchJson<SolicitacaoVaga[]>("/api/dashboard/analista-rh/solicitacoes-vaga?pageSize=4"),
+      fetchJson<SolicitacaoVaga[]>("/api/dashboard/analista-rh/solicitacoes-vaga?statuses=1&statuses=5&pageSize=100"),
     ]).then(([kpisRes, seriesRes, funilRes, agendaRes, requisicoesRes, approvalsRes]) => {
       if (cancelled) return;
 
