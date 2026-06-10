@@ -30,6 +30,8 @@ interface ReportResponse {
 
 const DEFAULT_TAKE = 5000;
 type ReportRow = Record<string, unknown>;
+const HIDDEN_TABLE_COLUMNS = new Set(["statusPortal", "codSituacaoRm"]);
+const PRIORITY_TABLE_COLUMNS = ["matriculaRm", "nome", "cdnEmpresa"];
 
 function formatCell(value: unknown, key?: string) {
   if (value === null || value === undefined || value === "") return "—";
@@ -468,6 +470,19 @@ export default function FuncionarioRmReportScreen() {
 
     return selected;
   }, [data]);
+  const tableColumns = useMemo(() => {
+    const columns = data?.columns.filter((column) => !HIDDEN_TABLE_COLUMNS.has(column.key)) ?? [];
+    const priority = new Map(PRIORITY_TABLE_COLUMNS.map((key, index) => [key, index]));
+
+    return [...columns].sort((a, b) => {
+      const aPriority = priority.get(a.key);
+      const bPriority = priority.get(b.key);
+      if (aPriority !== undefined || bPriority !== undefined) {
+        return (aPriority ?? Number.MAX_SAFE_INTEGER) - (bPriority ?? Number.MAX_SAFE_INTEGER);
+      }
+      return columns.indexOf(a) - columns.indexOf(b);
+    });
+  }, [data]);
 
   return (
     <section className="space-y-5">
@@ -571,13 +586,13 @@ export default function FuncionarioRmReportScreen() {
           <table className="w-full min-w-[3600px] border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-muted">
               <tr>
-                <th className="sticky left-0 z-20 border-b border-r bg-muted px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="sticky left-0 z-20 whitespace-nowrap border-b border-r bg-muted px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Ficha
                 </th>
-                {(data?.columns ?? []).map((column) => (
+                {tableColumns.map((column) => (
                   <th
                     key={column.key}
-                    className="border-b border-r px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                    className="whitespace-nowrap border-b border-r px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                     title={column.description}
                   >
                     {column.label}
@@ -588,14 +603,14 @@ export default function FuncionarioRmReportScreen() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={(data?.columns.length || 0) + 1}>
+                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={tableColumns.length + 1}>
                     Carregando relatório...
                   </td>
                 </tr>
               ) : data?.rows.length ? (
                 data.rows.map((row, idx) => (
                   <tr key={`${row.matriculaRm ?? row.cdnFuncionario ?? idx}`} className={idx % 2 ? "bg-muted/25" : ""}>
-                    <td className={`sticky left-0 z-10 whitespace-nowrap border-b border-r px-3 py-2 ${idx % 2 ? "bg-muted" : "bg-background"}`}>
+                    <td className={`sticky left-0 z-10 whitespace-nowrap border-b border-r px-3 py-2 text-center ${idx % 2 ? "bg-muted" : "bg-background"}`}>
                       {latestFichaRows.has(row) ? (
                         <Button
                           type="button"
@@ -611,7 +626,7 @@ export default function FuncionarioRmReportScreen() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    {data.columns.map((column) => (
+                    {tableColumns.map((column) => (
                       <td key={column.key} className="whitespace-nowrap border-b border-r px-3 py-2">
                         {formatCell(row[column.key], column.key)}
                       </td>
@@ -620,7 +635,7 @@ export default function FuncionarioRmReportScreen() {
                 ))
               ) : (
                 <tr>
-                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={(data?.columns.length || 0) + 1}>
+                  <td className="px-4 py-8 text-center text-muted-foreground" colSpan={tableColumns.length + 1}>
                     Nenhum funcionário encontrado para os filtros selecionados.
                   </td>
                 </tr>
