@@ -30,7 +30,6 @@ interface ReportResponse {
 
 const DEFAULT_TAKE = 5000;
 type ReportRow = Record<string, unknown>;
-type ReportDataSource = "portal" | "rm-live";
 
 function formatCell(value: unknown, key?: string) {
   if (value === null || value === undefined || value === "") return "—";
@@ -361,10 +360,8 @@ export default function FuncionarioRmReportScreen() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("Active");
-  const [somenteRm, setSomenteRm] = useState(true);
   const [incluirMovimentacoes, setIncluirMovimentacoes] = useState(false);
   const [take, setTake] = useState(DEFAULT_TAKE);
-  const [dataSource, setDataSource] = useState<ReportDataSource>("portal");
   const requestSeqRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -373,16 +370,14 @@ export default function FuncionarioRmReportScreen() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        somenteRm: String(somenteRm),
+        somenteRm: "true",
         incluirMovimentacoes: String(incluirMovimentacoes),
         take: String(take || DEFAULT_TAKE),
       });
       if (q.trim()) params.set("q", q.trim());
       if (status !== "all") params.set("status", status);
 
-      const endpoint = dataSource === "rm-live"
-        ? "/api/reports/funcionarios-rm-live"
-        : "/api/reports/funcionarios-rm";
+      const endpoint = "/api/reports/funcionarios-rm-live";
       const res = await apiFetch(`${endpoint}?${params.toString()}`, {
         cache: "no-store",
       });
@@ -404,17 +399,41 @@ export default function FuncionarioRmReportScreen() {
         setLoading(false);
       }
     }
-  }, [dataSource, incluirMovimentacoes, q, somenteRm, status, take]);
+  }, [incluirMovimentacoes, q, status, take]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const visibleCount = data?.rows.length ?? 0;
   const truncated = useMemo(
     () => !!data && data.totalItems > data.rows.length,
     [data],
   );
+  const latestFichaRows = useMemo(() => {
+    const selected = new WeakSet<ReportRow>();
+    const rows = data?.rows ?? [];
+    const groups = new Map<string, ReportRow[]>();
+
+    for (const row of rows) {
+      const key = employeeGroupKey(row);
+      if (!key) {
+        selected.add(row);
+        continue;
+      }
+      groups.set(key, [...(groups.get(key) ?? []), row]);
+    }
+
+    for (const groupRows of groups.values()) {
+      const latestRow = groupRows.reduce((latest, row) => {
+        const latestTime = movementTimestamp(latest);
+        const rowTime = movementTimestamp(row);
+        return rowTime > latestTime ? row : latest;
+      }, groupRows[0]);
+      selected.add(latestRow);
+    }
+
+    return selected;
+  }, [data]);
 
   return (
     <section className="space-y-5">
@@ -422,9 +441,6 @@ export default function FuncionarioRmReportScreen() {
         <div>
           <div className="text-muted-foreground text-sm">Admin &gt; Relatórios</div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Relatório de Funcionários RM</h1>
-          <p className="text-muted-foreground text-sm">
-            Dados de funcionários RM para conferência em HTML, com opção de consulta ao RM em tempo real.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -441,7 +457,7 @@ export default function FuncionarioRmReportScreen() {
       </div>
 
       <div className="rounded-xl border border-border/50 bg-card p-4">
-        <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px_160px_160px_160px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_180px_160px_160px_auto]">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -456,29 +472,12 @@ export default function FuncionarioRmReportScreen() {
           </div>
           <select
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            value={dataSource}
-            onChange={(e) => setDataSource(e.target.value as ReportDataSource)}
-            title="Fonte dos dados"
-          >
-            <option value="portal">Portal sincronizado</option>
-            <option value="rm-live">RM tempo real</option>
-          </select>
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
             <option value="all">Todos status</option>
             <option value="Active">Ativos</option>
             <option value="Inactive">Inativos</option>
-          </select>
-          <select
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            value={somenteRm ? "true" : "false"}
-            onChange={(e) => setSomenteRm(e.target.value === "true")}
-          >
-            <option value="true">Somente RM</option>
-            <option value="false">Todos</option>
           </select>
           <select
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
@@ -500,35 +499,6 @@ export default function FuncionarioRmReportScreen() {
           <Button onClick={() => void load()} disabled={loading}>Aplicar</Button>
         </div>
       </div>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Registros encontrados</p>
-          <p className="mt-1 text-2xl font-bold">{data?.totalItems ?? 0}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Exibidos na tela</p>
-          <p className="mt-1 text-2xl font-bold text-primary">{visibleCount}</p>
-          {incluirMovimentacoes && (
-            <p className="mt-1 text-xs text-muted-foreground">1 linha por movimentação; funcionários sem histórico aparecem com movimentação em branco.</p>
-          )}
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Gerado em</p>
-          <p className="mt-1 text-sm font-semibold">
-            {data?.generatedAtUtc ? new Date(data.generatedAtUtc).toLocaleString("pt-BR") : "—"}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Fonte: {dataSource === "rm-live" ? "Banco RM em tempo real" : "Portal sincronizado"}
-          </p>
-        </div>
-      </div>
-
-      {dataSource === "rm-live" && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-          Modo RM tempo real: a API do Portal consulta diretamente o banco do RM e não usa os dados de funcionários/movimentações já sincronizados no Portal.
-        </div>
-      )}
 
       {truncated && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -592,16 +562,20 @@ export default function FuncionarioRmReportScreen() {
                 data.rows.map((row, idx) => (
                   <tr key={`${row.matriculaRm ?? row.cdnFuncionario ?? idx}`} className={idx % 2 ? "bg-muted/25" : ""}>
                     <td className={`sticky left-0 z-10 whitespace-nowrap border-b border-r px-3 py-2 ${idx % 2 ? "bg-muted" : "bg-background"}`}>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEmployeeSheetPrintTab(row, data?.rows ?? [])}
-                        title="Abrir ficha do funcionário em nova aba"
-                      >
-                        <Eye className="size-4" />
-                        Ficha
-                      </Button>
+                      {latestFichaRows.has(row) ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEmployeeSheetPrintTab(row, data?.rows ?? [])}
+                          title="Abrir ficha do funcionário em nova aba"
+                        >
+                          <Eye className="size-4" />
+                          Ficha
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     {data.columns.map((column) => (
                       <td key={column.key} className="whitespace-nowrap border-b border-r px-3 py-2">
