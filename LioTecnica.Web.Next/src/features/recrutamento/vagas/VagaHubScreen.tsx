@@ -1279,6 +1279,32 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
 
         {/* ── Tab: Resumo ── */}
         <TabsContent value="resumo" className="space-y-4 mt-4">
+          <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
+            <div className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <FileText className="size-4 text-[#105290]" />
+              Checklist da vaga
+            </div>
+            <div className="grid gap-4 md:grid-cols-4">
+              {[
+                { label: "Dados básicos", statusLabel: "Concluído", done: title !== "—" && title !== "Carregando..." },
+                { label: "Requisitos", statusLabel: requisitos.length > 0 ? "Concluído" : "Pendente", done: requisitos.length > 0 },
+                { label: "Etapas de seleção", statusLabel: etapas.length > 0 ? "Concluído" : "Pendente", done: etapas.length > 0 },
+                { label: "Publicação", statusLabel: status === "aberta" ? "Concluído" : "Pendente", done: status === "aberta" },
+              ].map((item, index, arr) => (
+                <div key={item.label} className="relative flex flex-col items-center text-center">
+                  {index < arr.length - 1 && (
+                    <div className={`absolute left-1/2 top-4 hidden h-px w-full border-t md:block ${item.done ? "border-emerald-300" : "border-dashed border-border"}`} />
+                  )}
+                  <div className={`relative z-10 flex size-9 items-center justify-center rounded-full border-2 bg-card text-sm font-semibold ${item.done ? "border-emerald-500 text-emerald-600" : "border-border text-muted-foreground"}`}>
+                    {item.done ? <CheckCircle2 className="size-5" /> : index + 1}
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-foreground">{item.label}</div>
+                  <div className={`text-[11px] ${item.done ? "text-emerald-600" : "text-muted-foreground"}`}>{item.statusLabel}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2">
             {[
               { label: "Recrutador", name: displayValue(recrutador), role: "Analista de Recrutamento & Seleção" },
@@ -1327,32 +1353,6 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Início: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataInicio", ""))}</strong></span>
             <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Encerramento: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataEncerramento", ""))}</strong></span>
             <span className="inline-flex items-center gap-2"><Target className="size-4 text-[#105290]" /> Match mín: <strong className="font-semibold text-[#105290]">{matchMin}%</strong></span>
-          </div>
-
-          <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-            <div className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <FileText className="size-4 text-[#105290]" />
-              Checklist da vaga
-            </div>
-            <div className="grid gap-4 md:grid-cols-4">
-              {[
-                { label: "Dados básicos", statusLabel: "Concluído", done: title !== "—" && title !== "Carregando..." },
-                { label: "Requisitos", statusLabel: requisitos.length > 0 ? "Concluído" : "Pendente", done: requisitos.length > 0 },
-                { label: "Etapas de seleção", statusLabel: etapas.length > 0 ? "Concluído" : "Pendente", done: etapas.length > 0 },
-                { label: "Publicação", statusLabel: status === "aberta" ? "Concluído" : "Pendente", done: status === "aberta" },
-              ].map((item, index, arr) => (
-                <div key={item.label} className="relative flex flex-col items-center text-center">
-                  {index < arr.length - 1 && (
-                    <div className={`absolute left-1/2 top-4 hidden h-px w-full border-t md:block ${item.done ? "border-emerald-300" : "border-dashed border-border"}`} />
-                  )}
-                  <div className={`relative z-10 flex size-9 items-center justify-center rounded-full border-2 bg-card text-sm font-semibold ${item.done ? "border-emerald-500 text-emerald-600" : "border-border text-muted-foreground"}`}>
-                    {item.done ? <CheckCircle2 className="size-5" /> : index + 1}
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-foreground">{item.label}</div>
-                  <div className={`text-[11px] ${item.done ? "text-emerald-600" : "text-muted-foreground"}`}>{item.statusLabel}</div>
-                </div>
-              ))}
-            </div>
           </div>
 
           {(resumo && resumo !== "—") || (descPublica && descPublica !== "—") || tags !== "—" || requisitos.length > 0 ? (
