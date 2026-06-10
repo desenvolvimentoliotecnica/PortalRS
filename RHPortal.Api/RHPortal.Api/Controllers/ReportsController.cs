@@ -1211,8 +1211,18 @@ public sealed class ReportsController : ControllerBase
                 NULLIF(LTRIM(RTRIM(P.CERTIFRESERV)), '') AS CERTIFICADORESERVISTA,
                 NULLIF(LTRIM(RTRIM(P.CATEGMILITAR)), '') AS CATEGORIAMILITAR,
                 NULLIF(LTRIM(RTRIM(P.NACIONALIDADE)), '') AS NACIONALIDADE,
-                NULLIF(LTRIM(RTRIM(XPF.NOM_PAI)), '') AS NOMEPAI,
-                NULLIF(LTRIM(RTRIM(XPF.NOM_MAE)), '') AS NOMEMAE,
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(XPF.NOM_PAI)), ''),
+                    NULLIF(LTRIM(RTRIM(PPAI.NOME)), ''),
+                    NULLIF(LTRIM(RTRIM(CAND.PAI)), ''),
+                    NULLIF(LTRIM(RTRIM(UCAND.PAI)), '')
+                ) AS NOMEPAI,
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(XPF.NOM_MAE)), ''),
+                    NULLIF(LTRIM(RTRIM(PMAE.NOME)), ''),
+                    NULLIF(LTRIM(RTRIM(CAND.MAE)), ''),
+                    NULLIF(LTRIM(RTRIM(UCAND.MAE)), '')
+                ) AS NOMEMAE,
                 NULLIF(LTRIM(RTRIM(F.CODSECAO)), '') AS CODSECAO,
                 NULLIF(LTRIM(RTRIM(S.DESCRICAO)), '') AS CENTROCUSTODESCRICAO,
                 NULLIF(LTRIM(RTRIM(F.CODFUNCAO)), '') AS CODFUNCAO,
@@ -1229,6 +1239,32 @@ public sealed class ReportsController : ControllerBase
                 ON P.CODIGO = F.CODPESSOA
             LEFT JOIN XPESSOAFISICA XPF
                 ON XPF.COD_PESS = P.CODIGO
+            LEFT JOIN SPESSOA SP
+                ON SP.CODIGO = P.CODIGO
+            LEFT JOIN PPESSOA PPAI
+                ON PPAI.CODIGO = SP.CODPESSOAPAI
+            LEFT JOIN PPESSOA PMAE
+                ON PMAE.CODIGO = SP.CODPESSOAMAE
+            OUTER APPLY (
+                SELECT TOP 1 C.PAI, C.MAE
+                FROM SCANDIDATOPROCSEL C
+                WHERE (
+                    P.CPF IS NOT NULL
+                    AND REPLACE(REPLACE(REPLACE(C.CPFALUNO, '.', ''), '-', ''), '/', '') = REPLACE(REPLACE(REPLACE(P.CPF, '.', ''), '-', ''), '/', '')
+                )
+                OR C.NOME = COALESCE(P.NOME, F.NOME)
+                ORDER BY C.RECMODIFIEDON DESC, C.RECCREATEDON DESC
+            ) CAND
+            OUTER APPLY (
+                SELECT TOP 1 C.PAI, C.MAE
+                FROM UCANDIDATOPROCSEL C
+                WHERE (
+                    P.CPF IS NOT NULL
+                    AND REPLACE(REPLACE(REPLACE(C.CPFALUNO, '.', ''), '-', ''), '/', '') = REPLACE(REPLACE(REPLACE(P.CPF, '.', ''), '-', ''), '/', '')
+                )
+                OR C.NOME = COALESCE(P.NOME, F.NOME)
+                ORDER BY C.RECMODIFIEDON DESC, C.RECCREATEDON DESC
+            ) UCAND
             LEFT JOIN PSECAO S
                 ON S.CODCOLIGADA = F.CODCOLIGADA
                AND S.CODIGO = F.CODSECAO
@@ -2326,8 +2362,8 @@ public sealed class ReportsController : ControllerBase
         new("certificadoReservista", "Reservista", "Certificado de reservista vindo de PPESSOA.CERTIFRESERV."),
         new("categoriaMilitar", "Categoria militar", "Categoria militar vinda de PPESSOA.CATEGMILITAR."),
         new("nacionalidade", "Nacionalidade", "Código e descrição da nacionalidade, no formato código - descrição. Código 10 = Brasileira."),
-        new("nomePai", "Nome do pai", "Filiação paterna vinda de PPESSOA.NOMEPAI, quando disponível no snapshot."),
-        new("nomeMae", "Nome da mãe", "Filiação materna vinda de PPESSOA.NOMEMAE, quando disponível no snapshot."),
+        new("nomePai", "Nome do pai", "Filiação paterna buscada no RM por XPESSOAFISICA, SPESSOA ou cadastros de candidato, quando disponível."),
+        new("nomeMae", "Nome da mãe", "Filiação materna buscada no RM por XPESSOAFISICA, SPESSOA ou cadastros de candidato, quando disponível."),
         new("centroCustoCode", "Centro de custo", "Código e descrição do centro de custo/seção, no formato código - descrição."),
         new("jobPositionCode", "Cargo", "Código e nome do cargo no Portal, no formato código - descrição."),
         new("codFuncaoRm", "Função RM", "Código e nome da função específica do RM, no formato código - descrição."),
