@@ -798,7 +798,7 @@ public sealed class ReportsController : ControllerBase
                 f.HasIncompleteData,
                 f.UpdatedAtUtc,
                 mov?.IdReqRm,
-                mov is null ? null : FormatCodeDescription(mov.TipoMovimentacao.ToString(System.Globalization.CultureInfo.InvariantCulture), mov.TipoDescricao),
+                mov?.TipoDescricao,
                 mov?.TipoDescricao,
                 mov?.DataAbertura,
                 mov?.DataConclusao,
@@ -1050,7 +1050,7 @@ public sealed class ReportsController : ControllerBase
                 false,
                 DateTimeOffset.UtcNow,
                 mov?.IdReqRm,
-                mov is null ? null : FormatCodeDescription(mov.TipoMovimentacao.ToString(System.Globalization.CultureInfo.InvariantCulture), mov.TipoDescricao),
+                mov?.TipoDescricao,
                 mov?.TipoDescricao,
                 mov?.DataAbertura,
                 mov?.DataConclusao,
@@ -2343,7 +2343,7 @@ public sealed class ReportsController : ControllerBase
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportMovimentacaoColumns =
     [
         new("movimentacaoIdReqRm", "Mov. ID RM", "Identificador da requisição/movimentação no RM ou ID sintético do histórico salarial."),
-        new("movimentacaoTipoCodigo", "Movimentação", "Código e descrição do tipo de movimentação: 1=Promoção, 2=Transferência, 3=Mudança de função, 4=Aumento salarial, 5=Desligamento, 6=Aumento de quadro, 7=Substituição, 11=Admissão."),
+        new("movimentacaoTipoCodigo", "Movimentação", "Descrição do tipo de movimentação: Promoção, Transferência, Mudança de função, Aumento salarial, Desligamento, Aumento de quadro, Substituição ou Admissão."),
         new("movimentacaoDataAbertura", "Mov. abertura", "Data de abertura ou data de mudança da movimentação no RM."),
         new("movimentacaoDataConclusao", "Mov. conclusão", "Data de conclusão da movimentação, quando informada pelo RM."),
         new("movimentacaoCodStatus", "Mov. status", "Código e descrição do status da movimentação, no formato código - descrição."),
