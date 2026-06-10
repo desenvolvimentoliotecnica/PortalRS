@@ -1,3 +1,5 @@
+using RhPortal.Api.Domain.Enums;
+
 namespace RhPortal.Api.Contracts.Dashboard;
 
 public sealed record DashboardKpisResponse(
@@ -68,4 +70,14 @@ public sealed record VagaComPendentesMatchResponse(
 public sealed record DashboardAreaLookupResponse(
     Guid Id,
     string Nome
+);
+
+public sealed record AnalistaRhDashboardSolicitacaoResponse(
+    Guid Id,
+    string Titulo,
+    SolicitacaoStatus Status,
+    string? CentroCustoNome,
+    string? UnitName,
+    DateTimeOffset CreatedAtUtc,
+    int? RmIdReq
 );

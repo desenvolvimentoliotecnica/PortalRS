@@ -534,8 +534,22 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
             .ToListAsync(ct);
 
         var timelineEventos = BuildTimelineEventos(s, etapasFluxo, historicosTimeline);
+        var rmPareceres = await _db.RmRequisicaoPareceres
+            .AsNoTracking()
+            .Where(p => p.SolicitacaoVagaId == s.Id)
+            .OrderByDescending(p => p.DataParecer ?? DateTimeOffset.MinValue)
+            .ThenByDescending(p => p.IdParecer)
+            .Select(p => new SolicitacaoVagaRmParecerInfo(
+                p.IdParecer,
+                p.DataParecer,
+                p.CodStatus,
+                p.Status,
+                p.Solicitante,
+                p.ChapaSolicitante,
+                p.Parecer))
+            .ToListAsync(ct);
 
-        return MapToResponse(s, etapasFluxo, timelineEventos);
+        return MapToResponse(s, etapasFluxo, timelineEventos, rmPareceres);
     }
 
     public async Task<SolicitacaoVagaResponse> CreateAsync(
@@ -3125,7 +3139,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     private static SolicitacaoVagaResponse MapToResponse(
         SolicitacaoVaga s,
         IReadOnlyList<EtapaFluxoInfo>? etapasFluxo = null,
-        IReadOnlyList<SolicitacaoTimelineEventoInfo>? timelineEventos = null) => new(
+        IReadOnlyList<SolicitacaoTimelineEventoInfo>? timelineEventos = null,
+        IReadOnlyList<SolicitacaoVagaRmParecerInfo>? rmPareceres = null) => new(
         s.Id,
         s.Titulo,
         s.CodFuncaoRm,
@@ -3205,7 +3220,8 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         s.TentativasIntegracao,
         s.UltimaTentativaUtc,
         s.FaixaSalarialMin,
-        s.FaixaSalarialMax
+        s.FaixaSalarialMax,
+        rmPareceres ?? Array.Empty<SolicitacaoVagaRmParecerInfo>()
     );
 
     private static void ValidarFaixaSalarialProposta(decimal? min, decimal? max)

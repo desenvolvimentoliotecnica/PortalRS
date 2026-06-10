@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowRight, Award, Briefcase, Check, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
+import { AlertTriangle, ArrowRight, Award, Briefcase, Check, Download, Eye, FileText, FileUp, GraduationCap, Linkedin, Loader2, Mail, MapPin, Phone, Plus, RefreshCw, Search, Sparkles, UserCheck, Users, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -156,6 +156,59 @@ function fmtDate(iso?: string | null): string {
   try { return new Date(iso).toLocaleDateString("pt-BR"); } catch { return iso; }
 }
 
+function fmtDateTime(iso?: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch { return iso; }
+}
+
+function formatBytes(value: unknown): string {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function isPdfDocument(nomeArquivo: string, contentType?: string | null): boolean {
+  return contentType?.toLowerCase().includes("pdf") === true || nomeArquivo.toLowerCase().endsWith(".pdf");
+}
+
+function readApiMessage(raw: string, fallback: string) {
+  if (!raw.trim()) return fallback;
+  try {
+    const parsed = JSON.parse(raw) as { message?: string; detail?: string; title?: string };
+    return parsed.message || parsed.detail || parsed.title || fallback;
+  } catch {
+    return raw;
+  }
+}
+
+async function downloadArquivo(path: string, suggestedName: string): Promise<void> {
+  const res = await apiFetch(path, { method: "GET", headers: { Accept: "*/*" } }, 120_000);
+  if (!res.ok) {
+    const raw = await res.text().catch(() => "");
+    throw new Error(raw?.trim() || `Falha ao baixar arquivo (${res.status}).`);
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = suggestedName.trim() || "curriculo";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 function origemBadge(o: string | null | undefined) {
   const map: Record<string, string> = {
     Email: "bg-blue-100 text-blue-700",
@@ -184,12 +237,9 @@ export default function TalentosScreen() {
   // Modais
   const [newOpen, setNewOpen] = useState(false);
   const [newDraft, setNewDraft] = useState({ nome: "", email: "", fone: "", cidade: "", uf: "", origem: "Manual", cpf: "", linkedin: "", resumoProfissional: "" });
+  const [newCvFile, setNewCvFile] = useState<File | null>(null);
+  const [newCvUseAi, setNewCvUseAi] = useState(true);
   const [newSaving, setNewSaving] = useState(false);
-
-  const [importOpen, setImportOpen] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importGpt, setImportGpt] = useState(true);
-  const [importLoading, setImportLoading] = useState(false);
 
   const [cadOpen, setCadOpen] = useState(false);
   const [cadTalentoId, setCadTalentoId] = useState("");
@@ -211,7 +261,6 @@ export default function TalentosScreen() {
   useEffect(() => {
     void load(1, 20, "", "");
     void loadVagas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadVagas() {
@@ -264,38 +313,42 @@ export default function TalentosScreen() {
   async function handleSaveNew() {
     if (!newDraft.nome.trim()) { toast.error("Nome é obrigatório."); return; }
     if (!newDraft.email.trim()) { toast.error("E-mail é obrigatório."); return; }
+    if (newCvFile && !isPdfDocument(newCvFile.name, newCvFile.type)) {
+      toast.error("O currículo deve ser um arquivo PDF.");
+      return;
+    }
     setNewSaving(true);
     try {
-      await fetchJson(`${BASE}/api/talentos`, {
+      const created = await fetchJson<unknown>(`${BASE}/api/talentos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newDraft),
       });
-      toast.success("Talento cadastrado.");
+      const createdId = str(asRec(created)?.id, "");
+
+      if (newCvFile && createdId) {
+        try {
+          const form = new FormData();
+          form.append("arquivo", newCvFile);
+          form.append("enviarParaGpt", newCvUseAi ? "true" : "false");
+          form.append("talentoId", createdId);
+          await fetchJson<unknown>(`${BASE}/api/talentos/import-pdf`, { method: "POST", body: form });
+          toast.success(newCvUseAi ? "Talento cadastrado e CV enviado para processamento." : "Talento cadastrado com CV anexado.");
+        } catch (uploadError) {
+          toast.error(uploadError instanceof Error ? `Talento cadastrado, mas falhou ao anexar o CV: ${uploadError.message}` : "Talento cadastrado, mas falhou ao anexar o CV.");
+        }
+      } else {
+        toast.success("Talento cadastrado.");
+      }
+
       setNewOpen(false);
       setNewDraft({ nome: "", email: "", fone: "", cidade: "", uf: "", origem: "Manual", cpf: "", linkedin: "", resumoProfissional: "" });
+      setNewCvFile(null);
+      setNewCvUseAi(true);
       await load(1, pageSize, q, origem);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao salvar.");
     } finally { setNewSaving(false); }
-  }
-
-  async function handleImportPdf() {
-    if (!importFile) { toast.error("Selecione um arquivo PDF."); return; }
-    setImportLoading(true);
-    try {
-      const form = new FormData();
-      form.append("arquivo", importFile);
-      form.append("enviarParaGpt", importGpt ? "true" : "false");
-      const resp = await fetchJson<unknown>(`${BASE}/api/talentos/import-pdf`, { method: "POST", body: form });
-      const r = asRec(resp) ?? {};
-      toast.success(str(r.jobId, "") ? `Importação iniciada (job ${str(r.jobId, "")}).` : "Importação concluída.");
-      setImportOpen(false);
-      setImportFile(null);
-      await load(1, pageSize, q, origem);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao importar PDF.");
-    } finally { setImportLoading(false); }
   }
 
   async function openCadastrarCandidato(t: TalentItem) {
@@ -424,9 +477,6 @@ export default function TalentosScreen() {
           <Button variant="outline" size="sm" onClick={() => void load(page, pageSize, q, origem)}>
             <RefreshCw className="size-4" /> Atualizar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-            <FileUp className="size-4" /> Importar PDF
-          </Button>
           <Button size="sm" onClick={() => setNewOpen(true)}>
             <Plus className="size-4" /> Novo talento
           </Button>
@@ -512,7 +562,7 @@ export default function TalentosScreen() {
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <Users className="size-10 opacity-20" />
                       <p className="text-sm font-medium">Nenhum talento encontrado</p>
-                      <p className="text-xs opacity-60">Cadastre manualmente ou importe um currículo em PDF.</p>
+                      <p className="text-xs opacity-60">Cadastre manualmente e, se houver, anexe o currículo em PDF.</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -599,7 +649,7 @@ export default function TalentosScreen() {
           <DialogHeader>
             <DialogTitle>Novo talento</DialogTitle>
             <DialogDescription>
-              Cadastro manual na base de talentos. Depois você pode candidatá-lo a uma vaga específica.
+              Cadastro manual na base de talentos. Você também pode anexar o CV em PDF neste cadastro.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 mt-2">
@@ -655,41 +705,36 @@ export default function TalentosScreen() {
                 placeholder="Experiência, habilidades principais…"
               />
             </div>
+            <div className="col-span-2 rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-3">
+              <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-700">
+                <FileUp className="size-4 text-primary" />
+                Curriculum em PDF
+              </label>
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground"
+                disabled={newSaving}
+                onChange={(e) => setNewCvFile(e.currentTarget.files?.[0] ?? null)}
+              />
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>{newCvFile ? `${newCvFile.name} (${formatBytes(newCvFile.size)})` : "Nenhum arquivo selecionado."}</span>
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={newCvUseAi}
+                    disabled={newSaving || !newCvFile}
+                    onChange={(e) => setNewCvUseAi(e.target.checked)}
+                  />
+                  Usar IA para extrair dados
+                </label>
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-2 mt-2">
             <Button variant="outline" onClick={() => setNewOpen(false)}>Cancelar</Button>
             <Button disabled={newSaving} onClick={() => void handleSaveNew()}>
               {newSaving && <Loader2 className="size-4 animate-spin mr-1" />} Salvar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Modal: Importar PDF ─── */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Importar currículo (PDF)</DialogTitle>
-            <DialogDescription>
-              O sistema extrai os dados automaticamente com IA e cria o talento.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 mt-2">
-            <input
-              type="file"
-              accept="application/pdf"
-              className="w-full text-sm"
-              onChange={(e) => setImportFile(e.currentTarget.files?.[0] ?? null)}
-            />
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={importGpt} onChange={(e) => setImportGpt(e.target.checked)} />
-              Usar IA (GPT) para extrair dados do currículo
-            </label>
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancelar</Button>
-            <Button disabled={importLoading || !importFile} onClick={() => void handleImportPdf()}>
-              {importLoading && <Loader2 className="size-4 animate-spin mr-1" />} Importar
             </Button>
           </div>
         </DialogContent>
@@ -811,6 +856,14 @@ function periodo(inicio?: string | null, fim?: string | null): string {
 }
 
 function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [previewingDocId, setPreviewingDocId] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; nomeArquivo: string } | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailFiles, setEmailFiles] = useState<File[]>([]);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSentInfo, setEmailSentInfo] = useState<{ subject: string; attachments: number; sentAt: string } | null>(null);
   const nome = str(data.nome, "—");
   const email = str(data.email, "");
   const fone = str(data.fone, "");
@@ -818,15 +871,123 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
   const uf = str(data.uf, "");
   const linkedin = str(data.linkedinUrl, "");
   const cpf = str(data.cpf, "");
+  const cep = str(data.cep, "");
+  const logradouro = str(data.logradouro, "");
+  const numero = str(data.numero, "");
+  const bairro = str(data.bairro, "");
   const origem = str(data.origem, "");
   const resumo = str(data.resumoProfissional, "");
+  const obs = str(data.obs, "");
+  const createdAt = str(data.createdAtUtc, "");
+  const updatedAt = str(data.updatedAtUtc, "");
+  const versao = str(data.versao, "");
 
   const competencias = asArr(data.competencias);
   const experiencias = asArr(data.experiencias);
   const treinamentos = asArr(data.treinamentos);
   const formacao = asArr(data.formacao);
+  const documentos = asArr(data.documentos);
+  const candidaturas = asArr(data.candidaturas);
+  const candidaturaDocumentos = candidaturas.flatMap((cand) =>
+    asArr(cand.documentos).map((doc) => ({ cand, doc }))
+  );
 
   const local = [cidade, uf].filter(Boolean).join(" / ");
+  const endereco = [logradouro, numero, bairro].filter(Boolean).join(", ");
+  const hasPerfil = Boolean(resumo || obs || competencias.length || experiencias.length || treinamentos.length || formacao.length);
+  const emailFilesLabel = useMemo(() => {
+    if (emailFiles.length === 0) return "Nenhum anexo selecionado";
+    return `${emailFiles.length} anexo(s): ${emailFiles.map((f) => f.name).join(", ")}`;
+  }, [emailFiles]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url);
+    };
+  }, [pdfPreview?.url]);
+
+  useEffect(() => {
+    setEmailSubject("Contato do RH");
+    setEmailBody(`Olá ${nome && nome !== "—" ? nome : ""},\n\n`);
+    setEmailFiles([]);
+    setEmailSentInfo(null);
+  }, [data.id, nome]);
+
+  async function handleDownload(path: string, nomeArquivo: string, id: string) {
+    setDownloadingDocId(id);
+    try {
+      await downloadArquivo(path, nomeArquivo);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao baixar documento.");
+    } finally {
+      setDownloadingDocId(null);
+    }
+  }
+
+  async function handlePreviewPdf(path: string, nomeArquivo: string, id: string) {
+    setPreviewingDocId(id);
+    try {
+      const res = await apiFetch(path, { method: "GET", headers: { Accept: "application/pdf,*/*" } }, 120_000);
+      if (!res.ok) {
+        const raw = await res.text().catch(() => "");
+        throw new Error(raw?.trim() || `Falha ao abrir currículo (${res.status}).`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" }));
+      setPdfPreview((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { url: objectUrl, nomeArquivo };
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo.");
+    } finally {
+      setPreviewingDocId(null);
+    }
+  }
+
+  function closePdfPreview() {
+    setPdfPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+
+  async function handleSendTalentEmail() {
+    const subject = emailSubject.trim();
+    const body = emailBody.trim();
+    if (!email.trim()) {
+      toast.error("Este talento não possui e-mail cadastrado.");
+      return;
+    }
+    if (!subject || !body) {
+      toast.error("Informe assunto e corpo do e-mail.");
+      return;
+    }
+
+    setEmailSending(true);
+    try {
+      const form = new FormData();
+      form.append("assunto", subject);
+      form.append("corpo", body);
+      for (const file of emailFiles) form.append("anexos", file);
+
+      const res = await apiFetch(
+        `${BASE}/api/talentos/${encodeURIComponent(str(data.id, ""))}/email`,
+        { method: "POST", body: form },
+        120_000,
+      );
+      const raw = await res.text().catch(() => "");
+      if (!res.ok) throw new Error(readApiMessage(raw, `HTTP ${res.status}`));
+
+      setEmailSentInfo({ subject, attachments: emailFiles.length, sentAt: new Date().toISOString() });
+      setEmailFiles([]);
+      toast.success("E-mail enfileirado para envio.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar e-mail.");
+    } finally {
+      setEmailSending(false);
+    }
+  }
 
   const compTipos = ["Idioma", "Ferramenta", "Técnica", "Comportamental"] as const;
   const compsByTipo = compTipos
@@ -847,6 +1008,7 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
   );
 
   return (
+    <>
     <div className="mt-2 space-y-3">
       {/* Header card — full width, denso */}
       <div className="rounded-xl border bg-gradient-to-r from-slate-50 to-white px-4 py-3">
@@ -872,12 +1034,110 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
             </div>
           </div>
         </div>
+        <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div className="rounded-lg border bg-white/80 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Experiências</div>
+            <div className="text-lg font-semibold tabular-nums">{experiencias.length}</div>
+          </div>
+          <div className="rounded-lg border bg-white/80 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Competências</div>
+            <div className="text-lg font-semibold tabular-nums">{competencias.length}</div>
+          </div>
+          <div className="rounded-lg border bg-white/80 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Documentos</div>
+            <div className="text-lg font-semibold tabular-nums">{documentos.length + candidaturaDocumentos.length}</div>
+          </div>
+          <div className="rounded-lg border bg-white/80 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Candidaturas</div>
+            <div className="text-lg font-semibold tabular-nums">{candidaturas.length}</div>
+          </div>
+        </div>
       </div>
 
       {/* Layout 2 colunas: sidebar + main */}
       <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-3">
         {/* ─── Sidebar ─── */}
         <div className="space-y-3">
+          <SectionCard icon={<Users className="size-3.5" />} title="Dados cadastrais" dense>
+            <dl className="grid grid-cols-1 gap-2 text-[12px]">
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Cadastro</dt>
+                <dd>{fmtDateTime(createdAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Última atualização</dt>
+                <dd>{fmtDateTime(updatedAt)}</dd>
+              </div>
+              {versao && (
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Versão do perfil</dt>
+                  <dd>{versao}</dd>
+                </div>
+              )}
+              {(endereco || cep) && (
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Endereço</dt>
+                  <dd>{endereco || "—"}{cep && <span className="block text-muted-foreground">CEP {cep}</span>}</dd>
+                </div>
+              )}
+            </dl>
+          </SectionCard>
+
+          <SectionCard icon={<FileText className="size-3.5" />} title={`Documentos do talento (${documentos.length})`} dense>
+            {documentos.length > 0 ? (
+              <ul className="space-y-2">
+                {documentos.map((doc) => {
+                  const id = str(doc.id, "");
+                  const nomeArquivo = str(doc.nomeArquivo, "curriculo.pdf");
+                  const contentType = str(doc.contentType, "");
+                  const isPdf = isPdfDocument(nomeArquivo, contentType);
+                  const size = formatBytes(doc.tamanhoBytes);
+                  const path = `${BASE}/api/talentos/${encodeURIComponent(str(data.id, ""))}/documentos/${encodeURIComponent(id)}/download`;
+                  return (
+                    <li key={id} className="rounded-md border bg-slate-50/70 p-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-[12px] font-medium">{nomeArquivo}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {[contentType, size, fmtDate(doc.createdAtUtc as string | null)].filter(Boolean).join(" · ")}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          {isPdf && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-[11px]"
+                              disabled={!id || previewingDocId === id}
+                              onClick={() => void handlePreviewPdf(path, nomeArquivo, id)}
+                            >
+                              {previewingDocId === id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Eye className="mr-1 size-3" />}
+                              Ver Curriculum
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-[11px]"
+                            disabled={!id || downloadingDocId === id}
+                            onClick={() => void handleDownload(path, nomeArquivo, id)}
+                          >
+                            {downloadingDocId === id ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Download className="mr-1 size-3" />}
+                            Baixar
+                          </Button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-[12px] text-muted-foreground">Nenhum documento importado diretamente no banco de talentos.</p>
+            )}
+          </SectionCard>
+
           {competencias.length > 0 && (
             <SectionCard icon={<Sparkles className="size-3.5" />} title={`Competências (${competencias.length})`} dense>
               <div className="space-y-2">
@@ -983,6 +1243,156 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
             </SectionCard>
           )}
 
+          {obs && (
+            <SectionCard icon={<FileText className="size-3.5" />} title="Observações internas" dense>
+              <p className="text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">{obs}</p>
+            </SectionCard>
+          )}
+
+          <SectionCard icon={<Mail className="size-3.5" />} title="Enviar e-mail ao talento" dense>
+            <div className="space-y-3">
+              <div className="rounded-lg border border-blue-100 bg-blue-50/70 p-3 text-[12px] text-blue-800">
+                Destinatário: <strong>{email || "e-mail não cadastrado"}</strong>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Assunto</label>
+                <input
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  maxLength={160}
+                  disabled={emailSending}
+                  placeholder="Assunto do e-mail"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Mensagem</label>
+                <textarea
+                  className="min-h-36 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  maxLength={4000}
+                  disabled={emailSending}
+                  placeholder="Escreva a mensagem para o talento..."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Anexos opcionais</label>
+                <input
+                  type="file"
+                  multiple
+                  className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  disabled={emailSending}
+                  onChange={(e) => setEmailFiles(Array.from(e.target.files ?? []))}
+                />
+                <p className="text-[11px] text-muted-foreground">{emailFilesLabel}</p>
+              </div>
+              {emailSentInfo && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-[12px] text-emerald-800">
+                  E-mail enfileirado em {fmtDateTime(emailSentInfo.sentAt)}.
+                  <span className="block">Assunto: {emailSentInfo.subject}</span>
+                  <span className="block">Anexos: {emailSentInfo.attachments > 0 ? `${emailSentInfo.attachments} arquivo(s)` : "nenhum"}</span>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => void handleSendTalentEmail()}
+                  disabled={emailSending || !email.trim()}
+                >
+                  {emailSending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Mail className="mr-2 size-4" />}
+                  {emailSending ? "Enviando..." : "Enviar e-mail"}
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard icon={<Download className="size-3.5" />} title={`CVs enviados pelo Portal de Vagas (${candidaturaDocumentos.length})`} dense>
+            {candidaturaDocumentos.length > 0 ? (
+              <div className="grid gap-2">
+                {candidaturaDocumentos.map(({ cand, doc }) => {
+                  const candidatoId = str(cand.id, "");
+                  const docId = str(doc.id, "");
+                  const nomeArquivo = str(doc.nomeArquivo, "curriculo.pdf");
+                  const tipo = str(doc.tipo, "Documento");
+                  const contentType = str(doc.contentType, "");
+                  const isPdf = isPdfDocument(nomeArquivo, contentType);
+                  const descricao = str(doc.descricao, "");
+                  const size = formatBytes(doc.tamanhoBytes);
+                  const temArquivo = doc.temArquivo === true || String(doc.temArquivo).toLowerCase() === "true";
+                  const vagaTitulo = str(cand.vagaTitulo, "");
+                  const downloadId = `${candidatoId}:${docId}`;
+                  const path = `${BASE}/api/candidatos/${encodeURIComponent(candidatoId)}/documentos/${encodeURIComponent(docId)}/download`;
+                  return (
+                    <div key={downloadId} className="rounded-lg border bg-white p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">{tipo}</span>
+                            {vagaTitulo && <span className="text-[11px] text-muted-foreground">Vaga: {vagaTitulo}</span>}
+                          </div>
+                          <div className="mt-1 truncate text-sm font-medium">{nomeArquivo}</div>
+                          <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                            {descricao && <span>{descricao}</span>}
+                            {size && <span>{size}</span>}
+                            <span>{fmtDateTime(str(doc.createdAtUtc, ""))}</span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                          {temArquivo && isPdf && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={previewingDocId === downloadId}
+                              onClick={() => void handlePreviewPdf(path, nomeArquivo, downloadId)}
+                            >
+                              {previewingDocId === downloadId ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Eye className="mr-1 size-4" />}
+                              Ver Curriculum
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={!temArquivo || downloadingDocId === downloadId}
+                            onClick={() => void handleDownload(path, nomeArquivo, downloadId)}
+                          >
+                            {downloadingDocId === downloadId ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Download className="mr-1 size-4" />}
+                            {temArquivo ? "Baixar CV" : "Sem arquivo"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[12px] text-muted-foreground">Nenhum currículo de candidatura vinculado a este talento.</p>
+            )}
+          </SectionCard>
+
+          {candidaturas.length > 0 && (
+            <SectionCard icon={<UserCheck className="size-3.5" />} title={`Candidaturas vinculadas (${candidaturas.length})`} dense>
+              <div className="grid gap-2 md:grid-cols-2">
+                {candidaturas.map((cand) => (
+                  <div key={str(cand.id, "")} className="rounded-lg border bg-slate-50/60 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{str(cand.vagaTitulo, "Sem vaga vinculada")}</div>
+                        <div className="text-[11px] text-muted-foreground">{fmtDateTime(str(cand.createdAtUtc, ""))}</div>
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{str(cand.status, "—")}</span>
+                    </div>
+                    <div className="mt-2 text-[11px] text-muted-foreground">
+                      Origem: {str(cand.fonte, "—")} · Documentos: {asArr(cand.documentos).length}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          )}
+
           {experiencias.length > 0 && (
             <SectionCard icon={<Briefcase className="size-3.5" />} title={`Experiência profissional (${experiencias.length})`} dense>
               <ol className="space-y-3 relative before:absolute before:left-[6px] before:top-1.5 before:bottom-1.5 before:w-px before:bg-slate-200">
@@ -1019,9 +1429,61 @@ function TalentoDetailView({ data }: { data: Record<string, unknown> }) {
               </ol>
             </SectionCard>
           )}
+
+          {!hasPerfil && documentos.length === 0 && candidaturaDocumentos.length === 0 && candidaturas.length === 0 && (
+            <div className="rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
+              <Users className="mx-auto size-8 text-slate-300" />
+              <h4 className="mt-2 text-sm font-semibold text-slate-700">Perfil ainda incompleto</h4>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Este talento ainda não tem resumo, experiências, competências, formação ou documentos vinculados.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
+    <Dialog open={!!pdfPreview} onOpenChange={(open) => { if (!open) closePdfPreview(); }}>
+      <DialogContent className="flex h-[90vh] w-[95vw] !max-w-[1400px] flex-col overflow-hidden p-0">
+        {pdfPreview && (
+          <>
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3 pr-12">
+              <div className="min-w-0">
+                <DialogTitle className="truncate text-sm font-semibold text-slate-800">Ver Curriculum</DialogTitle>
+                <DialogDescription className="truncate text-xs text-muted-foreground">{pdfPreview.nomeArquivo}</DialogDescription>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = pdfPreview.url;
+                    a.download = pdfPreview.nomeArquivo || "curriculo.pdf";
+                    a.rel = "noopener";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  <Download className="mr-1 size-4" />
+                  Baixar CV
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={closePdfPreview}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
+            <iframe
+              title={`Curriculum - ${pdfPreview.nomeArquivo}`}
+              src={pdfPreview.url}
+              className="min-h-0 flex-1 bg-slate-100"
+            />
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

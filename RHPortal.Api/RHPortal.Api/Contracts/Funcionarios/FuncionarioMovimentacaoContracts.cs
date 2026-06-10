@@ -13,12 +13,16 @@ public sealed record FuncionarioMovimentacaoListItem(
     string? StatusDescricao,
     string? CodFuncaoOrigem,
     string? CodFuncaoDestino,
+    string? FuncaoOrigemNome,
+    string? FuncaoDestinoNome,
     string? CodSecaoOrigem,
     string? CodSecaoDestino,
     int? IdHierarquiaOrigemRm,
     int? IdHierarquiaDestinoRm,
     decimal? SalarioOrigem,
     decimal? SalarioDestino,
+    string? GestorHistoricoChapaRm,
+    string? GestorHistoricoNome,
     bool? GerouSubstituicao);
 
 public sealed class FuncionarioMovimentacaoUpsertRequest
@@ -34,6 +38,8 @@ public sealed class FuncionarioMovimentacaoUpsertRequest
     public string? StatusDescricao { get; set; }
     public string? CodFuncaoOrigem { get; set; }
     public string? CodFuncaoDestino { get; set; }
+    public string? FuncaoOrigemNome { get; set; }
+    public string? FuncaoDestinoNome { get; set; }
     public string? CodSecaoOrigem { get; set; }
     public string? CodSecaoDestino { get; set; }
     public int? IdHierarquiaOrigemRm { get; set; }
@@ -41,6 +47,8 @@ public sealed class FuncionarioMovimentacaoUpsertRequest
     public decimal? SalarioOrigem { get; set; }
     public decimal? SalarioDestino { get; set; }
     public string? Justificativa { get; set; }
+    public string? GestorHistoricoChapaRm { get; set; }
+    public string? GestorHistoricoNome { get; set; }
     public bool? GerouSubstituicao { get; set; }
 }
 
@@ -65,5 +73,9 @@ public sealed record FuncionarioMovimentacaoComNomeListItem(
     string? StatusDescricao,
     string? CodFuncaoOrigem,
     string? CodFuncaoDestino,
+    string? FuncaoOrigemNome,
+    string? FuncaoDestinoNome,
     decimal? SalarioOrigem,
-    decimal? SalarioDestino);
+    decimal? SalarioDestino,
+    string? GestorHistoricoChapaRm,
+    string? GestorHistoricoNome);

@@ -44,6 +44,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<TalentoCvImportJob> TalentoCvImportJobs => Set<TalentoCvImportJob>();
     public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
     public DbSet<SolicitacaoVaga> SolicitacoesVaga => Set<SolicitacaoVaga>();
+    public DbSet<RmRequisicaoParecer> RmRequisicaoPareceres => Set<RmRequisicaoParecer>();
     public DbSet<SolicitacaoVagaIntegracaoTentativa> SolicitacoesVagaIntegracaoTentativas => Set<SolicitacaoVagaIntegracaoTentativa>();
     public DbSet<SolicitacaoVagaIndicacao> SolicitacoesVagaIndicacao => Set<SolicitacaoVagaIndicacao>();
     public DbSet<RmRequisicaoStatusMap> RmRequisicaoStatusMaps => Set<RmRequisicaoStatusMap>();
@@ -386,6 +387,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.CodSecaoDestino).HasMaxLength(60);
             b.Property(x => x.CodFuncaoDestino).HasMaxLength(20);
             b.Property(x => x.FuncaoDestinoNome).HasMaxLength(160);
+            b.Property(x => x.GestorHistoricoChapaRm).HasMaxLength(20);
+            b.Property(x => x.GestorHistoricoNome).HasMaxLength(160);
             b.Property(x => x.SalarioOrigem).HasPrecision(18, 2);
             b.Property(x => x.SalarioDestino).HasPrecision(18, 2);
             b.HasIndex(x => new { x.TenantId, x.IdReqRm }).IsUnique();
@@ -479,6 +482,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Mensagem).HasMaxLength(1000);
             b.Property(x => x.LogText).HasColumnType("text");
             b.HasIndex(x => new { x.TenantId, x.StartedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmRequisicaoParecer>(b =>
+        {
+            b.ToTable("RmRequisicaoPareceres");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TipoRequisicao).HasMaxLength(60).IsRequired();
+            b.Property(x => x.Solicitante).HasMaxLength(200);
+            b.Property(x => x.ChapaSolicitante).HasMaxLength(30);
+            b.Property(x => x.Parecer).HasMaxLength(4000);
+            b.Property(x => x.Status).HasMaxLength(120);
+            b.HasIndex(x => new { x.TenantId, x.TipoRequisicao, x.CodColRequisicao, x.IdReq, x.IdParecer }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.SolicitacaoVagaId, x.DataParecer });
+            b.HasOne(x => x.SolicitacaoVaga)
+                .WithMany()
+                .HasForeignKey(x => x.SolicitacaoVagaId)
+                .OnDelete(DeleteBehavior.SetNull);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -2366,6 +2388,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.Property(x => x.RmRequisicaoCreateEndpointUrl).HasMaxLength(1000);
             b.Property(x => x.RmRequisicaoGetEndpointUrl).HasMaxLength(1000);
+            b.Property(x => x.RmRequisicaoParecerEndpointUrl).HasMaxLength(1000);
             b.Property(x => x.RmRequisicaoCreateUsername).HasMaxLength(200);
             b.Property(x => x.RmRequisicaoCreatePassword).HasMaxLength(500);
             b.Property(x => x.RequisicoesVagaOrigemRm).HasDefaultValue(false);

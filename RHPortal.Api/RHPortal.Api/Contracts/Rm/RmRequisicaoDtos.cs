@@ -97,3 +97,19 @@ public sealed record RmRequisicaoImportResponse(
     int Ignorados,
     int Erros,
     IReadOnlyList<string> Mensagens);
+
+public sealed class RmRequisicaoParecerRowDto
+{
+    public int CodColRequisicao { get; init; }
+    public int IdReq { get; init; }
+    public int IdParecer { get; init; }
+    public DateTimeOffset? DataParecer { get; init; }
+    public int? CodStatus { get; init; }
+    public int? Suspensao { get; init; }
+    public string? Solicitante { get; init; }
+    public int? Img1 { get; init; }
+    public int? CodColSolicitante { get; init; }
+    public string? ChapaSolicitante { get; init; }
+    public string? Parecer { get; init; }
+    public string? Status { get; init; }
+}

@@ -61,6 +61,8 @@ public sealed class PortalFuncionarioMovimentacaoSyncService
     {
         var path = GetSchemaTablesPath();
         var items = new List<object>();
+        var nomeByChapa = await LoadNomeByChapaAsync(path, ct);
+        var funcaoNomeByCodigo = await LoadFuncaoNomeByCodigoAsync(path, ct);
 
         // ── VREQTRANSFPROMOCAO ── (CHAPA + função origem/destino + seção origem/destino + hierarquia + salário)
         var promoFile = Path.Combine(path, "transf_promocao.json");
@@ -89,6 +91,8 @@ public sealed class PortalFuncionarioMovimentacaoSyncService
                     statusDescricao = MapStatus(r.CodStatus),
                     codFuncaoOrigem = r.CodFuncaoOrg?.Trim(),
                     codFuncaoDestino = r.CodFuncao?.Trim(),
+                    funcaoOrigemNome = ResolveFuncaoNome(r.CodFuncaoOrg, funcaoNomeByCodigo),
+                    funcaoDestinoNome = ResolveFuncaoNome(r.CodFuncao, funcaoNomeByCodigo),
                     codSecaoOrigem = r.CodSecaoOrg?.Trim(),
                     codSecaoDestino = r.CodSecao?.Trim(),
                     idHierarquiaOrigemRm = r.IdHierarquiaOrigem,
@@ -96,6 +100,8 @@ public sealed class PortalFuncionarioMovimentacaoSyncService
                     salarioOrigem = r.VlrSalarioOrg,
                     salarioDestino = r.VlrSalario,
                     justificativa = r.Justificativa,
+                    gestorHistoricoChapaRm = r.ChapaRequisitante?.Trim(),
+                    gestorHistoricoNome = ResolveNomeByChapa(r.ChapaRequisitante, nomeByChapa),
                     gerouSubstituicao = (bool?)null,
                 });
             }
@@ -121,6 +127,8 @@ public sealed class PortalFuncionarioMovimentacaoSyncService
                     statusDescricao = MapStatus(r.CodStatus),
                     codFuncaoOrigem = (string?)null,
                     codFuncaoDestino = (string?)null,
+                    funcaoOrigemNome = (string?)null,
+                    funcaoDestinoNome = (string?)null,
                     codSecaoOrigem = (string?)null,
                     codSecaoDestino = (string?)null,
                     idHierarquiaOrigemRm = (int?)null,
@@ -128,6 +136,8 @@ public sealed class PortalFuncionarioMovimentacaoSyncService
                     salarioOrigem = (decimal?)null,
                     salarioDestino = (decimal?)null,
                     justificativa = r.Justificativa,
+                    gestorHistoricoChapaRm = r.ChapaRequisitante?.Trim(),
+                    gestorHistoricoNome = ResolveNomeByChapa(r.ChapaRequisitante, nomeByChapa),
                     gerouSubstituicao = (r.CriaSubstituicao ?? 0) == 1,
                 });
             }
@@ -182,6 +192,7 @@ public sealed class PortalFuncionarioMovimentacaoSyncService
         [JsonPropertyName("DATAABERTURA")] public DateTime? DataAbertura { get; set; }
         [JsonPropertyName("DATACONCLUSAO")] public DateTime? DataConclusao { get; set; }
         [JsonPropertyName("DATACANCELAMENTO")] public DateTime? DataCancelamento { get; set; }
+        [JsonPropertyName("CHAPAREQUISITANTE")] public string? ChapaRequisitante { get; set; }
         [JsonPropertyName("CODSTATUS")] public int? CodStatus { get; set; }
         [JsonPropertyName("CODFUNCAO")] public string? CodFuncao { get; set; }
         [JsonPropertyName("CODFUNCAOORG")] public string? CodFuncaoOrg { get; set; }
@@ -201,6 +212,7 @@ public sealed class PortalFuncionarioMovimentacaoSyncService
         [JsonPropertyName("CRIASUBSTITUICAO")]
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public int? CriaSubstituicao { get; set; }
+        [JsonPropertyName("CHAPAREQUISITANTE")] public string? ChapaRequisitante { get; set; }
         [JsonPropertyName("DATAABERTURA")] public DateTime? DataAbertura { get; set; }
         [JsonPropertyName("DATACONCLUSAO")] public DateTime? DataConclusao { get; set; }
         [JsonPropertyName("DATACANCELAMENTO")] public DateTime? DataCancelamento { get; set; }
@@ -211,4 +223,80 @@ public sealed class PortalFuncionarioMovimentacaoSyncService
     }
 
     private sealed record BulkResponse(int Created, int Updated, int Total);
+
+    private static string? ResolveNomeByChapa(string? chapa, Dictionary<string, string> nomeByChapa)
+    {
+        if (string.IsNullOrWhiteSpace(chapa)) return null;
+        return nomeByChapa.TryGetValue(chapa.Trim(), out var nome) ? nome : null;
+    }
+
+    private static string? ResolveFuncaoNome(string? codigo, Dictionary<string, string> nomeByCodigo)
+    {
+        if (string.IsNullOrWhiteSpace(codigo)) return null;
+        return nomeByCodigo.TryGetValue(codigo.Trim(), out var nome) ? nome : null;
+    }
+
+    private async Task<Dictionary<string, string>> LoadFuncaoNomeByCodigoAsync(string path, CancellationToken ct)
+    {
+        var funcaoPath = Path.Combine(path, "funcao.json");
+        if (!File.Exists(funcaoPath))
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var funcoes = JsonSerializer.Deserialize<List<FuncaoNomeRow>>(
+            await File.ReadAllTextAsync(funcaoPath, ct), JsonOptions) ?? new();
+
+        return funcoes
+            .Where(f => !string.IsNullOrWhiteSpace(f.Codigo) && !string.IsNullOrWhiteSpace(f.Nome))
+            .GroupBy(f => f.Codigo!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(f => f.Nome!.Length).First().Nome!.Trim(),
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<Dictionary<string, string>> LoadNomeByChapaAsync(string path, CancellationToken ct)
+    {
+        var pessoaPath = Path.Combine(path, "pessoa.json");
+        var funcPath = Path.Combine(path, "funcionario.json");
+        if (!File.Exists(pessoaPath) || !File.Exists(funcPath))
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var pessoas = JsonSerializer.Deserialize<List<PessoaNomeRow>>(
+            await File.ReadAllTextAsync(pessoaPath, ct), JsonOptions) ?? new();
+        var nomeByCodigoPessoa = pessoas
+            .Where(p => p.Codigo.HasValue && !string.IsNullOrWhiteSpace(p.Nome))
+            .GroupBy(p => p.Codigo!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Nome!.Trim());
+
+        var funcionarios = JsonSerializer.Deserialize<List<FuncionarioNomeRow>>(
+            await File.ReadAllTextAsync(funcPath, ct), JsonOptions) ?? new();
+        var nomeByChapa = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var funcionario in funcionarios)
+        {
+            if (string.IsNullOrWhiteSpace(funcionario.Chapa) || !funcionario.CodPessoa.HasValue)
+                continue;
+            if (nomeByCodigoPessoa.TryGetValue(funcionario.CodPessoa.Value, out var nome))
+                nomeByChapa[funcionario.Chapa.Trim()] = nome;
+        }
+
+        return nomeByChapa;
+    }
+
+    private sealed class PessoaNomeRow
+    {
+        [JsonPropertyName("CODIGO")] public int? Codigo { get; set; }
+        [JsonPropertyName("NOME")] public string? Nome { get; set; }
+    }
+
+    private sealed class FuncionarioNomeRow
+    {
+        [JsonPropertyName("CHAPA")] public string? Chapa { get; set; }
+        [JsonPropertyName("CODPESSOA")] public int? CodPessoa { get; set; }
+    }
+
+    private sealed class FuncaoNomeRow
+    {
+        [JsonPropertyName("CODIGO")] public string? Codigo { get; set; }
+        [JsonPropertyName("NOME")] public string? Nome { get; set; }
+    }
 }

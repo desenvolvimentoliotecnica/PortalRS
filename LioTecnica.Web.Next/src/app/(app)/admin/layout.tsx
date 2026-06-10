@@ -13,6 +13,10 @@ function getRequiredPermission(pathname: string) {
         return "documentacao-padrao.manage";
     }
 
+    if (normalizedPathname.startsWith("/admin/relatorio-funcionarios-rm")) {
+        return "relatorios.view";
+    }
+
     return "access.manage";
 }
 

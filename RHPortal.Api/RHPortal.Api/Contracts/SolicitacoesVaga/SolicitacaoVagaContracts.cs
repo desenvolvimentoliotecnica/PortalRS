@@ -234,6 +234,16 @@ public sealed record SolicitacaoTimelineEventoInfo(
     string? Observacao
 );
 
+public sealed record SolicitacaoVagaRmParecerInfo(
+    int IdParecer,
+    DateTimeOffset? DataParecer,
+    short? CodStatus,
+    string? Status,
+    string? Solicitante,
+    string? ChapaSolicitante,
+    string? Parecer
+);
+
 // ── Response ──
 
 public sealed record SolicitacaoVagaResponse(
@@ -321,7 +331,8 @@ public sealed record SolicitacaoVagaResponse(
     int TentativasIntegracao,
     DateTimeOffset? UltimaTentativaUtc,
     decimal? FaixaSalarialMin,
-    decimal? FaixaSalarialMax
+    decimal? FaixaSalarialMax,
+    IReadOnlyList<SolicitacaoVagaRmParecerInfo> RmPareceres
 );
 
 public sealed record SolicitacaoVagaGridRow(
