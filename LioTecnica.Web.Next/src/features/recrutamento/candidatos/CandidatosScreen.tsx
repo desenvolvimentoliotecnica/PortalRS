@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+import { Download, Eye, Loader2, Search } from "lucide-react";
 import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
@@ -142,6 +142,10 @@ function formatFileSize(bytes: unknown) {
   if (mb < 1024) return `${mb.toFixed(1)} MB`;
   const gb = mb / 1024;
   return `${gb.toFixed(2)} GB`;
+}
+
+function isPdfDocument(nomeArquivo: string | null | undefined, contentType?: string | null) {
+  return contentType?.toLowerCase().includes("pdf") === true || (nomeArquivo ?? "").toLowerCase().endsWith(".pdf");
 }
 
 function normalizeErrorMessage(error: unknown) {
@@ -1765,6 +1769,8 @@ function DocumentosBox({
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [enviarParaGpt, setEnviarParaGpt] = useState(true);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [previewingDocId, setPreviewingDocId] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; nomeArquivo: string } | null>(null);
 
   const docs = Array.isArray(candidato.documentos) ? candidato.documentos : [];
   const tipoText = (code: string | null | undefined) => {
@@ -1772,6 +1778,40 @@ function DocumentosBox({
     const opt = docTipoOptions.find((o) => o.code.toLowerCase() === k);
     return opt?.text ?? (code ?? "—");
   };
+
+  useEffect(() => {
+    return () => {
+      if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url);
+    };
+  }, [pdfPreview?.url]);
+
+  async function previewDocumentoPdf(path: string, nomeArquivo: string, docId: string) {
+    setPreviewingDocId(docId);
+    try {
+      const res = await apiFetch(path, { method: "GET", headers: { Accept: "application/pdf,*/*" } }, 120_000);
+      if (!res.ok) {
+        const raw = await res.text().catch(() => "");
+        throw new Error(raw?.trim() || `Falha ao abrir documento (${res.status}).`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" }));
+      setPdfPreview((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { url: objectUrl, nomeArquivo };
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao abrir documento.");
+    } finally {
+      setPreviewingDocId(null);
+    }
+  }
+
+  function closePdfPreview() {
+    setPdfPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
 
   return (
     <div className="space-y-2">
@@ -1856,67 +1896,121 @@ function DocumentosBox({
       <div className="mt-2">
         {docs.length ? (
           <div className="space-y-2">
-            {docs.map((d) => (
-              <div key={d.id} className="flex items-start justify-between gap-2 rounded-xl border border-[rgba(16,82,144,.14)] bg-white/55 p-2">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{d.nomeArquivo ?? "—"}</div>
-                  <div className="text-muted-foreground text-xs">
-                    {tipoText(d.tipo)} • {d.descricao ?? "Sem descrição"}{" "}
-                    {d.tamanhoBytes ? <>• {formatFileSize(d.tamanhoBytes)}</> : null}
+            {docs.map((d) => {
+              const nomeArquivo = d.nomeArquivo ?? "documento";
+              const temArquivo = candidatoDocumentoTemArquivo(asRecord(d));
+              const isPdf = isPdfDocument(nomeArquivo, d.contentType ?? null);
+              const path = buildCandidatoDocumentoDownloadPath(candidato.id, d.id, BASE);
+
+              return (
+                <div key={d.id} className="flex items-start justify-between gap-2 rounded-xl border border-[rgba(16,82,144,.14)] bg-white/55 p-2">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{nomeArquivo}</div>
+                    <div className="text-muted-foreground text-xs">
+                      {tipoText(d.tipo)} • {d.descricao ?? "Sem descrição"}{" "}
+                      {d.tamanhoBytes ? <>• {formatFileSize(d.tamanhoBytes)}</> : null}
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  {candidatoDocumentoTemArquivo(asRecord(d)) ? (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {temArquivo && isPdf ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={previewingDocId === d.id}
+                        onClick={() => void previewDocumentoPdf(path, nomeArquivo, d.id)}
+                      >
+                        {previewingDocId === d.id ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Eye className="mr-1 size-4" />}
+                        Visualizar
+                      </Button>
+                    ) : null}
+                    {temArquivo ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={downloadingDocId === d.id}
+                        onClick={() => {
+                          void (async () => {
+                            setDownloadingDocId(d.id);
+                            try {
+                              await downloadCandidatoDocumento(path, nomeArquivo);
+                            } catch (e) {
+                              toast.error(e instanceof Error ? e.message : "Falha ao baixar o documento.");
+                            } finally {
+                              setDownloadingDocId(null);
+                            }
+                          })();
+                        }}
+                      >
+                        {downloadingDocId === d.id ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Download className="mr-1 size-4" />}
+                        Download
+                      </Button>
+                    ) : d.url && /^https?:\/\//i.test(d.url) ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={d.url} target="_blank" rel="noreferrer">
+                          Abrir link
+                        </a>
+                      </Button>
+                    ) : null}
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
-                      disabled={downloadingDocId === d.id}
-                      onClick={() => {
-                        const path = buildCandidatoDocumentoDownloadPath(candidato.id, d.id, BASE);
-                        void (async () => {
-                          setDownloadingDocId(d.id);
-                          try {
-                            await downloadCandidatoDocumento(path, d.nomeArquivo ?? "documento");
-                          } catch (e) {
-                            toast.error(e instanceof Error ? e.message : "Falha ao baixar o documento.");
-                          } finally {
-                            setDownloadingDocId(null);
-                          }
-                        })();
+                      onClick={async () => {
+                        if (!(await confirmDialog({ title: "Excluir documento", description: "Excluir documento?", confirmText: "Excluir", destructive: true }))) return;
+                        void deleteDocumento(candidato.id, d.id)
+                          .then(() => {
+                            onDeleted(d.id);
+                            toast.success("Documento excluído.");
+                          })
+                          .catch(() => toast.error("Falha ao excluir documento."));
                       }}
                     >
-                      Download
+                      Excluir
                     </Button>
-                  ) : d.url && /^https?:\/\//i.test(d.url) ? (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={d.url} target="_blank" rel="noreferrer">
-                        Abrir link
-                      </a>
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={async () => {
-                      if (!(await confirmDialog({ title: "Excluir documento", description: "Excluir documento?", confirmText: "Excluir", destructive: true }))) return;
-                      void deleteDocumento(candidato.id, d.id)
-                        .then(() => {
-                          onDeleted(d.id);
-                          toast.success("Documento excluído.");
-                        })
-                        .catch(() => toast.error("Falha ao excluir documento."));
-                    }}
-                  >
-                    Excluir
-                  </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-muted-foreground text-sm">Sem documentos.</div>
         )}
       </div>
+
+      {pdfPreview ? (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" onClick={closePdfPreview}>
+          <div className="flex h-[90vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-slate-800">Visualizar PDF</div>
+                <div className="truncate text-xs text-muted-foreground">{pdfPreview.nomeArquivo}</div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = pdfPreview.url;
+                    a.download = pdfPreview.nomeArquivo || "documento.pdf";
+                    a.rel = "noopener";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  <Download className="mr-1 size-4" />
+                  Baixar
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={closePdfPreview}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
+            <iframe title={`PDF - ${pdfPreview.nomeArquivo}`} src={pdfPreview.url} className="min-h-0 flex-1 bg-slate-100" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
