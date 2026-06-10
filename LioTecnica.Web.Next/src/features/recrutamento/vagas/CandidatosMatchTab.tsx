@@ -370,7 +370,9 @@ export default function CandidatosMatchTab({
     const baixarCurriculo = useCallback(async (candidato: HubCandidateRow) => {
         try {
             const curriculo = await buscarCurriculo(candidato);
-            const download = await apiFetch(curriculo.link, { cache: "no-store" });
+            const link = curriculo.link;
+            if (!link) throw new Error("Nenhum CV disponível neste candidato.");
+            const download = await apiFetch(link, { cache: "no-store" });
             if (!download.ok) throw new Error(await parseMatchApiError(download));
             const blob = await download.blob();
             const blobUrl = URL.createObjectURL(blob);
@@ -394,7 +396,9 @@ export default function CandidatosMatchTab({
             if (!isPdfDocumentName(nomeArquivo)) {
                 throw new Error("A visualização no navegador está disponível apenas para PDFs.");
             }
-            const res = await apiFetch(curriculo.link, { cache: "no-store", headers: { Accept: "application/pdf,*/*" } }, 120_000);
+            const link = curriculo.link;
+            if (!link) throw new Error("Nenhum CV disponível neste candidato.");
+            const res = await apiFetch(link, { cache: "no-store", headers: { Accept: "application/pdf,*/*" } }, 120_000);
             if (!res.ok) throw new Error(await parseMatchApiError(res));
             const blob = await res.blob();
             const objectUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" }));
