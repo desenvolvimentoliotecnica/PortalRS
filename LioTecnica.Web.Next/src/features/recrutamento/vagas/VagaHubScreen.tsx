@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Download,
+  Eye,
   ExternalLink,
   FileText,
   Globe,
@@ -594,14 +596,23 @@ function formatFileSizeShort(n: number): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-async function downloadHubCandidateDocument(doc: CandidateDocRow, candidatoIdFallback: string | null): Promise<void> {
+function isPdfDocumentName(nomeArquivo: string | null | undefined): boolean {
+  return (nomeArquivo ?? "").toLowerCase().endsWith(".pdf");
+}
+
+function resolveHubCandidateDocumentPath(doc: CandidateDocRow, candidatoIdFallback: string | null): string | null {
   let rawPath = doc.url?.trim();
   if (!rawPath || rawPath === "#") {
     if (candidatoIdFallback && doc.id) {
       rawPath = `/api/candidatos/${candidatoIdFallback}/documentos/${doc.id}/download`;
     }
   }
-  if (!rawPath || rawPath === "#") {
+  return rawPath && rawPath !== "#" ? rawPath : null;
+}
+
+async function downloadHubCandidateDocument(doc: CandidateDocRow, candidatoIdFallback: string | null): Promise<void> {
+  const rawPath = resolveHubCandidateDocumentPath(doc, candidatoIdFallback);
+  if (!rawPath) {
     toast.error("Link de download indisponível.");
     return;
   }
@@ -672,9 +683,63 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [newCandPendingDocs, setNewCandPendingDocs] = useState<Array<{ id: string; tipo: string; desc: string; file: File; name: string; size: number }>>([]);
   /** Documentos já persistidos (ex.: CV do portal) — preenchido ao abrir edição via GET /api/candidatos/{id}. */
   const [existingCandDocs, setExistingCandDocs] = useState<CandidateDocRow[]>([]);
+  const [previewingCandidateDocId, setPreviewingCandidateDocId] = useState<string | null>(null);
+  const [candidatePdfPreview, setCandidatePdfPreview] = useState<{ url: string; nomeArquivo: string } | null>(null);
   const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
   const [candidateFormMode, setCandidateFormMode] = useState<"create" | "edit" | "view">("create");
   const candidateFormReadOnly = candidateFormMode === "view";
+
+  useEffect(() => {
+    return () => {
+      if (candidatePdfPreview?.url) URL.revokeObjectURL(candidatePdfPreview.url);
+    };
+  }, [candidatePdfPreview?.url]);
+
+  async function previewHubCandidateDocument(doc: CandidateDocRow, candidatoIdFallback: string | null): Promise<void> {
+    if (!isPdfDocumentName(doc.nomeArquivo)) {
+      toast.error("A visualização no navegador está disponível apenas para PDFs.");
+      return;
+    }
+    const rawPath = resolveHubCandidateDocumentPath(doc, candidatoIdFallback);
+    if (!rawPath) {
+      toast.error("Link de visualização indisponível.");
+      return;
+    }
+    if (/^https?:\/\//i.test(rawPath)) {
+      window.open(rawPath, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+    setPreviewingCandidateDocId(doc.id);
+    try {
+      const res = await apiFetch(
+        path,
+        { method: "GET", headers: { Accept: "application/pdf,*/*" } },
+        120_000,
+      );
+      if (!res.ok) {
+        throw new Error(await parseApiErrorMessage(res));
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" }));
+      setCandidatePdfPreview((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { url: objectUrl, nomeArquivo: doc.nomeArquivo ?? "documento.pdf" };
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao visualizar o documento.");
+    } finally {
+      setPreviewingCandidateDocId(null);
+    }
+  }
+
+  function closeCandidatePdfPreview() {
+    setCandidatePdfPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
 
   const [solicitacoesLinked, setSolicitacoesLinked] = useState<SolicitacaoLinked[]>([]);
   const [cancelSolWorking, setCancelSolWorking] = useState<string | null>(null);
@@ -1848,9 +1913,24 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                               {d.tamanhoBytes != null ? ` • ${formatFileSizeShort(d.tamanhoBytes)}` : ""}
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" className="shrink-0" type="button" onClick={() => void downloadHubCandidateDocument(d, editingCandidateId)}>
-                            Download
-                          </Button>
+                          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                            {isPdfDocumentName(d.nomeArquivo) ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                type="button"
+                                disabled={previewingCandidateDocId === d.id}
+                                onClick={() => void previewHubCandidateDocument(d, editingCandidateId)}
+                              >
+                                <Eye className="mr-1 size-4" />
+                                {previewingCandidateDocId === d.id ? "Abrindo..." : "Visualizar"}
+                              </Button>
+                            ) : null}
+                            <Button variant="outline" size="sm" type="button" onClick={() => void downloadHubCandidateDocument(d, editingCandidateId)}>
+                              <Download className="mr-1 size-4" />
+                              Download
+                            </Button>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -2382,6 +2462,44 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           )}
         </DialogContent>
       </Dialog>
+      {candidatePdfPreview ? (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" onClick={closeCandidatePdfPreview}>
+          <div className="flex h-[90vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-slate-800">Visualizar PDF</div>
+                <div className="truncate text-xs text-muted-foreground">{candidatePdfPreview.nomeArquivo}</div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = candidatePdfPreview.url;
+                    a.download = candidatePdfPreview.nomeArquivo || "documento.pdf";
+                    a.rel = "noopener";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  <Download className="size-4" />
+                  Baixar
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                  onClick={closeCandidatePdfPreview}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+            <iframe title={`PDF - ${candidatePdfPreview.nomeArquivo}`} src={candidatePdfPreview.url} className="min-h-0 flex-1 bg-slate-100" />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
