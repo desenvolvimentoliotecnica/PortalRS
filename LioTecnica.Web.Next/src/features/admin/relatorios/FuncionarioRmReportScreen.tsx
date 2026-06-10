@@ -5,7 +5,6 @@ import {
   Download,
   Eye,
   FileSpreadsheet,
-  Printer,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -28,7 +27,7 @@ interface ReportResponse {
   rows: Record<string, unknown>[];
 }
 
-const DEFAULT_TAKE = 5000;
+const DEFAULT_TAKE = 9999;
 type ReportRow = Record<string, unknown>;
 const HIDDEN_TABLE_COLUMNS = new Set([
   "statusPortal",
@@ -582,7 +581,6 @@ export default function FuncionarioRmReportScreen() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("Active");
   const [incluirMovimentacoes, setIncluirMovimentacoes] = useState(false);
-  const [take, setTake] = useState(DEFAULT_TAKE);
   const requestSeqRef = useRef(0);
 
   const load = useCallback(async () => {
@@ -593,7 +591,7 @@ export default function FuncionarioRmReportScreen() {
       const params = new URLSearchParams({
         somenteRm: "true",
         incluirMovimentacoes: String(incluirMovimentacoes),
-        take: String(take || DEFAULT_TAKE),
+        take: String(DEFAULT_TAKE),
       });
       if (q.trim()) params.set("q", q.trim());
       if (status !== "all") params.set("status", status);
@@ -620,7 +618,7 @@ export default function FuncionarioRmReportScreen() {
         setLoading(false);
       }
     }
-  }, [incluirMovimentacoes, q, status, take]);
+  }, [incluirMovimentacoes, q, status]);
 
   useEffect(() => {
     void load();
@@ -708,9 +706,6 @@ export default function FuncionarioRmReportScreen() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="size-4" /> Imprimir
-          </Button>
           <Button variant="outline" onClick={() => data && exportXlsx(data, tableColumns)} disabled={!data || loading}>
             <Download className="size-4" /> Exportar XLSX
           </Button>
@@ -721,7 +716,7 @@ export default function FuncionarioRmReportScreen() {
       </div>
 
       <div className="rounded-xl border border-border/50 bg-card p-4">
-        <div className="grid gap-3 lg:grid-cols-[1fr_180px_160px_160px_auto]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_180px_160px_auto]">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -752,14 +747,6 @@ export default function FuncionarioRmReportScreen() {
             <option value="consolidado">Consolidado</option>
             <option value="movimentacoes">Com movimentações</option>
           </select>
-          <Input
-            type="number"
-            min={1}
-            max={10000}
-            value={take}
-            onChange={(e) => setTake(Number(e.target.value) || DEFAULT_TAKE)}
-            title="Limite de linhas"
-          />
           <Button onClick={() => void load()} disabled={loading}>Aplicar</Button>
         </div>
       </div>
