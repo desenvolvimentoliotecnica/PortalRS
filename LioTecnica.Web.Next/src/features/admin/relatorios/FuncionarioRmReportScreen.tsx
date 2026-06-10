@@ -131,6 +131,9 @@ function summaryLine(label: string, value: string) {
 }
 
 function variationText(row: ReportRow) {
+  const calculated = cellText(row, "movimentacaoPercentualSalarioAnterior");
+  if (calculated !== "—") return calculated;
+
   const text = cellText(row, "movimentacaoJustificativa");
   return text.replace(/^Variação\s*:?\s*/i, "");
 }
@@ -151,14 +154,14 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
   const movementRows = movements.length
     ? movements.map((row, index) => `
       <tr class="${index % 2 ? "muted" : ""}">
-        <td>${escapeHtml(firstCellText([row], ["movimentacaoTipoCodigo", "movimentacaoTipo"]))}</td>
-        <td>${escapeHtml(firstCellText([row], ["movimentacaoCargoOrigem", "movimentacaoCodFuncaoOrigem", "movimentacaoFuncaoOrigemNome"]))}</td>
-        <td>${escapeHtml(firstCellText([row], ["movimentacaoCargoDestino", "movimentacaoCodFuncaoDestino", "movimentacaoFuncaoDestinoNome"]))}</td>
+        <td class="text">${escapeHtml(firstCellText([row], ["movimentacaoTipoCodigo", "movimentacaoTipo"]))}</td>
+        <td class="text">${escapeHtml(firstCellText([row], ["movimentacaoCargoOrigem", "movimentacaoCodFuncaoOrigem", "movimentacaoFuncaoOrigemNome"]))}</td>
+        <td class="text">${escapeHtml(firstCellText([row], ["movimentacaoCargoDestino", "movimentacaoCodFuncaoDestino", "movimentacaoFuncaoDestinoNome"]))}</td>
         <td class="num">${escapeHtml(cellText(row, "movimentacaoSalarioOrigem"))}</td>
         <td class="num">${escapeHtml(cellText(row, "movimentacaoSalarioDestino"))}</td>
         <td class="date">${escapeHtml(cellText(row, "movimentacaoPeriodoInicio"))} a ${escapeHtml(cellText(row, "movimentacaoPeriodoFim"))}</td>
         <td class="date">${escapeHtml(cellText(row, "movimentacaoTempoFuncao"))}</td>
-        <td>${escapeHtml(firstCellText([row], ["movimentacaoGestorHistoricoChapaRm", "movimentacaoGestorHistoricoNome"]))}</td>
+        <td class="text">${escapeHtml(firstCellText([row], ["gestorDiretoNome", "movimentacaoGestorHistoricoChapaRm", "movimentacaoGestorHistoricoNome"]))}</td>
         <td class="num">${escapeHtml(variationText(row))}</td>
       </tr>
     `).join("")
@@ -200,6 +203,7 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
     .grid.two { grid-template-columns: 1.5fr 1fr; }
     .grid.half { grid-template-columns: 1fr 1fr; }
     section { border: 1px solid var(--line); border-radius: 10px; padding: 14px; break-inside: avoid; }
+    .history-section { overflow: hidden; }
     .section-title { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
     .section-title span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 5px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 900; }
     .section-title h3 { margin: 0; color: var(--blue); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
@@ -211,10 +215,14 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
     .summary-line span { color: #475569; font-weight: 800; }
     .summary-line strong { font-weight: 900; }
     table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .history-table { table-layout: fixed; font-size: 9px; line-height: 1.25; }
     th { background: var(--blue); color: #fff; text-align: center; padding: 8px; }
+    .history-table th { padding: 6px 4px; }
     td { border: 1px solid #dbe3ef; padding: 7px; vertical-align: top; font-weight: 400; }
+    .history-table td { padding: 5px 4px; }
+    td.text { overflow-wrap: anywhere; word-break: break-word; }
     td.num { text-align: right; white-space: nowrap; }
-    td.date { text-align: center; white-space: nowrap; }
+    td.date { text-align: center; overflow-wrap: anywhere; }
     tr.muted td { background: var(--muted); }
     .ok { color: #15803d; font-weight: 800; }
     .empty, .empty-text { color: #64748b; text-align: center; padding: 18px; }
@@ -301,13 +309,24 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
         </dl>
       </section>
     </div>
-    <section class="grid">
+    <section class="grid history-section">
       ${sectionTitle(5, "Histórico de movimentações")}
-      <table>
+      <table class="history-table">
+        <colgroup>
+          <col style="width: 9%" />
+          <col style="width: 10%" />
+          <col style="width: 10%" />
+          <col style="width: 9%" />
+          <col style="width: 9%" />
+          <col style="width: 16%" />
+          <col style="width: 7%" />
+          <col style="width: 20%" />
+          <col style="width: 10%" />
+        </colgroup>
         <thead>
           <tr>
             <th>Tipo</th><th>Cargo origem</th><th>Cargo destino</th>
-            <th>Salário origem</th><th>Salário destino</th><th>Período</th><th>Tempo</th><th>Gestor hist.</th><th>Variação</th>
+            <th>Salário origem</th><th>Salário destino</th><th>Período</th><th>Tempo</th><th>Gestor período</th><th>Variação</th>
           </tr>
         </thead>
         <tbody>${movementRows}</tbody>

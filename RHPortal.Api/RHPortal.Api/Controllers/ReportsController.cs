@@ -1437,6 +1437,50 @@ public sealed class ReportsController : ControllerBase
                 g => g.OrderBy(r => r.DataMudanca).ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
+        var gestorRows = new List<HistoricoGestorRmRow>();
+        await QueryChapaBatchesAsync(conn, chapas, """
+            SELECT
+                CAST(H.CODCOLIGADAAVALIADO AS varchar(20)) AS CODCOLIGADA,
+                NULLIF(LTRIM(RTRIM(H.CHAPAAVALIADO)), '') AS CHAPA,
+                H.DATAACAO,
+                CAST(H.CODCOLIGADAAVALIADOR AS varchar(20)) AS CODCOLIGADAGESTOR,
+                NULLIF(LTRIM(RTRIM(H.CHAPAAVALIADOR)), '') AS CHAPAGESTOR,
+                NULLIF(LTRIM(RTRIM(COALESCE(P.NOME, F.NOME))), '') AS NOMEGESTOR
+            FROM VADHISTPARTICIPANTES H
+            LEFT JOIN PFUNC F
+                ON F.CODCOLIGADA = H.CODCOLIGADAAVALIADOR
+               AND F.CHAPA = H.CHAPAAVALIADOR
+            LEFT JOIN PPESSOA P
+                ON P.CODIGO = F.CODPESSOA
+            WHERE H.CHAPAAVALIADO IN ({0})
+              AND H.DATAACAO IS NOT NULL
+              AND H.CODTIPOAVALIADOR = 2
+              AND H.CHAPAAVALIADOR IS NOT NULL
+              AND H.CHAPAAVALIADOR <> H.CHAPAAVALIADO
+            ORDER BY H.CHAPAAVALIADO, H.DATAACAO;
+            """, async reader =>
+        {
+            var chapa = DbString(reader, "CHAPA");
+            if (string.IsNullOrWhiteSpace(chapa))
+                return;
+            gestorRows.Add(new HistoricoGestorRmRow(
+                DbString(reader, "CODCOLIGADA"),
+                chapa,
+                DbDateTime(reader, "DATAACAO") ?? DateTime.UtcNow,
+                DbString(reader, "CODCOLIGADAGESTOR"),
+                DbString(reader, "CHAPAGESTOR"),
+                DbString(reader, "NOMEGESTOR")));
+            await Task.CompletedTask;
+        }, ct);
+
+        var gestorByEmployee = gestorRows
+            .Where(r => selectedKeys.Contains(LiveEmployeeKey(r.CodColigada, r.Chapa)))
+            .GroupBy(r => LiveEmployeeKey(r.CodColigada, r.Chapa), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(r => r.DataAcao).ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
         static string? CargoDisplay(HistoricoFuncaoRmRow? row) =>
             FormatCodeDescription(row?.CodCargo, row?.CargoNome) ?? FormatCodeDescription(row?.CodFuncao, row?.FuncaoNome);
 
@@ -1466,6 +1510,25 @@ public sealed class ReportsController : ControllerBase
             return (origem, destino);
         }
 
+        static HistoricoGestorRmRow? ResolveHistoricoGestor(
+            IReadOnlyList<HistoricoGestorRmRow>? historico,
+            DateTime dataMovimentacao)
+        {
+            if (historico is null || historico.Count == 0)
+                return null;
+
+            HistoricoGestorRmRow? gestor = null;
+            foreach (var row in historico)
+            {
+                if (row.DataAcao <= dataMovimentacao)
+                    gestor = row;
+                else
+                    break;
+            }
+
+            return gestor;
+        }
+
         foreach (var group in rows
             .Where(r => selectedKeys.Contains(LiveEmployeeKey(r.CodColigada, r.Chapa)))
             .GroupBy(r => LiveEmployeeKey(r.CodColigada, r.Chapa), StringComparer.OrdinalIgnoreCase))
@@ -1473,6 +1536,7 @@ public sealed class ReportsController : ControllerBase
             decimal? prevSalario = null;
             var seqByKey = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             funcaoByEmployee.TryGetValue(group.Key, out var historicoFuncao);
+            gestorByEmployee.TryGetValue(group.Key, out var historicoGestor);
             foreach (var row in group.OrderBy(r => r.DataMudanca).ThenBy(r => r.NroSalario ?? 0).ThenBy(r => r.Salario ?? 0))
             {
                 var baseKey = $"{row.Chapa}-{row.DataMudanca:yyyyMMdd}-{row.NroSalario ?? 1}-{(row.Motivo ?? "").Trim()}";
@@ -1481,6 +1545,7 @@ public sealed class ReportsController : ControllerBase
                 var idReq = seq == 0 ? $"HSAL-{baseKey}" : $"HSAL-{baseKey}-{seq}";
                 var (tipo, descricao) = MapHistoricoSalarialMotivo(row.Motivo);
                 var (funcaoOrigem, funcaoDestino) = ResolveHistoricoFuncao(historicoFuncao, row.DataMudanca);
+                var gestor = ResolveHistoricoGestor(historicoGestor, row.DataMudanca);
                 result.Add(new LiveMovimentacaoRm(
                     row.CodColigada,
                     row.Chapa,
@@ -1503,8 +1568,8 @@ public sealed class ReportsController : ControllerBase
                     null,
                     prevSalario,
                     row.Salario,
-                    null,
-                    null,
+                    gestor?.ChapaGestor,
+                    gestor?.NomeGestor,
                     row.PercentAplicado is decimal p && p != 0
                         ? $"Variação {p.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}%"
                         : null,
@@ -2212,6 +2277,14 @@ public sealed class ReportsController : ControllerBase
         string? FuncaoNome,
         string? CodCargo,
         string? CargoNome);
+
+    private sealed record HistoricoGestorRmRow(
+        string? CodColigada,
+        string Chapa,
+        DateTime DataAcao,
+        string? CodColigadaGestor,
+        string? ChapaGestor,
+        string? NomeGestor);
 
     private static readonly IReadOnlyList<FuncionarioRmReportColumnResponse> FuncionarioRmReportColumns =
     [
