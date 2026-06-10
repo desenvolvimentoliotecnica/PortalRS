@@ -35,19 +35,24 @@ const HIDDEN_TABLE_COLUMNS = new Set([
   "codSituacaoRm",
   "numeroEndereco",
   "complemento",
+  "estadoNatal",
+  "rgUf",
+  "rgDataEmissao",
+  "carteiraTrabalhoSerie",
+  "carteiraTrabalhoUf",
+  "carteiraTrabalhoData",
+  "nivelHierarquicoNome",
+  "hierarquiaDescricao",
   "hasIncompleteData",
   "updatedAtUtc",
 ]);
 const PRIORITY_TABLE_COLUMNS = ["matriculaRm", "nome", "cdnEmpresa"];
 const CENTERED_TABLE_COLUMNS = new Set([
+  "matriculaRm",
   "sexo",
   "grauInstrucao",
-  "estadoNatal",
   "uf",
   "rgOrgEmissor",
-  "rgUf",
-  "carteiraTrabalhoUf",
-  "carteiraTrabalhoData",
 ]);
 const RIGHT_ALIGNED_TABLE_COLUMNS = new Set(["salarioAtual"]);
 
@@ -73,8 +78,10 @@ function formatCell(value: unknown, key?: string) {
     if (key === "telefone") return formatPhoneBr(value);
     if (key === "cep") return formatCep(value);
     if (key === "cpf") return formatCpf(value);
+    if (key === "email") return value.toLowerCase();
     if (key === "sexo") return normalizeSexo(value);
     if (key === "rg") return formatRg(value);
+    if (key === "estadoCivil" || key === "nacionalidade") return descriptionOnly(value);
     return value;
   }
   return String(value);
@@ -112,6 +119,12 @@ function formatRg(value: string) {
   if (digits.length === 9) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}-${digits.slice(8)}`;
   if (digits.length === 8) return `${digits.slice(0, 1)}.${digits.slice(1, 4)}.${digits.slice(4, 7)}-${digits.slice(7)}`;
   return value;
+}
+
+function descriptionOnly(value: string) {
+  const text = value.trim();
+  const match = text.match(/^[A-Za-z0-9]+(?:\s*-\s*)(.+)$/);
+  return match?.[1]?.trim() || text;
 }
 
 function formatCep(value: string) {
@@ -155,8 +168,40 @@ function formatAddressLine(row: ReportRow) {
   return parts.length ? parts.join(", ") : "—";
 }
 
+function formatNaturalidade(row: ReportRow) {
+  const naturalidade = rawText(row, "naturalidade");
+  const ufNascimento = rawText(row, "estadoNatal");
+  const parts = [naturalidade, ufNascimento].filter(Boolean);
+  return parts.length ? parts.join(" / ") : "—";
+}
+
+function formatRgIssuerLine(row: ReportRow) {
+  const orgao = rawText(row, "rgOrgEmissor");
+  const uf = rawText(row, "rgUf");
+  const emissao = formatCell(row.rgDataEmissao, "rgDataEmissao");
+  const parts = [orgao, uf, emissao === "—" ? "" : emissao].filter(Boolean);
+  return parts.length ? parts.join(" / ") : "—";
+}
+
+function formatCtpsLine(row: ReportRow) {
+  const ctps = rawText(row, "carteiraTrabalho");
+  const serie = rawText(row, "carteiraTrabalhoSerie");
+  const uf = rawText(row, "carteiraTrabalhoUf");
+  const emissao = formatCell(row.carteiraTrabalhoData, "carteiraTrabalhoData");
+  const parts = [
+    ctps,
+    serie ? `Série ${serie}` : "",
+    uf,
+    emissao === "—" ? "" : emissao,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" / ") : "—";
+}
+
 function formatTableCell(row: ReportRow, key: string) {
   if (key === "logradouro") return formatAddressLine(row);
+  if (key === "naturalidade") return formatNaturalidade(row);
+  if (key === "rgOrgEmissor") return formatRgIssuerLine(row);
+  if (key === "carteiraTrabalho") return formatCtpsLine(row);
   return formatCell(row[key], key);
 }
 
@@ -538,12 +583,35 @@ export default function FuncionarioRmReportScreen() {
       }
       return columns.indexOf(a) - columns.indexOf(b);
     }).map((column) => {
-      if (column.key !== "logradouro") return column;
-      return {
-        ...column,
-        label: "Logradouro / Nº / Compl.",
-        description: "Logradouro, número e complemento concatenados a partir do cadastro RM.",
-      };
+      if (column.key === "logradouro") {
+        return {
+          ...column,
+          label: "Logradouro / Nº / Compl.",
+          description: "Logradouro, número e complemento concatenados a partir do cadastro RM.",
+        };
+      }
+      if (column.key === "naturalidade") {
+        return {
+          ...column,
+          label: "Naturalidade",
+          description: "Naturalidade e UF de nascimento concatenadas a partir do cadastro RM.",
+        };
+      }
+      if (column.key === "rgOrgEmissor") {
+        return {
+          ...column,
+          label: "Órgão / UF / Emissão RG",
+          description: "Órgão emissor, UF e data de emissão do RG concatenados a partir do cadastro RM.",
+        };
+      }
+      if (column.key === "carteiraTrabalho") {
+        return {
+          ...column,
+          label: "CTPS",
+          description: "Número, série, UF e emissão da CTPS concatenados a partir do cadastro RM.",
+        };
+      }
+      return column;
     });
   }, [data]);
 
