@@ -997,6 +997,12 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     setDescricaoCargoSearch("");
   }, []);
 
+  const handleDescricaoCargoSelectValue = useCallback((value: string) => {
+    if (!value) return;
+    const selected = descricaoCargoListOptions.find((item) => item.id === value);
+    if (selected) selectDescricaoCargo(selected);
+  }, [descricaoCargoListOptions, selectDescricaoCargo]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -1255,7 +1261,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
     const payload = buildPayload(draft, enums);
     try {
       if (draft.id) {
-        await fetchJson(`${BASE}/api/vagas/${encodeURIComponent(draft.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const updated = await fetchJson<Record<string, unknown>>(`${BASE}/api/vagas/${encodeURIComponent(draft.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (draft.descricaoCargoId && String(updated?.descricaoCargoId ?? "") !== draft.descricaoCargoId) {
+          throw new Error("A API salvou a vaga, mas não retornou o vínculo DNALIO. Reabra a vaga e tente novamente.");
+        }
         if (wizardMode) {
           toast.success("Salvo!");
           const idx = STEPPER_SEQUENCE.indexOf(tab);
@@ -1281,7 +1290,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         toast.success("Vaga criada.");
         onSaved(createdId);
       }
-    } catch { toast.error("Falha ao salvar vaga."); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha ao salvar vaga.";
+      toast.error(msg);
+    }
     finally { setSaving(false); }
   }
 
@@ -1704,21 +1716,26 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     size={Math.min(6, Math.max(3, descricaoCargoListOptions.length || 3))}
                     value={draft.descricaoCargoId}
-                    onChange={(e) => {
-                      const selected = descricaoCargoListOptions.find((item) => item.id === e.target.value);
-                      if (selected) selectDescricaoCargo(selected);
-                    }}
+                    onChange={(e) => handleDescricaoCargoSelectValue(e.target.value)}
+                    onClick={(e) => handleDescricaoCargoSelectValue(e.currentTarget.value)}
                   >
                     {loadingDescricaoCargo ? (
                       <option value="" disabled>Buscando descrições...</option>
                     ) : descricaoCargoListOptions.length === 0 ? (
                       <option value="" disabled>Nenhuma descrição encontrada</option>
                     ) : (
-                      descricaoCargoListOptions.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.displayLabel}
-                        </option>
-                      ))
+                      <>
+                        {!draft.descricaoCargoId && (
+                          <option value="" disabled>
+                            Selecione uma descrição da lista
+                          </option>
+                        )}
+                        {descricaoCargoListOptions.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.displayLabel}
+                          </option>
+                        ))}
+                      </>
                     )}
                   </select>
                   {draft.descricaoCargoId && (
