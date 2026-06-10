@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   buildCandidatoDocumentoDownloadPath,
   downloadCandidatoDocumento,
 } from "@/features/recrutamento/candidatos/candidatoDocumentoDownload";
+import { apiFetch } from "@/lib/api";
 
 /* ── Types (JSON camelCase from API) ── */
 
@@ -160,6 +161,10 @@ function disp(v: unknown): string {
   return s || "—";
 }
 
+function isPdfDocument(nomeArquivo: string | null | undefined) {
+  return (nomeArquivo ?? "").toLowerCase().endsWith(".pdf");
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <details className="rounded-xl border border-border/50 bg-card/40 group">
@@ -215,6 +220,42 @@ export function CandidatoPortalPerfilReadonly({
   apiPathPrefix = "",
 }: Props) {
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [previewingDocId, setPreviewingDocId] = useState<string | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; nomeArquivo: string } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url);
+    };
+  }, [pdfPreview?.url]);
+
+  async function previewDocumentoPdf(path: string, nomeArquivo: string, docId: string) {
+    setPreviewingDocId(docId);
+    try {
+      const res = await apiFetch(path, { method: "GET", headers: { Accept: "application/pdf,*/*" } }, 120_000);
+      if (!res.ok) {
+        const raw = await res.text().catch(() => "");
+        throw new Error(raw?.trim() || `Falha ao abrir documento (${res.status}).`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" }));
+      setPdfPreview((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { url: objectUrl, nomeArquivo };
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao abrir documento.");
+    } finally {
+      setPreviewingDocId(null);
+    }
+  }
+
+  function closePdfPreview() {
+    setPdfPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
 
   if (loading) {
     return <div className={`text-muted-foreground text-sm py-6 text-center ${className}`}>Carregando perfil do portal…</div>;
@@ -241,6 +282,7 @@ export function CandidatoPortalPerfilReadonly({
   const su = data.education?.summary as Record<string, unknown> | undefined;
 
   return (
+    <>
     <div className={`space-y-3 ${className}`}>
       {(p?.nome || p?.email) && (
         <div className="rounded-xl border border-border/50 bg-card/50 p-3 flex flex-wrap gap-3 items-start">
@@ -585,52 +627,109 @@ export function CandidatoPortalPerfilReadonly({
           <div className="text-muted-foreground text-xs">Nenhum documento do portal.</div>
         ) : (
           <div className="space-y-1">
-            {data.portalDocuments!.items!.map((doc) => (
-              <div key={String(doc.id ?? doc.nome)} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-border/30 p-2 text-xs">
-                <div>
-                  <div className="font-medium text-foreground">{disp(doc.nome)}</div>
-                  <div className="text-muted-foreground">{disp(doc.tipo)} · {disp(doc.data)}</div>
-                  {doc.observacoes ? <div className="mt-0.5 whitespace-pre-wrap">{doc.observacoes}</div> : null}
+            {data.portalDocuments!.items!.map((doc) => {
+              const canUseStoredFile = Boolean(candidatoId?.trim() && doc.id?.trim() && doc.temArquivo);
+              const cid = candidatoId?.trim() ?? "";
+              const did = doc.id?.trim() ?? "";
+              const name = (doc.nome ?? doc.fileName ?? "documento").trim() || "documento";
+              const path = canUseStoredFile ? buildCandidatoDocumentoDownloadPath(cid, did, apiPathPrefix) : "";
+              const canPreview = canUseStoredFile && isPdfDocument(doc.fileName ?? doc.nome);
+
+              return (
+                <div key={String(doc.id ?? doc.nome)} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-border/30 p-2 text-xs">
+                  <div>
+                    <div className="font-medium text-foreground">{disp(doc.nome)}</div>
+                    <div className="text-muted-foreground">{disp(doc.tipo)} · {disp(doc.data)}</div>
+                    {doc.observacoes ? <div className="mt-0.5 whitespace-pre-wrap">{doc.observacoes}</div> : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                    {canPreview ? (
+                      <button
+                        type="button"
+                        disabled={previewingDocId === did}
+                        className="text-[rgb(var(--lt-primary))] hover:underline inline-flex items-center gap-1 disabled:opacity-50"
+                        onClick={() => void previewDocumentoPdf(path, name, did)}
+                      >
+                        {previewingDocId === did ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <Eye className="size-3" aria-hidden />}
+                        Visualizar
+                      </button>
+                    ) : null}
+                    {canUseStoredFile ? (
+                      <button
+                        type="button"
+                        disabled={downloadingDocId === did}
+                        className="text-[rgb(var(--lt-primary))] hover:underline inline-flex items-center gap-1 disabled:opacity-50"
+                        onClick={() => {
+                          void (async () => {
+                            setDownloadingDocId(did);
+                            try {
+                              await downloadCandidatoDocumento(path, name);
+                            } catch (e) {
+                              toast.error(e instanceof Error ? e.message : "Falha ao baixar o documento.");
+                            } finally {
+                              setDownloadingDocId(null);
+                            }
+                          })();
+                        }}
+                      >
+                        {downloadingDocId === did ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
+                        Baixar
+                      </button>
+                    ) : doc.link && /^https?:\/\//i.test(doc.link.trim()) ? (
+                      <a href={doc.link.trim()} className="text-[rgb(var(--lt-primary))] hover:underline" target="_blank" rel="noopener noreferrer">
+                        Abrir link
+                      </a>
+                    ) : doc.id ? (
+                      <span className="text-muted-foreground text-[10px]" title="Registro sem arquivo no servidor (só metadados ou arquivo perdido após deploy)">
+                        Sem arquivo
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-                {candidatoId?.trim() && doc.id?.trim() && doc.temArquivo ? (
-                  <button
-                    type="button"
-                    disabled={downloadingDocId === doc.id}
-                    className="text-[rgb(var(--lt-primary))] hover:underline shrink-0 inline-flex items-center gap-1 disabled:opacity-50"
-                    onClick={() => {
-                      const cid = candidatoId.trim();
-                      const did = doc.id!.trim();
-                      const name = (doc.nome ?? doc.fileName ?? "documento").trim() || "documento";
-                      const path = buildCandidatoDocumentoDownloadPath(cid, did, apiPathPrefix);
-                      void (async () => {
-                        setDownloadingDocId(did);
-                        try {
-                          await downloadCandidatoDocumento(path, name);
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : "Falha ao baixar o documento.");
-                        } finally {
-                          setDownloadingDocId(null);
-                        }
-                      })();
-                    }}
-                  >
-                    {downloadingDocId === doc.id ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
-                    Baixar
-                  </button>
-                ) : doc.link && /^https?:\/\//i.test(doc.link.trim()) ? (
-                  <a href={doc.link.trim()} className="text-[rgb(var(--lt-primary))] hover:underline shrink-0" target="_blank" rel="noopener noreferrer">
-                    Abrir link
-                  </a>
-                ) : doc.id ? (
-                  <span className="text-muted-foreground text-[10px] shrink-0" title="Registro sem arquivo no servidor (só metadados ou arquivo perdido após deploy)">
-                    Sem arquivo
-                  </span>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Section>
     </div>
+    {pdfPreview ? (
+      <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" onClick={closePdfPreview}>
+        <div className="flex h-[90vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-slate-800">Visualizar PDF</div>
+              <div className="truncate text-xs text-muted-foreground">{pdfPreview.nomeArquivo}</div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = pdfPreview.url;
+                  a.download = pdfPreview.nomeArquivo || "documento.pdf";
+                  a.rel = "noopener";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                }}
+              >
+                <Download className="size-4" />
+                Baixar
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                onClick={closePdfPreview}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+          <iframe title={`PDF - ${pdfPreview.nomeArquivo}`} src={pdfPreview.url} className="min-h-0 flex-1 bg-slate-100" />
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
