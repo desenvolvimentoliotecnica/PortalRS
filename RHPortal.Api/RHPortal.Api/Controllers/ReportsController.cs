@@ -1231,7 +1231,12 @@ public sealed class ReportsController : ControllerBase
                 NULLIF(LTRIM(RTRIM(C.NOME)), '') AS CARGONOME,
                 F.SALARIO AS SALARIOATUAL,
                 NULLIF(LTRIM(RTRIM(G.NOMEFANTASIA)), '') AS FILIALDESCRICAO,
-                NULLIF(LTRIM(RTRIM(COALESCE(PGEST.NOME, FGEST.NOME))), '') AS GESTORDIRETONOME
+                COALESCE(
+                    NULLIF(LTRIM(RTRIM(COALESCE(PGEST.NOME, FGEST.NOME))), ''),
+                    NULLIF(LTRIM(RTRIM(GESTPOS.NOME)), ''),
+                    NULLIF(LTRIM(RTRIM(GESTQUAD.NOME)), ''),
+                    NULLIF(LTRIM(RTRIM(GESTPART.NOME)), '')
+                ) AS GESTORDIRETONOME
             FROM PFUNC F
             LEFT JOIN GCOLIGADA GC
                 ON GC.CODCOLIGADA = F.CODCOLIGADA
@@ -1291,6 +1296,66 @@ public sealed class ReportsController : ControllerBase
                AND FGEST.CHAPA = LIDER.CHAPALIDER
             LEFT JOIN PPESSOA PGEST
                 ON PGEST.CODIGO = FGEST.CODPESSOA
+            OUTER APPLY (
+                SELECT TOP 1 COALESCE(PG.NOME, FG.NOME) AS NOME
+                FROM VPOSICAO POS
+                INNER JOIN VHIERARQUIAPOSICAO HP
+                    ON HP.CODCOLIGADA = POS.CODCOLIGADA
+                   AND HP.CODPOSICAO = POS.IDPOSICAO
+                   AND ISNULL(HP.STATUS, 0) = 1
+                INNER JOIN VHIERARQUIA H
+                    ON H.CODCOLIGADA = HP.CODCOLIGADA
+                   AND H.IDHIERARQUIA = HP.IDHIERARQUIA
+                INNER JOIN VHIERARQUIAPOSICAO HPSUP
+                    ON HPSUP.CODCOLIGADA = H.CODCOLIGADA
+                   AND HPSUP.IDHIERARQUIA = H.IDHIERARQUIASUPERIOR
+                   AND ISNULL(HPSUP.STATUS, 0) = 1
+                INNER JOIN VPOSICAO POSSUP
+                    ON POSSUP.CODCOLIGADA = HPSUP.CODCOLIGADA
+                   AND POSSUP.IDPOSICAO = HPSUP.CODPOSICAO
+                   AND ISNULL(POSSUP.STATUS, 0) = 1
+                   AND POSSUP.CHAPAFUNCIONARIO IS NOT NULL
+                   AND POSSUP.CHAPAFUNCIONARIO <> F.CHAPA
+                LEFT JOIN PFUNC FG
+                    ON FG.CODCOLIGADA = POSSUP.CODCOLFUNCIONARIO
+                   AND FG.CHAPA = POSSUP.CHAPAFUNCIONARIO
+                LEFT JOIN PPESSOA PG
+                    ON PG.CODIGO = FG.CODPESSOA
+                WHERE POS.CODCOLFUNCIONARIO = F.CODCOLIGADA
+                  AND POS.CHAPAFUNCIONARIO = F.CHAPA
+                  AND ISNULL(POS.STATUS, 0) = 1
+                ORDER BY POSSUP.DATAINICIO DESC, POSSUP.IDPOSICAO
+            ) GESTPOS
+            OUTER APPLY (
+                SELECT TOP 1 COALESCE(PG.NOME, FG.NOME) AS NOME
+                FROM VQUADHIERARQUIA Q
+                LEFT JOIN PFUNC FG
+                    ON FG.CODCOLIGADA = Q.CODCOLIGADAAVALIADOR
+                   AND FG.CHAPA = Q.CHAPAAVALIADOR
+                LEFT JOIN PPESSOA PG
+                    ON PG.CODIGO = FG.CODPESSOA
+                WHERE Q.CODCOLIGADAAVALIADO = F.CODCOLIGADA
+                  AND Q.CHAPAAVALIADO = F.CHAPA
+                  AND Q.CHAPAAVALIADOR IS NOT NULL
+                  AND Q.CHAPAAVALIADOR <> F.CHAPA
+                  AND ISNULL(Q.AVALIADODIRETO, 0) = 1
+                ORDER BY Q.RECMODIFIEDON DESC, Q.RECCREATEDON DESC
+            ) GESTQUAD
+            OUTER APPLY (
+                SELECT TOP 1 COALESCE(PG.NOME, FG.NOME) AS NOME
+                FROM VADPARTICIPANTES V
+                LEFT JOIN PFUNC FG
+                    ON FG.CODCOLIGADA = V.CODCOLIGADAAVALIADOR
+                   AND FG.CHAPA = V.CHAPAAVALIADOR
+                LEFT JOIN PPESSOA PG
+                    ON PG.CODIGO = FG.CODPESSOA
+                WHERE V.CODCOLIGADAAVALIADO = F.CODCOLIGADA
+                  AND V.CHAPAAVALIADO = F.CHAPA
+                  AND V.CHAPAAVALIADOR IS NOT NULL
+                  AND V.CHAPAAVALIADOR <> F.CHAPA
+                  AND V.CODTIPOAVALIADOR = 2
+                ORDER BY V.RECMODIFIEDON DESC, V.RECCREATEDON DESC
+            ) GESTPART
             WHERE {string.Join(" AND ", where)}
             ORDER BY COALESCE(P.NOME, F.NOME), F.CHAPA;
             """;

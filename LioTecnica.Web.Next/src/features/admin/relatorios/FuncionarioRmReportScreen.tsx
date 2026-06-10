@@ -30,8 +30,26 @@ interface ReportResponse {
 
 const DEFAULT_TAKE = 5000;
 type ReportRow = Record<string, unknown>;
-const HIDDEN_TABLE_COLUMNS = new Set(["statusPortal", "codSituacaoRm"]);
+const HIDDEN_TABLE_COLUMNS = new Set([
+  "statusPortal",
+  "codSituacaoRm",
+  "numeroEndereco",
+  "complemento",
+  "hasIncompleteData",
+  "updatedAtUtc",
+]);
 const PRIORITY_TABLE_COLUMNS = ["matriculaRm", "nome", "cdnEmpresa"];
+const CENTERED_TABLE_COLUMNS = new Set([
+  "sexo",
+  "grauInstrucao",
+  "estadoNatal",
+  "uf",
+  "rgOrgEmissor",
+  "rgUf",
+  "carteiraTrabalhoUf",
+  "carteiraTrabalhoData",
+]);
+const RIGHT_ALIGNED_TABLE_COLUMNS = new Set(["salarioAtual"]);
 
 function formatCell(value: unknown, key?: string) {
   if (value === null || value === undefined || value === "") return "—";
@@ -52,17 +70,22 @@ function formatCell(value: unknown, key?: string) {
       const d = new Date(value.includes("T") ? value : `${value}T00:00:00`);
       if (!Number.isNaN(d.getTime())) return d.toLocaleDateString("pt-BR");
     }
+    if (key === "telefone") return formatPhoneBr(value);
+    if (key === "cep") return formatCep(value);
+    if (key === "cpf") return formatCpf(value);
+    if (key === "sexo") return normalizeSexo(value);
+    if (key === "rg") return formatRg(value);
     return value;
   }
   return String(value);
 }
 
-function exportXlsx(data: ReportResponse) {
+function exportXlsx(data: ReportResponse, columns: ReportColumn[]) {
   const rows = data.rows.map((row) => Object.fromEntries(
-    data.columns.map((column) => [column.label, formatCell(row[column.key], column.key)]),
+    columns.map((column) => [column.label, formatTableCell(row, column.key)]),
   ));
   const worksheet = XLSX.utils.json_to_sheet(rows, {
-    header: data.columns.map((column) => column.label),
+    header: columns.map((column) => column.label),
   });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Funcionarios RM");
@@ -82,6 +105,13 @@ function formatCpf(value: string) {
   const digits = onlyDigits(value);
   if (digits.length !== 11) return value;
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function formatRg(value: string) {
+  const digits = onlyDigits(value);
+  if (digits.length === 9) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}-${digits.slice(8)}`;
+  if (digits.length === 8) return `${digits.slice(0, 1)}.${digits.slice(1, 4)}.${digits.slice(4, 7)}-${digits.slice(7)}`;
+  return value;
 }
 
 function formatCep(value: string) {
@@ -108,6 +138,32 @@ function normalizeSexo(value: string) {
 function formattedCell(row: ReportRow | null | undefined, key: string, formatter: (value: string) => string) {
   const text = cellText(row, key);
   return text === "—" ? text : formatter(text);
+}
+
+function rawText(row: ReportRow, key: string) {
+  const value = row[key];
+  if (value === null || value === undefined || value === "") return "";
+  return String(value).trim();
+}
+
+function formatAddressLine(row: ReportRow) {
+  const parts = [
+    rawText(row, "logradouro"),
+    rawText(row, "numeroEndereco"),
+    rawText(row, "complemento"),
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : "—";
+}
+
+function formatTableCell(row: ReportRow, key: string) {
+  if (key === "logradouro") return formatAddressLine(row);
+  return formatCell(row[key], key);
+}
+
+function tableCellClassName(key: string) {
+  if (CENTERED_TABLE_COLUMNS.has(key)) return "text-center";
+  if (RIGHT_ALIGNED_TABLE_COLUMNS.has(key)) return "text-right tabular-nums";
+  return "";
 }
 
 function firstCellText(rows: ReportRow[], keys: string[]) {
@@ -481,6 +537,13 @@ export default function FuncionarioRmReportScreen() {
         return (aPriority ?? Number.MAX_SAFE_INTEGER) - (bPriority ?? Number.MAX_SAFE_INTEGER);
       }
       return columns.indexOf(a) - columns.indexOf(b);
+    }).map((column) => {
+      if (column.key !== "logradouro") return column;
+      return {
+        ...column,
+        label: "Logradouro / Nº / Compl.",
+        description: "Logradouro, número e complemento concatenados a partir do cadastro RM.",
+      };
     });
   }, [data]);
 
@@ -496,7 +559,7 @@ export default function FuncionarioRmReportScreen() {
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="size-4" /> Imprimir
           </Button>
-          <Button variant="outline" onClick={() => data && exportXlsx(data)} disabled={!data || loading}>
+          <Button variant="outline" onClick={() => data && exportXlsx(data, tableColumns)} disabled={!data || loading}>
             <Download className="size-4" /> Exportar XLSX
           </Button>
           <Button variant="outline" onClick={() => void load()} disabled={loading}>
@@ -627,8 +690,11 @@ export default function FuncionarioRmReportScreen() {
                       )}
                     </td>
                     {tableColumns.map((column) => (
-                      <td key={column.key} className="whitespace-nowrap border-b border-r px-3 py-2">
-                        {formatCell(row[column.key], column.key)}
+                      <td
+                        key={column.key}
+                        className={`whitespace-nowrap border-b border-r px-3 py-2 ${tableCellClassName(column.key)}`}
+                      >
+                        {formatTableCell(row, column.key)}
                       </td>
                     ))}
                   </tr>
