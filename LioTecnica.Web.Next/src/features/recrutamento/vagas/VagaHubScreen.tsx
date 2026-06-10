@@ -1173,7 +1173,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             .finally(() => setRodadasLoading(false));
         }
       }}>
-        <TabsList className="!grid h-auto w-full grid-cols-6 rounded-xl border border-border/40 bg-card p-1 shadow-sm">
+        <TabsList className="!grid h-auto w-full grid-cols-7 rounded-xl border border-border/40 bg-card p-1 shadow-sm">
           <TabsTrigger value="resumo" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2 data-[state=active]:text-[#105290]">
             <FileText className="size-4 shrink-0" />
             <span className="truncate">Resumo</span>
@@ -1196,7 +1196,11 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             <Target className="size-4 shrink-0" />
             <span className="truncate">Etapas</span>
           </TabsTrigger>
-          {workflowData && <TabsTrigger value="workflow">Workflow</TabsTrigger>}
+          {workflowData && (
+            <TabsTrigger value="workflow" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
+              <span className="truncate">Workflow</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="historico" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
             <Clock className="size-4 shrink-0" />
             <span className="truncate">Histórico</span>
