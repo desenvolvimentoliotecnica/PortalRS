@@ -226,9 +226,9 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
     tr.muted td { background: var(--muted); }
     .ok { color: #15803d; font-weight: 800; }
     .empty, .empty-text { color: #64748b; text-align: center; padding: 18px; }
-    .timeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-    .timeline-card { border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 10px; padding: 12px; }
-    .timeline-index { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 999px; background: var(--blue); color: #fff; font-weight: 900; font-size: 12px; }
+    .timeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .timeline-card { border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 10px; padding: 12px; text-align: center; }
+    .timeline-index { width: 28px; height: 28px; display: grid; place-items: center; margin: 0 auto; border-radius: 999px; background: var(--blue); color: #fff; font-weight: 900; font-size: 12px; }
     .timeline-date { margin-top: 8px; color: #0f2f5f; font-size: 11px; font-weight: 900; }
     .timeline-title { margin-top: 4px; font-size: 13px; font-weight: 900; }
     .timeline-salary { display: inline-block; margin-top: 10px; border-radius: 5px; background: #fff; color: var(--blue); padding: 5px 8px; font-size: 12px; font-weight: 900; }
