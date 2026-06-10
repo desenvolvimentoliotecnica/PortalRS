@@ -35,23 +35,32 @@ const HIDDEN_TABLE_COLUMNS = new Set([
   "numeroEndereco",
   "complemento",
   "estadoNatal",
+  "rgOrgEmissor",
   "rgUf",
   "rgDataEmissao",
   "carteiraTrabalhoSerie",
   "carteiraTrabalhoUf",
   "carteiraTrabalhoData",
+  "tituloEleitorZona",
+  "tituloEleitorSecao",
+  "unitName",
   "nivelHierarquicoNome",
   "hierarquiaDescricao",
   "hasIncompleteData",
   "updatedAtUtc",
 ]);
-const PRIORITY_TABLE_COLUMNS = ["matriculaRm", "nome", "cdnEmpresa"];
+const PRIORITY_TABLE_COLUMNS = ["matriculaRm", "nome", "gestorDiretoNome", "cdnEmpresa"];
 const CENTERED_TABLE_COLUMNS = new Set([
   "matriculaRm",
+  "dataAdmissao",
+  "dataNascimento",
   "sexo",
+  "estadoCivil",
   "grauInstrucao",
   "uf",
-  "rgOrgEmissor",
+  "certificadoReservista",
+  "nacionalidade",
+  "jobPositionCode",
 ]);
 const RIGHT_ALIGNED_TABLE_COLUMNS = new Set(["salarioAtual"]);
 
@@ -182,6 +191,13 @@ function formatRgIssuerLine(row: ReportRow) {
   return parts.length ? parts.join(" / ") : "—";
 }
 
+function formatRgLine(row: ReportRow) {
+  const rg = formatCell(row.rg, "rg");
+  const emissao = formatRgIssuerLine(row);
+  const parts = [rg === "—" ? "" : rg, emissao === "—" ? "" : emissao].filter(Boolean);
+  return parts.length ? parts.join(" / ") : "—";
+}
+
 function formatCtpsLine(row: ReportRow) {
   const ctps = rawText(row, "carteiraTrabalho");
   const serie = rawText(row, "carteiraTrabalhoSerie");
@@ -196,11 +212,24 @@ function formatCtpsLine(row: ReportRow) {
   return parts.length ? parts.join(" / ") : "—";
 }
 
+function formatTituloEleitorLine(row: ReportRow) {
+  const titulo = rawText(row, "tituloEleitor");
+  const zona = rawText(row, "tituloEleitorZona");
+  const secao = rawText(row, "tituloEleitorSecao");
+  const parts = [
+    titulo,
+    zona ? `Zona ${zona}` : "",
+    secao ? `Seção ${secao}` : "",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" / ") : "—";
+}
+
 function formatTableCell(row: ReportRow, key: string) {
   if (key === "logradouro") return formatAddressLine(row);
   if (key === "naturalidade") return formatNaturalidade(row);
-  if (key === "rgOrgEmissor") return formatRgIssuerLine(row);
+  if (key === "rg") return formatRgLine(row);
   if (key === "carteiraTrabalho") return formatCtpsLine(row);
+  if (key === "tituloEleitor") return formatTituloEleitorLine(row);
   return formatCell(row[key], key);
 }
 
@@ -686,11 +715,25 @@ export default function FuncionarioRmReportScreen() {
           description: "Órgão emissor, UF e data de emissão do RG concatenados a partir do cadastro RM.",
         };
       }
+      if (column.key === "rg") {
+        return {
+          ...column,
+          label: "RG / Emissão",
+          description: "Número do RG, órgão emissor, UF e data de emissão concatenados a partir do cadastro RM.",
+        };
+      }
       if (column.key === "carteiraTrabalho") {
         return {
           ...column,
           label: "CTPS",
           description: "Número, série, UF e emissão da CTPS concatenados a partir do cadastro RM.",
+        };
+      }
+      if (column.key === "tituloEleitor") {
+        return {
+          ...column,
+          label: "Título Eleitor",
+          description: "Título de eleitor, zona e seção concatenados a partir do cadastro RM.",
         };
       }
       return column;
