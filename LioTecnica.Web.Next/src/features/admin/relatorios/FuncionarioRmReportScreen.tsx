@@ -72,6 +72,42 @@ function cellText(row: ReportRow | null | undefined, key: string) {
   return formatCell(row[key], key);
 }
 
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function formatCpf(value: string) {
+  const digits = onlyDigits(value);
+  if (digits.length !== 11) return value;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function formatCep(value: string) {
+  const digits = onlyDigits(value);
+  if (digits.length !== 8) return value;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+function formatPhoneBr(value: string) {
+  const digits = onlyDigits(value);
+  const phone = digits.length > 11 && digits.startsWith("55") ? digits.slice(2) : digits;
+  if (phone.length === 11) return `(${phone.slice(0, 2)}) ${phone.slice(2, 7)}-${phone.slice(7)}`;
+  if (phone.length === 10) return `(${phone.slice(0, 2)}) ${phone.slice(2, 6)}-${phone.slice(6)}`;
+  return value;
+}
+
+function normalizeSexo(value: string) {
+  const normalized = value.trim().toUpperCase();
+  if (["M", "1", "MASCULINO"].includes(normalized)) return "Masculino";
+  if (["F", "2", "FEMININO"].includes(normalized)) return "Feminino";
+  return value;
+}
+
+function formattedCell(row: ReportRow | null | undefined, key: string, formatter: (value: string) => string) {
+  const text = cellText(row, key);
+  return text === "—" ? text : formatter(text);
+}
+
 function firstCellText(rows: ReportRow[], keys: string[]) {
   for (const row of rows) {
     for (const key of keys) {
@@ -263,8 +299,6 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
           ${infoItem("Matrícula RM", cellText(baseRow, "matriculaRm"))}
           ${infoItem("Empresa", cellText(baseRow, "cdnEmpresa"))}
           ${infoItem("Estab.", cellText(baseRow, "cdnEstab"))}
-          ${infoItem("Status Portal", cellText(baseRow, "statusPortal"))}
-          ${infoItem("Situação RM", currentStatus)}
           ${infoItem("Data admissão", cellText(baseRow, "dataAdmissao"))}
           ${infoItem("Atualizado em", cellText(baseRow, "updatedAtUtc"))}
         </dl>
@@ -283,10 +317,10 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
         ${sectionTitle(3, "Contato e dados pessoais")}
         <dl>
           ${infoItem("E-mail", cellText(baseRow, "email"))}
-          ${infoItem("Telefone", cellText(baseRow, "telefone"))}
-          ${infoItem("CPF", cellText(baseRow, "cpf"))}
+          ${infoItem("Telefone", formattedCell(baseRow, "telefone", formatPhoneBr))}
+          ${infoItem("CPF", formattedCell(baseRow, "cpf", formatCpf))}
           ${infoItem("Data nascimento", cellText(baseRow, "dataNascimento"))}
-          ${infoItem("Sexo", cellText(baseRow, "sexo"))}
+          ${infoItem("Sexo", formattedCell(baseRow, "sexo", normalizeSexo))}
           ${infoItem("Estado civil", cellText(baseRow, "estadoCivil"))}
           ${infoItem("Grau instrução", cellText(baseRow, "grauInstrucao"))}
           ${infoItem("Nacionalidade", cellText(baseRow, "nacionalidade"))}
@@ -297,7 +331,7 @@ function buildEmployeeSheetHtml(selectedRow: ReportRow, rows: ReportRow[]) {
       <section>
         ${sectionTitle(4, "Endereço e documentos")}
         <dl>
-          ${infoItem("CEP", cellText(baseRow, "cep"))}
+          ${infoItem("CEP", formattedCell(baseRow, "cep", formatCep))}
           ${infoItem("Logradouro", cellText(baseRow, "logradouro"))}
           ${infoItem("Número", cellText(baseRow, "numeroEndereco"))}
           ${infoItem("Bairro", cellText(baseRow, "bairro"))}
