@@ -109,6 +109,7 @@ public static class RolePermissionManifest
         "aprovacoes-vaga.view",
         "solicitacoes-vaga.view",
         "gestao.dashboard",
+        "agenda.view",
     ];
 
     /// <summary>

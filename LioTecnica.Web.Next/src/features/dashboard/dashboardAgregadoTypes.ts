@@ -22,6 +22,25 @@ export interface DashboardGestorCandidaturaItem {
   diasNaEtapa: number | null;
 }
 
+export interface DashboardGestorAgendaTecnicaItem {
+  eventoId: string;
+  candidaturaId: string | null;
+  candidatoId: string | null;
+  vagaId: string | null;
+  titulo: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  status: string;
+  location: string | null;
+  owner: string | null;
+  candidate: string | null;
+  vagaTitle: string | null;
+  vagaCode: string | null;
+  candidateResponseStatus: string | null;
+  typeCode: string;
+  typeLabel: string;
+}
+
 export interface DashboardGestorSection {
   diretosAtivos: number;
   diretosComDadosIncompletos: number;
@@ -34,6 +53,7 @@ export interface DashboardGestorSection {
   avaliacoesDiretosPendentes: number;
   vagasMaisAntigas: DashboardGestorVagaAbertaItem[];
   candidaturasEmDestaque: DashboardGestorCandidaturaItem[];
+  agendaTecnicaProxima: DashboardGestorAgendaTecnicaItem[];
 }
 
 export interface DashboardRhVagaForaSlaItem {

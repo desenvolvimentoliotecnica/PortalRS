@@ -37,7 +37,8 @@ public sealed record DashboardGestorSection(
     int SolicitacoesEquipePendentes, // solicitações da minha equipe (diretos) em aberto
     int AvaliacoesDiretosPendentes, // AvaliacaoConvite onde EU sou o avaliador
     IReadOnlyList<DashboardGestorVagaAbertaItem> VagasMaisAntigas,
-    IReadOnlyList<DashboardGestorCandidaturaItem> CandidaturasEmDestaque
+    IReadOnlyList<DashboardGestorCandidaturaItem> CandidaturasEmDestaque,
+    IReadOnlyList<DashboardGestorAgendaTecnicaItem> AgendaTecnicaProxima
 );
 
 public sealed record DashboardGestorVagaAbertaItem(
@@ -57,6 +58,25 @@ public sealed record DashboardGestorCandidaturaItem(
     string CandidatoNome,
     string EtapaMacro,
     int? DiasNaEtapa
+);
+
+public sealed record DashboardGestorAgendaTecnicaItem(
+    Guid EventoId,
+    Guid? CandidaturaId,
+    Guid? CandidatoId,
+    Guid? VagaId,
+    string Titulo,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    string Status,
+    string? Location,
+    string? Owner,
+    string? Candidate,
+    string? VagaTitle,
+    string? VagaCode,
+    string? CandidateResponseStatus,
+    string TypeCode,
+    string TypeLabel
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
