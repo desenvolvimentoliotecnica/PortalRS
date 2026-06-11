@@ -94,6 +94,43 @@ type SecretState = {
   gestoresRmPassword: string;
 };
 
+type GestorUsuarioItem = {
+  funcionarioId: string;
+  nome: string;
+  email: string | null;
+  matriculaRm: string | null;
+  funcaoRm: string | null;
+  cargo: string | null;
+  nivelHierarquico: string | null;
+  qtdSubordinados: number;
+  motivos: string[];
+  usuarioId: string | null;
+  usuarioEmail: string | null;
+  jaTemUsuario: boolean;
+  jaTemRoleGestor: boolean;
+  podeExecutar: boolean;
+  acao: string;
+  observacao: string | null;
+};
+
+type GestorUsuarioPreview = {
+  totalCandidatos: number;
+  semEmail: number;
+  jaComUsuarioGestor: number;
+  criarUsuario: number;
+  vincularUsuarioExistente: number;
+  adicionarRoleGestor: number;
+  conflitos: number;
+  items: GestorUsuarioItem[];
+};
+
+type ProvisioningLogEntry = {
+  level: "info" | "success" | "warn" | "error" | "done";
+  message: string;
+  funcionarioId?: string | null;
+  usuarioId?: string | null;
+};
+
 const DEFAULT_CONFIG: RmConfig = {
   sqlServer: "",
   sqlDatabase: "",
@@ -181,6 +218,11 @@ export default function ConfiguracaoRmScreen() {
   const [config, setConfig] = useState<RmConfig>(DEFAULT_CONFIG);
   const [secrets, setSecrets] = useState<SecretState>(EMPTY_SECRETS);
   const [gestoresTestChapa, setGestoresTestChapa] = useState("");
+  const [gestorUsuarioPreview, setGestorUsuarioPreview] = useState<GestorUsuarioPreview | null>(null);
+  const [gestorUsuarioPassword, setGestorUsuarioPassword] = useState("");
+  const [resetExistingGestorPasswords, setResetExistingGestorPasswords] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+  const [provisioningLog, setProvisioningLog] = useState<ProvisioningLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
@@ -206,6 +248,16 @@ export default function ConfiguracaoRmScreen() {
   const setField = <K extends keyof RmConfig>(key: K, value: RmConfig[K]) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
   };
+
+  const loadGestorUsuarioPreview = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/integracao-totvs/configuracao-rm/usuarios-gestores/preview", { cache: "no-store" }, 60_000);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setGestorUsuarioPreview((await res.json()) as GestorUsuarioPreview);
+    } catch {
+      toast.error("Falha ao carregar prévia de usuários gestores.");
+    }
+  }, []);
 
   const save = async () => {
     setSaving(true);
@@ -269,6 +321,55 @@ export default function ConfiguracaoRmScreen() {
     }
   };
 
+  const provisionarUsuariosGestores = async () => {
+    if (!gestorUsuarioPassword.trim()) {
+      toast.error("Informe uma senha padrão para os novos usuários.");
+      return;
+    }
+
+    setProvisioning(true);
+    setProvisioningLog([]);
+    try {
+      const res = await apiFetch("/api/integracao-totvs/configuracao-rm/usuarios-gestores/executar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+        body: JSON.stringify({
+          senhaPadrao: gestorUsuarioPassword,
+          resetarSenhaUsuariosExistentes: resetExistingGestorPasswords,
+        }),
+      }, 10 * 60_000);
+
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const entry = JSON.parse(line) as ProvisioningLogEntry;
+          setProvisioningLog((prev) => [...prev, entry]);
+        }
+      }
+      if (buffer.trim()) {
+        const entry = JSON.parse(buffer) as ProvisioningLogEntry;
+        setProvisioningLog((prev) => [...prev, entry]);
+      }
+
+      await loadGestorUsuarioPreview();
+      toast.success("Provisionamento de usuários gestores concluído.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao provisionar usuários gestores.");
+    } finally {
+      setProvisioning(false);
+    }
+  };
+
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -291,6 +392,7 @@ export default function ConfiguracaoRmScreen() {
           <TabsTrigger value="sync">Importação e worker</TabsTrigger>
           <TabsTrigger value="schema">Schema RM</TabsTrigger>
           <TabsTrigger value="gestores">Gestores RM</TabsTrigger>
+          <TabsTrigger value="usuarios-gestores">Usuários Gestores</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sql">
@@ -419,6 +521,93 @@ export default function ConfiguracaoRmScreen() {
             </div>
           </Card>
         </TabsContent>
+
+        <TabsContent value="usuarios-gestores">
+          <Card title="Usuários Gestores" desc="Identifica funcionários gestores/coordenadores, cria ou vincula usuários e garante a role Gestor de forma idempotente.">
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-72 flex-1">
+                  <SecretField label="Senha padrão para novos usuários" value={gestorUsuarioPassword} onChange={setGestorUsuarioPassword} />
+                </div>
+                <label className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm">
+                  <input type="checkbox" checked={resetExistingGestorPasswords} onChange={(e) => setResetExistingGestorPasswords(e.target.checked)} />
+                  Resetar senha de usuários existentes
+                </label>
+                <Button type="button" variant="outline" onClick={() => void loadGestorUsuarioPreview()}>
+                  Atualizar prévia
+                </Button>
+                <Button type="button" disabled={provisioning || !gestorUsuarioPreview} onClick={() => void provisionarUsuariosGestores()}>
+                  {provisioning ? "Executando..." : "Criar/vincular gestores"}
+                </Button>
+              </div>
+
+              {gestorUsuarioPreview ? (
+                <>
+                  <div className="grid gap-3 md:grid-cols-6">
+                    <Stat label="Candidatos" value={gestorUsuarioPreview.totalCandidatos} />
+                    <Stat label="Criar usuário" value={gestorUsuarioPreview.criarUsuario} />
+                    <Stat label="Vincular existente" value={gestorUsuarioPreview.vincularUsuarioExistente} />
+                    <Stat label="Adicionar Gestor" value={gestorUsuarioPreview.adicionarRoleGestor} />
+                    <Stat label="Já ok" value={gestorUsuarioPreview.jaComUsuarioGestor} />
+                    <Stat label="Sem e-mail/conflito" value={gestorUsuarioPreview.semEmail + gestorUsuarioPreview.conflitos} />
+                  </div>
+
+                  <div className="max-h-[460px] overflow-auto rounded-lg border border-border">
+                    <table className="min-w-full text-sm">
+                      <thead className="sticky top-0 bg-muted text-left">
+                        <tr>
+                          <th className="p-2 font-medium">Funcionário</th>
+                          <th className="p-2 font-medium">Motivo</th>
+                          <th className="p-2 font-medium">Usuário</th>
+                          <th className="p-2 font-medium">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {gestorUsuarioPreview.items.map((item) => (
+                          <tr key={item.funcionarioId} className="border-t border-border/60">
+                            <td className="p-2 align-top">
+                              <div className="font-medium">{item.nome}</div>
+                              <div className="text-xs text-muted-foreground">{item.email ?? "Sem e-mail"} · CHAPA {item.matriculaRm ?? "-"}</div>
+                              <div className="text-xs text-muted-foreground">{item.funcaoRm ?? item.cargo ?? item.nivelHierarquico ?? "-"}</div>
+                            </td>
+                            <td className="p-2 align-top text-xs text-muted-foreground">
+                              {item.motivos.join(" | ") || "-"}
+                            </td>
+                            <td className="p-2 align-top">
+                              <div>{item.usuarioEmail ?? (item.jaTemUsuario ? "Usuário encontrado" : "Sem usuário")}</div>
+                              <div className="text-xs text-muted-foreground">{item.jaTemRoleGestor ? "Com role Gestor" : "Sem role Gestor"}</div>
+                            </td>
+                            <td className="p-2 align-top">
+                              <span className={item.podeExecutar ? "text-foreground" : "text-destructive"}>{item.acao}</span>
+                              {item.observacao ? <div className="text-xs text-destructive">{item.observacao}</div> : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
+                  Clique em <strong>Atualizar prévia</strong> para listar os funcionários candidatos a Gestor/Coordenador.
+                </div>
+              )}
+
+              <div className="rounded-lg border border-border bg-black p-3 text-xs text-white">
+                <div className="mb-2 font-semibold">Log em tempo real</div>
+                <div className="max-h-72 space-y-1 overflow-auto font-mono">
+                  {provisioningLog.length === 0 ? (
+                    <div className="text-white/60">Nenhuma execução iniciada.</div>
+                  ) : provisioningLog.map((entry, idx) => (
+                    <div key={`${idx}-${entry.message}`} className={entry.level === "error" ? "text-red-300" : entry.level === "success" ? "text-green-300" : entry.level === "warn" ? "text-yellow-300" : "text-white/85"}>
+                      [{entry.level}] {entry.message}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
       </Tabs>
     </main>
   );
@@ -469,5 +658,14 @@ function CheckField({ label, checked, onChange }: { label: string; checked: bool
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
+    </div>
   );
 }

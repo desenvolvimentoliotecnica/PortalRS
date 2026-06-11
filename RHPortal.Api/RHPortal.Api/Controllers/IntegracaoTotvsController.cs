@@ -9,6 +9,7 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Tenancy;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 
 namespace RhPortal.Api.Controllers;
 
@@ -358,6 +359,42 @@ public sealed class IntegracaoTotvsController : ControllerBase
         catch (Exception ex)
         {
             return Ok(new { ok = false, message = ex.Message });
+        }
+    }
+
+    [HttpGet("configuracao-rm/usuarios-gestores/preview")]
+    [ProducesResponseType(typeof(GestorUsuarioProvisioningPreviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> PreviewUsuariosGestores(
+        [FromServices] GestorUsuarioProvisioningService service,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        return Ok(await service.PreviewAsync(ct));
+    }
+
+    [HttpPost("configuracao-rm/usuarios-gestores/executar")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task ExecutarUsuariosGestores(
+        [FromServices] GestorUsuarioProvisioningService service,
+        [FromBody] GestorUsuarioProvisioningRequest request,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+        {
+            Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        Response.ContentType = "application/x-ndjson; charset=utf-8";
+        await foreach (var entry in service.ExecuteAsync(request, ct))
+        {
+            var line = JsonSerializer.Serialize(entry, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            await Response.WriteAsync(line + "\n", ct);
+            await Response.Body.FlushAsync(ct);
         }
     }
 
