@@ -48,6 +48,7 @@ Liotecnica.Integration.RM.Logs/extraction.log
 # Python bytecode/cache
 **/__pycache__/
 *.pyc
+scripts/import_descricao_cargo.local.json
 
 # Uploads de candidatos (currículos PDF) — dados pessoais, NÃO versionar (LGPD)
 **/App_Data/uploads/

@@ -418,6 +418,7 @@ public sealed class VagaService : IVagaService
         // Sprint P1: ReadOnly guard
         if (_currentUser.IsReadOnly)
             throw new InvalidOperationException("Seu perfil é somente leitura. Não é possível criar vagas.");
+        EnsureDescricaoCargoRequiredForPublication(request.Status, request.DescricaoCargoId);
         // MatchingFiltrosRaw é opcional na criação (ex.: vaga auto-criada por solicitação aprovada)
         if (request.CentroCustoId.HasValue && request.CentroCustoId.Value != Guid.Empty)
             await EnsureCentroCustoAsync(request.CentroCustoId.Value, ct);
@@ -690,11 +691,18 @@ public sealed class VagaService : IVagaService
         throw new InvalidOperationException($"MatchingFiltrosRaw é obrigatório na operação de {operation}.");
     }
 
+    private static void EnsureDescricaoCargoRequiredForPublication(VagaStatus status, Guid? descricaoCargoId)
+    {
+        if (status != VagaStatus.Aberta || descricaoCargoId.HasValue) return;
+        throw new InvalidOperationException("Vincule uma Descrição de Cargo (DNALIO) antes de publicar a vaga.");
+    }
+
     public async Task<VagaResponse?> ChangeStatusAsync(Guid id, VagaStatus newStatus, CancellationToken ct)
     {
         var entity = await _db.Vagas.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
         EnsureTenantOwnership(entity);
+        EnsureDescricaoCargoRequiredForPublication(newStatus, entity.DescricaoCargoId);
 
         // Rascunho/Preenchida → Aberta: exigir campos obrigatórios e decisão de headcount
         if (newStatus == VagaStatus.Aberta)
@@ -1384,6 +1392,7 @@ public sealed class VagaService : IVagaService
         if (request.Status == VagaStatus.Aberta && entity.HeadcountPendente > 0)
             throw new InvalidOperationException(
                 "Existe aumento de headcount pendente de aprovação para esta vaga. Acompanhe em Aprovações antes de publicar.");
+        EnsureDescricaoCargoRequiredForPublication(request.Status, request.DescricaoCargoId);
 
         entity.Status = request.Status;
         if (request.Status == VagaStatus.Aberta && entity.DataAbertura == null)

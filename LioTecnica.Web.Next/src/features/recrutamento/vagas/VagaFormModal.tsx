@@ -1247,9 +1247,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       if (!draft.tipoContratacao) campos.push("Tipo de Contratação");
       if (!draft.modalidade) campos.push("Modalidade");
       if (!draft.quantidadeVagas || draft.quantidadeVagas < 1) campos.push("Qtd. de Vagas");
+      if (!draft.descricaoCargoId) campos.push("Descrição de Cargo (DNALIO)");
       if (campos.length > 0) {
         toast.error(`Preencha antes de publicar: ${campos.join(", ")}`);
-        setTab("dados");
+        setTab(!draft.descricaoCargoId ? "matching" : "dados");
         return;
       }
     }
