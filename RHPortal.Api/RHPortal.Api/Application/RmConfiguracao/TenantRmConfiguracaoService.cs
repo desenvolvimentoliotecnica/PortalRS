@@ -104,6 +104,14 @@ public sealed class RmWorkerConfiguracaoDto : TenantRmConfiguracaoDto
     public string? SqlPassword { get; set; }
 }
 
+public sealed class RmGestoresConfiguracaoInternaDto
+{
+    public string? UrlTemplate { get; set; }
+    public string? User { get; set; }
+    public string Password { get; set; } = string.Empty;
+    public short DefaultCodColigada { get; set; } = 1;
+}
+
 public interface ITenantRmConfiguracaoService
 {
     Task<TenantRmConfiguracaoDto> GetAsync(CancellationToken ct);
@@ -112,6 +120,7 @@ public interface ITenantRmConfiguracaoService
     Task<RmRequisicaoCreateOptions> GetCreateOptionsAsync(CancellationToken ct);
     Task<RmSolicitacaoStatusSyncOptions> GetStatusSyncOptionsAsync(CancellationToken ct);
     Task<RmWorkerConfiguracaoDto> GetWorkerConfigAsync(CancellationToken ct);
+    Task<RmGestoresConfiguracaoInternaDto> GetGestoresConfigAsync(CancellationToken ct);
 }
 
 public sealed class TenantRmConfiguracaoService : ITenantRmConfiguracaoService
@@ -299,6 +308,18 @@ public sealed class TenantRmConfiguracaoService : ITenantRmConfiguracaoService
         Copy(Map(c), dto);
         dto.SqlPassword = DecryptOrEmpty(c.SqlPasswordEncrypted);
         return dto;
+    }
+
+    public async Task<RmGestoresConfiguracaoInternaDto> GetGestoresConfigAsync(CancellationToken ct)
+    {
+        var c = await GetOrCreateAsync(ct);
+        return new RmGestoresConfiguracaoInternaDto
+        {
+            UrlTemplate = c.GestoresRmUrlTemplate,
+            User = c.GestoresRmUser,
+            Password = DecryptOrEmpty(c.GestoresRmPasswordEncrypted),
+            DefaultCodColigada = c.GestoresRmDefaultCodColigada
+        };
     }
 
     private async Task<TenantRmConfiguracao> GetOrCreateAsync(CancellationToken ct)

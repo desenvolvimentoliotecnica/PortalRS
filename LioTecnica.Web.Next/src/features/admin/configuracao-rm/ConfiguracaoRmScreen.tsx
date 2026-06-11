@@ -180,6 +180,7 @@ const EMPTY_SECRETS: SecretState = {
 export default function ConfiguracaoRmScreen() {
   const [config, setConfig] = useState<RmConfig>(DEFAULT_CONFIG);
   const [secrets, setSecrets] = useState<SecretState>(EMPTY_SECRETS);
+  const [gestoresTestChapa, setGestoresTestChapa] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
@@ -242,6 +243,27 @@ export default function ConfiguracaoRmScreen() {
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string; status?: number };
       if (body.ok) toast.success(body.message ?? "Teste concluído com sucesso.");
       else toast.error(body.message ?? `Teste falhou${body.status ? ` (${body.status})` : ""}.`);
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const runGestoresTest = async () => {
+    if (!gestoresTestChapa.trim()) {
+      toast.error("Informe uma CHAPA para testar gestores RM.");
+      return;
+    }
+
+    setTesting("gestores");
+    try {
+      const qs = new URLSearchParams({
+        chapa: gestoresTestChapa.trim(),
+        codColigada: String(config.gestoresRmDefaultCodColigada || 1),
+      });
+      const res = await apiFetch(`/api/integracao-totvs/configuracao-rm/testar-gestores?${qs.toString()}`, { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string; status?: number; preview?: string | null };
+      if (body.ok) toast.success(body.message ?? "Consulta de gestores RM realizada com sucesso.");
+      else toast.error(body.message ?? `Teste de gestores falhou${body.status ? ` (${body.status})` : ""}.`);
     } finally {
       setTesting(null);
     }
@@ -387,6 +409,13 @@ export default function ConfiguracaoRmScreen() {
               />
               <NumberField label="Coligada default" value={config.gestoresRmDefaultCodColigada} onChange={(v) => setField("gestoresRmDefaultCodColigada", v)} />
               <NumberField label="Delay entre requests (ms)" value={config.gestoresRmDelayMsBetweenRequests} onChange={(v) => setField("gestoresRmDelayMsBetweenRequests", v)} />
+              <TextField label="CHAPA para teste" value={gestoresTestChapa} onChange={setGestoresTestChapa} placeholder="Ex.: 000123" />
+              <div className="flex items-end">
+                <Button type="button" variant="outline" className="gap-2" disabled={testing === "gestores"} onClick={() => void runGestoresTest()}>
+                  <TestTube2 className="size-4" />
+                  Testar gestores
+                </Button>
+              </div>
             </div>
           </Card>
         </TabsContent>

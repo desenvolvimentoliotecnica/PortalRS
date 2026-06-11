@@ -308,6 +308,59 @@ public sealed class IntegracaoTotvsController : ControllerBase
         }
     }
 
+    [HttpPost("configuracao-rm/testar-gestores")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TestarConfiguracaoRmGestores(
+        [FromServices] IHttpClientFactory httpClientFactory,
+        [FromQuery] string chapa,
+        [FromQuery] short? codColigada,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        if (string.IsNullOrWhiteSpace(chapa))
+            return BadRequest(new { message = "Informe uma CHAPA para testar a consulta de gestores RM." });
+
+        var config = await _rmConfiguracaoService.GetGestoresConfigAsync(ct);
+        if (string.IsNullOrWhiteSpace(config.UrlTemplate))
+            return Ok(new { ok = false, message = "URL template de gestores RM não configurada." });
+        if (string.IsNullOrWhiteSpace(config.User))
+            return Ok(new { ok = false, message = "Usuário de gestores RM não configurado." });
+
+        try
+        {
+            var coligada = codColigada.GetValueOrDefault(config.DefaultCodColigada);
+            var url = BuildGestoresRmTestUrl(config.UrlTemplate, coligada, chapa.Trim());
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            var raw = $"{config.User}:{config.Password}";
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(raw)));
+
+            var client = httpClientFactory.CreateClient();
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
+            using var response = await client.SendAsync(request, timeoutCts.Token);
+            var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            var preview = string.IsNullOrWhiteSpace(body) ? null : body.Trim();
+            if (preview is { Length: > 800 })
+                preview = preview[..800];
+
+            return Ok(new
+            {
+                ok = response.IsSuccessStatusCode,
+                status = (int)response.StatusCode,
+                message = response.IsSuccessStatusCode ? "Consulta de gestores RM realizada com sucesso." : response.ReasonPhrase,
+                preview
+            });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { ok = false, message = ex.Message });
+        }
+    }
+
     /// <summary>
     /// Fila de integrações ainda não reportadas ao TOTVS (<c>integracaoResultado == null</c>).
     /// </summary>
@@ -497,5 +550,19 @@ public sealed class IntegracaoTotvsController : ControllerBase
     {
         return string.IsNullOrWhiteSpace(value)
             || Uri.TryCreate(value.Trim(), UriKind.Absolute, out _);
+    }
+
+    private static string BuildGestoresRmTestUrl(string template, short codColigada, string chapa)
+    {
+        var url = template.Trim()
+            .Replace("{CODCOLIGADA}", codColigada.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
+            .Replace("{COLIGADA}", codColigada.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
+            .Replace("{CHAPA}", Uri.EscapeDataString(chapa), StringComparison.OrdinalIgnoreCase);
+
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            url = "http://" + url;
+
+        return url;
     }
 }
