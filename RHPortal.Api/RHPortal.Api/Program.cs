@@ -286,6 +286,8 @@ builder.Services.AddHttpClient("totvsGestorHierarchy", client =>
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
 builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
+builder.Services.AddScoped<RhPortal.Api.Application.RmConfiguracao.ITenantRmConfiguracaoService,
+    RhPortal.Api.Application.RmConfiguracao.TenantRmConfiguracaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AprovadoresAlternativos.IAprovadorAlternativoService, RhPortal.Api.Application.AprovadoresAlternativos.AprovadorAlternativoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.DocumentacaoPadrao.IDocumentacaoPadraoService, RhPortal.Api.Application.DocumentacaoPadrao.DocumentacaoPadraoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal.Api.Application.Ai.OwnerAiService>();

@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using RhPortal.Api.Application.Common;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -14,7 +14,7 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IRmRequisicaoCreateClient _rmCreate;
-    private readonly IOptions<RmRequisicaoCreateOptions> _options;
+    private readonly ITenantRmConfiguracaoService _rmConfiguracaoService;
     private readonly StatusHistoricoService _statusHistorico;
     private readonly ICurrentUserContext _currentUser;
 
@@ -22,14 +22,14 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
         AppDbContext db,
         ITenantContext tenantContext,
         IRmRequisicaoCreateClient rmCreate,
-        IOptions<RmRequisicaoCreateOptions> options,
+        ITenantRmConfiguracaoService rmConfiguracaoService,
         StatusHistoricoService statusHistorico,
         ICurrentUserContext currentUser)
     {
         _db = db;
         _tenantContext = tenantContext;
         _rmCreate = rmCreate;
-        _options = options;
+        _rmConfiguracaoService = rmConfiguracaoService;
         _statusHistorico = statusHistorico;
         _currentUser = currentUser;
     }
@@ -71,7 +71,7 @@ public sealed class SolicitacaoVagaRmIntegracaoService : ISolicitacaoVagaRmInteg
         entity.UltimaTentativaUtc = now;
         entity.UpdatedAtUtc = now;
 
-        var max = Math.Max(1, _options.Value.MaxTentativas);
+        var max = Math.Max(1, (await _rmConfiguracaoService.GetCreateOptionsAsync(ct)).MaxTentativas);
         RmCreateRequisicaoOutcome outcome;
 
         try

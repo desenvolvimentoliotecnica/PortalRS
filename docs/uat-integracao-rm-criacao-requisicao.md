@@ -126,16 +126,16 @@ Validacao SQL opcional:
 ```sql
 SELECT
   "TenantId",
-  "RmRequisicaoCreateEndpointUrl",
-  NULLIF("RmRequisicaoCreateUsername", '') IS NOT NULL AS usuario_configurado,
-  NULLIF("RmRequisicaoCreatePassword", '') IS NOT NULL AS senha_configurada
-FROM "TenantConfiguracoes"
+  "CreateEndpointUrl",
+  NULLIF("RestUsername", '') IS NOT NULL AS usuario_configurado,
+  NULLIF("RestPasswordEncrypted", '') IS NOT NULL AS senha_configurada
+FROM "TenantRmConfiguracoes"
 WHERE "TenantId" = 'liotecnica';
 ```
 
 Resultado esperado:
 
-- `RmRequisicaoCreateEndpointUrl` preenchido.
+- `CreateEndpointUrl` preenchido.
 - `usuario_configurado = true`.
 - `senha_configurada = true`.
 

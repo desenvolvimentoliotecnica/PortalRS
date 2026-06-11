@@ -60,6 +60,8 @@ O workflow faz login em `ghcr.io` **no servidor** com `${{ github.actor }}` + `$
    docker network create rhportal-net
    ```
 
+   **Integração RM (SQL `172.19.30.3`, REST `172.19.30.37`):** se a rede Docker usar a faixa `172.19.0.0/16`, o host pode deixar de alcançar o segmento corporativo `172.19.30.0/24` (sintoma: `No route to host` no `nc`, telas RM expiram). Configure rota estática no netplan — runbook completo em [**HMG-RM-ROTA-REDE.md**](HMG-RM-ROTA-REDE.md).
+
 3. Ficheiro **`~/.env.hmg`** com variáveis necessárias à **API** (`ConnectionStrings`, `ASPNETCORE_*`, etc.) e ao **RHPortal.Ai** (`DATABASE_URL`, chaves LLM, etc.).  
    Não commits este ficheiro — mantém-se só no servidor.  
    Vê o modelo comentado em [`docs/env.hmg.example`](env.hmg.example).  

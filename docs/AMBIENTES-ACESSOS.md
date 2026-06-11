@@ -92,3 +92,4 @@ Deploy automatico:
 - Senhas reais devem ficar apenas nos `.env` dos servidores ou em cofres/secrets apropriados.
 - API keys de integracao RM devem ficar em `Seed__ApiKeys` / `Portal__ApiKey` dos ambientes, nunca neste documento.
 - Antes de PRD, validar HMG/HML com login, health checks, `Owner/Integracao` e `admin/requisicoes-rm`.
+- Se telas RM falharem com timeout ou `nc` para `172.19.30.3:1433` der `No route to host`, ver runbook [**HMG-RM-ROTA-REDE.md**](HMG-RM-ROTA-REDE.md) (conflito rota Docker × rede corporativa no `dev-hmg`).
