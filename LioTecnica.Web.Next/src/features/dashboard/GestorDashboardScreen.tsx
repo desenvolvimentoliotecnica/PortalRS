@@ -7,7 +7,6 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   Clock3,
   FileText,
   RefreshCw,
@@ -122,7 +121,7 @@ function responseLabel(value?: string | null) {
 
 function todayGreeting(displayName?: string | null) {
   const firstName = displayName?.trim().split(/\s+/)[0];
-  return firstName ? `Olá, ${firstName}` : "Olá, gestor";
+  return firstName ? `Bom dia, ${firstName} 👋` : "Bom dia, gestor 👋";
 }
 
 export default function GestorDashboardScreen({ displayName }: { displayName?: string | null }) {
@@ -134,55 +133,35 @@ export default function GestorDashboardScreen({ displayName }: { displayName?: s
   }
 
   return (
-    <section className="min-h-screen bg-[#f6f8fb] px-4 py-6 md:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <header className="overflow-hidden rounded-[28px] border border-blue-100 bg-gradient-to-br from-[#0f4f8f] via-[#0d65b3] to-[#1597d3] p-6 text-white shadow-sm">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-100">Dashboard Gestor</p>
-              <h1 className="mt-3 text-3xl font-bold tracking-tight">{todayGreeting(displayName)}</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-50">
-                Acompanhe requisições vindas do RM, vagas em andamento, candidatos avançados e entrevistas técnicas
-                que dependem da sua participação.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                className="gap-2 bg-white/95 text-blue-700 hover:bg-white"
-                onClick={() => void refresh()}
-                disabled={loading}
-              >
-                <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-                Atualizar
-              </Button>
-              <Link
-                href="/app/agendas"
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-white/25 px-4 text-sm font-semibold text-white transition hover:bg-white/10"
-              >
-                <CalendarDays className="size-4" />
-                Ver agenda
-              </Link>
-            </div>
-          </div>
-        </header>
+    <section className="mx-auto max-w-[1440px] space-y-4 text-slate-800">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[28px] font-bold tracking-tight text-slate-900">{todayGreeting(displayName)}</h1>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Aqui está um resumo das suas requisições, vagas, candidatos e entrevistas técnicas.
+            {loading ? " Carregando indicadores..." : null}
+          </p>
+        </div>
+        <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => void refresh()} disabled={loading}>
+          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+          Atualizar
+        </Button>
+      </header>
 
-        {error ? (
-          <StateCard tone="red" icon={AlertCircle} title="Não foi possível carregar o dashboard" desc={error} />
-        ) : null}
+      {error ? (
+        <StateCard tone="red" icon={AlertCircle} title="Não foi possível carregar o dashboard" desc={error} />
+      ) : null}
 
-        {!error && !gestor ? (
-          <StateCard
-            tone="amber"
-            icon={AlertCircle}
-            title="Perfil de gestor indisponível"
-            desc="Seu usuário precisa estar vinculado a um funcionário para montar a visão de equipe, vagas e agenda técnica."
-          />
-        ) : null}
+      {!error && !gestor ? (
+        <StateCard
+          tone="amber"
+          icon={AlertCircle}
+          title="Perfil de gestor indisponível"
+          desc="Seu usuário precisa estar vinculado a um funcionário para montar a visão de equipe, vagas e agenda técnica."
+        />
+      ) : null}
 
-        {gestor ? <GestorDashboardContent data={gestor} /> : null}
-      </div>
+      {gestor ? <GestorDashboardContent data={gestor} /> : null}
     </section>
   );
 }
@@ -239,68 +218,69 @@ function GestorDashboardContent({ data }: { data: DashboardGestorSection }) {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Panel
-          title="Minha agenda técnica"
-          desc="Entrevistas em que o gestor participa ou que pertencem à sua carteira."
-          action={
-            <Link href="/app/agendas" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
-              Abrir agenda
-            </Link>
-          }
-        >
-          <AgendaList items={data.agendaTecnicaProxima} />
-        </Panel>
-
-        <Panel title="Ações rápidas" desc="Atalhos para acompanhar o andamento sem operar o fluxo do RH.">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <Link
-                  key={action.label}
-                  href={action.href}
-                  className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-700"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Icon className="size-4 text-blue-500" />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(360px,1fr)]">
+        <div className="space-y-4">
+          <Panel>
+            <PanelHeader title="Ações rápidas" />
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Link
+                    key={action.label}
+                    href={action.href}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-blue-100 bg-white px-4 text-sm font-semibold text-blue-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50"
+                  >
+                    <Icon className="size-4" />
                     {action.label}
-                  </span>
-                  <ChevronRight className="size-4 text-slate-300" />
-                </Link>
-              );
-            })}
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <MiniStat label="Diretos ativos" value={data.diretosAtivos} icon={UsersRound} tone="green" />
-            <MiniStat
-              label="Dados incompletos"
-              value={data.diretosComDadosIncompletos}
-              icon={AlertCircle}
-              tone={data.diretosComDadosIncompletos > 0 ? "amber" : "slate"}
-            />
-            <MiniStat
-              label="Aprovações minhas"
-              value={data.aprovacoesPendentesMinhas}
-              icon={CheckCircle2}
-              tone={data.aprovacoesPendentesMinhas > 0 ? "amber" : "slate"}
-            />
-            <MiniStat
-              label="Avaliações pendentes"
-              value={data.avaliacoesDiretosPendentes}
-              icon={Clock3}
-              tone={data.avaliacoesDiretosPendentes > 0 ? "amber" : "slate"}
-            />
+                  </Link>
+                );
+              })}
+            </div>
+          </Panel>
+
+          <Panel>
+            <PanelHeader title="Resumo da gestão" />
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <MiniStat label="Diretos ativos" value={data.diretosAtivos} icon={UsersRound} tone="green" />
+              <MiniStat
+                label="Dados incompletos"
+                value={data.diretosComDadosIncompletos}
+                icon={AlertCircle}
+                tone={data.diretosComDadosIncompletos > 0 ? "amber" : "slate"}
+              />
+              <MiniStat
+                label="Aprovações minhas"
+                value={data.aprovacoesPendentesMinhas}
+                icon={CheckCircle2}
+                tone={data.aprovacoesPendentesMinhas > 0 ? "amber" : "slate"}
+              />
+              <MiniStat
+                label="Avaliações pendentes"
+                value={data.avaliacoesDiretosPendentes}
+                icon={Clock3}
+                tone={data.avaliacoesDiretosPendentes > 0 ? "amber" : "slate"}
+              />
+            </div>
+          </Panel>
+        </div>
+
+        <Panel>
+          <PanelHeader title="Agenda técnica" action="Ver agenda completa" actionHref="/app/agendas" />
+          <div className="mt-4">
+            <AgendaList items={data.agendaTecnicaProxima} />
           </div>
         </Panel>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Panel title="Vagas que precisam de atenção" desc="Mais antigas da sua carteira, priorizadas por tempo em aberto.">
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Panel>
+          <PanelHeader title="Vagas que precisam de atenção" />
           <VagasList items={data.vagasMaisAntigas} />
         </Panel>
 
-        <Panel title="Candidatos em destaque" desc="Candidatos em entrevista, teste ou proposta para acompanhamento técnico.">
+        <Panel>
+          <PanelHeader title="Candidatos em destaque" />
           <CandidatosList items={data.candidaturasEmDestaque} />
         </Panel>
       </div>
@@ -310,51 +290,57 @@ function GestorDashboardContent({ data }: { data: DashboardGestorSection }) {
 
 function KpiCard({ item }: { item: KpiItem }) {
   const content = (
-    <div className="h-full rounded-3xl border border-slate-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div className={`rounded-2xl p-3 ${toneClasses[item.tone].soft}`}>
+    <div className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition hover:border-blue-100 hover:shadow-[0_14px_34px_rgba(15,23,42,0.07)]">
+      <div className="flex items-start justify-between">
+        <div className={`rounded-xl p-2.5 ${toneClasses[item.tone].soft}`}>
           <item.icon className="size-5" />
         </div>
-        <ChevronRight className="size-4 text-slate-300" />
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${toneClasses[item.tone].soft}`}>
+          {item.value > 0 ? "Ativo" : "Ok"}
+        </span>
       </div>
-      <div className="mt-5 text-3xl font-bold tracking-tight text-slate-900 tabular-nums">
+      <div className="mt-5 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
         {item.value.toLocaleString("pt-BR")}
       </div>
-      <div className="mt-1 text-sm font-semibold text-slate-700">{item.label}</div>
-      <div className="mt-1 text-xs leading-5 text-slate-500">{item.hint}</div>
+      <div className="mt-1 text-sm font-bold text-slate-900">{item.label}</div>
+      <div className={`mt-1 text-xs font-semibold ${toneClasses[item.tone].text}`}>{item.hint}</div>
     </div>
   );
 
   if (!item.href) return content;
   return (
-    <Link href={item.href} className="block rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+    <Link href={item.href} className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
       {content}
     </Link>
   );
 }
 
-function Panel({
-  title,
-  desc,
-  action,
-  children,
-}: {
-  title: string;
-  desc?: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
+function Panel({ children }: { children: ReactNode }) {
   return (
-    <section className="rounded-[28px] border border-slate-100 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold tracking-tight text-slate-900">{title}</h2>
-          {desc ? <p className="mt-1 text-sm leading-5 text-slate-500">{desc}</p> : null}
-        </div>
-        {action}
-      </div>
+    <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
       {children}
     </section>
+  );
+}
+
+function PanelHeader({
+  title,
+  action,
+  actionHref,
+}: {
+  title: string;
+  action?: string;
+  actionHref?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <h2 className="text-sm font-bold text-slate-900">{title}</h2>
+      {action && actionHref ? (
+        <Link href={actionHref} className="text-xs font-bold text-blue-600 hover:text-blue-700">
+          {action}
+        </Link>
+      ) : null}
+    </div>
   );
 }
 
@@ -530,17 +516,17 @@ function StateCard({
 
 function SkeletonDashboard() {
   return (
-    <section className="min-h-screen bg-[#f6f8fb] px-4 py-6 md:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <div className="h-48 animate-pulse rounded-[28px] bg-blue-100" />
+    <section className="mx-auto max-w-[1440px] space-y-4 text-slate-800">
+      <div className="space-y-4">
+        <div className="h-16 animate-pulse rounded-2xl bg-slate-100" />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-3xl bg-white" />
+            <div key={i} className="h-32 animate-pulse rounded-2xl bg-white" />
           ))}
         </div>
-        <div className="grid gap-6 xl:grid-cols-2">
-          <div className="h-80 animate-pulse rounded-[28px] bg-white" />
-          <div className="h-80 animate-pulse rounded-[28px] bg-white" />
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="h-72 animate-pulse rounded-2xl bg-white" />
+          <div className="h-72 animate-pulse rounded-2xl bg-white" />
         </div>
       </div>
     </section>

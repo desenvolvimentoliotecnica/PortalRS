@@ -355,6 +355,7 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
                 e.Status,
                 e.Location,
                 e.Owner,
+                e.Notes,
                 e.Candidate,
                 e.VagaTitle,
                 e.VagaCode,
@@ -367,7 +368,8 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
         return futuros
             .Where(e =>
                 (e.VagaId.HasValue && carteiraVagaIds.Contains(e.VagaId.Value))
-                || OwnerMatches(e.Owner, ownerTokens))
+                || OwnerMatches(e.Owner, ownerTokens)
+                || ParticipantMatches(e.Notes, ownerTokens))
             .Take(6)
             .Select(e => new DashboardGestorAgendaTecnicaItem(
                 e.Id,
@@ -665,6 +667,22 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
 
         var normalizedOwner = NormalizeForComparison(owner);
         return ownerTokens.Any(token => normalizedOwner.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool ParticipantMatches(string? notes, IReadOnlyList<string> ownerTokens)
+    {
+        if (string.IsNullOrWhiteSpace(notes) || ownerTokens.Count == 0)
+            return false;
+
+        var participantLine = notes
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(line => line.StartsWith("Participantes opcionais:", StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(participantLine))
+            return false;
+
+        var normalizedParticipants = NormalizeForComparison(participantLine);
+        return ownerTokens.Any(token => normalizedParticipants.Contains(token, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string NormalizeForComparison(string? value)
