@@ -110,6 +110,9 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
             .Select(f => new { f.CentroCustoId, f.UserId, f.Name, f.Email })
             .FirstOrDefaultAsync(ct);
 
+        var (requisicoesPessoalAtivas, posicoesRequisicoesAtivas) =
+            await ObterRequisicoesPessoalAtivasGestorAsync(funcionarioId, ct);
+
         var centrosCustoCarteira = diretos.Where(d => d.CentroCustoId.HasValue).Select(d => d.CentroCustoId!.Value).ToHashSet();
         if (meuFuncionario?.CentroCustoId is Guid meuCc)
             centrosCustoCarteira.Add(meuCc);
@@ -313,6 +316,8 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
             CandidaturasEtapaAvancada: candidaturasAvancadas,
             AprovacoesPendentesMinhas: aprovacoesPendentes,
             SolicitacoesEquipePendentes: solicitacoesEquipePendentes,
+            RequisicoesPessoalAtivas: requisicoesPessoalAtivas,
+            PosicoesRequisicoesAtivas: posicoesRequisicoesAtivas,
             AvaliacoesDiretosPendentes: avaliacoesDiretosPendentes,
             VagasMaisAntigas: vagasMaisAntigas,
             CandidaturasEmDestaque: candidaturasDestaque,
@@ -700,4 +705,58 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
 
         return builder.ToString().Normalize(NormalizationForm.FormC);
     }
+
+    private async Task<(int Count, int Posicoes)> ObterRequisicoesPessoalAtivasGestorAsync(
+        Guid funcionarioId,
+        CancellationToken ct)
+    {
+        var statusAtivos = GetSolicitacaoVagaStatusAtivosGestor();
+
+        var query = _db.SolicitacoesVaga.AsNoTracking()
+            .Where(s => s.SolicitanteId == funcionarioId && statusAtivos.Contains(s.Status));
+
+        var requisicoesOrigemRmAtiva = await _db.TenantConfiguracoes
+            .AsNoTracking()
+            .Select(c => c.RequisicoesVagaOrigemRm)
+            .FirstOrDefaultAsync(ct);
+
+        if (requisicoesOrigemRmAtiva)
+        {
+            query = query.Where(s =>
+                s.RmRequisicaoCodigo != null
+                && s.RmRequisicaoCodigo != ""
+                && !s.RmRequisicaoCodigo.StartsWith("STUB-")
+                && s.RmCriacaoSolicitadaEmUtc == null);
+        }
+
+        var posicoes = await query
+            .Select(s => s.QtdPosicoes)
+            .ToListAsync(ct);
+
+        return (posicoes.Count, posicoes.Sum());
+    }
+
+    /// <summary>
+    /// Status considerados "ativos" na tela de solicitações do gestor (chip Ativas).
+    /// </summary>
+    private static SolicitacaoStatus[] GetSolicitacaoVagaStatusAtivosGestor() =>
+    [
+        SolicitacaoStatus.Rascunho,
+        SolicitacaoStatus.PendenteAprovacao,
+        SolicitacaoStatus.Aprovada,
+        SolicitacaoStatus.AjustesNecessarios,
+        SolicitacaoStatus.PendenteAprovacaoRh,
+        SolicitacaoStatus.EmIntegracao,
+        SolicitacaoStatus.Concluida,
+        SolicitacaoStatus.PendenteAprovacaoAumentoHC,
+        SolicitacaoStatus.PendenteTriagem,
+        SolicitacaoStatus.EmTriagem,
+        SolicitacaoStatus.DevolvidaTriagemGestor,
+        SolicitacaoStatus.PendenteIntegracaoRm,
+        SolicitacaoStatus.ErroIntegracaoRm,
+        SolicitacaoStatus.AguardandoReprocessamentoRm,
+        SolicitacaoStatus.EmProcessoSeletivo,
+        SolicitacaoStatus.Suspensa,
+        SolicitacaoStatus.EmAndamento,
+    ];
 }

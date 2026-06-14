@@ -35,6 +35,10 @@ public sealed record DashboardGestorSection(
     int CandidaturasEtapaAvancada, // Entrevista + Teste + Proposta
     int AprovacoesPendentesMinhas, // SolicitacaoAprovacaoEtapa aonde eu sou aprovador
     int SolicitacoesEquipePendentes, // solicitações da minha equipe (diretos) em aberto
+    /// <summary>Requisições de pessoal ativas criadas pelo próprio gestor (espelha filtro Ativas da tela de solicitações).</summary>
+    int RequisicoesPessoalAtivas,
+    /// <summary>Soma de <see cref="SolicitacaoVaga.QtdPosicoes"/> das requisições ativas do gestor.</summary>
+    int PosicoesRequisicoesAtivas,
     int AvaliacoesDiretosPendentes, // AvaliacaoConvite onde EU sou o avaliador
     IReadOnlyList<DashboardGestorVagaAbertaItem> VagasMaisAntigas,
     IReadOnlyList<DashboardGestorCandidaturaItem> CandidaturasEmDestaque,

@@ -50,6 +50,8 @@ export interface DashboardGestorSection {
   candidaturasEtapaAvancada: number;
   aprovacoesPendentesMinhas: number;
   solicitacoesEquipePendentes: number;
+  requisicoesPessoalAtivas: number;
+  posicoesRequisicoesAtivas: number;
   avaliacoesDiretosPendentes: number;
   vagasMaisAntigas: DashboardGestorVagaAbertaItem[];
   candidaturasEmDestaque: DashboardGestorCandidaturaItem[];

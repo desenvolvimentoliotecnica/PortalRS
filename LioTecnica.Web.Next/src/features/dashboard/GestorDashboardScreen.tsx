@@ -170,19 +170,19 @@ function GestorDashboardContent({ data }: { data: DashboardGestorSection }) {
   const kpis: KpiItem[] = [
     {
       label: "Requisições abertas",
-      value: data.solicitacoesEquipePendentes,
-      hint: "Demandas da equipe ainda em andamento",
+      value: data.requisicoesPessoalAtivas,
+      hint: "Requisições de pessoal ativas na sua carteira",
       icon: FileText,
-      tone: data.solicitacoesEquipePendentes > 0 ? "amber" : "green",
-      href: "/app/gestao/painel-solicitacoes",
+      tone: data.requisicoesPessoalAtivas > 0 ? "amber" : "green",
+      href: "/app/gestao/solicitacoes",
     },
     {
       label: "Vagas em andamento",
-      value: data.carteiraVagasAbertas,
-      hint: "Abertas na sua carteira",
+      value: data.posicoesRequisicoesAtivas,
+      hint: "Posições solicitadas nas requisições ativas",
       icon: BriefcaseBusiness,
       tone: "blue",
-      href: "/app/vagas?status=Aberta",
+      href: "/app/gestao/solicitacoes",
     },
     {
       label: "Candidatos avançados",
