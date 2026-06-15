@@ -13,16 +13,23 @@ interface EntraIdConfigForm {
     clientId: string;
     /** Vazio no load quando `hasClientSecret`; preencher só ao trocar o secret. */
     clientSecret: string;
+    /** Redirect URI completa registrada no Azure AD. */
     callbackPath: string;
+    /** URL base do Portal Admin (retorno pós-login). */
+    frontendBaseUrl: string;
     isEnabled: boolean;
     hasClientSecret: boolean;
 }
+
+const DEFAULT_REDIRECT_URI = "https://10.0.0.80:5000/api/auth/entra/callback";
+const DEFAULT_PORTAL_URL = "http://10.0.0.80:3000";
 
 const EMPTY: EntraIdConfigForm = {
     entraTenantId: "",
     clientId: "",
     clientSecret: "",
-    callbackPath: "/api/auth/entra/callback",
+    callbackPath: DEFAULT_REDIRECT_URI,
+    frontendBaseUrl: DEFAULT_PORTAL_URL,
     isEnabled: false,
     hasClientSecret: false,
 };
@@ -31,7 +38,11 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, { cache: "no-store", ...init });
     if (!res.ok) {
         const b = await res.json().catch(() => null);
-        throw new Error((b as { detail?: string })?.detail || `HTTP ${res.status}`);
+        const detail =
+            (b as { detail?: string })?.detail ||
+            (b as { title?: string })?.title ||
+            `HTTP ${res.status}`;
+        throw new Error(detail);
     }
     return res.json();
 }
@@ -44,7 +55,11 @@ function mapFromApi(raw: Record<string, unknown>): EntraIdConfigForm {
         callbackPath:
             typeof raw.callbackPath === "string" && raw.callbackPath.trim()
                 ? raw.callbackPath
-                : "/api/auth/entra/callback",
+                : DEFAULT_REDIRECT_URI,
+        frontendBaseUrl:
+            typeof raw.frontendBaseUrl === "string" && raw.frontendBaseUrl.trim()
+                ? raw.frontendBaseUrl
+                : DEFAULT_PORTAL_URL,
         isEnabled: raw.isEnabled === true,
         hasClientSecret: raw.hasClientSecret === true,
     };
@@ -79,6 +94,7 @@ export default function AdminEntraIdScreen() {
                 entraTenantId: config.entraTenantId.trim() || null,
                 clientId: config.clientId.trim() || null,
                 callbackPath: config.callbackPath.trim() || null,
+                frontendBaseUrl: config.frontendBaseUrl.trim() || null,
             };
             if (config.clientSecret.trim()) {
                 body.clientSecret = config.clientSecret.trim();
@@ -90,7 +106,7 @@ export default function AdminEntraIdScreen() {
                 body: JSON.stringify(body),
             });
             setConfig(mapFromApi(raw));
-            toast.success("Configuração salva!");
+            toast.success("Configuração salva no banco do tenant!");
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Falha ao salvar.");
         } finally {
@@ -109,8 +125,8 @@ export default function AdminEntraIdScreen() {
                 <div>
                     <h4 className="text-lg font-bold">Microsoft Entra ID</h4>
                     <div className="text-muted-foreground text-sm">
-                        SSO Microsoft por tenant. Redirect URI no Azure:{" "}
-                        <code className="text-xs">https://10.0.0.80:5000/api/auth/entra/callback</code>
+                        Toda a configuração SSO fica salva neste tenant (banco). Use os mesmos valores
+                        registrados no Azure AD.
                     </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => void load()}>
@@ -142,7 +158,7 @@ export default function AdminEntraIdScreen() {
                         </p>
                     </div>
                     <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">Client secret</label>
+                        <label className="text-xs font-medium text-muted-foreground">Client secret (valor)</label>
                         <Input
                             type="password"
                             value={config.clientSecret}
@@ -153,17 +169,35 @@ export default function AdminEntraIdScreen() {
                                     : "Cole o valor do secret gerado no Azure"
                             }
                         />
+                        <p className="text-[11px] text-muted-foreground">
+                            Cole o <strong>valor</strong> do secret (ex.: <code>i358Q~...</code>), não o Id Secreto.
+                        </p>
                     </div>
                     <div className="space-y-1 md:col-span-2">
-                        <label className="text-xs font-medium text-muted-foreground">Callback (referência)</label>
+                        <label className="text-xs font-medium text-muted-foreground">
+                            Redirect URI (Azure) — URL completa
+                        </label>
                         <Input
                             value={config.callbackPath}
                             onChange={(e) => upd("callbackPath", e.target.value)}
-                            placeholder="/api/auth/entra/callback"
+                            placeholder={DEFAULT_REDIRECT_URI}
                         />
                         <p className="text-[11px] text-muted-foreground">
-                            A URL efetiva vem de <code>Authentication__ApiBaseUrl</code> + este path. Authority é montada
-                            automaticamente pela API.
+                            Deve ser idêntica à Redirect URI cadastrada no app Azure (Web).
+                        </p>
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                        <label className="text-xs font-medium text-muted-foreground">
+                            URL do Portal (retorno após login)
+                        </label>
+                        <Input
+                            value={config.frontendBaseUrl}
+                            onChange={(e) => upd("frontendBaseUrl", e.target.value)}
+                            placeholder={DEFAULT_PORTAL_URL}
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                            Para onde o usuário volta com o token após o SSO (ex.:{" "}
+                            <code>{DEFAULT_PORTAL_URL}</code>).
                         </p>
                     </div>
                 </div>

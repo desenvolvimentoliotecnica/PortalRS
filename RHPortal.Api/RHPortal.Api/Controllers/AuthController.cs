@@ -264,17 +264,23 @@ public sealed class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(tenantId))
             return BadRequest(new ProblemDetails { Title = "tenantId ausente", Status = 400 });
 
-        var redirectUri = BuildEntraCallbackRedirectUri(configuration);
-
         using var scope = scopeFactory.CreateScope();
         var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantCtx.SetTenantId(tenantId);
+        var configService = scope.ServiceProvider.GetRequiredService<IEntraIdConfigService>();
         var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
+
+        var redirectUri = await configService.GetRedirectUriAsync(ct);
+        if (string.IsNullOrWhiteSpace(redirectUri))
+        {
+            var back = await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=nao_configurado", ct);
+            return Redirect(back);
+        }
 
         var result = await challenge.BuildAuthorizationUrlAsync(tenantId, redirectUri, returnUrl ?? "/app/dashboard", ct);
         if (result is null)
         {
-            var back = BuildFrontendUrl(configuration, "/app/login?entra_error=nao_configurado");
+            var back = await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=nao_configurado", ct);
             return Redirect(back);
         }
         return Redirect(result.Url);
@@ -295,46 +301,64 @@ public sealed class AuthController : ControllerBase
         [FromServices] IConfiguration configuration,
         CancellationToken ct)
     {
+        using var scope = scopeFactory.CreateScope();
+        var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
+
         if (!string.IsNullOrWhiteSpace(errorCode))
             return Redirect(BuildFrontendUrl(configuration, $"/app/login?entra_error={Uri.EscapeDataString(errorCode)}"));
 
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
             return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=parametros_invalidos"));
 
-        using var scope = scopeFactory.CreateScope();
-        var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
+        var configService = scope.ServiceProvider.GetRequiredService<IEntraIdConfigService>();
         var payload = challenge.TryDecodeState(state);
         if (payload is null)
             return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=state_invalido"));
 
-        // Scope com tenant correto para troca de code + login.
         var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantCtx.SetTenantId(payload.TenantId);
 
-        var redirectUri = BuildEntraCallbackRedirectUri(configuration);
+        var redirectUri = await configService.GetRedirectUriAsync(ct);
+        if (string.IsNullOrWhiteSpace(redirectUri))
+            return Redirect(await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=nao_configurado", ct));
+
         var idToken = await challenge.ExchangeCodeForIdTokenAsync(payload.TenantId, code, redirectUri, ct);
         if (string.IsNullOrWhiteSpace(idToken))
-            return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=troca_de_code_falhou"));
+            return Redirect(await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=troca_de_code_falhou", ct));
 
         var authService = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
         var login = await authService.LoginWithEntraAsync(new EntraLoginRequest(idToken), ct);
         if (login is null)
-            return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=usuario_nao_autenticado"));
+            return Redirect(await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=usuario_nao_autenticado", ct));
 
-        // Token no fragmento da URL — não vai para logs do servidor.
         var fragment =
             $"#entra_token={Uri.EscapeDataString(login.AccessToken)}" +
             $"&tenant={Uri.EscapeDataString(login.TenantId ?? payload.TenantId)}" +
             $"&return={Uri.EscapeDataString(payload.ReturnUrl)}";
 
-        return Redirect(BuildFrontendUrl(configuration, "/app/login") + fragment);
+        return Redirect(await BuildFrontendUrlAsync(configService, configuration, "/app/login", ct) + fragment);
     }
 
     // ── helpers privados ────────────────────────────────────────────────────
 
     /// <summary>
-    /// URL pública do front (Next.js). Segue a mesma estratégia de
-    /// <c>PreAdmissaoService.BuildFrontendUrl</c> (Onda 15).
+    /// URL pública do front (Next.js). Prioriza <see cref="EntraIdConfig.FrontendBaseUrl"/> salvo no admin.
+    /// </summary>
+    private async Task<string> BuildFrontendUrlAsync(
+        IEntraIdConfigService configService,
+        IConfiguration configuration,
+        string pathAndQuery,
+        CancellationToken ct)
+    {
+        var fromDb = await configService.GetFrontendBaseUrlAsync(ct);
+        if (!string.IsNullOrWhiteSpace(fromDb))
+            return $"{fromDb.TrimEnd('/')}{pathAndQuery}";
+
+        return BuildFrontendUrl(configuration, pathAndQuery);
+    }
+
+    /// <summary>
+    /// Fallback quando <c>FrontendBaseUrl</c> não está no banco (ex.: erro antes de resolver tenant).
     /// </summary>
     private string BuildFrontendUrl(IConfiguration configuration, string pathAndQuery)
     {
@@ -346,21 +370,6 @@ public sealed class AuthController : ControllerBase
         var scheme = Request?.Scheme ?? "http";
         var host = Request?.Host.Host ?? "localhost";
         return $"{scheme}://{host}:{port}{pathAndQuery}";
-    }
-
-    /// <summary>
-    /// URI de callback registrada no Azure AD. Corresponde ao endpoint
-    /// <c>GET /api/auth/entra/callback</c> deste controller.
-    /// </summary>
-    private string BuildEntraCallbackRedirectUri(IConfiguration configuration)
-    {
-        var apiBase = configuration["Authentication:ApiBaseUrl"];
-        if (!string.IsNullOrWhiteSpace(apiBase))
-            return $"{apiBase.TrimEnd('/')}/api/auth/entra/callback";
-
-        var scheme = Request?.Scheme ?? "https";
-        var host = Request?.Host.Value ?? "localhost";
-        return $"{scheme}://{host}/api/auth/entra/callback";
     }
 }
 

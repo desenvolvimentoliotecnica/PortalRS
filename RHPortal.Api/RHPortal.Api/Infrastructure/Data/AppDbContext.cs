@@ -2374,7 +2374,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.EntraTenantId).HasMaxLength(120);
             b.Property(x => x.ClientId).HasMaxLength(120);
             b.Property(x => x.ClientSecretEncrypted).HasMaxLength(400);
-            b.Property(x => x.CallbackPath).HasMaxLength(120);
+            b.Property(x => x.CallbackPath).HasMaxLength(500);
+            b.Property(x => x.FrontendBaseUrl).HasMaxLength(500);
             b.Property(x => x.IsEnabled).IsRequired();
 
             b.HasIndex(x => new { x.TenantId }).IsUnique();

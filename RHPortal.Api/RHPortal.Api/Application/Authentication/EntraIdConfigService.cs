@@ -12,7 +12,10 @@ public sealed class EntraIdConfigDto
     public string? EntraTenantId { get; set; }
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
+    /// <summary>Redirect URI completa (Azure AD).</summary>
     public string? CallbackPath { get; set; }
+    /// <summary>URL base do Portal Admin para retorno após SSO.</summary>
+    public string? FrontendBaseUrl { get; set; }
 }
 
 public sealed class EntraIdConfigView
@@ -22,6 +25,7 @@ public sealed class EntraIdConfigView
     public string? ClientId { get; set; }
     public bool HasClientSecret { get; set; }
     public string? CallbackPath { get; set; }
+    public string? FrontendBaseUrl { get; set; }
 }
 
 public interface IEntraIdConfigService
@@ -30,6 +34,10 @@ public interface IEntraIdConfigService
     Task<EntraIdConfigView> SaveAsync(EntraIdConfigDto dto, CancellationToken ct);
     Task<EntraIdConfig?> GetEntityAsync(CancellationToken ct);
     Task<EntraIdConfigDto?> GetDecryptedAsync(CancellationToken ct);
+    /// <summary>Redirect URI OAuth usada no challenge/callback (valor salvo no admin).</summary>
+    Task<string?> GetRedirectUriAsync(CancellationToken ct);
+    /// <summary>URL base do Portal para redirecionar após login Entra.</summary>
+    Task<string?> GetFrontendBaseUrlAsync(CancellationToken ct);
 }
 
 public sealed class EntraIdConfigService : IEntraIdConfigService
@@ -93,7 +101,8 @@ public sealed class EntraIdConfigService : IEntraIdConfigService
         entity.IsEnabled = dto.IsEnabled;
         entity.EntraTenantId = dto.EntraTenantId?.Trim();
         entity.ClientId = dto.ClientId?.Trim();
-        entity.CallbackPath = dto.CallbackPath?.Trim();
+        entity.CallbackPath = NormalizeRedirectUri(dto.CallbackPath);
+        entity.FrontendBaseUrl = NormalizeBaseUrl(dto.FrontendBaseUrl);
         entity.UpdatedAtUtc = now;
 
         if (!string.IsNullOrWhiteSpace(dto.ClientSecret))
@@ -101,6 +110,19 @@ public sealed class EntraIdConfigService : IEntraIdConfigService
 
         await _db.SaveChangesAsync(ct);
         return MapView(entity);
+    }
+
+    public async Task<string?> GetRedirectUriAsync(CancellationToken ct)
+    {
+        var entity = await _db.EntraIdConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+        return ResolveRedirectUri(entity?.CallbackPath);
+    }
+
+    public async Task<string?> GetFrontendBaseUrlAsync(CancellationToken ct)
+    {
+        var entity = await _db.EntraIdConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+        var url = entity?.FrontendBaseUrl?.Trim();
+        return string.IsNullOrWhiteSpace(url) ? null : url.TrimEnd('/');
     }
 
     private static EntraIdConfigView MapView(EntraIdConfig entity)
@@ -111,7 +133,53 @@ public sealed class EntraIdConfigService : IEntraIdConfigService
             EntraTenantId = entity.EntraTenantId,
             ClientId = entity.ClientId,
             HasClientSecret = !string.IsNullOrWhiteSpace(entity.ClientSecretEncrypted),
-            CallbackPath = entity.CallbackPath
+            CallbackPath = entity.CallbackPath,
+            FrontendBaseUrl = entity.FrontendBaseUrl,
         };
+    }
+
+    private static string? NormalizeRedirectUri(string? raw)
+    {
+        var value = raw?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+        {
+            throw new InvalidOperationException(
+                "Redirect URI deve ser uma URL completa (http/https), igual à registrada no Azure AD.");
+        }
+
+        return uri.ToString().TrimEnd('/');
+    }
+
+    private static string? NormalizeBaseUrl(string? raw)
+    {
+        var value = raw?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+        {
+            throw new InvalidOperationException(
+                "URL do Portal deve ser uma URL completa (http/https) do frontend.");
+        }
+
+        return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+    }
+
+    private static string? ResolveRedirectUri(string? callbackPath)
+    {
+        var value = callbackPath?.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+            return uri.ToString().TrimEnd('/');
+
+        return null;
     }
 }

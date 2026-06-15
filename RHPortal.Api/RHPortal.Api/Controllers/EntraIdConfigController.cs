@@ -38,9 +38,17 @@ public sealed class EntraIdConfigController : ControllerBase
     /// </summary>
     [HttpPut]
     [ProducesResponseType(typeof(EntraIdConfigView), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<EntraIdConfigView>> Save([FromBody] EntraIdConfigDto dto, CancellationToken ct)
     {
-        var data = await _service.SaveAsync(dto, ct);
-        return Ok(data);
+        try
+        {
+            var data = await _service.SaveAsync(dto, ct);
+            return Ok(data);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ProblemDetails { Title = "Configuração inválida", Detail = ex.Message, Status = 400 });
+        }
     }
 }
