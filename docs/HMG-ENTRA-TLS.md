@@ -21,10 +21,21 @@ http://127.0.0.1:5001  ──►  Docker rhportal-api (HTTP interno)
 | Item | Valor |
 |------|--------|
 | Redirect URI Azure | `https://10.0.0.80:5000/api/auth/entra/callback` |
-| `Authentication__ApiBaseUrl` | `https://10.0.0.80:5000` |
+| Credenciais Entra (tenant/client/secret) | **Admin → Entra ID** (`/app/admin/entra-id`) — tabela `EntraIdConfigs` |
+| Redirect URI + URL do Portal pós-login | **Mesma tela** — não usar `Authentication__ApiBaseUrl` no `.env.hmg` |
 | Docker API ports | `127.0.0.1:5001:80` (sem HTTP público na 5000) |
 | Nginx site | `/etc/nginx/sites-enabled/rhportal-api-tls` |
 | Certificado | `/etc/nginx/ssl/rhportal-api.crt` (autoassinado, SAN IP 10.0.0.80) |
+
+### Campos salvos no banco (por tenant)
+
+| Campo na tela | Uso |
+|---------------|-----|
+| Directory (tenant) ID | Authority Microsoft |
+| Application (client) ID | OAuth `client_id` |
+| Client secret | OAuth `client_secret` (valor, não Id Secreto) |
+| Redirect URI (URL completa) | Deve ser **idêntica** ao Azure e usada no challenge + troca de token |
+| URL do Portal | Retorno após SSO (`http://10.0.0.80:3000/app/login#entra_token=...`) |
 
 ## Validação
 

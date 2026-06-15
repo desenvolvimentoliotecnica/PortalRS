@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using Moq.Protected;
@@ -97,7 +98,7 @@ public sealed class EntraChallengeServiceTests
         var cfg = ConfigMock(config).Object;
         var factory = http ?? HttpFactoryReturning(HttpStatusCode.OK, "{}");
         var protector = new Mock<ISecretProtector>().Object;
-        return new EntraChallengeService(cfg, factory, JwtOpts(signingKey ?? SigningKey), protector);
+        return new EntraChallengeService(cfg, factory, JwtOpts(signingKey ?? SigningKey), protector, NullLogger<EntraChallengeService>.Instance);
     }
 
     // ── BuildAuthorizationUrlAsync ──────────────────────────────────────────
