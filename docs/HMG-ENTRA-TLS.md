@@ -59,15 +59,17 @@ Sem isso, o callback do Microsoft pode falhar no browser do usuário.
 | Portal `:3000` | **Inalterado** (proxy interno Docker) |
 | Scripts que chamavam HTTP na 5000 | Usar **`https://10.0.0.80:5000`** (`curl -k` ou cert confiável) |
 
+## CORS / `NEXT_PUBLIC_API_BASE`
+
+O build HMG do Portal Admin deve usar **`NEXT_PUBLIC_API_BASE` vazio** (padrão no workflow).
+Assim o browser chama `/api/...` em `http://10.0.0.80:3000` (mesmo origin) e o nginx do container faz proxy para a API.
+
+Se o bundle tiver `NEXT_PUBLIC_API_BASE=http://10.0.0.80:5000`, o PUT em `/admin/entra-id` falha com CORS:
+a porta 5000 pública só aceita **HTTPS** (Nginx), não HTTP.
+
+Portal de Vagas (`:3050`) continua usando `https://10.0.0.80:5000` no build (origem diferente → CORS na API).
+
 ## Próximo deploy GitHub
 
-O workflow copia `docker-compose.hmg.yml` do repo, que ainda mapeia `5000:80`.
-**Após cada deploy**, conferir se a API voltou a publicar HTTP na 5000 (conflito com Nginx).
-
-Scripts de reaplicação: [`__scripts__/deploy/hmg-tls/`](../__scripts__/deploy/hmg-tls/)
-
-## Pendente para SSO funcionar
-
-1. Gravar config Entra no tenant `liotecnica` (tela admin ou API)
-2. Corrigir bug da tela admin (`entraTenantId` vs `tenantId`)
-3. Testar login em `/app/login` → Entrar com Microsoft
+O `docker-compose.hmg.yml` no repo já publica a API só em `127.0.0.1:5001`.
+Mantenha o Nginx TLS na 5000 no host (ver scripts em `__scripts__/deploy/hmg-tls/`).
