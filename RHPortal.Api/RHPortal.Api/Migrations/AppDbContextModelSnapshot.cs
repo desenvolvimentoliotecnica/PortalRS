@@ -5889,6 +5889,14 @@ namespace RhPortal.Api.Migrations
                     b.Property<bool?>("GerouSubstituicao")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("GestorHistoricoChapaRm")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("GestorHistoricoNome")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
                     b.Property<Guid?>("HierarquiaDestinoId")
                         .HasColumnType("uuid");
 
@@ -9061,6 +9069,83 @@ namespace RhPortal.Api.Migrations
                     b.ToTable("RmImportacaoAutomaticaRuns", (string)null);
                 });
 
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RmRequisicaoParecer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChapaSolicitante")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<short>("CodColRequisicao")
+                        .HasColumnType("smallint");
+
+                    b.Property<short?>("CodColSolicitante")
+                        .HasColumnType("smallint");
+
+                    b.Property<short?>("CodStatus")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DataParecer")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("IdParecer")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IdReq")
+                        .HasColumnType("integer");
+
+                    b.Property<short?>("Img1")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Parecer")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid?>("SolicitacaoVagaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Solicitante")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<short?>("Suspensao")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TipoRequisicao")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SolicitacaoVagaId");
+
+                    b.HasIndex("TenantId", "SolicitacaoVagaId", "DataParecer");
+
+                    b.HasIndex("TenantId", "TipoRequisicao", "CodColRequisicao", "IdReq", "IdParecer")
+                        .IsUnique();
+
+                    b.ToTable("RmRequisicaoPareceres", (string)null);
+                });
+
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.RmRequisicaoStatusMap", b =>
                 {
                     b.Property<Guid>("Id")
@@ -11338,6 +11423,10 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<string>("RmRequisicaoParecerEndpointUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<int>("SlaAprovacaoHoras")
                         .HasColumnType("integer");
 
@@ -11360,6 +11449,298 @@ namespace RhPortal.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("TenantConfiguracoes", (string)null);
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.TenantRmConfiguracao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AreaTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("AumentoQuadroTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("CargoTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<short?>("CodColRequisicaoDefault")
+                        .HasColumnType("smallint");
+
+                    b.Property<short?>("CodColRequisitanteDefault")
+                        .HasColumnType("smallint");
+
+                    b.Property<short?>("CodFilialDefault")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("CodLocalDefault")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("CodStatusInicial")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("CreateEndpointUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("CreateWorkerEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CreateWorkerIntervalSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CreateWorkerMaxPerTenant")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DepartamentoTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("DesligamentoTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("DiasPrevisaoPadrao")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FuncaoTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("FuncionarioTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<short>("GestoresRmDefaultCodColigada")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("GestoresRmDelayMsBetweenRequests")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GestoresRmPasswordEncrypted")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("GestoresRmUrlTemplate")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<string>("GestoresRmUser")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("GetEndpointUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("HierarquiaColigadaExternaTable")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("HierarquiaTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<bool>("ImportacaoAutomaticaAtiva")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ImportacaoAutomaticaIntervaloMinutos")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ImportacaoAutomaticaMaxPorExecucao")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxCandidatosToSync")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxFuncionariosToSync")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxPessoasToSync")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaxTalentosToSync")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxTentativas")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ParecerEndpointUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("PessoaTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("RecCreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("RecModifiedBy")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("RequestTimeoutSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("RequisicoesVagaOrigemRm")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RestBearerTokenEncrypted")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("RestPasswordEncrypted")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("RestUsername")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Schema")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("SqlApplicationIntent")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("SqlConnectTimeoutSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SqlDatabase")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("SqlEncrypt")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SqlPasswordEncrypted")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("SqlServer")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("SqlTrustServerCertificate")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SqlUserId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("StatusSyncEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("StatusSyncIntervalMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StatusSyncMaxPerRun")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SubstituicaoTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<bool>("SyncCandidatosPerfilCv")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncCandidatosVaga")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncCandidatosVagaDiagnostic")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncDesligamentos")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncEmpresas")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncHierarquia")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SyncOnlyEmail")
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<bool>("SyncUnits")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncUnitsExecute")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncVagas")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncVagasOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TransferenciaPromocaoTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("UnidadeTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("UseGestorHierarquiaPosicao")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("UseHierarquiaOrganogramaPosicao")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("VagaDefaultAreaCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("VagaTable")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("TenantRmConfiguracoes", (string)null);
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.Turno", b =>
@@ -13877,6 +14258,16 @@ namespace RhPortal.Api.Migrations
                     b.Navigation("Entrevista");
 
                     b.Navigation("Pergunta");
+                });
+
+            modelBuilder.Entity("RhPortal.Api.Domain.Entities.RmRequisicaoParecer", b =>
+                {
+                    b.HasOne("RhPortal.Api.Domain.Entities.SolicitacaoVaga", "SolicitacaoVaga")
+                        .WithMany()
+                        .HasForeignKey("SolicitacaoVagaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("SolicitacaoVaga");
                 });
 
             modelBuilder.Entity("RhPortal.Api.Domain.Entities.RoleMenu", b =>

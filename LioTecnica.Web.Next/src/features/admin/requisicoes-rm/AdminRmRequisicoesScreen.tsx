@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import {
   AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
@@ -15,9 +16,11 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +57,7 @@ const TIPO_OPTIONS = [
 const CODSTATUS_VISIVEIS = [1, 3] as const;
 
 type StatusFilter = "all" | "1" | "3";
+type ImportStage = "idle" | "running" | "refreshing" | "success" | "error";
 
 interface RmRequisicaoRow {
   tipoRequisicao: string;
@@ -197,6 +201,10 @@ export default function AdminRmRequisicoesScreen() {
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const [importing, setImporting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importStage, setImportStage] = useState<ImportStage>("idle");
+  const [importStartedAt, setImportStartedAt] = useState<number | null>(null);
+  const [importElapsedSeconds, setImportElapsedSeconds] = useState(0);
   const [importResult, setImportResult] = useState<RmRequisicaoImportResponse | null>(null);
   const [detailRow, setDetailRow] = useState<RmRequisicaoRow | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("abertura");
@@ -295,8 +303,22 @@ export default function AdminRmRequisicoesScreen() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!importStartedAt || (importStage !== "running" && importStage !== "refreshing")) return;
+    const updateElapsed = () => {
+      setImportElapsedSeconds(Math.max(0, Math.floor((Date.now() - importStartedAt) / 1000)));
+    };
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(timer);
+  }, [importStage, importStartedAt]);
+
   async function importarAprovadas() {
     setImporting(true);
+    setImportDialogOpen(true);
+    setImportStage("running");
+    setImportStartedAt(Date.now());
+    setImportElapsedSeconds(0);
     setImportResult(null);
     try {
       const res = await apiFetch(
@@ -322,11 +344,14 @@ export default function AdminRmRequisicoesScreen() {
 
       const result = await res.json() as RmRequisicaoImportResponse;
       setImportResult(result);
+      setImportStage("refreshing");
       toast.success(`Importação concluída: ${result.criados} criadas, ${result.atualizados} atualizadas, ${result.vagasCriadas} vagas criadas.`);
       await load();
+      setImportStage(result.erros > 0 ? "error" : "success");
     } catch (error) {
       const message = getErrorMessage(error, "Falha ao importar requisições aprovadas do RM.");
       toast.error(message);
+      setImportStage("error");
       setImportResult({
         totalLidos: 0,
         criados: 0,
@@ -654,6 +679,24 @@ export default function AdminRmRequisicoesScreen() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ImportProgressDialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && importing) return;
+          setImportDialogOpen(open);
+        }}
+        stage={importStage}
+        result={importResult}
+        elapsedSeconds={importElapsedSeconds}
+        filters={{
+          tipo,
+          statusFilter,
+          dataDe,
+          dataAte,
+        }}
+        onRefresh={() => void load()}
+      />
     </section>
   );
 }
@@ -664,6 +707,170 @@ function Metric({ label, value }: { label: string; value: number }) {
       <div className="text-xs opacity-70">{label}</div>
       <div className="text-lg font-semibold">{value}</div>
     </div>
+  );
+}
+
+function formatElapsed(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes <= 0) return `${remainder}s`;
+  return `${minutes}m ${String(remainder).padStart(2, "0")}s`;
+}
+
+function importStageMeta(stage: ImportStage, result: RmRequisicaoImportResponse | null) {
+  if (stage === "success") {
+    return {
+      title: "Importação concluída",
+      description: "As requisições aprovadas foram processadas e a lista foi atualizada.",
+      progress: 100,
+      icon: <CheckCircle2 className="size-8 text-emerald-600" />,
+    };
+  }
+  if (stage === "error") {
+    return {
+      title: result?.erros ? "Importação concluída com atenção" : "Falha na importação",
+      description: result?.erros
+        ? "O processamento terminou, mas existem erros ou mensagens que precisam ser revisadas."
+        : "Não foi possível concluir a importação. Veja os detalhes abaixo.",
+      progress: result?.totalLidos ? 100 : 35,
+      icon: <XCircle className="size-8 text-red-600" />,
+    };
+  }
+  if (stage === "refreshing") {
+    return {
+      title: "Atualizando lista do Portal",
+      description: "A importação terminou. Estamos recarregando as requisições para refletir os novos dados.",
+      progress: 90,
+      icon: <Loader2 className="size-8 animate-spin text-primary" />,
+    };
+  }
+  return {
+    title: "Importando requisições RM",
+    description: "Consultando o RM e criando/atualizando solicitações de vaga no Portal.",
+    progress: 55,
+    icon: <Loader2 className="size-8 animate-spin text-primary" />,
+  };
+}
+
+function ImportProgressDialog({
+  open,
+  onOpenChange,
+  stage,
+  result,
+  elapsedSeconds,
+  filters,
+  onRefresh,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  stage: ImportStage;
+  result: RmRequisicaoImportResponse | null;
+  elapsedSeconds: number;
+  filters: {
+    tipo: string;
+    statusFilter: StatusFilter;
+    dataDe: string;
+    dataAte: string;
+  };
+  onRefresh: () => void;
+}) {
+  const meta = importStageMeta(stage, result);
+  const isFinished = stage === "success" || stage === "error";
+  const statusLabel = filters.statusFilter === "all"
+    ? "Em andamento e aprovadas"
+    : filters.statusFilter === "1"
+      ? "Em andamento"
+      : "Aprovadas";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-3xl" showCloseButton={isFinished}>
+        <DialogHeader>
+          <DialogTitle>{meta.title}</DialogTitle>
+          <DialogDescription>{meta.description}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="rounded-2xl border bg-muted/20 p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">{meta.icon}</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">
+                    {stage === "running" && "Processando no RM..."}
+                    {stage === "refreshing" && "Sincronizando a tela..."}
+                    {stage === "success" && "Dados prontos para conferência"}
+                    {stage === "error" && "Revise o resultado da importação"}
+                    {stage === "idle" && "Aguardando início"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Tempo decorrido: {formatElapsed(elapsedSeconds)}
+                  </div>
+                </div>
+                <Progress value={meta.progress} className="mt-3" />
+                {!isFinished && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Esta etapa consulta um sistema externo e pode levar alguns instantes. Mantenha esta janela aberta até o fim do processamento.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 rounded-xl border p-3 text-sm sm:grid-cols-2">
+            <DetailField label="Tipo" value={filters.tipo ? formatTipoRequisicao(filters.tipo) : "Todos os tipos"} />
+            <DetailField label="Status importado" value={statusLabel} />
+            <DetailField label="Abertura de" value={filters.dataDe || "Sem filtro"} />
+            <DetailField label="Abertura até" value={filters.dataAte || "Sem filtro"} />
+          </div>
+
+          {result && (
+            <div className={`rounded-xl border p-4 text-sm ${
+              result.erros > 0
+                ? "border-red-200 bg-red-50 text-red-900"
+                : "border-emerald-200 bg-emerald-50 text-emerald-900"
+            }`}>
+              <div className="font-semibold">Resumo da importação</div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                <Metric label="Lidas" value={result.totalLidos} />
+                <Metric label="Criadas" value={result.criados} />
+                <Metric label="Atualizadas" value={result.atualizados} />
+                <Metric label="Vagas criadas" value={result.vagasCriadas} />
+                <Metric label="Ignoradas" value={result.ignorados} />
+                <Metric label="Erros" value={result.erros} />
+              </div>
+              {result.mensagens.length > 0 && (
+                <details className="mt-3" open={result.erros > 0}>
+                  <summary className="cursor-pointer text-xs font-medium">Ver mensagens ({result.mensagens.length})</summary>
+                  <ul className="mt-2 max-h-56 space-y-1 overflow-auto rounded-md bg-background/70 p-2 text-xs">
+                    {result.mensagens.slice(0, 150).map((msg, index) => (
+                      <li key={`${index}-${msg}`}>{msg}</li>
+                    ))}
+                  </ul>
+                  {result.mensagens.length > 150 && (
+                    <p className="mt-2 text-xs opacity-80">Exibindo as primeiras 150 mensagens.</p>
+                  )}
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          {isFinished && (
+            <>
+              <Button variant="outline" onClick={onRefresh}>
+                <RefreshCw className="size-4" />
+                Atualizar lista
+              </Button>
+              <Button onClick={() => onOpenChange(false)}>
+                Fechar
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

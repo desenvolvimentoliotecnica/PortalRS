@@ -5,7 +5,6 @@ import {
     normalizeSolicitacaoStatusOrdinal,
     SolicitacaoVagaOrdinal,
 } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
-import { ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -20,6 +19,16 @@ interface LookupItem {
     id: string;
     name: string;
     code?: string;
+}
+
+interface RmParecerItem {
+    idParecer: number;
+    dataParecer: string | null;
+    codStatus: number | string | null;
+    status: string | null;
+    solicitante: string | null;
+    chapaSolicitante: string | null;
+    parecer: string | null;
 }
 
 export interface SolicitacaoDraft {
@@ -368,12 +377,25 @@ function tituloFromFuncaoRm(cod: string | null | undefined, nome: string | null 
     return base.length > 160 ? base.slice(0, 160) : base;
 }
 
-function iniciaisNome(nome: string | null | undefined): string {
-    const n = (nome ?? "").trim();
-    if (!n) return "?";
-    const partes = n.split(/\s+/).filter(Boolean);
-    if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-    return `${partes[0][0] ?? ""}${partes[partes.length - 1][0] ?? ""}`.toUpperCase() || "?";
+function formatDateTimeForDisplay(value?: string | null): string {
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString("pt-BR");
+}
+
+function formatRmCodStatusLabel(value: RmParecerItem["codStatus"]): string | null {
+    if (value == null || value === "") return null;
+    const code = Number(value);
+    if (!Number.isFinite(code)) return String(value);
+    const labels: Record<number, string> = {
+        1: "Em andamento",
+        2: "Reprovada",
+        3: "Aprovada",
+        4: "Concluída",
+        5: "Pendente aprovação",
+        6: "Cancelada",
+    };
+    return labels[code] ?? `CODSTATUS ${code}`;
 }
 
 function parseFuncaoRmOptionId(id: string): { codigo: string; nome: string | null } {
@@ -569,6 +591,7 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
         unitName: string | null;
         centroCustoNome: string | null;
     } | null>(null);
+    const [rmPareceres, setRmPareceres] = useState<RmParecerItem[]>([]);
 
     /** Salvar + POST /submit quando URL traz resubmit=1 ou quando a solicitação está em Ajustes necessários (devolução do aprovador). */
     const effectiveResubmitAfterSave = useMemo(
@@ -584,10 +607,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     const [centrosCusto, setCentrosCusto] = useState<LookupItem[]>([]);
     const [gestorDiretoId, setGestorDiretoId] = useState<string | null>(null);
     const [requisitanteNomeExibicao, setRequisitanteNomeExibicao] = useState<string | null>(null);
-    const [requisitanteMatriculaExibicao, setRequisitanteMatriculaExibicao] = useState<string | null>(null);
-    const [superiorNomeExibicao, setSuperiorNomeExibicao] = useState<string | null>(null);
-    const [superiorMatriculaExibicao, setSuperiorMatriculaExibicao] = useState<string | null>(null);
-    const [superiorCarregando, setSuperiorCarregando] = useState(false);
     /** Campos vindos de GET /api/me — bloqueados para não divergir do vínculo do gestor. */
     const [estruturaLocks, setEstruturaLocks] = useState({
         empresa: false,
@@ -642,9 +661,6 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             const myFuncId = meRes?.funcionarioId as string | null;
             if (opts?.setRequisitanteFromMe && myFuncId)
                 setRequisitanteFuncionarioId(myFuncId);
-            const meNome = meRes?.fullName != null ? String(meRes.fullName).trim() : "";
-            if (opts?.setRequisitanteFromMe && meNome)
-                setRequisitanteNomeExibicao(meNome);
             if (myFuncId) {
                 const funcRes = await fetchJson<Record<string, unknown>>(`/api/funcionarios/${myFuncId}`);
                 const gdId = funcRes?.gestorDiretoId as string | null;
@@ -712,9 +728,9 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     useEffect(() => {
         if (!active) return;
         setActiveTab("identificacao");
+        setRmPareceres([]);
         setRequisitanteFuncionarioId(null);
         setRequisitanteNomeExibicao(null);
-        setRequisitanteMatriculaExibicao(null);
         setGestorDiretoId(null);
         loadLookups({ setRequisitanteFromMe: !editId && !copySourceId });
 
@@ -743,6 +759,20 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                         unitName: unitName?.trim() || null,
                         centroCustoNome: centroCustoNome?.trim() || null,
                     });
+                    setRmPareceres(Array.isArray(d?.rmPareceres)
+                        ? d.rmPareceres.map((p) => {
+                            const item = p as Record<string, unknown>;
+                            return {
+                                idParecer: Number(item.idParecer ?? 0),
+                                dataParecer: item.dataParecer != null ? String(item.dataParecer) : null,
+                                codStatus: item.codStatus != null ? String(item.codStatus) : null,
+                                status: item.status != null ? String(item.status) : null,
+                                solicitante: item.solicitante != null ? String(item.solicitante) : null,
+                                chapaSolicitante: item.chapaSolicitante != null ? String(item.chapaSolicitante) : null,
+                                parecer: item.parecer != null ? String(item.parecer) : null,
+                            };
+                        })
+                        : []);
                     if (d?.solicitanteId)
                         setRequisitanteFuncionarioId(String(d.solicitanteId));
                     const sn = d?.solicitanteNome != null ? String(d.solicitanteNome).trim() : "";
@@ -774,6 +804,12 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
             setRmMeta(null);
         }
     }, [active, editId, copySourceId, initialData, loadLookups, reloadNonce]);
+
+    useEffect(() => {
+        if (viewOnly && activeTab === "horario") {
+            setActiveTab("identificacao");
+        }
+    }, [activeTab, viewOnly]);
 
     useEffect(() => {
         if (!active || viewOnly || editId || copySourceId) {
@@ -815,60 +851,20 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
     }, [gestorDiretoId, editId, draft.aprovadorId]);
 
     useEffect(() => {
-        if (!active) {
-            setSuperiorNomeExibicao(null);
-            setSuperiorMatriculaExibicao(null);
-            setSuperiorCarregando(false);
-            return;
-        }
-        const id = draft.aprovadorId?.trim();
-        if (!id) {
-            setSuperiorNomeExibicao(null);
-            setSuperiorMatriculaExibicao(null);
-            setSuperiorCarregando(false);
-            return;
-        }
-        let cancelled = false;
-        setSuperiorCarregando(true);
-        void fetchJson<Record<string, unknown>>(`/api/funcionarios/${id}`)
-            .then((f) => {
-                if (cancelled) return;
-                setSuperiorNomeExibicao(f?.name != null ? String(f.name) : null);
-                setSuperiorMatriculaExibicao(f?.matriculaRm != null ? String(f.matriculaRm) : null);
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setSuperiorNomeExibicao(null);
-                    setSuperiorMatriculaExibicao(null);
-                }
-            })
-            .finally(() => {
-                if (!cancelled) setSuperiorCarregando(false);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [active, draft.aprovadorId]);
-
-    useEffect(() => {
         if (!active || !requisitanteFuncionarioId?.trim()) {
-            setRequisitanteMatriculaExibicao(null);
             return;
         }
         let cancelled = false;
         void fetchJson<Record<string, unknown>>(`/api/funcionarios/${requisitanteFuncionarioId.trim()}`)
             .then((f) => {
                 if (cancelled) return;
-                setRequisitanteMatriculaExibicao(f?.matriculaRm != null ? String(f.matriculaRm) : null);
                 const gdId = f?.gestorDiretoId != null ? String(f.gestorDiretoId).trim() : "";
                 if (gdId) {
                     setGestorDiretoId(gdId);
                     setDraft((d) => d.aprovadorId ? d : { ...d, aprovadorId: gdId });
                 }
             })
-            .catch(() => {
-                if (!cancelled) setRequisitanteMatriculaExibicao(null);
-            });
+            .catch(() => { /* ignore */ });
         return () => {
             cancelled = true;
         };
@@ -1245,8 +1241,8 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
                         <TabsList className="mb-2 shrink-0 border-b border-border/60 pb-2">
                             <TabsTrigger value="identificacao">Identificação</TabsTrigger>
-                            <TabsTrigger value="horario">Horário</TabsTrigger>
-                            <TabsTrigger value="aprovacao">Aprovação</TabsTrigger>
+                            {!viewOnly && <TabsTrigger value="horario">Horário</TabsTrigger>}
+                            <TabsTrigger value="aprovacao">Aprovações</TabsTrigger>
                         </TabsList>
 
                         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-4 pb-1 [scrollbar-gutter:stable]">
@@ -1819,49 +1815,62 @@ export default function SolicitacaoForm({ active, editId, onCancel, onSuccess, v
                             </div>
                         </TabsContent>
 
-                        {/* ══════════════ TAB 4 — Aprovação (fluxo visual superior → requisitante) ══════════════ */}
+                        {/* ══════════════ TAB 4 — Aprovações RM ══════════════ */}
                         <TabsContent value="aprovacao" className="mt-0">
-                            <div className="flex flex-col items-center px-2 py-4 sm:py-8">
-                                <div className="w-full max-w-sm rounded-2xl border border-border/80 bg-card shadow-sm px-5 py-5 text-center">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                                        Superior direto (aprovador)
-                                    </p>
-                                    <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-primary/35 bg-gradient-to-b from-primary/10 to-primary/5 text-base font-bold text-primary tabular-nums">
-                                        {superiorCarregando ? (
-                                            <span className="size-5 animate-pulse rounded-full bg-primary/25" aria-hidden />
-                                        ) : (
-                                            iniciaisNome(superiorNomeExibicao)
-                                        )}
+                            {rmPareceres.length > 0 ? (
+                                <div className="mx-auto mb-4 max-w-2xl rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
+                                    <div className="mb-4">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                            Histórico RM
+                                        </p>
+                                        <h4 className="text-sm font-semibold text-foreground">Pareceres e aprovações da requisição</h4>
                                     </div>
-                                    <p className="text-sm font-semibold text-foreground leading-snug break-words">
-                                        {superiorCarregando ? "Carregando…" : (superiorNomeExibicao ?? (draft.aprovadorId ? "—" : "Ainda não definido"))}
-                                    </p>
-                                    {!!superiorMatriculaExibicao?.trim() && !superiorCarregando && (
-                                        <p className="mt-1 font-mono text-xs text-muted-foreground">{superiorMatriculaExibicao}</p>
-                                    )}
+                                    <ol className="relative space-y-4">
+                                        <span className="absolute bottom-0 left-4 top-0 w-px bg-border" aria-hidden />
+                                        {rmPareceres.map((parecer) => (
+                                            <li key={parecer.idParecer} className="relative grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3">
+                                                <span className="z-10 flex size-4 items-center justify-center justify-self-center rounded-full border border-primary/30 bg-background">
+                                                    <span className="size-2 rounded-full bg-primary" />
+                                                </span>
+                                                <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+                                                    <div className="flex flex-wrap items-start justify-between gap-2">
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-foreground">
+                                                                {parecer.solicitante || "Solicitante RM"}
+                                                            </p>
+                                                            {!!parecer.chapaSolicitante?.trim() && (
+                                                                <p className="font-mono text-xs text-muted-foreground">{parecer.chapaSolicitante}</p>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-right text-xs text-muted-foreground">
+                                                            <div>{formatDateTimeForDisplay(parecer.dataParecer)}</div>
+                                                            <div>Parecer #{parecer.idParecer}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                                        {formatRmCodStatusLabel(parecer.codStatus) && (
+                                                            <span className="rounded-full border bg-background px-2 py-0.5">{formatRmCodStatusLabel(parecer.codStatus)}</span>
+                                                        )}
+                                                        {parecer.status && (
+                                                            <span className="rounded-full border bg-background px-2 py-0.5">{parecer.status}</span>
+                                                        )}
+                                                    </div>
+                                                    {parecer.parecer?.trim() && (
+                                                        <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{parecer.parecer}</p>
+                                                    )}
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ol>
                                 </div>
-
-                                <div className="flex flex-col items-center py-3" aria-hidden>
-                                    <span className="h-6 w-px bg-border" />
-                                    <ArrowDown className="size-5 text-muted-foreground/90" strokeWidth={2.2} />
-                                </div>
-
-                                <div className="w-full max-w-sm rounded-2xl border border-dashed border-primary/25 bg-muted/30 px-5 py-5 text-center">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                                        Requisitante
+                            ) : (
+                                <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-border/80 bg-muted/20 p-6 text-center">
+                                    <p className="text-sm font-medium text-foreground">Nenhuma aprovação RM importada ainda.</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Reimporte as requisições aprovadas para carregar o histórico de pareceres do RM.
                                     </p>
-                                    <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full border-2 border-muted-foreground/25 bg-background text-base font-bold text-muted-foreground">
-                                        {iniciaisNome(requisitanteNomeExibicao)}
-                                    </div>
-                                    <p className="text-sm font-semibold text-foreground leading-snug break-words">
-                                        {requisitanteNomeExibicao ?? "—"}
-                                    </p>
-                                    {!!requisitanteMatriculaExibicao?.trim() && (
-                                        <p className="mt-1 font-mono text-xs text-muted-foreground">{requisitanteMatriculaExibicao}</p>
-                                    )}
                                 </div>
-
-                            </div>
+                            )}
 
                             {!gestorDiretoId && !viewOnly && (
                                 <div className="mx-auto mt-2 max-w-lg border-t border-border pt-6 pb-2">

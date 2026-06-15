@@ -114,6 +114,12 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// </summary>
     public string? RmRequisicaoGetEndpointUrl { get; set; }
 
+    /// <summary>
+    /// URL completa/template do endpoint RM de pareceres/aprovações da requisição.
+    /// Ex.: <c>http://host/RMSRestDataServer/rest/RhuReqAumentoQuadroParecerData?limit=50&amp;filter=["IDREQ= :P1 AND CODCOLREQUISICAO=:P2","{IDREQ}","{COLIGADA}"]</c>.
+    /// </summary>
+    public string? RmRequisicaoParecerEndpointUrl { get; set; }
+
     /// <summary>Usuário de autenticação BasicAuth para o endpoint RM de criação.</summary>
     public string? RmRequisicaoCreateUsername { get; set; }
 

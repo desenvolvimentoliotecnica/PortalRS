@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Npgsql;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Rm;
 using RhPortal.Api.Domain.Entities;
@@ -86,18 +87,19 @@ public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantContext.SetTenantId(tenantId);
 
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var config = await db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
-        if (config?.RequisicoesVagaOrigemRm != true || config.RmImportacaoAutomaticaAtiva != true)
+        var rmConfigService = scope.ServiceProvider.GetRequiredService<ITenantRmConfiguracaoService>();
+        var config = await rmConfigService.GetAsync(ct);
+        if (!config.RequisicoesVagaOrigemRm || !config.ImportacaoAutomaticaAtiva)
             return;
 
-        var interval = TimeSpan.FromMinutes(Math.Clamp(config.RmImportacaoAutomaticaIntervaloMinutos, 1, 1440));
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var interval = TimeSpan.FromMinutes(Math.Clamp(config.ImportacaoAutomaticaIntervaloMinutos, 1, 1440));
         var now = DateTimeOffset.UtcNow;
         if (_lastRunByTenant.TryGetValue(tenantId, out var lastRun) && now - lastRun < interval)
             return;
 
         _lastRunByTenant[tenantId] = now;
-        var maxPerRun = Math.Clamp(config.RmImportacaoAutomaticaMaxPorExecucao, 1, 500);
+        var maxPerRun = Math.Clamp(config.ImportacaoAutomaticaMaxPorExecucao, 1, 500);
 
         var log = new StringBuilder();
         AppendLog(log, $"Iniciando ciclo automático RM para tenant {tenantId}.");

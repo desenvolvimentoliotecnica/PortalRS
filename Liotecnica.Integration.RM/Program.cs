@@ -130,6 +130,7 @@ if (runExtractOnly)
 {
     var extractor = host.Services.GetRequiredService<RmDataExtractor>();
     var ct = CancellationToken.None;
+    await ApplyPortalConfiguracaoAsync(host, extractor, ct);
     await extractor.ExtractSchemaAsync(ct);
     await extractor.ExtractAndSaveAsync(watermarks: null, ct: ct);
     return;
@@ -138,7 +139,9 @@ if (runExtractOnly)
 if (runExtractCv)
 {
     var extractor = host.Services.GetRequiredService<RmDataExtractor>();
-    await extractor.ExtractCurriculosCvAsync(CancellationToken.None);
+    var ct = CancellationToken.None;
+    await ApplyPortalConfiguracaoAsync(host, extractor, ct);
+    await extractor.ExtractCurriculosCvAsync(ct);
     return;
 }
 
@@ -235,3 +238,11 @@ if (runSyncOne || runSyncClayton)
 }
 
 await host.RunAsync();
+
+static async Task ApplyPortalConfiguracaoAsync(IHost host, RmDataExtractor extractor, CancellationToken ct)
+{
+    var portal = host.Services.GetRequiredService<PortalApiClient>();
+    var config = await portal.GetRmConfiguracaoAsync(ct);
+    if (config is not null)
+        extractor.ApplyPortalConfiguracao(config);
+}

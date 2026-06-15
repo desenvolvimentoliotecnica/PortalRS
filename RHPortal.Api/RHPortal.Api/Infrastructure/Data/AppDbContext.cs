@@ -44,6 +44,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<TalentoCvImportJob> TalentoCvImportJobs => Set<TalentoCvImportJob>();
     public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
     public DbSet<SolicitacaoVaga> SolicitacoesVaga => Set<SolicitacaoVaga>();
+    public DbSet<RmRequisicaoParecer> RmRequisicaoPareceres => Set<RmRequisicaoParecer>();
     public DbSet<SolicitacaoVagaIntegracaoTentativa> SolicitacoesVagaIntegracaoTentativas => Set<SolicitacaoVagaIntegracaoTentativa>();
     public DbSet<SolicitacaoVagaIndicacao> SolicitacoesVagaIndicacao => Set<SolicitacaoVagaIndicacao>();
     public DbSet<RmRequisicaoStatusMap> RmRequisicaoStatusMaps => Set<RmRequisicaoStatusMap>();
@@ -146,6 +147,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<TenantAwsSettings> TenantAwsSettings => Set<TenantAwsSettings>();
     public DbSet<TenantConfiguracao> TenantConfiguracoes => Set<TenantConfiguracao>();
+    public DbSet<TenantRmConfiguracao> TenantRmConfiguracoes => Set<TenantRmConfiguracao>();
     public DbSet<TenantBranding> TenantBrandings => Set<TenantBranding>();
     public DbSet<CandidatoVagaMatchingScore> CandidatoVagaMatchingScores => Set<CandidatoVagaMatchingScore>();
     public DbSet<VagaUnifiedMatchingCache> VagaUnifiedMatchingCaches => Set<VagaUnifiedMatchingCache>();
@@ -386,6 +388,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.CodSecaoDestino).HasMaxLength(60);
             b.Property(x => x.CodFuncaoDestino).HasMaxLength(20);
             b.Property(x => x.FuncaoDestinoNome).HasMaxLength(160);
+            b.Property(x => x.GestorHistoricoChapaRm).HasMaxLength(20);
+            b.Property(x => x.GestorHistoricoNome).HasMaxLength(160);
             b.Property(x => x.SalarioOrigem).HasPrecision(18, 2);
             b.Property(x => x.SalarioDestino).HasPrecision(18, 2);
             b.HasIndex(x => new { x.TenantId, x.IdReqRm }).IsUnique();
@@ -479,6 +483,25 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.Mensagem).HasMaxLength(1000);
             b.Property(x => x.LogText).HasColumnType("text");
             b.HasIndex(x => new { x.TenantId, x.StartedAtUtc });
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<RmRequisicaoParecer>(b =>
+        {
+            b.ToTable("RmRequisicaoPareceres");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.TipoRequisicao).HasMaxLength(60).IsRequired();
+            b.Property(x => x.Solicitante).HasMaxLength(200);
+            b.Property(x => x.ChapaSolicitante).HasMaxLength(30);
+            b.Property(x => x.Parecer).HasMaxLength(4000);
+            b.Property(x => x.Status).HasMaxLength(120);
+            b.HasIndex(x => new { x.TenantId, x.TipoRequisicao, x.CodColRequisicao, x.IdReq, x.IdParecer }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.SolicitacaoVagaId, x.DataParecer });
+            b.HasOne(x => x.SolicitacaoVaga)
+                .WithMany()
+                .HasForeignKey(x => x.SolicitacaoVagaId)
+                .OnDelete(DeleteBehavior.SetNull);
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
@@ -2366,6 +2389,7 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
             b.Property(x => x.RmRequisicaoCreateEndpointUrl).HasMaxLength(1000);
             b.Property(x => x.RmRequisicaoGetEndpointUrl).HasMaxLength(1000);
+            b.Property(x => x.RmRequisicaoParecerEndpointUrl).HasMaxLength(1000);
             b.Property(x => x.RmRequisicaoCreateUsername).HasMaxLength(200);
             b.Property(x => x.RmRequisicaoCreatePassword).HasMaxLength(500);
             b.Property(x => x.RequisicoesVagaOrigemRm).HasDefaultValue(false);
@@ -2377,6 +2401,51 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
                 .WithMany()
                 .HasForeignKey(x => x.AprovadorRhId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasIndex(x => x.TenantId).IsUnique();
+            b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<TenantRmConfiguracao>(b =>
+        {
+            b.ToTable("TenantRmConfiguracoes");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.TenantId).HasMaxLength(64).IsRequired();
+            b.Property(x => x.SqlServer).HasMaxLength(200);
+            b.Property(x => x.SqlDatabase).HasMaxLength(200);
+            b.Property(x => x.SqlUserId).HasMaxLength(200);
+            b.Property(x => x.SqlPasswordEncrypted).HasMaxLength(1000);
+            b.Property(x => x.SqlApplicationIntent).HasMaxLength(40);
+            b.Property(x => x.Mode).HasMaxLength(40).IsRequired();
+            b.Property(x => x.CreateEndpointUrl).HasMaxLength(1000);
+            b.Property(x => x.GetEndpointUrl).HasMaxLength(1000);
+            b.Property(x => x.ParecerEndpointUrl).HasMaxLength(1000);
+            b.Property(x => x.RestUsername).HasMaxLength(200);
+            b.Property(x => x.RestPasswordEncrypted).HasMaxLength(1000);
+            b.Property(x => x.RestBearerTokenEncrypted).HasMaxLength(2000);
+            b.Property(x => x.RecCreatedBy).HasMaxLength(60).IsRequired();
+            b.Property(x => x.RecModifiedBy).HasMaxLength(60).IsRequired();
+            b.Property(x => x.SyncOnlyEmail).HasMaxLength(240);
+            b.Property(x => x.VagaDefaultAreaCode).HasMaxLength(80);
+            b.Property(x => x.Schema).HasMaxLength(80).IsRequired();
+            b.Property(x => x.AreaTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.DepartamentoTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.FuncaoTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.CargoTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.VagaTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.UnidadeTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.FuncionarioTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.PessoaTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.HierarquiaTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.HierarquiaColigadaExternaTable).HasMaxLength(160);
+            b.Property(x => x.DesligamentoTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.AumentoQuadroTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.SubstituicaoTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.TransferenciaPromocaoTable).HasMaxLength(160).IsRequired();
+            b.Property(x => x.GestoresRmUrlTemplate).HasMaxLength(2048);
+            b.Property(x => x.GestoresRmUser).HasMaxLength(200);
+            b.Property(x => x.GestoresRmPasswordEncrypted).HasMaxLength(1000);
 
             b.HasIndex(x => x.TenantId).IsUnique();
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);

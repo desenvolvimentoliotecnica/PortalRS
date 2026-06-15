@@ -1,3 +1,5 @@
+using RhPortal.Api.Domain.Enums;
+
 namespace RhPortal.Api.Contracts.Dashboard;
 
 public sealed record DashboardKpisResponse(
@@ -68,4 +70,59 @@ public sealed record VagaComPendentesMatchResponse(
 public sealed record DashboardAreaLookupResponse(
     Guid Id,
     string Nome
+);
+
+public sealed record AnalistaRhDashboardSolicitacaoResponse(
+    Guid Id,
+    string Titulo,
+    SolicitacaoStatus Status,
+    string? CentroCustoNome,
+    string? UnitName,
+    DateTimeOffset CreatedAtUtc,
+    int? RmIdReq
+);
+
+public sealed record EspecialistaRhDashboardKpisResponse(
+    int RequisicoesRmPendentes,
+    int AguardandoDistribuicao,
+    int VagasAbertas,
+    int VagasForaSla,
+    int CandidatosAvancados,
+    int PreAdmissoesAguardandoAprovacao
+);
+
+public sealed record EspecialistaRhDashboardFunilResponse(
+    int Aplicadas,
+    int Triagem,
+    int Entrevista,
+    int Teste,
+    int Proposta,
+    int ContratadoMes
+);
+
+public sealed record EspecialistaRhDashboardRequisicaoResponse(
+    Guid Id,
+    string Titulo,
+    SolicitacaoStatus Status,
+    string? CentroCustoNome,
+    string? UnitName,
+    DateTimeOffset CreatedAtUtc,
+    int? RmIdReq,
+    string? AnalistaNome
+);
+
+public sealed record EspecialistaRhDashboardDistribuicaoAnalistaResponse(
+    Guid AnalistaUserId,
+    string Nome,
+    int RequisicoesEmCarteira,
+    int VagasAbertas,
+    int CandidaturasAtivas,
+    int EntrevistasProximas
+);
+
+public sealed record EspecialistaRhDashboardAlertaResponse(
+    string Label,
+    string Description,
+    int Count,
+    string Tone
 );

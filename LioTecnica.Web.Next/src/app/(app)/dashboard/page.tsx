@@ -3,6 +3,17 @@
 import { AuthGuard, useAuth } from "@/hooks/useAuth";
 import DashboardScreen from "@/features/dashboard/DashboardScreen";
 import ColaboradorDashboardScreen from "@/features/dashboard/ColaboradorDashboardScreen";
+import AnalistaRhMockDashboardScreen from "@/features/dashboard/AnalistaRhMockDashboardScreen";
+import GestorDashboardScreen from "@/features/dashboard/GestorDashboardScreen";
+import EspecialistaRhDashboardScreen from "@/features/dashboard/EspecialistaRhDashboardScreen";
+
+function normalizeRole(role: string) {
+  return role
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
 function DashboardContent() {
   const { me } = useAuth();
@@ -12,7 +23,13 @@ function DashboardContent() {
     !me.permissions.includes("*") &&
     !me.permissions.includes("access.manage") &&
     me.permissions.some((p) => p.startsWith("colaborador."));
+  const isAnalistaRh = me?.roles.some((role) => normalizeRole(role) === "analista de rh") ?? false;
+  const isGestor = me?.roles.some((role) => normalizeRole(role) === "gestor") ?? false;
+  const isEspecialistaRh = me?.roles.some((role) => normalizeRole(role) === "especialista de rh") ?? false;
 
+  if (isEspecialistaRh) return <EspecialistaRhDashboardScreen displayName={me?.displayName} />;
+  if (isAnalistaRh) return <AnalistaRhMockDashboardScreen displayName={me?.displayName} />;
+  if (isGestor) return <GestorDashboardScreen displayName={me?.displayName} />;
   if (isColaborador) return <ColaboradorDashboardScreen />;
 
   return (

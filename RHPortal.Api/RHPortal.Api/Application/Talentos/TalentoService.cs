@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Application.Candidatos;
 using RhPortal.Api.Application.Matching;
 using RhPortal.Api.Application.Pessoas;
 using RhPortal.Api.Contracts.Pessoas;
@@ -119,6 +120,10 @@ public sealed class TalentoService : ITalentoService
             .Include(x => x.Treinamentos)
             .Include(x => x.Formacao)
             .Include(x => x.Documentos)
+            .Include(x => x.Candidaturas)
+                .ThenInclude(c => c.Documentos)
+            .Include(x => x.Candidaturas)
+                .ThenInclude(c => c.Vaga)
             .FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity?.Pessoa is null) return null;
 
@@ -1440,7 +1445,7 @@ public sealed class TalentoService : ITalentoService
         return (newTalento, true);
     }
 
-    private static TalentoResponse MapToResponse(Talento t, PendingCvImportJobResponse? pendingCvImportJob = null)
+    private TalentoResponse MapToResponse(Talento t, PendingCvImportJobResponse? pendingCvImportJob = null)
     {
         var p = t.Pessoa!;
         var comp = (t.Competencias ?? new List<TalentoCompetencia>()).Select(c => new TalentoCompetenciaItem(c.Id, c.Tipo, c.Nome, c.Nivel, c.Evidencia, c.TempoAtuacao)).ToList();
@@ -1448,6 +1453,32 @@ public sealed class TalentoService : ITalentoService
         var trein = (t.Treinamentos ?? new List<TalentoTreinamento>()).Select(tr => new TalentoTreinamentoItem(tr.Id, tr.Nome, tr.Instituicao, tr.Ano, tr.Link)).ToList();
         var form = (t.Formacao ?? new List<TalentoFormacao>()).Select(f => new TalentoFormacaoItem(f.Id, f.Curso, f.Instituicao, f.Tipo, f.Status, f.Inicio, f.Fim, f.Observacoes, f.Link)).ToList();
         var docs = (t.Documentos ?? new List<TalentoDocumento>()).Select(d => new TalentoDocumentoSummary(d.Id, d.NomeArquivo, d.ContentType, d.TamanhoBytes, d.CreatedAtUtc)).ToList();
+        var candidaturas = (t.Candidaturas ?? new List<Candidato>())
+            .OrderByDescending(c => c.CreatedAtUtc)
+            .Select(c => new TalentoCandidaturaSummary(
+                c.Id,
+                c.Nome,
+                c.Email,
+                c.Fonte,
+                c.Status,
+                c.VagaId,
+                c.Vaga?.Titulo,
+                c.CreatedAtUtc,
+                c.UpdatedAtUtc,
+                (c.Documentos ?? new List<CandidatoDocumento>())
+                    .OrderByDescending(d => d.CreatedAtUtc)
+                    .Select(d => new TalentoCandidaturaDocumentoSummary(
+                        d.Id,
+                        d.Tipo,
+                        d.NomeArquivo,
+                        d.ContentType,
+                        d.Descricao,
+                        d.TamanhoBytes,
+                        d.CreatedAtUtc,
+                        d.VagaId,
+                        CandidatoDocumentoStorage.ExistsOnDisk(_hostEnvironment, _tenantContext, c.Id, d)))
+                    .ToList()))
+            .ToList();
         return new TalentoResponse(
             t.Id,
             t.PessoaId,
@@ -1471,6 +1502,7 @@ public sealed class TalentoService : ITalentoService
             trein,
             form,
             docs,
+            candidaturas,
             t.CreatedAtUtc,
             t.UpdatedAtUtc,
             t.Versao,

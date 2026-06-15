@@ -17,6 +17,8 @@ public sealed class RmConnectionOptions
     public string? Password { get; set; }
     public bool Encrypt { get; set; } = true;
     public bool TrustServerCertificate { get; set; } = true;
+    public int ConnectTimeout { get; set; } = 15;
+    public string? ApplicationIntent { get; set; } = "ReadOnly";
 
     public string GetConnectionString()
     {
@@ -31,13 +33,29 @@ public sealed class RmConnectionOptions
             DataSource = Server,
             InitialCatalog = Database,
             Encrypt = Encrypt,
-            TrustServerCertificate = TrustServerCertificate
+            TrustServerCertificate = TrustServerCertificate,
+            ConnectTimeout = ConnectTimeout
         };
+        if (string.Equals(ApplicationIntent, "ReadOnly", StringComparison.OrdinalIgnoreCase))
+            builder.ApplicationIntent = Microsoft.Data.SqlClient.ApplicationIntent.ReadOnly;
         if (!string.IsNullOrWhiteSpace(UserId))
         {
             builder.UserID = UserId;
             builder.Password = Password ?? string.Empty;
         }
         return builder.ConnectionString;
+    }
+
+    public void Apply(RmPortalConfiguracaoDto config)
+    {
+        ConnectionString = string.Empty;
+        Server = config.SqlServer;
+        Database = config.SqlDatabase;
+        UserId = config.SqlUserId;
+        Password = config.SqlPassword;
+        Encrypt = config.SqlEncrypt;
+        TrustServerCertificate = config.SqlTrustServerCertificate;
+        ConnectTimeout = config.SqlConnectTimeoutSeconds;
+        ApplicationIntent = config.SqlApplicationIntent;
     }
 }

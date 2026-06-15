@@ -106,6 +106,26 @@ interface MatchRow {
     llmCacheLoading: boolean;
 }
 
+type PortalCandidateDocument = {
+    tipo?: string;
+    nome?: string;
+    link?: string | null;
+    fileName?: string | null;
+    temArquivo?: boolean;
+};
+
+function isPdfDocumentName(nomeArquivo: string | null | undefined): boolean {
+    return (nomeArquivo ?? "").toLowerCase().endsWith(".pdf");
+}
+
+function findCurriculoDocument(items: PortalCandidateDocument[]): PortalCandidateDocument | undefined {
+    return items.find((doc) => {
+        const tipo = (doc.tipo ?? "").toLowerCase();
+        const nome = (doc.nome ?? "").toLowerCase();
+        return tipo.includes("curr") || nome.includes("curr");
+    });
+}
+
 async function parseMatchApiError(res: Response): Promise<string> {
     const raw = await res.text().catch(() => "");
     if (!raw.trim()) return `HTTP ${res.status}`;
@@ -157,8 +177,16 @@ export default function CandidatosMatchTab({
     const [filter, setFilter] = useState<MatchFilter>("todos");
     const [notifyTarget, setNotifyTarget] = useState<HubCandidateRow | null>(null);
     const [notifySending, setNotifySending] = useState(false);
+    const [previewingCvId, setPreviewingCvId] = useState<string | null>(null);
+    const [pdfPreview, setPdfPreview] = useState<{ url: string; nomeArquivo: string } | null>(null);
     const breakdownDialog = useMatchingBreakdownDialog();
     const llmDialog = useLlmMatchingDialog();
+
+    useEffect(() => {
+        return () => {
+            if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url);
+        };
+    }, [pdfPreview?.url]);
 
     useEffect(() => {
         AssistenteIaApi.health()
@@ -328,30 +356,23 @@ export default function CandidatosMatchTab({
         }
     }, [notifyTarget, vagaId]);
 
+    const buscarCurriculo = useCallback(async (candidato: HubCandidateRow) => {
+        const res = await apiFetch(`/api/public/portal-candidates/${candidato.id}/documents`, { cache: "no-store" });
+        if (!res.ok) throw new Error(await parseMatchApiError(res));
+        const data = (await res.json()) as { items?: PortalCandidateDocument[] };
+        const curriculo = findCurriculoDocument(data.items ?? []);
+        if (!curriculo?.link) {
+            throw new Error("Nenhum CV disponível neste candidato.");
+        }
+        return curriculo;
+    }, []);
+
     const baixarCurriculo = useCallback(async (candidato: HubCandidateRow) => {
         try {
-            const res = await apiFetch(`/api/public/portal-candidates/${candidato.id}/documents`, { cache: "no-store" });
-            if (!res.ok) throw new Error(await parseMatchApiError(res));
-            const data = (await res.json()) as {
-                items?: Array<{
-                    tipo?: string;
-                    nome?: string;
-                    link?: string | null;
-                    fileName?: string | null;
-                    temArquivo?: boolean;
-                }>;
-            };
-            const curriculo = (data.items ?? []).find((doc) => {
-                const tipo = (doc.tipo ?? "").toLowerCase();
-                const nome = (doc.nome ?? "").toLowerCase();
-                return tipo.includes("curr") || nome.includes("curr");
-            });
-            if (!curriculo?.link) {
-                toast.error("Nenhum CV disponível para download neste candidato.");
-                return;
-            }
-
-            const download = await apiFetch(curriculo.link, { cache: "no-store" });
+            const curriculo = await buscarCurriculo(candidato);
+            const link = curriculo.link;
+            if (!link) throw new Error("Nenhum CV disponível neste candidato.");
+            const download = await apiFetch(link, { cache: "no-store" });
             if (!download.ok) throw new Error(await parseMatchApiError(download));
             const blob = await download.blob();
             const blobUrl = URL.createObjectURL(blob);
@@ -365,7 +386,39 @@ export default function CandidatosMatchTab({
         } catch (err) {
             toast.error(`Falha ao baixar CV: ${err instanceof Error ? err.message : "erro desconhecido"}`);
         }
-    }, []);
+    }, [buscarCurriculo]);
+
+    const visualizarCurriculo = useCallback(async (candidato: HubCandidateRow) => {
+        setPreviewingCvId(candidato.id);
+        try {
+            const curriculo = await buscarCurriculo(candidato);
+            const nomeArquivo = curriculo.fileName || curriculo.nome || `curriculo-${candidato.nome}.pdf`;
+            if (!isPdfDocumentName(nomeArquivo)) {
+                throw new Error("A visualização no navegador está disponível apenas para PDFs.");
+            }
+            const link = curriculo.link;
+            if (!link) throw new Error("Nenhum CV disponível neste candidato.");
+            const res = await apiFetch(link, { cache: "no-store", headers: { Accept: "application/pdf,*/*" } }, 120_000);
+            if (!res.ok) throw new Error(await parseMatchApiError(res));
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" }));
+            setPdfPreview((current) => {
+                if (current?.url) URL.revokeObjectURL(current.url);
+                return { url: objectUrl, nomeArquivo };
+            });
+        } catch (err) {
+            toast.error(`Falha ao visualizar CV: ${err instanceof Error ? err.message : "erro desconhecido"}`);
+        } finally {
+            setPreviewingCvId(null);
+        }
+    }, [buscarCurriculo]);
+
+    function closePdfPreview() {
+        setPdfPreview((current) => {
+            if (current?.url) URL.revokeObjectURL(current.url);
+            return null;
+        });
+    }
 
     const rows = useMemo(() => {
         let list = candidates.map((c) => ({ ...c, m: matchById[c.id] }));
@@ -606,7 +659,9 @@ export default function CandidatosMatchTab({
                                                     onAnaliseIa={() => llmDialog.open(vagaId, r.id, r.nome)}
                                                     onView={() => void onViewCandidate(r.id)}
                                                     onEdit={() => void onEditCandidate(r.id)}
+                                                    onPreviewCv={() => void visualizarCurriculo(r)}
                                                     onDownloadCv={() => void baixarCurriculo(r)}
+                                                    previewingCv={previewingCvId === r.id}
                                                     onApprove={() => onApproveCandidate(r)}
                                                     onReenviarProposta={() => void onReenviarProposta(r)}
                                                     onNotify={() => setNotifyTarget(r)}
@@ -700,6 +755,44 @@ export default function CandidatosMatchTab({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            {pdfPreview ? (
+                <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" onClick={closePdfPreview}>
+                    <div className="flex h-[90vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                            <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-slate-800">Visualizar PDF</div>
+                                <div className="truncate text-xs text-muted-foreground">{pdfPreview.nomeArquivo}</div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                                <button
+                                    type="button"
+                                    className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                                    onClick={() => {
+                                        const a = document.createElement("a");
+                                        a.href = pdfPreview.url;
+                                        a.download = pdfPreview.nomeArquivo || "curriculo.pdf";
+                                        a.rel = "noopener";
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        a.remove();
+                                    }}
+                                >
+                                    <Download className="size-4" />
+                                    Baixar
+                                </button>
+                                <button
+                                    type="button"
+                                    className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                                    onClick={closePdfPreview}
+                                >
+                                    Fechar
+                                </button>
+                            </div>
+                        </div>
+                        <iframe title={`PDF - ${pdfPreview.nomeArquivo}`} src={pdfPreview.url} className="min-h-0 flex-1 bg-slate-100" />
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -817,7 +910,9 @@ function RowActions({
     onAnaliseIa,
     onView,
     onEdit,
+    onPreviewCv,
     onDownloadCv,
+    previewingCv,
     onApprove,
     onReenviarProposta,
     onNotify,
@@ -832,7 +927,9 @@ function RowActions({
     onAnaliseIa: () => void;
     onView: () => void;
     onEdit: () => void;
+    onPreviewCv: () => void;
     onDownloadCv: () => void;
+    previewingCv: boolean;
     onApprove: () => void;
     onReenviarProposta: () => void;
     onNotify: () => void;
@@ -868,6 +965,16 @@ function RowActions({
                     </Button>
                 </>
             )}
+            <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs gap-1 hidden xl:inline-flex whitespace-nowrap"
+                onClick={onPreviewCv}
+                disabled={previewingCv}
+            >
+                {previewingCv ? <Loader2 className="size-3 shrink-0 animate-spin" /> : <Eye className="size-3 shrink-0" />}
+                Visualizar CV
+            </Button>
             <Button
                 size="sm"
                 variant="outline"
@@ -911,6 +1018,10 @@ function RowActions({
                     <DropdownMenuItem onClick={onView}>
                         <Eye className="size-4 mr-2" />
                         Visualizar candidato
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onPreviewCv} disabled={previewingCv}>
+                        {previewingCv ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Eye className="size-4 mr-2" />}
+                        Visualizar CV
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={onDownloadCv}>
                         <Download className="size-4 mr-2" />

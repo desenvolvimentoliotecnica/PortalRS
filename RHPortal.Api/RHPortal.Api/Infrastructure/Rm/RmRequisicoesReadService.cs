@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Options;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Application.TenantConfiguracao;
 using RhPortal.Api.Contracts.Rm;
 
@@ -11,23 +11,20 @@ namespace RhPortal.Api.Infrastructure.Rm;
 
 public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 {
-    private readonly RmConnectionOptions _opts;
-    private readonly ITenantConfiguracaoService _tenantConfiguracaoService;
+    private readonly ITenantRmConfiguracaoService _rmConfiguracaoService;
     private readonly IHttpClientFactory _httpClientFactory;
 
     public RmRequisicoesReadService(
-        IOptions<RmConnectionOptions> opts,
-        ITenantConfiguracaoService tenantConfiguracaoService,
+        ITenantRmConfiguracaoService rmConfiguracaoService,
         IHttpClientFactory httpClientFactory)
     {
-        _opts = opts.Value;
-        _tenantConfiguracaoService = tenantConfiguracaoService;
+        _rmConfiguracaoService = rmConfiguracaoService;
         _httpClientFactory = httpClientFactory;
     }
 
     public async Task<RmRequisicaoListResponse> ListAsync(RmRequisicaoListQuery query, CancellationToken ct)
     {
-        var tenantConfig = await _tenantConfiguracaoService.GetRmRequisicaoConfigAsync(ct);
+        var tenantConfig = await BuildRmRequisicaoConfigAsync(ct);
         if (!string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
             return await ListFromRestAsync(query, tenantConfig, ct);
 
@@ -42,7 +39,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         string? searchPattern = BuildLikePattern(query.Search);
         string? codStatusCsv = BuildCodStatusCsv(query.CodStatusIn);
 
-        var cs = _opts.GetConnectionString();
+        var cs = (await _rmConfiguracaoService.GetConnectionOptionsAsync(ct)).GetConnectionString();
         await using var conn = new SqlConnection(cs);
         await conn.OpenAsync(ct);
 
@@ -76,11 +73,11 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         if (!RmPortalRequisicaoVinculo.TryParse(rmRequisicaoCodigo, out var tipo, out var codCol, out var idReq))
             return null;
 
-        var tenantConfig = await _tenantConfiguracaoService.GetRmRequisicaoConfigAsync(ct);
+        var tenantConfig = await BuildRmRequisicaoConfigAsync(ct);
         if (!string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
             return await TryGetCodStatusFromRestAsync(tenantConfig, tipo, codCol, idReq, ct);
 
-        var cs = _opts.GetConnectionString();
+        var cs = (await _rmConfiguracaoService.GetConnectionOptionsAsync(ct)).GetConnectionString();
         await using var conn = new SqlConnection(cs);
         await conn.OpenAsync(ct);
 
@@ -100,6 +97,21 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             SafeString(reader, "TIPO_REQUISICAO") ?? tipo,
             SafeInt(reader, "CODCOLREQUISICAO") ?? codCol,
             SafeInt(reader, "IDREQ") ?? idReq);
+    }
+
+    private async Task<ConfiguracaoRmRequisicaoDto> BuildRmRequisicaoConfigAsync(CancellationToken ct)
+    {
+        var publicConfig = await _rmConfiguracaoService.GetAsync(ct);
+        var createOptions = await _rmConfiguracaoService.GetCreateOptionsAsync(ct);
+
+        return new ConfiguracaoRmRequisicaoDto
+        {
+            EndpointUrl = publicConfig.CreateEndpointUrl,
+            GetEndpointUrl = publicConfig.GetEndpointUrl,
+            ParecerEndpointUrl = publicConfig.ParecerEndpointUrl,
+            Username = createOptions.Username,
+            Password = createOptions.Password,
+        };
     }
 
     private async Task<RmRequisicaoListResponse> ListFromRestAsync(

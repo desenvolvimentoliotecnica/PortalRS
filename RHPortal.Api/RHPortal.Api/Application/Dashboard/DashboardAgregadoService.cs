@@ -7,6 +7,8 @@ using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
 using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
+using System.Globalization;
+using System.Text;
 
 namespace RhPortal.Api.Application.Dashboard;
 
@@ -105,8 +107,11 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
         //    Em 31.2, CentroCusto absorveu Area.
         var meuFuncionario = await _db.Funcionarios.AsNoTracking()
             .Where(f => f.Id == funcionarioId)
-            .Select(f => new { f.CentroCustoId, f.UserId })
+            .Select(f => new { f.CentroCustoId, f.UserId, f.Name, f.Email })
             .FirstOrDefaultAsync(ct);
+
+        var (requisicoesPessoalAtivas, posicoesRequisicoesAtivas) =
+            await ObterRequisicoesPessoalAtivasGestorAsync(funcionarioId, ct);
 
         var centrosCustoCarteira = diretos.Where(d => d.CentroCustoId.HasValue).Select(d => d.CentroCustoId!.Value).ToHashSet();
         if (meuFuncionario?.CentroCustoId is Guid meuCc)
@@ -295,6 +300,13 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
                 .ToList();
         }
 
+        var agendaTecnicaProxima = await ObterAgendaTecnicaGestorAsync(
+            carteiraVagaIds,
+            meuFuncionario?.Name,
+            meuFuncionario?.Email,
+            now,
+            ct);
+
         return new DashboardGestorSection(
             DiretosAtivos: diretosAtivos,
             DiretosComDadosIncompletos: diretosIncompletos,
@@ -304,9 +316,84 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
             CandidaturasEtapaAvancada: candidaturasAvancadas,
             AprovacoesPendentesMinhas: aprovacoesPendentes,
             SolicitacoesEquipePendentes: solicitacoesEquipePendentes,
+            RequisicoesPessoalAtivas: requisicoesPessoalAtivas,
+            PosicoesRequisicoesAtivas: posicoesRequisicoesAtivas,
             AvaliacoesDiretosPendentes: avaliacoesDiretosPendentes,
             VagasMaisAntigas: vagasMaisAntigas,
-            CandidaturasEmDestaque: candidaturasDestaque);
+            CandidaturasEmDestaque: candidaturasDestaque,
+            AgendaTecnicaProxima: agendaTecnicaProxima);
+    }
+
+    private async Task<IReadOnlyList<DashboardGestorAgendaTecnicaItem>> ObterAgendaTecnicaGestorAsync(
+        IReadOnlySet<Guid> carteiraVagaIds,
+        string? gestorNome,
+        string? gestorEmail,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var inicio = now.UtcDateTime;
+        var fim = now.AddDays(30).UtcDateTime;
+        var ownerTokens = new[]
+        {
+            NormalizeForComparison(gestorNome),
+            NormalizeForComparison(gestorEmail),
+        }.Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+
+        var futuros = await _db.AgendaEvents
+            .AsNoTracking()
+            .Include(x => x.Type)
+            .Where(e => e.StartAtUtc >= inicio && e.StartAtUtc < fim)
+            .Where(e =>
+                (e.Type != null && e.Type.Code == "entrevista")
+                || e.Title.Contains("Entrevista"))
+            .OrderBy(e => e.StartAtUtc)
+            .Take(80)
+            .Select(e => new
+            {
+                e.Id,
+                e.CandidaturaId,
+                e.CandidatoId,
+                e.VagaId,
+                e.Title,
+                e.StartAtUtc,
+                e.EndAtUtc,
+                e.Status,
+                e.Location,
+                e.Owner,
+                e.Notes,
+                e.Candidate,
+                e.VagaTitle,
+                e.VagaCode,
+                e.CandidateResponseStatus,
+                TypeCode = e.Type != null ? e.Type.Code : string.Empty,
+                TypeLabel = e.Type != null ? e.Type.Label : string.Empty,
+            })
+            .ToListAsync(ct);
+
+        return futuros
+            .Where(e =>
+                (e.VagaId.HasValue && carteiraVagaIds.Contains(e.VagaId.Value))
+                || OwnerMatches(e.Owner, ownerTokens)
+                || ParticipantMatches(e.Notes, ownerTokens))
+            .Take(6)
+            .Select(e => new DashboardGestorAgendaTecnicaItem(
+                e.Id,
+                e.CandidaturaId,
+                e.CandidatoId,
+                e.VagaId,
+                e.Title,
+                e.StartAtUtc,
+                e.EndAtUtc,
+                e.Status,
+                e.Location,
+                e.Owner,
+                e.Candidate,
+                e.VagaTitle,
+                e.VagaCode,
+                e.CandidateResponseStatus,
+                e.TypeCode,
+                e.TypeLabel))
+            .ToList();
     }
 
     // ── Onda 2 — RH ───────────────────────────────────────────────────────────
@@ -577,4 +664,99 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
             HeadcountPorArea: areasConsolidadas,
             CiclosResumo: ciclosResumo);
     }
+
+    private static bool OwnerMatches(string? owner, IReadOnlyList<string> ownerTokens)
+    {
+        if (string.IsNullOrWhiteSpace(owner) || ownerTokens.Count == 0)
+            return false;
+
+        var normalizedOwner = NormalizeForComparison(owner);
+        return ownerTokens.Any(token => normalizedOwner.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool ParticipantMatches(string? notes, IReadOnlyList<string> ownerTokens)
+    {
+        if (string.IsNullOrWhiteSpace(notes) || ownerTokens.Count == 0)
+            return false;
+
+        var participantLine = notes
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(line => line.StartsWith("Participantes opcionais:", StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(participantLine))
+            return false;
+
+        var normalizedParticipants = NormalizeForComparison(participantLine);
+        return ownerTokens.Any(token => normalizedParticipants.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string NormalizeForComparison(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+                builder.Append(ch);
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private async Task<(int Count, int Posicoes)> ObterRequisicoesPessoalAtivasGestorAsync(
+        Guid funcionarioId,
+        CancellationToken ct)
+    {
+        var statusAtivos = GetSolicitacaoVagaStatusAtivosGestor();
+
+        var query = _db.SolicitacoesVaga.AsNoTracking()
+            .Where(s => s.SolicitanteId == funcionarioId && statusAtivos.Contains(s.Status));
+
+        var requisicoesOrigemRmAtiva = await _db.TenantConfiguracoes
+            .AsNoTracking()
+            .Select(c => c.RequisicoesVagaOrigemRm)
+            .FirstOrDefaultAsync(ct);
+
+        if (requisicoesOrigemRmAtiva)
+        {
+            query = query.Where(s =>
+                s.RmRequisicaoCodigo != null
+                && s.RmRequisicaoCodigo != ""
+                && !s.RmRequisicaoCodigo.StartsWith("STUB-")
+                && s.RmCriacaoSolicitadaEmUtc == null);
+        }
+
+        var posicoes = await query
+            .Select(s => s.QtdPosicoes)
+            .ToListAsync(ct);
+
+        return (posicoes.Count, posicoes.Sum());
+    }
+
+    /// <summary>
+    /// Status considerados "ativos" na tela de solicitações do gestor (chip Ativas).
+    /// </summary>
+    private static SolicitacaoStatus[] GetSolicitacaoVagaStatusAtivosGestor() =>
+    [
+        SolicitacaoStatus.Rascunho,
+        SolicitacaoStatus.PendenteAprovacao,
+        SolicitacaoStatus.Aprovada,
+        SolicitacaoStatus.AjustesNecessarios,
+        SolicitacaoStatus.PendenteAprovacaoRh,
+        SolicitacaoStatus.EmIntegracao,
+        SolicitacaoStatus.Concluida,
+        SolicitacaoStatus.PendenteAprovacaoAumentoHC,
+        SolicitacaoStatus.PendenteTriagem,
+        SolicitacaoStatus.EmTriagem,
+        SolicitacaoStatus.DevolvidaTriagemGestor,
+        SolicitacaoStatus.PendenteIntegracaoRm,
+        SolicitacaoStatus.ErroIntegracaoRm,
+        SolicitacaoStatus.AguardandoReprocessamentoRm,
+        SolicitacaoStatus.EmProcessoSeletivo,
+        SolicitacaoStatus.Suspensa,
+        SolicitacaoStatus.EmAndamento,
+    ];
 }

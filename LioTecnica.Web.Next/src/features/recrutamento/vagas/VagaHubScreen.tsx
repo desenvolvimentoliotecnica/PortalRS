@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Download,
+  Eye,
   ExternalLink,
   FileText,
   Globe,
@@ -594,14 +596,23 @@ function formatFileSizeShort(n: number): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-async function downloadHubCandidateDocument(doc: CandidateDocRow, candidatoIdFallback: string | null): Promise<void> {
+function isPdfDocumentName(nomeArquivo: string | null | undefined): boolean {
+  return (nomeArquivo ?? "").toLowerCase().endsWith(".pdf");
+}
+
+function resolveHubCandidateDocumentPath(doc: CandidateDocRow, candidatoIdFallback: string | null): string | null {
   let rawPath = doc.url?.trim();
   if (!rawPath || rawPath === "#") {
     if (candidatoIdFallback && doc.id) {
       rawPath = `/api/candidatos/${candidatoIdFallback}/documentos/${doc.id}/download`;
     }
   }
-  if (!rawPath || rawPath === "#") {
+  return rawPath && rawPath !== "#" ? rawPath : null;
+}
+
+async function downloadHubCandidateDocument(doc: CandidateDocRow, candidatoIdFallback: string | null): Promise<void> {
+  const rawPath = resolveHubCandidateDocumentPath(doc, candidatoIdFallback);
+  if (!rawPath) {
     toast.error("Link de download indisponível.");
     return;
   }
@@ -672,9 +683,63 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const [newCandPendingDocs, setNewCandPendingDocs] = useState<Array<{ id: string; tipo: string; desc: string; file: File; name: string; size: number }>>([]);
   /** Documentos já persistidos (ex.: CV do portal) — preenchido ao abrir edição via GET /api/candidatos/{id}. */
   const [existingCandDocs, setExistingCandDocs] = useState<CandidateDocRow[]>([]);
+  const [previewingCandidateDocId, setPreviewingCandidateDocId] = useState<string | null>(null);
+  const [candidatePdfPreview, setCandidatePdfPreview] = useState<{ url: string; nomeArquivo: string } | null>(null);
   const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null);
   const [candidateFormMode, setCandidateFormMode] = useState<"create" | "edit" | "view">("create");
   const candidateFormReadOnly = candidateFormMode === "view";
+
+  useEffect(() => {
+    return () => {
+      if (candidatePdfPreview?.url) URL.revokeObjectURL(candidatePdfPreview.url);
+    };
+  }, [candidatePdfPreview?.url]);
+
+  async function previewHubCandidateDocument(doc: CandidateDocRow, candidatoIdFallback: string | null): Promise<void> {
+    if (!isPdfDocumentName(doc.nomeArquivo)) {
+      toast.error("A visualização no navegador está disponível apenas para PDFs.");
+      return;
+    }
+    const rawPath = resolveHubCandidateDocumentPath(doc, candidatoIdFallback);
+    if (!rawPath) {
+      toast.error("Link de visualização indisponível.");
+      return;
+    }
+    if (/^https?:\/\//i.test(rawPath)) {
+      window.open(rawPath, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+    setPreviewingCandidateDocId(doc.id);
+    try {
+      const res = await apiFetch(
+        path,
+        { method: "GET", headers: { Accept: "application/pdf,*/*" } },
+        120_000,
+      );
+      if (!res.ok) {
+        throw new Error(await parseApiErrorMessage(res));
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" }));
+      setCandidatePdfPreview((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { url: objectUrl, nomeArquivo: doc.nomeArquivo ?? "documento.pdf" };
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao visualizar o documento.");
+    } finally {
+      setPreviewingCandidateDocId(null);
+    }
+  }
+
+  function closeCandidatePdfPreview() {
+    setCandidatePdfPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
 
   const [solicitacoesLinked, setSolicitacoesLinked] = useState<SolicitacaoLinked[]>([]);
   const [cancelSolWorking, setCancelSolWorking] = useState<string | null>(null);
@@ -1060,9 +1125,13 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
   const headcountPendente = pickNum(vaga, "headcountPendente", 0);
   const alertaHCProvVencido = vaga?.alertaHCProvVencido === true;
   const isEstrutural = vaga?.isEstrutural === true;
+  const hasDescricaoCargo = Boolean(
+    pickOptional(vaga, "descricaoCargoId") || pickOptional(vaga, "descricaoCargo")
+  );
 
   const publishBlockReason: string | null = (() => {
     if (headcountPendente > 0) return "Existe aumento de headcount pendente de aprovação — acompanhe em Aprovações antes de publicar";
+    if (!hasDescricaoCargo) return "Vincule uma Descrição de Cargo (DNALIO) antes de publicar a vaga";
     if (status === "aberta") return "A vaga já está publicada";
     if (status === "preenchida") return "A vaga está preenchida";
     if (status === "cancelada") return "A vaga está cancelada";
@@ -1173,7 +1242,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             .finally(() => setRodadasLoading(false));
         }
       }}>
-        <TabsList className="!grid h-auto w-full grid-cols-6 rounded-xl border border-border/40 bg-card p-1 shadow-sm">
+        <TabsList className="!grid h-auto w-full grid-cols-7 rounded-xl border border-border/40 bg-card p-1 shadow-sm">
           <TabsTrigger value="resumo" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2 data-[state=active]:text-[#105290]">
             <FileText className="size-4 shrink-0" />
             <span className="truncate">Resumo</span>
@@ -1196,7 +1265,11 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             <Target className="size-4 shrink-0" />
             <span className="truncate">Etapas</span>
           </TabsTrigger>
-          {workflowData && <TabsTrigger value="workflow">Workflow</TabsTrigger>}
+          {workflowData && (
+            <TabsTrigger value="workflow" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
+              <span className="truncate">Workflow</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="historico" className="inline-flex min-w-0 items-center justify-center whitespace-nowrap gap-2 px-3 py-2">
             <Clock className="size-4 shrink-0" />
             <span className="truncate">Histórico</span>
@@ -1210,6 +1283,32 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
 
         {/* ── Tab: Resumo ── */}
         <TabsContent value="resumo" className="space-y-4 mt-4">
+          <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
+            <div className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <FileText className="size-4 text-[#105290]" />
+              Checklist da vaga
+            </div>
+            <div className="grid gap-4 md:grid-cols-4">
+              {[
+                { label: "Dados básicos", statusLabel: "Concluído", done: title !== "—" && title !== "Carregando..." },
+                { label: "Requisitos", statusLabel: requisitos.length > 0 ? "Concluído" : "Pendente", done: requisitos.length > 0 },
+                { label: "Etapas de seleção", statusLabel: etapas.length > 0 ? "Concluído" : "Pendente", done: etapas.length > 0 },
+                { label: "Publicação", statusLabel: status === "aberta" ? "Concluído" : "Pendente", done: status === "aberta" },
+              ].map((item, index, arr) => (
+                <div key={item.label} className="relative flex flex-col items-center text-center">
+                  {index < arr.length - 1 && (
+                    <div className={`absolute left-1/2 top-4 hidden h-px w-full border-t md:block ${item.done ? "border-emerald-300" : "border-dashed border-border"}`} />
+                  )}
+                  <div className={`relative z-10 flex size-9 items-center justify-center rounded-full border-2 bg-card text-sm font-semibold ${item.done ? "border-emerald-500 text-emerald-600" : "border-border text-muted-foreground"}`}>
+                    {item.done ? <CheckCircle2 className="size-5" /> : index + 1}
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-foreground">{item.label}</div>
+                  <div className={`text-[11px] ${item.done ? "text-emerald-600" : "text-muted-foreground"}`}>{item.statusLabel}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2">
             {[
               { label: "Recrutador", name: displayValue(recrutador), role: "Analista de Recrutamento & Seleção" },
@@ -1258,32 +1357,6 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
             <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Início: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataInicio", ""))}</strong></span>
             <span className="inline-flex items-center gap-2"><CalendarDays className="size-4 text-[#105290]" /> Encerramento: <strong className="font-medium text-foreground">{fmtDate(pick(vaga, "dataEncerramento", ""))}</strong></span>
             <span className="inline-flex items-center gap-2"><Target className="size-4 text-[#105290]" /> Match mín: <strong className="font-semibold text-[#105290]">{matchMin}%</strong></span>
-          </div>
-
-          <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-            <div className="mb-5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <FileText className="size-4 text-[#105290]" />
-              Checklist da vaga
-            </div>
-            <div className="grid gap-4 md:grid-cols-4">
-              {[
-                { label: "Dados básicos", statusLabel: "Concluído", done: title !== "—" && title !== "Carregando..." },
-                { label: "Requisitos", statusLabel: requisitos.length > 0 ? "Concluído" : "Pendente", done: requisitos.length > 0 },
-                { label: "Etapas de seleção", statusLabel: etapas.length > 0 ? "Concluído" : "Pendente", done: etapas.length > 0 },
-                { label: "Publicação", statusLabel: status === "aberta" ? "Concluído" : "Pendente", done: status === "aberta" },
-              ].map((item, index, arr) => (
-                <div key={item.label} className="relative flex flex-col items-center text-center">
-                  {index < arr.length - 1 && (
-                    <div className={`absolute left-1/2 top-4 hidden h-px w-full border-t md:block ${item.done ? "border-emerald-300" : "border-dashed border-border"}`} />
-                  )}
-                  <div className={`relative z-10 flex size-9 items-center justify-center rounded-full border-2 bg-card text-sm font-semibold ${item.done ? "border-emerald-500 text-emerald-600" : "border-border text-muted-foreground"}`}>
-                    {item.done ? <CheckCircle2 className="size-5" /> : index + 1}
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-foreground">{item.label}</div>
-                  <div className={`text-[11px] ${item.done ? "text-emerald-600" : "text-muted-foreground"}`}>{item.statusLabel}</div>
-                </div>
-              ))}
-            </div>
           </div>
 
           {(resumo && resumo !== "—") || (descPublica && descPublica !== "—") || tags !== "—" || requisitos.length > 0 ? (
@@ -1844,9 +1917,24 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                               {d.tamanhoBytes != null ? ` • ${formatFileSizeShort(d.tamanhoBytes)}` : ""}
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" className="shrink-0" type="button" onClick={() => void downloadHubCandidateDocument(d, editingCandidateId)}>
-                            Download
-                          </Button>
+                          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                            {isPdfDocumentName(d.nomeArquivo) ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                type="button"
+                                disabled={previewingCandidateDocId === d.id}
+                                onClick={() => void previewHubCandidateDocument(d, editingCandidateId)}
+                              >
+                                <Eye className="mr-1 size-4" />
+                                {previewingCandidateDocId === d.id ? "Abrindo..." : "Visualizar"}
+                              </Button>
+                            ) : null}
+                            <Button variant="outline" size="sm" type="button" onClick={() => void downloadHubCandidateDocument(d, editingCandidateId)}>
+                              <Download className="mr-1 size-4" />
+                              Download
+                            </Button>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -2378,6 +2466,44 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
           )}
         </DialogContent>
       </Dialog>
+      {candidatePdfPreview ? (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-black/60 p-4" role="dialog" aria-modal="true" onClick={closeCandidatePdfPreview}>
+          <div className="flex h-[90vh] w-[95vw] max-w-[1400px] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-slate-800">Visualizar PDF</div>
+                <div className="truncate text-xs text-muted-foreground">{candidatePdfPreview.nomeArquivo}</div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center gap-1 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = candidatePdfPreview.url;
+                    a.download = candidatePdfPreview.nomeArquivo || "documento.pdf";
+                    a.rel = "noopener";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  <Download className="size-4" />
+                  Baixar
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                  onClick={closeCandidatePdfPreview}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+            <iframe title={`PDF - ${candidatePdfPreview.nomeArquivo}`} src={candidatePdfPreview.url} className="min-h-0 flex-1 bg-slate-100" />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

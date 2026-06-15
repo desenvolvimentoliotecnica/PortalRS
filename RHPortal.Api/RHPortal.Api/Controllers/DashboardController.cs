@@ -4,12 +4,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using RhPortal.Api.Application.Dashboard;
+using RhPortal.Api.Contracts.Candidatura;
 using RhPortal.Api.Contracts.Dashboard;
+using RhPortal.Api.Contracts.Schedule;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
+using System.Globalization;
+using System.Text;
 
 namespace RhPortal.Api.Controllers;
 
@@ -315,6 +320,579 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
     }
 
     /// <summary>
+    /// Indicadores principais da carteira da Analista de RH logada.
+    /// Escopo: vagas onde <c>RecrutadorResponsavelUserId</c> é a usuária atual.
+    /// </summary>
+    [HttpGet("analista-rh/kpis")]
+    [ProducesResponseType(typeof(DashboardKpisResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<DashboardKpisResponse>> GetAnalistaRhKpis(
+        [FromServices] AppDbContext db,
+        [FromServices] IOptions<SlaVagaOptions> slaOptions,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var userId = currentUser.UserId;
+        if (!userId.HasValue)
+            return Ok(new DashboardKpisResponse(0, 0, 0, 0, 0));
+
+        var now = DateTimeOffset.UtcNow;
+        var todayStart = new DateTimeOffset(now.Date, TimeSpan.Zero);
+        var weekStart = now.AddDays(-7);
+        var opts = slaOptions.Value;
+
+        var vagasCarteira = db.Vagas.AsNoTracking()
+            .Where(v => v.RecrutadorResponsavelUserId == userId.Value);
+
+        var openVagas = await vagasCarteira.CountAsync(v => v.Status == VagaStatus.Aberta, ct);
+
+        int vagasForaSla;
+        try
+        {
+            var vagasAbertasComSla = await vagasCarteira
+                .Where(v => v.Status == VagaStatus.Aberta && v.DataAbertura != null)
+                .Select(v => new { v.DataAbertura, v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade })
+                .ToListAsync(ct);
+
+            vagasForaSla = vagasAbertasComSla.Count(v =>
+                (now - v.DataAbertura!.Value).TotalDays > SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, opts));
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42703")
+        {
+            logger.LogError(ex, "Dashboard Analista RH KPIs: coluna ausente no schema (SqlState {SqlState}, coluna {Column}).",
+                ex.SqlState, ex.ColumnName ?? "desconhecida");
+            vagasForaSla = 0;
+        }
+
+        var candidaturasCarteira = db.Candidaturas.AsNoTracking()
+            .Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == userId.Value);
+
+        var cvsHoje = await candidaturasCarteira
+            .CountAsync(c => c.AplicadaEmUtc >= todayStart, ct);
+
+        var pendentes = await candidaturasCarteira
+            .CountAsync(c => c.Candidato != null && c.Candidato.LastMatchAtUtc == null && c.Candidato.LastMatchScore == null, ct);
+
+        var aprovados = await candidaturasCarteira
+            .CountAsync(c => c.Status == CandidaturaStatus.Contratado && c.UpdatedAtUtc >= weekStart, ct);
+
+        return Ok(new DashboardKpisResponse(
+            openVagas,
+            cvsHoje,
+            pendentes,
+            aprovados,
+            vagasForaSla
+        ));
+    }
+
+    /// <summary>
+    /// Série diária de candidaturas recebidas nas vagas da Analista de RH logada.
+    /// </summary>
+    [HttpGet("analista-rh/recebidos-series")]
+    [ProducesResponseType(typeof(DashboardSeriesResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<DashboardSeriesResponse>> GetAnalistaRhRecebidosSeries(
+        [FromQuery] int days,
+        [FromServices] AppDbContext db,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var userId = currentUser.UserId;
+        var safeDays = Math.Clamp(days <= 0 ? 14 : days, 1, 60);
+        var today = DateTimeOffset.UtcNow;
+        var startDate = new DateTimeOffset(today.Date.AddDays(-(safeDays - 1)), TimeSpan.Zero);
+
+        var labels = new List<string>(safeDays);
+        var values = new List<int>(safeDays);
+
+        Dictionary<DateTime, int> grouped = new();
+        if (userId.HasValue)
+        {
+            var appliedDates = await db.Candidaturas.AsNoTracking()
+                .Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == userId.Value && c.AplicadaEmUtc >= startDate)
+                .Select(c => c.AplicadaEmUtc.Date)
+                .ToListAsync(ct);
+
+            grouped = appliedDates
+                .GroupBy(d => d)
+                .ToDictionary(g => g.Key, g => g.Count());
+        }
+
+        for (var i = 0; i < safeDays; i++)
+        {
+            var day = startDate.Date.AddDays(i);
+            labels.Add(day.ToString("dd/MM"));
+            values.Add(grouped.TryGetValue(day, out var count) ? count : 0);
+        }
+
+        return Ok(new DashboardSeriesResponse(labels, values));
+    }
+
+    /// <summary>
+    /// Funil de candidaturas das vagas distribuídas para a Analista de RH logada.
+    /// </summary>
+    [HttpGet("analista-rh/funil")]
+    [ProducesResponseType(typeof(FunilCandidaturasResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<FunilCandidaturasResponse>> GetAnalistaRhFunil(
+        [FromServices] AppDbContext db,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var userId = currentUser.UserId;
+        if (!userId.HasValue)
+            return Ok(new FunilCandidaturasResponse(0, null, null, null, null, Array.Empty<FunilEtapaItem>()));
+
+        var rows = await db.Candidaturas.AsNoTracking()
+            .Where(c => c.Vaga != null && c.Vaga.RecrutadorResponsavelUserId == userId.Value)
+            .GroupBy(c => c.EtapaMacro)
+            .Select(g => new { Etapa = g.Key, Total = g.Count() })
+            .ToListAsync(ct);
+
+        var counts = rows.ToDictionary(x => x.Etapa, x => x.Total);
+        var entrevistaTotal =
+            counts.GetValueOrDefault(EtapaMacroCandidatura.Entrevista) +
+            counts.GetValueOrDefault(EtapaMacroCandidatura.EntrevistaTecnica);
+
+        var etapas = new[]
+        {
+            new FunilEtapaItem(EtapaMacroCandidatura.Aplicada, "Inscritos", counts.GetValueOrDefault(EtapaMacroCandidatura.Aplicada), null),
+            new FunilEtapaItem(EtapaMacroCandidatura.EmTriagem, "Triagem", counts.GetValueOrDefault(EtapaMacroCandidatura.EmTriagem), null),
+            new FunilEtapaItem(EtapaMacroCandidatura.Entrevista, "Entrevista", entrevistaTotal, null),
+            new FunilEtapaItem(EtapaMacroCandidatura.Teste, "Teste", counts.GetValueOrDefault(EtapaMacroCandidatura.Teste), null),
+            new FunilEtapaItem(EtapaMacroCandidatura.Contratado, "Contratado", counts.GetValueOrDefault(EtapaMacroCandidatura.Contratado), null),
+        };
+
+        return Ok(new FunilCandidaturasResponse(etapas.Sum(e => e.Total), null, null, null, null, etapas));
+    }
+
+    /// <summary>
+    /// Eventos de agenda vinculados às vagas da Analista de RH logada.
+    /// </summary>
+    [HttpGet("analista-rh/agenda-events")]
+    [ProducesResponseType(typeof(IReadOnlyList<ScheduleEventResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ScheduleEventResponse>>> GetAnalistaRhAgendaEvents(
+        [FromQuery] ScheduleEventsQuery query,
+        [FromServices] AppDbContext db,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var userId = currentUser.UserId;
+        if (!userId.HasValue)
+            return Ok(Array.Empty<ScheduleEventResponse>());
+
+        var type = (query.Type ?? string.Empty).Trim();
+        var status = (query.Status ?? string.Empty).Trim();
+        var search = (query.Search ?? string.Empty).Trim();
+        var startUtc = query.Start.HasValue ? NormalizeToUtc(query.Start.Value) : (DateTime?)null;
+        var endUtc = query.End.HasValue ? NormalizeToUtc(query.End.Value) : (DateTime?)null;
+        var ownerTokens = await GetCurrentUserAgendaTokensAsync(db, currentUser, ct);
+        var vagasCarteiraIds = await db.Vagas.AsNoTracking()
+            .Where(v => v.RecrutadorResponsavelUserId == userId.Value)
+            .Select(v => v.Id)
+            .ToListAsync(ct);
+        var vagasCarteiraSet = vagasCarteiraIds.ToHashSet();
+
+        var eventsQuery = db.AgendaEvents
+            .AsNoTracking()
+            .Include(x => x.Type)
+            .AsQueryable();
+
+        if (startUtc.HasValue)
+            eventsQuery = eventsQuery.Where(x => x.StartAtUtc >= startUtc.Value);
+
+        if (endUtc.HasValue)
+            eventsQuery = eventsQuery.Where(x => x.StartAtUtc < endUtc.Value);
+
+        if (!string.IsNullOrWhiteSpace(type) && !string.Equals(type, "all", StringComparison.OrdinalIgnoreCase))
+            eventsQuery = eventsQuery.Where(x => x.Type != null && x.Type.Code == type);
+
+        if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+            eventsQuery = eventsQuery.Where(x => x.Status == status);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            eventsQuery = eventsQuery.Where(x =>
+                x.Title.Contains(search) ||
+                (x.Candidate != null && x.Candidate.Contains(search)) ||
+                (x.VagaTitle != null && x.VagaTitle.Contains(search)) ||
+                (x.VagaCode != null && x.VagaCode.Contains(search)) ||
+                (x.Owner != null && x.Owner.Contains(search)) ||
+                (x.Location != null && x.Location.Contains(search)));
+        }
+
+        var rawItems = await eventsQuery
+            .OrderBy(x => x.StartAtUtc)
+            .Select(x => new ScheduleEventResponse(
+                x.Id,
+                x.Title,
+                x.StartAtUtc,
+                x.EndAtUtc,
+                x.AllDay,
+                x.Status,
+                x.Location,
+                x.Owner,
+                x.Candidate,
+                x.VagaTitle,
+                x.VagaCode,
+                x.Notes,
+                x.CandidaturaId,
+                x.CandidatoId,
+                x.VagaId,
+                x.CandidateResponseStatus,
+                x.CandidateRespondedAtUtc,
+                x.CandidateSuggestedStartAtUtc,
+                x.CandidateSuggestedEndAtUtc,
+                x.CandidateResponseMessage,
+                x.CandidateConfirmationToken,
+                x.Type != null ? x.Type.Code : string.Empty,
+                x.Type != null ? x.Type.Label : string.Empty,
+                x.Type != null ? x.Type.Color : "#6c757d",
+                x.Type != null ? x.Type.Icon : "bi-calendar"
+            ))
+            .ToListAsync(ct);
+
+        var items = rawItems
+            .Where(x =>
+                (x.VagaId.HasValue && vagasCarteiraSet.Contains(x.VagaId.Value))
+                || AgendaOwnerMatches(x.Owner, ownerTokens)
+                || AgendaParticipantMatches(x.Notes, ownerTokens))
+            .ToList();
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Requisições distribuídas para a Analista de RH logada.
+    /// </summary>
+    [HttpGet("analista-rh/solicitacoes-vaga")]
+    [ProducesResponseType(typeof(IReadOnlyList<AnalistaRhDashboardSolicitacaoResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AnalistaRhDashboardSolicitacaoResponse>>> GetAnalistaRhSolicitacoesVaga(
+        [FromQuery(Name = "statuses")] SolicitacaoStatus[]? statuses,
+        [FromQuery] int? pageSize,
+        [FromServices] AppDbContext db,
+        [FromServices] ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var userId = currentUser.UserId;
+        if (!userId.HasValue)
+            return Ok(Array.Empty<AnalistaRhDashboardSolicitacaoResponse>());
+
+        var safePageSize = Math.Clamp(pageSize.GetValueOrDefault(20), 1, 100);
+        var query = db.SolicitacoesVaga.AsNoTracking()
+            .Where(s => s.AnalistaRhResponsavelUserId == userId.Value);
+
+        if (statuses is { Length: > 0 })
+            query = query.Where(s => statuses.Contains(s.Status));
+
+        var items = await query
+            .OrderByDescending(s => s.CreatedAtUtc)
+            .Take(safePageSize)
+            .Select(s => new AnalistaRhDashboardSolicitacaoResponse(
+                s.Id,
+                s.Titulo,
+                s.Status,
+                s.CentroCusto != null ? s.CentroCusto.Description : null,
+                s.Unit != null ? s.Unit.Name : null,
+                s.CreatedAtUtc,
+                s.RmIdReq
+            ))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// KPIs globais da Especialista de RH.
+    /// </summary>
+    [HttpGet("especialista-rh/kpis")]
+    [ProducesResponseType(typeof(EspecialistaRhDashboardKpisResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EspecialistaRhDashboardKpisResponse>> GetEspecialistaRhKpis(
+        [FromServices] AppDbContext db,
+        [FromServices] IOptions<SlaVagaOptions> slaOptions,
+        CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var inicioMes = new DateTimeOffset(new DateTime(now.Year, now.Month, 1), TimeSpan.Zero);
+        var statusAtivos = GetSolicitacaoStatusAtivos();
+        var opts = slaOptions.Value;
+
+        var requisicoesRmPendentes = await db.SolicitacoesVaga.AsNoTracking()
+            .CountAsync(s => s.RmIdReq != null && statusAtivos.Contains(s.Status), ct);
+
+        var aguardandoDistribuicao = await db.SolicitacoesVaga.AsNoTracking()
+            .CountAsync(s => s.RmIdReq != null && s.AnalistaRhResponsavelUserId == null && statusAtivos.Contains(s.Status), ct);
+
+        var vagasAbertas = await db.Vagas.AsNoTracking()
+            .CountAsync(v => !v.IsEstrutural && v.Status == VagaStatus.Aberta, ct);
+
+        int vagasForaSla;
+        try
+        {
+            var vagasComSla = await db.Vagas.AsNoTracking()
+                .Where(v => !v.IsEstrutural && v.Status == VagaStatus.Aberta && v.DataAbertura != null)
+                .Select(v => new { v.DataAbertura, v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade })
+                .ToListAsync(ct);
+
+            vagasForaSla = vagasComSla.Count(v =>
+                (now - v.DataAbertura!.Value).TotalDays > SlaVagaMetaResolver.GetDiasMeta(v.SlaDiasMetaFechamento, v.Urgente, v.Prioridade, opts));
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42703")
+        {
+            logger.LogError(ex, "Dashboard Especialista RH: coluna de SLA ausente no schema do tenant.");
+            vagasForaSla = 0;
+        }
+
+        var candidatosAvancados = await db.Candidaturas.AsNoTracking()
+            .CountAsync(c =>
+                c.Status == CandidaturaStatus.Ativa
+                && (c.EtapaMacro == EtapaMacroCandidatura.Entrevista
+                    || c.EtapaMacro == EtapaMacroCandidatura.EntrevistaTecnica
+                    || c.EtapaMacro == EtapaMacroCandidatura.Teste
+                    || c.EtapaMacro == EtapaMacroCandidatura.Proposta), ct);
+
+        var preAdmissoesAguardandoAprovacao = await db.PreAdmissoes.AsNoTracking()
+            .CountAsync(p => p.Status == PreAdmissaoStatus.Preenchido && p.UpdatedAtUtc >= inicioMes.AddMonths(-2), ct);
+
+        return Ok(new EspecialistaRhDashboardKpisResponse(
+            requisicoesRmPendentes,
+            aguardandoDistribuicao,
+            vagasAbertas,
+            vagasForaSla,
+            candidatosAvancados,
+            preAdmissoesAguardandoAprovacao
+        ));
+    }
+
+    /// <summary>
+    /// Funil global de candidaturas para acompanhamento da Especialista de RH.
+    /// </summary>
+    [HttpGet("especialista-rh/funil")]
+    [ProducesResponseType(typeof(EspecialistaRhDashboardFunilResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EspecialistaRhDashboardFunilResponse>> GetEspecialistaRhFunil(
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var inicioMes = new DateTimeOffset(new DateTime(DateTimeOffset.UtcNow.Year, DateTimeOffset.UtcNow.Month, 1), TimeSpan.Zero);
+
+        var aplicadas = await db.Candidaturas.AsNoTracking()
+            .CountAsync(c => c.Status == CandidaturaStatus.Ativa && c.EtapaMacro == EtapaMacroCandidatura.Aplicada, ct);
+        var triagem = await db.Candidaturas.AsNoTracking()
+            .CountAsync(c => c.Status == CandidaturaStatus.Ativa && c.EtapaMacro == EtapaMacroCandidatura.EmTriagem, ct);
+        var entrevista = await db.Candidaturas.AsNoTracking()
+            .CountAsync(c => c.Status == CandidaturaStatus.Ativa && (c.EtapaMacro == EtapaMacroCandidatura.Entrevista || c.EtapaMacro == EtapaMacroCandidatura.EntrevistaTecnica), ct);
+        var teste = await db.Candidaturas.AsNoTracking()
+            .CountAsync(c => c.Status == CandidaturaStatus.Ativa && c.EtapaMacro == EtapaMacroCandidatura.Teste, ct);
+        var proposta = await db.Candidaturas.AsNoTracking()
+            .CountAsync(c => c.Status == CandidaturaStatus.Ativa && c.EtapaMacro == EtapaMacroCandidatura.Proposta, ct);
+        var contratadoMes = await db.Candidaturas.AsNoTracking()
+            .CountAsync(c => c.Status == CandidaturaStatus.Contratado && c.UpdatedAtUtc >= inicioMes, ct);
+
+        return Ok(new EspecialistaRhDashboardFunilResponse(aplicadas, triagem, entrevista, teste, proposta, contratadoMes));
+    }
+
+    /// <summary>
+    /// Requisições RM recentes, com foco em distribuição e supervisão.
+    /// </summary>
+    [HttpGet("especialista-rh/solicitacoes-rm")]
+    [ProducesResponseType(typeof(IReadOnlyList<EspecialistaRhDashboardRequisicaoResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<EspecialistaRhDashboardRequisicaoResponse>>> GetEspecialistaRhSolicitacoesRm(
+        [FromQuery] int? pageSize,
+        [FromQuery] bool? onlyPendingDistribution,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var safePageSize = Math.Clamp(pageSize.GetValueOrDefault(8), 1, 50);
+        var statusAtivos = GetSolicitacaoStatusAtivos();
+
+        var query = db.SolicitacoesVaga.AsNoTracking()
+            .Where(s => s.RmIdReq != null);
+
+        if (onlyPendingDistribution == true)
+            query = query.Where(s => s.AnalistaRhResponsavelUserId == null && statusAtivos.Contains(s.Status));
+
+        var items = await query
+            .OrderByDescending(s => s.CreatedAtUtc)
+            .Take(safePageSize)
+            .Select(s => new EspecialistaRhDashboardRequisicaoResponse(
+                s.Id,
+                s.Titulo,
+                s.Status,
+                s.CentroCusto != null ? s.CentroCusto.Description : null,
+                s.Unit != null ? s.Unit.Name : null,
+                s.CreatedAtUtc,
+                s.RmIdReq,
+                s.AnalistaRhResponsavelUser != null ? s.AnalistaRhResponsavelUser.FullName : null
+            ))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Carga de trabalho por Analista de RH.
+    /// </summary>
+    [HttpGet("especialista-rh/distribuicao-analistas")]
+    [ProducesResponseType(typeof(IReadOnlyList<EspecialistaRhDashboardDistribuicaoAnalistaResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<EspecialistaRhDashboardDistribuicaoAnalistaResponse>>> GetEspecialistaRhDistribuicaoAnalistas(
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var end = now.AddDays(30);
+        var statusAtivos = GetSolicitacaoStatusAtivos();
+
+        var analistas = await (
+                from user in db.Users.AsNoTracking()
+                join userRole in db.UserRoles.AsNoTracking() on user.Id equals userRole.UserId
+                join role in db.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+                where user.IsActive && role.Name == "Analista de RH"
+                select new { user.Id, user.FullName, user.Email }
+            )
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (analistas.Count == 0)
+            return Ok(Array.Empty<EspecialistaRhDashboardDistribuicaoAnalistaResponse>());
+
+        var analistaIds = analistas.Select(a => a.Id).ToList();
+
+        var requisicoesPorAnalista = await db.SolicitacoesVaga.AsNoTracking()
+            .Where(s => s.AnalistaRhResponsavelUserId != null
+                && analistaIds.Contains(s.AnalistaRhResponsavelUserId.Value)
+                && statusAtivos.Contains(s.Status))
+            .GroupBy(s => s.AnalistaRhResponsavelUserId!.Value)
+            .Select(g => new { AnalistaUserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.AnalistaUserId, x => x.Count, ct);
+
+        var vagasPorAnalista = await db.Vagas.AsNoTracking()
+            .Where(v => v.RecrutadorResponsavelUserId != null
+                && analistaIds.Contains(v.RecrutadorResponsavelUserId.Value)
+                && !v.IsEstrutural
+                && v.Status == VagaStatus.Aberta)
+            .GroupBy(v => v.RecrutadorResponsavelUserId!.Value)
+            .Select(g => new { AnalistaUserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.AnalistaUserId, x => x.Count, ct);
+
+        var candidaturasPorAnalista = await db.Candidaturas.AsNoTracking()
+            .Where(c => c.Vaga != null
+                && c.Vaga.RecrutadorResponsavelUserId != null
+                && analistaIds.Contains(c.Vaga.RecrutadorResponsavelUserId.Value)
+                && c.Status == CandidaturaStatus.Ativa)
+            .GroupBy(c => c.Vaga!.RecrutadorResponsavelUserId!.Value)
+            .Select(g => new { AnalistaUserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.AnalistaUserId, x => x.Count, ct);
+
+        var entrevistasPorAnalista = await (
+                from evento in db.AgendaEvents.AsNoTracking()
+                join vaga in db.Vagas.AsNoTracking() on evento.VagaId equals vaga.Id
+                where vaga.RecrutadorResponsavelUserId != null
+                    && analistaIds.Contains(vaga.RecrutadorResponsavelUserId.Value)
+                    && evento.StartAtUtc >= now
+                    && evento.StartAtUtc < end
+                    && evento.Status != "cancelled"
+                group evento by vaga.RecrutadorResponsavelUserId!.Value into g
+                select new { AnalistaUserId = g.Key, Count = g.Count() }
+            )
+            .ToDictionaryAsync(x => x.AnalistaUserId, x => x.Count, ct);
+
+        var result = analistas
+            .OrderBy(a => a.FullName)
+            .Select(a => new EspecialistaRhDashboardDistribuicaoAnalistaResponse(
+                a.Id,
+                string.IsNullOrWhiteSpace(a.FullName) ? a.Email ?? "Analista" : a.FullName,
+                requisicoesPorAnalista.GetValueOrDefault(a.Id),
+                vagasPorAnalista.GetValueOrDefault(a.Id),
+                candidaturasPorAnalista.GetValueOrDefault(a.Id),
+                entrevistasPorAnalista.GetValueOrDefault(a.Id)
+            ))
+            .ToList();
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Próximos eventos globais de agenda para a Especialista de RH.
+    /// </summary>
+    [HttpGet("especialista-rh/agenda-events")]
+    [ProducesResponseType(typeof(IReadOnlyList<ScheduleEventResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ScheduleEventResponse>>> GetEspecialistaRhAgendaEvents(
+        [FromQuery] int? pageSize,
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var end = now.AddDays(30);
+        var safePageSize = Math.Clamp(pageSize.GetValueOrDefault(8), 1, 50);
+
+        var items = await db.AgendaEvents.AsNoTracking()
+            .Include(x => x.Type)
+            .Where(x => x.StartAtUtc >= now && x.StartAtUtc < end && x.Status != "cancelled")
+            .OrderBy(x => x.StartAtUtc)
+            .Take(safePageSize)
+            .Select(x => new ScheduleEventResponse(
+                x.Id,
+                x.Title,
+                x.StartAtUtc,
+                x.EndAtUtc,
+                x.AllDay,
+                x.Status,
+                x.Location,
+                x.Owner,
+                x.Candidate,
+                x.VagaTitle,
+                x.VagaCode,
+                x.Notes,
+                x.CandidaturaId,
+                x.CandidatoId,
+                x.VagaId,
+                x.CandidateResponseStatus,
+                x.CandidateRespondedAtUtc,
+                x.CandidateSuggestedStartAtUtc,
+                x.CandidateSuggestedEndAtUtc,
+                x.CandidateResponseMessage,
+                x.CandidateConfirmationToken,
+                x.Type != null ? x.Type.Code : string.Empty,
+                x.Type != null ? x.Type.Label : string.Empty,
+                x.Type != null ? x.Type.Color : "#6c757d",
+                x.Type != null ? x.Type.Icon : "bi-calendar"
+            ))
+            .ToListAsync(ct);
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Alertas globais para supervisão da Especialista de RH.
+    /// </summary>
+    [HttpGet("especialista-rh/alertas")]
+    [ProducesResponseType(typeof(IReadOnlyList<EspecialistaRhDashboardAlertaResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<EspecialistaRhDashboardAlertaResponse>>> GetEspecialistaRhAlertas(
+        [FromServices] AppDbContext db,
+        CancellationToken ct)
+    {
+        var inicioSemana = DateTimeOffset.UtcNow.AddDays(-7);
+        var statusAtivos = GetSolicitacaoStatusAtivos();
+
+        var notificacoesFalhadas = await db.NotificacoesCandidaturaLogs.AsNoTracking()
+            .CountAsync(n => n.Status == NotificacaoStatus.Falhou && n.CriadoEmUtc >= inicioSemana, ct);
+
+        var matchesPendentes = await db.Candidatos.AsNoTracking()
+            .CountAsync(c => c.LastMatchAtUtc == null && c.LastMatchScore == null, ct);
+
+        var faixasPendentes = await db.AprovacoesFaixaSalarial.AsNoTracking()
+            .CountAsync(a => a.Status == StatusAprovacaoFaixa.Pendente, ct);
+
+        var requisicoesSemAnalista = await db.SolicitacoesVaga.AsNoTracking()
+            .CountAsync(s => s.RmIdReq != null && s.AnalistaRhResponsavelUserId == null && statusAtivos.Contains(s.Status), ct);
+
+        return Ok(new[]
+        {
+            new EspecialistaRhDashboardAlertaResponse("Requisições sem Analista", "Requisições RM aguardando distribuição para o time de RH.", requisicoesSemAnalista, requisicoesSemAnalista > 0 ? "amber" : "green"),
+            new EspecialistaRhDashboardAlertaResponse("Matching pendente", "Candidatos ainda sem análise de aderência por IA.", matchesPendentes, matchesPendentes > 0 ? "purple" : "green"),
+            new EspecialistaRhDashboardAlertaResponse("Faixas salariais", "Aprovações de faixa salarial aguardando decisão.", faixasPendentes, faixasPendentes > 0 ? "red" : "green"),
+            new EspecialistaRhDashboardAlertaResponse("Notificações falhadas", "Falhas de comunicação com candidatos nos últimos 7 dias.", notificacoesFalhadas, notificacoesFalhadas > 0 ? "red" : "green"),
+        });
+    }
+
+    /// <summary>
     /// Dashboard agregado por perfil (Sessão 31). Substitui a colcha de retalhos
     /// de chamadas isoladas no frontend por uma única resposta ricamente tipada,
     /// que concentra KPIs + rankings necessários para as telas "Gestor", "RH" e
@@ -369,5 +947,102 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             CandidateStatus.Reprovado => "Reprovado",
             _ => "Triagem"
         };
+    }
+
+    private static SolicitacaoStatus[] GetSolicitacaoStatusAtivos()
+    {
+        return
+        [
+            SolicitacaoStatus.PendenteAprovacao,
+            SolicitacaoStatus.Aprovada,
+            SolicitacaoStatus.PendenteAprovacaoRh,
+            SolicitacaoStatus.EmIntegracao,
+            SolicitacaoStatus.PendenteAprovacaoAumentoHC,
+            SolicitacaoStatus.PendenteTriagem,
+            SolicitacaoStatus.EmTriagem,
+            SolicitacaoStatus.DevolvidaTriagemGestor,
+            SolicitacaoStatus.PendenteIntegracaoRm,
+            SolicitacaoStatus.ErroIntegracaoRm,
+            SolicitacaoStatus.AguardandoReprocessamentoRm,
+            SolicitacaoStatus.EmProcessoSeletivo,
+            SolicitacaoStatus.Suspensa,
+            SolicitacaoStatus.EmAndamento,
+        ];
+    }
+
+    private static bool AgendaOwnerMatches(string? owner, IReadOnlySet<string> tokens)
+    {
+        if (string.IsNullOrWhiteSpace(owner) || tokens.Count == 0)
+            return false;
+
+        var normalizedOwner = NormalizeAgendaText(owner);
+        return tokens.Any(token => normalizedOwner.Contains(token, StringComparison.Ordinal));
+    }
+
+    private static bool AgendaParticipantMatches(string? notes, IReadOnlySet<string> tokens)
+    {
+        if (string.IsNullOrWhiteSpace(notes) || tokens.Count == 0)
+            return false;
+
+        var normalizedNotes = NormalizeAgendaText(notes);
+        return tokens.Any(token => normalizedNotes.Contains(token, StringComparison.Ordinal));
+    }
+
+    private static async Task<IReadOnlySet<string>> GetCurrentUserAgendaTokensAsync(
+        AppDbContext db,
+        ICurrentUserContext currentUser,
+        CancellationToken ct)
+    {
+        var tokens = new HashSet<string>(StringComparer.Ordinal);
+
+        void AddToken(string? value)
+        {
+            var normalized = NormalizeAgendaText(value);
+            if (normalized.Length >= 3)
+                tokens.Add(normalized);
+        }
+
+        AddToken(currentUser.Email);
+
+        if (currentUser.UserId.HasValue)
+        {
+            var user = await db.Users.AsNoTracking()
+                .Where(u => u.Id == currentUser.UserId.Value)
+                .Select(u => new { u.FullName, u.Email, u.UserName })
+                .FirstOrDefaultAsync(ct);
+
+            if (user is not null)
+            {
+                AddToken(user.FullName);
+                AddToken(user.Email);
+                AddToken(user.UserName);
+            }
+        }
+
+        return tokens;
+    }
+
+    private static string NormalizeAgendaText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = value.Trim().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                builder.Append(char.ToLowerInvariant(c));
+        }
+
+        return builder.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static DateTime NormalizeToUtc(DateTime value)
+    {
+        if (value.Kind == DateTimeKind.Utc) return value;
+        if (value.Kind == DateTimeKind.Local) return value.ToUniversalTime();
+        return DateTime.SpecifyKind(value, DateTimeKind.Utc);
     }
 }

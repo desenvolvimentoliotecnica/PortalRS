@@ -31,6 +31,21 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <Script id="normalize-duplicate-leading-slashes" strategy="beforeInteractive">
+          {`
+            (function () {
+              try {
+                var pathname = window.location.pathname || "";
+                if (pathname.indexOf("//") !== -1) {
+                  var normalized = pathname.replace(/\\/{2,}/g, "/");
+                  if (normalized !== pathname) {
+                    window.location.replace(window.location.origin + normalized + window.location.search + window.location.hash);
+                  }
+                }
+              } catch (_) {}
+            })();
+          `}
+        </Script>
         {/*
           Polyfill de crypto.randomUUID para browsers/contextos que ainda não
           suportam (ex.: HTTP local em produção sem TLS). Precisa rodar antes

@@ -286,6 +286,9 @@ builder.Services.AddHttpClient("totvsGestorHierarchy", client =>
 builder.Services.AddScoped<IEmailConfigService, EmailConfigService>();
 builder.Services.AddScoped<IEntraIdConfigService, EntraIdConfigService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
+builder.Services.AddScoped<RhPortal.Api.Application.RmConfiguracao.ITenantRmConfiguracaoService,
+    RhPortal.Api.Application.RmConfiguracao.TenantRmConfiguracaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.RmConfiguracao.GestorUsuarioProvisioningService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AprovadoresAlternativos.IAprovadorAlternativoService, RhPortal.Api.Application.AprovadoresAlternativos.AprovadorAlternativoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.DocumentacaoPadrao.IDocumentacaoPadraoService, RhPortal.Api.Application.DocumentacaoPadrao.DocumentacaoPadraoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Ai.IOwnerAiService, RhPortal.Api.Application.Ai.OwnerAiService>();
@@ -362,6 +365,7 @@ builder.Services.AddScoped<ISolicitacaoVagaRmCodStatusSyncService, SolicitacaoVa
 builder.Services.AddScoped<ISolicitacaoVagaRmImportService, SolicitacaoVagaRmImportService>();
 builder.Services.AddHostedService<RmSolicitacaoStatusSyncHostedService>();
 builder.Services.AddScoped<IRmRequisicoesReadService, RmRequisicoesReadService>();
+builder.Services.AddScoped<IRmRequisicaoParecerReadService, RmRequisicaoParecerReadService>();
 
 builder.Services.Configure<RmRequisicaoCreateOptions>(builder.Configuration.GetSection(RmRequisicaoCreateOptions.SectionName));
 builder.Services.AddHttpClient<IRmRequisicaoCreateClient, RmRequisicaoCreateRestClient>();

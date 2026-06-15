@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Rm;
-using RhPortal.Api.Infrastructure.Rm;
 using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
@@ -15,16 +14,16 @@ public sealed class RmSolicitacaoStatusSyncController : ControllerBase
 {
     private readonly ISolicitacaoVagaRmCodStatusSyncService _sync;
     private readonly ISolicitacaoVagaRmImportService _import;
-    private readonly RmSolicitacaoStatusSyncOptions _opts;
+    private readonly ITenantRmConfiguracaoService _rmConfiguracaoService;
 
     public RmSolicitacaoStatusSyncController(
         ISolicitacaoVagaRmCodStatusSyncService sync,
         ISolicitacaoVagaRmImportService import,
-        IOptions<RmSolicitacaoStatusSyncOptions> opts)
+        ITenantRmConfiguracaoService rmConfiguracaoService)
     {
         _sync = sync;
         _import = import;
-        _opts = opts.Value;
+        _rmConfiguracaoService = rmConfiguracaoService;
     }
 
     /// <summary>
@@ -37,7 +36,8 @@ public sealed class RmSolicitacaoStatusSyncController : ControllerBase
         CancellationToken ct)
     {
         request ??= new RmSolicitacaoStatusSyncRequest();
-        var max = request.Ids is { Count: > 0 } ? (int?)null : _opts.MaxPerRun;
+        var options = await _rmConfiguracaoService.GetStatusSyncOptionsAsync(ct);
+        var max = request.Ids is { Count: > 0 } ? (int?)null : options.MaxPerRun;
         var result = await _sync.RunBatchAsync(request, max, ct);
         return Ok(result);
     }
