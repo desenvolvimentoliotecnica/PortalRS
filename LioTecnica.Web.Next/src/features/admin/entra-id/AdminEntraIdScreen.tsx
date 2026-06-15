@@ -135,7 +135,11 @@ export default function AdminEntraIdScreen() {
                         <Input
                             value={config.clientId}
                             onChange={(e) => upd("clientId", e.target.value)}
+                            placeholder="00000000-0000-0000-0000-000000000000"
                         />
+                        <p className="text-[11px] text-muted-foreground">
+                            GUID do app no Azure (Application client ID), não o nome exibido (ex.: Portal_RS_RH).
+                        </p>
                     </div>
                     <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Client secret</label>
