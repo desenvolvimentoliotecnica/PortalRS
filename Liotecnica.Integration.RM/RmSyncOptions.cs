@@ -57,4 +57,23 @@ public sealed class RmSyncOptions
 
     /// <summary>Se definido, processa apenas este e-mail (ex.: claytonhamada@gmail.com para validar um talento/candidato). Null = todos.</summary>
     public string? SyncOnlyEmail { get; set; }
+
+    public void Apply(RmPortalConfiguracaoDto config)
+    {
+        SyncUnits = config.SyncUnits;
+        SyncUnitsExecute = config.SyncUnitsExecute;
+        SyncVagas = config.SyncVagas;
+        SyncVagasOnly = config.SyncVagasOnly;
+        VagaDefaultAreaCode = config.VagaDefaultAreaCode;
+        SyncCandidatosVagaDiagnostic = config.SyncCandidatosVagaDiagnostic;
+        SyncCandidatosVaga = config.SyncCandidatosVaga;
+        SyncCandidatosPerfilCv = config.SyncCandidatosPerfilCv;
+        MaxTalentosToSync = config.MaxTalentosToSync;
+        MaxCandidatosToSync = config.MaxCandidatosToSync;
+        MaxPessoasToSync = config.MaxPessoasToSync;
+        MaxFuncionariosToSync = config.MaxFuncionariosToSync;
+        UseGestorHierarquiaPosicao = config.UseGestorHierarquiaPosicao;
+        UseHierarquiaOrganogramaPosicao = config.UseHierarquiaOrganogramaPosicao;
+        SyncOnlyEmail = config.SyncOnlyEmail;
+    }
 }

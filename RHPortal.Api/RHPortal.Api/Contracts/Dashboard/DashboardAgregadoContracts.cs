@@ -35,9 +35,14 @@ public sealed record DashboardGestorSection(
     int CandidaturasEtapaAvancada, // Entrevista + Teste + Proposta
     int AprovacoesPendentesMinhas, // SolicitacaoAprovacaoEtapa aonde eu sou aprovador
     int SolicitacoesEquipePendentes, // solicitações da minha equipe (diretos) em aberto
+    /// <summary>Requisições de pessoal ativas criadas pelo próprio gestor (espelha filtro Ativas da tela de solicitações).</summary>
+    int RequisicoesPessoalAtivas,
+    /// <summary>Soma de <see cref="SolicitacaoVaga.QtdPosicoes"/> das requisições ativas do gestor.</summary>
+    int PosicoesRequisicoesAtivas,
     int AvaliacoesDiretosPendentes, // AvaliacaoConvite onde EU sou o avaliador
     IReadOnlyList<DashboardGestorVagaAbertaItem> VagasMaisAntigas,
-    IReadOnlyList<DashboardGestorCandidaturaItem> CandidaturasEmDestaque
+    IReadOnlyList<DashboardGestorCandidaturaItem> CandidaturasEmDestaque,
+    IReadOnlyList<DashboardGestorAgendaTecnicaItem> AgendaTecnicaProxima
 );
 
 public sealed record DashboardGestorVagaAbertaItem(
@@ -57,6 +62,25 @@ public sealed record DashboardGestorCandidaturaItem(
     string CandidatoNome,
     string EtapaMacro,
     int? DiasNaEtapa
+);
+
+public sealed record DashboardGestorAgendaTecnicaItem(
+    Guid EventoId,
+    Guid? CandidaturaId,
+    Guid? CandidatoId,
+    Guid? VagaId,
+    string Titulo,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    string Status,
+    string? Location,
+    string? Owner,
+    string? Candidate,
+    string? VagaTitle,
+    string? VagaCode,
+    string? CandidateResponseStatus,
+    string TypeCode,
+    string TypeLabel
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

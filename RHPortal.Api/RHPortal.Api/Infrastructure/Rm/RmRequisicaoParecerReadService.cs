@@ -2,18 +2,26 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Application.TenantConfiguracao;
 using RhPortal.Api.Contracts.Rm;
 
 namespace RhPortal.Api.Infrastructure.Rm;
 
 public sealed class RmRequisicaoParecerReadService(
-    ITenantConfiguracaoService tenantConfiguracaoService,
+    ITenantRmConfiguracaoService rmConfiguracaoService,
     IHttpClientFactory httpClientFactory) : IRmRequisicaoParecerReadService
 {
     public async Task<IReadOnlyList<RmRequisicaoParecerRowDto>> ListAsync(int codColRequisicao, int idReq, CancellationToken ct)
     {
-        var config = await tenantConfiguracaoService.GetRmRequisicaoConfigAsync(ct);
+        var publicConfig = await rmConfiguracaoService.GetAsync(ct);
+        var createOptions = await rmConfiguracaoService.GetCreateOptionsAsync(ct);
+        var config = new ConfiguracaoRmRequisicaoDto
+        {
+            ParecerEndpointUrl = publicConfig.ParecerEndpointUrl,
+            Username = createOptions.Username,
+            Password = createOptions.Password,
+        };
         if (string.IsNullOrWhiteSpace(config.ParecerEndpointUrl))
             return [];
 

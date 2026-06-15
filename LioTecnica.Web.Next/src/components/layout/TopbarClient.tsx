@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Search,
+  Shield,
   TriangleAlert,
   User,
 } from "lucide-react";
@@ -41,6 +42,7 @@ import type { NavGrupoResponse } from "@/lib/schemas/navegacao";
 import { apiFetch } from "@/lib/api";
 import { ApiSwitchTenantResponseSchema } from "@/lib/schemas/api";
 import { clearSession, getTenantId, setAccessToken, setTenantId } from "@/lib/session";
+import { resolvePrimaryProfileLabel } from "@/lib/userProfileLabel";
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -192,6 +194,7 @@ export default function TopbarClient({
     (me as Record<string, unknown>)?.roles?.toString().includes("Owner");
 
   const displayLabel = me?.email || me?.displayName || "—";
+  const profileLabel = resolvePrimaryProfileLabel(me?.roles);
 
   useEffect(() => {
     setMounted(true);
@@ -387,6 +390,16 @@ export default function TopbarClient({
                 >
                   <Building2 className="size-3 shrink-0" />
                   <span className="max-w-[120px] truncate">{me.tenantId}</span>
+                </span>
+              )}
+
+              {profileLabel && (
+                <span
+                  title={`Perfil: ${profileLabel}`}
+                  className="hidden md:inline-flex items-center gap-1 rounded-md border border-violet-400/30 bg-violet-400/10 px-2 py-1 text-[11px] font-semibold tracking-wide text-violet-700 select-none"
+                >
+                  <Shield className="size-3 shrink-0" />
+                  <span className="max-w-[160px] truncate">{profileLabel}</span>
                 </span>
               )}
 

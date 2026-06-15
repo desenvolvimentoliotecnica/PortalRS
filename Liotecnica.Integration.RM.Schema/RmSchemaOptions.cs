@@ -61,4 +61,5 @@ public sealed class RmSchemaOptions
             return tableName;
         return $"{Schema.Trim()}.{tableName.Trim()}";
     }
+
 }

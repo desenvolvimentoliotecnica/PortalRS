@@ -37,6 +37,13 @@ public sealed class RmDataExtractor
         _logWriter = logWriter;
     }
 
+    public void ApplyPortalConfiguracao(RmPortalConfiguracaoDto config)
+    {
+        _rmOptions.Apply(config);
+        _schemaOptions.Apply(config);
+        _logWriter.WriteLine("Configuração RM carregada do Portal e aplicada ao extractor.");
+    }
+
     /// <summary>
     /// Extrai o schema do banco (INFORMATION_SCHEMA: tabelas e colunas) e grava em JSON para análise.
     /// Use isso quando ainda não souber os nomes das tabelas de área, departamento, cargo e vaga.

@@ -1,10 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using RhPortal.Api.Application.IntegracaoTotvs;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Application.TenantConfiguracao;
 using RhPortal.Api.Contracts.IntegracaoTotvs;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Tenancy;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace RhPortal.Api.Controllers;
 
@@ -19,15 +24,18 @@ public sealed class IntegracaoTotvsController : ControllerBase
 {
     private readonly IIntegracaoTotvsService _service;
     private readonly ITenantConfiguracaoService _tenantConfiguracaoService;
+    private readonly ITenantRmConfiguracaoService _rmConfiguracaoService;
     private readonly ICurrentUserContext _userContext;
 
     public IntegracaoTotvsController(
         IIntegracaoTotvsService service,
         ITenantConfiguracaoService tenantConfiguracaoService,
+        ITenantRmConfiguracaoService rmConfiguracaoService,
         ICurrentUserContext userContext)
     {
         _service = service;
         _tenantConfiguracaoService = tenantConfiguracaoService;
+        _rmConfiguracaoService = rmConfiguracaoService;
         _userContext = userContext;
     }
 
@@ -74,7 +82,15 @@ public sealed class IntegracaoTotvsController : ControllerBase
         if (!_userContext.IsAdmin)
             return Forbid();
 
-        return Ok(await _tenantConfiguracaoService.GetRmRequisicaoConfigAsync(ct));
+        var config = await _rmConfiguracaoService.GetAsync(ct);
+        return Ok(new ConfiguracaoRmRequisicaoDto
+        {
+            EndpointUrl = config.CreateEndpointUrl,
+            GetEndpointUrl = config.GetEndpointUrl,
+            ParecerEndpointUrl = config.ParecerEndpointUrl,
+            Username = config.RestUsername,
+            Password = config.RestPasswordConfigured ? "********" : null,
+        });
     }
 
     /// <summary>
@@ -107,7 +123,279 @@ public sealed class IntegracaoTotvsController : ControllerBase
             return BadRequest(new { message = "Informe uma URL absoluta válida para o endpoint de pareceres RM." });
         }
 
-        return Ok(await _tenantConfiguracaoService.UpsertRmRequisicaoConfigAsync(request, ct));
+        var current = await _rmConfiguracaoService.GetAsync(ct);
+        var saved = await _rmConfiguracaoService.UpsertAsync(new TenantRmConfiguracaoRequest
+        {
+            SqlServer = current.SqlServer,
+            SqlDatabase = current.SqlDatabase,
+            SqlUserId = current.SqlUserId,
+            SqlEncrypt = current.SqlEncrypt,
+            SqlTrustServerCertificate = current.SqlTrustServerCertificate,
+            SqlConnectTimeoutSeconds = current.SqlConnectTimeoutSeconds,
+            SqlApplicationIntent = current.SqlApplicationIntent,
+            Mode = current.Mode,
+            CreateEndpointUrl = request.EndpointUrl,
+            GetEndpointUrl = request.GetEndpointUrl,
+            ParecerEndpointUrl = request.ParecerEndpointUrl,
+            RequestTimeoutSeconds = current.RequestTimeoutSeconds,
+            RestUsername = request.Username,
+            RestPassword = request.Password is "********" ? null : request.Password,
+            MaxTentativas = current.MaxTentativas,
+            CreateWorkerEnabled = current.CreateWorkerEnabled,
+            CreateWorkerIntervalSeconds = current.CreateWorkerIntervalSeconds,
+            CreateWorkerMaxPerTenant = current.CreateWorkerMaxPerTenant,
+            CodColRequisicaoDefault = current.CodColRequisicaoDefault,
+            CodColRequisitanteDefault = current.CodColRequisitanteDefault,
+            CodStatusInicial = current.CodStatusInicial,
+            CodLocalDefault = current.CodLocalDefault,
+            CodFilialDefault = current.CodFilialDefault,
+            DiasPrevisaoPadrao = current.DiasPrevisaoPadrao,
+            RecCreatedBy = current.RecCreatedBy,
+            RecModifiedBy = current.RecModifiedBy,
+            RequisicoesVagaOrigemRm = current.RequisicoesVagaOrigemRm,
+            ImportacaoAutomaticaAtiva = current.ImportacaoAutomaticaAtiva,
+            ImportacaoAutomaticaIntervaloMinutos = current.ImportacaoAutomaticaIntervaloMinutos,
+            ImportacaoAutomaticaMaxPorExecucao = current.ImportacaoAutomaticaMaxPorExecucao,
+            StatusSyncEnabled = current.StatusSyncEnabled,
+            StatusSyncIntervalMinutes = current.StatusSyncIntervalMinutes,
+            StatusSyncMaxPerRun = current.StatusSyncMaxPerRun,
+            SyncUnits = current.SyncUnits,
+            SyncUnitsExecute = current.SyncUnitsExecute,
+            SyncVagas = current.SyncVagas,
+            SyncVagasOnly = current.SyncVagasOnly,
+            SyncEmpresas = current.SyncEmpresas,
+            SyncHierarquia = current.SyncHierarquia,
+            SyncDesligamentos = current.SyncDesligamentos,
+            SyncCandidatosVagaDiagnostic = current.SyncCandidatosVagaDiagnostic,
+            SyncCandidatosVaga = current.SyncCandidatosVaga,
+            SyncCandidatosPerfilCv = current.SyncCandidatosPerfilCv,
+            UseGestorHierarquiaPosicao = current.UseGestorHierarquiaPosicao,
+            UseHierarquiaOrganogramaPosicao = current.UseHierarquiaOrganogramaPosicao,
+            MaxTalentosToSync = current.MaxTalentosToSync,
+            MaxCandidatosToSync = current.MaxCandidatosToSync,
+            MaxPessoasToSync = current.MaxPessoasToSync,
+            MaxFuncionariosToSync = current.MaxFuncionariosToSync,
+            SyncOnlyEmail = current.SyncOnlyEmail,
+            VagaDefaultAreaCode = current.VagaDefaultAreaCode,
+            Schema = current.Schema,
+            AreaTable = current.AreaTable,
+            DepartamentoTable = current.DepartamentoTable,
+            FuncaoTable = current.FuncaoTable,
+            CargoTable = current.CargoTable,
+            VagaTable = current.VagaTable,
+            UnidadeTable = current.UnidadeTable,
+            FuncionarioTable = current.FuncionarioTable,
+            PessoaTable = current.PessoaTable,
+            HierarquiaTable = current.HierarquiaTable,
+            HierarquiaColigadaExternaTable = current.HierarquiaColigadaExternaTable,
+            DesligamentoTable = current.DesligamentoTable,
+            AumentoQuadroTable = current.AumentoQuadroTable,
+            SubstituicaoTable = current.SubstituicaoTable,
+            TransferenciaPromocaoTable = current.TransferenciaPromocaoTable,
+            GestoresRmUrlTemplate = current.GestoresRmUrlTemplate,
+            GestoresRmUser = current.GestoresRmUser,
+            GestoresRmDefaultCodColigada = current.GestoresRmDefaultCodColigada,
+            GestoresRmDelayMsBetweenRequests = current.GestoresRmDelayMsBetweenRequests,
+        }, ct);
+
+        return Ok(new ConfiguracaoRmRequisicaoDto
+        {
+            EndpointUrl = saved.CreateEndpointUrl,
+            GetEndpointUrl = saved.GetEndpointUrl,
+            ParecerEndpointUrl = saved.ParecerEndpointUrl,
+            Username = saved.RestUsername,
+            Password = saved.RestPasswordConfigured ? "********" : null,
+        });
+    }
+
+    /// <summary>Configuração centralizada do RM por tenant.</summary>
+    [HttpGet("configuracao-rm")]
+    [ProducesResponseType(typeof(TenantRmConfiguracaoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetConfiguracaoRm(CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        return Ok(await _rmConfiguracaoService.GetAsync(ct));
+    }
+
+    /// <summary>Salva a configuração centralizada do RM por tenant.</summary>
+    [HttpPut("configuracao-rm")]
+    [ProducesResponseType(typeof(TenantRmConfiguracaoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpsertConfiguracaoRm([FromBody] TenantRmConfiguracaoRequest request, CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        if (!IsValidAbsoluteUrl(request.CreateEndpointUrl)
+            || !IsValidAbsoluteUrl(request.GetEndpointUrl)
+            || !IsValidAbsoluteUrl(request.ParecerEndpointUrl)
+            || !IsValidAbsoluteUrl(request.GestoresRmUrlTemplate))
+        {
+            return BadRequest(new { message = "URLs RM devem ser absolutas quando preenchidas." });
+        }
+
+        return Ok(await _rmConfiguracaoService.UpsertAsync(request, ct));
+    }
+
+    /// <summary>Configuração RM completa para o worker autenticado por API key.</summary>
+    [HttpGet("configuracao-rm/worker")]
+    [ProducesResponseType(typeof(RmWorkerConfiguracaoDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetConfiguracaoRmWorker(CancellationToken ct)
+    {
+        return Ok(await _rmConfiguracaoService.GetWorkerConfigAsync(ct));
+    }
+
+    [HttpPost("configuracao-rm/testar-sql")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TestarConfiguracaoRmSql(CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        try
+        {
+            var options = await _rmConfiguracaoService.GetConnectionOptionsAsync(ct);
+            await using var conn = new SqlConnection(options.GetConnectionString());
+            await conn.OpenAsync(ct);
+            return Ok(new { ok = true, message = "Conexão SQL RM realizada com sucesso." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { ok = false, message = ex.Message });
+        }
+    }
+
+    [HttpPost("configuracao-rm/testar-rest-get")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TestarConfiguracaoRmRestGet(
+        [FromServices] IHttpClientFactory httpClientFactory,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        var config = await _rmConfiguracaoService.GetAsync(ct);
+        if (string.IsNullOrWhiteSpace(config.GetEndpointUrl))
+            return Ok(new { ok = false, message = "Endpoint GET RM não configurado." });
+
+        try
+        {
+            var options = await _rmConfiguracaoService.GetCreateOptionsAsync(ct);
+            using var request = new HttpRequestMessage(HttpMethod.Get, config.GetEndpointUrl);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            if (!string.IsNullOrWhiteSpace(options.BearerToken))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.BearerToken.Trim());
+            else if (!string.IsNullOrWhiteSpace(options.Username))
+            {
+                var raw = $"{options.Username}:{options.Password ?? string.Empty}";
+                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(raw)));
+            }
+
+            var client = httpClientFactory.CreateClient();
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, config.RequestTimeoutSeconds)));
+            using var response = await client.SendAsync(request, timeoutCts.Token);
+            return Ok(new { ok = response.IsSuccessStatusCode, status = (int)response.StatusCode, message = response.ReasonPhrase });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { ok = false, message = ex.Message });
+        }
+    }
+
+    [HttpPost("configuracao-rm/testar-gestores")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TestarConfiguracaoRmGestores(
+        [FromServices] IHttpClientFactory httpClientFactory,
+        [FromQuery] string chapa,
+        [FromQuery] short? codColigada,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        if (string.IsNullOrWhiteSpace(chapa))
+            return BadRequest(new { message = "Informe uma CHAPA para testar a consulta de gestores RM." });
+
+        var config = await _rmConfiguracaoService.GetGestoresConfigAsync(ct);
+        if (string.IsNullOrWhiteSpace(config.UrlTemplate))
+            return Ok(new { ok = false, message = "URL template de gestores RM não configurada." });
+        if (string.IsNullOrWhiteSpace(config.User))
+            return Ok(new { ok = false, message = "Usuário de gestores RM não configurado." });
+
+        try
+        {
+            var coligada = codColigada.GetValueOrDefault(config.DefaultCodColigada);
+            var url = BuildGestoresRmTestUrl(config.UrlTemplate, coligada, chapa.Trim());
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            var raw = $"{config.User}:{config.Password}";
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(raw)));
+
+            var client = httpClientFactory.CreateClient();
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
+            using var response = await client.SendAsync(request, timeoutCts.Token);
+            var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+            var preview = string.IsNullOrWhiteSpace(body) ? null : body.Trim();
+            if (preview is { Length: > 800 })
+                preview = preview[..800];
+
+            return Ok(new
+            {
+                ok = response.IsSuccessStatusCode,
+                status = (int)response.StatusCode,
+                message = response.IsSuccessStatusCode ? "Consulta de gestores RM realizada com sucesso." : response.ReasonPhrase,
+                preview
+            });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { ok = false, message = ex.Message });
+        }
+    }
+
+    [HttpGet("configuracao-rm/usuarios-gestores/preview")]
+    [ProducesResponseType(typeof(GestorUsuarioProvisioningPreviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> PreviewUsuariosGestores(
+        [FromServices] GestorUsuarioProvisioningService service,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        return Ok(await service.PreviewAsync(ct));
+    }
+
+    [HttpPost("configuracao-rm/usuarios-gestores/executar")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task ExecutarUsuariosGestores(
+        [FromServices] GestorUsuarioProvisioningService service,
+        [FromBody] GestorUsuarioProvisioningRequest request,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+        {
+            Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        Response.ContentType = "application/x-ndjson; charset=utf-8";
+        await foreach (var entry in service.ExecuteAsync(request, ct))
+        {
+            var line = JsonSerializer.Serialize(entry, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            await Response.WriteAsync(line + "\n", ct);
+            await Response.Body.FlushAsync(ct);
+        }
     }
 
     /// <summary>
@@ -293,5 +581,25 @@ public sealed class IntegracaoTotvsController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+    }
+
+    private static bool IsValidAbsoluteUrl(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            || Uri.TryCreate(value.Trim(), UriKind.Absolute, out _);
+    }
+
+    private static string BuildGestoresRmTestUrl(string template, short codColigada, string chapa)
+    {
+        var url = template.Trim()
+            .Replace("{CODCOLIGADA}", codColigada.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
+            .Replace("{COLIGADA}", codColigada.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
+            .Replace("{CHAPA}", Uri.EscapeDataString(chapa), StringComparison.OrdinalIgnoreCase);
+
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            url = "http://" + url;
+
+        return url;
     }
 }

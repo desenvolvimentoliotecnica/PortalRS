@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Npgsql;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -24,16 +24,13 @@ public sealed class RmSolicitacaoCriacaoHostedService : BackgroundService
     ];
 
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IOptionsMonitor<RmRequisicaoCreateOptions> _options;
     private readonly ILogger<RmSolicitacaoCriacaoHostedService> _logger;
 
     public RmSolicitacaoCriacaoHostedService(
         IServiceScopeFactory scopeFactory,
-        IOptionsMonitor<RmRequisicaoCreateOptions> options,
         ILogger<RmSolicitacaoCriacaoHostedService> logger)
     {
         _scopeFactory = scopeFactory;
-        _options = options;
         _logger = logger;
     }
 
@@ -41,13 +38,9 @@ public sealed class RmSolicitacaoCriacaoHostedService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var options = _options.CurrentValue;
-            var interval = TimeSpan.FromSeconds(Math.Clamp(options.WorkerIntervalSeconds, 5, 3600));
-
             try
             {
-                if (options.WorkerEnabled && !string.Equals(options.Mode, "disabled", StringComparison.OrdinalIgnoreCase))
-                    await ProcessAllTenantsAsync(Math.Clamp(options.WorkerMaxPerTenant, 1, 200), stoppingToken);
+                await ProcessAllTenantsAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (ObjectDisposedException) { break; }
@@ -56,12 +49,12 @@ public sealed class RmSolicitacaoCriacaoHostedService : BackgroundService
                 _logger.LogError(ex, "RmSolicitacaoCriacaoHostedService batch failed.");
             }
 
-            try { await Task.Delay(interval, stoppingToken); }
+            try { await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken); }
             catch (OperationCanceledException) { break; }
         }
     }
 
-    private async Task ProcessAllTenantsAsync(int maxPerTenant, CancellationToken ct)
+    private async Task ProcessAllTenantsAsync(CancellationToken ct)
     {
         List<string> tenantIds;
         using (var masterScope = _scopeFactory.CreateScope())
@@ -78,7 +71,7 @@ public sealed class RmSolicitacaoCriacaoHostedService : BackgroundService
         {
             try
             {
-                await ProcessTenantAsync(tenantId, maxPerTenant, ct);
+                await ProcessTenantAsync(tenantId, ct);
             }
             catch (PostgresException ex) when (ex.SqlState == "42P01")
             {
@@ -91,7 +84,7 @@ public sealed class RmSolicitacaoCriacaoHostedService : BackgroundService
         }
     }
 
-    private async Task ProcessTenantAsync(string tenantId, int maxPerTenant, CancellationToken ct)
+    private async Task ProcessTenantAsync(string tenantId, CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
@@ -99,6 +92,12 @@ public sealed class RmSolicitacaoCriacaoHostedService : BackgroundService
 
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var integracao = scope.ServiceProvider.GetRequiredService<ISolicitacaoVagaRmIntegracaoService>();
+        var rmConfig = scope.ServiceProvider.GetRequiredService<ITenantRmConfiguracaoService>();
+        var options = await rmConfig.GetCreateOptionsAsync(ct);
+        if (!options.WorkerEnabled || string.Equals(options.Mode, "disabled", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var maxPerTenant = Math.Clamp(options.WorkerMaxPerTenant, 1, 200);
         var now = DateTimeOffset.UtcNow;
 
         var ids = await db.SolicitacoesVaga

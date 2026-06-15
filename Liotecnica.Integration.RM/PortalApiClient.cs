@@ -103,6 +103,27 @@ public sealed class PortalApiClient
 
     private sealed record RmWorkerCycleDto(int IntervalMinutes);
 
+    public async Task<RmPortalConfiguracaoDto?> GetRmConfiguracaoAsync(CancellationToken ct)
+    {
+        try
+        {
+            var resp = await _http.GetAsync("api/integracao-totvs/configuracao-rm/worker", ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var msg = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("GET configuracao-rm/worker falhou: {Status} {Msg}", (int)resp.StatusCode, msg);
+                return null;
+            }
+
+            return await resp.Content.ReadFromJsonAsync<RmPortalConfiguracaoDto>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro ao carregar configuração RM centralizada do Portal.");
+            return null;
+        }
+    }
+
     /// <summary>
     /// Cria um <c>RmSyncRun</c> com status InProgress para a entidade informada e devolve o Id.
     /// Defensivo: em caso de falha de rede/HTTP, devolve <c>null</c> para que o sync continue

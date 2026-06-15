@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Contracts.Reports;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -543,7 +544,7 @@ public sealed class ReportsController : ControllerBase
     [ProducesResponseType(typeof(FuncionarioRmReportResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<FuncionarioRmReportResponse>> GetFuncionariosRm(
         [FromServices] AppDbContext db,
-        [FromServices] IOptions<RmConnectionOptions> rmOptions,
+        [FromServices] ITenantRmConfiguracaoService rmConfiguracaoService,
         [FromQuery] string? q,
         [FromQuery] string? status,
         [FromQuery] bool somenteRm = true,
@@ -551,6 +552,7 @@ public sealed class ReportsController : ControllerBase
         [FromQuery] int take = 5000,
         CancellationToken ct = default)
     {
+        var rmOptions = await rmConfiguracaoService.GetConnectionOptionsAsync(ct);
         var safeTake = Math.Clamp(take <= 0 ? 5000 : take, 1, 10000);
         var query = db.Funcionarios
             .AsNoTracking()
@@ -602,7 +604,7 @@ public sealed class ReportsController : ControllerBase
             .ToListAsync(ct);
 
         var funcionarioIds = funcionarios.Select(f => f.Id).ToList();
-        var salariosAtuaisRmByFuncionarioId = await LoadSalariosAtuaisFromRmAsync(rmOptions.Value, funcionarios, ct);
+        var salariosAtuaisRmByFuncionarioId = await LoadSalariosAtuaisFromRmAsync(rmOptions, funcionarios, ct);
         var salariosAtuais = await db.FuncionarioMovimentacoes
             .AsNoTracking()
             .Where(m => m.FuncionarioId != null
@@ -852,9 +854,9 @@ public sealed class ReportsController : ControllerBase
                 .ThenByDescending(m => m.DataConclusao ?? m.DataAbertura)
                 .ThenByDescending(m => m.UpdatedAtUtc)
                 .ToListAsync(ct);
-            var historicoSalarialRm = await LoadHistoricoSalarialFromRmAsync(rmOptions.Value, funcionarios, movimentacoes, ct);
+            var historicoSalarialRm = await LoadHistoricoSalarialFromRmAsync(rmOptions, funcionarios, movimentacoes, ct);
             movimentacoes.AddRange(historicoSalarialRm);
-            var gestoresHistoricosRm = await LoadGestoresHistoricosFromRmAsync(rmOptions.Value, movimentacoes, ct);
+            var gestoresHistoricosRm = await LoadGestoresHistoricosFromRmAsync(rmOptions, movimentacoes, ct);
             var movimentacoesByFuncionario = movimentacoes
                 .GroupBy(m => m.FuncionarioId!.Value)
                 .ToDictionary(g => g.Key, g => g.ToList());
@@ -924,7 +926,7 @@ public sealed class ReportsController : ControllerBase
     [RequirePermission("relatorios.view")]
     [ProducesResponseType(typeof(FuncionarioRmReportResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<FuncionarioRmReportResponse>> GetFuncionariosRmLive(
-        [FromServices] IOptions<RmConnectionOptions> rmOptions,
+        [FromServices] ITenantRmConfiguracaoService rmConfiguracaoService,
         [FromQuery] string? q,
         [FromQuery] string? status,
         [FromQuery] bool somenteRm = true,
@@ -933,10 +935,11 @@ public sealed class ReportsController : ControllerBase
         CancellationToken ct = default)
     {
         var safeTake = Math.Clamp(take <= 0 ? 5000 : take, 1, 10000);
-        var (funcionarios, totalItems) = await LoadFuncionariosRmLiveAsync(rmOptions.Value, q, status, safeTake, ct);
+        var rmOptions = await rmConfiguracaoService.GetConnectionOptionsAsync(ct);
+        var (funcionarios, totalItems) = await LoadFuncionariosRmLiveAsync(rmOptions, q, status, safeTake, ct);
 
         var movements = incluirMovimentacoes
-            ? await LoadMovimentacoesRmLiveAsync(rmOptions.Value, funcionarios, ct)
+            ? await LoadMovimentacoesRmLiveAsync(rmOptions, funcionarios, ct)
             : [];
         var movementsByEmployee = movements
             .GroupBy(m => LiveEmployeeKey(m.CodColigada, m.Chapa))

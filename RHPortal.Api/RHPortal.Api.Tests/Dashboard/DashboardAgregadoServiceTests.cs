@@ -425,6 +425,49 @@ public sealed class DashboardAgregadoServiceTests
         Assert.Equal(1, sec!.AvaliacoesDiretosPendentes);
     }
 
+    private static SolicitacaoVaga NovaSolicitacaoVaga(
+        string tenant,
+        Guid solicitanteId,
+        SolicitacaoStatus status,
+        int qtdPosicoes,
+        string? rmCodigo = null) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant,
+            SolicitanteId = solicitanteId,
+            Titulo = $"Req {qtdPosicoes}",
+            QtdPosicoes = qtdPosicoes,
+            Status = status,
+            RmRequisicaoCodigo = rmCodigo,
+            CreatedAtUtc = DateTimeOffset.UtcNow.AddDays(-10),
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+        };
+
+    [Fact]
+    public async Task Gestor_RequisicoesPessoalAtivas_ContaPropriasRequisicoesAtivasESomaPosicoes()
+    {
+        var (db, svc) = CriarServico();
+        var gestorId = Guid.NewGuid();
+        var outroGestorId = Guid.NewGuid();
+
+        db.Funcionarios.Add(NovoFunc(TenantTeste, gestorId));
+        db.Funcionarios.Add(NovoFunc(TenantTeste, outroGestorId));
+
+        db.SolicitacoesVaga.Add(NovaSolicitacaoVaga(TenantTeste, gestorId, SolicitacaoStatus.Aprovada, 14));
+        db.SolicitacoesVaga.Add(NovaSolicitacaoVaga(TenantTeste, gestorId, SolicitacaoStatus.Aprovada, 20));
+        db.SolicitacoesVaga.Add(NovaSolicitacaoVaga(TenantTeste, gestorId, SolicitacaoStatus.Aprovada, 7));
+        db.SolicitacoesVaga.Add(NovaSolicitacaoVaga(TenantTeste, gestorId, SolicitacaoStatus.Reprovada, 5));
+        db.SolicitacoesVaga.Add(NovaSolicitacaoVaga(TenantTeste, outroGestorId, SolicitacaoStatus.Aprovada, 100));
+        await db.SaveChangesAsync();
+
+        var sec = await svc.ParaGestorAsync(gestorId, CancellationToken.None);
+
+        Assert.NotNull(sec);
+        Assert.Equal(3, sec!.RequisicoesPessoalAtivas);
+        Assert.Equal(41, sec.PosicoesRequisicoesAtivas);
+    }
+
     [Fact]
     public async Task Gestor_SemDiretosEAreas_RetornaZerosSemExplodir()
     {
@@ -441,6 +484,8 @@ public sealed class DashboardAgregadoServiceTests
         Assert.Equal(0, sec.CandidaturasEtapaAvancada);
         Assert.Equal(0, sec.AvaliacoesDiretosPendentes);
         Assert.Equal(0, sec.SolicitacoesEquipePendentes);
+        Assert.Equal(0, sec.RequisicoesPessoalAtivas);
+        Assert.Equal(0, sec.PosicoesRequisicoesAtivas);
         Assert.Empty(sec.VagasMaisAntigas);
         Assert.Empty(sec.CandidaturasEmDestaque);
     }

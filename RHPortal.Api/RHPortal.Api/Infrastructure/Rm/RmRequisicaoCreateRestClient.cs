@@ -2,16 +2,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Options;
-using RhPortal.Api.Application.TenantConfiguracao;
+using RhPortal.Api.Application.RmConfiguracao;
 using RhPortal.Api.Domain.Entities;
 
 namespace RhPortal.Api.Infrastructure.Rm;
 
 public sealed class RmRequisicaoCreateRestClient(
     HttpClient httpClient,
-    IOptions<RmRequisicaoCreateOptions> options,
-    ITenantConfiguracaoService tenantConfiguracaoService) : IRmRequisicaoCreateClient
+    ITenantRmConfiguracaoService rmConfiguracaoService) : IRmRequisicaoCreateClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -19,8 +17,7 @@ public sealed class RmRequisicaoCreateRestClient(
     };
 
     private readonly HttpClient _httpClient = httpClient;
-    private readonly RmRequisicaoCreateOptions _options = options.Value;
-    private readonly ITenantConfiguracaoService _tenantConfiguracaoService = tenantConfiguracaoService;
+    private readonly ITenantRmConfiguracaoService _rmConfiguracaoService = rmConfiguracaoService;
 
     public async Task<RmCreateRequisicaoOutcome> EnviarOuObterJaCriadoAsync(
         SolicitacaoVaga solicitacao,
@@ -30,10 +27,9 @@ public sealed class RmRequisicaoCreateRestClient(
     {
         _ = payloadResumo;
 
-        var tenantConfig = await _tenantConfiguracaoService.GetRmRequisicaoConfigAsync(ct);
-        var effectiveOptions = BuildEffectiveOptions(_options, tenantConfig);
+        var effectiveOptions = await _rmConfiguracaoService.GetCreateOptionsAsync(ct);
         var mode = (effectiveOptions.Mode ?? "stub").Trim();
-        var tenantForcouRest = !string.IsNullOrWhiteSpace(tenantConfig.EndpointUrl);
+        var tenantForcouRest = !string.IsNullOrWhiteSpace(effectiveOptions.EndpointUrl);
 
         if (mode.Equals("disabled", StringComparison.OrdinalIgnoreCase))
         {
@@ -104,35 +100,6 @@ public sealed class RmRequisicaoCreateRestClient(
             (int)response.StatusCode,
             (short)item.CODCOLREQUISICAO,
             item.IDREQ);
-    }
-
-    private static RmRequisicaoCreateOptions BuildEffectiveOptions(
-        RmRequisicaoCreateOptions defaults,
-        ConfiguracaoRmRequisicaoDto? tenantConfig)
-    {
-        return new RmRequisicaoCreateOptions
-        {
-            Mode = defaults.Mode,
-            MaxTentativas = defaults.MaxTentativas,
-            WorkerEnabled = defaults.WorkerEnabled,
-            WorkerIntervalSeconds = defaults.WorkerIntervalSeconds,
-            WorkerMaxPerTenant = defaults.WorkerMaxPerTenant,
-            EndpointUrl = tenantConfig?.EndpointUrl ?? defaults.EndpointUrl,
-            BaseUrl = defaults.BaseUrl,
-            EndpointPath = defaults.EndpointPath,
-            RequestTimeoutSeconds = defaults.RequestTimeoutSeconds,
-            Username = tenantConfig?.Username ?? defaults.Username,
-            Password = tenantConfig?.Password ?? defaults.Password,
-            BearerToken = defaults.BearerToken,
-            CodColRequisicaoDefault = defaults.CodColRequisicaoDefault,
-            CodColRequisitanteDefault = defaults.CodColRequisitanteDefault,
-            CodStatusInicial = defaults.CodStatusInicial,
-            CodLocalDefault = defaults.CodLocalDefault,
-            CodFilialDefault = defaults.CodFilialDefault,
-            DiasPrevisaoPadrao = defaults.DiasPrevisaoPadrao,
-            RecCreatedBy = defaults.RecCreatedBy,
-            RecModifiedBy = defaults.RecModifiedBy
-        };
     }
 
     private static RmCreateRequisicaoOutcome BuildStubOutcome(

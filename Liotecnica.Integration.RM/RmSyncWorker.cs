@@ -129,6 +129,8 @@ public sealed class RmSyncWorker : BackgroundService
             return;
         }
 
+        await ApplyPortalConfiguracaoAsync(ct);
+
         if (_syncOptions.SyncVagasOnly)
         {
             await SyncVagasOnlyAsync(ct);
@@ -358,6 +360,22 @@ public sealed class RmSyncWorker : BackgroundService
                 await _portalClient.FinishRunAsync(runId.Value, StatusFalha, 0, 0, 0, 0, ex.Message, null, ct);
             // Em falha, NÃO avança checkpoint — próximo ciclo refaz desde o watermark anterior.
         }
+    }
+
+    private async Task ApplyPortalConfiguracaoAsync(CancellationToken ct)
+    {
+        var config = await _portalClient.GetRmConfiguracaoAsync(ct);
+        if (config is null)
+        {
+            _logWriter.WriteLine("Configuração RM centralizada indisponível; usando configuração local como fallback.");
+            return;
+        }
+
+        _rmOptions.Apply(config);
+        _schemaOptions.Apply(config);
+        _syncOptions.Apply(config);
+        _extractor.ApplyPortalConfiguracao(config);
+        _logWriter.WriteLine("Configuração RM centralizada aplicada ao worker.");
     }
 
     /// <summary>Executa apenas extração de vagas em aberto + envio para api/vagas. Não extrai nem envia áreas, cargos, unidades, pessoas ou funcionários (evita duplicar).</summary>
