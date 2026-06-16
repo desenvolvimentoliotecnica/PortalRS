@@ -137,12 +137,10 @@ export default function LoginScreen({
   );
 
   /* ─── Entra ID (SSO Microsoft) — Fase 13.2 ─── */
-  const [entraOpen, setEntraOpen] = useState(false);
-  const [entraTenant, setEntraTenant] = useState("");
+  const entraTenant = "liotecnica";
   const [entraEnabled, setEntraEnabled] = useState(false);
   const [entraClientId, setEntraClientId] = useState<string | null>(null);
   const [entraChecking, setEntraChecking] = useState(false);
-  const entraDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ─── Entra ID callback: processa #entra_token=...&tenant=...&return=... ─── */
   useEffect(() => {
@@ -177,52 +175,52 @@ export default function LoginScreen({
     router.replace(redirect);
   }, [router, sp]);
 
-  /* ─── Entra ID: checa se o tenant digitado tem SSO habilitado (debounced) ─── */
+  /* ─── Entra ID: checa se o tenant default tem SSO habilitado ─── */
   useEffect(() => {
-    const t = entraTenant.trim();
-    if (entraDebounce.current) clearTimeout(entraDebounce.current);
-    if (!t) {
-      setEntraEnabled(false);
-      setEntraClientId(null);
-      setEntraChecking(false);
-      return;
-    }
-    setEntraChecking(true);
-    entraDebounce.current = setTimeout(async () => {
+    let cancelled = false;
+    async function check() {
+      setEntraChecking(true);
       try {
         const res = await apiFetch(
-          `/api/auth/entra/enabled?tenantId=${encodeURIComponent(t)}`,
+          `/api/auth/entra/enabled?tenantId=${encodeURIComponent(entraTenant)}`,
           { cache: "no-store" },
         );
         const json = await res.json().catch(() => null);
         if (json && typeof json === "object") {
-          setEntraEnabled(Boolean((json as { enabled?: unknown }).enabled));
+          const enabled = Boolean((json as { enabled?: unknown }).enabled);
           const cid = (json as { clientId?: unknown }).clientId;
-          setEntraClientId(typeof cid === "string" ? cid : null);
+          if (!cancelled) {
+            setEntraEnabled(enabled);
+            setEntraClientId(typeof cid === "string" ? cid : null);
+          }
         } else {
+          if (!cancelled) {
+            setEntraEnabled(false);
+            setEntraClientId(null);
+          }
+        }
+      } catch {
+        if (!cancelled) {
           setEntraEnabled(false);
           setEntraClientId(null);
         }
-      } catch {
-        setEntraEnabled(false);
-        setEntraClientId(null);
       } finally {
-        setEntraChecking(false);
+        if (!cancelled) setEntraChecking(false);
       }
-    }, 350);
+    }
+    void check();
     return () => {
-      if (entraDebounce.current) clearTimeout(entraDebounce.current);
+      cancelled = true;
     };
-  }, [entraTenant]);
+  }, []);
 
   function onEntraClick() {
-    const t = entraTenant.trim();
-    if (!t || !entraEnabled) return;
+    if (!entraEnabled) return;
     // Static export: precisamos ir direto para o host da API, não passa por basePath /app.
     // O apiFetch já resolve NEXT_PUBLIC_API_BASE; aqui o navegador precisa seguir o Redirect.
     const url =
       `/api/auth/entra/challenge` +
-      `?tenantId=${encodeURIComponent(t)}` +
+      `?tenantId=${encodeURIComponent(entraTenant)}` +
       `&returnUrl=${encodeURIComponent(resolvedReturnUrl || "/dashboard")}`;
     window.location.assign(url);
   }
@@ -473,56 +471,11 @@ export default function LoginScreen({
 
                   {/* ── SSO Microsoft (Entra ID) — Fase 13.2 ── */}
                   <div className="mt-5 border-t border-white/10 pt-4">
-                    {!entraOpen ? (
-                      <MicrosoftSignInButton
-                        onClick={() => setEntraOpen(true)}
-                        disabled={submitting}
-                      />
-                    ) : (
-                      <div className="space-y-2">
-                        <label
-                          htmlFor="entraTenant"
-                          className="flex items-center justify-between text-xs font-medium text-blue-100/80"
-                        >
-                          <span>Conta corporativa ou de estudante</span>
-                          <button
-                            type="button"
-                            className="text-[10px] font-normal text-blue-200/60 hover:text-white"
-                            onClick={() => {
-                              setEntraOpen(false);
-                              setEntraTenant("");
-                            }}
-                          >
-                            fechar
-                          </button>
-                        </label>
-                        <Input
-                          id="entraTenant"
-                          value={entraTenant}
-                          onChange={(e) => setEntraTenant(e.target.value)}
-                          placeholder="ex.: liotecnica"
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          disabled={submitting}
-                          className="border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-white/40 focus-visible:ring-white/10"
-                        />
-                        <MicrosoftSignInButton
-                          onClick={onEntraClick}
-                          disabled={submitting || entraChecking || !entraEnabled || !entraTenant.trim()}
-                          loading={entraChecking}
-                        />
-                        {!entraChecking && entraTenant.trim() && !entraEnabled ? (
-                          <p className="text-center text-[11px] text-blue-200/70">
-                            SSO não habilitado para este tenant.
-                          </p>
-                        ) : null}
-                        {entraEnabled && entraClientId ? (
-                          <p className="text-[10px] text-blue-200/40">
-                            Client ID: <span className="font-mono">{entraClientId}</span>
-                          </p>
-                        ) : null}
-                      </div>
-                    )}
+                    <MicrosoftSignInButton
+                      onClick={onEntraClick}
+                      disabled={submitting || entraChecking || !entraEnabled}
+                      loading={entraChecking}
+                    />
                   </div>
                 </CardContent>
 
