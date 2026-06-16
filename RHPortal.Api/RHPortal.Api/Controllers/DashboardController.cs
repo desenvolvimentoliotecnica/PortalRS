@@ -76,7 +76,8 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             cvsHoje,
             pendentes,
             aprovados,
-            vagasForaSla
+            vagasForaSla,
+            0
         ));
     }
 
@@ -333,12 +334,13 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
     {
         var userId = currentUser.UserId;
         if (!userId.HasValue)
-            return Ok(new DashboardKpisResponse(0, 0, 0, 0, 0));
+            return Ok(new DashboardKpisResponse(0, 0, 0, 0, 0, 0));
 
         var now = DateTimeOffset.UtcNow;
         var todayStart = new DateTimeOffset(now.Date, TimeSpan.Zero);
         var weekStart = now.AddDays(-7);
         var opts = slaOptions.Value;
+        var statusAtivos = GetSolicitacaoStatusAtivos();
 
         var vagasCarteira = db.Vagas.AsNoTracking()
             .Where(v => v.RecrutadorResponsavelUserId == userId.Value);
@@ -375,12 +377,16 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         var aprovados = await candidaturasCarteira
             .CountAsync(c => c.Status == CandidaturaStatus.Contratado && c.UpdatedAtUtc >= weekStart, ct);
 
+        var solicitacoesVagaAtivas = await db.SolicitacoesVaga.AsNoTracking()
+            .CountAsync(s => s.AnalistaRhResponsavelUserId == userId.Value && statusAtivos.Contains(s.Status), ct);
+
         return Ok(new DashboardKpisResponse(
             openVagas,
             cvsHoje,
             pendentes,
             aprovados,
-            vagasForaSla
+            vagasForaSla,
+            solicitacoesVagaAtivas
         ));
     }
 

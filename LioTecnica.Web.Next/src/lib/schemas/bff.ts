@@ -51,6 +51,7 @@ export const DashboardKpisSchema = z.object({
     pendentesMatch: z.number().int().nonnegative(),
     aprovados7Dias: z.number().int().nonnegative(),
     vagasForaSla: z.number().int().nonnegative(),
+    solicitacoesVagaAtivas: z.number().int().nonnegative().optional(),
 });
 
 export type DashboardKpis = z.infer<typeof DashboardKpisSchema>;
