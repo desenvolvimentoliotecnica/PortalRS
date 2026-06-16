@@ -4,6 +4,11 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoFormPreferred";
 import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
+import {
+    EMPTY_SOLICITACAO_CONTAGENS,
+    expandStatusKeys,
+    type SolicitacaoVagaContagens,
+} from "@/features/gestao/solicitacoes/solicitacaoStatusRules";
 import { useAuth, useHasPermission, useIsAdminOrOwner } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -221,15 +226,6 @@ const ROW_STATUS_COL_PENDENTE_LIKE = new Set<string>([
     "AguardandoReprocessamentoRm", "16",
 ]);
 
-const SOLICITACAO_STATUS_ATIVOS = new Set([
-    "Rascunho", "PendenteAprovacao", "AjustesNecessarios", "PendenteAprovacaoRh",
-    "PendenteAprovacaoAumentoHC", "Aprovada", "Concluida", "EmIntegracao",
-    "PendenteTriagem", "EmTriagem", "DevolvidaTriagemGestor",
-    "PendenteIntegracaoRm", "ErroIntegracaoRm", "AguardandoReprocessamentoRm",
-    "0", "1", "2", "4", "5", "7", "8", "10", "11", "12", "13", "14", "15", "16",
-]);
-
-const SOLICITACAO_STATUS_APROVADOS = new Set(["Aprovada", "Concluida", "2", "8"]);
 
 function rowStatusMatchesKanbanCol(r: SolicitacaoGridRow, col: keyof typeof KANBAN_COL_META): boolean {
     const s = String(r.status);
@@ -401,6 +397,7 @@ function SolicitacoesVagaContent() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
     const [pendingRows, setPendingRows] = useState<SolicitacaoGridRow[]>([]);
+    const [contagens, setContagens] = useState<SolicitacaoVagaContagens>(EMPTY_SOLICITACAO_CONTAGENS);
     const [selectedSolicitacaoIds, setSelectedSolicitacaoIds] = useState<string[]>([]);
     const [requisicoesVagaOrigemRm, setRequisicoesVagaOrigemRm] = useState(false);
 
@@ -512,9 +509,10 @@ function SolicitacoesVagaContent() {
             } catch { /* ignore */ }
         }
 
-        const [myData, allData] = await Promise.all([
+        const [myData, allData, contagensData] = await Promise.all([
             fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true&pageSize=100`),
             fetchJson<SolicitacaoGridRow[]>(`${API}?pageSize=100`).catch(() => []),
+            fetchJson<SolicitacaoVagaContagens>(`${API}/contagens`).catch(() => EMPTY_SOLICITACAO_CONTAGENS),
         ]);
         const allItems = Array.isArray(allData) ? allData : [];
         const mine = Array.isArray(myData) ? myData : [];
@@ -534,6 +532,7 @@ function SolicitacoesVagaContent() {
             nextRows = dedupeSolicitacoesPorId([...mine, ...allItems, ...precisoAprovar]);
         }
         setRows(nextRows);
+        setContagens(contagensData ?? EMPTY_SOLICITACAO_CONTAGENS);
 
         const isPendente = (s: number | string) => s === 1 || s === "PendenteAprovacao";
         const pending = funcId
@@ -559,13 +558,22 @@ function SolicitacoesVagaContent() {
         return () => { alive = false; };
     }, [syncList]);
 
+    const statusAtivosSet = useMemo(
+        () => expandStatusKeys(contagens.statusAtivosKeys),
+        [contagens.statusAtivosKeys],
+    );
+    const statusAprovadosSet = useMemo(
+        () => expandStatusKeys(contagens.statusAprovadosKeys),
+        [contagens.statusAprovadosKeys],
+    );
+
     /* ── filtering ── */
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
             const s = String(r.status);
-            if (statusFilter === "ativas" && !SOLICITACAO_STATUS_ATIVOS.has(s)) return false;
-            if (statusFilter === "aprovadas" && !SOLICITACAO_STATUS_APROVADOS.has(s)) return false;
+            if (statusFilter === "ativas" && !statusAtivosSet.has(s)) return false;
+            if (statusFilter === "aprovadas" && !statusAprovadosSet.has(s)) return false;
             if (statusFilter === "reprovadas" && s !== "Reprovada" && s !== "3") return false;
             if (statusFilter === "canceladas" && s !== "Cancelada" && s !== "6") return false;
             // "todas" — sem filtro de status
@@ -573,7 +581,7 @@ function SolicitacoesVagaContent() {
             const blob = [r.titulo, r.solicitanteNome, r.centroCustoNome].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [q, rows, statusFilter]);
+    }, [q, rows, statusFilter, statusAtivosSet, statusAprovadosSet]);
 
     useEffect(() => {
         setPage(1);
@@ -907,11 +915,11 @@ function SolicitacoesVagaContent() {
                     <div className="flex flex-wrap items-center justify-end gap-2">
                         {(() => {
                             const chips = [
-                                { key: "ativas",     label: "Ativas",      count: rows.filter(r => SOLICITACAO_STATUS_ATIVOS.has(String(r.status))).length,                                          cls: "bg-amber-500/10 text-amber-700 border-amber-300 data-[active=true]:bg-amber-500 data-[active=true]:text-white data-[active=true]:border-amber-500" },
-                                { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => SOLICITACAO_STATUS_APROVADOS.has(String(r.status))).length,           cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
-                                { key: "reprovadas", label: "Reprovadas",  count: rows.filter(r => String(r.status) === "Reprovada" || String(r.status) === "3").length,           cls: "bg-red-500/10 text-red-700 border-red-300 data-[active=true]:bg-red-600 data-[active=true]:text-white data-[active=true]:border-red-600" },
-                                { key: "canceladas", label: "Canceladas",  count: rows.filter(r => String(r.status) === "Cancelada" || String(r.status) === "6").length,           cls: "bg-zinc-500/10 text-zinc-600 border-zinc-300 data-[active=true]:bg-zinc-600 data-[active=true]:text-white data-[active=true]:border-zinc-600" },
-                                { key: "todas",      label: "Todas",       count: rows.length,                                                                                     cls: "bg-muted text-muted-foreground border-border data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:border-foreground" },
+                                { key: "ativas",     label: "Ativas",      count: contagens.ativas,     cls: "bg-amber-500/10 text-amber-700 border-amber-300 data-[active=true]:bg-amber-500 data-[active=true]:text-white data-[active=true]:border-amber-500" },
+                                { key: "aprovadas",  label: "Aprovadas",   count: contagens.aprovadas,  cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
+                                { key: "reprovadas", label: "Reprovadas",  count: contagens.reprovadas, cls: "bg-red-500/10 text-red-700 border-red-300 data-[active=true]:bg-red-600 data-[active=true]:text-white data-[active=true]:border-red-600" },
+                                { key: "canceladas", label: "Canceladas",  count: contagens.canceladas, cls: "bg-zinc-500/10 text-zinc-600 border-zinc-300 data-[active=true]:bg-zinc-600 data-[active=true]:text-white data-[active=true]:border-zinc-600" },
+                                { key: "todas",      label: "Todas",       count: contagens.todas,      cls: "bg-muted text-muted-foreground border-border data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:border-foreground" },
                             ] as const;
                             return (
                                 <div className="flex flex-wrap justify-end gap-1.5">

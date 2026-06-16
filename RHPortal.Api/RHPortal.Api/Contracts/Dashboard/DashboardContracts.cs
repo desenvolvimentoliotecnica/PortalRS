@@ -84,7 +84,7 @@ public sealed record AnalistaRhDashboardSolicitacaoResponse(
 );
 
 public sealed record EspecialistaRhDashboardKpisResponse(
-    int RequisicoesRmPendentes,
+    int SolicitacoesAtivas,
     int AguardandoDistribuicao,
     int VagasAbertas,
     int VagasForaSla,

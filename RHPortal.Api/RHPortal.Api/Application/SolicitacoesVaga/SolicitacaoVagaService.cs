@@ -9,6 +9,7 @@ using RhPortal.Api.Application.Vagas;
 using RhPortal.Api.Application.WorkflowRH;
 using RhPortal.Api.Contracts.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Vagas;
+using RhPortal.Api.Domain;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
@@ -24,6 +25,7 @@ namespace RhPortal.Api.Application.SolicitacoesVaga;
 public interface ISolicitacaoVagaService
 {
     Task<IReadOnlyList<SolicitacaoVagaGridRow>> ListAsync(SolicitacaoVagaListQuery query, Guid? currentFuncionarioId, CancellationToken ct);
+    Task<SolicitacaoVagaContagensResponse> GetContagensAsync(bool? apenasMeus, Guid? currentFuncionarioId, CancellationToken ct);
     Task<SolicitacaoVagaResponse?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<SolicitacaoVagaResponse> CreateAsync(SolicitacaoVagaCreateRequest request, Guid? solicitanteId, CancellationToken ct);
     Task<SolicitacaoVagaResponse?> UpdateAsync(Guid id, SolicitacaoVagaUpdateRequest request, CancellationToken ct);
@@ -278,84 +280,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     public async Task<IReadOnlyList<SolicitacaoVagaGridRow>> ListAsync(
         SolicitacaoVagaListQuery query, Guid? currentFuncionarioId, CancellationToken ct)
     {
-        var q = _db.SolicitacoesVaga.AsNoTracking()
-            .Include(s => s.Solicitante)
-            .Include(s => s.CentroCusto)
-            .AsQueryable();
-
-        if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
-            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
-        else if (!_currentUser.IsAdmin)
-        {
-            var currentUserEhAnalistaRh = await CurrentUserEhAnalistaRhAsync(ct);
-            var listaAmplaRh =
-                (!currentUserEhAnalistaRh
-                 && (_currentUser.IsRH
-                 || _currentUser.HasPermission("*")
-                 || _currentUser.HasPermission("rh.contratacoes.view")
-                 || _currentUser.HasPermission("rh.contratacoes.triagem")
-                 || _currentUser.HasPermission("rh.contratacoes.selecao")))
-                && query.ApenasMeus != true;
-
-            if (listaAmplaRh)
-            {
-                // Operador RH com permissão explícita — vê todas as solicitações do tenant (filtros query abaixo).
-            }
-            else
-            {
-            // Non-admin sees: own requests OR requests with a pending approval step assigned to them
-            // (either directly via AprovadorId or via FilaDePerfil role queue)
-            var userRoleIds = _currentUser.UserId.HasValue
-                ? await _db.Set<ApplicationUserRole>().AsNoTracking()
-                    .Where(ur => ur.UserId == _currentUser.UserId.Value)
-                    .Select(ur => ur.RoleId)
-                    .ToListAsync(ct)
-                : new List<Guid>();
-
-            // IDs of solicitações where the current user is the pending approver
-            var solicitacaoIdsComEtapaPendente = await _db.SolicitacoesAprovacaoEtapa
-                .AsNoTracking()
-                .Where(e => e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
-                    && e.Status == StatusAprovacao.Pendente
-                    && (
-                        (e.AprovadorId.HasValue && e.AprovadorId == currentFuncionarioId)
-                        || (e.RoleFilaId.HasValue && userRoleIds.Contains(e.RoleFilaId.Value))
-                        || (e.AssumedByUserId.HasValue && e.AssumedByUserId == _currentUser.UserId)
-                    ))
-                .Select(e => e.SolicitacaoId)
-                .Distinct()
-                .ToListAsync(ct);
-
-            // Also apply VagasDataScope for "own" items
-            // 31.2: CentroCusto absorveu Area — o escopo ByArea agora é por CentroCusto.
-            if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.CentroCustoId.HasValue)
-                q = q.Where(s => s.CentroCustoId == _currentUser.CentroCustoId.Value
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id)
-                    || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
-            else if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && currentFuncionarioId.HasValue)
-                q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id)
-                    || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
-            else
-                q = q.Where(s => (currentFuncionarioId.HasValue && s.SolicitanteId == currentFuncionarioId.Value)
-                    || solicitacaoIdsComEtapaPendente.Contains(s.Id)
-                    || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
-            }
-        }
-
-        var requisicoesOrigemRmAtiva = await _db.TenantConfiguracoes
-            .AsNoTracking()
-            .Select(c => c.RequisicoesVagaOrigemRm)
-            .FirstOrDefaultAsync(ct);
-
-        if (requisicoesOrigemRmAtiva)
-        {
-            q = q.Where(s =>
-                s.RmRequisicaoCodigo != null
-                && s.RmRequisicaoCodigo != ""
-                && !s.RmRequisicaoCodigo.StartsWith("STUB-")
-                && s.RmCriacaoSolicitadaEmUtc == null);
-        }
+        var q = await BuildVisibleSolicitacoesQueryAsync(query.ApenasMeus, currentFuncionarioId, ct);
 
         if (query.Statuses is { Length: > 0 })
             q = q.Where(s => query.Statuses.Contains(s.Status));
@@ -428,6 +353,112 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,
                 ep?.CanAssume ?? false, r.VagaId);
         }).ToList();
+    }
+
+    public async Task<SolicitacaoVagaContagensResponse> GetContagensAsync(
+        bool? apenasMeus,
+        Guid? currentFuncionarioId,
+        CancellationToken ct)
+    {
+        var q = await BuildVisibleSolicitacoesQueryAsync(apenasMeus, currentFuncionarioId, ct);
+        var statusAtivos = SolicitacaoVagaStatusRules.StatusAtivos;
+        var statusAprovados = SolicitacaoVagaStatusRules.StatusAprovados;
+
+        var todas = await q.CountAsync(ct);
+        var ativas = await q.CountAsync(s => statusAtivos.Contains(s.Status), ct);
+        var aprovadas = await q.CountAsync(s => statusAprovados.Contains(s.Status), ct);
+        var reprovadas = await q.CountAsync(s => s.Status == SolicitacaoStatus.Reprovada, ct);
+        var canceladas = await q.CountAsync(s => s.Status == SolicitacaoStatus.Cancelada, ct);
+        var aguardandoDistribuicao = await q.CountAsync(
+            s => s.AnalistaRhResponsavelUserId == null && statusAtivos.Contains(s.Status), ct);
+
+        return new SolicitacaoVagaContagensResponse(
+            ativas,
+            aprovadas,
+            reprovadas,
+            canceladas,
+            todas,
+            aguardandoDistribuicao,
+            SolicitacaoVagaStatusRules.StatusAtivosKeys,
+            SolicitacaoVagaStatusRules.StatusAprovadosKeys);
+    }
+
+    private async Task<IQueryable<SolicitacaoVaga>> BuildVisibleSolicitacoesQueryAsync(
+        bool? apenasMeus,
+        Guid? currentFuncionarioId,
+        CancellationToken ct)
+    {
+        var q = _db.SolicitacoesVaga.AsNoTracking()
+            .Include(s => s.Solicitante)
+            .Include(s => s.CentroCusto)
+            .AsQueryable();
+
+        if (apenasMeus == true && currentFuncionarioId.HasValue)
+            q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value);
+        else if (!_currentUser.IsAdmin)
+        {
+            var currentUserEhAnalistaRh = await CurrentUserEhAnalistaRhAsync(ct);
+            var listaAmplaRh =
+                (!currentUserEhAnalistaRh
+                 && (_currentUser.IsRH
+                 || _currentUser.HasPermission("*")
+                 || _currentUser.HasPermission("rh.contratacoes.view")
+                 || _currentUser.HasPermission("rh.contratacoes.triagem")
+                 || _currentUser.HasPermission("rh.contratacoes.selecao")))
+                && apenasMeus != true;
+
+            if (!listaAmplaRh)
+            {
+                var userRoleIds = _currentUser.UserId.HasValue
+                    ? await _db.Set<ApplicationUserRole>().AsNoTracking()
+                        .Where(ur => ur.UserId == _currentUser.UserId.Value)
+                        .Select(ur => ur.RoleId)
+                        .ToListAsync(ct)
+                    : new List<Guid>();
+
+                var solicitacaoIdsComEtapaPendente = await _db.SolicitacoesAprovacaoEtapa
+                    .AsNoTracking()
+                    .Where(e => e.TipoFluxo == TipoFluxoAprovacao.RequisicaoPessoal
+                        && e.Status == StatusAprovacao.Pendente
+                        && (
+                            (e.AprovadorId.HasValue && e.AprovadorId == currentFuncionarioId)
+                            || (e.RoleFilaId.HasValue && userRoleIds.Contains(e.RoleFilaId.Value))
+                            || (e.AssumedByUserId.HasValue && e.AssumedByUserId == _currentUser.UserId)
+                        ))
+                    .Select(e => e.SolicitacaoId)
+                    .Distinct()
+                    .ToListAsync(ct);
+
+                if (_currentUser.VagasDataScope == VagasDataScope.ByArea && _currentUser.CentroCustoId.HasValue)
+                    q = q.Where(s => s.CentroCustoId == _currentUser.CentroCustoId.Value
+                        || solicitacaoIdsComEtapaPendente.Contains(s.Id)
+                        || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
+                else if (_currentUser.VagasDataScope == VagasDataScope.ByRecrutador && currentFuncionarioId.HasValue)
+                    q = q.Where(s => s.SolicitanteId == currentFuncionarioId.Value
+                        || solicitacaoIdsComEtapaPendente.Contains(s.Id)
+                        || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
+                else
+                    q = q.Where(s => (currentFuncionarioId.HasValue && s.SolicitanteId == currentFuncionarioId.Value)
+                        || solicitacaoIdsComEtapaPendente.Contains(s.Id)
+                        || (_currentUser.UserId.HasValue && s.AnalistaRhResponsavelUserId == _currentUser.UserId.Value));
+            }
+        }
+
+        var requisicoesOrigemRmAtiva = await _db.TenantConfiguracoes
+            .AsNoTracking()
+            .Select(c => c.RequisicoesVagaOrigemRm)
+            .FirstOrDefaultAsync(ct);
+
+        if (requisicoesOrigemRmAtiva)
+        {
+            q = q.Where(s =>
+                s.RmRequisicaoCodigo != null
+                && s.RmRequisicaoCodigo != ""
+                && !s.RmRequisicaoCodigo.StartsWith("STUB-")
+                && s.RmCriacaoSolicitadaEmUtc == null);
+        }
+
+        return q;
     }
 
     public async Task<SolicitacaoVagaResponse?> GetByIdAsync(Guid id, CancellationToken ct)
