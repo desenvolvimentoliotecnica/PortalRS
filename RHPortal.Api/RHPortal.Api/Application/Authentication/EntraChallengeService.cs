@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -58,9 +57,6 @@ public sealed record EntraStatePayload(string TenantId, string ReturnUrl, string
 
 public sealed class EntraChallengeService : IEntraChallengeService
 {
-    // 10 minutos de janela para o usuário concluir o login no Microsoft.
-    private const int StateMaxAgeSeconds = 600;
-
     private readonly IEntraIdConfigService _configService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly JwtOptions _jwtOptions;
@@ -199,78 +195,9 @@ public sealed class EntraChallengeService : IEntraChallengeService
         }
     }
 
-    public EntraStatePayload? TryDecodeState(string encodedState)
-    {
-        if (string.IsNullOrWhiteSpace(encodedState)) return null;
+    public EntraStatePayload? TryDecodeState(string encodedState) =>
+        EntraStateCodec.TryDecode(encodedState, _jwtOptions.SigningKey);
 
-        // encodedState = base64url(json).base64url(hmac)
-        var dot = encodedState.IndexOf('.');
-        if (dot <= 0 || dot == encodedState.Length - 1) return null;
-
-        var payloadPart = encodedState[..dot];
-        var sigPart = encodedState[(dot + 1)..];
-
-        byte[] payloadBytes;
-        byte[] sigBytes;
-        try
-        {
-            payloadBytes = Base64UrlDecode(payloadPart);
-            sigBytes = Base64UrlDecode(sigPart);
-        }
-        catch (FormatException)
-        {
-            return null;
-        }
-
-        using var hmac = new HMACSHA256(GetSigningKeyBytes());
-        var expected = hmac.ComputeHash(payloadBytes);
-        if (!CryptographicOperations.FixedTimeEquals(expected, sigBytes)) return null;
-
-        EntraStatePayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<EntraStatePayload>(payloadBytes);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-        if (payload is null) return null;
-
-        var age = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - payload.IssuedAtUnix;
-        if (age is < 0 or > StateMaxAgeSeconds) return null;
-
-        return payload;
-    }
-
-    // ── helpers privados ────────────────────────────────────────────────────
-
-    public string EncodeAndSignState(EntraStatePayload payload)
-    {
-        var payloadBytes = JsonSerializer.SerializeToUtf8Bytes(payload);
-        using var hmac = new HMACSHA256(GetSigningKeyBytes());
-        var sig = hmac.ComputeHash(payloadBytes);
-        return $"{Base64UrlEncode(payloadBytes)}.{Base64UrlEncode(sig)}";
-    }
-
-    private byte[] GetSigningKeyBytes() => Encoding.UTF8.GetBytes(_jwtOptions.SigningKey);
-
-    private static string Base64UrlEncode(byte[] input)
-    {
-        return Convert.ToBase64String(input)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
-    }
-
-    private static byte[] Base64UrlDecode(string input)
-    {
-        var s = input.Replace('-', '+').Replace('_', '/');
-        switch (s.Length % 4)
-        {
-            case 2: s += "=="; break;
-            case 3: s += "="; break;
-        }
-        return Convert.FromBase64String(s);
-    }
+    public string EncodeAndSignState(EntraStatePayload payload) =>
+        EntraStateCodec.EncodeAndSign(payload, _jwtOptions.SigningKey);
 }
