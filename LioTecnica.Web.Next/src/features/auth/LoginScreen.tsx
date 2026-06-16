@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, Mail, Lock, ArrowRight, Building2 } from "lucide-react";
 import Link from "next/link";
@@ -120,8 +120,6 @@ export default function LoginScreen({
     const fromStorage = getLastTenantSlug();
     const slug = fromQuery || fromStorage;
     if (!slug) return;
-    setEntraTenant(slug);
-    setEntraOpen(true);
     void fetchPublicBranding(slug).then((b) => setBranding(b));
   }, [sp]);
 
@@ -139,7 +137,6 @@ export default function LoginScreen({
   /* ─── Entra ID (SSO Microsoft) — Fase 13.2 ─── */
   const entraTenant = "liotecnica";
   const [entraEnabled, setEntraEnabled] = useState(false);
-  const [entraClientId, setEntraClientId] = useState<string | null>(null);
   const [entraChecking, setEntraChecking] = useState(false);
 
   /* ─── Entra ID callback: processa #entra_token=...&tenant=...&return=... ─── */
@@ -188,22 +185,12 @@ export default function LoginScreen({
         const json = await res.json().catch(() => null);
         if (json && typeof json === "object") {
           const enabled = Boolean((json as { enabled?: unknown }).enabled);
-          const cid = (json as { clientId?: unknown }).clientId;
-          if (!cancelled) {
-            setEntraEnabled(enabled);
-            setEntraClientId(typeof cid === "string" ? cid : null);
-          }
+          if (!cancelled) setEntraEnabled(enabled);
         } else {
-          if (!cancelled) {
-            setEntraEnabled(false);
-            setEntraClientId(null);
-          }
+          if (!cancelled) setEntraEnabled(false);
         }
       } catch {
-        if (!cancelled) {
-          setEntraEnabled(false);
-          setEntraClientId(null);
-        }
+        if (!cancelled) setEntraEnabled(false);
       } finally {
         if (!cancelled) setEntraChecking(false);
       }
