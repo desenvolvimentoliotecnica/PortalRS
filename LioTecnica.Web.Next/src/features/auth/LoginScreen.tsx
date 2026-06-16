@@ -277,7 +277,7 @@ export default function LoginScreen({
       const res = await apiFetch("/api/auth/auto-login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
       });
 
       const json = await res.json().catch(() => null);

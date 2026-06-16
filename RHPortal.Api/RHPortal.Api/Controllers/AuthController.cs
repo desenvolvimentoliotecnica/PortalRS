@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,6 +12,7 @@ using RhPortal.Api.Application.Users;
 using RhPortal.Api.Contracts.Authentication;
 using RhPortal.Api.Contracts.Owner;
 using RhPortal.Api.Contracts.Users;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
@@ -148,17 +150,28 @@ public sealed class AuthController : ControllerBase
                 "owner"));
 
         // 2. Itera todos os tenants ativos
+        var email = request.Email.Trim();
         var tenantIds = await masterDb.Tenants
             .AsNoTracking()
             .Where(t => t.IsActive)
             .Select(t => t.TenantId)
             .ToListAsync(ct);
 
+        var foundSsoOnlyAccount = false;
+
         foreach (var tenantId in tenantIds)
         {
             using var scope = scopeFactory.CreateScope();
             var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
             tenantCtx.SetTenantId(tenantId);
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var existingUser = await userManager.FindByEmailAsync(email);
+            if (existingUser is { IsActive: true } && string.IsNullOrEmpty(existingUser.PasswordHash))
+            {
+                foundSsoOnlyAccount = true;
+                continue;
+            }
+
             var authSvc = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
             var res = await authSvc.LoginAsync(
                 new LoginRequest(request.Email, request.Password), ct);
@@ -167,6 +180,16 @@ public sealed class AuthController : ControllerBase
                     res.AccessToken,
                     res.AccessTokenExpirationMinutes,
                     res.TenantId));
+        }
+
+        if (foundSsoOnlyAccount)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = _localizer["ControllerErrors.InvalidCredentialsTitle"],
+                Detail = _localizer["ControllerErrors.SsoOnlyAccountDetail"],
+                Status = StatusCodes.Status401Unauthorized
+            });
         }
 
         return Unauthorized(new ProblemDetails

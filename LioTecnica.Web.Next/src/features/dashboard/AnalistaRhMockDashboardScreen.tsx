@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
+  ClipboardList,
   FileText,
   Filter,
   MoreVertical,
@@ -26,6 +27,7 @@ type KpiItem = {
   hint: string;
   icon: LucideIcon;
   tone: Tone;
+  href?: string;
 };
 
 type PipelineItem = {
@@ -68,6 +70,7 @@ type DashboardKpis = {
   pendentesMatch: number;
   aprovados7Dias: number;
   vagasForaSla: number;
+  solicitacoesVagaAtivas: number;
 };
 
 type DashboardSeries = {
@@ -110,6 +113,7 @@ const EMPTY_KPIS: DashboardKpis = {
   pendentesMatch: 0,
   aprovados7Dias: 0,
   vagasForaSla: 0,
+  solicitacoesVagaAtivas: 0,
 };
 
 const EMPTY_SERIES: DashboardSeries = {
@@ -339,11 +343,20 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
 
   const realKpis: KpiItem[] = [
     {
+      label: "Solicitações de vaga",
+      value: String(kpis.solicitacoesVagaAtivas ?? 0),
+      hint: kpis.solicitacoesVagaAtivas > 0 ? "Distribuídas para você" : "Nenhuma ativa",
+      icon: ClipboardList,
+      tone: "amber",
+      href: "/app/gestao/solicitacoes",
+    },
+    {
       label: "Vagas abertas",
       value: String(kpis.openVagas),
       hint: kpis.vagasForaSla > 0 ? `${kpis.vagasForaSla} fora do SLA` : "Todas dentro do SLA",
       icon: BriefcaseBusiness,
       tone: "blue",
+      href: "/app/vagas",
     },
     {
       label: "Novas candidaturas",
@@ -390,7 +403,7 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
         ) : null}
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {realKpis.map((item) => (
           <KpiCard key={item.label} {...item} />
         ))}
@@ -488,7 +501,7 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
         </Panel>
 
         <Panel className="p-5">
-          <PanelHeader title="Requisições recentes" action="Ver todas" actionHref="/app/gestao/painel-solicitacoes" />
+          <PanelHeader title="Requisições recentes" action="Ver todas" actionHref="/app/gestao/solicitacoes" />
           <div className="mt-3 divide-y divide-slate-100">
             {requisicoes.length > 0 ? (
               requisicoes.map((item) => (
@@ -516,12 +529,12 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
         </Panel>
 
         <Panel className="p-5">
-          <PanelHeader title="Alertas e pendências" action="Ver todas" actionHref="/app/gestao/painel-solicitacoes" />
+          <PanelHeader title="Alertas e pendências" action="Ver todas" actionHref="/app/gestao/solicitacoes" />
           <div className="mt-3 space-y-3">
             {alertas.map(({ label, desc, count, icon: Icon, tone }) => (
               <a
                 key={label}
-                href="/app/gestao/painel-solicitacoes"
+                href="/app/gestao/solicitacoes"
                 className="flex items-center gap-3 rounded-xl px-1 py-1 transition hover:bg-slate-50"
               >
                 <div className={`rounded-full p-2.5 ${toneClasses[tone].soft}`}>
@@ -587,15 +600,17 @@ function KpiCard({
   hint,
   icon: Icon,
   tone,
+  href,
 }: {
   label: string;
   value: string;
   hint: string;
   icon: LucideIcon;
   tone: Tone;
+  href?: string;
 }) {
-  return (
-    <Panel className="p-5">
+  const content = (
+    <Panel className={`p-5 ${href ? "transition hover:border-blue-200 hover:shadow-md" : ""}`}>
       <div className="flex items-center gap-4">
         <div className={`rounded-xl p-3 ${toneClasses[tone].soft}`}>
           <Icon className="size-7 stroke-[1.8]" />
@@ -608,6 +623,16 @@ function KpiCard({
       </div>
     </Panel>
   );
+
+  if (href) {
+    return (
+      <a href={href} className="block rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
+        {content}
+      </a>
+    );
+  }
+
+  return content;
 }
 
 function Avatar({ initials: text, index }: { initials: string; index: number }) {

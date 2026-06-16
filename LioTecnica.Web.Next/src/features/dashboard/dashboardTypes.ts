@@ -6,6 +6,7 @@ export type Kpis = {
   pendentesMatch: number;
   aprovados7Dias: number;
   vagasForaSla: number;
+  solicitacoesVagaAtivas: number;
 };
 
 export type Funil = {
