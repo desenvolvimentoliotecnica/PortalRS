@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Application.Users;
@@ -299,24 +300,26 @@ public sealed class AuthController : ControllerBase
         [FromQuery(Name = "error")] string? errorCode,
         [FromServices] IServiceScopeFactory scopeFactory,
         [FromServices] IConfiguration configuration,
+        [FromServices] IOptions<JwtOptions> jwtOptions,
         CancellationToken ct)
     {
-        using var scope = scopeFactory.CreateScope();
-        var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
-
         if (!string.IsNullOrWhiteSpace(errorCode))
             return Redirect(BuildFrontendUrl(configuration, $"/app/login?entra_error={Uri.EscapeDataString(errorCode)}"));
 
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
             return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=parametros_invalidos"));
 
-        var configService = scope.ServiceProvider.GetRequiredService<IEntraIdConfigService>();
-        var payload = challenge.TryDecodeState(state);
+        // Decodifica state sem resolver AppDbContext — callback é whitelist (sem X-Tenant-Id).
+        var payload = EntraStateCodec.TryDecode(state, jwtOptions.Value.SigningKey);
         if (payload is null)
             return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=state_invalido"));
 
+        using var scope = scopeFactory.CreateScope();
         var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantCtx.SetTenantId(payload.TenantId);
+
+        var configService = scope.ServiceProvider.GetRequiredService<IEntraIdConfigService>();
+        var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
 
         var redirectUri = await configService.GetRedirectUriAsync(ct);
         if (string.IsNullOrWhiteSpace(redirectUri))
