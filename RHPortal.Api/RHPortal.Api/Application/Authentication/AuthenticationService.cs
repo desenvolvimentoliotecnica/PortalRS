@@ -167,12 +167,16 @@ public sealed class AuthenticationService
         var email = request.Email.Trim();
         if (string.IsNullOrWhiteSpace(email)) return null;
 
-        var user = await UsersWithFuncionarioEstrutura()
-            .FirstOrDefaultAsync(x => x.Email == email, ct);
-        if (user is null || !user.IsActive) return null;
+        var identityUser = await _userManager.FindByEmailAsync(email);
+        if (identityUser is null || !identityUser.IsActive) return null;
+        if (string.IsNullOrEmpty(identityUser.PasswordHash)) return null;
 
-        var validPassword = await _userManager.CheckPasswordAsync(user, request.Password);
+        var validPassword = await _userManager.CheckPasswordAsync(identityUser, request.Password);
         if (!validPassword) return null;
+
+        var user = await UsersWithFuncionarioEstrutura()
+            .FirstOrDefaultAsync(x => x.Id == identityUser.Id, ct);
+        if (user is null) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);

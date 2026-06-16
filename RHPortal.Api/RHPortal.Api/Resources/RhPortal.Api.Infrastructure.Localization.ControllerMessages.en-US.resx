@@ -18,6 +18,9 @@
   <data name="ControllerErrors.InvalidCredentialsDetail" xml:space="preserve">
     <value>Email or password is not valid.</value>
   </data>
+  <data name="ControllerErrors.SsoOnlyAccountDetail" xml:space="preserve">
+    <value>This account was created via Microsoft SSO and has no local password. Use Sign in with Microsoft or ask an administrator to set a password.</value>
+  </data>
   <data name="ControllerErrors.InvalidEntraLoginTitle" xml:space="preserve">
     <value>Invalid Entra ID login.</value>
   </data>
