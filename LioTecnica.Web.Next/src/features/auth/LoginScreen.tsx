@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { MicrosoftSignInButton } from "@/components/auth/MicrosoftSignInButton";
 
 /* ─── Types ─── */
 
@@ -119,6 +120,8 @@ export default function LoginScreen({
     const fromStorage = getLastTenantSlug();
     const slug = fromQuery || fromStorage;
     if (!slug) return;
+    setEntraTenant(slug);
+    setEntraOpen(true);
     void fetchPublicBranding(slug).then((b) => setBranding(b));
   }, [sp]);
 
@@ -471,20 +474,17 @@ export default function LoginScreen({
                   {/* ── SSO Microsoft (Entra ID) — Fase 13.2 ── */}
                   <div className="mt-5 border-t border-white/10 pt-4">
                     {!entraOpen ? (
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-blue-200/70 underline-offset-2 hover:text-white hover:underline"
+                      <MicrosoftSignInButton
                         onClick={() => setEntraOpen(true)}
-                      >
-                        Entrar com Microsoft (SSO)
-                      </button>
+                        disabled={submitting}
+                      />
                     ) : (
                       <div className="space-y-2">
                         <label
                           htmlFor="entraTenant"
                           className="flex items-center justify-between text-xs font-medium text-blue-100/80"
                         >
-                          <span>Tenant para SSO</span>
+                          <span>Conta corporativa ou de estudante</span>
                           <button
                             type="button"
                             className="text-[10px] font-normal text-blue-200/60 hover:text-white"
@@ -506,23 +506,16 @@ export default function LoginScreen({
                           disabled={submitting}
                           className="border-white/15 bg-white/10 text-white placeholder:text-white/30 focus-visible:border-white/40 focus-visible:ring-white/10"
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full border-white/25 bg-white/5 font-medium text-white hover:bg-white/15 disabled:opacity-50"
-                          disabled={submitting || entraChecking || !entraEnabled}
+                        <MicrosoftSignInButton
                           onClick={onEntraClick}
-                        >
-                          {entraChecking ? (
-                            <><Loader2 className="size-4 animate-spin" /> Verificando tenant…</>
-                          ) : entraEnabled ? (
-                            <>Entrar com Microsoft</>
-                          ) : entraTenant.trim() ? (
-                            <>SSO não habilitado para este tenant</>
-                          ) : (
-                            <>Informe o tenant</>
-                          )}
-                        </Button>
+                          disabled={submitting || entraChecking || !entraEnabled || !entraTenant.trim()}
+                          loading={entraChecking}
+                        />
+                        {!entraChecking && entraTenant.trim() && !entraEnabled ? (
+                          <p className="text-center text-[11px] text-blue-200/70">
+                            SSO não habilitado para este tenant.
+                          </p>
+                        ) : null}
                         {entraEnabled && entraClientId ? (
                           <p className="text-[10px] text-blue-200/40">
                             Client ID: <span className="font-mono">{entraClientId}</span>
