@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using RhPortal.Api.Contracts.Dashboard;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Configuration;
 using RhPortal.Api.Infrastructure.Data;
@@ -710,7 +711,7 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
         Guid funcionarioId,
         CancellationToken ct)
     {
-        var statusAtivos = GetSolicitacaoVagaStatusAtivosGestor();
+        var statusAtivos = SolicitacaoVagaStatusRules.StatusAtivos;
 
         var query = _db.SolicitacoesVaga.AsNoTracking()
             .Where(s => s.SolicitanteId == funcionarioId && statusAtivos.Contains(s.Status));
@@ -735,28 +736,4 @@ public sealed class DashboardAgregadoService : IDashboardAgregadoService
 
         return (posicoes.Count, posicoes.Sum());
     }
-
-    /// <summary>
-    /// Status considerados "ativos" na tela de solicitações do gestor (chip Ativas).
-    /// </summary>
-    private static SolicitacaoStatus[] GetSolicitacaoVagaStatusAtivosGestor() =>
-    [
-        SolicitacaoStatus.Rascunho,
-        SolicitacaoStatus.PendenteAprovacao,
-        SolicitacaoStatus.Aprovada,
-        SolicitacaoStatus.AjustesNecessarios,
-        SolicitacaoStatus.PendenteAprovacaoRh,
-        SolicitacaoStatus.EmIntegracao,
-        SolicitacaoStatus.Concluida,
-        SolicitacaoStatus.PendenteAprovacaoAumentoHC,
-        SolicitacaoStatus.PendenteTriagem,
-        SolicitacaoStatus.EmTriagem,
-        SolicitacaoStatus.DevolvidaTriagemGestor,
-        SolicitacaoStatus.PendenteIntegracaoRm,
-        SolicitacaoStatus.ErroIntegracaoRm,
-        SolicitacaoStatus.AguardandoReprocessamentoRm,
-        SolicitacaoStatus.EmProcessoSeletivo,
-        SolicitacaoStatus.Suspensa,
-        SolicitacaoStatus.EmAndamento,
-    ];
 }
