@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
@@ -433,37 +433,16 @@ export default function SidebarNavClient({
   const pathname = usePathname();
   const normalized = pathname.replace(/^\/app(?=\/|$)/, "") || "/";
 
-  // Qual grupo "possui" a rota atual? Mantém o accordion aberto sem flash.
-  const activeGrupoKey = useMemo<string | null>(() => {
-    for (const g of grupos) {
-      for (const it of g.itens) {
-        if (it.acessivel && isActive(normalized, it.href)) return g.key;
-      }
-    }
-    return null;
-  }, [grupos, normalized]);
-
-  // Overrides do usuário (abriu/fechou manualmente) — resetam ao mudar de rota.
+  // Overrides do usuário (abriu/fechou manualmente uma seção).
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
-  const prevActive = useRef(activeGrupoKey);
-  if (prevActive.current !== activeGrupoKey) {
-    prevActive.current = activeGrupoKey;
-    if (Object.keys(overrides).length > 0) {
-      setOverrides({});
-    }
-  }
 
   const resolvedOpen = useMemo(() => {
     const out: Record<string, boolean> = {};
     for (const g of grupos) {
-      if (g.key in overrides) {
-        out[g.key] = overrides[g.key];
-      } else {
-        out[g.key] = g.key === activeGrupoKey;
-      }
+      out[g.key] = g.key in overrides ? overrides[g.key] : true;
     }
     return out;
-  }, [grupos, overrides, activeGrupoKey]);
+  }, [grupos, overrides]);
 
   const handleOpenChange = useCallback(
     (key: string) => (open: boolean) => {
