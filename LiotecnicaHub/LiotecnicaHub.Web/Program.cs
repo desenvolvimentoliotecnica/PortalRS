@@ -37,6 +37,7 @@ builder.Services.AddScoped<IHubEntraConfigService, HubEntraConfigService>();
 builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IHubAuthService, HubAuthService>();
+builder.Services.AddScoped<IHubLaunchService, HubLaunchService>();
 builder.Services.AddScoped<IHubApplicationService, HubApplicationService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
