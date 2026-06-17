@@ -39,6 +39,7 @@ Configuração Entra (tenant, client id, secret, redirect) fica em **`HubEntraCo
 Catálogo IAM centralizado: sistemas, módulos, permissões (`portalrh.vagas.criar`), perfis e escopos.
 
 - Validação: **Admin → Controle de Acessos** (`/Admin/Access`)
+- APIs (cookie auth): `/api/auth/me`, `/api/auth/minhas-permissoes`, `/api/hub/meus-sistemas`, `/api/auth/verificar-permissao`
 - Roadmap: `docs/HUB-CONTROLE-ACESSOS-ROADMAP.md`
 - Migration Postgres: `AddControleAcessosFase1`
 - Dev SQLite: após mudança de schema, apague `App_Data/liotecnica_hub.db` e suba de novo

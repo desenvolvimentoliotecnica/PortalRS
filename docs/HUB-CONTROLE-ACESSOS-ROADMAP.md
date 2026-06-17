@@ -12,7 +12,7 @@ Documento de acompanhamento do plano técnico (`plano-controle-acessos-hub-corpo
 | Fase | Escopo | Status |
 |------|--------|--------|
 | **1** | Fundação (modelo, seeds, validação) | ✅ Concluída |
-| **2** | APIs de consulta e autorização | ⚪ Pendente |
+| **2** | APIs de consulta e autorização | ✅ Concluída |
 | **3** | Admin UI completa (CRUD) | ⚪ Pendente |
 | **4** | Integração Portal RH / SSO com permissões | ⚪ Pendente |
 | **5** | Escopos operacionais, solicitações, auditoria avançada | ⚪ Pendente |
@@ -57,15 +57,27 @@ Documento de acompanhamento do plano técnico (`plano-controle-acessos-hub-corpo
 
 **Objetivo:** Hub expõe permissões para frontend e sistemas integrados.
 
-- [ ] `GET /api/auth/me`
-- [ ] `GET /api/auth/minhas-permissoes`
-- [ ] `GET /api/hub/meus-sistemas`
-- [ ] `GET /api/auth/verificar-permissao?codigo=...`
-- [ ] `AuthorizePermissionAttribute` + filtro/middleware
-- [ ] Sincronizar `HubUser` no primeiro login Entra (upsert por e-mail)
-- [ ] Substituir visibilidade por e-mail/domínio → visibilidade por perfil/permissão `hub.aplicativos.visualizar`
+- [x] `GET /api/auth/me`
+- [x] `GET /api/auth/minhas-permissoes`
+- [x] `GET /api/hub/meus-sistemas`
+- [x] `GET /api/auth/verificar-permissao?codigo=...`
+- [x] `AuthorizeHubPermissionAttribute` + policy provider + handler
+- [x] Sincronizar `HubUser` no login Entra/dev (upsert por e-mail)
+- [x] Visibilidade de apps por IAM quando usuário tem perfis (`hub.aplicativos.visualizar`)
 
 **Critério de pronto:** Postman/curl retorna permissões do usuário logado; apps filtrados por perfil.
+
+### Como validar (Fase 2)
+
+1. Login como admin (perfil `administrador` no seed).
+2. Com cookie de sessão, chamar:
+   - `GET http://localhost:3010/api/auth/me`
+   - `GET http://localhost:3010/api/auth/minhas-permissoes`
+   - `GET http://localhost:3010/api/hub/meus-sistemas`
+   - `GET http://localhost:3010/api/auth/verificar-permissao?codigo=portalrh.vagas.criar`
+   - `GET http://localhost:3010/api/hub/access/probe` (exige `hub.auditoria.visualizar`)
+3. Usuário **sem** perfis IAM continua com regras legadas de e-mail/domínio nos apps.
+4. Usuário **com** perfis IAM precisa de `hub.aplicativos.visualizar` para ver tiles em `/Apps`.
 
 ---
 
