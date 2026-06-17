@@ -6,13 +6,14 @@ Launcher corporativo **Liotecnica Hub** — portal único de entrada para aplica
 
 ```
 LiotecnicaHub.Web/
-├── Domain/Entities/          # HubApplication, HubEntraConfig, HubAdmin, ...
+├── Domain/Entities/          # HubApplication, HubUser, HubProfile, HubSystem, HubPermission, ...
 ├── Domain/Enums/             # Ambiente (Dev/Hml/Prd), regras de acesso
 ├── Infrastructure/Data/      # HubDbContext, HubDbSeeder
 ├── Infrastructure/Security/  # DataProtection para client secret
 ├── Infrastructure/Authorization/  # Policy HubAdmin
 ├── Application/Authentication/    # OAuth manual (challenge/callback)
 ├── Application/Applications/    # Catálogo e visibilidade por usuário
+├── Application/Access/          # Catálogo IAM (Fase 1)
 └── Pages/                    # Razor Pages (Login, Apps, Admin)
 ```
 
@@ -32,6 +33,15 @@ Configuração Entra (tenant, client id, secret, redirect) fica em **`HubEntraCo
 |------|-----------|
 | `/Apps` | Usuário autenticado |
 | `/Admin` | Policy `HubAdmin` — e-mail na tabela `HubAdmins` |
+
+### Controle de acessos (Fase 1)
+
+Catálogo IAM centralizado: sistemas, módulos, permissões (`portalrh.vagas.criar`), perfis e escopos.
+
+- Validação: **Admin → Controle de Acessos** (`/Admin/Access`)
+- Roadmap: `docs/HUB-CONTROLE-ACESSOS-ROADMAP.md`
+- Migration Postgres: `AddControleAcessosFase1`
+- Dev SQLite: após mudança de schema, apague `App_Data/liotecnica_hub.db` e suba de novo
 
 ### Banco de dados
 

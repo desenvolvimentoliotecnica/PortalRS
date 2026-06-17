@@ -19,6 +19,7 @@ public static class HubDbSeeder
         await SyncEntraPublicUrlsAsync(db, configuration, logger, ct);
         await SeedApplicationsAsync(db, logger, ct);
         await SeedAdminsAsync(db, configuration, logger, ct);
+        await HubAccessSeedData.SeedAsync(db, configuration, logger, ct);
     }
 
     private static async Task SyncEntraPublicUrlsAsync(

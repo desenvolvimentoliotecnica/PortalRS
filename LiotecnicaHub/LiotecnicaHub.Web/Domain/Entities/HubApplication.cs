@@ -12,8 +12,10 @@ public class HubApplication
     public HubApplicationEnvironment Environment { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
+    public Guid? SystemId { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 
+    public HubSystem? System { get; set; }
     public ICollection<HubApplicationAccessRule> AccessRules { get; set; } = new List<HubApplicationAccessRule>();
 }

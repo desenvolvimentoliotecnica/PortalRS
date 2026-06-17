@@ -1,4 +1,5 @@
 using System.IO;
+using LiotecnicaHub.Web.Application.Access;
 using LiotecnicaHub.Web.Application.Applications;
 using LiotecnicaHub.Web.Application.Authentication;
 using LiotecnicaHub.Web.Infrastructure.Authorization;
@@ -49,6 +50,7 @@ builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IHubAuthService, HubAuthService>();
 builder.Services.AddScoped<IHubLaunchService, HubLaunchService>();
 builder.Services.AddScoped<IHubApplicationService, HubApplicationService>();
+builder.Services.AddScoped<IHubAccessCatalogService, HubAccessCatalogService>();
 builder.Services.AddSingleton<IHubAppIconStorage, HubAppIconStorage>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

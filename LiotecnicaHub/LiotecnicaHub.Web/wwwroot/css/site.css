@@ -274,6 +274,134 @@ a:hover { text-decoration: underline; }
 .admin-stat { color: var(--muted); margin: 0.35rem 0; }
 .admin-link { color: var(--primary); font-weight: 600; }
 
+/* Admin — Controle de Acessos (Fase 1) */
+.hub-access-phase-note {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.hub-access-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.hub-access-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    text-align: center;
+}
+
+.hub-access-stat strong {
+    display: block;
+    font-size: 1.5rem;
+    line-height: 1.2;
+}
+
+.hub-access-stat span {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.hub-access-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.hub-access-panel-warn {
+    border-color: #e8c468;
+    background: #fffbeb;
+}
+
+.hub-access-muted {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.hub-access-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+}
+
+.hub-access-tag {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-size: 0.78rem;
+    font-family: ui-monospace, monospace;
+}
+
+.hub-access-table-wrap {
+    overflow-x: auto;
+}
+
+.hub-access-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+}
+
+.hub-access-table th,
+.hub-access-table td {
+    border-bottom: 1px solid var(--border);
+    padding: 0.65rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.hub-access-detail-row td {
+    padding-top: 0;
+    border-bottom: none;
+}
+
+.hub-access-system {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.hub-access-system summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.hub-access-system summary::-webkit-details-marker {
+    display: none;
+}
+
+.hub-access-module {
+    margin: 0.75rem 0 0 1rem;
+    padding-left: 0.75rem;
+    border-left: 2px solid var(--border);
+}
+
+.hub-access-module h3 {
+    font-size: 0.95rem;
+    margin: 0 0 0.35rem;
+}
+
+.hub-access-perm-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.88rem;
+}
+
+.hub-access-perm-list li {
+    margin-bottom: 0.2rem;
+}
+
 .data-table {
     width: 100%;
     border-collapse: collapse;

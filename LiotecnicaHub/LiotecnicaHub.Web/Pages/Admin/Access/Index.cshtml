@@ -1,0 +1,144 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.Access.IndexModel
+@{
+    ViewData["Title"] = "Controle de Acessos";
+    ViewData["ShowHubTopbar"] = false;
+}
+
+<section class="page-header">
+    <h1>Controle de Acessos</h1>
+    <p>Fase 1 — catálogo IAM centralizado (sistemas, módulos, permissões e perfis).</p>
+    <p class="hub-access-phase-note">
+        <a asp-page="/Admin/Index">← Voltar ao painel admin</a>
+        · Roadmap: <code>docs/HUB-CONTROLE-ACESSOS-ROADMAP.md</code>
+    </p>
+</section>
+
+<div class="hub-access-stats">
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.SystemCount</strong>
+        <span>Sistemas</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.ModuleCount</strong>
+        <span>Módulos</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.PermissionCount</strong>
+        <span>Permissões</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.ProfileCount</strong>
+        <span>Perfis</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.UserCount</strong>
+        <span>Usuários IAM</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.ScopeCount</strong>
+        <span>Escopos</span>
+    </div>
+</div>
+
+@if (Model.CurrentUserPermissions.Count > 0)
+{
+    <section class="hub-access-panel">
+        <h2>Suas permissões (usuário logado)</h2>
+        <p class="hub-access-muted">@Model.CurrentUserPermissions.Count permissão(ões) via perfis IAM vinculados ao seu e-mail.</p>
+        <div class="hub-access-tags">
+            @foreach (var code in Model.CurrentUserPermissions)
+            {
+                <span class="hub-access-tag">@code</span>
+            }
+        </div>
+    </section>
+}
+else if (User.Identity?.IsAuthenticated == true)
+{
+    <section class="hub-access-panel hub-access-panel-warn">
+        <h2>Suas permissões</h2>
+        <p class="hub-access-muted">
+            Nenhuma permissão IAM encontrada para o e-mail autenticado.
+            Admins legados (<code>HubAdmins</code>) precisam estar no seed ou ter usuário IAM com perfil <strong>administrador</strong>.
+        </p>
+    </section>
+}
+
+<section class="hub-access-panel">
+    <h2>Perfis e permissões</h2>
+    <div class="hub-access-table-wrap">
+        <table class="hub-access-table">
+            <thead>
+                <tr>
+                    <th>Perfil</th>
+                    <th>Código</th>
+                    <th>Permissões</th>
+                    <th>Usuários</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var profile in Model.Summary.Profiles)
+                {
+                    <tr>
+                        <td>
+                            <strong>@profile.Name</strong>
+                            @if (!string.IsNullOrWhiteSpace(profile.Description))
+                            {
+                                <div class="hub-access-muted">@profile.Description</div>
+                            }
+                        </td>
+                        <td><code>@profile.Code</code></td>
+                        <td>@profile.PermissionCount</td>
+                        <td>@profile.UserCount</td>
+                    </tr>
+                    <tr class="hub-access-detail-row">
+                        <td colspan="4">
+                            <details>
+                                <summary>Ver @profile.PermissionCount permissão(ões)</summary>
+                                <div class="hub-access-tags">
+                                    @foreach (var code in profile.PermissionCodes)
+                                    {
+                                        <span class="hub-access-tag">@code</span>
+                                    }
+                                </div>
+                            </details>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="hub-access-panel">
+    <h2>Sistemas, módulos e permissões</h2>
+    @foreach (var system in Model.Summary.Systems)
+    {
+        <details class="hub-access-system">
+            <summary>
+                <strong>@system.Name</strong>
+                <code>@system.Code</code>
+                <span class="hub-access-muted">
+                    @system.ModuleCount módulo(s) · @system.PermissionCount permissão(ões)
+                    @if (system.LinkedApplicationCount > 0)
+                    {
+                        <text> · @system.LinkedApplicationCount app(s) vinculado(s)</text>
+                    }
+                </span>
+            </summary>
+            @foreach (var module in system.Modules)
+            {
+                <div class="hub-access-module">
+                    <h3>@module.Name <code>@module.Code</code></h3>
+                    <ul class="hub-access-perm-list">
+                        @foreach (var perm in module.Permissions)
+                        {
+                            <li><code>@perm.Code</code> — @perm.Name</li>
+                        }
+                    </ul>
+                </div>
+            }
+        </details>
+    }
+</section>
