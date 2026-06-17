@@ -341,8 +341,14 @@ a:hover { text-decoration: underline; }
 }
 
 .hub-icon-upload-preview {
-    width: 88px;
-    height: 88px;
+    width: 100px;
+    min-height: 56px;
+    max-width: 100px;
+}
+
+.hub-icon-upload-preview:not(:has(.hub-card-icon-img)) {
+    border-radius: 10px;
+    background: #f3f4f6;
 }
 
 .hub-icon-upload-preview.is-hidden {
@@ -762,9 +768,9 @@ html:has(.hub-dashboard-body) {
 
 .hub-app-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     grid-template-rows: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
+    gap: 0.85rem;
     flex: 1;
     min-height: 0;
 }
@@ -799,27 +805,35 @@ html:has(.hub-dashboard-body) {
 }
 
 .hub-app-card-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 999px;
-    background: #f3f4f6;
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     margin-bottom: 0.65rem;
     color: var(--text);
     flex-shrink: 0;
+    width: 100%;
+    max-width: 100px;
+}
+
+.hub-app-card-icon:not(:has(.hub-card-icon-img)) {
+    min-height: 56px;
+    border-radius: 10px;
+    background: #f3f4f6;
 }
 
 .hub-card-icon-svg {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
 }
 
 .hub-card-icon-img {
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
+    display: block;
+    min-width: 100px;
+    max-width: 100px;
+    width: 100px;
+    height: auto;
     object-fit: contain;
+    border-radius: 0;
 }
 
 .hub-app-card-title {
@@ -890,6 +904,14 @@ html:has(.hub-dashboard-body) {
 
 .hub-content .page-header h1 {
     font-size: 1.35rem;
+}
+
+@media (max-width: 1400px) {
+    .hub-app-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: unset;
+        grid-auto-rows: minmax(0, 1fr);
+    }
 }
 
 @media (max-width: 1200px) {
