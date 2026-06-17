@@ -1,0 +1,52 @@
+# Liotecnica Hub — stack local / HMG
+#
+# Uso na raiz do repositório:
+#   docker compose -f docker-compose.hub.yml up -d --build
+#
+# Copie docs/env.hub.example para .env.hub e ajuste variáveis.
+
+services:
+  hub-db:
+    image: postgres:16-alpine
+    container_name: liotecnica-hub-db
+    environment:
+      POSTGRES_DB: ${HUB_POSTGRES_DB:-liotecnica_hub}
+      POSTGRES_USER: ${HUB_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${HUB_POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${HUB_DB_PORT:-5433}:5432"
+    volumes:
+      - hub_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HUB_POSTGRES_USER:-postgres} -d ${HUB_POSTGRES_DB:-liotecnica_hub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  hub:
+    image: ${HUB_IMAGE:-liotecnica-hub:local}
+    build:
+      context: .
+      dockerfile: LiotecnicaHub/Dockerfile
+    container_name: liotecnica-hub
+    depends_on:
+      hub-db:
+        condition: service_healthy
+    ports:
+      - "${HUB_HTTP_PORT:-3010}:3010"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${HUB_ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__DefaultConnection: Host=hub-db;Port=5432;Database=${HUB_POSTGRES_DB:-liotecnica_hub};Username=${HUB_POSTGRES_USER:-postgres};Password=${HUB_POSTGRES_PASSWORD:-postgres}
+      Hub__BaseUrl: ${HUB_BASE_URL:-http://localhost:3010}
+      Hub__StateSigningKey: ${HUB_STATE_SIGNING_KEY:-change-me-in-production-min-32-chars}
+      Hub__SeedAdminEmails: ${HUB_SEED_ADMIN_EMAILS:-admin@liotecnica.com.br}
+      ASPNETCORE_URLS: http://+:3010
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3010/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  hub_pgdata:

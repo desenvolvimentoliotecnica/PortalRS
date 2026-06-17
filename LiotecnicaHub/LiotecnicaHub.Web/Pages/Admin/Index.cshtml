@@ -1,0 +1,28 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.IndexModel
+@{
+    ViewData["Title"] = "Administração";
+}
+
+<section class="page-header">
+    <h1>Painel administrativo</h1>
+    <p>Gerencie aplicativos, acesso e integração Microsoft Entra ID.</p>
+</section>
+
+<div class="admin-grid">
+    <a class="admin-card" asp-page="/Admin/Applications/Index">
+        <h2>Aplicativos</h2>
+        <p class="admin-stat">@Model.ApplicationCount cadastrado(s)</p>
+        <span class="admin-link">Gerenciar →</span>
+    </a>
+    <a class="admin-card" asp-page="/Admin/EntraConfig">
+        <h2>Microsoft Entra ID</h2>
+        <p class="admin-stat">@(Model.EntraConfigured ? "Habilitado" : "Pendente de configuração")</p>
+        <span class="admin-link">Configurar →</span>
+    </a>
+    <div class="admin-card admin-card-static">
+        <h2>Administradores</h2>
+        <p class="admin-stat">@Model.AdminCount e-mail(s) com acesso admin</p>
+        <small>Admins são definidos via variável de ambiente no deploy.</small>
+    </div>
+</div>

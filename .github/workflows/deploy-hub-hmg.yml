@@ -1,0 +1,123 @@
+# Deploy Liotecnica Hub — homologação (HMG)
+#
+# Push em portalRH-HML ou workflow_dispatch → build imagem hub → GHCR → servidor via SSH.
+# Runner self-hosted com label hmg-deploy (rede privada; ex. 10.0.0.80).
+
+name: Deploy Hub HMG
+
+on:
+  push:
+    branches:
+      - portalRH-HML
+    paths:
+      - 'LiotecnicaHub/**'
+      - 'docker-compose.hub.yml'
+      - 'docs/env.hub.example'
+      - '.github/workflows/deploy-hub-hmg.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hub-hmg-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_prefix: ${{ steps.meta.outputs.image_prefix }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Image prefix (GHCR exige minúsculas)
+        id: meta
+        run: |
+          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_prefix=${REGISTRY}/${REPO_LC}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_PREFIX=${REGISTRY}/${REPO_LC}" >> "$GITHUB_ENV"
+        env:
+          REGISTRY: ghcr.io
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push Liotecnica Hub
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: LiotecnicaHub/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/liotecnica-hub:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/liotecnica-hub:latest
+
+  deploy-hub-hmg:
+    name: Deploy Hub via SSH (self-hosted)
+    needs: build-and-push
+    runs-on: [self-hosted, hmg-deploy]
+    if: github.ref == 'refs/heads/portalRH-HML' || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/hmg_deploy_key
+          chmod 600 ~/.ssh/hmg_deploy_key
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "mkdir -p ~/liotecnica-hub-hmg"
+
+      - name: Copy compose and env example to server
+        run: |
+          scp -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
+            docker-compose.hub.yml \
+            docs/env.hub.example \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/liotecnica-hub-hmg/"
+
+      - name: Pull image and recreate hub stack
+        run: |
+          set -euo pipefail
+          LOCAL_ENV="${RUNNER_TEMP}/hub-deploy.env"
+          {
+            echo "HUB_IMAGE=${{ needs.build-and-push.outputs.image_prefix }}/liotecnica-hub:${{ github.sha }}"
+            echo "HUB_BASE_URL=${{ vars.HMG_HUB_BASE_URL }}"
+            echo "HUB_SEED_ADMIN_EMAILS=${{ vars.HMG_HUB_SEED_ADMIN_EMAILS }}"
+            echo "HUB_STATE_SIGNING_KEY=${{ secrets.HUB_STATE_SIGNING_KEY }}"
+            echo "GHCR_PULL_USER=${{ github.actor }}"
+            echo "GHCR_PULL_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+          } > "$LOCAL_ENV"
+          chmod 600 "$LOCAL_ENV"
+          scp -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
+            "$LOCAL_ENV" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/liotecnica-hub-hmg/.deploy.env"
+          rm -f "$LOCAL_ENV"
+          ssh -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            'set -a && source ~/liotecnica-hub-hmg/.deploy.env && set +a && \
+             echo "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "$GHCR_PULL_USER" --password-stdin && \
+             cd ~/liotecnica-hub-hmg && \
+             export HUB_IMAGE && export HUB_BASE_URL && export HUB_SEED_ADMIN_EMAILS && export HUB_STATE_SIGNING_KEY && \
+             docker pull "$HUB_IMAGE" && \
+             docker compose -f docker-compose.hub.yml up -d --no-build hub && \
+             rm -f .deploy.env'
