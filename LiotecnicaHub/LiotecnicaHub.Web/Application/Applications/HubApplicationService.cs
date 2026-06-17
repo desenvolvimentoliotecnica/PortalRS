@@ -1,3 +1,4 @@
+using LiotecnicaHub.Web.Application.Access;
 using LiotecnicaHub.Web.Domain.Entities;
 using LiotecnicaHub.Web.Domain.Enums;
 using LiotecnicaHub.Web.Infrastructure.Data;
@@ -18,14 +19,20 @@ public interface IHubApplicationService
 public sealed class HubApplicationService : IHubApplicationService
 {
     private readonly HubDbContext _db;
+    private readonly IHubAccessService _access;
 
-    public HubApplicationService(HubDbContext db) => _db = db;
+    public HubApplicationService(HubDbContext db, IHubAccessService access)
+    {
+        _db = db;
+        _access = access;
+    }
 
     public async Task<IReadOnlyList<HubApplication>> GetVisibleForUserAsync(string? email, CancellationToken ct)
     {
         var apps = await _db.Applications
             .AsNoTracking()
             .Include(a => a.AccessRules)
+            .Include(a => a.System)
             .Where(a => a.IsActive)
             .OrderBy(a => a.SortOrder)
             .ThenBy(a => a.Name)
@@ -35,7 +42,26 @@ public sealed class HubApplicationService : IHubApplicationService
             return Array.Empty<HubApplication>();
 
         email = email.Trim().ToLowerInvariant();
-        return apps.Where(a => IsVisibleToUser(a, email)).ToList();
+
+        var hasIamProfiles = await _db.UserProfiles.AsNoTracking()
+            .AnyAsync(up => up.User.IsActive && up.User.Email == email && up.Profile.IsActive, ct);
+
+        if (!hasIamProfiles)
+            return apps.Where(a => IsVisibleToUser(a, email)).ToList();
+
+        if (!await _access.PossuiPermissaoAsync(email, HubAccessService.HubAppsVisualizar, ct))
+            return Array.Empty<HubApplication>();
+
+        var permissoes = await _access.GetMinhasPermissoesAsync(email, ct);
+        var systemCodes = (permissoes?.Permissoes ?? [])
+            .Select(p => p.Split('.', 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault())
+            .Where(c => !string.IsNullOrWhiteSpace(c)
+                && !string.Equals(c, "hub", StringComparison.OrdinalIgnoreCase))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return apps.Where(a =>
+            a.SystemId is null
+            || (a.System is not null && systemCodes.Contains(a.System.Code))).ToList();
     }
 
     public async Task<IReadOnlyList<HubApplication>> GetAllAsync(CancellationToken ct) =>

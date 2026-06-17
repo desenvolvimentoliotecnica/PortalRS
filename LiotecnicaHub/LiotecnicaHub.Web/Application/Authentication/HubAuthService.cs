@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using LiotecnicaHub.Web.Application.Access;
 using LiotecnicaHub.Web.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -10,6 +11,7 @@ public static class HubClaimTypes
 {
     public const string Email = ClaimTypes.Email;
     public const string Name = ClaimTypes.Name;
+    public const string UserId = "hub:user_id";
     public const string IsHubAdmin = "hub:is_admin";
 }
 
@@ -23,11 +25,16 @@ public sealed class HubAuthService : IHubAuthService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly HubDbContext _db;
+    private readonly IHubUserProvisioningService _provisioning;
 
-    public HubAuthService(IHttpContextAccessor httpContextAccessor, HubDbContext db)
+    public HubAuthService(
+        IHttpContextAccessor httpContextAccessor,
+        HubDbContext db,
+        IHubUserProvisioningService provisioning)
     {
         _httpContextAccessor = httpContextAccessor;
         _db = db;
+        _provisioning = provisioning;
     }
 
     public async Task SignInFromEntraPrincipalAsync(ClaimsPrincipal entraPrincipal, CancellationToken ct)
@@ -47,10 +54,13 @@ public sealed class HubAuthService : IHubAuthService
         var isAdmin = await _db.Admins.AsNoTracking()
             .AnyAsync(a => a.Email == email, ct);
 
+        var user = await _provisioning.EnsureUserAsync(email, displayName, ct);
+
         var claims = new List<Claim>
         {
             new(HubClaimTypes.Email, email),
             new(HubClaimTypes.Name, displayName),
+            new(HubClaimTypes.UserId, user.Id.ToString()),
             new(HubClaimTypes.IsHubAdmin, isAdmin ? "true" : "false")
         };
 
@@ -79,10 +89,13 @@ public sealed class HubAuthService : IHubAuthService
         var isAdmin = await _db.Admins.AsNoTracking()
             .AnyAsync(a => a.Email == email, ct);
 
+        var user = await _provisioning.EnsureUserAsync(email, email, ct);
+
         var claims = new List<Claim>
         {
             new(HubClaimTypes.Email, email),
             new(HubClaimTypes.Name, email),
+            new(HubClaimTypes.UserId, user.Id.ToString()),
             new(HubClaimTypes.IsHubAdmin, isAdmin ? "true" : "false"),
             new("hub:dev_login", "true")
         };

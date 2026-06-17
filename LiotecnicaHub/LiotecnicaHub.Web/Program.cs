@@ -1,4 +1,5 @@
 using System.IO;
+using LiotecnicaHub.Web.Application.Access;
 using LiotecnicaHub.Web.Application.Applications;
 using LiotecnicaHub.Web.Application.Authentication;
 using LiotecnicaHub.Web.Infrastructure.Authorization;
@@ -49,7 +50,12 @@ builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IHubAuthService, HubAuthService>();
 builder.Services.AddScoped<IHubLaunchService, HubLaunchService>();
 builder.Services.AddScoped<IHubApplicationService, HubApplicationService>();
+builder.Services.AddScoped<IHubAccessCatalogService, HubAccessCatalogService>();
+builder.Services.AddScoped<IHubUserProvisioningService, HubUserProvisioningService>();
+builder.Services.AddScoped<IHubAccessService, HubAccessService>();
 builder.Services.AddSingleton<IHubAppIconStorage, HubAppIconStorage>();
+
+builder.Services.AddControllers();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -68,7 +74,9 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("HubAdmin", policy =>
         policy.Requirements.Add(new HubAdminRequirement()));
 });
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, HubPermissionPolicyProvider>();
 builder.Services.AddScoped<IAuthorizationHandler, HubAdminAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, HubPermissionAuthorizationHandler>();
 
 builder.Services.AddRazorPages(options =>
 {
@@ -111,6 +119,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorPages();
+app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.Run();
