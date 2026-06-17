@@ -1,3 +1,4 @@
+using System.IO;
 using LiotecnicaHub.Web.Application.Applications;
 using LiotecnicaHub.Web.Application.Authentication;
 using LiotecnicaHub.Web.Infrastructure.Authorization;
@@ -6,6 +7,8 @@ using LiotecnicaHub.Web.Infrastructure.Options;
 using LiotecnicaHub.Web.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,7 +31,13 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<HubDbContext>(options =>
     HubDatabaseSetup.ConfigureDbContext(options, connectionString));
 
-builder.Services.AddDataProtection();
+var dataProtectionKeysPath = builder.Configuration["Hub:DataProtectionKeysPath"]
+    ?? builder.Configuration["HUB_DP_KEYS_PATH"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "dpkeys");
+Directory.CreateDirectory(dataProtectionKeysPath);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
+    .SetApplicationName("LiotecnicaHub");
 builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
@@ -85,6 +94,11 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();

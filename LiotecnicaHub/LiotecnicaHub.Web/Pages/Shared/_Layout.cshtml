@@ -3,38 +3,34 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] — Liotecnica Hub</title>
+    <title>@ViewData["Title"] — Hub Corporativo</title>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body>
-    <header class="site-header">
-        <div class="container header-inner">
-            <a class="brand" asp-page="/Apps/Index">Liotecnica Hub</a>
-            <nav class="nav-links">
-                @if (User.Identity?.IsAuthenticated == true)
+<body class="@(User.Identity?.IsAuthenticated == true && ViewData["MinimalLayout"] is not true ? "hub-dashboard-body" : "hub-minimal-body")">
+@if (User.Identity?.IsAuthenticated == true && ViewData["MinimalLayout"] is not true)
+{
+    <div class="hub-app-frame">
+        <div class="hub-shell">
+            <partial name="_HubSidebar" />
+            <div class="hub-main">
+                @if (ViewData["ShowHubTopbar"] is bool showTop && showTop || ViewData["ShowHubTopbar"] is null && Context.Request.Path.StartsWithSegments("/Apps"))
                 {
-                    <a asp-page="/Apps/Index">Aplicativos</a>
-                    @if (User.HasClaim(HubClaimTypes.IsHubAdmin, "true"))
-                    {
-                        <a asp-page="/Admin/Index">Admin</a>
-                    }
-                    <span class="user-email">@User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</span>
-                    <a asp-page="/Login" asp-page-handler="Logout">Sair</a>
+                    <partial name="_HubTopbar" />
                 }
-                else
-                {
-                    <a asp-page="/Login">Entrar</a>
-                }
-            </nav>
+                <main class="hub-content">
+                    @RenderBody()
+                </main>
+            </div>
         </div>
-    </header>
-    <main class="container main-content">
+    </div>
+}
+else
+{
+    <main class="hub-minimal-content">
         @RenderBody()
     </main>
-    <footer class="site-footer">
-        <div class="container">
-            <small>&copy; @DateTime.UtcNow.Year Liotecnica — Hub de aplicativos corporativos</small>
-        </div>
-    </footer>
+}
+
+@await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -1,0 +1,62 @@
+@{
+    var path = Context.Request.Path.Value ?? string.Empty;
+    var isAdmin = User.HasClaim(HubClaimTypes.IsHubAdmin, "true");
+    var inicioActive = path.StartsWith("/Apps", StringComparison.OrdinalIgnoreCase) && !path.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase);
+    var settingsActive = path.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase);
+}
+
+<aside class="hub-sidebar" aria-label="Navegação principal">
+    <div class="hub-sidebar-brand">
+        <div class="hub-logo-mark" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="24" height="24" rx="6" stroke="currentColor" stroke-width="2"/>
+                <circle cx="14" cy="14" r="5" stroke="currentColor" stroke-width="2"/>
+            </svg>
+        </div>
+        <div class="hub-logo-text">
+            <strong>Hub</strong>
+            <span>Corporativo</span>
+        </div>
+    </div>
+
+    <nav class="hub-sidebar-nav">
+        <a class="hub-nav-item @(inicioActive ? "is-active" : null)" asp-page="/Apps/Index">
+            <svg class="hub-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            <span>Início</span>
+        </a>
+        <a class="hub-nav-item @(inicioActive ? "is-active" : null)" asp-page="/Apps/Index">
+            <svg class="hub-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+            <span>Aplicativos</span>
+        </a>
+        <span class="hub-nav-item is-disabled" title="Em breve">
+            <svg class="hub-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z"/></svg>
+            <span>Favoritos</span>
+        </span>
+        <span class="hub-nav-item is-disabled" title="Em breve">
+            <svg class="hub-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            <span>Notificações</span>
+            <span class="hub-nav-badge">3</span>
+        </span>
+        <span class="hub-nav-item is-disabled" title="Em breve">
+            <svg class="hub-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 11h2l2-7h10l2 7h2"/><path d="M7 18a2 2 0 104 0 2 2 0 00-4 0zM13 18a2 2 0 104 0 2 2 0 00-4 0z"/></svg>
+            <span>Suporte</span>
+        </span>
+    </nav>
+
+    <div class="hub-sidebar-footer">
+        @if (isAdmin)
+        {
+            <a class="hub-nav-item @(settingsActive ? "is-active" : null)" asp-page="/Admin/Index">
+                <svg class="hub-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <span>Configurações</span>
+            </a>
+        }
+        else
+        {
+            <span class="hub-nav-item is-disabled" title="Acesso restrito">
+                <svg class="hub-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <span>Configurações</span>
+            </span>
+        }
+    </div>
+</aside>

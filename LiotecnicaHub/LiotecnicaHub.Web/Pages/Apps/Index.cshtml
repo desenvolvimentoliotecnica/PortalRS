@@ -1,46 +1,48 @@
 @page
 @model LiotecnicaHub.Web.Pages.Apps.IndexModel
 @{
-    ViewData["Title"] = "Aplicativos";
+    ViewData["Title"] = "Hub Corporativo";
+    ViewData["ShowHubTopbar"] = true;
 }
-
-<section class="page-header">
-    <h1>Seus aplicativos</h1>
-    <p>Selecione um ambiente para abrir o Portal RH ou outro sistema corporativo.</p>
-</section>
 
 @if (!Model.Applications.Any())
 {
-    <div class="empty-state">
+    <div class="hub-empty-state">
         <p>Nenhum aplicativo disponível para sua conta no momento.</p>
     </div>
 }
 else
 {
-    <div class="app-grid">
+    <div class="hub-app-grid" id="hub-app-grid">
         @foreach (var app in Model.Applications)
         {
-            <a class="app-card" asp-page="/Apps/Launch" asp-route-id="@app.Id" target="_blank" rel="noopener noreferrer">
-                <div class="app-card-top">
-                    @if (!string.IsNullOrWhiteSpace(app.IconUrl))
-                    {
-                        <img class="app-icon" src="@app.IconUrl" alt="" />
-                    }
-                    else
-                    {
-                        <div class="app-icon app-icon-placeholder" aria-hidden="true">@app.Name[0]</div>
-                    }
-                    <span class="env-badge @HubUiHelpers.EnvironmentCssClass(app.Environment)">
-                        @HubUiHelpers.EnvironmentLabel(app.Environment)
-                    </span>
+            var searchText = $"{app.Name} {app.Description} {HubUiHelpers.EnvironmentLabel(app.Environment)}".ToLowerInvariant();
+            <article class="hub-app-card" data-search="@searchText">
+                <span class="hub-app-env @HubUiHelpers.EnvironmentCssClass(app.Environment)">
+                    @HubUiHelpers.EnvironmentLabel(app.Environment)
+                </span>
+                <div class="hub-app-card-icon">
+                    <partial name="_AppIcon" model="app" />
                 </div>
-                <h2>@app.Name</h2>
+                <h2 class="hub-app-card-title">@HubUiHelpers.DisplayAppTitle(app.Name)</h2>
                 @if (!string.IsNullOrWhiteSpace(app.Description))
                 {
-                    <p>@app.Description</p>
+                    <p class="hub-app-card-desc">@app.Description</p>
                 }
-                <span class="app-launch">Abrir aplicativo →</span>
-            </a>
+                <a class="hub-app-card-btn"
+                   asp-page="/Apps/Launch"
+                   asp-route-id="@app.Id"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    Acessar
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </a>
+            </article>
         }
     </div>
+    <p class="hub-search-empty is-hidden" id="hub-search-empty">Nenhum aplicativo encontrado para sua busca.</p>
+}
+
+@section Scripts {
+    <script src="~/js/hub-home.js" asp-append-version="true"></script>
 }

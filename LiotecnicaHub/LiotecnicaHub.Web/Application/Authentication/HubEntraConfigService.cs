@@ -2,6 +2,7 @@ using LiotecnicaHub.Web.Domain.Entities;
 using LiotecnicaHub.Web.Infrastructure.Data;
 using LiotecnicaHub.Web.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace LiotecnicaHub.Web.Application.Authentication;
 
@@ -37,11 +38,16 @@ public sealed class HubEntraConfigService : IHubEntraConfigService
 {
     private readonly HubDbContext _db;
     private readonly ISecretProtector _protector;
+    private readonly ILogger<HubEntraConfigService> _logger;
 
-    public HubEntraConfigService(HubDbContext db, ISecretProtector protector)
+    public HubEntraConfigService(
+        HubDbContext db,
+        ISecretProtector protector,
+        ILogger<HubEntraConfigService> logger)
     {
         _db = db;
         _protector = protector;
+        _logger = logger;
     }
 
     public async Task<HubEntraConfigView?> GetAsync(CancellationToken ct)
@@ -60,9 +66,7 @@ public sealed class HubEntraConfigService : IHubEntraConfigService
             IsEnabled = entity.IsEnabled,
             EntraTenantId = entity.EntraTenantId,
             ClientId = entity.ClientId,
-            ClientSecret = string.IsNullOrWhiteSpace(entity.ClientSecretProtected)
-                ? null
-                : _protector.Unprotect(entity.ClientSecretProtected),
+            ClientSecret = TryUnprotectClientSecret(entity.ClientSecretProtected),
             CallbackPath = entity.CallbackPath,
             HubBaseUrl = entity.HubBaseUrl
         };
@@ -139,6 +143,25 @@ public sealed class HubEntraConfigService : IHubEntraConfigService
         }
 
         return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+    }
+
+    private string? TryUnprotectClientSecret(string? protectedSecret)
+    {
+        if (string.IsNullOrWhiteSpace(protectedSecret))
+            return null;
+
+        try
+        {
+            return _protector.Unprotect(protectedSecret);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Falha ao descriptografar ClientSecret do Entra. " +
+                "Reconfigure o secret no Admin após redeploy ou restaure o volume de chaves DataProtection.");
+            return null;
+        }
     }
 
     private static string? ResolveRedirectUri(string? callbackPath)

@@ -40,7 +40,10 @@ services:
       Hub__BaseUrl: ${HUB_BASE_URL:-http://localhost:3010}
       Hub__StateSigningKey: ${HUB_STATE_SIGNING_KEY:-change-me-in-production-min-32-chars}
       Hub__SeedAdminEmails: ${HUB_SEED_ADMIN_EMAILS:-admin@liotecnica.com.br}
+      Hub__DataProtectionKeysPath: /app/dpkeys
       ASPNETCORE_URLS: http://+:3010
+    volumes:
+      - hub_dpkeys:/app/dpkeys
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3010/health || exit 1"]
       interval: 15s
@@ -50,3 +53,4 @@ services:
 
 volumes:
   hub_pgdata:
+  hub_dpkeys:
