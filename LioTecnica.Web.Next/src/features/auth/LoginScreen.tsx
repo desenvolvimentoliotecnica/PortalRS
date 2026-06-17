@@ -156,6 +156,16 @@ export default function LoginScreen({
       setErrorMsg(msgs[err] ?? `Falha no SSO (${err}).`);
     }
 
+    const hubErr = sp.get("hub_sso_error");
+    if (hubErr) {
+      const hubMsgs: Record<string, string> = {
+        nao_configurado: "SSO via Hub não está configurado neste ambiente.",
+        token_invalido: "Link de acesso via Hub expirou ou é inválido. Abra o app novamente pelo Hub.",
+        usuario_nao_autenticado: "Seu e-mail não está cadastrado neste ambiente do Portal RH.",
+      };
+      setErrorMsg(hubMsgs[hubErr] ?? `Falha no acesso via Hub (${hubErr}).`);
+    }
+
     const hash = window.location.hash;
     if (!hash.startsWith("#")) return;
     const params = new URLSearchParams(hash.substring(1));

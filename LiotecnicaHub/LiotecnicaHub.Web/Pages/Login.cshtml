@@ -1,58 +1,68 @@
-@page
-@model LiotecnicaHub.Web.Pages.LoginModel
-@{
-    ViewData["Title"] = "Entrar";
-    Layout = null;
-}
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Entrar — Liotecnica Hub</title>
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-</head>
-<body class="login-page">
-    <div class="login-card">
-        <div class="login-brand">
-            <h1>Liotecnica Hub</h1>
-            <p>Acesse os aplicativos corporativos com sua conta Microsoft.</p>
-        </div>
-
-        @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
-        {
-            <div class="alert alert-error">@Model.ErrorMessage</div>
-        }
-
-        @if (Model.EntraEnabled)
-        {
-            <a class="btn btn-microsoft" asp-page-handler="Microsoft">
-                <span class="ms-icon" aria-hidden="true"></span>
-                Entrar com Microsoft
-            </a>
-        }
-        else if (Model.DevLoginEnabled)
-        {
-            <div class="alert alert-info">
-                SSO Microsoft ainda não configurado. Use o login de <strong>desenvolvimento</strong> abaixo para testar localmente.
-            </div>
-            <form method="post" asp-page-handler="Dev" class="dev-login-form">
-                <label for="DevEmail">E-mail corporativo</label>
-                <input type="email" id="DevEmail" name="DevEmail" asp-for="DevEmail"
-                       placeholder="lucas.machado@liotecnica.com.br" required autocomplete="email" />
-                <button type="submit" class="btn btn-primary btn-block">Entrar (desenvolvimento)</button>
-            </form>
-            <p class="login-hint">
-                E-mails em <code>Hub:SeedAdminEmails</code> ganham acesso ao painel Admin.
-            </p>
-        }
-        else
-        {
-            <div class="alert alert-warn">
-                O login Microsoft ainda não foi habilitado. Um administrador deve configurar o Entra ID.
-            </div>
-        }
-    </div>
-</body>
-</html>
+@page
+@model LiotecnicaHub.Web.Pages.LoginModel
+@{
+    ViewData["Title"] = "Entrar";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Entrar — Liotecnica Hub</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="login-page">
+    <div class="login-card">
+        <div class="login-brand">
+            <h1>Liotecnica Hub</h1>
+            <p>Acesse os aplicativos corporativos com sua conta Microsoft.</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+        {
+            <div class="alert alert-error">@Model.ErrorMessage</div>
+        }
+
+        @if (Model.EntraEnabled)
+        {
+            <a class="btn btn-microsoft" asp-page-handler="Microsoft">
+                <span class="ms-icon" aria-hidden="true"></span>
+                Entrar com Microsoft
+            </a>
+        }
+        @if (Model.DevLoginEnabled)
+        {
+            @if (Model.EntraEnabled)
+            {
+                <p class="login-divider">ou</p>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    SSO Microsoft ainda não configurado. Use o login de <strong>desenvolvimento</strong> abaixo para testar localmente.
+                </div>
+            }
+            <form method="post" asp-page-handler="Dev" class="dev-login-form">
+                <label for="DevEmail">E-mail corporativo</label>
+                <input type="email" id="DevEmail" name="DevEmail" asp-for="DevEmail"
+                       placeholder="lucas.machado@liotecnica.com.br" required autocomplete="email" />
+                <button type="submit" class="btn btn-primary btn-block">Entrar (desenvolvimento)</button>
+            </form>
+            @if (!Model.EntraEnabled)
+            {
+                <p class="login-hint">
+                    E-mails em <code>Hub:SeedAdminEmails</code> ganham acesso ao painel Admin.
+                </p>
+            }
+        }
+        else if (!Model.EntraEnabled)
+        {
+            <div class="alert alert-warn">
+                O login Microsoft ainda não foi habilitado. Um administrador deve configurar o Entra ID.
+            </div>
+        }
+    </div>
+</body>
+</html>
 

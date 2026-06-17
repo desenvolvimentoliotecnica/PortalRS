@@ -311,6 +311,46 @@ public sealed class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// SSO a partir do Liotecnica Hub: valida token HMAC assinado pelo hub e emite JWT do tenant.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("hub-sso")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    public async Task<IActionResult> HubSso(
+        [FromQuery] string? token,
+        [FromQuery] string? returnUrl,
+        [FromServices] IServiceScopeFactory scopeFactory,
+        [FromServices] IConfiguration configuration,
+        [FromServices] IOptions<HubSsoOptions> hubSsoOptions,
+        CancellationToken ct)
+    {
+        var opts = hubSsoOptions.Value;
+        if (!opts.Enabled || string.IsNullOrWhiteSpace(opts.SigningKey))
+            return Redirect(BuildFrontendUrl(configuration, "/app/login?hub_sso_error=nao_configurado"));
+
+        var payload = HubSsoTokenCodec.TryDecode(token ?? string.Empty, opts.SigningKey);
+        if (payload is null)
+            return Redirect(BuildFrontendUrl(configuration, "/app/login?hub_sso_error=token_invalido"));
+
+        using var scope = scopeFactory.CreateScope();
+        var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantCtx.SetTenantId(payload.TenantId);
+
+        var authService = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
+        var login = await authService.LoginWithHubSsoAsync(payload.Email, ct);
+        if (login is null)
+            return Redirect(BuildFrontendUrl(configuration, $"/app/login?tenant={Uri.EscapeDataString(payload.TenantId)}&hub_sso_error=usuario_nao_autenticado"));
+
+        var safeReturn = NormalizeReturnUrl(returnUrl ?? payload.ReturnUrl);
+        var fragment =
+            $"#entra_token={Uri.EscapeDataString(login.AccessToken)}" +
+            $"&tenant={Uri.EscapeDataString(login.TenantId ?? payload.TenantId)}" +
+            $"&return={Uri.EscapeDataString(safeReturn)}";
+
+        return Redirect(BuildFrontendUrl(configuration, "/app/login") + fragment);
+    }
+
+    /// <summary>
     /// Callback de retorno do Microsoft: troca o <c>code</c> por <c>id_token</c>,
     /// emite o JWT do sistema e redireciona ao Next.js com o token no hash.
     /// </summary>
@@ -396,6 +436,14 @@ public sealed class AuthController : ControllerBase
         var scheme = Request?.Scheme ?? "http";
         var host = Request?.Host.Host ?? "localhost";
         return $"{scheme}://{host}:{port}{pathAndQuery}";
+    }
+
+    private static string NormalizeReturnUrl(string? returnUrl)
+    {
+        var value = returnUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(value) || !value.StartsWith('/'))
+            return "/dashboard";
+        return value;
     }
 }
 

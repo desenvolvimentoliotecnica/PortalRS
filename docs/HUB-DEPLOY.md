@@ -165,6 +165,50 @@ Edite em **Admin → Aplicativos** após o deploy.
 
 ---
 
+## SSO Hub → Portal RH (login automático)
+
+Quando o usuário clica em um card **Portal RH** no Hub, o fluxo usa **token HMAC** assinado (validade 60s):
+
+```text
+Hub /Apps/Launch/{id}
+  → gera token (e-mail + tenant)
+  → redirect GET /api/auth/hub-sso?token=...
+  → API emite JWT do Portal
+  → front /app/login#entra_token=... → /dashboard
+```
+
+### Chave compartilhada (obrigatório)
+
+A **mesma** chave deve existir nos dois lados:
+
+| Onde | Variável |
+|------|----------|
+| Hub | `Hub__StateSigningKey` / `HUB_STATE_SIGNING_KEY` |
+| Portal RH API | `HubSso__SigningKey` (ver `docs/env.hmg.example`) |
+
+No HMG, adicione em `~/.env.hmg` do servidor:
+
+```env
+HubSso__SigningKey=<mesmo valor do HUB_STATE_SIGNING_KEY do hub>
+HubSso__Enabled=true
+```
+
+Reinicie a API (`docker compose ... up -d api`).
+
+### URLs de launch
+
+Os cards continuam com URL de login (`.../app/login?tenant=liotecnica`). O Hub detecta esse padrão e troca pelo SSO automaticamente.
+
+### Erros no Portal
+
+| Query | Significado |
+|-------|-------------|
+| `hub_sso_error=token_invalido` | Token expirou ou chave divergente |
+| `hub_sso_error=usuario_nao_autenticado` | E-mail do Hub não existe no tenant |
+| `hub_sso_error=nao_configurado` | `HubSso__SigningKey` ausente na API |
+
+---
+
 ## Troubleshooting
 
 | Sintoma | Causa provável | Ação |

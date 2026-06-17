@@ -138,6 +138,13 @@ a:hover { text-decoration: underline; }
     border-radius: 4px;
 }
 
+.login-divider {
+    margin: 1.25rem 0 0.75rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.875rem;
+}
+
 /* Buttons */
 .btn {
     display: inline-flex;

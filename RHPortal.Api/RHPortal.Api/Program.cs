@@ -373,6 +373,7 @@ builder.Services.AddScoped<ISolicitacaoVagaRmIntegracaoService, SolicitacaoVagaR
 builder.Services.AddHostedService<RmSolicitacaoCriacaoHostedService>();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<HubSsoOptions>(builder.Configuration.GetSection(HubSsoOptions.SectionName));
 builder.Services.Configure<SlaVagaOptions>(builder.Configuration.GetSection(SlaVagaOptions.SectionName));
 builder.Services.Configure<RhAiOptions>(builder.Configuration.GetSection(RhAiOptions.SectionName));
 // Ollama/RAG (Fase 4): configuração local do stack IA aberto

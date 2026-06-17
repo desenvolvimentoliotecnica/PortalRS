@@ -20,7 +20,7 @@ else
     <div class="app-grid">
         @foreach (var app in Model.Applications)
         {
-            <a class="app-card" href="@app.LaunchUrl" target="_blank" rel="noopener noreferrer">
+            <a class="app-card" asp-page="/Apps/Launch" asp-route-id="@app.Id" target="_blank" rel="noopener noreferrer">
                 <div class="app-card-top">
                     @if (!string.IsNullOrWhiteSpace(app.IconUrl))
                     {
