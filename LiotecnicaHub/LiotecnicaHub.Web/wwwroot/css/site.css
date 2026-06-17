@@ -341,9 +341,9 @@ a:hover { text-decoration: underline; }
 }
 
 .hub-icon-upload-preview {
-    width: 100px;
+    width: 200px;
     min-height: 56px;
-    max-width: 100px;
+    max-width: 200px;
 }
 
 .hub-icon-upload-preview:not(:has(.hub-card-icon-img)) {
@@ -766,6 +766,15 @@ html:has(.hub-dashboard-body) {
     padding: 0 2rem 1.25rem;
 }
 
+/* Admin e formularios: scroll interno; home /Apps com grid continua sem scroll */
+.hub-content:not(:has(.hub-app-grid)) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2rem;
+}
+
 .hub-app-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -811,26 +820,27 @@ html:has(.hub-dashboard-body) {
     margin-bottom: 0.65rem;
     color: var(--text);
     flex-shrink: 0;
-    width: 100%;
-    max-width: 100px;
+    width: 200px;
+    max-width: 200px;
+    height: 110px;
+    max-height: 110px;
 }
 
 .hub-app-card-icon:not(:has(.hub-card-icon-img)) {
-    min-height: 56px;
     border-radius: 10px;
     background: #f3f4f6;
 }
 
 .hub-card-icon-svg {
-    width: 40px;
-    height: 40px;
+    width: 56px;
+    height: 56px;
 }
 
 .hub-card-icon-img {
     display: block;
-    min-width: 100px;
-    max-width: 100px;
-    width: 100px;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
     height: auto;
     object-fit: contain;
     border-radius: 0;
