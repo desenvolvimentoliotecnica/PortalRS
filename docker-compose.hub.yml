@@ -33,7 +33,7 @@ services:
       hub-db:
         condition: service_healthy
     ports:
-      - "${HUB_HTTP_PORT:-3010}:3010"
+      - "${HUB_DOCKER_PUBLISH:-3010:3010}"
     environment:
       ASPNETCORE_ENVIRONMENT: ${HUB_ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__DefaultConnection: Host=hub-db;Port=5432;Database=${HUB_POSTGRES_DB:-liotecnica_hub};Username=${HUB_POSTGRES_USER:-postgres};Password=${HUB_POSTGRES_PASSWORD:-postgres}

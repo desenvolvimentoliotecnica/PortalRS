@@ -12,7 +12,9 @@ on:
     paths:
       - 'LiotecnicaHub/**'
       - 'docker-compose.hub.yml'
+      - 'docker-compose.hub.hmg.yml'
       - 'docs/env.hub.example'
+      - '__scripts__/deploy/hmg-tls/liotecnica-hub-tls.conf'
       - '.github/workflows/deploy-hub-hmg.yml'
   workflow_dispatch:
 
@@ -92,7 +94,9 @@ jobs:
         run: |
           scp -i ~/.ssh/hmg_deploy_key -o StrictHostKeyChecking=accept-new \
             docker-compose.hub.yml \
+            docker-compose.hub.hmg.yml \
             docs/env.hub.example \
+            __scripts__/deploy/hmg-tls/liotecnica-hub-tls.conf \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/liotecnica-hub-hmg/"
 
       - name: Pull image and recreate hub stack
@@ -104,6 +108,7 @@ jobs:
             echo "HUB_BASE_URL=${{ vars.HMG_HUB_BASE_URL }}"
             echo "HUB_SEED_ADMIN_EMAILS=${{ vars.HMG_HUB_SEED_ADMIN_EMAILS }}"
             echo "HUB_STATE_SIGNING_KEY=${{ secrets.HUB_STATE_SIGNING_KEY }}"
+            echo "HUB_DOCKER_PUBLISH=127.0.0.1:3011:3010"
             echo "GHCR_PULL_USER=${{ github.actor }}"
             echo "GHCR_PULL_TOKEN=${{ secrets.GITHUB_TOKEN }}"
           } > "$LOCAL_ENV"
@@ -117,7 +122,7 @@ jobs:
             'set -a && source ~/liotecnica-hub-hmg/.deploy.env && set +a && \
              echo "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "$GHCR_PULL_USER" --password-stdin && \
              cd ~/liotecnica-hub-hmg && \
-             export HUB_IMAGE && export HUB_BASE_URL && export HUB_SEED_ADMIN_EMAILS && export HUB_STATE_SIGNING_KEY && \
+             export HUB_IMAGE && export HUB_BASE_URL && export HUB_SEED_ADMIN_EMAILS && export HUB_STATE_SIGNING_KEY && export HUB_DOCKER_PUBLISH && \
              docker pull "$HUB_IMAGE" && \
              docker compose -f docker-compose.hub.yml up -d --no-build hub && \
              rm -f .deploy.env'
