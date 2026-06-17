@@ -7,10 +7,12 @@ namespace LiotecnicaHub.Web.Application.Authentication;
 
 public sealed record EntraAuthorizationUrl(string Url, string EncodedState);
 
+public sealed record EntraTokenExchangeResult(string? IdToken, string? ErrorCode);
+
 public interface IEntraChallengeService
 {
     Task<EntraAuthorizationUrl?> BuildAuthorizationUrlAsync(string redirectUri, string returnUrl, CancellationToken ct);
-    Task<string?> ExchangeCodeForIdTokenAsync(string code, string redirectUri, CancellationToken ct);
+    Task<EntraTokenExchangeResult> ExchangeCodeForIdTokenAsync(string code, string redirectUri, CancellationToken ct);
     EntraStatePayload? TryDecodeState(string encodedState);
 }
 
@@ -70,24 +72,28 @@ public sealed class EntraChallengeService : IEntraChallengeService
         return new EntraAuthorizationUrl(url, encodedState);
     }
 
-    public async Task<string?> ExchangeCodeForIdTokenAsync(string code, string redirectUri, CancellationToken ct)
+    public async Task<EntraTokenExchangeResult> ExchangeCodeForIdTokenAsync(string code, string redirectUri, CancellationToken ct)
     {
         var config = await _configService.GetDecryptedAsync(ct);
         if (config is null || !config.IsEnabled)
         {
             _logger.LogWarning("Entra token exchange: config ausente ou desabilitada.");
-            return null;
+            return new(null, "nao_configurado");
         }
 
         var entraTenant = config.EntraTenantId?.Trim();
         var clientId = config.ClientId?.Trim();
         var clientSecret = config.ClientSecret?.Trim();
-        if (string.IsNullOrWhiteSpace(entraTenant)
-            || string.IsNullOrWhiteSpace(clientId)
-            || string.IsNullOrWhiteSpace(clientSecret))
+        if (string.IsNullOrWhiteSpace(entraTenant) || string.IsNullOrWhiteSpace(clientId))
         {
-            _logger.LogWarning("Entra token exchange: credenciais incompletas.");
-            return null;
+            _logger.LogWarning("Entra token exchange: tenant ou client id ausente.");
+            return new(null, "nao_configurado");
+        }
+
+        if (string.IsNullOrWhiteSpace(clientSecret))
+        {
+            _logger.LogWarning("Entra token exchange: client secret ausente no banco.");
+            return new(null, "secret_ausente");
         }
 
         var tokenEndpoint = $"https://login.microsoftonline.com/{entraTenant}/oauth2/v2.0/token";
@@ -110,28 +116,40 @@ public sealed class EntraChallengeService : IEntraChallengeService
         catch (HttpRequestException ex)
         {
             _logger.LogWarning(ex, "Entra token exchange: falha de rede.");
-            return null;
+            return new(null, "troca_de_code_falhou");
         }
 
         var body = await resp.Content.ReadAsStringAsync(ct);
         if (!resp.IsSuccessStatusCode)
         {
             _logger.LogWarning("Entra token exchange falhou: status={Status} body={Body}", (int)resp.StatusCode, body);
-            return null;
+            return new(null, MapAzureTokenError(body));
         }
 
         try
         {
             using var doc = JsonDocument.Parse(body);
-            return doc.RootElement.TryGetProperty("id_token", out var idToken)
-                   && idToken.ValueKind == JsonValueKind.String
-                ? idToken.GetString()
+            var idToken = doc.RootElement.TryGetProperty("id_token", out var idTokenEl)
+                            && idTokenEl.ValueKind == JsonValueKind.String
+                ? idTokenEl.GetString()
                 : null;
+            return string.IsNullOrWhiteSpace(idToken)
+                ? new(null, "troca_de_code_falhou")
+                : new(idToken, null);
         }
         catch (JsonException)
         {
-            return null;
+            return new(null, "troca_de_code_falhou");
         }
+    }
+
+    private static string MapAzureTokenError(string body)
+    {
+        if (body.Contains("invalid_client", StringComparison.OrdinalIgnoreCase))
+            return "secret_invalido";
+        if (body.Contains("redirect_uri", StringComparison.OrdinalIgnoreCase))
+            return "redirect_uri_invalido";
+        return "troca_de_code_falhou";
     }
 
     public EntraStatePayload? TryDecodeState(string encodedState) =>

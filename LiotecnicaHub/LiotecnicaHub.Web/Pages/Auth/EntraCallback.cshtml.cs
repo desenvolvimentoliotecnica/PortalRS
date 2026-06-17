@@ -45,9 +45,11 @@ public class EntraCallbackModel : PageModel
         if (string.IsNullOrWhiteSpace(redirectUri))
             return RedirectToPage("/Login", new { error = "nao_configurado" });
 
-        var idToken = await _challenge.ExchangeCodeForIdTokenAsync(code, redirectUri, ct);
-        if (string.IsNullOrWhiteSpace(idToken))
-            return RedirectToPage("/Login", new { error = "troca_de_code_falhou" });
+        var exchange = await _challenge.ExchangeCodeForIdTokenAsync(code, redirectUri, ct);
+        if (string.IsNullOrWhiteSpace(exchange.IdToken))
+            return RedirectToPage("/Login", new { error = exchange.ErrorCode ?? "troca_de_code_falhou" });
+
+        var idToken = exchange.IdToken;
 
         var principal = await _tokenValidator.ValidateIdTokenAsync(idToken, ct);
         if (principal is null)
