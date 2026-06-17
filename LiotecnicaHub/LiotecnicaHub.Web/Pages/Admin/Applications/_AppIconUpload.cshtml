@@ -1,0 +1,40 @@
+@using LiotecnicaHub.Web.Domain.Entities
+@model AppIconUploadViewModel
+
+<div class="hub-icon-upload" data-hub-icon-upload>
+    <label class="hub-icon-upload-label">Ícone do card</label>
+    <p class="hub-icon-upload-hint text-muted">
+        Imagem exibida no card do Hub. Se nenhuma imagem for enviada, usamos o ícone padrão.
+    </p>
+
+    <div class="hub-icon-upload-preview-wrap">
+        <div class="hub-app-card-icon hub-icon-upload-preview" data-icon-preview-default>
+            <partial name="_AppIcon" model="@(new HubApplication { Name = Model.ApplicationName, IconUrl = null })" />
+        </div>
+        <div class="hub-app-card-icon hub-icon-upload-preview is-hidden" data-icon-preview-custom>
+            <img class="hub-card-icon-img" data-icon-preview-img alt="Prévia do ícone" />
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.CurrentIconUrl))
+    {
+        <input type="hidden" data-icon-current-url value="@Model.CurrentIconUrl" />
+    }
+
+    <div class="hub-icon-upload-actions">
+        <label class="btn btn-secondary hub-icon-upload-btn">
+            Escolher imagem
+            <input type="file"
+                   name="IconFile"
+                   accept="image/png,image/jpeg,image/webp,image/gif"
+                   class="hub-icon-upload-input"
+                   data-icon-file-input />
+        </label>
+        <button type="button" class="btn btn-ghost hub-icon-upload-remove is-hidden" data-icon-remove-btn>
+            Remover imagem
+        </button>
+    </div>
+
+    <input type="hidden" name="Input.RemoveIcon" value="false" data-icon-remove-flag />
+    <p class="hub-icon-upload-meta text-muted">PNG, JPG, WEBP ou GIF — máx. 2 MB</p>
+</div>

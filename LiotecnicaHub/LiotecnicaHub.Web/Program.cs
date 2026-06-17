@@ -5,6 +5,7 @@ using LiotecnicaHub.Web.Infrastructure.Authorization;
 using LiotecnicaHub.Web.Infrastructure.Data;
 using LiotecnicaHub.Web.Infrastructure.Options;
 using LiotecnicaHub.Web.Infrastructure.Security;
+using LiotecnicaHub.Web.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -48,6 +49,7 @@ builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IHubAuthService, HubAuthService>();
 builder.Services.AddScoped<IHubLaunchService, HubLaunchService>();
 builder.Services.AddScoped<IHubApplicationService, HubApplicationService>();
+builder.Services.AddSingleton<IHubAppIconStorage, HubAppIconStorage>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -81,6 +83,8 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<HubDbContext>("hub-db");
 
 var app = builder.Build();
+
+HubAppIconStorageSetup.EnsureUploadDirectory(app.Environment, app.Configuration);
 
 using (var scope = app.Services.CreateScope())
 {

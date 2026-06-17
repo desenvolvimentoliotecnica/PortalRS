@@ -45,6 +45,7 @@ services:
       ASPNETCORE_URLS: http://+:3010
     volumes:
       - hub_dpkeys:/app/dpkeys
+      - hub_uploads:/app/wwwroot/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3010/health || exit 1"]
       interval: 15s
@@ -55,3 +56,4 @@ services:
 volumes:
   hub_pgdata:
   hub_dpkeys:
+  hub_uploads:

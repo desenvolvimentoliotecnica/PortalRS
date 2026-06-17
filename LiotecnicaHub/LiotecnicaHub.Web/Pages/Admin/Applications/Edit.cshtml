@@ -8,8 +8,9 @@
     <h1>Editar aplicativo</h1>
 </section>
 
-<form method="post" class="form-card">
+<form method="post" class="form-card" enctype="multipart/form-data">
     <input type="hidden" asp-for="Input.Id" />
+    <input type="hidden" asp-for="Input.IconUrl" />
     <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
 
     <label asp-for="Input.Name">Nome</label>
@@ -21,8 +22,7 @@
     <label asp-for="Input.LaunchUrl">URL de abertura</label>
     <input asp-for="Input.LaunchUrl" class="form-control" />
 
-    <label asp-for="Input.IconUrl">URL do ícone (opcional)</label>
-    <input asp-for="Input.IconUrl" class="form-control" />
+    <partial name="_AppIconUpload" model="Model.IconUpload" />
 
     <label asp-for="Input.Environment">Ambiente</label>
     <select asp-for="Input.Environment" asp-items="Model.EnvironmentOptions" class="form-control"></select>
@@ -40,3 +40,7 @@
         <a asp-page="Index">Cancelar</a>
     </div>
 </form>
+
+@section Scripts {
+    <script src="~/js/hub-app-icon-upload.js" asp-append-version="true"></script>
+}
