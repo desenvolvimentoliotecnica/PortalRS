@@ -117,6 +117,7 @@ public static class HubAccessSeedData
                     SystemId = systemId,
                     CreatedAtUtc = now
                 });
+                existingSet.Add((profileId, systemId));
                 added++;
             }
         }
