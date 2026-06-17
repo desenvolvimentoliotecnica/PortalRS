@@ -49,15 +49,11 @@ public sealed class HubApplicationService : IHubApplicationService
         if (!hasIamProfiles)
             return apps.Where(a => IsVisibleToUser(a, email)).ToList();
 
-        if (!await _access.PossuiPermissaoAsync(email, HubAccessService.HubAppsVisualizar, ct))
-            return Array.Empty<HubApplication>();
-
-        var permissoes = await _access.GetMinhasPermissoesAsync(email, ct);
-        var systemCodes = (permissoes?.Permissoes ?? [])
-            .Select(p => p.Split('.', 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault())
-            .Where(c => !string.IsNullOrWhiteSpace(c)
-                && !string.Equals(c, "hub", StringComparison.OrdinalIgnoreCase))
+        var systemCodes = (await _access.GetAccessibleSystemCodesAsync(email, ct))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (systemCodes.Count == 0)
+            return Array.Empty<HubApplication>();
 
         return apps.Where(a =>
             a.SystemId is null

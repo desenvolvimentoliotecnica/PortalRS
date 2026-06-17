@@ -27,7 +27,7 @@ public sealed class HubPermissionAuthorizationHandler : AuthorizationHandler<Hub
         if (string.IsNullOrWhiteSpace(email))
             return;
 
-        if (await _access.PossuiPermissaoAsync(email, requirement.PermissionCode, CancellationToken.None))
+        if (await _access.PossuiPermissaoHubAsync(email, requirement.PermissionCode, CancellationToken.None))
             context.Succeed(requirement);
     }
 }

@@ -1,71 +1,184 @@
 using LiotecnicaHub.Web.Domain.Entities;
-using LiotecnicaHub.Web.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace LiotecnicaHub.Web.Infrastructure.Data;
 
 /// <summary>
-/// Seeds idempotentes do catálogo IAM (Fase 1).
+/// Seeds do catálogo IAM — Fase 2.1: perfis concedem acesso a sistemas (launcher).
+/// Permissões granulares de ação ficam em cada sistema (Portal RH, etc.).
 /// </summary>
 public static class HubAccessSeedData
 {
+    private static readonly Dictionary<string, string[]> ProfileSystemMatrix = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["administrador"] = ["hub", "portalrh", "totvs", "intranet", "chamados-ti", "bi", "financeiro", "treinamentos", "documentos"],
+        ["colaborador"] = ["portalrh"],
+        ["analista-rh"] = ["portalrh"],
+        ["coordenador-rh"] = ["portalrh"],
+        ["gestor"] = ["portalrh"],
+        ["ti"] = ["hub", "chamados-ti"]
+    };
+
     public static async Task SeedAsync(
         HubDbContext db,
         IConfiguration configuration,
         ILogger logger,
         CancellationToken ct = default)
     {
-        if (await db.Systems.AnyAsync(ct))
-        {
-            await LinkPortalRhApplicationsAsync(db, logger, ct);
-            await EnsureAdminUsersAsync(db, configuration, logger, ct);
-            return;
-        }
+        if (!await db.Systems.AnyAsync(ct))
+            await SeedFreshCatalogAsync(db, logger, ct);
 
+        await EnsureProfileSystemAccessAsync(db, logger, ct);
+        await DeactivateLegacyActionPermissionsAsync(db, logger, ct);
+        await LinkPortalRhApplicationsAsync(db, logger, ct);
+        await EnsureAdminUsersAsync(db, configuration, logger, ct);
+    }
+
+    private static async Task SeedFreshCatalogAsync(HubDbContext db, ILogger logger, CancellationToken ct)
+    {
         var now = DateTimeOffset.UtcNow;
         var systems = CreateSystems(now);
         db.Systems.AddRange(systems);
 
-        var modules = CreateModules(systems, now);
-        db.SystemModules.AddRange(modules);
+        var hubSystem = systems.First(s => s.Code == "hub");
+        var hubModules = CreateHubAdminModules(hubSystem.Id, now);
+        db.SystemModules.AddRange(hubModules);
 
-        var permissions = CreatePermissions(systems, modules, now);
-        db.Permissions.AddRange(permissions);
+        var hubPermissions = CreateHubAdminPermissions(hubSystem.Id, hubModules, now);
+        db.Permissions.AddRange(hubPermissions);
 
         var profiles = CreateProfiles(now);
         db.Profiles.AddRange(profiles);
 
         await db.SaveChangesAsync(ct);
 
-        var permissionByCode = await db.Permissions.AsNoTracking()
-            .ToDictionaryAsync(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase, ct);
+        var systemByCode = systems.ToDictionary(s => s.Code, s => s.Id, StringComparer.OrdinalIgnoreCase);
+        var profileByCode = profiles.ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
+        var permissionByCode = hubPermissions.ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
 
-        var profilePermissions = CreateProfilePermissions(profiles, permissionByCode, now);
-        db.ProfilePermissions.AddRange(profilePermissions);
+        db.ProfileSystemAccesses.AddRange(CreateProfileSystemAccess(profileByCode, systemByCode, now));
 
-        var demoScope = new HubAccessScope
+        var adminPerms = permissionByCode.Values.ToList();
+        db.ProfilePermissions.AddRange(adminPerms.Select(pid => new HubProfilePermission
         {
-            Id = Guid.NewGuid(),
-            Name = "Filial Guarulhos",
-            ScopeType = HubAccessScopeType.Filial,
-            ExternalCode = "guarulhos",
-            IsActive = true,
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now
-        };
-        db.AccessScopes.Add(demoScope);
+            ProfileId = profileByCode["administrador"],
+            PermissionId = pid,
+            CreatedAtUtc = now
+        }));
+
+        foreach (var code in new[] { "hub.sistemas.gerenciar", "hub.usuarios.visualizar", "hub.perfis.visualizar", "hub.auditoria.visualizar" })
+        {
+            if (!permissionByCode.TryGetValue(code, out var pid)) continue;
+            db.ProfilePermissions.Add(new HubProfilePermission
+            {
+                ProfileId = profileByCode["ti"],
+                PermissionId = pid,
+                CreatedAtUtc = now
+            });
+        }
 
         await db.SaveChangesAsync(ct);
-        await LinkPortalRhApplicationsAsync(db, logger, ct);
-        await EnsureAdminUsersAsync(db, configuration, logger, ct);
 
         logger.LogInformation(
-            "Catálogo IAM seed: {Systems} sistemas, {Modules} módulos, {Permissions} permissões, {Profiles} perfis.",
+            "Catálogo IAM seed (2.1): {Systems} sistemas, {Profiles} perfis, acesso por sistema.",
             systems.Count,
-            modules.Count,
-            permissions.Count,
             profiles.Count);
+    }
+
+    private static async Task EnsureProfileSystemAccessAsync(HubDbContext db, ILogger logger, CancellationToken ct)
+    {
+        var systems = await db.Systems.AsNoTracking().ToListAsync(ct);
+        var profiles = await db.Profiles.ToListAsync(ct);
+        if (systems.Count == 0 || profiles.Count == 0) return;
+
+        var systemByCode = systems.ToDictionary(s => s.Code, s => s.Id, StringComparer.OrdinalIgnoreCase);
+        var profileByCode = profiles.ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
+        var existing = await db.ProfileSystemAccesses
+            .Select(x => new { x.ProfileId, x.SystemId })
+            .ToListAsync(ct);
+        var existingSet = existing.Select(x => (x.ProfileId, x.SystemId)).ToHashSet();
+
+        var now = DateTimeOffset.UtcNow;
+        var added = 0;
+
+        foreach (var (profileCode, systemCodes) in ProfileSystemMatrix)
+        {
+            if (!profileByCode.TryGetValue(profileCode, out var profileId)) continue;
+
+            foreach (var systemCode in systemCodes)
+            {
+                if (!systemByCode.TryGetValue(systemCode, out var systemId)) continue;
+                if (existingSet.Contains((profileId, systemId))) continue;
+
+                db.ProfileSystemAccesses.Add(new HubProfileSystemAccess
+                {
+                    ProfileId = profileId,
+                    SystemId = systemId,
+                    CreatedAtUtc = now
+                });
+                added++;
+            }
+        }
+
+        added += await InferSystemAccessFromLegacyPermissionsAsync(db, profileByCode, systemByCode, existingSet, now, ct);
+
+        if (added > 0)
+        {
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("IAM: {Count} vínculo(s) perfil→sistema sincronizado(s).", added);
+        }
+    }
+
+    private static async Task<int> InferSystemAccessFromLegacyPermissionsAsync(
+        HubDbContext db,
+        IReadOnlyDictionary<string, Guid> profileByCode,
+        IReadOnlyDictionary<string, Guid> systemByCode,
+        HashSet<(Guid ProfileId, Guid SystemId)> existingSet,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var legacyLinks = await db.ProfilePermissions.AsNoTracking()
+            .Select(pp => new { pp.ProfileId, pp.Permission.Code })
+            .ToListAsync(ct);
+
+        var added = 0;
+        foreach (var link in legacyLinks)
+        {
+            var dot = link.Code.IndexOf('.');
+            if (dot <= 0) continue;
+
+            var systemCode = link.Code[..dot];
+            if (string.Equals(systemCode, "hub", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!systemByCode.TryGetValue(systemCode, out var systemId)) continue;
+            if (existingSet.Contains((link.ProfileId, systemId))) continue;
+
+            db.ProfileSystemAccesses.Add(new HubProfileSystemAccess
+            {
+                ProfileId = link.ProfileId,
+                SystemId = systemId,
+                CreatedAtUtc = now
+            });
+            existingSet.Add((link.ProfileId, systemId));
+            added++;
+        }
+
+        return added;
+    }
+
+    private static async Task DeactivateLegacyActionPermissionsAsync(HubDbContext db, ILogger logger, CancellationToken ct)
+    {
+        var legacy = await db.Permissions
+            .Where(p => p.IsActive && !p.Code.StartsWith("hub."))
+            .ToListAsync(ct);
+
+        if (legacy.Count == 0) return;
+
+        foreach (var perm in legacy)
+            perm.IsActive = false;
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("IAM: {Count} permissão(ões) de ação legadas desativadas (fora do escopo Hub).", legacy.Count);
     }
 
     private static async Task LinkPortalRhApplicationsAsync(HubDbContext db, ILogger logger, CancellationToken ct)
@@ -193,149 +306,67 @@ public static class HubAccessSeedData
             UpdatedAtUtc = now
         };
 
-    private static List<HubSystemModule> CreateModules(IReadOnlyList<HubSystem> systems, DateTimeOffset now)
+    private static List<HubSystemModule> CreateHubAdminModules(Guid hubSystemId, DateTimeOffset now)
     {
-        var byCode = systems.ToDictionary(s => s.Code, s => s.Id, StringComparer.OrdinalIgnoreCase);
-        var list = new List<HubSystemModule>();
         var order = 0;
-
-        void Add(string systemCode, string code, string name)
+        HubSystemModule Mod(string code, string name) => new()
         {
-            list.Add(new HubSystemModule
-            {
-                Id = Guid.NewGuid(),
-                SystemId = byCode[systemCode],
-                Code = code,
-                Name = name,
-                IsActive = true,
-                SortOrder = order++,
-                CreatedAtUtc = now,
-                UpdatedAtUtc = now
-            });
-        }
+            Id = Guid.NewGuid(),
+            SystemId = hubSystemId,
+            Code = code,
+            Name = name,
+            IsActive = true,
+            SortOrder = order++,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
 
-        order = 0;
-        Add("hub", "aplicativos", "Aplicativos");
-        Add("hub", "favoritos", "Favoritos");
-        Add("hub", "notificacoes", "Notificações");
-        Add("hub", "suporte", "Suporte");
-        Add("hub", "configuracoes", "Configurações");
-        Add("hub", "usuarios", "Usuários");
-        Add("hub", "perfis", "Perfis");
-        Add("hub", "sistemas", "Sistemas");
-        Add("hub", "permissoes", "Permissões");
-        Add("hub", "auditoria", "Auditoria");
-
-        order = 0;
-        Add("portalrh", "vagas", "Vagas");
-        Add("portalrh", "candidatos", "Candidatos");
-        Add("portalrh", "requisicoes", "Requisições TOTVS");
-        Add("portalrh", "entrevistas", "Entrevistas");
-        Add("portalrh", "configuracoes", "Configurações");
-        Add("portalrh", "usuarios", "Usuários");
-        Add("portalrh", "perfis", "Perfis");
-        Add("portalrh", "permissoes", "Permissões");
-        Add("portalrh", "meu-perfil", "Meu perfil");
-        Add("portalrh", "minhas-candidaturas", "Minhas candidaturas");
-
-        return list;
+        return
+        [
+            Mod("usuarios", "Usuários"),
+            Mod("perfis", "Perfis"),
+            Mod("sistemas", "Sistemas"),
+            Mod("auditoria", "Auditoria")
+        ];
     }
 
-    private static List<HubPermission> CreatePermissions(
-        IReadOnlyList<HubSystem> systems,
+    private static List<HubPermission> CreateHubAdminPermissions(
+        Guid hubSystemId,
         IReadOnlyList<HubSystemModule> modules,
         DateTimeOffset now)
     {
-        var systemByCode = systems.ToDictionary(s => s.Code, s => s.Id, StringComparer.OrdinalIgnoreCase);
-        var moduleKey = modules.ToDictionary(
-            m => $"{systems.First(s => s.Id == m.SystemId).Code}.{m.Code}",
-            m => m.Id,
-            StringComparer.OrdinalIgnoreCase);
+        var moduleByCode = modules.ToDictionary(m => m.Code, m => m.Id, StringComparer.OrdinalIgnoreCase);
 
-        var list = new List<HubPermission>();
-
-        void Perm(string systemCode, string moduleCode, string action, string name)
+        HubPermission Perm(string moduleCode, string action, string name) => new()
         {
-            var code = $"{systemCode}.{moduleCode}.{action}";
-            list.Add(new HubPermission
-            {
-                Id = Guid.NewGuid(),
-                SystemId = systemByCode[systemCode],
-                ModuleId = moduleKey[$"{systemCode}.{moduleCode}"],
-                Code = code,
-                Name = name,
-                IsActive = true,
-                CreatedAtUtc = now,
-                UpdatedAtUtc = now
-            });
-        }
+            Id = Guid.NewGuid(),
+            SystemId = hubSystemId,
+            ModuleId = moduleByCode[moduleCode],
+            Code = $"hub.{moduleCode}.{action}",
+            Name = name,
+            IsActive = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
 
-        // Hub
-        Perm("hub", "aplicativos", "visualizar", "Visualizar aplicativos");
-        Perm("hub", "favoritos", "gerenciar", "Gerenciar favoritos");
-        Perm("hub", "notificacoes", "visualizar", "Visualizar notificações");
-        Perm("hub", "suporte", "criar-chamado", "Criar chamado de suporte");
-        Perm("hub", "suporte", "gerenciar", "Gerenciar suporte");
-        Perm("hub", "usuarios", "gerenciar", "Gerenciar usuários");
-        Perm("hub", "usuarios", "visualizar", "Visualizar usuários");
-        Perm("hub", "perfis", "gerenciar", "Gerenciar perfis");
-        Perm("hub", "perfis", "visualizar", "Visualizar perfis");
-        Perm("hub", "sistemas", "gerenciar", "Gerenciar sistemas");
-        Perm("hub", "permissoes", "gerenciar", "Gerenciar permissões");
-        Perm("hub", "auditoria", "visualizar", "Visualizar auditoria");
-
-        // Portal RH — Vagas
-        Perm("portalrh", "vagas", "visualizar", "Visualizar vagas");
-        Perm("portalrh", "vagas", "criar", "Criar vaga");
-        Perm("portalrh", "vagas", "editar", "Editar vaga");
-        Perm("portalrh", "vagas", "publicar", "Publicar vaga");
-        Perm("portalrh", "vagas", "suspender", "Suspender vaga");
-        Perm("portalrh", "vagas", "encerrar", "Encerrar vaga");
-        Perm("portalrh", "vagas", "excluir", "Excluir vaga");
-
-        // Candidatos
-        Perm("portalrh", "candidatos", "visualizar", "Visualizar candidatos");
-        Perm("portalrh", "candidatos", "visualizar-dados-sensiveis", "Visualizar dados sensíveis");
-        Perm("portalrh", "candidatos", "editar", "Editar candidato");
-        Perm("portalrh", "candidatos", "triar", "Fazer triagem");
-        Perm("portalrh", "candidatos", "aprovar", "Aprovar candidato");
-        Perm("portalrh", "candidatos", "reprovar", "Reprovar candidato");
-        Perm("portalrh", "candidatos", "exportar", "Exportar candidatos");
-
-        // Requisições
-        Perm("portalrh", "requisicoes", "visualizar", "Visualizar requisições");
-        Perm("portalrh", "requisicoes", "importar", "Importar requisições");
-        Perm("portalrh", "requisicoes", "aprovar", "Aprovar requisição");
-        Perm("portalrh", "requisicoes", "reprovar", "Reprovar requisição");
-        Perm("portalrh", "requisicoes", "vincular-vaga", "Vincular requisição a vaga");
-
-        // Entrevistas
-        Perm("portalrh", "entrevistas", "visualizar", "Visualizar entrevistas");
-        Perm("portalrh", "entrevistas", "agendar", "Agendar entrevista");
-        Perm("portalrh", "entrevistas", "cancelar", "Cancelar entrevista");
-        Perm("portalrh", "entrevistas", "avaliar", "Avaliar entrevista");
-
-        // Configurações Portal RH
-        Perm("portalrh", "configuracoes", "visualizar", "Visualizar configurações");
-        Perm("portalrh", "configuracoes", "editar", "Editar configurações");
-        Perm("portalrh", "usuarios", "gerenciar", "Gerenciar usuários");
-        Perm("portalrh", "perfis", "gerenciar", "Gerenciar perfis");
-        Perm("portalrh", "permissoes", "gerenciar", "Gerenciar permissões");
-
-        // Colaborador
-        Perm("portalrh", "meu-perfil", "visualizar", "Visualizar meu perfil");
-        Perm("portalrh", "minhas-candidaturas", "visualizar", "Visualizar minhas candidaturas");
-
-        return list;
+        return
+        [
+            Perm("usuarios", "gerenciar", "Gerenciar usuários do Hub"),
+            Perm("usuarios", "visualizar", "Visualizar usuários do Hub"),
+            Perm("perfis", "gerenciar", "Gerenciar perfis do Hub"),
+            Perm("perfis", "visualizar", "Visualizar perfis do Hub"),
+            Perm("sistemas", "gerenciar", "Gerenciar sistemas do Hub"),
+            Perm("auditoria", "visualizar", "Visualizar auditoria do Hub")
+        ];
     }
 
     private static List<HubProfile> CreateProfiles(DateTimeOffset now) =>
     [
-        Profile("administrador", "Administrador", "Acesso total ao Hub e Portal RH", now),
-        Profile("colaborador", "Colaborador", "Acesso básico ao Hub e área do colaborador", now),
-        Profile("analista-rh", "Analista RH", "Operação de vagas e candidatos", now),
-        Profile("coordenador-rh", "Coordenador RH", "Coordenação de recrutamento", now),
-        Profile("gestor", "Gestor", "Aprovações e visão gerencial", now),
+        Profile("administrador", "Administrador", "Acesso a todos os sistemas via Hub", now),
+        Profile("colaborador", "Colaborador", "Acesso ao Portal RH via Hub", now),
+        Profile("analista-rh", "Analista RH", "Acesso ao Portal RH via Hub", now),
+        Profile("coordenador-rh", "Coordenador RH", "Acesso ao Portal RH via Hub", now),
+        Profile("gestor", "Gestor", "Acesso ao Portal RH via Hub", now),
         Profile("ti", "TI", "Administração técnica do Hub", now)
     ];
 
@@ -351,94 +382,25 @@ public static class HubAccessSeedData
             UpdatedAtUtc = now
         };
 
-    private static List<HubProfilePermission> CreateProfilePermissions(
-        IReadOnlyList<HubProfile> profiles,
-        IReadOnlyDictionary<string, Guid> permissionByCode,
+    private static IEnumerable<HubProfileSystemAccess> CreateProfileSystemAccess(
+        IReadOnlyDictionary<string, Guid> profileByCode,
+        IReadOnlyDictionary<string, Guid> systemByCode,
         DateTimeOffset now)
     {
-        var profileByCode = profiles.ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
-        var list = new List<HubProfilePermission>();
-
-        void Assign(string profileCode, params string[] codes)
+        foreach (var (profileCode, systemCodes) in ProfileSystemMatrix)
         {
-            foreach (var code in codes)
+            if (!profileByCode.TryGetValue(profileCode, out var profileId)) continue;
+
+            foreach (var systemCode in systemCodes)
             {
-                if (!permissionByCode.TryGetValue(code, out var permId)) continue;
-                list.Add(new HubProfilePermission
+                if (!systemByCode.TryGetValue(systemCode, out var systemId)) continue;
+                yield return new HubProfileSystemAccess
                 {
-                    ProfileId = profileByCode[profileCode],
-                    PermissionId = permId,
+                    ProfileId = profileId,
+                    SystemId = systemId,
                     CreatedAtUtc = now
-                });
+                };
             }
         }
-
-        var allPortalRh = permissionByCode.Keys
-            .Where(c => c.StartsWith("portalrh.", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-
-        var allHub = permissionByCode.Keys
-            .Where(c => c.StartsWith("hub.", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-
-        Assign("administrador", allHub);
-        Assign("administrador", allPortalRh);
-
-        Assign("colaborador",
-            "hub.aplicativos.visualizar",
-            "hub.favoritos.gerenciar",
-            "hub.notificacoes.visualizar",
-            "hub.suporte.criar-chamado",
-            "portalrh.meu-perfil.visualizar",
-            "portalrh.minhas-candidaturas.visualizar");
-
-        Assign("analista-rh",
-            "hub.aplicativos.visualizar",
-            "portalrh.vagas.visualizar",
-            "portalrh.vagas.criar",
-            "portalrh.vagas.editar",
-            "portalrh.candidatos.visualizar",
-            "portalrh.candidatos.triar",
-            "portalrh.entrevistas.visualizar",
-            "portalrh.entrevistas.agendar",
-            "portalrh.requisicoes.visualizar",
-            "portalrh.requisicoes.vincular-vaga");
-
-        Assign("coordenador-rh",
-            "hub.aplicativos.visualizar",
-            "portalrh.vagas.visualizar",
-            "portalrh.vagas.criar",
-            "portalrh.vagas.editar",
-            "portalrh.vagas.publicar",
-            "portalrh.vagas.suspender",
-            "portalrh.vagas.encerrar",
-            "portalrh.candidatos.visualizar",
-            "portalrh.candidatos.triar",
-            "portalrh.candidatos.aprovar",
-            "portalrh.candidatos.reprovar",
-            "portalrh.entrevistas.visualizar",
-            "portalrh.entrevistas.agendar",
-            "portalrh.requisicoes.visualizar",
-            "portalrh.requisicoes.aprovar",
-            "portalrh.requisicoes.reprovar",
-            "portalrh.requisicoes.vincular-vaga");
-
-        Assign("gestor",
-            "hub.aplicativos.visualizar",
-            "portalrh.requisicoes.visualizar",
-            "portalrh.requisicoes.aprovar",
-            "portalrh.requisicoes.reprovar",
-            "portalrh.vagas.visualizar",
-            "portalrh.candidatos.visualizar",
-            "portalrh.entrevistas.visualizar");
-
-        Assign("ti",
-            "hub.sistemas.gerenciar",
-            "hub.usuarios.visualizar",
-            "hub.perfis.visualizar",
-            "hub.auditoria.visualizar",
-            "hub.suporte.gerenciar");
-
-        return list;
     }
 }

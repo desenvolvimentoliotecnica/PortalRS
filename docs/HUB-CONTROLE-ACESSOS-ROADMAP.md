@@ -1,143 +1,150 @@
-# Roadmap — Controle de Acessos Granulares no Hub Corporativo
+# Roadmap — Controle de Acessos no Hub Corporativo
 
-Documento de acompanhamento do plano técnico (`plano-controle-acessos-hub-corporativo.md`).
+Documento de acompanhamento. Plano original: `plano-controle-acessos-hub-corporativo.md`.
 
-**Modelo alvo:** `Usuário → Perfil → Permissão → Escopo`  
-**Padrão de permissão:** `{sistema}.{modulo}.{acao}` (ex.: `portalrh.vagas.criar`)
+---
+
+## Decisão de arquitetura (equipe — jun/2026)
+
+**O Hub é portal de autenticação e launcher. Não governa o que o usuário faz dentro de cada sistema.**
+
+| Responsabilidade | Quem controla |
+|------------------|---------------|
+| Login corporativo (Entra), sessão no Hub | **Hub** |
+| Quais **sistemas/apps** o usuário **pode abrir** | **Hub** |
+| O que o usuário **pode fazer dentro** do Portal RH (criar vaga, aprovar candidato, etc.) | **Portal RH** (RBAC por tenant, já existente) |
+| O que o usuário faz dentro de TOTVS, BI, etc. | **Cada sistema** |
+
+**Modelo alvo revisado:**
+
+```text
+Hub:     Usuário → Perfil → Acesso a Sistema(s)
+Portal:  Usuário → Perfil/Role → Permissão de ação (RequirePermission, etc.)
+```
+
+O Hub **não** envia `portalrh.vagas.criar` no SSO. O SSO continua repassando identidade (e-mail); o Portal resolve roles/permissões no tenant.
 
 ---
 
 ## Status geral
 
-| Fase | Escopo | Status |
-|------|--------|--------|
-| **1** | Fundação (modelo, seeds, validação) | ✅ Concluída |
-| **2** | APIs de consulta e autorização | ✅ Concluída |
-| **3** | Admin UI completa (CRUD) | ⚪ Pendente |
-| **4** | Integração Portal RH / SSO com permissões | ⚪ Pendente |
-| **5** | Escopos operacionais, solicitações, auditoria avançada | ⚪ Pendente |
+| Fase | Escopo original | Status | Próximo passo |
+|------|-----------------|--------|--------------|
+| **1** | IAM granular (módulos + permissões de ação) | ✅ Entregue (PR #227) | **Simplificar** modelo para acesso a sistemas |
+| **2** | APIs de permissões granulares | ✅ Entregue (PR #227) | Ajustado na 2.1 |
+| **2.1** | Acesso a sistemas (sem ações in-app) | ✅ Concluída | — |
+| **3** | Admin CRUD de permissões por módulo | ⚪ Repensada | Admin: usuários, perfis, **acesso a sistemas** |
+| **4** | SSO com permissões para Portal | ❌ **Fora de escopo** | Manter SSO só identidade |
+| **5** | Escopos in-app, solicitações | ⚪ Parcial | Solicitação de **acesso a sistema** no Hub; escopos operacionais no Portal |
 
 ---
 
-## Fase 1 — Fundação ✅ entrega validável
+## O que permanece válido (Fases 1–2 já deployadas)
 
-**Objetivo:** Banco modelado, seeds iniciais, painel de leitura para conferência.
-
-### Entregas
-
-- [x] Entidades: `HubUser`, `HubProfile`, `HubSystem`, `HubSystemModule`, `HubPermission`
-- [x] Associações: `HubUserProfile`, `HubProfilePermission`, `HubUserProfileScope`
-- [x] `HubAccessScope`, `HubAccessAudit`
-- [x] Migration EF `AddControleAcessosFase1`
-- [x] Seeds: sistemas, módulos, permissões, perfis e vínculos iniciais
-- [x] Migração de `HubAdmins` → usuário + perfil `administrador`
-- [x] Página `/Admin/Access` — resumo do catálogo IAM (validação visual)
-- [x] Link no painel admin
-
-### Como validar
-
-1. Subir o Hub local (`dotnet run --launch-profile http`).
-2. Entrar como admin (Entra ou bootstrap).
-3. Acessar **Admin → Controle de Acessos**.
-4. Conferir contagens: sistemas (9+), módulos, permissões, perfis (6).
-5. Expandir perfis e ver permissões associadas (ex.: `analista-rh`, `coordenador-rh`).
-6. Verificar no banco (SQLite `App_Data/liotecnica_hub.db` ou Postgres HMG) tabelas `HubSystems`, `HubPermissions`, etc.
-
-### Fora do escopo da Fase 1
-
-- Endpoints REST (`/api/auth/minhas-permissoes`, etc.)
-- CRUD administrativo de usuários/perfis
-- Filtro de apps visíveis por perfil (mantém `HubApplicationAccessRule`)
-- SSO repassando permissões ao Portal RH
-- Solicitações de acesso
+- Catálogo de **sistemas** (`HubSystem`) e **aplicativos** (`HubApplication` + vínculo `SystemId`)
+- **Usuários** IAM (`HubUser`) provisionados no login
+- **Perfis** (`HubProfile`) como agrupamento de acessos
+- APIs úteis (com semântica a revisar):
+  - `GET /api/auth/me` — usuário + perfis
+  - `GET /api/hub/meus-sistemas` — **principal** para launcher
+- Filtro de tiles em `/Apps`: usuário só vê apps dos sistemas que tem acesso
+- Regras legadas `HubApplicationAccessRule` (e-mail/domínio) até migrar todos para IAM
 
 ---
 
-## Fase 2 — APIs de consulta
+## O que muda / simplifica
 
-**Objetivo:** Hub expõe permissões para frontend e sistemas integrados.
+### Modelo de permissão no Hub
 
-- [x] `GET /api/auth/me`
-- [x] `GET /api/auth/minhas-permissoes`
-- [x] `GET /api/hub/meus-sistemas`
-- [x] `GET /api/auth/verificar-permissao?codigo=...`
-- [x] `AuthorizeHubPermissionAttribute` + policy provider + handler
-- [x] Sincronizar `HubUser` no login Entra/dev (upsert por e-mail)
-- [x] Visibilidade de apps por IAM quando usuário tem perfis (`hub.aplicativos.visualizar`)
+**Antes (plano original):** `{sistema}.{modulo}.{acao}` — ex. `portalrh.vagas.criar`  
+**Depois (decisão equipe):** acesso binário ao sistema — ex. `hub.sistema.portalrh` ou perfil → lista de sistemas
 
-**Critério de pronto:** Postman/curl retorna permissões do usuário logado; apps filtrados por perfil.
+| Entidade | Manter | Simplificar / deprecar |
+|----------|--------|-------------------------|
+| `HubSystem` | ✅ | — |
+| `HubUser`, `HubProfile`, `HubUserProfile` | ✅ | — |
+| `HubSystemModule` | ⚠️ | Opcional; só se módulos forem do **Hub** (favoritos, admin) |
+| `HubPermission` (portalrh.*) | ❌ | Remover seeds de ações do Portal; manter só permissões **de acesso** |
+| `HubAccessScope` (filial/unidade) | ❌ no Hub | Escopo operacional fica no **Portal RH** |
+| `AuthorizeHubPermission("portalrh…")` | ❌ | Usar só para rotas **do Hub** (ex. admin) |
 
-### Como validar (Fase 2)
+### Fases replanejadas
 
-1. Login como admin (perfil `administrador` no seed).
-2. Com cookie de sessão, chamar:
-   - `GET http://localhost:3010/api/auth/me`
-   - `GET http://localhost:3010/api/auth/minhas-permissoes`
-   - `GET http://localhost:3010/api/hub/meus-sistemas`
-   - `GET http://localhost:3010/api/auth/verificar-permissao?codigo=portalrh.vagas.criar`
-   - `GET http://localhost:3010/api/hub/access/probe` (exige `hub.auditoria.visualizar`)
-3. Usuário **sem** perfis IAM continua com regras legadas de e-mail/domínio nos apps.
-4. Usuário **com** perfis IAM precisa de `hub.aplicativos.visualizar` para ver tiles em `/Apps`.
+#### Fase 2.1 — Ajuste pós-decisão (próxima entrega técnica)
 
----
+- [x] Entidade `HubProfileSystemAccess` (perfil → sistema)
+- [x] Redefinir seeds: perfis concedem **sistemas**, não ações do Portal RH
+- [x] `GET /api/hub/meus-acessos` (contrato principal)
+- [x] `GET /api/hub/meus-sistemas` filtrado por acesso a sistema
+- [x] `GET /api/hub/verificar-acesso-sistema?codigo=portalrh`
+- [x] `HubApplicationService`: visibilidade por `ProfileSystemAccess`
+- [x] Desativar permissões legadas `portalrh.*` no seed (migração HMG)
+- [x] Atualizar `/Admin/Access` para “acesso a sistemas”
+- [x] `minhas-permissoes` marcado legado; `verificar-permissao` só `hub.*`
 
-## Fase 3 — Admin UI completa
+#### Fase 3 — Administração (escopo revisado)
 
-**Objetivo:** Operação sem SQL.
+- [ ] CRUD Usuários e Perfis
+- [ ] Tela perfil: checkboxes **por sistema** (Portal RH, TOTVS, Intranet…)
+- [ ] CRUD Sistemas / Aplicativos (launcher)
+- [ ] Auditoria: quem ganhou/perdeu acesso a qual sistema
+- [ ] ~~CRUD módulos/permissões granulares do Portal~~ **removido do Hub**
 
-- [ ] Seção **Administração de Acessos** na sidebar
-- [ ] CRUD Usuários, Perfis, Sistemas, Módulos, Permissões
-- [ ] Tela de perfil com checkboxes por sistema/módulo
-- [ ] Listagem de auditoria (`HubAccessAudit`)
+#### Fase 4 — Integração Portal RH (revisada)
 
-**Critério de pronto:** Admin altera perfil de um usuário e vê reflexo em `/api/auth/minhas-permissoes`.
+- [ ] SSO Hub → Portal: **somente e-mail + tenant** (como hoje)
+- [ ] Portal continua fonte de verdade para roles/`RequirePermission`
+- [ ] ~~Token com portalrh.*~~ **cancelado**
+- [ ] Opcional: ao primeiro SSO, Portal **provisiona** usuário no tenant se não existir (fluxo Portal, não Hub)
 
----
+#### Fase 5 — Solicitações (Hub)
 
-## Fase 4 — Integração Portal RH
-
-**Decisão pendente:** Hub como fonte única (A), só visibilidade (B) ou sync (C).
-
-- [ ] Definir opção A/B/C com PO
-- [ ] Mapear permissões `portalrh.*` ↔ chaves atuais do Portal (`RequirePermission`)
-- [ ] Estender token SSO Hub → Portal com claims de permissão/escopo
-- [ ] Portal valida `portalrh.*` ou sincroniza roles por tenant
-
-**Critério de pronto:** Usuário sem `portalrh.vagas.criar` recebe 403 ao criar vaga.
-
----
-
-## Fase 5 — Escopos, solicitações e auditoria
-
-- [ ] Validação `PossuiEscopo(tipo, codigo)` nos backends
-- [ ] Tabela `HubAccessRequest` (solicitações de acesso)
-- [ ] Fluxo aprovação gestor → TI/admin
-- [ ] Auditoria automática em toda alteração de perfil/permissão
+- [ ] Usuário solicita **acesso a um sistema** (não a uma ação)
+- [ ] Aprovação → perfil/sistema liberado no Hub
+- [ ] Notificação + auditoria
 
 ---
 
-## Decisões em aberto
+## Mapeamento: plano original vs decisão
 
-| # | Tema | Opções | Decisão |
-|---|------|--------|---------|
-| 1 | Hub vs Portal RBAC | A centraliza / B coexistem / C sync | _Pendente_ |
-| 2 | Formato permissões Portal | Adotar `portalrh.*` ou mapear chaves atuais | _Pendente_ |
-| 3 | Provisioning usuários | Auto no login Entra vs cadastro manual | _Pendente_ |
-| 4 | Origem dos escopos | RM/TOTVS vs cadastro Hub | _Pendente_ |
+| Plano original | Decisão equipe |
+|----------------|----------------|
+| Hub = catálogo de permissões de ação | Hub = catálogo de **sistemas** + quem acessa |
+| `portalrh.vagas.criar` no Hub | `portalrh.vagas.criar` no **Portal RH** |
+| SSO repassa permissões | SSO repassa **identidade** |
+| Escopo filial no Hub | Escopo filial no **Portal** (já há claims de escopo) |
+| Perfil Analista RH = ações no RH | Perfil no Hub = **pode abrir Portal RH**; perfil no Portal = **o que faz lá** |
 
 ---
 
-## Referências no código
+## Referências no código (estado atual — PR #227)
 
 ```
 LiotecnicaHub/LiotecnicaHub.Web/
-├── Domain/Entities/HubUser.cs, HubProfile.cs, HubSystem.cs, ...
-├── Domain/Enums/HubAccessScopeType.cs, HubAccessAuditAction.cs
-├── Infrastructure/Data/HubAccessSeedData.cs
-├── Application/Access/HubAccessCatalogService.cs
+├── Domain/Entities/HubSystem.cs          ← manter (core)
+├── Domain/Entities/HubPermission.cs      ← simplificar uso (só acesso)
+├── Infrastructure/Data/HubAccessSeedData.cs ← revisar seeds
+├── Application/Access/HubAccessService.cs
+├── Controllers/AuthApiController.cs
 └── Pages/Admin/Access/Index.cshtml
+```
+
+Portal RH (sem mudança de responsabilidade):
+
+```
+RHPortal.Api/.../Infrastructure/Security/RequirePermissionAttribute.cs
+RHPortal.Api/.../RolePermissionManifest.cs
 ```
 
 ---
 
-_Última atualização: Fase 1 concluída (migration `AddControleAcessosFase1`, página `/Admin/Access`)._
+## Resumo para conversa com PO
+
+> O Hub responde: **“Este usuário pode entrar no Portal RH (ou TOTVS, ou BI)?”**  
+> O Portal RH responde: **“Dentro do Portal, este usuário pode criar vaga, aprovar candidato, etc.?”**
+
+Isso evita duplicar RBAC, reduz acoplamento no SSO e mantém cada sistema autônomo — alinhado ao que a equipe definiu.
+
+---
+
+_Última atualização: Fase 2.1 — acesso a sistemas (HubProfileSystemAccess, migration AddProfileSystemAccessFase21)._
