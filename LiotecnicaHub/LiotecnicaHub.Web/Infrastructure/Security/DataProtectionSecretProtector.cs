@@ -26,6 +26,16 @@ public sealed class DataProtectionSecretProtector : ISecretProtector
     public string Unprotect(string protectedText)
     {
         if (string.IsNullOrEmpty(protectedText)) return string.Empty;
-        return _protector.Unprotect(protectedText);
+        try
+        {
+            return _protector.Unprotect(protectedText);
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            throw new InvalidOperationException(
+                "Não foi possível ler o client secret salvo. " +
+                "Salve novamente o secret no Admin ou restaure o volume de chaves DataProtection.",
+                ex);
+        }
     }
 }

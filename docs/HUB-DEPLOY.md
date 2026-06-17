@@ -219,6 +219,7 @@ Os cards continuam com URL de login (`.../app/login?tenant=liotecnica`). O Hub d
 | `troca_de_code_falhou` | Secret errado ou redirect URI diferente do Azure | Conferir secret e URI exata |
 | Admin não aparece | E-mail não está em `HubAdmins` | Conferir seed / tabela |
 | Health falha | Postgres inacessível | Connection string e rede |
+| `/Login` HTTP 500 | Client secret Entra criptografado com chaves antigas após redeploy | Rodar `__scripts__/hmg/hub-fix-login-500.sh` no servidor; redeploy com volume `hub_dpkeys`; re-salvar secret no Admin |
 
 ---
 
