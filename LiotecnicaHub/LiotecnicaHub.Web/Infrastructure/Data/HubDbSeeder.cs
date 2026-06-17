@@ -16,8 +16,37 @@ public static class HubDbSeeder
         await db.InitializeSchemaAsync(ct);
 
         await SeedEntraConfigAsync(db, configuration, logger, ct);
+        await SyncEntraPublicUrlsAsync(db, configuration, logger, ct);
         await SeedApplicationsAsync(db, logger, ct);
         await SeedAdminsAsync(db, configuration, logger, ct);
+    }
+
+    private static async Task SyncEntraPublicUrlsAsync(
+        HubDbContext db,
+        IConfiguration configuration,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var hubBase = configuration["Hub:BaseUrl"] ?? configuration["HUB_BASE_URL"];
+        if (string.IsNullOrWhiteSpace(hubBase))
+            return;
+
+        hubBase = hubBase.Trim().TrimEnd('/');
+        var expectedCallback = $"{hubBase}/Auth/EntraCallback";
+
+        var entity = await db.EntraConfigs.FirstOrDefaultAsync(ct);
+        if (entity is null)
+            return;
+
+        if (string.Equals(entity.HubBaseUrl, hubBase, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entity.CallbackPath, expectedCallback, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        entity.HubBaseUrl = hubBase;
+        entity.CallbackPath = expectedCallback;
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("HubEntraConfig URLs sincronizadas com HUB_BASE_URL: {BaseUrl}", hubBase);
     }
 
     private static async Task SeedEntraConfigAsync(

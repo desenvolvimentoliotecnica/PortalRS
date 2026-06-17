@@ -37,24 +37,30 @@
             {
                 <p class="login-divider">ou</p>
             }
-            else
+            @if (Model.IsBootstrapLogin)
             {
                 <div class="alert alert-info">
-                    SSO Microsoft ainda não configurado. Use o login de <strong>desenvolvimento</strong> abaixo para testar localmente.
+                    <strong>Login administrativo</strong> — use o e-mail cadastrado em <code>HUB_SEED_ADMIN_EMAILS</code>
+                    para acessar <strong>Configurações → Entra ID</strong> e reconfigurar o Microsoft SSO.
+                </div>
+            }
+            else if (!Model.EntraEnabled)
+            {
+                <div class="alert alert-info">
+                    SSO Microsoft ainda não configurado. Use o login abaixo para testar localmente.
                 </div>
             }
             <form method="post" asp-page-handler="Dev" class="dev-login-form">
-                <label for="DevEmail">E-mail corporativo</label>
+                <label for="DevEmail">E-mail corporativo (admin)</label>
                 <input type="email" id="DevEmail" name="DevEmail" asp-for="DevEmail"
-                       placeholder="lucas.machado@liotecnica.com.br" required autocomplete="email" />
-                <button type="submit" class="btn btn-primary btn-block">Entrar (desenvolvimento)</button>
+                       placeholder="seu.email@liotecnica.com.br" required autocomplete="email" />
+                <button type="submit" class="btn btn-primary btn-block">
+                    @(Model.IsBootstrapLogin ? "Entrar como administrador" : "Entrar (desenvolvimento)")
+                </button>
             </form>
-            @if (!Model.EntraEnabled)
-            {
-                <p class="login-hint">
-                    E-mails em <code>Hub:SeedAdminEmails</code> ganham acesso ao painel Admin.
-                </p>
-            }
+            <p class="login-hint">
+                Após entrar, abra <strong>Configurações</strong> na barra lateral ou acesse <code>/Admin</code>.
+            </p>
         }
         else if (!Model.EntraEnabled)
         {
@@ -65,4 +71,3 @@
     </div>
 </body>
 </html>
-
