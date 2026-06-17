@@ -1,0 +1,42 @@
+@page "{id:guid}"
+@model LiotecnicaHub.Web.Pages.Admin.Applications.EditModel
+@{
+    ViewData["Title"] = "Editar aplicativo";
+}
+
+<section class="page-header">
+    <h1>Editar aplicativo</h1>
+</section>
+
+<form method="post" class="form-card">
+    <input type="hidden" asp-for="Input.Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+    <label asp-for="Input.Name">Nome</label>
+    <input asp-for="Input.Name" class="form-control" />
+
+    <label asp-for="Input.Description">Descrição</label>
+    <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
+
+    <label asp-for="Input.LaunchUrl">URL de abertura</label>
+    <input asp-for="Input.LaunchUrl" class="form-control" />
+
+    <label asp-for="Input.IconUrl">URL do ícone (opcional)</label>
+    <input asp-for="Input.IconUrl" class="form-control" />
+
+    <label asp-for="Input.Environment">Ambiente</label>
+    <select asp-for="Input.Environment" asp-items="Model.EnvironmentOptions" class="form-control"></select>
+
+    <label asp-for="Input.SortOrder">Ordem</label>
+    <input asp-for="Input.SortOrder" class="form-control" type="number" />
+
+    <label class="checkbox-row">
+        <input asp-for="Input.IsActive" type="checkbox" />
+        Ativo
+    </label>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a asp-page="Index">Cancelar</a>
+    </div>
+</form>

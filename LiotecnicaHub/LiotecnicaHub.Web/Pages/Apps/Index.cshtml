@@ -1,0 +1,46 @@
+@page
+@model LiotecnicaHub.Web.Pages.Apps.IndexModel
+@{
+    ViewData["Title"] = "Aplicativos";
+}
+
+<section class="page-header">
+    <h1>Seus aplicativos</h1>
+    <p>Selecione um ambiente para abrir o Portal RH ou outro sistema corporativo.</p>
+</section>
+
+@if (!Model.Applications.Any())
+{
+    <div class="empty-state">
+        <p>Nenhum aplicativo disponível para sua conta no momento.</p>
+    </div>
+}
+else
+{
+    <div class="app-grid">
+        @foreach (var app in Model.Applications)
+        {
+            <a class="app-card" href="@app.LaunchUrl" target="_blank" rel="noopener noreferrer">
+                <div class="app-card-top">
+                    @if (!string.IsNullOrWhiteSpace(app.IconUrl))
+                    {
+                        <img class="app-icon" src="@app.IconUrl" alt="" />
+                    }
+                    else
+                    {
+                        <div class="app-icon app-icon-placeholder" aria-hidden="true">@app.Name[0]</div>
+                    }
+                    <span class="env-badge @HubUiHelpers.EnvironmentCssClass(app.Environment)">
+                        @HubUiHelpers.EnvironmentLabel(app.Environment)
+                    </span>
+                </div>
+                <h2>@app.Name</h2>
+                @if (!string.IsNullOrWhiteSpace(app.Description))
+                {
+                    <p>@app.Description</p>
+                }
+                <span class="app-launch">Abrir aplicativo →</span>
+            </a>
+        }
+    </div>
+}

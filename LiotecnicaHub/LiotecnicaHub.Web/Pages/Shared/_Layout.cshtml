@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — Liotecnica Hub</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="brand" asp-page="/Apps/Index">Liotecnica Hub</a>
+            <nav class="nav-links">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-page="/Apps/Index">Aplicativos</a>
+                    @if (User.HasClaim(HubClaimTypes.IsHubAdmin, "true"))
+                    {
+                        <a asp-page="/Admin/Index">Admin</a>
+                    }
+                    <span class="user-email">@User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</span>
+                    <a asp-page="/Login" asp-page-handler="Logout">Sair</a>
+                }
+                else
+                {
+                    <a asp-page="/Login">Entrar</a>
+                }
+            </nav>
+        </div>
+    </header>
+    <main class="container main-content">
+        @RenderBody()
+    </main>
+    <footer class="site-footer">
+        <div class="container">
+            <small>&copy; @DateTime.UtcNow.Year Liotecnica — Hub de aplicativos corporativos</small>
+        </div>
+    </footer>
+</body>
+</html>
