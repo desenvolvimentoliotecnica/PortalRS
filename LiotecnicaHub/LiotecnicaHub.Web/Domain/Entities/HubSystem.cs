@@ -15,5 +15,6 @@ public class HubSystem
 
     public ICollection<HubSystemModule> Modules { get; set; } = new List<HubSystemModule>();
     public ICollection<HubPermission> Permissions { get; set; } = new List<HubPermission>();
+    public ICollection<HubProfileSystemAccess> ProfileSystemAccesses { get; set; } = new List<HubProfileSystemAccess>();
     public ICollection<HubApplication> Applications { get; set; } = new List<HubApplication>();
 }

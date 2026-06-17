@@ -25,6 +25,7 @@ public sealed class AuthApiController : ControllerBase
     }
 
     [HttpGet("minhas-permissoes")]
+    [Obsolete("Use GET /api/hub/meus-acessos")]
     public async Task<IActionResult> GetMinhasPermissoes(CancellationToken ct)
     {
         var email = ResolveEmail();
@@ -42,7 +43,7 @@ public sealed class AuthApiController : ControllerBase
         if (string.IsNullOrWhiteSpace(codigo))
             return BadRequest(new { message = "Informe o parâmetro codigo." });
 
-        var result = await _access.VerificarPermissaoAsync(email, codigo, ct);
+        var result = await _access.VerificarPermissaoHubAsync(email, codigo, ct);
         return Ok(result);
     }
 

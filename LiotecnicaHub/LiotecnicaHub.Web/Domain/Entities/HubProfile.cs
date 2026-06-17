@@ -12,5 +12,6 @@ public class HubProfile
 
     public ICollection<HubUserProfile> UserProfiles { get; set; } = new List<HubUserProfile>();
     public ICollection<HubProfilePermission> ProfilePermissions { get; set; } = new List<HubProfilePermission>();
+    public ICollection<HubProfileSystemAccess> ProfileSystemAccesses { get; set; } = new List<HubProfileSystemAccess>();
     public ICollection<HubUserProfileScope> UserProfileScopes { get; set; } = new List<HubUserProfileScope>();
 }

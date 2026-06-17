@@ -1,6 +1,5 @@
 using LiotecnicaHub.Web.Application.Access.Contracts;
 using LiotecnicaHub.Web.Domain.Entities;
-using LiotecnicaHub.Web.Domain.Enums;
 using LiotecnicaHub.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,16 +53,22 @@ public sealed class HubUserProvisioningService : IHubUserProvisioningService
 public interface IHubAccessService
 {
     Task<HubAuthMeResponse?> GetMeAsync(string email, CancellationToken ct);
+    Task<HubMeusAcessosResponse?> GetMeusAcessosAsync(string email, CancellationToken ct);
     Task<HubMinhasPermissoesResponse?> GetMinhasPermissoesAsync(string email, CancellationToken ct);
-    Task<HubVerificarPermissaoResponse> VerificarPermissaoAsync(string email, string permissionCode, CancellationToken ct);
+    Task<HubVerificarPermissaoResponse> VerificarPermissaoHubAsync(string email, string permissionCode, CancellationToken ct);
+    Task<HubVerificarAcessoSistemaResponse> VerificarAcessoSistemaAsync(string email, string systemCode, CancellationToken ct);
     Task<IReadOnlyList<HubMeuSistemaDto>> GetMeusSistemasAsync(string email, CancellationToken ct);
-    Task<bool> PossuiPermissaoAsync(string email, string permissionCode, CancellationToken ct);
+    Task<bool> PossuiPermissaoHubAsync(string email, string permissionCode, CancellationToken ct);
+    Task<bool> PossuiAcessoSistemaAsync(string email, string systemCode, CancellationToken ct);
+    Task<IReadOnlyList<string>> GetAccessibleSystemCodesAsync(string email, CancellationToken ct);
     Task<IReadOnlyList<string>> GetProfileCodesAsync(string email, CancellationToken ct);
 }
 
 public sealed class HubAccessService : IHubAccessService
 {
-    public const string HubAppsVisualizar = "hub.aplicativos.visualizar";
+    public const string HubPermissionPrefix = "hub.";
+    public const string LegacyEndpointAviso =
+        "Endpoint legado. O Hub controla acesso a sistemas, não ações dentro deles. Use /api/hub/meus-acessos.";
 
     private readonly HubDbContext _db;
 
@@ -78,24 +83,54 @@ public sealed class HubAccessService : IHubAccessService
         return new HubAuthMeResponse(user.Id, user.Name, user.Email, profiles);
     }
 
+    public async Task<HubMeusAcessosResponse?> GetMeusAcessosAsync(string email, CancellationToken ct)
+    {
+        var user = await FindActiveUserAsync(email, ct);
+        if (user is null) return null;
+
+        var sistemas = await GetAccessibleSystemCodesAsync(email, ct);
+        return new HubMeusAcessosResponse(user.Id, sistemas);
+    }
+
     public async Task<HubMinhasPermissoesResponse?> GetMinhasPermissoesAsync(string email, CancellationToken ct)
     {
         var user = await FindActiveUserAsync(email, ct);
         if (user is null) return null;
 
-        var permissoes = await ResolvePermissionCodesAsync(user.Id, ct);
-        var escopos = await ResolveScopesAsync(user.Id, ct);
+        var sistemas = await GetAccessibleSystemCodesAsync(email, ct);
+        var hubAdmin = await ResolveHubAdminPermissionCodesAsync(user.Id, ct);
 
-        return new HubMinhasPermissoesResponse(user.Id, permissoes, escopos);
+        return new HubMinhasPermissoesResponse(
+            user.Id,
+            hubAdmin,
+            [],
+            Obsoleto: true,
+            Aviso: LegacyEndpointAviso + " Sistemas liberados: " + string.Join(", ", sistemas));
     }
 
-    public async Task<HubVerificarPermissaoResponse> VerificarPermissaoAsync(
+    public async Task<HubVerificarPermissaoResponse> VerificarPermissaoHubAsync(
         string email,
         string permissionCode,
         CancellationToken ct)
     {
-        var permitido = await PossuiPermissaoAsync(email, permissionCode, ct);
+        if (!permissionCode.Trim().StartsWith(HubPermissionPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return new HubVerificarPermissaoResponse(
+                false,
+                "Use /api/hub/verificar-acesso-sistema para acesso a sistemas. Permissões de ação são do Portal RH.");
+        }
+
+        var permitido = await PossuiPermissaoHubAsync(email, permissionCode, ct);
         return new HubVerificarPermissaoResponse(permitido);
+    }
+
+    public async Task<HubVerificarAcessoSistemaResponse> VerificarAcessoSistemaAsync(
+        string email,
+        string systemCode,
+        CancellationToken ct)
+    {
+        var permitido = await PossuiAcessoSistemaAsync(email, systemCode, ct);
+        return new HubVerificarAcessoSistemaResponse(permitido);
     }
 
     public async Task<IReadOnlyList<HubMeuSistemaDto>> GetMeusSistemasAsync(string email, CancellationToken ct)
@@ -103,27 +138,12 @@ public sealed class HubAccessService : IHubAccessService
         if (string.IsNullOrWhiteSpace(email))
             return [];
 
-        email = email.Trim().ToLowerInvariant();
-        var user = await FindActiveUserAsync(email, ct);
-
-        if (user is null)
-            return [];
-
-        var permissoes = await ResolvePermissionCodesAsync(user.Id, ct);
-        if (!permissoes.Contains(HubAppsVisualizar, StringComparer.OrdinalIgnoreCase))
-            return [];
-
-        var systemCodes = permissoes
-            .Select(p => p.Split('.', 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault())
-            .Where(c => !string.IsNullOrWhiteSpace(c) && !string.Equals(c, "hub", StringComparison.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
+        var systemCodes = await GetAccessibleSystemCodesAsync(email, ct);
         if (systemCodes.Count == 0)
             return [];
 
         return await _db.Systems.AsNoTracking()
-            .Where(s => s.IsActive && systemCodes.Contains(s.Code))
+            .Where(s => s.IsActive && systemCodes.Contains(s.Code) && s.Code != "hub")
             .OrderBy(s => s.Name)
             .Select(s => new HubMeuSistemaDto(
                 s.Code,
@@ -135,18 +155,49 @@ public sealed class HubAccessService : IHubAccessService
             .ToListAsync(ct);
     }
 
-    public async Task<bool> PossuiPermissaoAsync(string email, string permissionCode, CancellationToken ct)
+    public async Task<bool> PossuiPermissaoHubAsync(string email, string permissionCode, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(permissionCode))
+        if (string.IsNullOrWhiteSpace(email)
+            || string.IsNullOrWhiteSpace(permissionCode)
+            || !permissionCode.Trim().StartsWith(HubPermissionPrefix, StringComparison.OrdinalIgnoreCase))
             return false;
 
         var user = await FindActiveUserAsync(email, ct);
         if (user is null) return false;
 
         permissionCode = permissionCode.Trim().ToLowerInvariant();
-        var permissoes = await ResolvePermissionCodesAsync(user.Id, ct);
+        var permissoes = await ResolveHubAdminPermissionCodesAsync(user.Id, ct);
 
         return permissoes.Any(p => PermissionMatches(p, permissionCode));
+    }
+
+    public async Task<bool> PossuiAcessoSistemaAsync(string email, string systemCode, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(systemCode))
+            return false;
+
+        systemCode = systemCode.Trim().ToLowerInvariant();
+        var codes = await GetAccessibleSystemCodesAsync(email, ct);
+        return codes.Contains(systemCode, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyList<string>> GetAccessibleSystemCodesAsync(string email, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return [];
+
+        email = email.Trim().ToLowerInvariant();
+
+        return await _db.Users.AsNoTracking()
+            .Where(u => u.IsActive && u.Email == email)
+            .SelectMany(u => u.UserProfiles)
+            .Where(up => up.Profile.IsActive)
+            .SelectMany(up => up.Profile.ProfileSystemAccesses)
+            .Where(psa => psa.System.IsActive)
+            .Select(psa => psa.System.Code)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToListAsync(ct);
     }
 
     public async Task<IReadOnlyList<string>> GetProfileCodesAsync(string email, CancellationToken ct)
@@ -191,25 +242,15 @@ public sealed class HubAccessService : IHubAccessService
             .FirstOrDefaultAsync(u => u.IsActive && u.Email == email, ct);
     }
 
-    private async Task<IReadOnlyList<string>> ResolvePermissionCodesAsync(Guid userId, CancellationToken ct) =>
+    private async Task<IReadOnlyList<string>> ResolveHubAdminPermissionCodesAsync(Guid userId, CancellationToken ct) =>
         await _db.Users.AsNoTracking()
             .Where(u => u.Id == userId && u.IsActive)
             .SelectMany(u => u.UserProfiles)
             .Where(up => up.Profile.IsActive)
             .SelectMany(up => up.Profile.ProfilePermissions)
-            .Where(pp => pp.Permission.IsActive)
+            .Where(pp => pp.Permission.IsActive && pp.Permission.Code.StartsWith(HubPermissionPrefix))
             .Select(pp => pp.Permission.Code)
             .Distinct()
             .OrderBy(c => c)
-            .ToListAsync(ct);
-
-    private async Task<IReadOnlyList<HubAccessScopeDto>> ResolveScopesAsync(Guid userId, CancellationToken ct) =>
-        await _db.UserProfileScopes.AsNoTracking()
-            .Where(ups => ups.UserId == userId && ups.Scope.IsActive)
-            .Select(ups => new HubAccessScopeDto(
-                ups.Scope.ScopeType.ToString().ToLowerInvariant(),
-                ups.Scope.ExternalCode ?? string.Empty,
-                ups.Scope.Name))
-            .Distinct()
             .ToListAsync(ct);
 }
