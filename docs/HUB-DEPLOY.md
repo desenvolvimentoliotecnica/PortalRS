@@ -206,6 +206,7 @@ Os cards continuam com URL de login (`.../app/login?tenant=liotecnica`). O Hub d
 | `hub_sso_error=token_invalido` | Token expirou ou chave divergente |
 | `hub_sso_error=usuario_nao_autenticado` | E-mail do Hub não existe no tenant |
 | `hub_sso_error=nao_configurado` | `HubSso__SigningKey` ausente na API |
+| `TenantHeaderMissingDetail` no hub-sso | API desatualizada sem whitelist de `/api/auth/hub-sso` | Redeploy da API (`portalRH-HML`); endpoint não exige header — tenant vem do token |
 
 ---
 
