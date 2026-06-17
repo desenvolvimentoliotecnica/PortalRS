@@ -12,7 +12,7 @@ public sealed class TenantMiddleware : IMiddleware
 {
     public const string TenantHeaderName = "X-Tenant-Id";
     private static readonly Regex TenantPattern = new("^[a-z0-9][a-z0-9\\-]{1,62}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    // entra/callback: redirect do Microsoft (code+state) — tenant vem do state assinado no AuthController.
+    // entra/callback e hub-sso: redirect do browser (code/state ou token HMAC) — tenant vem do payload assinado no AuthController.
     private static readonly string[] PublicPathsWithoutTenant = new[]
     {
         "/health",
@@ -20,6 +20,7 @@ public sealed class TenantMiddleware : IMiddleware
         "/swagger",
         "/api/auth/auto-login",
         "/api/auth/entra/callback",
+        "/api/auth/hub-sso",
         "/api/public/branding",
     };
 
