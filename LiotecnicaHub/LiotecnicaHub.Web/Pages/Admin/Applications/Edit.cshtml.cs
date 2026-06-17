@@ -1,6 +1,6 @@
-using System.ComponentModel.DataAnnotations;
 using LiotecnicaHub.Web.Application.Applications;
 using LiotecnicaHub.Web.Domain.Enums;
+using LiotecnicaHub.Web.Infrastructure.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -10,11 +10,21 @@ namespace LiotecnicaHub.Web.Pages.Admin.Applications;
 public class EditModel : PageModel
 {
     private readonly IHubApplicationService _apps;
+    private readonly IHubAppIconStorage _iconStorage;
 
-    public EditModel(IHubApplicationService apps) => _apps = apps;
+    public EditModel(IHubApplicationService apps, IHubAppIconStorage iconStorage)
+    {
+        _apps = apps;
+        _iconStorage = iconStorage;
+    }
 
     [BindProperty]
     public ApplicationInput Input { get; set; } = new();
+
+    [BindProperty]
+    public IFormFile? IconFile { get; set; }
+
+    public AppIconUploadViewModel IconUpload { get; set; } = new();
 
     public SelectList EnvironmentOptions { get; set; } = null!;
 
@@ -23,18 +33,8 @@ public class EditModel : PageModel
         var app = await _apps.GetByIdAsync(id, ct);
         if (app is null) return NotFound();
 
-        Input = new ApplicationInput
-        {
-            Id = app.Id,
-            Name = app.Name,
-            Description = app.Description,
-            IconUrl = app.IconUrl,
-            LaunchUrl = app.LaunchUrl,
-            Environment = app.Environment,
-            SortOrder = app.SortOrder,
-            IsActive = app.IsActive
-        };
-
+        Input = MapToInput(app);
+        IconUpload = BuildIconUpload(app);
         EnvironmentOptions = BuildEnvironmentSelect();
         return Page();
     }
@@ -42,22 +42,50 @@ public class EditModel : PageModel
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         EnvironmentOptions = BuildEnvironmentSelect();
-        if (!ModelState.IsValid) return Page();
 
         var app = await _apps.GetByIdAsync(Input.Id, ct);
         if (app is null) return NotFound();
 
+        IconUpload = BuildIconUpload(app);
+
+        if (!ModelState.IsValid)
+            return Page();
+
         app.Name = Input.Name.Trim();
         app.Description = Input.Description?.Trim();
-        app.IconUrl = Input.IconUrl?.Trim();
         app.LaunchUrl = Input.LaunchUrl.Trim();
         app.Environment = Input.Environment;
         app.SortOrder = Input.SortOrder;
         app.IsActive = Input.IsActive;
 
+        await ApplicationIconFormHelper.ApplyIconChangesAsync(
+            app, Input, IconFile, _iconStorage, ModelState, ct);
+
+        if (!ModelState.IsValid)
+            return Page();
+
         await _apps.UpdateAsync(app, ct);
         return RedirectToPage("Index");
     }
+
+    private static ApplicationInput MapToInput(Domain.Entities.HubApplication app) => new()
+    {
+        Id = app.Id,
+        Name = app.Name,
+        Description = app.Description,
+        IconUrl = app.IconUrl,
+        LaunchUrl = app.LaunchUrl,
+        Environment = app.Environment,
+        SortOrder = app.SortOrder,
+        IsActive = app.IsActive
+    };
+
+    private static AppIconUploadViewModel BuildIconUpload(Domain.Entities.HubApplication app) => new()
+    {
+        ApplicationId = app.Id,
+        ApplicationName = app.Name,
+        CurrentIconUrl = app.IconUrl
+    };
 
     private static SelectList BuildEnvironmentSelect() =>
         new(Enum.GetValues<HubApplicationEnvironment>().Select(e => new
@@ -65,26 +93,4 @@ public class EditModel : PageModel
             Value = (int)e,
             Text = e.ToString()
         }), "Value", "Text");
-
-    public sealed class ApplicationInput
-    {
-        public Guid Id { get; set; }
-
-        [Required, MaxLength(200)]
-        public string Name { get; set; } = string.Empty;
-
-        [MaxLength(1000)]
-        public string? Description { get; set; }
-
-        [MaxLength(500)]
-        [Url]
-        public string? IconUrl { get; set; }
-
-        [Required, MaxLength(2000)]
-        public string LaunchUrl { get; set; } = string.Empty;
-
-        public HubApplicationEnvironment Environment { get; set; }
-        public int SortOrder { get; set; }
-        public bool IsActive { get; set; }
-    }
 }

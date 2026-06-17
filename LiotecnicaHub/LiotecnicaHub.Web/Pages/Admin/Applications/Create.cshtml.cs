@@ -1,7 +1,7 @@
-using System.ComponentModel.DataAnnotations;
 using LiotecnicaHub.Web.Application.Applications;
 using LiotecnicaHub.Web.Domain.Entities;
 using LiotecnicaHub.Web.Domain.Enums;
+using LiotecnicaHub.Web.Infrastructure.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -11,29 +11,42 @@ namespace LiotecnicaHub.Web.Pages.Admin.Applications;
 public class CreateModel : PageModel
 {
     private readonly IHubApplicationService _apps;
+    private readonly IHubAppIconStorage _iconStorage;
 
-    public CreateModel(IHubApplicationService apps) => _apps = apps;
+    public CreateModel(IHubApplicationService apps, IHubAppIconStorage iconStorage)
+    {
+        _apps = apps;
+        _iconStorage = iconStorage;
+    }
 
     [BindProperty]
     public ApplicationInput Input { get; set; } = new();
+
+    [BindProperty]
+    public IFormFile? IconFile { get; set; }
+
+    public AppIconUploadViewModel IconUpload { get; set; } = new();
 
     public SelectList EnvironmentOptions { get; set; } = null!;
 
     public void OnGet()
     {
         EnvironmentOptions = BuildEnvironmentSelect();
+        IconUpload = new AppIconUploadViewModel { ApplicationName = Input.Name };
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         EnvironmentOptions = BuildEnvironmentSelect();
-        if (!ModelState.IsValid) return Page();
+        IconUpload = new AppIconUploadViewModel { ApplicationName = Input.Name };
+
+        if (!ModelState.IsValid)
+            return Page();
 
         var app = new HubApplication
         {
             Name = Input.Name.Trim(),
             Description = Input.Description?.Trim(),
-            IconUrl = Input.IconUrl?.Trim(),
             LaunchUrl = Input.LaunchUrl.Trim(),
             Environment = Input.Environment,
             SortOrder = Input.SortOrder,
@@ -41,6 +54,27 @@ public class CreateModel : PageModel
         };
 
         await _apps.CreateAsync(app, ct);
+
+        if (!Input.RemoveIcon && IconFile is { Length: > 0 })
+        {
+            try
+            {
+                app.IconUrl = await _iconStorage.SaveAsync(app.Id, IconFile, null, ct);
+                await _apps.UpdateAsync(app, ct);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                Input.Id = app.Id;
+                IconUpload = new AppIconUploadViewModel
+                {
+                    ApplicationId = app.Id,
+                    ApplicationName = app.Name
+                };
+                return Page();
+            }
+        }
+
         return RedirectToPage("Index");
     }
 
@@ -50,24 +84,4 @@ public class CreateModel : PageModel
             Value = (int)e,
             Text = e.ToString()
         }), "Value", "Text");
-
-    public sealed class ApplicationInput
-    {
-        [Required, MaxLength(200)]
-        public string Name { get; set; } = string.Empty;
-
-        [MaxLength(1000)]
-        public string? Description { get; set; }
-
-        [MaxLength(500)]
-        [Url]
-        public string? IconUrl { get; set; }
-
-        [Required, MaxLength(2000)]
-        public string LaunchUrl { get; set; } = string.Empty;
-
-        public HubApplicationEnvironment Environment { get; set; } = HubApplicationEnvironment.Dev;
-        public int SortOrder { get; set; }
-        public bool IsActive { get; set; } = true;
-    }
 }

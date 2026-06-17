@@ -222,6 +222,7 @@ Os cards continuam com URL de login (`.../app/login?tenant=liotecnica`). O Hub d
 | `/Login` HTTP 500 | Client secret Entra criptografado com chaves antigas após redeploy | Rodar `__scripts__/hmg/hub-fix-login-500.sh` no servidor; redeploy com volume `hub_dpkeys`; re-salvar secret no Admin |
 | `secret_ausente` / `secret_invalido` | Client secret vazio ou errado no banco | Login administrativo (`HUB_ALLOW_DEV_LOGIN=true`) → **Configurações → Entra ID** → salvar **Value** do secret Azure |
 | Sem opção Admin | Usuário não autenticado ou e-mail fora de `HUB_SEED_ADMIN_EMAILS` | Entrar com e-mail admin via login bootstrap; depois **Configurações** na sidebar ou `/Admin/EntraConfig` |
+| Ícone sumiu após redeploy | Volume `hub_uploads` não montado | Confirmar `hub_uploads:/app/wwwroot/uploads` no compose |
 
 ---
 
