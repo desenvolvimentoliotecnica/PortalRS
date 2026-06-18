@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RhPortal.Api.Infrastructure.Security;
 
@@ -57,24 +57,24 @@ public sealed record EntraStatePayload(string TenantId, string ReturnUrl, string
 
 public sealed class EntraChallengeService : IEntraChallengeService
 {
-    // 10 minutos de janela para o usuário concluir o login no Microsoft.
-    private const int StateMaxAgeSeconds = 600;
-
     private readonly IEntraIdConfigService _configService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly JwtOptions _jwtOptions;
     private readonly ISecretProtector _protector;
+    private readonly ILogger<EntraChallengeService> _logger;
 
     public EntraChallengeService(
         IEntraIdConfigService configService,
         IHttpClientFactory httpClientFactory,
         IOptions<JwtOptions> jwtOptions,
-        ISecretProtector protector)
+        ISecretProtector protector,
+        ILogger<EntraChallengeService> logger)
     {
         _configService = configService;
         _httpClientFactory = httpClientFactory;
         _jwtOptions = jwtOptions.Value;
         _protector = protector;
+        _logger = logger;
     }
 
     public async Task<EntraAuthorizationUrl?> BuildAuthorizationUrlAsync(
@@ -126,7 +126,11 @@ public sealed class EntraChallengeService : IEntraChallengeService
         _ = tenantId; // tenantId é usado pelo ITenantContext externamente; mantido para tracing.
 
         var config = await _configService.GetDecryptedAsync(ct);
-        if (config is null || !config.IsEnabled) return null;
+        if (config is null || !config.IsEnabled)
+        {
+            _logger.LogWarning("Entra token exchange: config ausente ou desabilitada (tenantId={TenantId}).", tenantId);
+            return null;
+        }
 
         var entraTenant = config.EntraTenantId?.Trim();
         var clientId = config.ClientId?.Trim();
@@ -134,7 +138,15 @@ public sealed class EntraChallengeService : IEntraChallengeService
         if (string.IsNullOrWhiteSpace(entraTenant)
             || string.IsNullOrWhiteSpace(clientId)
             || string.IsNullOrWhiteSpace(clientSecret))
+        {
+            _logger.LogWarning(
+                "Entra token exchange: credenciais incompletas (tenantId={TenantId}, hasEntraTenant={HasEntraTenant}, hasClientId={HasClientId}, hasSecret={HasSecret}).",
+                tenantId,
+                !string.IsNullOrWhiteSpace(entraTenant),
+                !string.IsNullOrWhiteSpace(clientId),
+                !string.IsNullOrWhiteSpace(clientSecret));
             return null;
+        }
 
         var tokenEndpoint = $"https://login.microsoftonline.com/{entraTenant}/oauth2/v2.0/token";
         var http = _httpClientFactory.CreateClient();
@@ -153,14 +165,22 @@ public sealed class EntraChallengeService : IEntraChallengeService
         {
             resp = await http.PostAsync(tokenEndpoint, form, ct);
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            _logger.LogWarning(ex, "Entra token exchange: falha de rede ao chamar {TokenEndpoint}.", tokenEndpoint);
             return null;
         }
 
-        if (!resp.IsSuccessStatusCode) return null;
-
         var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "Entra token exchange falhou: status={Status} redirectUri={RedirectUri} body={Body}",
+                (int)resp.StatusCode,
+                redirectUri,
+                body);
+            return null;
+        }
         try
         {
             using var doc = JsonDocument.Parse(body);
@@ -175,78 +195,9 @@ public sealed class EntraChallengeService : IEntraChallengeService
         }
     }
 
-    public EntraStatePayload? TryDecodeState(string encodedState)
-    {
-        if (string.IsNullOrWhiteSpace(encodedState)) return null;
+    public EntraStatePayload? TryDecodeState(string encodedState) =>
+        EntraStateCodec.TryDecode(encodedState, _jwtOptions.SigningKey);
 
-        // encodedState = base64url(json).base64url(hmac)
-        var dot = encodedState.IndexOf('.');
-        if (dot <= 0 || dot == encodedState.Length - 1) return null;
-
-        var payloadPart = encodedState[..dot];
-        var sigPart = encodedState[(dot + 1)..];
-
-        byte[] payloadBytes;
-        byte[] sigBytes;
-        try
-        {
-            payloadBytes = Base64UrlDecode(payloadPart);
-            sigBytes = Base64UrlDecode(sigPart);
-        }
-        catch (FormatException)
-        {
-            return null;
-        }
-
-        using var hmac = new HMACSHA256(GetSigningKeyBytes());
-        var expected = hmac.ComputeHash(payloadBytes);
-        if (!CryptographicOperations.FixedTimeEquals(expected, sigBytes)) return null;
-
-        EntraStatePayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<EntraStatePayload>(payloadBytes);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-        if (payload is null) return null;
-
-        var age = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - payload.IssuedAtUnix;
-        if (age is < 0 or > StateMaxAgeSeconds) return null;
-
-        return payload;
-    }
-
-    // ── helpers privados ────────────────────────────────────────────────────
-
-    public string EncodeAndSignState(EntraStatePayload payload)
-    {
-        var payloadBytes = JsonSerializer.SerializeToUtf8Bytes(payload);
-        using var hmac = new HMACSHA256(GetSigningKeyBytes());
-        var sig = hmac.ComputeHash(payloadBytes);
-        return $"{Base64UrlEncode(payloadBytes)}.{Base64UrlEncode(sig)}";
-    }
-
-    private byte[] GetSigningKeyBytes() => Encoding.UTF8.GetBytes(_jwtOptions.SigningKey);
-
-    private static string Base64UrlEncode(byte[] input)
-    {
-        return Convert.ToBase64String(input)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
-    }
-
-    private static byte[] Base64UrlDecode(string input)
-    {
-        var s = input.Replace('-', '+').Replace('_', '/');
-        switch (s.Length % 4)
-        {
-            case 2: s += "=="; break;
-            case 3: s += "="; break;
-        }
-        return Convert.FromBase64String(s);
-    }
+    public string EncodeAndSignState(EntraStatePayload payload) =>
+        EntraStateCodec.EncodeAndSign(payload, _jwtOptions.SigningKey);
 }

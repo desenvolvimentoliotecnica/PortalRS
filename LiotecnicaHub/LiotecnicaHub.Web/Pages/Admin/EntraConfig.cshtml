@@ -1,0 +1,50 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.EntraConfigModel
+@{
+    ViewData["Title"] = "Entra ID — Admin";
+}
+
+<section class="page-header">
+    <h1>Microsoft Entra ID</h1>
+    <p>Configure o login Microsoft (OAuth Authorization Code) para o hub.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="alert alert-success">@Model.StatusMessage</div>
+}
+
+<form method="post" class="form-card">
+    <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+    <label class="checkbox-row">
+        <input asp-for="Input.IsEnabled" type="checkbox" />
+        Habilitar login Microsoft
+    </label>
+
+    <label asp-for="Input.EntraTenantId"></label>
+    <input asp-for="Input.EntraTenantId" class="form-control" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+
+    <label asp-for="Input.ClientId"></label>
+    <input asp-for="Input.ClientId" class="form-control" />
+
+    <label asp-for="Input.ClientSecret"></label>
+    <input asp-for="Input.ClientSecret" class="form-control" type="password" autocomplete="new-password" />
+    @if (Model.HasClientSecret)
+    {
+        <small class="text-muted">Um client secret já está salvo (criptografado). Deixe em branco para mantê-lo.</small>
+    }
+
+    <label asp-for="Input.CallbackPath"></label>
+    <input asp-for="Input.CallbackPath" class="form-control" placeholder="https://hub.exemplo.com/Auth/EntraCallback" />
+
+    <label asp-for="Input.HubBaseUrl"></label>
+    <input asp-for="Input.HubBaseUrl" class="form-control" placeholder="https://hub.exemplo.com" />
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a asp-page="/Admin/Index">Cancelar</a>
+    </div>
+</form>
+
+<p><a asp-page="/Admin/Index">← Voltar ao painel</a></p>

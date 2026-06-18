@@ -1,15 +1,18 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using RhPortal.Api.Application.Authentication;
 using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Application.Users;
 using RhPortal.Api.Contracts.Authentication;
 using RhPortal.Api.Contracts.Owner;
 using RhPortal.Api.Contracts.Users;
+using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
@@ -147,17 +150,28 @@ public sealed class AuthController : ControllerBase
                 "owner"));
 
         // 2. Itera todos os tenants ativos
+        var email = request.Email.Trim();
         var tenantIds = await masterDb.Tenants
             .AsNoTracking()
             .Where(t => t.IsActive)
             .Select(t => t.TenantId)
             .ToListAsync(ct);
 
+        var foundSsoOnlyAccount = false;
+
         foreach (var tenantId in tenantIds)
         {
             using var scope = scopeFactory.CreateScope();
             var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
             tenantCtx.SetTenantId(tenantId);
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var existingUser = await userManager.FindByEmailAsync(email);
+            if (existingUser is { IsActive: true } && string.IsNullOrEmpty(existingUser.PasswordHash))
+            {
+                foundSsoOnlyAccount = true;
+                continue;
+            }
+
             var authSvc = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
             var res = await authSvc.LoginAsync(
                 new LoginRequest(request.Email, request.Password), ct);
@@ -166,6 +180,16 @@ public sealed class AuthController : ControllerBase
                     res.AccessToken,
                     res.AccessTokenExpirationMinutes,
                     res.TenantId));
+        }
+
+        if (foundSsoOnlyAccount)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = _localizer["ControllerErrors.InvalidCredentialsTitle"],
+                Detail = _localizer["ControllerErrors.SsoOnlyAccountDetail"],
+                Status = StatusCodes.Status401Unauthorized
+            });
         }
 
         return Unauthorized(new ProblemDetails
@@ -264,20 +288,66 @@ public sealed class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(tenantId))
             return BadRequest(new ProblemDetails { Title = "tenantId ausente", Status = 400 });
 
-        var redirectUri = BuildEntraCallbackRedirectUri(configuration);
-
         using var scope = scopeFactory.CreateScope();
         var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantCtx.SetTenantId(tenantId);
+        var configService = scope.ServiceProvider.GetRequiredService<IEntraIdConfigService>();
         var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
+
+        var redirectUri = await configService.GetRedirectUriAsync(ct);
+        if (string.IsNullOrWhiteSpace(redirectUri))
+        {
+            var back = await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=nao_configurado", ct);
+            return Redirect(back);
+        }
 
         var result = await challenge.BuildAuthorizationUrlAsync(tenantId, redirectUri, returnUrl ?? "/app/dashboard", ct);
         if (result is null)
         {
-            var back = BuildFrontendUrl(configuration, "/app/login?entra_error=nao_configurado");
+            var back = await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=nao_configurado", ct);
             return Redirect(back);
         }
         return Redirect(result.Url);
+    }
+
+    /// <summary>
+    /// SSO a partir do Liotecnica Hub: valida token HMAC assinado pelo hub e emite JWT do tenant.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("hub-sso")]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    public async Task<IActionResult> HubSso(
+        [FromQuery] string? token,
+        [FromQuery] string? returnUrl,
+        [FromServices] IServiceScopeFactory scopeFactory,
+        [FromServices] IConfiguration configuration,
+        [FromServices] IOptions<HubSsoOptions> hubSsoOptions,
+        CancellationToken ct)
+    {
+        var opts = hubSsoOptions.Value;
+        if (!opts.Enabled || string.IsNullOrWhiteSpace(opts.SigningKey))
+            return Redirect(BuildFrontendUrl(configuration, "/app/login?hub_sso_error=nao_configurado"));
+
+        var payload = HubSsoTokenCodec.TryDecode(token ?? string.Empty, opts.SigningKey);
+        if (payload is null)
+            return Redirect(BuildFrontendUrl(configuration, "/app/login?hub_sso_error=token_invalido"));
+
+        using var scope = scopeFactory.CreateScope();
+        var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantCtx.SetTenantId(payload.TenantId);
+
+        var authService = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
+        var login = await authService.LoginWithHubSsoAsync(payload.Email, ct);
+        if (login is null)
+            return Redirect(BuildFrontendUrl(configuration, $"/app/login?tenant={Uri.EscapeDataString(payload.TenantId)}&hub_sso_error=usuario_nao_autenticado"));
+
+        var safeReturn = NormalizeReturnUrl(returnUrl ?? payload.ReturnUrl);
+        var fragment =
+            $"#entra_token={Uri.EscapeDataString(login.AccessToken)}" +
+            $"&tenant={Uri.EscapeDataString(login.TenantId ?? payload.TenantId)}" +
+            $"&return={Uri.EscapeDataString(safeReturn)}";
+
+        return Redirect(BuildFrontendUrl(configuration, "/app/login") + fragment);
     }
 
     /// <summary>
@@ -293,6 +363,7 @@ public sealed class AuthController : ControllerBase
         [FromQuery(Name = "error")] string? errorCode,
         [FromServices] IServiceScopeFactory scopeFactory,
         [FromServices] IConfiguration configuration,
+        [FromServices] IOptions<JwtOptions> jwtOptions,
         CancellationToken ct)
     {
         if (!string.IsNullOrWhiteSpace(errorCode))
@@ -301,40 +372,59 @@ public sealed class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
             return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=parametros_invalidos"));
 
-        using var scope = scopeFactory.CreateScope();
-        var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
-        var payload = challenge.TryDecodeState(state);
+        // Decodifica state sem resolver AppDbContext — callback é whitelist (sem X-Tenant-Id).
+        var payload = EntraStateCodec.TryDecode(state, jwtOptions.Value.SigningKey);
         if (payload is null)
             return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=state_invalido"));
 
-        // Scope com tenant correto para troca de code + login.
+        using var scope = scopeFactory.CreateScope();
         var tenantCtx = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantCtx.SetTenantId(payload.TenantId);
 
-        var redirectUri = BuildEntraCallbackRedirectUri(configuration);
+        var configService = scope.ServiceProvider.GetRequiredService<IEntraIdConfigService>();
+        var challenge = scope.ServiceProvider.GetRequiredService<IEntraChallengeService>();
+
+        var redirectUri = await configService.GetRedirectUriAsync(ct);
+        if (string.IsNullOrWhiteSpace(redirectUri))
+            return Redirect(await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=nao_configurado", ct));
+
         var idToken = await challenge.ExchangeCodeForIdTokenAsync(payload.TenantId, code, redirectUri, ct);
         if (string.IsNullOrWhiteSpace(idToken))
-            return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=troca_de_code_falhou"));
+            return Redirect(await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=troca_de_code_falhou", ct));
 
         var authService = scope.ServiceProvider.GetRequiredService<AuthenticationService>();
         var login = await authService.LoginWithEntraAsync(new EntraLoginRequest(idToken), ct);
         if (login is null)
-            return Redirect(BuildFrontendUrl(configuration, "/app/login?entra_error=usuario_nao_autenticado"));
+            return Redirect(await BuildFrontendUrlAsync(configService, configuration, "/app/login?entra_error=usuario_nao_autenticado", ct));
 
-        // Token no fragmento da URL — não vai para logs do servidor.
         var fragment =
             $"#entra_token={Uri.EscapeDataString(login.AccessToken)}" +
             $"&tenant={Uri.EscapeDataString(login.TenantId ?? payload.TenantId)}" +
             $"&return={Uri.EscapeDataString(payload.ReturnUrl)}";
 
-        return Redirect(BuildFrontendUrl(configuration, "/app/login") + fragment);
+        return Redirect(await BuildFrontendUrlAsync(configService, configuration, "/app/login", ct) + fragment);
     }
 
     // ── helpers privados ────────────────────────────────────────────────────
 
     /// <summary>
-    /// URL pública do front (Next.js). Segue a mesma estratégia de
-    /// <c>PreAdmissaoService.BuildFrontendUrl</c> (Onda 15).
+    /// URL pública do front (Next.js). Prioriza <see cref="EntraIdConfig.FrontendBaseUrl"/> salvo no admin.
+    /// </summary>
+    private async Task<string> BuildFrontendUrlAsync(
+        IEntraIdConfigService configService,
+        IConfiguration configuration,
+        string pathAndQuery,
+        CancellationToken ct)
+    {
+        var fromDb = await configService.GetFrontendBaseUrlAsync(ct);
+        if (!string.IsNullOrWhiteSpace(fromDb))
+            return $"{fromDb.TrimEnd('/')}{pathAndQuery}";
+
+        return BuildFrontendUrl(configuration, pathAndQuery);
+    }
+
+    /// <summary>
+    /// Fallback quando <c>FrontendBaseUrl</c> não está no banco (ex.: erro antes de resolver tenant).
     /// </summary>
     private string BuildFrontendUrl(IConfiguration configuration, string pathAndQuery)
     {
@@ -348,19 +438,12 @@ public sealed class AuthController : ControllerBase
         return $"{scheme}://{host}:{port}{pathAndQuery}";
     }
 
-    /// <summary>
-    /// URI de callback registrada no Azure AD. Corresponde ao endpoint
-    /// <c>GET /api/auth/entra/callback</c> deste controller.
-    /// </summary>
-    private string BuildEntraCallbackRedirectUri(IConfiguration configuration)
+    private static string NormalizeReturnUrl(string? returnUrl)
     {
-        var apiBase = configuration["Authentication:ApiBaseUrl"];
-        if (!string.IsNullOrWhiteSpace(apiBase))
-            return $"{apiBase.TrimEnd('/')}/api/auth/entra/callback";
-
-        var scheme = Request?.Scheme ?? "https";
-        var host = Request?.Host.Value ?? "localhost";
-        return $"{scheme}://{host}/api/auth/entra/callback";
+        var value = returnUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(value) || !value.StartsWith('/'))
+            return "/dashboard";
+        return value;
     }
 }
 

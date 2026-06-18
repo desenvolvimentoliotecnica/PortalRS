@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — Hub Corporativo</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="@(User.Identity?.IsAuthenticated == true && ViewData["MinimalLayout"] is not true ? "hub-dashboard-body" : "hub-minimal-body")">
+@if (User.Identity?.IsAuthenticated == true && ViewData["MinimalLayout"] is not true)
+{
+    <div class="hub-app-frame">
+        <div class="hub-shell">
+            <partial name="_HubSidebar" />
+            <div class="hub-main">
+                @if (ViewData["ShowHubTopbar"] is bool showTop && showTop || ViewData["ShowHubTopbar"] is null && Context.Request.Path.StartsWithSegments("/Apps"))
+                {
+                    <partial name="_HubTopbar" />
+                }
+                <main class="hub-content">
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <main class="hub-minimal-content">
+        @RenderBody()
+    </main>
+}
+
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

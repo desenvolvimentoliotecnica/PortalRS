@@ -23,7 +23,7 @@ import { apiFetch } from "@/lib/api";
 type Tone = "blue" | "green" | "purple" | "amber" | "red" | "slate";
 
 type Kpis = {
-  requisicoesRmPendentes: number;
+  solicitacoesAtivas: number;
   aguardandoDistribuicao: number;
   vagasAbertas: number;
   vagasForaSla: number;
@@ -100,7 +100,7 @@ type DashboardData = {
 };
 
 const EMPTY_KPIS: Kpis = {
-  requisicoesRmPendentes: 0,
+  solicitacoesAtivas: 0,
   aguardandoDistribuicao: 0,
   vagasAbertas: 0,
   vagasForaSla: 0,
@@ -253,12 +253,12 @@ export default function EspecialistaRhDashboardScreen({ displayName }: { display
 
   const kpiItems: KpiItem[] = [
     {
-      label: "Requisições RM",
-      value: kpis.requisicoesRmPendentes,
-      hint: "Em acompanhamento",
+      label: "Solicitações ativas",
+      value: kpis.solicitacoesAtivas,
+      hint: "Em acompanhamento no fluxo",
       icon: FileText,
       tone: "blue",
-      href: "/app/gestao/painel-solicitacoes",
+      href: "/app/gestao/solicitacoes",
     },
     {
       label: "Sem Analista",

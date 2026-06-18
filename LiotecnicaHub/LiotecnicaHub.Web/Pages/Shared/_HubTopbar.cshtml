@@ -1,0 +1,52 @@
+@{
+    var displayName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+        ?? User.FindFirst(HubClaimTypes.Email)?.Value
+        ?? "Usuário";
+    var email = User.FindFirst(HubClaimTypes.Email)?.Value ?? string.Empty;
+    var isAdmin = User.HasClaim(HubClaimTypes.IsHubAdmin, "true");
+    var roleLabel = isAdmin ? "Administrador" : "Colaborador";
+    var initials = HubUiHelpers.GetInitials(displayName);
+}
+
+<header class="hub-topbar">
+    <div class="hub-topbar-intro">
+        <h1 class="hub-page-title">Hub Corporativo</h1>
+        <p class="hub-page-subtitle">Acesse rapidamente os principais sistemas</p>
+    </div>
+
+    <div class="hub-search-wrap">
+        <svg class="hub-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+        <input type="search"
+               id="hub-app-search"
+               class="hub-search-input"
+               placeholder="Buscar aplicativos, sistemas ou serviços"
+               autocomplete="off"
+               aria-label="Buscar aplicativos" />
+    </div>
+
+    <div class="hub-topbar-actions">
+        <button type="button" class="hub-icon-btn" title="Notificações" disabled aria-disabled="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </button>
+
+        <div class="hub-user-menu">
+            <div class="hub-user-avatar" aria-hidden="true">@initials</div>
+            <div class="hub-user-info">
+                <span class="hub-user-name">@displayName</span>
+                <span class="hub-user-role">@roleLabel</span>
+            </div>
+            <details class="hub-user-dropdown">
+                <summary aria-label="Menu do usuário">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </summary>
+                <div class="hub-user-dropdown-panel">
+                    @if (!string.IsNullOrWhiteSpace(email))
+                    {
+                        <span class="hub-user-dropdown-email">@email</span>
+                    }
+                    <a asp-page="/Login" asp-page-handler="Logout">Sair</a>
+                </div>
+            </details>
+        </div>
+    </div>
+</header>

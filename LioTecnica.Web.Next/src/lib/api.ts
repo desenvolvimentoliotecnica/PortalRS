@@ -90,6 +90,21 @@ function mapPortalCandidatePath(path: string, headers: Headers): string {
     return normalized;
 }
 
+function resolveApiBase(): string {
+    const configured = (env.API_BASE ?? "").trim();
+    if (!configured) return "";
+    if (typeof window === "undefined") return configured;
+
+    try {
+        const apiUrl = new URL(configured);
+        // Mesmo host, porta diferente (ex. portal :3000 + API :5000 no HMG): usa proxy /api/ same-origin.
+        if (apiUrl.hostname === window.location.hostname) return "";
+    } catch {
+        /* URL inválida — mantém configured */
+    }
+    return configured;
+}
+
 function resolveUrl(path: string): string {
     // Accept absolute URLs as-is.
     if (/^https?:\/\//i.test(path)) return path;
@@ -97,7 +112,7 @@ function resolveUrl(path: string): string {
     // Normalize accidental basePath prefix for API calls (older code used "/app/api/...").
     const normalized = path.startsWith("/app/api/") ? path.slice("/app".length) : path;
 
-    const base = (env.API_BASE ?? "").trim();
+    const base = resolveApiBase();
     if (!base) return normalized;
     if (!normalized.startsWith("/")) return `${base.replace(/\/+$/, "")}/${normalized}`;
     return `${base.replace(/\/+$/, "")}${normalized}`;

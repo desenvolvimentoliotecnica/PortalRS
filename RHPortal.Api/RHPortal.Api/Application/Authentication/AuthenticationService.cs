@@ -167,12 +167,16 @@ public sealed class AuthenticationService
         var email = request.Email.Trim();
         if (string.IsNullOrWhiteSpace(email)) return null;
 
-        var user = await UsersWithFuncionarioEstrutura()
-            .FirstOrDefaultAsync(x => x.Email == email, ct);
-        if (user is null || !user.IsActive) return null;
+        var identityUser = await _userManager.FindByEmailAsync(email);
+        if (identityUser is null || !identityUser.IsActive) return null;
+        if (string.IsNullOrEmpty(identityUser.PasswordHash)) return null;
 
-        var validPassword = await _userManager.CheckPasswordAsync(user, request.Password);
+        var validPassword = await _userManager.CheckPasswordAsync(identityUser, request.Password);
         if (!validPassword) return null;
+
+        var user = await UsersWithFuncionarioEstrutura()
+            .FirstOrDefaultAsync(x => x.Id == identityUser.Id, ct);
+        if (user is null) return null;
 
         var roleNames = await _userManager.GetRolesAsync(user);
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
@@ -299,6 +303,53 @@ public sealed class AuthenticationService
             Roles: roleNames.ToList(),
             Permissions: permissions,
             FuncionarioId: userWithFuncionario.FuncionarioId,
+            CentroCustoId: centroCustoId,
+            EmpresaId: empresaId,
+            UnitId: unitId,
+            UnidadeLotacaoId: unidadeLotacaoId,
+            VisibilityScope: visibilityScope,
+            VagasDataScope: vagasDataScope,
+            IsReadOnly: accessMode == ProfileAccessMode.ReadOnly
+        );
+    }
+
+    /// <summary>
+    /// Emite JWT para usuário já autenticado no Liotecnica Hub (token HMAC assinado pelo hub).
+    /// </summary>
+    public async Task<LoginResponse?> LoginWithHubSsoAsync(string email, CancellationToken ct)
+    {
+        email = email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        var user = await UsersWithFuncionarioEstrutura()
+            .FirstOrDefaultAsync(x => x.Email != null && x.Email.ToLower() == email, ct);
+        if (user is null || !user.IsActive)
+            return null;
+
+        var roleNames = await _userManager.GetRolesAsync(user);
+        var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
+        var permissions = (await _roleAdministrationService.ResolvePermissionsAsync(roleEntities, ct)).ToList();
+        var (visibilityScope, vagasDataScope, accessMode) = RolePermissionManifest.GetEffectiveScopes(roleEntities);
+        var token = CreateJwtToken(user, roleNames, permissions, visibilityScope, vagasDataScope, accessMode);
+        var (empresaId, unitId, centroCustoId, unidadeLotacaoId) = await ResolveEstruturaAsync(user.Funcionario, ct);
+        await _awardPointsService.AwardAsync(
+            user.Id,
+            GamificationEventTypes.DailyLogin,
+            sourceId: null,
+            reason: "Login via Liotecnica Hub",
+            ct);
+
+        return new LoginResponse(
+            AccessToken: token,
+            AccessTokenExpirationMinutes: _jwtOptions.AccessTokenExpirationMinutes,
+            UserId: user.Id,
+            Email: user.Email ?? string.Empty,
+            FullName: user.FullName,
+            TenantId: _tenantContext.TenantId,
+            Roles: roleNames.ToList(),
+            Permissions: permissions,
+            FuncionarioId: user.FuncionarioId,
             CentroCustoId: centroCustoId,
             EmpresaId: empresaId,
             UnitId: unitId,

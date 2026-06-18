@@ -109,6 +109,7 @@ function mapKpis(payload: unknown): Kpis {
     pendentesMatch: pickNumber(r.pendentesMatch, 0),
     aprovados7Dias: pickNumber(r.aprovados7Dias, 0),
     vagasForaSla: pickNumber(r.vagasForaSla, 0),
+    solicitacoesVagaAtivas: pickNumber(r.solicitacoesVagaAtivas, 0),
   };
 }
 

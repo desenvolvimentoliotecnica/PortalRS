@@ -4,9 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using RhPortal.Api.Application.Dashboard;
+using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Candidatura;
 using RhPortal.Api.Contracts.Dashboard;
 using RhPortal.Api.Contracts.Schedule;
+using RhPortal.Api.Domain;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Configuration;
@@ -76,7 +78,8 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             cvsHoje,
             pendentes,
             aprovados,
-            vagasForaSla
+            vagasForaSla,
+            0
         ));
     }
 
@@ -333,12 +336,13 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
     {
         var userId = currentUser.UserId;
         if (!userId.HasValue)
-            return Ok(new DashboardKpisResponse(0, 0, 0, 0, 0));
+            return Ok(new DashboardKpisResponse(0, 0, 0, 0, 0, 0));
 
         var now = DateTimeOffset.UtcNow;
         var todayStart = new DateTimeOffset(now.Date, TimeSpan.Zero);
         var weekStart = now.AddDays(-7);
         var opts = slaOptions.Value;
+        var statusAtivos = SolicitacaoVagaStatusRules.StatusAtivos;
 
         var vagasCarteira = db.Vagas.AsNoTracking()
             .Where(v => v.RecrutadorResponsavelUserId == userId.Value);
@@ -375,12 +379,16 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         var aprovados = await candidaturasCarteira
             .CountAsync(c => c.Status == CandidaturaStatus.Contratado && c.UpdatedAtUtc >= weekStart, ct);
 
+        var solicitacoesVagaAtivas = await db.SolicitacoesVaga.AsNoTracking()
+            .CountAsync(s => s.AnalistaRhResponsavelUserId == userId.Value && statusAtivos.Contains(s.Status), ct);
+
         return Ok(new DashboardKpisResponse(
             openVagas,
             cvsHoje,
             pendentes,
             aprovados,
-            vagasForaSla
+            vagasForaSla,
+            solicitacoesVagaAtivas
         ));
     }
 
@@ -607,18 +615,17 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
     public async Task<ActionResult<EspecialistaRhDashboardKpisResponse>> GetEspecialistaRhKpis(
         [FromServices] AppDbContext db,
         [FromServices] IOptions<SlaVagaOptions> slaOptions,
+        [FromServices] ISolicitacaoVagaService solicitacaoVagaService,
+        [FromServices] ICurrentUserContext currentUser,
         CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var inicioMes = new DateTimeOffset(new DateTime(now.Year, now.Month, 1), TimeSpan.Zero);
-        var statusAtivos = GetSolicitacaoStatusAtivos();
         var opts = slaOptions.Value;
 
-        var requisicoesRmPendentes = await db.SolicitacoesVaga.AsNoTracking()
-            .CountAsync(s => s.RmIdReq != null && statusAtivos.Contains(s.Status), ct);
-
-        var aguardandoDistribuicao = await db.SolicitacoesVaga.AsNoTracking()
-            .CountAsync(s => s.RmIdReq != null && s.AnalistaRhResponsavelUserId == null && statusAtivos.Contains(s.Status), ct);
+        var contagens = await solicitacaoVagaService.GetContagensAsync(apenasMeus: false, currentUser.FuncionarioId, ct);
+        var solicitacoesAtivas = contagens.Ativas;
+        var aguardandoDistribuicao = contagens.AguardandoDistribuicao;
 
         var vagasAbertas = await db.Vagas.AsNoTracking()
             .CountAsync(v => !v.IsEstrutural && v.Status == VagaStatus.Aberta, ct);
@@ -652,7 +659,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             .CountAsync(p => p.Status == PreAdmissaoStatus.Preenchido && p.UpdatedAtUtc >= inicioMes.AddMonths(-2), ct);
 
         return Ok(new EspecialistaRhDashboardKpisResponse(
-            requisicoesRmPendentes,
+            solicitacoesAtivas,
             aguardandoDistribuicao,
             vagasAbertas,
             vagasForaSla,
@@ -700,7 +707,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         CancellationToken ct)
     {
         var safePageSize = Math.Clamp(pageSize.GetValueOrDefault(8), 1, 50);
-        var statusAtivos = GetSolicitacaoStatusAtivos();
+        var statusAtivos = SolicitacaoVagaStatusRules.StatusAtivos;
 
         var query = db.SolicitacoesVaga.AsNoTracking()
             .Where(s => s.RmIdReq != null);
@@ -737,7 +744,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
     {
         var now = DateTime.UtcNow;
         var end = now.AddDays(30);
-        var statusAtivos = GetSolicitacaoStatusAtivos();
+        var statusAtivos = SolicitacaoVagaStatusRules.StatusAtivos;
 
         var analistas = await (
                 from user in db.Users.AsNoTracking()
@@ -869,7 +876,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
         CancellationToken ct)
     {
         var inicioSemana = DateTimeOffset.UtcNow.AddDays(-7);
-        var statusAtivos = GetSolicitacaoStatusAtivos();
+        var statusAtivos = SolicitacaoVagaStatusRules.StatusAtivos;
 
         var notificacoesFalhadas = await db.NotificacoesCandidaturaLogs.AsNoTracking()
             .CountAsync(n => n.Status == NotificacaoStatus.Falhou && n.CriadoEmUtc >= inicioSemana, ct);
@@ -881,11 +888,11 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             .CountAsync(a => a.Status == StatusAprovacaoFaixa.Pendente, ct);
 
         var requisicoesSemAnalista = await db.SolicitacoesVaga.AsNoTracking()
-            .CountAsync(s => s.RmIdReq != null && s.AnalistaRhResponsavelUserId == null && statusAtivos.Contains(s.Status), ct);
+            .CountAsync(s => s.AnalistaRhResponsavelUserId == null && statusAtivos.Contains(s.Status), ct);
 
         return Ok(new[]
         {
-            new EspecialistaRhDashboardAlertaResponse("Requisições sem Analista", "Requisições RM aguardando distribuição para o time de RH.", requisicoesSemAnalista, requisicoesSemAnalista > 0 ? "amber" : "green"),
+            new EspecialistaRhDashboardAlertaResponse("Requisições sem Analista", "Solicitações ativas aguardando distribuição para o time de RH.", requisicoesSemAnalista, requisicoesSemAnalista > 0 ? "amber" : "green"),
             new EspecialistaRhDashboardAlertaResponse("Matching pendente", "Candidatos ainda sem análise de aderência por IA.", matchesPendentes, matchesPendentes > 0 ? "purple" : "green"),
             new EspecialistaRhDashboardAlertaResponse("Faixas salariais", "Aprovações de faixa salarial aguardando decisão.", faixasPendentes, faixasPendentes > 0 ? "red" : "green"),
             new EspecialistaRhDashboardAlertaResponse("Notificações falhadas", "Falhas de comunicação com candidatos nos últimos 7 dias.", notificacoesFalhadas, notificacoesFalhadas > 0 ? "red" : "green"),
@@ -947,27 +954,6 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             CandidateStatus.Reprovado => "Reprovado",
             _ => "Triagem"
         };
-    }
-
-    private static SolicitacaoStatus[] GetSolicitacaoStatusAtivos()
-    {
-        return
-        [
-            SolicitacaoStatus.PendenteAprovacao,
-            SolicitacaoStatus.Aprovada,
-            SolicitacaoStatus.PendenteAprovacaoRh,
-            SolicitacaoStatus.EmIntegracao,
-            SolicitacaoStatus.PendenteAprovacaoAumentoHC,
-            SolicitacaoStatus.PendenteTriagem,
-            SolicitacaoStatus.EmTriagem,
-            SolicitacaoStatus.DevolvidaTriagemGestor,
-            SolicitacaoStatus.PendenteIntegracaoRm,
-            SolicitacaoStatus.ErroIntegracaoRm,
-            SolicitacaoStatus.AguardandoReprocessamentoRm,
-            SolicitacaoStatus.EmProcessoSeletivo,
-            SolicitacaoStatus.Suspensa,
-            SolicitacaoStatus.EmAndamento,
-        ];
     }
 
     private static bool AgendaOwnerMatches(string? owner, IReadOnlySet<string> tokens)

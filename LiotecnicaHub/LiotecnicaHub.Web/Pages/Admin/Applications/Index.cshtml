@@ -1,0 +1,52 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.Applications.IndexModel
+@{
+    ViewData["Title"] = "Aplicativos — Admin";
+}
+
+<section class="page-header row-between">
+    <div>
+        <h1>Aplicativos</h1>
+        <p>Catálogo exibido no hub para usuários autenticados.</p>
+    </div>
+    <a class="btn btn-primary" asp-page="Create">Novo aplicativo</a>
+</section>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Nome</th>
+            <th>Ambiente</th>
+            <th>Ordem</th>
+            <th>Ativo</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var app in Model.Applications)
+        {
+            <tr>
+                <td>
+                    <strong>@app.Name</strong>
+                    @if (!string.IsNullOrWhiteSpace(app.Description))
+                    {
+                        <div class="text-muted">@app.Description</div>
+                    }
+                </td>
+                <td>
+                    <span class="env-badge @HubUiHelpers.EnvironmentCssClass(app.Environment)">
+                        @HubUiHelpers.EnvironmentLabel(app.Environment)
+                    </span>
+                </td>
+                <td>@app.SortOrder</td>
+                <td>@(app.IsActive ? "Sim" : "Não")</td>
+                <td class="table-actions">
+                    <a asp-page="Edit" asp-route-id="@app.Id">Editar</a>
+                    <a asp-page="Delete" asp-route-id="@app.Id">Excluir</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<p><a asp-page="/Admin/Index">← Voltar ao painel</a></p>

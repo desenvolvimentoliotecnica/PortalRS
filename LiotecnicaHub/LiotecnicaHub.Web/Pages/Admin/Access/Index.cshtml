@@ -1,0 +1,142 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.Access.IndexModel
+@{
+    ViewData["Title"] = "Controle de Acessos";
+    ViewData["ShowHubTopbar"] = false;
+}
+
+<section class="page-header">
+    <h1>Controle de Acessos</h1>
+    <p>Fase 2.1 — o Hub controla <strong>quais sistemas</strong> o usuário pode abrir. Ações dentro de cada sistema (ex.: Portal RH) são responsabilidade do próprio sistema.</p>
+    <p class="hub-access-phase-note">
+        <a asp-page="/Admin/Index">← Voltar ao painel admin</a>
+        · Roadmap: <code>docs/HUB-CONTROLE-ACESSOS-ROADMAP.md</code>
+    </p>
+</section>
+
+<div class="hub-access-stats">
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.SystemCount</strong>
+        <span>Sistemas</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.ProfileCount</strong>
+        <span>Perfis</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.ProfileSystemLinkCount</strong>
+        <span>Vínculos perfil→sistema</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.UserCount</strong>
+        <span>Usuários IAM</span>
+    </div>
+    <div class="hub-access-stat">
+        <strong>@Model.Summary.HubAdminPermissionCount</strong>
+        <span>Permissões admin Hub</span>
+    </div>
+</div>
+
+@if (Model.CurrentUserSystemCodes.Count > 0)
+{
+    <section class="hub-access-panel">
+        <h2>Seus acessos a sistemas (usuário logado)</h2>
+        <p class="hub-access-muted">@Model.CurrentUserSystemCodes.Count sistema(s) liberado(s) via perfis IAM.</p>
+        <div class="hub-access-tags">
+            @foreach (var code in Model.CurrentUserSystemCodes)
+            {
+                <span class="hub-access-tag">@code</span>
+            }
+        </div>
+    </section>
+}
+else if (User.Identity?.IsAuthenticated == true)
+{
+    <section class="hub-access-panel hub-access-panel-warn">
+        <h2>Seus acessos</h2>
+        <p class="hub-access-muted">
+            Nenhum acesso IAM a sistemas para o e-mail autenticado.
+            Usuários com perfil <strong>administrador</strong> (seed) ou regras legadas de e-mail/domínio ainda podem ver apps.
+        </p>
+    </section>
+}
+
+<section class="hub-access-panel">
+    <h2>Perfis e sistemas liberados</h2>
+    <div class="hub-access-table-wrap">
+        <table class="hub-access-table">
+            <thead>
+                <tr>
+                    <th>Perfil</th>
+                    <th>Código</th>
+                    <th>Sistemas</th>
+                    <th>Usuários</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var profile in Model.Summary.Profiles)
+                {
+                    <tr>
+                        <td>
+                            <strong>@profile.Name</strong>
+                            @if (!string.IsNullOrWhiteSpace(profile.Description))
+                            {
+                                <div class="hub-access-muted">@profile.Description</div>
+                            }
+                        </td>
+                        <td><code>@profile.Code</code></td>
+                        <td>@profile.SystemAccessCount</td>
+                        <td>@profile.UserCount</td>
+                    </tr>
+                    <tr class="hub-access-detail-row">
+                        <td colspan="4">
+                            <details>
+                                <summary>Ver @profile.SystemAccessCount sistema(s)</summary>
+                                <div class="hub-access-tags">
+                                    @foreach (var code in profile.SystemCodes)
+                                    {
+                                        <span class="hub-access-tag">@code</span>
+                                    }
+                                </div>
+                                @if (profile.HubAdminPermissionCodes.Count > 0)
+                                {
+                                    <p class="hub-access-muted" style="margin-top:0.75rem">Admin Hub:</p>
+                                    <div class="hub-access-tags">
+                                        @foreach (var code in profile.HubAdminPermissionCodes)
+                                        {
+                                            <span class="hub-access-tag">@code</span>
+                                        }
+                                    </div>
+                                }
+                            </details>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="hub-access-panel">
+    <h2>Catálogo de sistemas</h2>
+    @foreach (var system in Model.Summary.Systems)
+    {
+        <div class="hub-access-system">
+            <strong>@system.Name</strong>
+            <code>@system.Code</code>
+            <span class="hub-access-muted">
+                @system.ProfileAccessCount perfil(is) · @system.LinkedApplicationCount app(s) no launcher
+            </span>
+        </div>
+    }
+</section>
+
+<section class="hub-access-panel">
+    <h2>APIs de consulta</h2>
+    <ul class="hub-access-perm-list">
+        <li><code>GET /api/hub/meus-acessos</code> — códigos dos sistemas liberados</li>
+        <li><code>GET /api/hub/meus-sistemas</code> — metadados para o launcher</li>
+        <li><code>GET /api/hub/verificar-acesso-sistema?codigo=portalrh</code></li>
+        <li><code>GET /api/auth/minhas-permissoes</code> — <em>legado</em> (use meus-acessos)</li>
+    </ul>
+</section>

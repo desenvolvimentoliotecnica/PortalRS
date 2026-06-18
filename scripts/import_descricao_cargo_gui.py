@@ -10,6 +10,9 @@ Requisitos: Python 3.10+ (stdlib apenas).
 Uso:
     python scripts/import_descricao_cargo_gui.py
 
+Login: usa /api/auth/auto-login (igual ao Portal web). Usuários Owner (ex.: owner@dev.local)
+precisam informar o tenant alvo (ex.: liotecnica); o script faz switch-tenant automaticamente.
+
 Config opcional (não versionar): scripts/import_descricao_cargo.local.json
     {
       "email": "admin@dev.local",
@@ -116,7 +119,76 @@ def build_multipart_body(file_paths: list[Path]) -> tuple[bytes, str]:
     return body.getvalue(), boundary
 
 
+def api_auto_login(api_base: str, email: str, password: str) -> tuple[str, str]:
+    """Login sem tenant (igual ao Portal web). Retorna (token, tenantId)."""
+    payload = json.dumps({"email": email.strip(), "password": password}).encode("utf-8")
+    req = Request(
+        f"{api_base}/api/auth/auto-login",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+    with urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    token = data.get("accessToken") or data.get("AccessToken")
+    tenant_id = data.get("tenantId") or data.get("TenantId") or ""
+    if not token:
+        raise RuntimeError("Auto-login OK, mas a API não retornou accessToken.")
+    return str(token), str(tenant_id)
+
+
+def api_switch_tenant(api_base: str, token: str, source_tenant: str, target_tenant: str) -> str:
+    payload = json.dumps({"tenantId": target_tenant.strip()}).encode("utf-8")
+    req = Request(
+        f"{api_base}/api/me/switch-tenant",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}",
+            "X-Tenant-Id": source_tenant.strip(),
+        },
+        method="POST",
+    )
+    with urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    new_token = data.get("accessToken") or data.get("AccessToken")
+    if not new_token:
+        raise RuntimeError("Switch tenant OK, mas a API não retornou accessToken.")
+    return str(new_token)
+
+
 def api_login(api_base: str, tenant_id: str, email: str, password: str) -> str:
+    target_tenant = tenant_id.strip()
+    email_norm = email.strip()
+    password_val = password
+
+    # Portal web usa auto-login (Owner primeiro, depois tenants). /api/auth/login
+    # só autentica usuário do tenant informado — owner@dev.local não existe lá.
+    try:
+        token, resolved_tenant = api_auto_login(api_base, email_norm, password_val)
+        resolved_lower = resolved_tenant.lower()
+        target_lower = target_tenant.lower()
+
+        if resolved_lower == "owner" and target_lower and target_lower != "owner":
+            token = api_switch_tenant(api_base, token, "owner", target_tenant)
+        elif resolved_lower and target_lower and resolved_lower != target_lower and resolved_lower != "owner":
+            # Usuário encontrado em outro tenant; tenta login direto no tenant alvo.
+            token = _api_login_tenant(api_base, target_tenant, email_norm, password_val)
+        return token
+    except HTTPError as exc:
+        if exc.code not in (401, 403):
+            raise
+    except URLError:
+        raise
+
+    return _api_login_tenant(api_base, target_tenant, email_norm, password_val)
+
+
+def _api_login_tenant(api_base: str, tenant_id: str, email: str, password: str) -> str:
     payload = json.dumps({"email": email.strip(), "password": password}).encode("utf-8")
     req = Request(
         f"{api_base}/api/auth/login",
@@ -501,7 +573,7 @@ class ImportDescricaoCargoApp(tk.Tk):
             return
 
         self.access_token = token
-        self.login_status_var.set(f"Autenticado ({email})")
+        self.login_status_var.set(f"Autenticado ({email}) — tenant {tenant}")
         save_local_config(
             {
                 "environment": self.env_var.get(),

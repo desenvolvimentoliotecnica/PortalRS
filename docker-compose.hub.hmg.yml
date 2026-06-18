@@ -1,0 +1,5 @@
+# Referência HMG — preferir variável no .env / deploy:
+#   HUB_DOCKER_PUBLISH=127.0.0.1:3011:3010
+# Nginx TLS público :3010 → proxy http://127.0.0.1:3011 (ver __scripts__/deploy/hmg-tls/liotecnica-hub-tls.conf)
+#
+# O workflow deploy-hub-hmg.yml define HUB_DOCKER_PUBLISH no .deploy.env.

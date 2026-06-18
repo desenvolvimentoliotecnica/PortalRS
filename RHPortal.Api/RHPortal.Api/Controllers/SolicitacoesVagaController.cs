@@ -50,6 +50,16 @@ public sealed class SolicitacoesVagaController : ControllerBase
         return Ok(await _service.ListAsync(query, _userContext.FuncionarioId, ct));
     }
 
+    /// <summary>Contagens dos chips de status na grid, com o mesmo escopo de visibilidade da listagem.</summary>
+    [HttpGet("contagens")]
+    [ProducesResponseType(typeof(SolicitacaoVagaContagensResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetContagens(
+        [FromQuery] bool? apenasMeus,
+        CancellationToken ct)
+    {
+        return Ok(await _service.GetContagensAsync(apenasMeus, _userContext.FuncionarioId, ct));
+    }
+
     /// <summary>Retorna uma solicitação por ID.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(SolicitacaoVagaResponse), StatusCodes.Status200OK)]

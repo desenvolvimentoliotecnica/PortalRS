@@ -1,0 +1,48 @@
+@page
+@model LiotecnicaHub.Web.Pages.Apps.IndexModel
+@{
+    ViewData["Title"] = "Hub Corporativo";
+    ViewData["ShowHubTopbar"] = true;
+}
+
+@if (!Model.Applications.Any())
+{
+    <div class="hub-empty-state">
+        <p>Nenhum aplicativo disponível para sua conta no momento.</p>
+    </div>
+}
+else
+{
+    <div class="hub-app-grid" id="hub-app-grid">
+        @foreach (var app in Model.Applications)
+        {
+            var searchText = $"{app.Name} {app.Description} {HubUiHelpers.EnvironmentLabel(app.Environment)}".ToLowerInvariant();
+            <article class="hub-app-card" data-search="@searchText">
+                <span class="hub-app-env @HubUiHelpers.EnvironmentCssClass(app.Environment)">
+                    @HubUiHelpers.EnvironmentLabel(app.Environment)
+                </span>
+                <div class="hub-app-card-icon">
+                    <partial name="_AppIcon" model="app" />
+                </div>
+                <h2 class="hub-app-card-title">@HubUiHelpers.DisplayAppTitle(app.Name)</h2>
+                @if (!string.IsNullOrWhiteSpace(app.Description))
+                {
+                    <p class="hub-app-card-desc">@app.Description</p>
+                }
+                <a class="hub-app-card-btn"
+                   asp-page="/Apps/Launch"
+                   asp-route-id="@app.Id"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    Acessar
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </a>
+            </article>
+        }
+    </div>
+    <p class="hub-search-empty is-hidden" id="hub-search-empty">Nenhum aplicativo encontrado para sua busca.</p>
+}
+
+@section Scripts {
+    <script src="~/js/hub-home.js" asp-append-version="true"></script>
+}

@@ -5137,8 +5137,8 @@ namespace RhPortal.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("CallbackPath")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("ClientId")
                         .HasMaxLength(120)
@@ -5154,6 +5154,10 @@ namespace RhPortal.Api.Migrations
                     b.Property<string>("EntraTenantId")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<string>("FrontendBaseUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("boolean");

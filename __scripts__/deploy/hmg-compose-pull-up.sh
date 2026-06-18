@@ -48,4 +48,6 @@ docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 docker compose -f "$COMPOSE_FILE" ps
 
 sleep 8
-curl -fsS "http://127.0.0.1:5000/health" | head -c 400 || echo "(verifica logs da API se health falhar)"
+curl -fsS "http://127.0.0.1:5001/health" | head -c 400 \
+  || curl -kfsS "https://127.0.0.1:5000/health" | head -c 400 \
+  || echo "(verifica logs da API / Nginx TLS — docs/HMG-ENTRA-TLS.md)"

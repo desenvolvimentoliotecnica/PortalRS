@@ -7,7 +7,8 @@ public sealed record DashboardKpisResponse(
     int CvsHoje,
     int PendentesMatch,
     int Aprovados7Dias,
-    int VagasForaSla
+    int VagasForaSla,
+    int SolicitacoesVagaAtivas
 );
 
 public sealed record DashboardSeriesResponse(
@@ -83,7 +84,7 @@ public sealed record AnalistaRhDashboardSolicitacaoResponse(
 );
 
 public sealed record EspecialistaRhDashboardKpisResponse(
-    int RequisicoesRmPendentes,
+    int SolicitacoesAtivas,
     int AguardandoDistribuicao,
     int VagasAbertas,
     int VagasForaSla,

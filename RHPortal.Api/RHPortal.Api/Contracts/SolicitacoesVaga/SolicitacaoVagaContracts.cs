@@ -15,6 +15,18 @@ public sealed record SolicitacaoVagaListQuery(
     Guid? VagaId = null
 );
 
+/// <summary>Contagens por chip de status na grid, respeitando o mesmo escopo de visibilidade da listagem.</summary>
+public sealed record SolicitacaoVagaContagensResponse(
+    int Ativas,
+    int Aprovadas,
+    int Reprovadas,
+    int Canceladas,
+    int Todas,
+    int AguardandoDistribuicao,
+    IReadOnlyList<string> StatusAtivosKeys,
+    IReadOnlyList<string> StatusAprovadosKeys
+);
+
 // ── Create / Update ──
 
 public sealed class SolicitacaoVagaCreateRequest
