@@ -16,6 +16,7 @@
     <thead>
         <tr>
             <th>Nome</th>
+            <th>Sistema</th>
             <th>Ambiente</th>
             <th>Ordem</th>
             <th>Ativo</th>
@@ -31,6 +32,16 @@
                     @if (!string.IsNullOrWhiteSpace(app.Description))
                     {
                         <div class="text-muted">@app.Description</div>
+                    }
+                </td>
+                <td>
+                    @if (app.System is not null)
+                    {
+                        <code>@app.System.Code</code>
+                    }
+                    else
+                    {
+                        <span class="hub-access-muted">—</span>
                     }
                 </td>
                 <td>

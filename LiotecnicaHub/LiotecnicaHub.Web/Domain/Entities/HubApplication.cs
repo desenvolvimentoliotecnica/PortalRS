@@ -18,4 +18,5 @@ public class HubApplication
 
     public HubSystem? System { get; set; }
     public ICollection<HubApplicationAccessRule> AccessRules { get; set; } = new List<HubApplicationAccessRule>();
+    public ICollection<HubUserApplicationAccess> UserApplicationAccesses { get; set; } = new List<HubUserApplicationAccess>();
 }

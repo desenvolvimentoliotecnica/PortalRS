@@ -24,6 +24,7 @@ public sealed class ApplicationInput
     public HubApplicationEnvironment Environment { get; set; } = HubApplicationEnvironment.Dev;
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
+    public Guid? SystemId { get; set; }
 }
 
 public sealed class AppIconUploadViewModel

@@ -1,3 +1,4 @@
+using LiotecnicaHub.Web.Application.Access;
 using LiotecnicaHub.Web.Application.Applications;
 using LiotecnicaHub.Web.Domain.Enums;
 using LiotecnicaHub.Web.Infrastructure.Storage;
@@ -11,11 +12,16 @@ public class EditModel : PageModel
 {
     private readonly IHubApplicationService _apps;
     private readonly IHubAppIconStorage _iconStorage;
+    private readonly IHubAccessAdminService _admin;
 
-    public EditModel(IHubApplicationService apps, IHubAppIconStorage iconStorage)
+    public EditModel(
+        IHubApplicationService apps,
+        IHubAppIconStorage iconStorage,
+        IHubAccessAdminService admin)
     {
         _apps = apps;
         _iconStorage = iconStorage;
+        _admin = admin;
     }
 
     [BindProperty]
@@ -27,6 +33,7 @@ public class EditModel : PageModel
     public AppIconUploadViewModel IconUpload { get; set; } = new();
 
     public SelectList EnvironmentOptions { get; set; } = null!;
+    public SelectList SystemOptions { get; set; } = null!;
 
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken ct)
     {
@@ -36,12 +43,14 @@ public class EditModel : PageModel
         Input = MapToInput(app);
         IconUpload = BuildIconUpload(app);
         EnvironmentOptions = BuildEnvironmentSelect();
+        SystemOptions = await BuildSystemSelectAsync(ct);
         return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         EnvironmentOptions = BuildEnvironmentSelect();
+        SystemOptions = await BuildSystemSelectAsync(ct);
 
         var app = await _apps.GetByIdAsync(Input.Id, ct);
         if (app is null) return NotFound();
@@ -57,6 +66,7 @@ public class EditModel : PageModel
         app.Environment = Input.Environment;
         app.SortOrder = Input.SortOrder;
         app.IsActive = Input.IsActive;
+        app.SystemId = NormalizeSystemId(Input.SystemId);
 
         await ApplicationIconFormHelper.ApplyIconChangesAsync(
             app, Input, IconFile, _iconStorage, ModelState, ct);
@@ -77,7 +87,8 @@ public class EditModel : PageModel
         LaunchUrl = app.LaunchUrl,
         Environment = app.Environment,
         SortOrder = app.SortOrder,
-        IsActive = app.IsActive
+        IsActive = app.IsActive,
+        SystemId = app.SystemId
     };
 
     private static AppIconUploadViewModel BuildIconUpload(Domain.Entities.HubApplication app) => new()
@@ -93,4 +104,18 @@ public class EditModel : PageModel
             Value = (int)e,
             Text = e.ToString()
         }), "Value", "Text");
+
+    private async Task<SelectList> BuildSystemSelectAsync(CancellationToken ct)
+    {
+        var systems = await _admin.GetSystemOptionsAsync(ct);
+        var items = systems
+            .Select(s => new { s.Id, Text = $"{s.Label} ({s.Code})" })
+            .Prepend(new { Id = Guid.Empty, Text = "— Sem vínculo IAM —" })
+            .ToList();
+
+        return new SelectList(items, "Id", "Text", Input.SystemId ?? Guid.Empty);
+    }
+
+    private static Guid? NormalizeSystemId(Guid? systemId) =>
+        systemId is null || systemId.Value == Guid.Empty ? null : systemId;
 }

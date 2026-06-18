@@ -5,14 +5,21 @@
     ViewData["ShowHubTopbar"] = false;
 }
 
-<section class="page-header">
-    <h1>Controle de Acessos</h1>
-    <p>Fase 2.1 — o Hub controla <strong>quais sistemas</strong> o usuário pode abrir. Ações dentro de cada sistema (ex.: Portal RH) são responsabilidade do próprio sistema.</p>
-    <p class="hub-access-phase-note">
-        <a asp-page="/Admin/Index">← Voltar ao painel admin</a>
-        · Roadmap: <code>docs/HUB-CONTROLE-ACESSOS-ROADMAP.md</code>
-    </p>
+<section class="page-header row-between">
+    <div>
+        <h1>Controle de Acessos</h1>
+        <p>O Hub controla <strong>quais aplicativos</strong> o usuário pode abrir. O que faz dentro de cada app é responsabilidade do próprio sistema.</p>
+    </div>
+    <div class="hub-admin-quick-links">
+        <a class="btn btn-secondary" asp-page="/Admin/Users/Index">Usuários</a>
+        <a class="btn btn-secondary" asp-page="/Admin/Applications/Index">Aplicativos</a>
+        <a class="btn btn-secondary" asp-page="/Admin/Audit/Index">Auditoria</a>
+    </div>
 </section>
+
+<p class="hub-access-phase-note">
+    <a asp-page="/Admin/Index">← Voltar ao painel admin</a>
+</p>
 
 <div class="hub-access-stats">
     <div class="hub-access-stat">
