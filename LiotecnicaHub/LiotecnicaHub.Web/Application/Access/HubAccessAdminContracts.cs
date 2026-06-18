@@ -6,8 +6,8 @@ public sealed class HubUserListItem
     public string Name { get; init; } = string.Empty;
     public string Email { get; init; } = string.Empty;
     public bool IsActive { get; init; }
-    public int ProfileCount { get; init; }
-    public IReadOnlyList<string> ProfileNames { get; init; } = [];
+    public int ApplicationCount { get; init; }
+    public IReadOnlyList<string> ApplicationNames { get; init; } = [];
     public DateTimeOffset UpdatedAtUtc { get; init; }
 }
 
@@ -17,51 +17,7 @@ public sealed class HubUserInput
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
-    public List<Guid> SelectedProfileIds { get; set; } = [];
-}
-
-public sealed class HubProfileListItem
-{
-    public Guid Id { get; init; }
-    public string Name { get; init; } = string.Empty;
-    public string Code { get; init; } = string.Empty;
-    public bool IsActive { get; init; }
-    public bool IsBuiltIn { get; set; }
-    public int UserCount { get; init; }
-    public int SystemAccessCount { get; init; }
-}
-
-public sealed class HubProfileInput
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Code { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public bool IsActive { get; set; } = true;
-    public List<Guid> SelectedSystemIds { get; set; } = [];
-}
-
-public sealed class HubSystemListItem
-{
-    public Guid Id { get; init; }
-    public string Name { get; init; } = string.Empty;
-    public string Code { get; init; } = string.Empty;
-    public bool IsActive { get; init; }
-    public bool IsBuiltIn { get; set; }
-    public int ApplicationCount { get; init; }
-    public int ProfileAccessCount { get; init; }
-}
-
-public sealed class HubSystemInput
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Code { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public string? Url { get; set; }
-    public string? IconKey { get; set; }
-    public bool IsActive { get; set; } = true;
-    public bool RequiresApproval { get; set; }
+    public List<Guid> SelectedApplicationIds { get; set; } = [];
 }
 
 public sealed class HubAuditListItem
@@ -71,8 +27,7 @@ public sealed class HubAuditListItem
     public string ActionLabel { get; init; } = string.Empty;
     public DateTimeOffset OccurredAtUtc { get; init; }
     public string? AffectedUserEmail { get; init; }
-    public string? ProfileCode { get; init; }
-    public string? SystemCode { get; init; }
+    public string? ApplicationName { get; init; }
     public string? ChangedByEmail { get; init; }
     public string? PreviousData { get; init; }
     public string? NewData { get; init; }
@@ -93,19 +48,7 @@ public interface IHubAccessAdminService
     Task<(bool Success, string? Error)> CreateUserAsync(HubUserInput input, CancellationToken ct);
     Task<(bool Success, string? Error)> UpdateUserAsync(HubUserInput input, CancellationToken ct);
 
-    Task<IReadOnlyList<HubProfileListItem>> ListProfilesAsync(CancellationToken ct);
-    Task<HubProfileInput?> GetProfileAsync(Guid id, CancellationToken ct);
-    Task<(bool Success, string? Error)> CreateProfileAsync(HubProfileInput input, CancellationToken ct);
-    Task<(bool Success, string? Error)> UpdateProfileAsync(HubProfileInput input, CancellationToken ct);
-    Task<(bool Success, string? Error)> DeleteProfileAsync(Guid id, CancellationToken ct);
-
-    Task<IReadOnlyList<HubSystemListItem>> ListSystemsAsync(CancellationToken ct);
-    Task<HubSystemInput?> GetSystemAsync(Guid id, CancellationToken ct);
-    Task<(bool Success, string? Error)> CreateSystemAsync(HubSystemInput input, CancellationToken ct);
-    Task<(bool Success, string? Error)> UpdateSystemAsync(HubSystemInput input, CancellationToken ct);
-    Task<(bool Success, string? Error)> DeleteSystemAsync(Guid id, CancellationToken ct);
-
     Task<IReadOnlyList<HubAuditListItem>> ListAuditsAsync(int take, CancellationToken ct);
-    Task<IReadOnlyList<HubSelectOption>> GetProfileOptionsAsync(CancellationToken ct);
+    Task<IReadOnlyList<HubSelectOption>> GetApplicationOptionsAsync(CancellationToken ct);
     Task<IReadOnlyList<HubSelectOption>> GetSystemOptionsAsync(CancellationToken ct);
 }

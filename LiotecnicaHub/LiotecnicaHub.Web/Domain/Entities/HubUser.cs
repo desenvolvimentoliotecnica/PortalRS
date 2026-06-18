@@ -11,4 +11,5 @@ public class HubUser
 
     public ICollection<HubUserProfile> UserProfiles { get; set; } = new List<HubUserProfile>();
     public ICollection<HubUserProfileScope> UserProfileScopes { get; set; } = new List<HubUserProfileScope>();
+    public ICollection<HubUserApplicationAccess> UserApplicationAccesses { get; set; } = new List<HubUserApplicationAccess>();
 }

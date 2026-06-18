@@ -7,24 +7,14 @@
 
 <section class="page-header">
     <h1>Painel administrativo</h1>
-    <p>Gerencie usuários, perfis, sistemas, aplicativos e integração Microsoft Entra ID.</p>
+    <p>Gerencie quem abre quais aplicativos no launcher. Perfis internos ficam em cada sistema.</p>
 </section>
 
 <div class="admin-grid">
     <a class="admin-card" asp-page="/Admin/Users/Index">
         <h2>Usuários</h2>
-        <p class="admin-stat">@Model.UserCount usuário(s) IAM</p>
-        <span class="admin-link">Gerenciar →</span>
-    </a>
-    <a class="admin-card" asp-page="/Admin/Profiles/Index">
-        <h2>Perfis</h2>
-        <p class="admin-stat">@Model.ProfileCount perfil(is)</p>
-        <span class="admin-link">Gerenciar →</span>
-    </a>
-    <a class="admin-card" asp-page="/Admin/Systems/Index">
-        <h2>Sistemas</h2>
-        <p class="admin-stat">@Model.SystemCount sistema(s)</p>
-        <span class="admin-link">Gerenciar →</span>
+        <p class="admin-stat">@Model.UserCount usuário(s)</p>
+        <span class="admin-link">Acessos a aplicativos →</span>
     </a>
     <a class="admin-card" asp-page="/Admin/Applications/Index">
         <h2>Aplicativos</h2>
@@ -33,7 +23,7 @@
     </a>
     <a class="admin-card" asp-page="/Admin/Access/Index">
         <h2>Controle de Acessos</h2>
-        <p class="admin-stat">Visão consolidada IAM</p>
+        <p class="admin-stat">Visão consolidada</p>
         <span class="admin-link">Consultar →</span>
     </a>
     <a class="admin-card" asp-page="/Admin/Audit/Index">
@@ -49,6 +39,6 @@
     <div class="admin-card admin-card-static">
         <h2>Administradores Hub</h2>
         <p class="admin-stat">@Model.AdminCount e-mail(s) com acesso admin</p>
-        <small>Admins são definidos via variável de ambiente no deploy.</small>
+        <small>Admins veem todos os apps e configuram o Hub via variável de ambiente no deploy.</small>
     </div>
 </div>

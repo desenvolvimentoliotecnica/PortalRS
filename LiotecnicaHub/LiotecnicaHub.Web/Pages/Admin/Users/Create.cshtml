@@ -6,7 +6,7 @@
 
 <section class="page-header">
     <h1>Novo usuário</h1>
-    <p>Cadastre manualmente antes do primeiro login ou atribua perfis a quem já entrou pelo SSO.</p>
+    <p>Cadastre manualmente antes do primeiro login ou libere aplicativos para quem já entrou pelo SSO.</p>
 </section>
 
 <form method="post" class="form-card form-card-wide">
@@ -23,13 +23,13 @@
         Usuário ativo
     </label>
 
-    <h2 class="form-section-title">Perfis</h2>
-    <p class="hub-access-muted">Os perfis definem quais sistemas aparecem no launcher para este usuário.</p>
+    <h2 class="form-section-title">Aplicativos liberados</h2>
+    <p class="hub-access-muted">Marque os cards que este usuário verá no launcher do Hub.</p>
     @{
-        ViewData["FieldName"] = "Input.SelectedProfileIds";
-        ViewData["SelectedIds"] = Model.Input.SelectedProfileIds;
+        ViewData["FieldName"] = "Input.SelectedApplicationIds";
+        ViewData["SelectedIds"] = Model.Input.SelectedApplicationIds;
     }
-    <partial name="../Shared/_CheckboxGrid" model="Model.ProfileOptions" />
+    <partial name="../Shared/_CheckboxGrid" model="Model.ApplicationOptions" />
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>

@@ -18,7 +18,7 @@ Documento de acompanhamento. Plano original: `plano-controle-acessos-hub-corpora
 **Modelo alvo revisado:**
 
 ```text
-Hub:     Usuário → Perfil → Acesso a Sistema(s)
+Hub:     Usuário → Acesso a Aplicativo(s) no launcher
 Portal:  Usuário → Perfil/Role → Permissão de ação (RequirePermission, etc.)
 ```
 
@@ -33,7 +33,7 @@ O Hub **não** envia `portalrh.vagas.criar` no SSO. O SSO continua repassando id
 | **1** | IAM granular (módulos + permissões de ação) | ✅ Entregue (PR #227) | **Simplificar** modelo para acesso a sistemas |
 | **2** | APIs de permissões granulares | ✅ Entregue (PR #227) | Ajustado na 2.1 |
 | **2.1** | Acesso a sistemas (sem ações in-app) | ✅ Concluída | — |
-| **3** | Admin CRUD de permissões por módulo | ✅ Concluída | Usuários, perfis, sistemas, auditoria |
+| **3** | Admin: usuários e acesso a aplicativos | ✅ Concluída | Sem CRUD de perfis no Hub |
 | **4** | SSO com permissões para Portal | ❌ **Fora de escopo** | Manter SSO só identidade |
 | **5** | Escopos in-app, solicitações | ⚪ Parcial | Solicitação de **acesso a sistema** no Hub; escopos operacionais no Portal |
 
@@ -84,10 +84,10 @@ O Hub **não** envia `portalrh.vagas.criar` no SSO. O SSO continua repassando id
 
 #### Fase 3 — Administração (escopo revisado)
 
-- [x] CRUD Usuários e Perfis
-- [x] Tela perfil: checkboxes **por sistema** (Portal RH, TOTVS, Intranet…)
-- [x] CRUD Sistemas / vínculo Aplicativo→Sistema no formulário de apps
-- [x] Auditoria: quem ganhou/perdeu acesso a qual sistema
+- [x] CRUD Usuários com checkboxes **por aplicativo**
+- [x] CRUD Aplicativos + vínculo opcional a sistema (metadado)
+- [x] Auditoria de liberação/remoção de apps por usuário
+- [ ] ~~CRUD de perfis no Hub~~ **removido — perfis ficam nos aplicativos**
 - [ ] ~~CRUD módulos/permissões granulares do Portal~~ **removido do Hub**
 
 #### Fase 4 — Integração Portal RH (revisada)
@@ -147,4 +147,4 @@ Isso evita duplicar RBAC, reduz acoplamento no SSO e mantém cada sistema autôn
 
 ---
 
-_Última atualização: Fase 3 — administração IAM (usuários, perfis, sistemas, auditoria)._
+_Última atualização: Fase 3 — acesso direto usuário→aplicativo (HubUserApplicationAccess)._

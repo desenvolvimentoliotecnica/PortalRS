@@ -13,14 +13,14 @@ public class CreateModel : PageModel
     [BindProperty]
     public HubUserInput Input { get; set; } = new();
 
-    public IReadOnlyList<HubSelectOption> ProfileOptions { get; private set; } = [];
+    public IReadOnlyList<HubSelectOption> ApplicationOptions { get; private set; } = [];
 
     public async Task OnGetAsync(CancellationToken ct) =>
-        ProfileOptions = await _admin.GetProfileOptionsAsync(ct);
+        ApplicationOptions = await _admin.GetApplicationOptionsAsync(ct);
 
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
-        ProfileOptions = await _admin.GetProfileOptionsAsync(ct);
+        ApplicationOptions = await _admin.GetApplicationOptionsAsync(ct);
 
         var result = await _admin.CreateUserAsync(Input, ct);
         if (!result.Success)

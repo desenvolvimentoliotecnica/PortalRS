@@ -6,6 +6,8 @@ public static class HubAccessAuditAction
     public const string UserUpdated = "USUARIO_ATUALIZADO";
     public const string UserProfileAdded = "USUARIO_PERFIL_ADICIONADO";
     public const string UserProfileRemoved = "USUARIO_PERFIL_REMOVIDO";
+    public const string UserApplicationAdded = "USUARIO_APLICATIVO_ADICIONADO";
+    public const string UserApplicationRemoved = "USUARIO_APLICATIVO_REMOVIDO";
     public const string ProfileCreated = "PERFIL_CRIADO";
     public const string ProfileUpdated = "PERFIL_ATUALIZADO";
     public const string ProfileDeleted = "PERFIL_EXCLUIDO";

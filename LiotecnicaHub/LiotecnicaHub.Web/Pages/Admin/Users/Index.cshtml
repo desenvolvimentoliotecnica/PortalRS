@@ -1,13 +1,13 @@
 @page
 @model LiotecnicaHub.Web.Pages.Admin.Users.IndexModel
 @{
-    ViewData["Title"] = "Usuários IAM";
+    ViewData["Title"] = "Usuários";
 }
 
 <section class="page-header row-between">
     <div>
-        <h1>Usuários IAM</h1>
-        <p>Gerencie quem acessa o Hub e quais perfis cada pessoa possui.</p>
+        <h1>Usuários</h1>
+        <p>Defina quais aplicativos cada pessoa pode abrir no launcher. Perfis e permissões internas ficam em cada sistema.</p>
     </div>
     <a class="btn btn-primary" asp-page="Create">Novo usuário</a>
 </section>
@@ -26,7 +26,7 @@
         <tr>
             <th>Nome</th>
             <th>E-mail</th>
-            <th>Perfis</th>
+            <th>Aplicativos</th>
             <th>Ativo</th>
             <th></th>
         </tr>
@@ -38,16 +38,16 @@
                 <td><strong>@user.Name</strong></td>
                 <td>@user.Email</td>
                 <td>
-                    @if (user.ProfileNames.Count == 0)
+                    @if (user.ApplicationNames.Count == 0)
                     {
-                        <span class="hub-access-muted">Nenhum perfil</span>
+                        <span class="hub-access-muted">Nenhum app liberado</span>
                     }
                     else
                     {
                         <div class="hub-access-tags">
-                            @foreach (var profile in user.ProfileNames)
+                            @foreach (var app in user.ApplicationNames)
                             {
-                                <span class="hub-access-tag">@profile</span>
+                                <span class="hub-access-tag">@app</span>
                             }
                         </div>
                     }

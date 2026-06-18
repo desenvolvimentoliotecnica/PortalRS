@@ -43,21 +43,43 @@ public sealed class HubApplicationService : IHubApplicationService
 
         email = email.Trim().ToLowerInvariant();
 
-        var hasIamProfiles = await _db.UserProfiles.AsNoTracking()
-            .AnyAsync(up => up.User.IsActive && up.User.Email == email && up.Profile.IsActive, ct);
+        if (await _db.Admins.AsNoTracking().AnyAsync(a => a.Email == email, ct))
+            return apps;
 
-        if (!hasIamProfiles)
+        var user = await _db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.IsActive && u.Email == email, ct);
+
+        if (user is null)
             return apps.Where(a => IsVisibleToUser(a, email)).ToList();
 
-        var systemCodes = (await _access.GetAccessibleSystemCodesAsync(email, ct))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var directApplicationIds = await _db.UserApplicationAccesses.AsNoTracking()
+            .Where(ua => ua.UserId == user.Id && ua.Application.IsActive)
+            .Select(ua => ua.ApplicationId)
+            .ToListAsync(ct);
 
-        if (systemCodes.Count == 0)
-            return Array.Empty<HubApplication>();
+        if (directApplicationIds.Count > 0)
+        {
+            var allowed = directApplicationIds.ToHashSet();
+            return apps.Where(a => allowed.Contains(a.Id)).ToList();
+        }
 
-        return apps.Where(a =>
-            a.SystemId is null
-            || (a.System is not null && systemCodes.Contains(a.System.Code))).ToList();
+        var hasLegacyProfiles = await _db.UserProfiles.AsNoTracking()
+            .AnyAsync(up => up.UserId == user.Id && up.Profile.IsActive, ct);
+
+        if (hasLegacyProfiles)
+        {
+            var systemCodes = (await _access.GetAccessibleSystemCodesAsync(email, ct))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (systemCodes.Count == 0)
+                return Array.Empty<HubApplication>();
+
+            return apps.Where(a =>
+                a.SystemId is null
+                || (a.System is not null && systemCodes.Contains(a.System.Code))).ToList();
+        }
+
+        return apps.Where(a => IsVisibleToUser(a, email)).ToList();
     }
 
     public async Task<IReadOnlyList<HubApplication>> GetAllAsync(CancellationToken ct) =>

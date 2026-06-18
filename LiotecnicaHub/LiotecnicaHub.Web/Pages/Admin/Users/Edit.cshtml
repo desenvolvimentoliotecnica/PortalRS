@@ -6,6 +6,7 @@
 
 <section class="page-header">
     <h1>Editar usuário</h1>
+    <p>Perfis e permissões dentro de cada app (ex.: Portal RH) são gerenciados no próprio sistema.</p>
 </section>
 
 <form method="post" class="form-card form-card-wide">
@@ -23,12 +24,12 @@
         Usuário ativo
     </label>
 
-    <h2 class="form-section-title">Perfis</h2>
+    <h2 class="form-section-title">Aplicativos liberados</h2>
     @{
-        ViewData["FieldName"] = "Input.SelectedProfileIds";
-        ViewData["SelectedIds"] = Model.Input.SelectedProfileIds;
+        ViewData["FieldName"] = "Input.SelectedApplicationIds";
+        ViewData["SelectedIds"] = Model.Input.SelectedApplicationIds;
     }
-    <partial name="../Shared/_CheckboxGrid" model="Model.ProfileOptions" />
+    <partial name="../Shared/_CheckboxGrid" model="Model.ApplicationOptions" />
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>

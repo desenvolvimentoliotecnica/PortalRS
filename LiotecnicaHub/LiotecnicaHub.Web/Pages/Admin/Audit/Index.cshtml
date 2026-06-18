@@ -6,7 +6,7 @@
 
 <section class="page-header">
     <h1>Auditoria de acessos</h1>
-    <p>Histórico de alterações em usuários, perfis e sistemas (Fase 3).</p>
+    <p>Histórico de liberação e remoção de aplicativos por usuário.</p>
 </section>
 
 <table class="data-table">
@@ -14,9 +14,8 @@
         <tr>
             <th>Quando</th>
             <th>Ação</th>
-            <th>Usuário afetado</th>
-            <th>Perfil</th>
-            <th>Sistema</th>
+            <th>Usuário</th>
+            <th>Aplicativo</th>
             <th>Alterado por</th>
         </tr>
     </thead>
@@ -27,14 +26,13 @@
                 <td>@audit.OccurredAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                 <td>@audit.ActionLabel</td>
                 <td>@(audit.AffectedUserEmail ?? "—")</td>
-                <td>@(audit.ProfileCode is not null ? Html.Raw($"<code>{audit.ProfileCode}</code>") : "—")</td>
-                <td>@(audit.SystemCode is not null ? Html.Raw($"<code>{audit.SystemCode}</code>") : "—")</td>
+                <td>@(audit.ApplicationName ?? "—")</td>
                 <td>@(audit.ChangedByEmail ?? "—")</td>
             </tr>
             @if (!string.IsNullOrWhiteSpace(audit.PreviousData) || !string.IsNullOrWhiteSpace(audit.NewData))
             {
                 <tr class="hub-access-detail-row">
-                    <td colspan="6">
+                    <td colspan="5">
                         <details>
                             <summary>Detalhes</summary>
                             @if (!string.IsNullOrWhiteSpace(audit.PreviousData))

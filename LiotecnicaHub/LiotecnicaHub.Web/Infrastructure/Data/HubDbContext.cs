@@ -18,6 +18,7 @@ public class HubDbContext : DbContext
     public DbSet<HubSystemModule> SystemModules => Set<HubSystemModule>();
     public DbSet<HubPermission> Permissions => Set<HubPermission>();
     public DbSet<HubUserProfile> UserProfiles => Set<HubUserProfile>();
+    public DbSet<HubUserApplicationAccess> UserApplicationAccesses => Set<HubUserApplicationAccess>();
     public DbSet<HubProfilePermission> ProfilePermissions => Set<HubProfilePermission>();
     public DbSet<HubProfileSystemAccess> ProfileSystemAccesses => Set<HubProfileSystemAccess>();
     public DbSet<HubAccessScope> AccessScopes => Set<HubAccessScope>();
@@ -145,6 +146,20 @@ public class HubDbContext : DbContext
             e.HasOne(x => x.Profile)
                 .WithMany(x => x.UserProfiles)
                 .HasForeignKey(x => x.ProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<HubUserApplicationAccess>(e =>
+        {
+            e.ToTable("HubUserApplicationAccesses");
+            e.HasKey(x => new { x.UserId, x.ApplicationId });
+            e.HasOne(x => x.User)
+                .WithMany(x => x.UserApplicationAccesses)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Application)
+                .WithMany(x => x.UserApplicationAccesses)
+                .HasForeignKey(x => x.ApplicationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

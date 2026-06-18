@@ -13,7 +13,7 @@ public class EditModel : PageModel
     [BindProperty]
     public HubUserInput Input { get; set; } = new();
 
-    public IReadOnlyList<HubSelectOption> ProfileOptions { get; private set; } = [];
+    public IReadOnlyList<HubSelectOption> ApplicationOptions { get; private set; } = [];
 
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken ct)
     {
@@ -21,13 +21,13 @@ public class EditModel : PageModel
         if (user is null) return NotFound();
 
         Input = user;
-        ProfileOptions = await _admin.GetProfileOptionsAsync(ct);
+        ApplicationOptions = await _admin.GetApplicationOptionsAsync(ct);
         return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
-        ProfileOptions = await _admin.GetProfileOptionsAsync(ct);
+        ApplicationOptions = await _admin.GetApplicationOptionsAsync(ct);
 
         var result = await _admin.UpdateUserAsync(Input, ct);
         if (!result.Success)
