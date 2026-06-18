@@ -1,0 +1,39 @@
+@page "{id:guid}"
+@model LiotecnicaHub.Web.Pages.Admin.Users.EditModel
+@{
+    ViewData["Title"] = "Editar usuário";
+}
+
+<section class="page-header">
+    <h1>Editar usuário</h1>
+</section>
+
+<form method="post" class="form-card form-card-wide">
+    <input type="hidden" asp-for="Input.Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+    <label asp-for="Input.Name">Nome</label>
+    <input asp-for="Input.Name" class="form-control" />
+
+    <label asp-for="Input.Email">E-mail</label>
+    <input asp-for="Input.Email" class="form-control" type="email" />
+
+    <label class="checkbox-row">
+        <input asp-for="Input.IsActive" type="checkbox" />
+        Usuário ativo
+    </label>
+
+    <h2 class="form-section-title">Perfis</h2>
+    @{
+        ViewData["FieldName"] = "Input.SelectedProfileIds";
+        ViewData["SelectedIds"] = Model.Input.SelectedProfileIds;
+    }
+    <partial name="../Shared/_CheckboxGrid" model="Model.ProfileOptions" />
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a asp-page="Index">Cancelar</a>
+    </div>
+</form>
+
+<p><a asp-page="Index">← Voltar à lista</a></p>

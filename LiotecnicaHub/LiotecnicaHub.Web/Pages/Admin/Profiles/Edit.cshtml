@@ -1,0 +1,53 @@
+@page "{id:guid}"
+@model LiotecnicaHub.Web.Pages.Admin.Profiles.EditModel
+@{
+    ViewData["Title"] = "Editar perfil";
+}
+
+<section class="page-header">
+    <h1>Editar perfil</h1>
+    @if (Model.IsBuiltIn)
+    {
+        <p class="hub-access-muted">Perfil padrão — o código não pode ser alterado.</p>
+    }
+</section>
+
+<form method="post" class="form-card form-card-wide">
+    <input type="hidden" asp-for="Input.Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+    <label asp-for="Input.Name">Nome</label>
+    <input asp-for="Input.Name" class="form-control" />
+
+    <label asp-for="Input.Code">Código</label>
+    @if (Model.IsBuiltIn)
+    {
+        <input asp-for="Input.Code" class="form-control" readonly />
+    }
+    else
+    {
+        <input asp-for="Input.Code" class="form-control" />
+    }
+
+    <label asp-for="Input.Description">Descrição</label>
+    <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
+
+    <label class="checkbox-row">
+        <input asp-for="Input.IsActive" type="checkbox" />
+        Perfil ativo
+    </label>
+
+    <h2 class="form-section-title">Sistemas liberados</h2>
+    @{
+        ViewData["FieldName"] = "Input.SelectedSystemIds";
+        ViewData["SelectedIds"] = Model.Input.SelectedSystemIds;
+    }
+    <partial name="../Shared/_CheckboxGrid" model="Model.SystemOptions" />
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a asp-page="Index">Cancelar</a>
+    </div>
+</form>
+
+<p><a asp-page="Index">← Voltar à lista</a></p>

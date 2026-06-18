@@ -22,6 +22,10 @@
     <input asp-for="Input.LaunchUrl" class="form-control" />
     <span asp-validation-for="Input.LaunchUrl" class="field-error"></span>
 
+    <label asp-for="Input.SystemId">Sistema IAM</label>
+    <select asp-for="Input.SystemId" asp-items="Model.SystemOptions" class="form-control"></select>
+    <p class="hub-access-muted">Apps vinculados a um sistema só aparecem para usuários com perfil que libera esse sistema.</p>
+
     <partial name="_AppIconUpload" model="Model.IconUpload" />
 
     <label asp-for="Input.Environment">Ambiente</label>

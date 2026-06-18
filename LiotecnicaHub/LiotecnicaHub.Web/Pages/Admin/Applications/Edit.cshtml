@@ -22,6 +22,10 @@
     <label asp-for="Input.LaunchUrl">URL de abertura</label>
     <input asp-for="Input.LaunchUrl" class="form-control" />
 
+    <label asp-for="Input.SystemId">Sistema IAM</label>
+    <select asp-for="Input.SystemId" asp-items="Model.SystemOptions" class="form-control"></select>
+    <p class="hub-access-muted">Apps vinculados a um sistema só aparecem para usuários com perfil que libera esse sistema.</p>
+
     <partial name="_AppIconUpload" model="Model.IconUpload" />
 
     <label asp-for="Input.Environment">Ambiente</label>

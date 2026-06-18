@@ -1,0 +1,40 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.Users.CreateModel
+@{
+    ViewData["Title"] = "Novo usuário";
+}
+
+<section class="page-header">
+    <h1>Novo usuário</h1>
+    <p>Cadastre manualmente antes do primeiro login ou atribua perfis a quem já entrou pelo SSO.</p>
+</section>
+
+<form method="post" class="form-card form-card-wide">
+    <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+    <label asp-for="Input.Name">Nome</label>
+    <input asp-for="Input.Name" class="form-control" />
+
+    <label asp-for="Input.Email">E-mail</label>
+    <input asp-for="Input.Email" class="form-control" type="email" />
+
+    <label class="checkbox-row">
+        <input asp-for="Input.IsActive" type="checkbox" />
+        Usuário ativo
+    </label>
+
+    <h2 class="form-section-title">Perfis</h2>
+    <p class="hub-access-muted">Os perfis definem quais sistemas aparecem no launcher para este usuário.</p>
+    @{
+        ViewData["FieldName"] = "Input.SelectedProfileIds";
+        ViewData["SelectedIds"] = Model.Input.SelectedProfileIds;
+    }
+    <partial name="../Shared/_CheckboxGrid" model="Model.ProfileOptions" />
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a asp-page="Index">Cancelar</a>
+    </div>
+</form>
+
+<p><a asp-page="Index">← Voltar à lista</a></p>

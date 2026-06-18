@@ -1,0 +1,53 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.Profiles.IndexModel
+@{
+    ViewData["Title"] = "Perfis IAM";
+}
+
+<section class="page-header row-between">
+    <div>
+        <h1>Perfis IAM</h1>
+        <p>Perfis agrupam acesso a sistemas no launcher. Perfis padrão podem ser editados, mas não excluídos.</p>
+    </div>
+    <a class="btn btn-primary" asp-page="Create">Novo perfil</a>
+</section>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Nome</th>
+            <th>Código</th>
+            <th>Sistemas</th>
+            <th>Usuários</th>
+            <th>Ativo</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var profile in Model.Profiles)
+        {
+            <tr>
+                <td>
+                    <strong>@profile.Name</strong>
+                    @if (profile.IsBuiltIn)
+                    {
+                        <div class="hub-access-muted">Perfil padrão</div>
+                    }
+                </td>
+                <td><code>@profile.Code</code></td>
+                <td>@profile.SystemAccessCount</td>
+                <td>@profile.UserCount</td>
+                <td>@(profile.IsActive ? "Sim" : "Não")</td>
+                <td class="table-actions">
+                    <a asp-page="Edit" asp-route-id="@profile.Id">Editar</a>
+                    @if (!profile.IsBuiltIn && profile.UserCount == 0)
+                    {
+                        <a asp-page="Delete" asp-route-id="@profile.Id">Excluir</a>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<p><a asp-page="/Admin/Index">← Voltar ao painel</a></p>

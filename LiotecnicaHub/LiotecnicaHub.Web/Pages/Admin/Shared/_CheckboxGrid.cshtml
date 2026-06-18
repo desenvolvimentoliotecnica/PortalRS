@@ -1,0 +1,32 @@
+@model IReadOnlyList<LiotecnicaHub.Web.Application.Access.HubSelectOption>
+@{
+    var fieldName = ViewData["FieldName"] as string ?? "SelectedIds";
+    var selectedIds = ViewData["SelectedIds"] as IEnumerable<Guid> ?? Array.Empty<Guid>();
+    var selectedSet = selectedIds.ToHashSet();
+}
+
+<div class="hub-checkbox-grid">
+    @foreach (var option in Model)
+    {
+        var isChecked = selectedSet.Contains(option.Id);
+        var inactive = !option.IsActive;
+        <label class="hub-checkbox-item @(inactive ? "hub-checkbox-item-inactive" : null)">
+            <input type="checkbox"
+                   name="@fieldName"
+                   value="@option.Id"
+                   @(isChecked ? "checked" : null)
+                   @(inactive && !isChecked ? "disabled" : null) />
+            <span>
+                <strong>@option.Label</strong>
+                @if (!string.IsNullOrWhiteSpace(option.Code))
+                {
+                    <code>@option.Code</code>
+                }
+                @if (inactive)
+                {
+                    <span class="hub-access-muted">(inativo)</span>
+                }
+            </span>
+        </label>
+    }
+</div>

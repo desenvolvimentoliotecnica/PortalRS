@@ -1,0 +1,69 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.Users.IndexModel
+@{
+    ViewData["Title"] = "Usuários IAM";
+}
+
+<section class="page-header row-between">
+    <div>
+        <h1>Usuários IAM</h1>
+        <p>Gerencie quem acessa o Hub e quais perfis cada pessoa possui.</p>
+    </div>
+    <a class="btn btn-primary" asp-page="Create">Novo usuário</a>
+</section>
+
+<form method="get" class="hub-filter-bar">
+    <input type="search" name="search" value="@Model.Search" class="form-control" placeholder="Buscar por nome ou e-mail" />
+    <button type="submit" class="btn btn-secondary">Buscar</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a asp-page="Index">Limpar</a>
+    }
+</form>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Nome</th>
+            <th>E-mail</th>
+            <th>Perfis</th>
+            <th>Ativo</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in Model.Users)
+        {
+            <tr>
+                <td><strong>@user.Name</strong></td>
+                <td>@user.Email</td>
+                <td>
+                    @if (user.ProfileNames.Count == 0)
+                    {
+                        <span class="hub-access-muted">Nenhum perfil</span>
+                    }
+                    else
+                    {
+                        <div class="hub-access-tags">
+                            @foreach (var profile in user.ProfileNames)
+                            {
+                                <span class="hub-access-tag">@profile</span>
+                            }
+                        </div>
+                    }
+                </td>
+                <td>@(user.IsActive ? "Sim" : "Não")</td>
+                <td class="table-actions">
+                    <a asp-page="Edit" asp-route-id="@user.Id">Editar</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model.Users.Count == 0)
+{
+    <p class="empty-state">Nenhum usuário encontrado.</p>
+}
+
+<p><a asp-page="/Admin/Index">← Voltar ao painel</a></p>

@@ -1,0 +1,63 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.Audit.IndexModel
+@{
+    ViewData["Title"] = "Auditoria de acessos";
+}
+
+<section class="page-header">
+    <h1>Auditoria de acessos</h1>
+    <p>Histórico de alterações em usuários, perfis e sistemas (Fase 3).</p>
+</section>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Quando</th>
+            <th>Ação</th>
+            <th>Usuário afetado</th>
+            <th>Perfil</th>
+            <th>Sistema</th>
+            <th>Alterado por</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var audit in Model.Audits)
+        {
+            <tr>
+                <td>@audit.OccurredAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                <td>@audit.ActionLabel</td>
+                <td>@(audit.AffectedUserEmail ?? "—")</td>
+                <td>@(audit.ProfileCode is not null ? Html.Raw($"<code>{audit.ProfileCode}</code>") : "—")</td>
+                <td>@(audit.SystemCode is not null ? Html.Raw($"<code>{audit.SystemCode}</code>") : "—")</td>
+                <td>@(audit.ChangedByEmail ?? "—")</td>
+            </tr>
+            @if (!string.IsNullOrWhiteSpace(audit.PreviousData) || !string.IsNullOrWhiteSpace(audit.NewData))
+            {
+                <tr class="hub-access-detail-row">
+                    <td colspan="6">
+                        <details>
+                            <summary>Detalhes</summary>
+                            @if (!string.IsNullOrWhiteSpace(audit.PreviousData))
+                            {
+                                <p class="hub-access-muted">Antes:</p>
+                                <pre class="hub-audit-json">@audit.PreviousData</pre>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(audit.NewData))
+                            {
+                                <p class="hub-access-muted">Depois:</p>
+                                <pre class="hub-audit-json">@audit.NewData</pre>
+                            }
+                        </details>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+@if (Model.Audits.Count == 0)
+{
+    <p class="empty-state">Nenhum registro de auditoria ainda.</p>
+}
+
+<p><a asp-page="/Admin/Index">← Voltar ao painel</a></p>

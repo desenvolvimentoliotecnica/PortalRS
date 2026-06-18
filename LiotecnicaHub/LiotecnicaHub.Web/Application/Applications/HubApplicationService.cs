@@ -64,6 +64,7 @@ public sealed class HubApplicationService : IHubApplicationService
         await _db.Applications
             .AsNoTracking()
             .Include(a => a.AccessRules)
+            .Include(a => a.System)
             .OrderBy(a => a.SortOrder)
             .ThenBy(a => a.Name)
             .ToListAsync(ct);

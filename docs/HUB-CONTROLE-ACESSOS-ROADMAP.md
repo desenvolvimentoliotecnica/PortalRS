@@ -33,7 +33,7 @@ O Hub **não** envia `portalrh.vagas.criar` no SSO. O SSO continua repassando id
 | **1** | IAM granular (módulos + permissões de ação) | ✅ Entregue (PR #227) | **Simplificar** modelo para acesso a sistemas |
 | **2** | APIs de permissões granulares | ✅ Entregue (PR #227) | Ajustado na 2.1 |
 | **2.1** | Acesso a sistemas (sem ações in-app) | ✅ Concluída | — |
-| **3** | Admin CRUD de permissões por módulo | ⚪ Repensada | Admin: usuários, perfis, **acesso a sistemas** |
+| **3** | Admin CRUD de permissões por módulo | ✅ Concluída | Usuários, perfis, sistemas, auditoria |
 | **4** | SSO com permissões para Portal | ❌ **Fora de escopo** | Manter SSO só identidade |
 | **5** | Escopos in-app, solicitações | ⚪ Parcial | Solicitação de **acesso a sistema** no Hub; escopos operacionais no Portal |
 
@@ -84,10 +84,10 @@ O Hub **não** envia `portalrh.vagas.criar` no SSO. O SSO continua repassando id
 
 #### Fase 3 — Administração (escopo revisado)
 
-- [ ] CRUD Usuários e Perfis
-- [ ] Tela perfil: checkboxes **por sistema** (Portal RH, TOTVS, Intranet…)
-- [ ] CRUD Sistemas / Aplicativos (launcher)
-- [ ] Auditoria: quem ganhou/perdeu acesso a qual sistema
+- [x] CRUD Usuários e Perfis
+- [x] Tela perfil: checkboxes **por sistema** (Portal RH, TOTVS, Intranet…)
+- [x] CRUD Sistemas / vínculo Aplicativo→Sistema no formulário de apps
+- [x] Auditoria: quem ganhou/perdeu acesso a qual sistema
 - [ ] ~~CRUD módulos/permissões granulares do Portal~~ **removido do Hub**
 
 #### Fase 4 — Integração Portal RH (revisada)
@@ -147,4 +147,4 @@ Isso evita duplicar RBAC, reduz acoplamento no SSO e mantém cada sistema autôn
 
 ---
 
-_Última atualização: Fase 2.1 — acesso a sistemas (HubProfileSystemAccess, migration AddProfileSystemAccessFase21)._
+_Última atualização: Fase 3 — administração IAM (usuários, perfis, sistemas, auditoria)._

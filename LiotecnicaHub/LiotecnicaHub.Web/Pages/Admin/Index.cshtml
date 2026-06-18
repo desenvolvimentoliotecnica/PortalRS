@@ -7,19 +7,39 @@
 
 <section class="page-header">
     <h1>Painel administrativo</h1>
-    <p>Gerencie aplicativos, acesso e integração Microsoft Entra ID.</p>
+    <p>Gerencie usuários, perfis, sistemas, aplicativos e integração Microsoft Entra ID.</p>
 </section>
 
 <div class="admin-grid">
-    <a class="admin-card" asp-page="/Admin/Access/Index">
-        <h2>Controle de Acessos</h2>
-        <p class="admin-stat">Catálogo IAM (Fase 1)</p>
-        <span class="admin-link">Validar seeds →</span>
+    <a class="admin-card" asp-page="/Admin/Users/Index">
+        <h2>Usuários</h2>
+        <p class="admin-stat">@Model.UserCount usuário(s) IAM</p>
+        <span class="admin-link">Gerenciar →</span>
+    </a>
+    <a class="admin-card" asp-page="/Admin/Profiles/Index">
+        <h2>Perfis</h2>
+        <p class="admin-stat">@Model.ProfileCount perfil(is)</p>
+        <span class="admin-link">Gerenciar →</span>
+    </a>
+    <a class="admin-card" asp-page="/Admin/Systems/Index">
+        <h2>Sistemas</h2>
+        <p class="admin-stat">@Model.SystemCount sistema(s)</p>
+        <span class="admin-link">Gerenciar →</span>
     </a>
     <a class="admin-card" asp-page="/Admin/Applications/Index">
         <h2>Aplicativos</h2>
         <p class="admin-stat">@Model.ApplicationCount cadastrado(s)</p>
         <span class="admin-link">Gerenciar →</span>
+    </a>
+    <a class="admin-card" asp-page="/Admin/Access/Index">
+        <h2>Controle de Acessos</h2>
+        <p class="admin-stat">Visão consolidada IAM</p>
+        <span class="admin-link">Consultar →</span>
+    </a>
+    <a class="admin-card" asp-page="/Admin/Audit/Index">
+        <h2>Auditoria</h2>
+        <p class="admin-stat">Histórico de alterações</p>
+        <span class="admin-link">Ver registros →</span>
     </a>
     <a class="admin-card" asp-page="/Admin/EntraConfig">
         <h2>Microsoft Entra ID</h2>
@@ -27,7 +47,7 @@
         <span class="admin-link">Configurar →</span>
     </a>
     <div class="admin-card admin-card-static">
-        <h2>Administradores</h2>
+        <h2>Administradores Hub</h2>
         <p class="admin-stat">@Model.AdminCount e-mail(s) com acesso admin</p>
         <small>Admins são definidos via variável de ambiente no deploy.</small>
     </div>

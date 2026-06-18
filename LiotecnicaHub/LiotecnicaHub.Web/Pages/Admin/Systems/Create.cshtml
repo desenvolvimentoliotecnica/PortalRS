@@ -1,0 +1,45 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.Systems.CreateModel
+@{
+    ViewData["Title"] = "Novo sistema";
+}
+
+<section class="page-header">
+    <h1>Novo sistema</h1>
+</section>
+
+<form method="post" class="form-card">
+    <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+    <label asp-for="Input.Name">Nome</label>
+    <input asp-for="Input.Name" class="form-control" />
+
+    <label asp-for="Input.Code">Código</label>
+    <input asp-for="Input.Code" class="form-control" placeholder="ex.: meu-sistema (opcional)" />
+
+    <label asp-for="Input.Description">Descrição</label>
+    <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
+
+    <label asp-for="Input.Url">URL base</label>
+    <input asp-for="Input.Url" class="form-control" />
+
+    <label asp-for="Input.IconKey">Ícone (chave)</label>
+    <input asp-for="Input.IconKey" class="form-control" placeholder="ex.: grid, users" />
+
+    <label class="checkbox-row">
+        <input asp-for="Input.IsActive" type="checkbox" />
+        Sistema ativo
+    </label>
+
+    <label class="checkbox-row">
+        <input asp-for="Input.RequiresApproval" type="checkbox" />
+        Requer aprovação (futuro)
+    </label>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a asp-page="Index">Cancelar</a>
+    </div>
+</form>
+
+<p><a asp-page="Index">← Voltar à lista</a></p>
