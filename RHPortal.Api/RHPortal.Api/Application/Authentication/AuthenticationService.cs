@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RhPortal.Api.Contracts.Authentication;
@@ -27,7 +28,9 @@ public sealed class AuthenticationService
     private readonly IEntraTokenValidator _entraTokenValidator;
     private readonly AwardPointsService _awardPointsService;
     private readonly RoleAdministrationService _roleAdministrationService;
-    private const string EntraDefaultRole = "Operacional";
+    private readonly HubSsoOptions _hubSsoOptions;
+    private readonly ILogger<AuthenticationService> _logger;
+    private const string SsoDefaultRole = "Operacional";
 
     public AuthenticationService(
         UserManager<ApplicationUser> userManager,
@@ -35,18 +38,22 @@ public sealed class AuthenticationService
         AppDbContext db,
         ITenantContext tenantContext,
         IOptions<JwtOptions> jwtOptions,
+        IOptions<HubSsoOptions> hubSsoOptions,
         IEntraTokenValidator entraTokenValidator,
         AwardPointsService awardPointsService,
-        RoleAdministrationService roleAdministrationService)
+        RoleAdministrationService roleAdministrationService,
+        ILogger<AuthenticationService> logger)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _db = db;
         _tenantContext = tenantContext;
         _jwtOptions = jwtOptions.Value;
+        _hubSsoOptions = hubSsoOptions.Value;
         _entraTokenValidator = entraTokenValidator;
         _awardPointsService = awardPointsService;
         _roleAdministrationService = roleAdministrationService;
+        _logger = logger;
     }
 
     /// <summary>Inclui CentroCusto e Unit para derivar EmpresaId no perfil/me.</summary>
@@ -324,8 +331,30 @@ public sealed class AuthenticationService
 
         var user = await UsersWithFuncionarioEstrutura()
             .FirstOrDefaultAsync(x => x.Email != null && x.Email.ToLower() == email, ct);
-        if (user is null || !user.IsActive)
+
+        if (user is not null && !user.IsActive)
             return null;
+
+        if (user is null)
+        {
+            if (!_hubSsoOptions.AutoProvisionUsers)
+                return null;
+
+            var created = await GetOrCreateSsoUserAsync(email, ResolveDisplayNameFromEmail(email), ct);
+            if (created is null)
+                return null;
+
+            _logger.LogInformation(
+                "Hub SSO: usuário {Email} provisionado no tenant {TenantId} com perfil {Role}.",
+                email,
+                _tenantContext.TenantId,
+                SsoDefaultRole);
+
+            user = await UsersWithFuncionarioEstrutura()
+                .FirstOrDefaultAsync(x => x.Id == created.Id, ct);
+            if (user is null)
+                return null;
+        }
 
         var roleNames = await _userManager.GetRolesAsync(user);
         var roleEntities = await _roleManager.Roles.Where(r => r.Name != null && roleNames.Contains(r.Name)).ToListAsync(ct);
@@ -360,16 +389,21 @@ public sealed class AuthenticationService
         );
     }
 
-    private async Task<ApplicationUser?> GetOrCreateEntraUserAsync(
+    private Task<ApplicationUser?> GetOrCreateEntraUserAsync(
         ClaimsPrincipal principal,
         string email,
+        CancellationToken ct) =>
+        GetOrCreateSsoUserAsync(email, ResolveFullName(principal, email), ct);
+
+    private async Task<ApplicationUser?> GetOrCreateSsoUserAsync(
+        string email,
+        string fullName,
         CancellationToken ct)
     {
         var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Email == email, ct);
         if (user is not null)
             return user.IsActive ? user : null;
 
-        var fullName = ResolveFullName(principal, email);
         user = new ApplicationUser
         {
             Id = Guid.NewGuid(),
@@ -383,8 +417,18 @@ public sealed class AuthenticationService
         if (!createResult.Succeeded)
             return null;
 
-        var roleAssigned = await EnsureRoleAssignedAsync(user, EntraDefaultRole, ct);
+        var roleAssigned = await EnsureRoleAssignedAsync(user, SsoDefaultRole, ct);
         return roleAssigned ? user : null;
+    }
+
+    private static string ResolveDisplayNameFromEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 0)
+            return email;
+
+        var local = email[..at].Replace('.', ' ').Replace('_', ' ').Trim();
+        return string.IsNullOrWhiteSpace(local) ? email : local;
     }
 
     private async Task<bool> EnsureRoleAssignedAsync(ApplicationUser user, string roleName, CancellationToken ct)
