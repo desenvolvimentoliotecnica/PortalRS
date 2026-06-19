@@ -1,0 +1,46 @@
+@page "{id:guid}"
+@model LiotecnicaHub.Web.Pages.Admin.Users.DeleteModel
+@{
+    ViewData["Title"] = "Excluir usuário";
+}
+
+<section class="page-header">
+    <h1>Excluir usuário</h1>
+</section>
+
+@if (Model.UserInfo is not null)
+{
+    <div class="form-card">
+        <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+        <p>
+            Confirma a exclusão de <strong>@Model.UserInfo.Name</strong>
+            (<span>@Model.UserInfo.Email</span>)?
+        </p>
+
+        @if (Model.UserInfo.IsHubAdmin)
+        {
+            <p class="alert alert-warn">
+                Este usuário é <strong>administrador do Hub</strong>. A exclusão remove também o acesso ao painel
+                <code>/Admin</code>. O login LDAP/SSO poderá recriar o usuário no próximo acesso, mas sem privilégios
+                de admin até que outro administrador libere novamente.
+            </p>
+        }
+        else
+        {
+            <p class="hub-access-muted">
+                Os aplicativos liberados e demais vínculos deste usuário no Hub serão removidos.
+                Se ele voltar a entrar via LDAP ou Microsoft, uma nova conta será criada automaticamente.
+            </p>
+        }
+
+        <form method="post">
+            <div class="form-actions">
+                <button type="submit" class="btn btn-danger">Excluir</button>
+                <a asp-page="Index">Cancelar</a>
+            </div>
+        </form>
+    </div>
+}
+
+<p><a asp-page="Index">← Voltar à lista</a></p>

@@ -167,6 +167,8 @@ a:hover { text-decoration: underline; }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-dark); text-decoration: none; color: #fff; }
 .btn-danger { background: var(--danger); color: #fff; border: none; }
+.link-danger { color: var(--danger); font-weight: 600; }
+.link-danger:hover { color: #991b1b; }
 .btn-microsoft {
     width: 100%;
     background: #2f2f2f;

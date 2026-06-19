@@ -240,6 +240,75 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
         return (true, null);
     }
 
+    public async Task<HubUserDeleteInfo?> GetUserDeleteInfoAsync(Guid id, CancellationToken ct)
+    {
+        var user = await _db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == id, ct);
+
+        if (user is null)
+            return null;
+
+        var isAdmin = await _db.Admins.AsNoTracking()
+            .AnyAsync(a => a.Email == user.Email, ct);
+
+        return new HubUserDeleteInfo
+        {
+            Id = user.Id,
+            Name = user.Name,
+            Email = user.Email,
+            IsHubAdmin = isAdmin
+        };
+    }
+
+    public async Task<(bool Success, string? Error)> DeleteUserAsync(Guid id, CancellationToken ct)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
+        if (user is null)
+            return (false, "Usuário não encontrado.");
+
+        var actorId = GetCurrentActorUserId();
+        if (actorId == user.Id)
+        {
+            return (false,
+                "Você não pode excluir o próprio usuário enquanto estiver autenticado. Peça a outro administrador ou use outra conta.");
+        }
+
+        var adminEntry = await _db.Admins.FirstOrDefaultAsync(a => a.Email == user.Email, ct);
+        if (adminEntry is not null)
+        {
+            var adminCount = await _db.Admins.CountAsync(ct);
+            if (adminCount <= 1)
+            {
+                return (false,
+                    "Não é possível excluir o último administrador do Hub. Cadastre outro admin antes.");
+            }
+        }
+
+        var snapshot = SerializeAudit(new
+        {
+            user.Email,
+            user.Name,
+            user.IsActive,
+            WasHubAdmin = adminEntry is not null
+        });
+
+        await WriteAuditAsync(
+            HubAccessAuditAction.UserDeleted,
+            user.Id,
+            null,
+            actorId,
+            snapshot,
+            null,
+            ct);
+
+        if (adminEntry is not null)
+            _db.Admins.Remove(adminEntry);
+
+        _db.Users.Remove(user);
+        await _db.SaveChangesAsync(ct);
+        return (true, null);
+    }
+
     public async Task<IReadOnlyList<HubAuditListItem>> ListAuditsAsync(int take, CancellationToken ct)
     {
         take = Math.Clamp(take, 1, 500);
@@ -440,6 +509,7 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
         HubAccessAuditAction.UserApplicationAdded => "Aplicativo liberado",
         HubAccessAuditAction.UserApplicationRemoved => "Aplicativo removido",
         HubAccessAuditAction.UserPasswordChanged => "Senha alterada",
+        HubAccessAuditAction.UserDeleted => "Usuário excluído",
         HubAccessAuditAction.UserProfileAdded => "Perfil atribuído (legado)",
         HubAccessAuditAction.UserProfileRemoved => "Perfil removido (legado)",
         _ => action

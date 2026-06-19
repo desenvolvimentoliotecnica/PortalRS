@@ -11,6 +11,14 @@ public sealed class HubUserListItem
     public DateTimeOffset UpdatedAtUtc { get; init; }
 }
 
+public sealed class HubUserDeleteInfo
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string Email { get; init; } = string.Empty;
+    public bool IsHubAdmin { get; init; }
+}
+
 public sealed class HubUserInput
 {
     public Guid Id { get; set; }
@@ -53,6 +61,8 @@ public interface IHubAccessAdminService
     Task<HubUserInput?> GetUserAsync(Guid id, CancellationToken ct);
     Task<(bool Success, string? Error)> CreateUserAsync(HubUserInput input, CancellationToken ct);
     Task<(bool Success, string? Error)> UpdateUserAsync(HubUserInput input, CancellationToken ct);
+    Task<HubUserDeleteInfo?> GetUserDeleteInfoAsync(Guid id, CancellationToken ct);
+    Task<(bool Success, string? Error)> DeleteUserAsync(Guid id, CancellationToken ct);
 
     Task<IReadOnlyList<HubAuditListItem>> ListAuditsAsync(int take, CancellationToken ct);
     Task<IReadOnlyList<HubSelectOption>> GetApplicationOptionsAsync(CancellationToken ct);

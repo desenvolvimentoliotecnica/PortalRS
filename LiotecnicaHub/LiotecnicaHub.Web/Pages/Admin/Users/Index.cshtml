@@ -55,6 +55,7 @@
                 <td>@(user.IsActive ? "Sim" : "Não")</td>
                 <td class="table-actions">
                     <a asp-page="Edit" asp-route-id="@user.Id">Editar</a>
+                    <a asp-page="Delete" asp-route-id="@user.Id" class="link-danger">Excluir</a>
                 </td>
             </tr>
         }
