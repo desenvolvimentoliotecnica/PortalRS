@@ -61,7 +61,6 @@ type JobItem = {
   etapas?: string[] | null;
   descricaoPublica?: string | null;
   urgente?: boolean | null;
-  aceitaPcd?: boolean | null;
   quantidadeVagas?: number | null;
 };
 
@@ -697,7 +696,6 @@ export default function PortalVagasScreen() {
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
                   {selectedJob.urgente && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Urgente</span>}
-                  {selectedJob.aceitaPcd && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">PCD</span>}
                 </div>
                 <h2 className="text-lg font-bold leading-tight">{selectedJob.titulo}</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">{selectedJob.tenantName || selectedJob.empresaNome || "Empresa"}</p>

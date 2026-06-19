@@ -17,7 +17,6 @@ type JobItem = {
   empresaNome?: string | null;
   tenantName?: string | null;
   urgente?: boolean | null;
-  aceitaPcd?: boolean | null;
 };
 
 const HERO_GRADIENTS = [
@@ -78,9 +77,6 @@ export default function JobCard({ job, index, onDetails, onApply }: JobCardProps
         <div className="flex items-start gap-2 mb-1">
           {job.urgente && (
             <span className="rounded-full bg-red-500/90 px-2 py-0.5 text-xs font-semibold shrink-0">Urgente</span>
-          )}
-          {job.aceitaPcd && (
-            <span className="rounded-full bg-emerald-600/80 px-2 py-0.5 text-xs font-semibold shrink-0">PCD</span>
           )}
         </div>
         <h3 className="font-extrabold text-lg leading-tight">{job.titulo}</h3>
