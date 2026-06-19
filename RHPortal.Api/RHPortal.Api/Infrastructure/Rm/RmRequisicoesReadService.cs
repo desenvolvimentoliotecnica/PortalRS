@@ -210,6 +210,9 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 
         foreach (var item in items)
         {
+            if (!RmRequisicaoTipos.IsVisivelConsulta(item.TipoRequisicao))
+                continue;
+
             if (!string.IsNullOrWhiteSpace(tipo)
                 && !string.Equals(item.TipoRequisicao, tipo, StringComparison.OrdinalIgnoreCase))
                 continue;
@@ -313,9 +316,15 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 
     private static RmRequisicaoRowDto MapRestRow(JsonElement item)
     {
+        var tipo = FirstNonBlank(
+            JsonString(item, "TIPO_REQUISICAO"),
+            JsonString(item, "TIPOREQUISICAO"),
+            JsonString(item, "TipoRequisicao"),
+            JsonString(item, "TIPO"));
+
         return new RmRequisicaoRowDto
         {
-            TipoRequisicao = "AUMENTO_QUADRO",
+            TipoRequisicao = tipo ?? "",
             Codcolrequisicao = JsonInt(item, "CODCOLREQUISICAO"),
             Idreq = JsonInt(item, "IDREQ") ?? 0,
             Justificativa = JsonString(item, "JUSTIFICATIVA"),

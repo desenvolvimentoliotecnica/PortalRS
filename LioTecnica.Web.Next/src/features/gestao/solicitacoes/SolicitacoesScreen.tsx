@@ -74,6 +74,11 @@ import {
     type SolicitacaoTimelineEventoResponse,
 } from "@/features/gestao/shared/etapaUtils";
 import PaginationBar from "@/components/pagination/PaginationBar";
+import {
+    formatSolicitacaoCodigoRm,
+    formatTipoSolicitacaoLabel,
+    tipoSolicitacaoBadgeClass,
+} from "@/features/gestao/solicitacoes/rmRequisicaoFormat";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -100,6 +105,7 @@ interface SolicitacaoGridRow {
     etapaPendenteAprovadorId?: string | null;
     rmIdReq?: number | null;
     rmRequisicaoCodigo?: string | null;
+    rmTipoRequisicao?: string | null;
 }
 
 interface TenantConfiguracaoDto {
@@ -286,12 +292,7 @@ function formatOpenDays(iso: string | null | undefined) {
 }
 
 function solicitacaoCodigoRm(r: Pick<SolicitacaoGridRow, "rmIdReq" | "rmRequisicaoCodigo">): string {
-    if (r.rmIdReq != null) return String(r.rmIdReq);
-    const cod = r.rmRequisicaoCodigo?.trim();
-    if (!cod || cod.startsWith("STUB-")) return "";
-    const parts = cod.split("|");
-    if (parts.length === 3) return parts[2].trim();
-    return cod;
+    return formatSolicitacaoCodigoRm(r) || "—";
 }
 
 function truncateTitle(value: string | null | undefined, maxLength = 60) {
@@ -1108,8 +1109,8 @@ function SolicitacoesVagaContent() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap text-center">
-                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${r.tipoSolicitacao === 1 ? "bg-blue-500/15 text-blue-700" : "bg-sky-500/15 text-sky-700"}`}>
-                                            {r.tipoSolicitacao === 1 ? "Substituição" : "Nova"}
+                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${tipoSolicitacaoBadgeClass(Number(r.tipoSolicitacao), r.rmTipoRequisicao)}`}>
+                                            {formatTipoSolicitacaoLabel(Number(r.tipoSolicitacao), r.rmTipoRequisicao)}
                                         </span>
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap text-center text-sm font-mono">{r.qtdPosicoes}</TableCell>
