@@ -332,6 +332,12 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             Codfilial = JsonString(item, "CODFILIAL"),
             Codsecao = JsonString(item, "CODSECAO"),
             Codfuncao = JsonString(item, "CODFUNCAO"),
+            NomeFuncao = FirstNonBlank(
+                JsonString(item, "NOMEFUNCAO"),
+                JsonString(item, "NOME_FUNCAO")),
+            DescricaoFuncao = FirstNonBlank(
+                JsonString(item, "DESCRICAOFUNCAO"),
+                JsonString(item, "DESCRICAO_FUNCAO")),
             Codtabelasalarial = JsonString(item, "CODTABELASALARIAL"),
             Codnivelsalarial = JsonString(item, "CODNIVELSALARIAL"),
             Codfaixasalarial = JsonString(item, "CODFAIXASALARIAL"),
@@ -568,4 +574,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         var t = s.Trim();
         return t is "1" or "S" or "s" or "T" or "t" or "Y" or "y";
     }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
 }
