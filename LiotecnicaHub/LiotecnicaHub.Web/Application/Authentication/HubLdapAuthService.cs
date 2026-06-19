@@ -61,8 +61,8 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
         {
             return Task.FromResult(config.LoginIdentityMode switch
             {
-                HubLdapLoginIdentityMode.UserPrincipalName => ValidateDirectBind(
-                    email, password, config, email),
+                HubLdapLoginIdentityMode.UserPrincipalName => ValidateDirectBindWithFallback(
+                    email, password, config),
                 HubLdapLoginIdentityMode.SamAccountName => ValidateDirectBind(
                     email, password, config, BuildSamAccountName(email, config.Domain)),
                 HubLdapLoginIdentityMode.SearchAndBind => ValidateSearchAndBind(email, password, config),
@@ -158,6 +158,37 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
                 Message = $"Erro ao conectar: {ex.Message}"
             });
         }
+    }
+
+    private HubLdapAuthResult ValidateDirectBindWithFallback(
+        string email,
+        string password,
+        HubLdapConfigDto config)
+    {
+        var identities = new List<string> { email };
+
+        if (!string.IsNullOrWhiteSpace(config.Domain))
+            identities.Add(BuildSamAccountName(email, config.Domain));
+
+        LdapException? lastInvalidCredentials = null;
+
+        foreach (var identity in identities.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                return ValidateDirectBind(email, password, config, identity);
+            }
+            catch (LdapException ex) when (ex.ErrorCode == 49)
+            {
+                lastInvalidCredentials = ex;
+                _logger.LogDebug("LDAP bind recusado para identidade {Identity}", identity);
+            }
+        }
+
+        if (lastInvalidCredentials is not null)
+            throw lastInvalidCredentials;
+
+        return HubLdapAuthResult.Fail("E-mail ou senha inválidos.");
     }
 
     private HubLdapAuthResult ValidateDirectBind(

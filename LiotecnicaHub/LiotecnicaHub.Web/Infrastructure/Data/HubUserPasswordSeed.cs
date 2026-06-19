@@ -32,7 +32,9 @@ public static class HubUserPasswordSeed
             return;
 
         var users = await db.Users
-            .Where(u => emails.Contains(u.Email) && u.PasswordHash == null)
+            .Where(u => emails.Contains(u.Email)
+                && u.PasswordHash == null
+                && !u.PreferDirectoryAuth)
             .ToListAsync(ct);
 
         if (users.Count == 0)

@@ -7,6 +7,8 @@ public class HubUser
     public string Email { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public string? PasswordHash { get; set; }
+    /// <summary>Quando true, login por e-mail usa LDAP/AD e o seed não recria senha local de admin.</summary>
+    public bool PreferDirectoryAuth { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 

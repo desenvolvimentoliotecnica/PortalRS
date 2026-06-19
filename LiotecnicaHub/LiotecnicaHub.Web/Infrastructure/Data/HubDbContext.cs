@@ -95,6 +95,7 @@ public class HubDbContext : DbContext
             e.Property(x => x.Name).HasMaxLength(150).IsRequired();
             e.Property(x => x.Email).HasMaxLength(200).IsRequired();
             e.Property(x => x.PasswordHash).HasMaxLength(500);
+            e.Property(x => x.PreferDirectoryAuth).HasDefaultValue(false);
             e.HasIndex(x => x.Email).IsUnique();
         });
 

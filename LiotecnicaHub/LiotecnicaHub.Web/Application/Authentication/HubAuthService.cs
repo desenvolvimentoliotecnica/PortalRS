@@ -87,22 +87,32 @@ public sealed class HubAuthService : IHubAuthService
         if (string.IsNullOrWhiteSpace(password))
             throw new InvalidOperationException("Informe a senha.");
 
+        var bindEmail = email;
+
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
         var isAdmin = await _db.Admins.AsNoTracking()
             .AnyAsync(a => a.Email == email, ct);
 
-        if (user is not null && !string.IsNullOrWhiteSpace(user.PasswordHash))
+        var ldapConfig = await _ldapConfig.GetDecryptedAsync(ct);
+        var ldapReady = ldapConfig is { IsEnabled: true }
+            && !string.IsNullOrWhiteSpace(ldapConfig.Server)
+            && !string.IsNullOrWhiteSpace(ldapConfig.BaseDn);
+
+        var hasLocalPassword = user is not null && !string.IsNullOrWhiteSpace(user.PasswordHash);
+        var preferDirectory = user?.PreferDirectoryAuth == true;
+
+        if (hasLocalPassword && !preferDirectory)
         {
-            if (!user.IsActive)
+            if (!user!.IsActive)
                 throw new InvalidOperationException("E-mail ou senha inválidos.");
 
             if (!_passwords.VerifyPassword(user, password))
             {
-                if (await _ldapConfig.IsLoginEnabledAsync(ct))
+                if (ldapReady)
                 {
                     throw new InvalidOperationException(
                         "Senha incorreta. Este usuário possui senha local do Hub (não autentica no AD). " +
-                        "Use a senha definida pelo administrador ou peça para remover a senha local em Admin → Usuários → Editar.");
+                        "Marque \"Remover senha local\" em Admin → Usuários → Editar ou use a senha do Hub.");
                 }
 
                 throw new InvalidOperationException("E-mail ou senha inválidos.");
@@ -112,12 +122,9 @@ public sealed class HubAuthService : IHubAuthService
             return;
         }
 
-        var ldapConfig = await _ldapConfig.GetDecryptedAsync(ct);
-        if (ldapConfig is { IsEnabled: true }
-            && !string.IsNullOrWhiteSpace(ldapConfig.Server)
-            && !string.IsNullOrWhiteSpace(ldapConfig.BaseDn))
+        if (ldapReady)
         {
-            var ldapResult = await _ldapAuth.ValidateCredentialsAsync(email, password, ldapConfig, ct);
+            var ldapResult = await _ldapAuth.ValidateCredentialsAsync(bindEmail, password, ldapConfig!, ct);
             if (!ldapResult.Success)
                 throw new InvalidOperationException(ldapResult.ErrorMessage ?? "E-mail ou senha inválidos.");
 
@@ -129,21 +136,24 @@ public sealed class HubAuthService : IHubAuthService
             return;
         }
 
-        if (!IsLocalPasswordLoginEnabled())
-            throw new InvalidOperationException(
-                "Login por senha local não está habilitado. Use o login Microsoft ou LDAP.");
+        if (hasLocalPassword)
+        {
+            if (!user!.IsActive)
+                throw new InvalidOperationException("E-mail ou senha inválidos.");
+
+            if (!_passwords.VerifyPassword(user, password))
+                throw new InvalidOperationException("E-mail ou senha inválidos.");
+
+            await SignInUserAsync(http, user, email, user.Name, isAdmin);
+            return;
+        }
 
         if (user is null || !user.IsActive)
             throw new InvalidOperationException("E-mail ou senha inválidos.");
 
-        if (string.IsNullOrWhiteSpace(user.PasswordHash))
-            throw new InvalidOperationException(
-                "Este usuário não possui senha local. Use o login Microsoft/LDAP ou peça ao administrador para definir uma senha.");
-
-        if (!_passwords.VerifyPassword(user, password))
-            throw new InvalidOperationException("E-mail ou senha inválidos.");
-
-        await SignInUserAsync(http, user, email, user.Name, isAdmin);
+        throw new InvalidOperationException(
+            "Login LDAP não está habilitado. Peça ao administrador para habilitar em Admin → Active Directory / LDAP " +
+            "ou para definir uma senha local.");
     }
 
     public static string? ResolveEmail(ClaimsPrincipal principal)

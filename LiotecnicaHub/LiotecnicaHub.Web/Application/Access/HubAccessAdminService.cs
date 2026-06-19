@@ -71,6 +71,7 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
             Email = user.Email,
             IsActive = user.IsActive,
             HasLocalPassword = !string.IsNullOrWhiteSpace(user.PasswordHash),
+            PreferDirectoryAuth = user.PreferDirectoryAuth,
             SelectedApplicationIds = user.UserApplicationAccesses.Select(ua => ua.ApplicationId).ToList()
         };
     }
@@ -346,6 +347,7 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
                 return null;
 
             user.PasswordHash = null;
+            user.PreferDirectoryAuth = true;
 
             await WriteAuditAsync(
                 HubAccessAuditAction.UserPasswordChanged,
@@ -373,6 +375,7 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
             return "A senha deve ter pelo menos 8 caracteres.";
 
         user.PasswordHash = _passwords.HashPassword(user, newPassword);
+        user.PreferDirectoryAuth = false;
 
         await WriteAuditAsync(
             HubAccessAuditAction.UserPasswordChanged,
