@@ -23,6 +23,7 @@ public sealed class HubUserInput
     /// <summary>Remove senha local para o login usar LDAP/SSO em vez da senha do Hub.</summary>
     public bool ClearLocalPassword { get; set; }
     public bool HasLocalPassword { get; set; }
+    public bool PreferDirectoryAuth { get; set; }
 }
 
 public sealed class HubAuditListItem

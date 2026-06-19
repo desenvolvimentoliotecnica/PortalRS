@@ -29,7 +29,11 @@
         Login por e-mail e senha <strong>no Hub</strong> (independente do AD/LDAP).
         @if (Model.Input.HasLocalPassword)
         {
-            <span>Este usuário possui senha local — o login LDAP/AD <strong>não</strong> será usado enquanto ela existir.</span>
+            <span>Este usuário possui senha local — o login LDAP/AD <strong>não</strong> será usado enquanto ela existir (salvo remoção abaixo).</span>
+        }
+        else if (Model.Input.PreferDirectoryAuth)
+        {
+            <span>Autenticação configurada para <strong>LDAP/AD</strong> (senha local removida).</span>
         }
         else
         {
