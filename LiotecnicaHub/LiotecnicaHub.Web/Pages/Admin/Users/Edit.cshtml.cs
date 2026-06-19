@@ -1,4 +1,5 @@
 using LiotecnicaHub.Web.Application.Access;
+using LiotecnicaHub.Web.Application.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -7,13 +8,19 @@ namespace LiotecnicaHub.Web.Pages.Admin.Users;
 public class EditModel : PageModel
 {
     private readonly IHubAccessAdminService _admin;
+    private readonly IHubPasswordService _passwords;
 
-    public EditModel(IHubAccessAdminService admin) => _admin = admin;
+    public EditModel(IHubAccessAdminService admin, IHubPasswordService passwords)
+    {
+        _admin = admin;
+        _passwords = passwords;
+    }
 
     [BindProperty]
     public HubUserInput Input { get; set; } = new();
 
     public IReadOnlyList<HubSelectOption> ApplicationOptions { get; private set; } = [];
+    public string DefaultPasswordHint { get; private set; } = string.Empty;
 
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken ct)
     {
@@ -22,17 +29,22 @@ public class EditModel : PageModel
 
         Input = user;
         ApplicationOptions = await _admin.GetApplicationOptionsAsync(ct);
+        DefaultPasswordHint = _passwords.GetDefaultPassword();
         return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
         ApplicationOptions = await _admin.GetApplicationOptionsAsync(ct);
+        DefaultPasswordHint = _passwords.GetDefaultPassword();
 
         var result = await _admin.UpdateUserAsync(Input, ct);
         if (!result.Success)
         {
             ModelState.AddModelError(string.Empty, result.Error ?? "Não foi possível atualizar o usuário.");
+            var existing = await _admin.GetUserAsync(Input.Id, ct);
+            if (existing is not null)
+                Input.HasLocalPassword = existing.HasLocalPassword;
             return Page();
         }
 

@@ -16,29 +16,28 @@ public class LoginModel : PageModel
     private readonly IEntraChallengeService _challenge;
     private readonly IHubAuthService _auth;
     private readonly HubOptions _hubOptions;
-    private readonly IWebHostEnvironment _environment;
 
     public LoginModel(
         IHubEntraConfigService entraConfig,
         IEntraChallengeService challenge,
         IHubAuthService auth,
-        IOptions<HubOptions> hubOptions,
-        IWebHostEnvironment environment)
+        IOptions<HubOptions> hubOptions)
     {
         _entraConfig = entraConfig;
         _challenge = challenge;
         _auth = auth;
         _hubOptions = hubOptions.Value;
-        _environment = environment;
     }
 
     [BindProperty]
-    public string? DevEmail { get; set; }
+    public string? LoginEmail { get; set; }
+
+    [BindProperty]
+    public string? LoginPassword { get; set; }
 
     public string? ErrorMessage { get; set; }
     public bool EntraEnabled { get; set; }
-    public bool DevLoginEnabled { get; set; }
-    public bool IsBootstrapLogin { get; set; }
+    public bool PasswordLoginEnabled { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string? error, CancellationToken ct)
     {
@@ -50,22 +49,22 @@ public class LoginModel : PageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostDevAsync(CancellationToken ct)
+    public async Task<IActionResult> OnPostPasswordAsync(CancellationToken ct)
     {
-        if (!_hubOptions.AllowDevLogin)
+        if (!IsPasswordLoginEnabled())
             return NotFound();
 
         await LoadLoginStateAsync(ct);
 
         try
         {
-            if (string.IsNullOrWhiteSpace(DevEmail))
+            if (string.IsNullOrWhiteSpace(LoginEmail) || string.IsNullOrWhiteSpace(LoginPassword))
             {
-                ErrorMessage = "Informe seu e-mail corporativo.";
+                ErrorMessage = "Informe e-mail e senha.";
                 return Page();
             }
 
-            await _auth.SignInDevAsync(DevEmail, ct);
+            await _auth.SignInWithPasswordAsync(LoginEmail, LoginPassword, ct);
             return RedirectToPage("/Apps/Index");
         }
         catch (Exception ex)
@@ -102,9 +101,11 @@ public class LoginModel : PageModel
             && !string.IsNullOrWhiteSpace(config.ClientId)
             && !string.IsNullOrWhiteSpace(config.EntraTenantId);
 
-        DevLoginEnabled = _hubOptions.AllowDevLogin;
-        IsBootstrapLogin = DevLoginEnabled && !_environment.IsDevelopment();
+        PasswordLoginEnabled = IsPasswordLoginEnabled();
     }
+
+    private bool IsPasswordLoginEnabled() =>
+        _hubOptions.AllowPasswordLogin || _hubOptions.AllowDevLogin;
 
     private static string? MapError(string? code) => code switch
     {
@@ -112,10 +113,10 @@ public class LoginModel : PageModel
         "parametros_invalidos" => "Parâmetros de retorno inválidos.",
         "state_invalido" => "Sessão de login expirada. Tente novamente.",
         "secret_ausente" =>
-            "O client secret do Entra não está configurado. Entre com o login administrativo abaixo, " +
+            "O client secret do Entra não está configurado. Entre com e-mail e senha, " +
             "vá em Configurações → Entra ID e salve o secret (Value) do Azure.",
         "secret_invalido" =>
-            "Client secret inválido ou expirado. Entre com o login administrativo, vá em Configurações → Entra ID " +
+            "Client secret inválido ou expirado. Entre com e-mail e senha, vá em Configurações → Entra ID " +
             "e salve um secret novo do Azure (use o Value, não o Secret ID).",
         "redirect_uri_invalido" =>
             "Redirect URI divergente do registrado no Azure. Em Configurações → Entra ID, use exatamente: " +
