@@ -46,11 +46,18 @@ public partial class ResetVagasESolicitacoesImportacaoLimpa : Migration
             WHERE w."WorkflowId" = wf."Id" AND wf."VagaId" IS NOT NULL;
             DELETE FROM "WorkflowsRH" WHERE "VagaId" IS NOT NULL;
 
+            -- Desvincula referências opcionais antes de excluir vagas (FK Restrict em Candidatos)
+            UPDATE "Candidatos" SET "VagaId" = NULL WHERE "VagaId" IS NOT NULL;
+            UPDATE "CandidatoDocumentos" SET "VagaId" = NULL WHERE "VagaId" IS NOT NULL;
+            UPDATE "CandidatoPortalNotificacoes" SET "VagaId" = NULL, "CandidaturaId" = NULL WHERE "VagaId" IS NOT NULL OR "CandidaturaId" IS NOT NULL;
+            UPDATE "InboxItems" SET "VagaId" = NULL WHERE "VagaId" IS NOT NULL;
+            DELETE FROM "RecruiterMatchingFeedbacks" WHERE "VagaId" IS NOT NULL;
+
             -- Solicitações de vaga e dependências
             DELETE FROM "RmRequisicaoPareceres";
             DELETE FROM "SolicitacaoVagaIndicacoes";
             DELETE FROM "SolicitacaoVagaIntegracaoTentativas";
-            DELETE FROM "SolicitacoesAprovacaoEtapa" e
+            DELETE FROM "SolicitacoesAprovacaoEtapas" e
             USING "SolicitacoesVaga" s
             WHERE e."SolicitacaoId" = s."Id";
             DELETE FROM "HistoricosStatus" h
