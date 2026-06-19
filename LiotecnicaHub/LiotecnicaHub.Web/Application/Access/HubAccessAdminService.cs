@@ -337,6 +337,28 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
         Guid? actorId,
         CancellationToken ct)
     {
+        if (input.ClearLocalPassword)
+        {
+            if (input.ResetPasswordToDefault || !string.IsNullOrWhiteSpace(input.NewPassword))
+                return "Remova a senha local ou defina uma nova senha — não os dois na mesma operação.";
+
+            if (string.IsNullOrWhiteSpace(user.PasswordHash))
+                return null;
+
+            user.PasswordHash = null;
+
+            await WriteAuditAsync(
+                HubAccessAuditAction.UserPasswordChanged,
+                user.Id,
+                null,
+                actorId,
+                "senha_local",
+                "removida_para_ldap",
+                ct);
+
+            return null;
+        }
+
         string? newPassword = null;
 
         if (input.ResetPasswordToDefault)

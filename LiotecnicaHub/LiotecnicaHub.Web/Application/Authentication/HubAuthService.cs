@@ -97,7 +97,16 @@ public sealed class HubAuthService : IHubAuthService
                 throw new InvalidOperationException("E-mail ou senha inválidos.");
 
             if (!_passwords.VerifyPassword(user, password))
+            {
+                if (await _ldapConfig.IsLoginEnabledAsync(ct))
+                {
+                    throw new InvalidOperationException(
+                        "Senha incorreta. Este usuário possui senha local do Hub (não autentica no AD). " +
+                        "Use a senha definida pelo administrador ou peça para remover a senha local em Admin → Usuários → Editar.");
+                }
+
                 throw new InvalidOperationException("E-mail ou senha inválidos.");
+            }
 
             await SignInUserAsync(http, user, email, user.Name, isAdmin);
             return;
