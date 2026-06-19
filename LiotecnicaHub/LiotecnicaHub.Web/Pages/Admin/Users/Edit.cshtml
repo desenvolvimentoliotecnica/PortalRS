@@ -26,16 +26,24 @@
 
     <h2 class="form-section-title">Senha local</h2>
     <p class="hub-access-muted">
-        Login por e-mail e senha no Hub.
+        Login por e-mail e senha <strong>no Hub</strong> (independente do AD/LDAP).
         @if (Model.Input.HasLocalPassword)
         {
-            <span>Este usuário já possui senha cadastrada.</span>
+            <span>Este usuário possui senha local — o login LDAP/AD <strong>não</strong> será usado enquanto ela existir.</span>
         }
         else
         {
-            <span>Este usuário ainda não possui senha local (só Microsoft SSO).</span>
+            <span>Sem senha local: login por e-mail usa LDAP (se habilitado) ou Microsoft SSO.</span>
         }
     </p>
+
+    @if (Model.Input.HasLocalPassword)
+    {
+        <label class="checkbox-row">
+            <input asp-for="Input.ClearLocalPassword" type="checkbox" />
+            Remover senha local (passar a autenticar via LDAP/AD)
+        </label>
+    }
 
     <label asp-for="Input.NewPassword">Nova senha</label>
     <input asp-for="Input.NewPassword" class="form-control" type="password" autocomplete="new-password" />

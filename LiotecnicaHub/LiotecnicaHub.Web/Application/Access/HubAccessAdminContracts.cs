@@ -20,6 +20,8 @@ public sealed class HubUserInput
     public List<Guid> SelectedApplicationIds { get; set; } = [];
     public string? NewPassword { get; set; }
     public bool ResetPasswordToDefault { get; set; }
+    /// <summary>Remove senha local para o login usar LDAP/SSO em vez da senha do Hub.</summary>
+    public bool ClearLocalPassword { get; set; }
     public bool HasLocalPassword { get; set; }
 }
 
