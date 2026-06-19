@@ -51,6 +51,7 @@ builder.Services.AddScoped<IHubAuthService, HubAuthService>();
 builder.Services.AddScoped<IHubLaunchService, HubLaunchService>();
 builder.Services.AddScoped<IHubApplicationService, HubApplicationService>();
 builder.Services.AddScoped<IHubAccessCatalogService, HubAccessCatalogService>();
+builder.Services.AddScoped<IHubAccessAdminService, HubAccessAdminService>();
 builder.Services.AddScoped<IHubUserProvisioningService, HubUserProvisioningService>();
 builder.Services.AddScoped<IHubAccessService, HubAccessService>();
 builder.Services.AddSingleton<IHubAppIconStorage, HubAppIconStorage>();
