@@ -98,6 +98,8 @@ interface SolicitacaoGridRow {
     etapaPendenteCom: string | null;
     /** Aprovador da etapa pendente (workflow) — melhor que `aprovadorId` legado na linha. */
     etapaPendenteAprovadorId?: string | null;
+    rmIdReq?: number | null;
+    rmRequisicaoCodigo?: string | null;
 }
 
 interface TenantConfiguracaoDto {
@@ -184,7 +186,7 @@ interface SolicitacaoDetail {
 
 type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
 type UrgenciaKey = 0 | 1 | 2 | 3 | string;
-type SolicitacaoSortKey = "titulo" | "secao" | "tipo" | "posicoes" | "urgencia" | "status" | "aguardando" | "data" | "abertoHa" | "requisitante";
+type SolicitacaoSortKey = "codigoRm" | "titulo" | "secao" | "tipo" | "posicoes" | "urgencia" | "status" | "aguardando" | "data" | "abertoHa" | "requisitante";
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -281,6 +283,15 @@ function formatOpenDays(iso: string | null | undefined) {
     const elapsedMs = Date.now() - openedAt;
     const days = Math.max(0, Math.floor(elapsedMs / 86_400_000));
     return days === 1 ? "1 dia" : `${days} dias`;
+}
+
+function solicitacaoCodigoRm(r: Pick<SolicitacaoGridRow, "rmIdReq" | "rmRequisicaoCodigo">): string {
+    if (r.rmIdReq != null) return String(r.rmIdReq);
+    const cod = r.rmRequisicaoCodigo?.trim();
+    if (!cod || cod.startsWith("STUB-")) return "";
+    const parts = cod.split("|");
+    if (parts.length === 3) return parts[2].trim();
+    return cod;
 }
 
 function truncateTitle(value: string | null | undefined, maxLength = 60) {
@@ -578,7 +589,14 @@ function SolicitacoesVagaContent() {
             if (statusFilter === "canceladas" && s !== "Cancelada" && s !== "6") return false;
             // "todas" — sem filtro de status
             if (!term) return true;
-            const blob = [r.titulo, r.solicitanteNome, r.centroCustoNome].filter(Boolean).join(" ").toLowerCase();
+            const blob = [
+                solicitacaoCodigoRm(r),
+                r.rmRequisicaoCodigo,
+                r.rmIdReq != null ? String(r.rmIdReq) : "",
+                r.titulo,
+                r.solicitanteNome,
+                r.centroCustoNome,
+            ].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
     }, [q, rows, statusFilter, statusAtivosSet, statusAprovadosSet]);
@@ -589,6 +607,7 @@ function SolicitacoesVagaContent() {
 
     const sorted = useMemo(() => {
         const getValue = (r: SolicitacaoGridRow): string | number => {
+            if (sortKey === "codigoRm") return solicitacaoCodigoRm(r);
             if (sortKey === "titulo") return r.titulo ?? "";
             if (sortKey === "secao") return r.centroCustoNome ?? "";
             if (sortKey === "tipo") return String(r.tipoSolicitacao);
@@ -943,7 +962,7 @@ function SolicitacoesVagaContent() {
                                 <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     className="pl-9 h-8"
-                                    placeholder="Buscar título, área…"
+                                    placeholder="Buscar código RM, título, área…"
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
                                 />
@@ -1004,6 +1023,9 @@ function SolicitacoesVagaContent() {
                                     />
                                 </TableHead>
                             )}
+                            <TableHead className="w-28 cursor-pointer select-none text-center" onClick={() => handleSort("codigoRm")}>
+                                Código RM<SortIcon col="codigoRm" />
+                            </TableHead>
                             <TableHead className="cursor-pointer select-none" onClick={() => handleSort("titulo")}>
                                 Título<SortIcon col="titulo" />
                             </TableHead>
@@ -1037,7 +1059,7 @@ function SolicitacoesVagaContent() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 11 : 10} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 12 : 11} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -1059,6 +1081,9 @@ function SolicitacoesVagaContent() {
                                             />
                                         </TableCell>
                                     )}
+                                    <TableCell className="whitespace-nowrap text-center font-mono text-xs text-muted-foreground">
+                                        {solicitacaoCodigoRm(r) || "—"}
+                                    </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1.5">
                                             <span className="font-semibold" title={r.titulo}>{truncateTitle(r.titulo)}</span>
@@ -1217,7 +1242,7 @@ function SolicitacoesVagaContent() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 11 : 10} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 12 : 11} className="text-center text-muted-foreground py-8">
                                     {statusFilter === "ativas"
                                         ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
                                         : "Nenhuma solicitação encontrada para o filtro selecionado."}
