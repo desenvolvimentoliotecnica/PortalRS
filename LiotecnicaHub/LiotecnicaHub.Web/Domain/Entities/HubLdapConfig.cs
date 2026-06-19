@@ -7,8 +7,8 @@ public class HubLdapConfig
     public Guid Id { get; set; }
     public bool IsEnabled { get; set; }
     public string? Server { get; set; }
-    public int Port { get; set; } = 636;
-    public bool UseSsl { get; set; } = true;
+    public int Port { get; set; } = 389;
+    public bool UseSsl { get; set; }
     public bool UseStartTls { get; set; }
     public bool SkipServerCertificateValidation { get; set; }
     public string? BaseDn { get; set; }
