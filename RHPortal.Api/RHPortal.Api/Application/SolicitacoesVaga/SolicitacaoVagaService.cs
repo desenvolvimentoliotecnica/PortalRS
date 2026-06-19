@@ -293,7 +293,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
             var term = query.Q.Trim().ToLower();
-            q = q.Where(s => s.Titulo.ToLower().Contains(term));
+            q = q.Where(s =>
+                s.Titulo.ToLower().Contains(term)
+                || (s.RmRequisicaoCodigo != null && s.RmRequisicaoCodigo.ToLower().Contains(term))
+                || (s.RmIdReq != null && s.RmIdReq.ToString().Contains(term)));
         }
 
         q = q.OrderByDescending(s => s.CreatedAtUtc);
@@ -317,7 +320,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     : null,
                 CentroCustoNome = s.CentroCusto != null ? s.CentroCusto.Description : (string?)null,
                 s.QtdPosicoes, s.TipoSolicitacao, s.IsConfidencial, s.SubstituidoNome, s.CreatedAtUtc,
-                s.RmCriacaoSolicitadaEmUtc, s.RmCodColRequisicao, s.RmIdReq,
+                s.RmCriacaoSolicitadaEmUtc, s.RmCodColRequisicao, s.RmIdReq, s.RmRequisicaoCodigo,
                 s.TentativasIntegracao, s.UltimaTentativaUtc,
                 s.RmCodStatus, s.RmUltimaStatusDescricaoRm, s.RmStatusSyncUltimaMensagem,
                 s.RmUltimaSincronizacaoUtc,
@@ -347,7 +350,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 r.AprovadorId, r.AprovadorNome, r.AnalistaRhResponsavelUserId, r.AnalistaRhResponsavelNome,
                 r.CentroCustoNome, r.QtdPosicoes,
                 r.TipoSolicitacao, r.IsConfidencial, r.SubstituidoNome, r.CreatedAtUtc,
-                r.RmCriacaoSolicitadaEmUtc, r.RmCodColRequisicao, r.RmIdReq, r.TentativasIntegracao, r.UltimaTentativaUtc,
+                r.RmCriacaoSolicitadaEmUtc, r.RmCodColRequisicao, r.RmIdReq, r.RmRequisicaoCodigo, r.TentativasIntegracao, r.UltimaTentativaUtc,
                 r.RmCodStatus, r.RmUltimaStatusDescricaoRm, r.RmStatusSyncUltimaMensagem,
                 r.RmUltimaSincronizacaoUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,

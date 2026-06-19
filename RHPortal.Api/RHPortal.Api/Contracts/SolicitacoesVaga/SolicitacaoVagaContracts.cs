@@ -369,6 +369,7 @@ public sealed record SolicitacaoVagaGridRow(
     DateTimeOffset? RmCriacaoSolicitadaEmUtc,
     short? RmCodColRequisicao,
     int? RmIdReq,
+    string? RmRequisicaoCodigo,
     int TentativasIntegracao,
     DateTimeOffset? UltimaTentativaUtc,
     short? RmCodStatus,
