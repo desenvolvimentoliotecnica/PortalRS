@@ -10,6 +10,7 @@ public class HubDbContext : DbContext
     public DbSet<HubApplication> Applications => Set<HubApplication>();
     public DbSet<HubApplicationAccessRule> ApplicationAccessRules => Set<HubApplicationAccessRule>();
     public DbSet<HubEntraConfig> EntraConfigs => Set<HubEntraConfig>();
+    public DbSet<HubLdapConfig> LdapConfigs => Set<HubLdapConfig>();
     public DbSet<HubAdmin> Admins => Set<HubAdmin>();
 
     public DbSet<HubUser> Users => Set<HubUser>();
@@ -62,6 +63,21 @@ public class HubDbContext : DbContext
             e.Property(x => x.ClientSecretProtected).HasMaxLength(4000);
             e.Property(x => x.CallbackPath).HasMaxLength(500);
             e.Property(x => x.HubBaseUrl).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<HubLdapConfig>(e =>
+        {
+            e.ToTable("HubLdapConfigs");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Server).HasMaxLength(500);
+            e.Property(x => x.BaseDn).HasMaxLength(500);
+            e.Property(x => x.UserSearchBase).HasMaxLength(500);
+            e.Property(x => x.Domain).HasMaxLength(100);
+            e.Property(x => x.BindDn).HasMaxLength(500);
+            e.Property(x => x.BindPasswordProtected).HasMaxLength(4000);
+            e.Property(x => x.SearchFilterTemplate).HasMaxLength(500).IsRequired();
+            e.Property(x => x.DisplayNameAttribute).HasMaxLength(100).IsRequired();
+            e.Property(x => x.LoginIdentityMode).HasConversion<string>().HasMaxLength(50);
         });
 
         modelBuilder.Entity<HubAdmin>(e =>

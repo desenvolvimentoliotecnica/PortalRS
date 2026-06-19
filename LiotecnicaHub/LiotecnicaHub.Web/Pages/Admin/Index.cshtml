@@ -36,6 +36,11 @@
         <p class="admin-stat">@(Model.EntraConfigured ? "Habilitado" : "Pendente de configuração")</p>
         <span class="admin-link">Configurar →</span>
     </a>
+    <a class="admin-card" asp-page="/Admin/LdapConfig">
+        <h2>Active Directory / LDAP</h2>
+        <p class="admin-stat">@(Model.LdapConfigured ? "Habilitado" : "Pendente de configuração")</p>
+        <span class="admin-link">Configurar →</span>
+    </a>
     <div class="admin-card admin-card-static">
         <h2>Administradores Hub</h2>
         <p class="admin-stat">@Model.AdminCount e-mail(s) com acesso admin</p>

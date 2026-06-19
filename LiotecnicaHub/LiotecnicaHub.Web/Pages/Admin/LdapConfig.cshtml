@@ -1,0 +1,89 @@
+@page
+@model LiotecnicaHub.Web.Pages.Admin.LdapConfigModel
+@{
+    ViewData["Title"] = "LDAP — Admin";
+}
+
+<section class="page-header">
+    <h1>Active Directory / LDAP</h1>
+    <p>Configure autenticação por e-mail e senha contra o diretório corporativo. SSO Microsoft e senha local continuam disponíveis.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="alert alert-success">@Model.StatusMessage</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.TestMessage))
+{
+    <div class="alert @(Model.TestSuccess ? "alert-success" : "alert-error")">@Model.TestMessage</div>
+}
+
+<form method="post" class="form-card">
+    <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+    <label class="checkbox-row">
+        <input asp-for="Input.IsEnabled" type="checkbox" />
+        Habilitar login LDAP
+    </label>
+
+    <label asp-for="Input.Server"></label>
+    <input asp-for="Input.Server" class="form-control" placeholder="ldap.empresa.local ou 10.0.0.10" />
+
+    <label asp-for="Input.Port"></label>
+    <input asp-for="Input.Port" class="form-control" type="number" min="1" max="65535" />
+
+    <label class="checkbox-row">
+        <input asp-for="Input.UseSsl" type="checkbox" />
+        Usar LDAPS (SSL) — recomendado na porta 636
+    </label>
+
+    <label class="checkbox-row">
+        <input asp-for="Input.UseStartTls" type="checkbox" />
+        Usar StartTLS na porta 389 (não marque junto com LDAPS)
+    </label>
+
+    <label class="checkbox-row">
+        <input asp-for="Input.SkipServerCertificateValidation" type="checkbox" />
+        Ignorar validação do certificado (somente ambientes internos/HMG)
+    </label>
+
+    <label asp-for="Input.BaseDn"></label>
+    <input asp-for="Input.BaseDn" class="form-control" placeholder="DC=liotecnica,DC=com,DC=br" />
+
+    <label asp-for="Input.UserSearchBase"></label>
+    <input asp-for="Input.UserSearchBase" class="form-control" placeholder="OU=Usuarios,DC=liotecnica,DC=com,DC=br" />
+
+    <label asp-for="Input.Domain"></label>
+    <input asp-for="Input.Domain" class="form-control" placeholder="LIOTECNICA" />
+    <small class="text-muted">Obrigatório quando o formato de login for DOMINIO\usuário.</small>
+
+    <label asp-for="Input.LoginIdentityMode"></label>
+    <select asp-for="Input.LoginIdentityMode" asp-items="Model.LoginIdentityModes" class="form-control"></select>
+
+    <label asp-for="Input.BindDn"></label>
+    <input asp-for="Input.BindDn" class="form-control" placeholder="CN=servico-hub,OU=ServiceAccounts,DC=..." />
+    <small class="text-muted">Obrigatório no modo “Buscar no diretório”. Opcional no teste de conexão.</small>
+
+    <label asp-for="Input.BindPassword"></label>
+    <input asp-for="Input.BindPassword" class="form-control" type="password" autocomplete="new-password" />
+    @if (Model.HasBindPassword)
+    {
+        <small class="text-muted">Uma senha de serviço já está salva (criptografada). Deixe em branco para mantê-la.</small>
+    }
+
+    <label asp-for="Input.SearchFilterTemplate"></label>
+    <input asp-for="Input.SearchFilterTemplate" class="form-control" />
+    <small class="text-muted">Use {0} para o login. Padrão: (|(mail={0})(userPrincipalName={0})(sAMAccountName={0}))</small>
+
+    <label asp-for="Input.DisplayNameAttribute"></label>
+    <input asp-for="Input.DisplayNameAttribute" class="form-control" placeholder="displayName" />
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <button type="submit" asp-page-handler="Test" class="btn btn-secondary">Testar conexão</button>
+        <a asp-page="/Admin/Index">Cancelar</a>
+    </div>
+</form>
+
+<p><a asp-page="/Admin/Index">← Voltar ao painel</a></p>

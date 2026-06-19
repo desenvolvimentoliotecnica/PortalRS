@@ -13,17 +13,20 @@ namespace LiotecnicaHub.Web.Pages;
 public class LoginModel : PageModel
 {
     private readonly IHubEntraConfigService _entraConfig;
+    private readonly IHubLdapConfigService _ldapConfig;
     private readonly IEntraChallengeService _challenge;
     private readonly IHubAuthService _auth;
     private readonly HubOptions _hubOptions;
 
     public LoginModel(
         IHubEntraConfigService entraConfig,
+        IHubLdapConfigService ldapConfig,
         IEntraChallengeService challenge,
         IHubAuthService auth,
         IOptions<HubOptions> hubOptions)
     {
         _entraConfig = entraConfig;
+        _ldapConfig = ldapConfig;
         _challenge = challenge;
         _auth = auth;
         _hubOptions = hubOptions.Value;
@@ -38,6 +41,7 @@ public class LoginModel : PageModel
     public string? ErrorMessage { get; set; }
     public bool EntraEnabled { get; set; }
     public bool PasswordLoginEnabled { get; set; }
+    public bool LdapEnabled { get; set; }
 
     public async Task<IActionResult> OnGetAsync(string? error, CancellationToken ct)
     {
@@ -51,10 +55,10 @@ public class LoginModel : PageModel
 
     public async Task<IActionResult> OnPostPasswordAsync(CancellationToken ct)
     {
-        if (!IsPasswordLoginEnabled())
-            return NotFound();
-
         await LoadLoginStateAsync(ct);
+
+        if (!PasswordLoginEnabled)
+            return NotFound();
 
         try
         {
@@ -101,10 +105,11 @@ public class LoginModel : PageModel
             && !string.IsNullOrWhiteSpace(config.ClientId)
             && !string.IsNullOrWhiteSpace(config.EntraTenantId);
 
-        PasswordLoginEnabled = IsPasswordLoginEnabled();
+        LdapEnabled = await _ldapConfig.IsLoginEnabledAsync(ct);
+        PasswordLoginEnabled = IsLocalPasswordLoginEnabled() || LdapEnabled;
     }
 
-    private bool IsPasswordLoginEnabled() =>
+    private bool IsLocalPasswordLoginEnabled() =>
         _hubOptions.AllowPasswordLogin || _hubOptions.AllowDevLogin;
 
     private static string? MapError(string? code) => code switch
