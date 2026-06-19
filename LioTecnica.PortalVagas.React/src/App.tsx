@@ -1573,7 +1573,6 @@ function JobDetailsPanel({ job }: { job: PortalJob }) {
         {(badges.length ?badges : ['Perfil geral']).map((badge) => (
           <span className="job-tag" key={badge}>{badge}</span>
         ))}
-        {job.aceitaPcd ?<span className="job-tag accent">PCD</span> : null}
         {job.urgente ?<span className="job-tag urgent">Urgente</span> : null}
       </div>
 
