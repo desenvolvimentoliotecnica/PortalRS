@@ -72,7 +72,7 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
         catch (LdapException ex)
         {
             _logger.LogWarning(ex, "Falha LDAP ao autenticar {Email}. Código: {ErrorCode}", email, ex.ErrorCode);
-            return Task.FromResult(HubLdapAuthResult.Fail("E-mail ou senha inválidos."));
+            return Task.FromResult(HubLdapAuthResult.Fail(DescribeLdapAuthError(ex)));
         }
         catch (Exception ex)
         {
@@ -106,10 +106,17 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
                     });
                 }
 
-                connection.Bind(new NetworkCredential(config.BindDn, bindPassword));
+                BindWithCredentials(connection, config, new NetworkCredential(config.BindDn, bindPassword));
             }
             else
             {
+                connection.AuthType = AuthType.Basic;
+                if (config.UseStartTls && !config.UseSsl)
+                {
+                    connection.Bind();
+                    connection.SessionOptions.StartTransportLayerSecurity(null);
+                }
+
                 return Task.FromResult(new HubLdapTestResult
                 {
                     Success = true,
@@ -198,7 +205,7 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
         string bindIdentity)
     {
         using var connection = CreateConnection(config);
-        connection.Bind(new NetworkCredential(bindIdentity, password));
+        BindWithCredentials(connection, config, new NetworkCredential(bindIdentity, password));
         return HubLdapAuthResult.Ok(ExtractDisplayNameFromEmail(email));
     }
 
@@ -220,7 +227,7 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
 
         using (var searchConnection = CreateConnection(config))
         {
-            searchConnection.Bind(new NetworkCredential(config.BindDn, servicePassword));
+            BindWithCredentials(searchConnection, config, new NetworkCredential(config.BindDn, servicePassword));
 
             var request = new SearchRequest(
                 searchBase,
@@ -247,8 +254,28 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
         }
 
         using var userConnection = CreateConnection(config);
-        userConnection.Bind(new NetworkCredential(userDn, password));
+        BindWithCredentials(userConnection, config, new NetworkCredential(userDn, password));
         return HubLdapAuthResult.Ok(displayName);
+    }
+
+    /// <summary>
+    /// Linux/Docker exige AuthType.Basic (Negotiate não é suportado — erro LDAP 92).
+    /// StartTLS: bind anônimo, upgrade, depois bind com credencial.
+    /// </summary>
+    private static void BindWithCredentials(
+        LdapConnection connection,
+        HubLdapConfigDto config,
+        NetworkCredential credential)
+    {
+        connection.AuthType = AuthType.Basic;
+
+        if (config.UseStartTls && !config.UseSsl)
+        {
+            connection.Bind();
+            connection.SessionOptions.StartTransportLayerSecurity(null);
+        }
+
+        connection.Bind(credential);
     }
 
     private static LdapConnection CreateConnection(HubLdapConfigDto config)
@@ -257,7 +284,8 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
         var identifier = new LdapDirectoryIdentifier(server, config.Port, fullyQualifiedDnsHostName: false, connectionless: false);
         var connection = new LdapConnection(identifier)
         {
-            Timeout = TimeSpan.FromSeconds(15)
+            Timeout = TimeSpan.FromSeconds(15),
+            AuthType = AuthType.Basic
         };
 
         connection.SessionOptions.ProtocolVersion = 3;
@@ -267,9 +295,6 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
 
         if (config.SkipServerCertificateValidation)
             connection.SessionOptions.VerifyServerCertificate = (_, _) => true;
-
-        if (config.UseStartTls)
-            connection.SessionOptions.StartTransportLayerSecurity(null);
 
         return connection;
     }
@@ -351,6 +376,15 @@ public sealed class HubLdapAuthService : IHubLdapAuthService
         {
             49 => "Credenciais inválidas (código 49).",
             81 => "Servidor LDAP indisponível (código 81).",
+            92 => "Autenticação LDAP não suportada neste ambiente (código 92). Verifique LDAPS/StartTLS.",
             _ => $"{ex.Message} (código {ex.ErrorCode})."
+        };
+
+    private static string DescribeLdapAuthError(LdapException ex) =>
+        ex.ErrorCode switch
+        {
+            49 => "E-mail ou senha inválidos no Active Directory.",
+            92 => "Falha técnica na autenticação LDAP. Contate o administrador do Hub.",
+            _ => "E-mail ou senha inválidos."
         };
 }
