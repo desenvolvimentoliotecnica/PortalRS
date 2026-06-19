@@ -7,6 +7,7 @@ using RHPortal.Api.Domain.Entities;
 using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Application.IntegracaoTotvs;
 using RhPortal.Api.Infrastructure.Data;
+using RhPortal.Api.Infrastructure.Rm;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -143,9 +144,7 @@ public sealed class VagasSyncRmController : ControllerBase
 
             var gestorRequisitanteFuncionarioId = ResolveGestorRequisitanteFuncionarioId(item, funcionarioByChapa);
 
-            var titulo = (item.Titulo ?? "").Trim();
-            if (string.IsNullOrEmpty(titulo)) titulo = $"Vaga {idReq ?? codVaga}";
-            if (titulo.Length > 160) titulo = titulo.Substring(0, 160);
+            var titulo = RmFuncaoTituloBuilder.Build(item.CodFuncao, item.FuncaoNome, item.FuncaoDescricao);
 
             // Status: agora vem explícito do worker (mapeado de CODSTATUS RM).
             // Fallback retrocompat: se vier NaoInformado, infere do flag legado `aberta` ou de DataFechamento.

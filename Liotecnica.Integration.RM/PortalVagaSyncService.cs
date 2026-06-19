@@ -152,9 +152,9 @@ public sealed class PortalVagaSyncService
             var vrsMatch = (status == StatusAberta || status == StatusPausada) ? vrsMatchRaw : null;
 
             var (codCargo, funcaoNome) = ResolveFuncao(codFuncao, pfuncaoToCargo, pfuncaoToNome);
-            var titulo = ResolveTitulo(vrsMatch?.Nome, funcaoNome, idReq);
-            var dataFechamento = ResolveDataFechamento(status, aum.DataConclusao, aum.DataCancelamento);
             pfuncaoDetailByCodigo.TryGetValue(codFuncao ?? "", out var pfDetailAum);
+            var titulo = ResolveTitulo(codFuncao, funcaoNome, pfDetailAum.Descricao);
+            var dataFechamento = ResolveDataFechamento(status, aum.DataConclusao, aum.DataCancelamento);
             var gestorAum = ResolveGestorNome(aum.ChapaRequisitante, gestorNomeByChapa);
 
             items.Add(MakeRmItem(
@@ -209,9 +209,9 @@ public sealed class PortalVagaSyncService
             var vrsMatch = (status == StatusAberta || status == StatusPausada) ? vrsMatchRawSub : null;
 
             var (codCargo, funcaoNome) = ResolveFuncao(codFuncao, pfuncaoToCargo, pfuncaoToNome);
-            var titulo = ResolveTitulo(vrsMatch?.Nome, funcaoNome, idReq);
-            var dataFechamento = ResolveDataFechamento(status, sub.DataConclusao, sub.DataCancelamento);
             pfuncaoDetailByCodigo.TryGetValue(codFuncao ?? "", out var pfDetailSub);
+            var titulo = ResolveTitulo(codFuncao, funcaoNome, pfDetailSub.Descricao);
+            var dataFechamento = ResolveDataFechamento(status, sub.DataConclusao, sub.DataCancelamento);
             var gestorSub = ResolveGestorNome(sub.ChapaRequisitante, gestorNomeByChapa);
 
             // TIPOREQPAI observado nos dumps:
@@ -274,8 +274,8 @@ public sealed class PortalVagaSyncService
 
             var codFuncao = v.CodFuncao?.Trim();
             var (codCargo, funcaoNome) = ResolveFuncao(codFuncao, pfuncaoToCargo, pfuncaoToNome);
-            var titulo = ResolveTitulo(v.Nome, funcaoNome, v.CodVaga!.Value.ToString());
             pfuncaoDetailByCodigo.TryGetValue(codFuncao ?? "", out var pfDetailDir);
+            var titulo = ResolveTitulo(codFuncao, funcaoNome, pfDetailDir.Descricao);
 
             items.Add(MakeRmItem(
                 idReqRm: null,
@@ -372,14 +372,22 @@ public sealed class PortalVagaSyncService
         return (codCargo, funcaoNome);
     }
 
-    private static string ResolveTitulo(string? nomeVrs, string? funcaoNome, string fallback)
+    private static string ResolveTitulo(string? codFuncao, string? funcaoNome, string? funcaoDescricao)
     {
-        var t = nomeVrs?.Trim();
-        if (!string.IsNullOrWhiteSpace(t)) return t;
-        t = funcaoNome?.Trim();
-        if (!string.IsNullOrWhiteSpace(t)) return t;
-        return $"Vaga {fallback}";
+        var codigo = codFuncao?.Trim();
+        var nome = FirstNonBlank(funcaoNome, funcaoDescricao)?.Trim();
+        if (string.IsNullOrWhiteSpace(codigo) || string.IsNullOrWhiteSpace(nome))
+            return "-";
+
+        if (nome.StartsWith($"{codigo} - ", StringComparison.OrdinalIgnoreCase))
+            return nome.Length <= 160 ? nome : nome[..160];
+
+        var titulo = $"{codigo} - {nome}";
+        return titulo.Length <= 160 ? titulo : titulo[..160];
     }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
 
     private static DateTime? ResolveDataFechamento(short status, DateTime? dataConclusao, DateTime? dataCancelamento) => status switch
     {

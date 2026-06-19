@@ -151,6 +151,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         await _db.SaveChangesAsync(ct);
 
         await _solicitacaoVagaService.GarantirVagaRascunhoParaSolicitacaoAprovadaAsync(entity.Id, ct);
+        await SincronizarTituloVagaVinculadaAsync(entity, now, ct);
         await ImportarPareceresAsync(entity, row, now, ct);
         await _db.Entry(entity).ReloadAsync(ct);
 
@@ -216,8 +217,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
 
     private async Task MapRowAsync(SolicitacaoVaga entity, RmRequisicaoRowDto row, SolicitacaoStatus status, DateTimeOffset now, CancellationToken ct)
     {
-        var titulo = FirstNonBlank(row.NomeFuncao, row.DescricaoFuncao, row.Justificativa, $"Requisição RM {row.Idreq}")!;
-        entity.Titulo = TrimTo(titulo, 160);
+        entity.Titulo = RmFuncaoTituloBuilder.Build(row.Codfuncao, row.NomeFuncao, row.DescricaoFuncao);
         entity.Justificativa = TrimTo(row.Justificativa, 2000);
         entity.QtdPosicoes = Math.Max(1, row.Numvagas ?? 1);
         entity.Status = status == SolicitacaoStatus.Concluida ? SolicitacaoStatus.Aprovada : status;
@@ -386,6 +386,30 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             .FirstOrDefaultAsync(ct);
 
         return FirstNonBlank(local, direct);
+    }
+
+    private async Task SincronizarTituloVagaVinculadaAsync(SolicitacaoVaga entity, DateTimeOffset now, CancellationToken ct)
+    {
+        if (!entity.VagaId.HasValue)
+            return;
+
+        var vaga = await _db.Vagas.FirstOrDefaultAsync(v => v.Id == entity.VagaId.Value, ct);
+        if (vaga is null)
+            return;
+
+        var titulo = entity.Titulo ?? RmFuncaoTituloBuilder.MissingTitulo;
+        if (vaga.Titulo == titulo
+            && vaga.CodFuncaoRm == entity.CodFuncaoRm
+            && vaga.FuncaoNomeRm == entity.FuncaoNomeRm)
+        {
+            return;
+        }
+
+        vaga.Titulo = titulo;
+        vaga.CodFuncaoRm = entity.CodFuncaoRm;
+        vaga.FuncaoNomeRm = entity.FuncaoNomeRm;
+        vaga.UpdatedAtUtc = now;
+        await _db.SaveChangesAsync(ct);
     }
 
     private async Task<Guid?> ResolveJobPositionIdAsync(string? code, string? name, CancellationToken ct)
