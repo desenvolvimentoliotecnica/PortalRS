@@ -16,6 +16,7 @@ public static class HubDbSeeder
         await db.InitializeSchemaAsync(ct);
 
         await SeedEntraConfigAsync(db, configuration, logger, ct);
+        await SeedLdapConfigAsync(db, logger, ct);
         await SyncEntraPublicUrlsAsync(db, configuration, logger, ct);
         await SeedApplicationsAsync(db, logger, ct);
         await SeedAdminsAsync(db, configuration, logger, ct);
@@ -75,6 +76,25 @@ public static class HubDbSeeder
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("HubEntraConfig padrão criado.");
+    }
+
+    private static async Task SeedLdapConfigAsync(HubDbContext db, ILogger logger, CancellationToken ct)
+    {
+        if (await db.LdapConfigs.AnyAsync(ct)) return;
+
+        var now = DateTimeOffset.UtcNow;
+        db.LdapConfigs.Add(new HubLdapConfig
+        {
+            Id = Guid.NewGuid(),
+            IsEnabled = false,
+            Port = 389,
+            UseSsl = false,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        });
+
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("HubLdapConfig padrão criado.");
     }
 
     private static async Task SeedApplicationsAsync(HubDbContext db, ILogger logger, CancellationToken ct)

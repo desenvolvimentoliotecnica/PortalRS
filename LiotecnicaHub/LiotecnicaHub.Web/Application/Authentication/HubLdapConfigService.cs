@@ -131,20 +131,19 @@ public sealed class HubLdapConfigService : IHubLdapConfigService
 
     private static void Validate(HubLdapConfigDto dto)
     {
-        if (dto.Port is <= 0 or > 65535)
-            throw new InvalidOperationException("Informe uma porta LDAP válida (1–65535).");
+        dto.Port = dto.Port is > 0 and <= 65535 ? dto.Port : 389;
 
         if (dto.UseSsl && dto.UseStartTls)
             throw new InvalidOperationException("Use LDAPS ou StartTLS, não os dois ao mesmo tempo.");
 
-        if (dto.IsEnabled)
-        {
-            if (string.IsNullOrWhiteSpace(dto.Server))
-                throw new InvalidOperationException("Informe o servidor LDAP para habilitar o login.");
+        if (!dto.IsEnabled)
+            return;
 
-            if (string.IsNullOrWhiteSpace(dto.BaseDn))
-                throw new InvalidOperationException("Informe o Base DN para habilitar o login LDAP.");
-        }
+        if (string.IsNullOrWhiteSpace(dto.Server))
+            throw new InvalidOperationException("Informe o servidor LDAP para habilitar o login.");
+
+        if (string.IsNullOrWhiteSpace(dto.BaseDn))
+            throw new InvalidOperationException("Informe o Base DN para habilitar o login LDAP.");
 
         if (dto.LoginIdentityMode == HubLdapLoginIdentityMode.SamAccountName
             && string.IsNullOrWhiteSpace(dto.Domain))

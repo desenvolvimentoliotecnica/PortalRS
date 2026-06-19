@@ -9,6 +9,8 @@ namespace LiotecnicaHub.Web.Pages.Admin;
 
 public class LdapConfigModel : PageModel
 {
+    private const string StatusTempDataKey = "LdapConfigStatus";
+
     private readonly IHubLdapConfigService _ldap;
     private readonly IHubLdapAuthService _ldapAuth;
 
@@ -30,6 +32,8 @@ public class LdapConfigModel : PageModel
     public async Task OnGetAsync(CancellationToken ct)
     {
         BuildSelectLists();
+        StatusMessage = TempData[StatusTempDataKey] as string;
+
         var view = await _ldap.GetAsync(ct);
         if (view is null) return;
 
@@ -43,24 +47,20 @@ public class LdapConfigModel : PageModel
 
         if (!ModelState.IsValid)
         {
-            var current = await _ldap.GetAsync(ct);
-            HasBindPassword = current?.HasBindPassword == true;
+            await LoadHasBindPasswordAsync(ct);
             return Page();
         }
 
         try
         {
-            var saved = await _ldap.SaveAsync(MapDto(Input), ct);
-            HasBindPassword = saved.HasBindPassword;
-            StatusMessage = "Configuração LDAP salva com sucesso.";
-            Input.BindPassword = null;
-            return Page();
+            await _ldap.SaveAsync(MapDto(Input), ct);
+            TempData[StatusTempDataKey] = "Configuração LDAP salva com sucesso.";
+            return RedirectToPage();
         }
         catch (InvalidOperationException ex)
         {
             ModelState.AddModelError(string.Empty, ex.Message);
-            var current = await _ldap.GetAsync(ct);
-            HasBindPassword = current?.HasBindPassword == true;
+            await LoadHasBindPasswordAsync(ct);
             return Page();
         }
     }
@@ -69,29 +69,33 @@ public class LdapConfigModel : PageModel
     {
         BuildSelectLists();
 
-        var current = await _ldap.GetAsync(ct);
-        HasBindPassword = current?.HasBindPassword == true;
-
         try
         {
-            var dto = MapDto(Input);
-            if (string.IsNullOrWhiteSpace(dto.BindPassword) && current?.HasBindPassword == true)
-            {
-                var decrypted = await _ldap.GetDecryptedAsync(ct);
-                dto.BindPassword = decrypted?.BindPassword;
-            }
+            var saved = await _ldap.SaveAsync(MapDto(Input), ct);
+            HasBindPassword = saved.HasBindPassword;
+            Input.BindPassword = null;
 
+            var dto = await _ldap.GetDecryptedAsync(ct) ?? MapDto(Input);
             var result = await _ldapAuth.TestConnectionAsync(dto, ct);
             TestSuccess = result.Success;
-            TestMessage = result.Message;
+            TestMessage = result.Success
+                ? $"{result.Message} Configuração salva no banco."
+                : result.Message;
         }
         catch (InvalidOperationException ex)
         {
             TestSuccess = false;
             TestMessage = ex.Message;
+            await LoadHasBindPasswordAsync(ct);
         }
 
         return Page();
+    }
+
+    private async Task LoadHasBindPasswordAsync(CancellationToken ct)
+    {
+        var current = await _ldap.GetAsync(ct);
+        HasBindPassword = current?.HasBindPassword == true;
     }
 
     private void BuildSelectLists()
@@ -108,7 +112,7 @@ public class LdapConfigModel : PageModel
     {
         IsEnabled = view.IsEnabled,
         Server = view.Server,
-        Port = view.Port,
+        Port = view.Port > 0 ? view.Port : 389,
         UseSsl = view.UseSsl,
         UseStartTls = view.UseStartTls,
         SkipServerCertificateValidation = view.SkipServerCertificateValidation,
@@ -125,7 +129,7 @@ public class LdapConfigModel : PageModel
     {
         IsEnabled = input.IsEnabled,
         Server = input.Server,
-        Port = input.Port,
+        Port = input.Port > 0 ? input.Port : 389,
         UseSsl = input.UseSsl,
         UseStartTls = input.UseStartTls,
         SkipServerCertificateValidation = input.SkipServerCertificateValidation,
@@ -147,10 +151,10 @@ public class LdapConfigModel : PageModel
         public string? Server { get; set; }
 
         [Display(Name = "Porta")]
-        public int Port { get; set; } = 636;
+        public int Port { get; set; } = 389;
 
         [Display(Name = "Usar LDAPS (SSL)")]
-        public bool UseSsl { get; set; } = true;
+        public bool UseSsl { get; set; }
 
         [Display(Name = "Usar StartTLS (porta 389)")]
         public bool UseStartTls { get; set; }

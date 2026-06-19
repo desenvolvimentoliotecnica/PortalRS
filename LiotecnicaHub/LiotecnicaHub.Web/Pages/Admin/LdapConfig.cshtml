@@ -81,9 +81,10 @@
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>
-        <button type="submit" asp-page-handler="Test" class="btn btn-secondary">Testar conexão</button>
+        <button type="submit" asp-page-handler="Test" class="btn btn-secondary">Salvar e testar conexão</button>
         <a asp-page="/Admin/Index">Cancelar</a>
     </div>
+    <small class="text-muted">Salvar grava no banco. &quot;Salvar e testar&quot; também persiste antes de testar.</small>
 </form>
 
 <p><a asp-page="/Admin/Index">← Voltar ao painel</a></p>
