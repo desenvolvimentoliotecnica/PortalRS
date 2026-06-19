@@ -13,11 +13,16 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
 
     private readonly HubDbContext _db;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IHubPasswordService _passwords;
 
-    public HubAccessAdminService(HubDbContext db, IHttpContextAccessor httpContextAccessor)
+    public HubAccessAdminService(
+        HubDbContext db,
+        IHttpContextAccessor httpContextAccessor,
+        IHubPasswordService passwords)
     {
         _db = db;
         _httpContextAccessor = httpContextAccessor;
+        _passwords = passwords;
     }
 
     public async Task<IReadOnlyList<HubUserListItem>> ListUsersAsync(string? search, CancellationToken ct)
@@ -65,6 +70,7 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
             Name = user.Name,
             Email = user.Email,
             IsActive = user.IsActive,
+            HasLocalPassword = !string.IsNullOrWhiteSpace(user.PasswordHash),
             SelectedApplicationIds = user.UserApplicationAccesses.Select(ua => ua.ApplicationId).ToList()
         };
     }
@@ -97,6 +103,7 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
+        user.PasswordHash = _passwords.HashPassword(user, _passwords.GetDefaultPassword());
 
         _db.Users.Add(user);
 
@@ -173,6 +180,9 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
         user.Email = email;
         user.IsActive = input.IsActive;
         user.UpdatedAtUtc = now;
+
+        if (await ApplyPasswordChangeAsync(user, input, actorId, ct) is { } passwordError)
+            return (false, passwordError);
 
         var existingApplicationIds = user.UserApplicationAccesses.Select(ua => ua.ApplicationId).ToHashSet();
         var desiredApplicationIds = applicationIds.Ids.ToHashSet();
@@ -321,6 +331,39 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
         return (ids, null);
     }
 
+    private async Task<string?> ApplyPasswordChangeAsync(
+        HubUser user,
+        HubUserInput input,
+        Guid? actorId,
+        CancellationToken ct)
+    {
+        string? newPassword = null;
+
+        if (input.ResetPasswordToDefault)
+            newPassword = _passwords.GetDefaultPassword();
+        else if (!string.IsNullOrWhiteSpace(input.NewPassword))
+            newPassword = input.NewPassword.Trim();
+
+        if (newPassword is null)
+            return null;
+
+        if (newPassword.Length < 8)
+            return "A senha deve ter pelo menos 8 caracteres.";
+
+        user.PasswordHash = _passwords.HashPassword(user, newPassword);
+
+        await WriteAuditAsync(
+            HubAccessAuditAction.UserPasswordChanged,
+            user.Id,
+            null,
+            actorId,
+            null,
+            input.ResetPasswordToDefault ? "reset_padrao" : "alterada_admin",
+            ct);
+
+        return null;
+    }
+
     private Guid? GetCurrentActorUserId()
     {
         var raw = _httpContextAccessor.HttpContext?.User.FindFirst(HubClaimTypes.UserId)?.Value;
@@ -371,6 +414,7 @@ public sealed class HubAccessAdminService : IHubAccessAdminService
         HubAccessAuditAction.UserUpdated => "Usuário atualizado",
         HubAccessAuditAction.UserApplicationAdded => "Aplicativo liberado",
         HubAccessAuditAction.UserApplicationRemoved => "Aplicativo removido",
+        HubAccessAuditAction.UserPasswordChanged => "Senha alterada",
         HubAccessAuditAction.UserProfileAdded => "Perfil atribuído (legado)",
         HubAccessAuditAction.UserProfileRemoved => "Perfil removido (legado)",
         _ => action

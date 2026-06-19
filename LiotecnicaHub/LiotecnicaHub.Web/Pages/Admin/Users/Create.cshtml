@@ -6,11 +6,15 @@
 
 <section class="page-header">
     <h1>Novo usuário</h1>
-    <p>Cadastre manualmente antes do primeiro login ou libere aplicativos para quem já entrou pelo SSO.</p>
+    <p>Cadastre manualmente antes do primeiro login. A senha inicial padrão será aplicada automaticamente.</p>
 </section>
 
 <form method="post" class="form-card form-card-wide">
     <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+
+    <div class="alert alert-info">
+        Senha inicial: <strong>@Model.DefaultPasswordHint</strong> — o usuário deve alterá-la após o primeiro acesso (via admin).
+    </div>
 
     <label asp-for="Input.Name">Nome</label>
     <input asp-for="Input.Name" class="form-control" />
@@ -24,7 +28,6 @@
     </label>
 
     <h2 class="form-section-title">Aplicativos liberados</h2>
-    <p class="hub-access-muted">Marque os cards que este usuário verá no launcher do Hub.</p>
     @{
         ViewData["FieldName"] = "Input.SelectedApplicationIds";
         ViewData["SelectedIds"] = Model.Input.SelectedApplicationIds;

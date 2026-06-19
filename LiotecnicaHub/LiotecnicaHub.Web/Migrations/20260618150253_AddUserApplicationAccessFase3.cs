@@ -14,17 +14,17 @@ namespace LiotecnicaHub.Web.Migrations
             migrationBuilder.AddColumn<Guid>(
                 name: "ApplicationId",
                 table: "HubAccessAudits",
-                type: "TEXT",
+                type: "uuid",
                 nullable: true);
 
             migrationBuilder.CreateTable(
                 name: "HubUserApplicationAccesses",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ApplicationId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CreatedAtUtc = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
-                    CreatedByUserId = table.Column<Guid>(type: "TEXT", nullable: true)
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ApplicationId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAtUtc = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    CreatedByUserId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {

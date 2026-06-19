@@ -48,6 +48,7 @@ builder.Services.AddScoped<IHubEntraConfigService, HubEntraConfigService>();
 builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IHubAuthService, HubAuthService>();
+builder.Services.AddSingleton<IHubPasswordService, HubPasswordService>();
 builder.Services.AddScoped<IHubLaunchService, HubLaunchService>();
 builder.Services.AddScoped<IHubApplicationService, HubApplicationService>();
 builder.Services.AddScoped<IHubAccessCatalogService, HubAccessCatalogService>();
@@ -100,6 +101,8 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<HubDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("HubDbSeeder");
     await HubDbSeeder.MigrateAndSeedAsync(db, app.Configuration, logger);
+    var passwords = scope.ServiceProvider.GetRequiredService<IHubPasswordService>();
+    await HubUserPasswordSeed.SyncAdminPasswordsAsync(db, passwords, app.Configuration, logger);
 }
 
 if (!app.Environment.IsDevelopment())

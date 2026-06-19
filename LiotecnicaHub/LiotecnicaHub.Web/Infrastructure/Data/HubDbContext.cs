@@ -78,6 +78,7 @@ public class HubDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(150).IsRequired();
             e.Property(x => x.Email).HasMaxLength(200).IsRequired();
+            e.Property(x => x.PasswordHash).HasMaxLength(500);
             e.HasIndex(x => x.Email).IsUnique();
         });
 
