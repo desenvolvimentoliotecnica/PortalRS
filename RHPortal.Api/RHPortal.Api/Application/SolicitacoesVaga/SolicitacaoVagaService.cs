@@ -15,6 +15,7 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Data.Seeders;
 using RhPortal.Api.Infrastructure.Notifications;
+using RhPortal.Api.Infrastructure.Rm;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 using RHPortal.Api.Domain.Entities;
@@ -353,6 +354,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 r.RmCriacaoSolicitadaEmUtc, r.RmCodColRequisicao, r.RmIdReq, r.RmRequisicaoCodigo, r.TentativasIntegracao, r.UltimaTentativaUtc,
                 r.RmCodStatus, r.RmUltimaStatusDescricaoRm, r.RmStatusSyncUltimaMensagem,
                 r.RmUltimaSincronizacaoUtc,
+                RmRequisicaoTipos.TryParseTipoFromVinculo(r.RmRequisicaoCodigo),
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,
                 ep?.CanAssume ?? false, r.VagaId);
         }).ToList();

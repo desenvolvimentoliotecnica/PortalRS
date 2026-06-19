@@ -41,6 +41,12 @@ public sealed class RmRequisicoesController : ControllerBase
     {
         try
         {
+            if (!string.IsNullOrWhiteSpace(tipoRequisicao)
+                && !RmRequisicaoTipos.IsVisivelConsulta(tipoRequisicao))
+            {
+                return Ok(new RmRequisicaoListResponse { Items = [], TotalCount = 0 });
+            }
+
             var result = await _read.ListAsync(new RmRequisicaoListQuery
             {
                 Page = page,

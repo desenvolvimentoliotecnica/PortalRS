@@ -376,6 +376,7 @@ public sealed record SolicitacaoVagaGridRow(
     string? RmUltimaStatusDescricaoRm,
     string? RmStatusSyncUltimaMensagem,
     DateTimeOffset? RmUltimaSincronizacaoUtc,
+    string? RmTipoRequisicao,
     string? EtapaPendenteLabel,
     string? EtapaPendenteCom,
     bool EtapaPendenteIsQueue,

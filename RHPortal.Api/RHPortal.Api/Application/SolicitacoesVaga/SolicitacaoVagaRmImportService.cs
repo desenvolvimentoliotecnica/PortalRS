@@ -114,6 +114,9 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         if (!row.Codcolrequisicao.HasValue || row.Idreq <= 0 || string.IsNullOrWhiteSpace(row.TipoRequisicao))
             return ImportLineResult.Ignored($"{BuildHumanKey(row)}: vínculo RM incompleto.");
 
+        if (!RmRequisicaoTipos.IsImportavelComoSolicitacaoVaga(row.TipoRequisicao))
+            return ImportLineResult.Ignored($"{BuildHumanKey(row)}: tipo {row.TipoRequisicao} não gera solicitação de vaga (somente AUMENTO_QUADRO e SUBSTITUICAO).");
+
         var map = row.Codstatus.HasValue
             ? RmRequisicaoStatusMapResolver.ResolveFirst(maps, row.Codstatus.Value)
             : null;
@@ -224,7 +227,8 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         entity.ApprovedAtUtc ??= now;
         entity.CreatedAtUtc = ResolveDataAberturaRm(row, entity.CreatedAtUtc);
         entity.UpdatedAtUtc = now;
-        entity.TipoSolicitacao = MapTipoSolicitacao(row.TipoRequisicao);
+        entity.TipoSolicitacao = MapTipoSolicitacao(row.TipoRequisicao)
+            ?? throw new InvalidOperationException($"Tipo RM inesperado na importação: {row.TipoRequisicao}");
         entity.TipoContrato = TipoContratoVaga.CLT;
         entity.DecisaoRH = TipoDecisaoHeadcount.AumentoDefinitivo;
         entity.CodFuncaoRm = TrimTo(row.Codfuncao, 20);
@@ -424,10 +428,15 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             .FirstOrDefaultAsync(ct);
     }
 
-    private static TipoSolicitacaoVaga MapTipoSolicitacao(string tipo) =>
-        tipo.Trim().Equals("SUBSTITUICAO", StringComparison.OrdinalIgnoreCase)
-            ? TipoSolicitacaoVaga.Substituicao
-            : TipoSolicitacaoVaga.AumentoQuadro;
+    private static TipoSolicitacaoVaga? MapTipoSolicitacao(string tipo)
+    {
+        var value = tipo.Trim();
+        if (value.Equals(RmRequisicaoTipos.Substituicao, StringComparison.OrdinalIgnoreCase))
+            return TipoSolicitacaoVaga.Substituicao;
+        if (value.Equals(RmRequisicaoTipos.AumentoQuadro, StringComparison.OrdinalIgnoreCase))
+            return TipoSolicitacaoVaga.AumentoQuadro;
+        return null;
+    }
 
     private static string BuildHumanKey(RmRequisicaoRowDto row) =>
         $"{row.TipoRequisicao ?? "RM"}|{row.Codcolrequisicao?.ToString() ?? "?"}|{row.Idreq}";

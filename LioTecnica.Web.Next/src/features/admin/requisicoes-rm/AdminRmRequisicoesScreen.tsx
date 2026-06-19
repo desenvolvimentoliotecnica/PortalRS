@@ -46,13 +46,9 @@ const TIPO_OPTIONS = [
   { value: "AUMENTO_QUADRO", label: "Aumento de quadro" },
   { value: "SUBSTITUICAO", label: "Substituição" },
   { value: "DESLIGAMENTO", label: "Desligamento" },
-  { value: "PROMOCAO_ALTERACAO_FUNCIONAL", label: "Promoção / alteração funcional" },
-  { value: "TRANSFERENCIA", label: "Transferência" },
-  { value: "TRANSFERENCIA_PROMOCAO", label: "Transferência + promoção" },
-  { value: "TRANSFERENCIA_LOTE", label: "Transferência em lote" },
-  { value: "TREINAMENTO", label: "Treinamento" },
-  { value: "GERAL", label: "Geral" },
 ] as const;
+
+const RM_TIPOS_IMPORTAVEIS = new Set(["AUMENTO_QUADRO", "SUBSTITUICAO"]);
 
 const CODSTATUS_VISIVEIS = [1, 3] as const;
 
@@ -154,23 +150,13 @@ function formatMoney(value: string | number | null): string {
 }
 
 function formatTipoRequisicao(tipo: string | null | undefined): string {
-  const value = (tipo ?? "").trim();
+  const value = (tipo ?? "").trim().toUpperCase();
   const labels: Record<string, string> = {
     AUMENTO_QUADRO: "Aumento de Quadro",
     SUBSTITUICAO: "Substituição",
     DESLIGAMENTO: "Desligamento",
-    PROMOCAO_ALTERACAO_FUNCIONAL: "Promoção / Alteração Funcional",
-    TRANSFERENCIA: "Transferência",
-    TRANSFERENCIA_PROMOCAO: "Transferência + Promoção",
-    TRANSFERENCIA_LOTE: "Transferência em Lote",
-    TREINAMENTO: "Treinamento",
-    GERAL: "Geral",
   };
-  const fallback = value
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase("pt-BR"));
-  return labels[value] ?? (fallback || "—");
+  return labels[value] ?? (value ? value.replace(/_/g, " ") : "—");
 }
 
 function formatFuncao(row: Pick<RmRequisicaoRow, "codfuncao" | "nomeFuncao">): string {
@@ -328,7 +314,9 @@ export default function AdminRmRequisicoesScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             pageSize: 100,
-            tipoRequisicao: tipo.trim() || null,
+            tipoRequisicao: tipo.trim() && RM_TIPOS_IMPORTAVEIS.has(tipo.trim())
+              ? tipo.trim()
+              : null,
             dataAberturaDe: dataDe.trim() || null,
             dataAberturaAte: dataAte.trim() || null,
             codStatusIn: statusFilter === "all" ? [...CODSTATUS_VISIVEIS] : [Number(statusFilter)],
@@ -536,6 +524,11 @@ export default function AdminRmRequisicoesScreen() {
 
         <div className="text-muted-foreground mb-3 text-xs">
           Total no filtro atual: <span className="font-semibold text-foreground">{total}</span>
+          {tipo === "DESLIGAMENTO" && (
+            <span className="ml-2 text-amber-700">
+              Desligamentos aparecem na consulta, mas não são importados como solicitação de vaga.
+            </span>
+          )}
         </div>
 
         <div className="overflow-x-auto">
