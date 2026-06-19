@@ -18,6 +18,9 @@ public sealed class HubUserInput
     public string Email { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public List<Guid> SelectedApplicationIds { get; set; } = [];
+    public string? NewPassword { get; set; }
+    public bool ResetPasswordToDefault { get; set; }
+    public bool HasLocalPassword { get; set; }
 }
 
 public sealed class HubAuditListItem
