@@ -3,6 +3,8 @@ namespace RhPortal.Api.Infrastructure.Rm;
 /// <summary>Unificação de requisições RM — mesma semântica da consulta analítica (views VREQ*).</summary>
 internal static class RmRequisicoesQueries
 {
+    /// <summary>Consultas ao SQL Server RM podem ser lentas (rede + UNION + joins).</summary>
+    internal const int SqlCommandTimeoutSeconds = 120;
     /// <summary>
     /// CTE + projeção com joins (sem ORDER/WHERE final). Prefixo para COUNT ou página.
     /// </summary>

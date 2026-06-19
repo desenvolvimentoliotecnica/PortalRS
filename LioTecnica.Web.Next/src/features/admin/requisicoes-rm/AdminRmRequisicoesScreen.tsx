@@ -172,6 +172,21 @@ function truncateText(value: string | null | undefined, maxLength = 40): string 
   return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
 }
 
+function formatIsoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Período padrão: últimos 12 meses — evita consulta RM sem filtro (muito lenta). */
+function defaultRmConsultaDataDe(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 12);
+  return formatIsoDate(d);
+}
+
+function defaultRmConsultaDataAte(): string {
+  return formatIsoDate(new Date());
+}
+
 export default function AdminRmRequisicoesScreen() {
   const router = useRouter();
   const rmConfigAlertOpenRef = useRef(false);
@@ -182,8 +197,8 @@ export default function AdminRmRequisicoesScreen() {
   const [pageSize, setPageSize] = useState(20);
   const [tipo, setTipo] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [dataDe, setDataDe] = useState("");
-  const [dataAte, setDataAte] = useState("");
+  const [dataDe, setDataDe] = useState(defaultRmConsultaDataDe);
+  const [dataAte, setDataAte] = useState(defaultRmConsultaDataAte);
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const [importing, setImporting] = useState(false);
@@ -256,15 +271,17 @@ export default function AdminRmRequisicoesScreen() {
       params.set("sortBy", sortKey);
       params.set("sortDir", sortDir);
 
-      const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" }, 75_000);
+      const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" }, 120_000);
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { detail?: string; title?: string } | null;
         const msg =
-          typeof body?.detail === "string"
-            ? body.detail
-            : typeof body?.title === "string"
-              ? body.title
-              : `HTTP ${res.status}`;
+          res.status === 504
+            ? "Consulta ao RM excedeu o tempo limite. Reduza o período de abertura ou aplique filtros (tipo/status)."
+            : typeof body?.detail === "string"
+              ? body.detail
+              : typeof body?.title === "string"
+                ? body.title
+                : `HTTP ${res.status}`;
         if (isRmIntegrationConfigMissing(msg)) await showRmConfigMissingAlert();
         else toast.error(msg);
         setRows([]);
@@ -524,6 +541,7 @@ export default function AdminRmRequisicoesScreen() {
 
         <div className="text-muted-foreground mb-3 text-xs">
           Total no filtro atual: <span className="font-semibold text-foreground">{total}</span>
+          <span className="ml-2 opacity-80">Período padrão: últimos 12 meses (ajuste as datas se precisar de histórico maior).</span>
           {tipo === "DESLIGAMENTO" && (
             <span className="ml-2 text-amber-700">
               Desligamentos aparecem na consulta, mas não são importados como solicitação de vaga.

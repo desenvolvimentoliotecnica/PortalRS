@@ -46,6 +46,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         int totalCount;
         await using (var cmdCount = new SqlCommand(RmRequisicoesQueries.SqlCount, conn))
         {
+            cmdCount.CommandTimeout = RmRequisicoesQueries.SqlCommandTimeoutSeconds;
             AddFilterParameters(cmdCount, tipo, dataDe, dataAte, searchPattern, codStatusCsv);
             var scalar = await cmdCount.ExecuteScalarAsync(ct);
             totalCount = scalar is int i ? i : Convert.ToInt32(scalar ?? 0);
@@ -54,6 +55,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         var items = new List<RmRequisicaoRowDto>();
         await using (var cmdPage = new SqlCommand(RmRequisicoesQueries.SqlPage(query.SortBy, query.SortDir), conn))
         {
+            cmdPage.CommandTimeout = RmRequisicoesQueries.SqlCommandTimeoutSeconds;
             AddFilterParameters(cmdPage, tipo, dataDe, dataAte, searchPattern, codStatusCsv);
             cmdPage.Parameters.AddWithValue("@Offset", offset);
             cmdPage.Parameters.AddWithValue("@PageSize", pageSize);
@@ -82,6 +84,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         await conn.OpenAsync(ct);
 
         await using var cmd = new SqlCommand(RmRequisicoesQueries.SqlCodStatusPorVinculo, conn);
+        cmd.CommandTimeout = RmRequisicoesQueries.SqlCommandTimeoutSeconds;
         cmd.Parameters.AddWithValue("@Tipo", tipo);
         cmd.Parameters.AddWithValue("@CodCol", codCol);
         cmd.Parameters.AddWithValue("@IdReq", idReq);
