@@ -14,6 +14,7 @@ public class IndexModel : PageModel
     public int UserCount { get; set; }
     public int AdminCount { get; set; }
     public bool EntraConfigured { get; set; }
+    public bool LdapConfigured { get; set; }
 
     public async Task OnGetAsync(CancellationToken ct)
     {
@@ -21,5 +22,9 @@ public class IndexModel : PageModel
         UserCount = await _db.Users.CountAsync(ct);
         AdminCount = await _db.Admins.CountAsync(ct);
         EntraConfigured = await _db.EntraConfigs.AnyAsync(c => c.IsEnabled, ct);
+        LdapConfigured = await _db.LdapConfigs.AnyAsync(c =>
+            c.IsEnabled
+            && c.Server != null && c.Server != ""
+            && c.BaseDn != null && c.BaseDn != "", ct);
     }
 }

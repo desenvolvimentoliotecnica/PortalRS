@@ -45,6 +45,8 @@ builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<IHubEntraConfigService, HubEntraConfigService>();
+builder.Services.AddScoped<IHubLdapConfigService, HubLdapConfigService>();
+builder.Services.AddScoped<IHubLdapAuthService, HubLdapAuthService>();
 builder.Services.AddScoped<IEntraChallengeService, EntraChallengeService>();
 builder.Services.AddScoped<IEntraTokenValidator, EntraTokenValidator>();
 builder.Services.AddScoped<IHubAuthService, HubAuthService>();

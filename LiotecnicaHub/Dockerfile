@@ -12,7 +12,7 @@ RUN --mount=type=cache,id=liotec-hub-nuget,target=/root/.nuget/packages \
     dotnet publish LiotecnicaHub.Web.csproj -c Release -o /app/publish --no-restore /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
-RUN apt-get update && apt-get install -y --no-install-recommends wget \
+RUN apt-get update && apt-get install -y --no-install-recommends wget libldap-2.5-0 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:3010
