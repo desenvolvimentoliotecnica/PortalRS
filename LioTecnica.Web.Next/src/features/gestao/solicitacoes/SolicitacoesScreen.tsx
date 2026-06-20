@@ -29,7 +29,6 @@ import {
     Lock,
     UserMinus,
     Briefcase,
-    TrendingUp,
     Activity,
     Ban,
     Copy,
@@ -38,7 +37,6 @@ import {
     ChevronUp,
     ChevronsUpDown,
 } from "lucide-react";
-import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
@@ -323,29 +321,29 @@ async function showAnalistaRhObrigatoriaAlert() {
 /* ──────────────────────────── component ──────────────────────────── */
 
 /* ══════════════════════════════════════════════════════════════
-   Wrapper com tabs: Vagas | Promoções | Desligamentos
+   Wrapper com tabs: Vagas | Desligamentos
    ══════════════════════════════════════════════════════════════ */
 
-type TopTab = "vagas" | "promocoes" | "desligamentos";
+type TopTab = "vagas" | "desligamentos";
 
 const TOP_TABS: { id: TopTab; label: string; icon: React.ElementType }[] = [
     { id: "vagas", label: "Requisição de Pessoal", icon: Briefcase },
-    { id: "promocoes", label: "Movimentação de Pessoal", icon: TrendingUp },
     { id: "desligamentos", label: "Desligamento", icon: UserMinus },
 ];
 
 export default function SolicitacoesScreen() {
     const searchParams = useSearchParams();
-    const initialTab = (searchParams.get("tab") as TopTab | null) ?? "vagas";
-    const validTabs: TopTab[] = ["vagas", "promocoes", "desligamentos"];
-    const [topTab, setTopTab] = useState<TopTab>(validTabs.includes(initialTab) ? initialTab : "vagas");
+    const tabParam = searchParams.get("tab");
+    const initialTab: TopTab =
+        tabParam === "desligamentos" ? "desligamentos" : "vagas";
+    const [topTab, setTopTab] = useState<TopTab>(initialTab);
 
     return (
         <section className="space-y-4">
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight">Solicitações</h1>
                 <p className="text-muted-foreground text-sm mt-0.5">
-                    Gerencie solicitações de vagas, promoções e desligamentos
+                    Gerencie solicitações de vagas e desligamentos
                 </p>
             </div>
 
@@ -373,7 +371,6 @@ export default function SolicitacoesScreen() {
             </div>
 
             {topTab === "vagas" && <SolicitacoesVagaContent />}
-            {topTab === "promocoes" && <PromocoesScreen />}
             {topTab === "desligamentos" && <DesligamentosScreen />}
         </section>
     );

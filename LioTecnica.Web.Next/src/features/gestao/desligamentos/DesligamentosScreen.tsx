@@ -96,9 +96,6 @@ type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 const API = "/api/solicitacoes-desligamento";
 
-// "Ativas" = solicitações que ainda precisam de atenção ou estão em andamento
-const ATIVAS = new Set(["0", "1", "4", "6", "7"]); // Rascunho, Pendente, Ajustes, Aguarda Fila, Em Integração
-
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, {
         ...init,
@@ -207,7 +204,6 @@ export default function DesligamentosScreen() {
 
     /* ── filters ── */
     const [q, setQ] = useState("");
-    const [statusFilter, setStatusFilter] = useState("ativas");
     const [centroCustoFilter, setCentroCustoFilter] = useState("all");
     const [centrosCusto, setCentrosCusto] = useState<{ id: string; code: string; description: string; displayLabel?: string }[]>([]);
     const [dateFrom, setDateFrom] = useState("");
@@ -248,9 +244,9 @@ export default function DesligamentosScreen() {
 
     /* ── data loading ── */
     const syncList = useCallback(async () => {
-        const params = new URLSearchParams();
-        if (centroCustoFilter !== "all") params.set("centroCustoId", centroCustoFilter);
-        const url = params.toString() ? `${API}?${params.toString()}` : API;
+        const params = new URLSearchParams({ pageSize: "500" });
+        if (centroCustoFilter !== "all") params.set("areaId", centroCustoFilter);
+        const url = `${API}?${params.toString()}`;
         const data = await fetchJson<SolicitacaoDesligamentoGridRow[]>(url);
         setRows(Array.isArray(data) ? data.map(r => ({ ...r, status: normalizeStatus(r.status) })) : []);
         setSelected(new Set());
@@ -277,11 +273,6 @@ export default function DesligamentosScreen() {
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
-            const s = String(r.status);
-            if (statusFilter === "ativas"    && !ATIVAS.has(s)) return false;
-            if (statusFilter === "aprovadas" && s !== "2") return false;
-            if (statusFilter === "reprovadas"&& s !== "3") return false;
-            if (statusFilter === "concluidas"&& s !== "8") return false;
             if (dateFrom && r.createdAtUtc && new Date(r.createdAtUtc) < new Date(dateFrom)) return false;
             if (dateTo && r.createdAtUtc && new Date(r.createdAtUtc) > new Date(`${dateTo}T23:59:59`)) return false;
             if (!matchesAgingBucket(r.createdAtUtc, agingBucket)) return false;
@@ -289,16 +280,7 @@ export default function DesligamentosScreen() {
             const blob = [r.funcionarioNome, r.solicitanteNome].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [q, rows, statusFilter, dateFrom, dateTo, agingBucket]);
-
-    /* ── KPIs ── */
-    const kpis = useMemo(() => {
-        const total = rows.length;
-        const pendentes = rows.filter((r) => r.status === 1 || r.status === 6).length;
-        const aprovadas = rows.filter((r) => r.status === 2).length;
-        const reprovadas = rows.filter((r) => r.status === 3).length;
-        return { total, pendentes, aprovadas, reprovadas };
-    }, [rows]);
+    }, [q, rows, dateFrom, dateTo, agingBucket]);
 
     /* ── actions ── */
     function openNew() {
@@ -547,8 +529,7 @@ export default function DesligamentosScreen() {
 
     function exportCsv() {
         const params = new URLSearchParams();
-        if (centroCustoFilter !== "all") params.set("centroCustoId", centroCustoFilter);
-        if (statusFilter !== "all") params.set("status", statusFilter);
+        if (centroCustoFilter !== "all") params.set("areaId", centroCustoFilter);
         apiFetch(`${API}/export?${params.toString()}`)
             .then((res) => res.blob())
             .then((blob) => {
@@ -651,27 +632,7 @@ export default function DesligamentosScreen() {
                         )}
                     </div>
                 </div>
-                {/* Row 2: status chips */}
-                <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                    {([
-                        { key: "ativas",     label: "Ativas",      count: rows.filter(r => ATIVAS.has(String(r.status))).length,  cls: "data-[active=true]:bg-amber-500/15 data-[active=true]:text-amber-700 data-[active=true]:border-amber-400/50" },
-                        { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => r.status === 2).length,                cls: "data-[active=true]:bg-emerald-500/15 data-[active=true]:text-emerald-700 data-[active=true]:border-emerald-400/50" },
-                        { key: "reprovadas", label: "Reprovadas",  count: rows.filter(r => r.status === 3).length,                cls: "data-[active=true]:bg-red-500/15 data-[active=true]:text-red-700 data-[active=true]:border-red-400/50" },
-                        { key: "concluidas", label: "Concluídas",  count: rows.filter(r => r.status === 8).length,                cls: "data-[active=true]:bg-teal-500/15 data-[active=true]:text-teal-700 data-[active=true]:border-teal-400/50" },
-                        { key: "all",        label: "Todas",       count: rows.length,                                           cls: "data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:border-primary/30" },
-                    ] as const).map(({ key, label, count, cls }) => (
-                        <button
-                            key={key}
-                            data-active={statusFilter === key}
-                            onClick={() => setStatusFilter(key)}
-                            className={`inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 ${cls}`}
-                        >
-                            {label}
-                            <span className="rounded-full bg-current/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none opacity-80">{count}</span>
-                        </button>
-                    ))}
-                </div>
-                {/* Row 3: date range + aging */}
+                {/* Row 2: date range + aging */}
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <CalendarDays className="size-3.5" />
@@ -951,9 +912,7 @@ export default function DesligamentosScreen() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                                    {statusFilter === "ativas"
-                                ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
-                                : "Nenhuma solicitação encontrada."}
+                                    Nenhuma solicitação encontrada.
                                 </TableCell>
                             </TableRow>
                         )}
