@@ -25,8 +25,12 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
     public async Task<RmRequisicaoListResponse> ListAsync(RmRequisicaoListQuery query, CancellationToken ct)
     {
         var (tenantConfig, requestTimeoutSeconds) = await BuildRmRequisicaoConfigAsync(ct);
-        if (!string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
+        var connectionOptions = await _rmConfiguracaoService.GetConnectionOptionsAsync(ct);
+        if (!connectionOptions.IsConfigured
+            && !string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
+        {
             return await ListFromRestAsync(query, tenantConfig, requestTimeoutSeconds, ct);
+        }
 
         var page = Math.Max(1, query.Page);
         const int maxPageSize = 100;
@@ -39,7 +43,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         string? searchPattern = BuildLikePattern(query.Search);
         string? codStatusCsv = BuildCodStatusCsv(query.CodStatusIn);
 
-        var cs = (await _rmConfiguracaoService.GetConnectionOptionsAsync(ct)).GetConnectionString();
+        var cs = connectionOptions.GetConnectionString();
 
         var countTask = ExecuteCountAsync(cs, tipo, dataDe, dataAte, searchPattern, codStatusCsv, ct);
         var pageTask = ExecutePageAsync(cs, query.SortBy, query.SortDir, offset, pageSize, tipo, dataDe, dataAte, searchPattern, codStatusCsv, ct);
@@ -60,10 +64,14 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             return null;
 
         var (tenantConfig, requestTimeoutSeconds) = await BuildRmRequisicaoConfigAsync(ct);
-        if (!string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
+        var connectionOptions = await _rmConfiguracaoService.GetConnectionOptionsAsync(ct);
+        if (!connectionOptions.IsConfigured
+            && !string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
+        {
             return await TryGetCodStatusFromRestAsync(tenantConfig, requestTimeoutSeconds, tipo, codCol, idReq, ct);
+        }
 
-        var cs = (await _rmConfiguracaoService.GetConnectionOptionsAsync(ct)).GetConnectionString();
+        var cs = connectionOptions.GetConnectionString();
         await using var conn = new SqlConnection(cs);
         await conn.OpenAsync(ct);
 
