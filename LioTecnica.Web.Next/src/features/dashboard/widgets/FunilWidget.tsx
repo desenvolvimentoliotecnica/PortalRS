@@ -18,7 +18,7 @@ export function FunilWidget({
 }) {
   const hasConversionFunnel = !!funilConversao && funilConversao.etapas.length > 0;
   const firstStageTotal = funilConversao?.etapas[0]?.total ?? 0;
-  const contratados = funilConversao?.etapas.find((etapa) => etapa.titulo === "Contratado")?.total ?? 0;
+  const contratados = funilConversao?.etapas.find((etapa) => etapa.titulo === "Em processo de admissão")?.total ?? 0;
   const conversionRate = firstStageTotal > 0 ? (contratados * 100) / firstStageTotal : null;
 
   const funnelBase = funil.recebidos > 0 ? funil.recebidos : 1;

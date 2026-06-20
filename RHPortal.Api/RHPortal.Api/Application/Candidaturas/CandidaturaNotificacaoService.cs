@@ -433,8 +433,14 @@ public sealed class CandidaturaNotificacaoService : ICandidaturaNotificacaoServi
             $"Proposta enviada — {vaga}",
             $"Olá, {nome}!\nTemos uma proposta para você na vaga {vaga}. Verifique seu portal ou e-mail para os detalhes."),
         EtapaMacroCandidatura.Contratado => (
-            $"Contratação confirmada — {vaga}",
-            $"Parabéns, {nome}!\nSua contratação para a vaga {vaga} foi confirmada. Boas-vindas ao time!"),
+            $"Processo de admissão iniciado — {vaga}",
+            $"Parabéns, {nome}!\nVocê está em processo de admissão para a vaga {vaga}. Em breve nossa equipe entrará em contato com os próximos passos."),
+        EtapaMacroCandidatura.ReprovadoRh => (
+            $"Atualização sobre sua candidatura — {vaga}",
+            $"Olá, {nome}.\nAgradecemos seu interesse na vaga {vaga}. Após análise do RH, seguiremos com outro candidato neste processo. Sucesso na jornada!"),
+        EtapaMacroCandidatura.ReprovadoGestor => (
+            $"Atualização sobre sua candidatura — {vaga}",
+            $"Olá, {nome}.\nAgradecemos seu interesse na vaga {vaga}. Após avaliação do gestor, seguiremos com outro candidato neste processo. Sucesso na jornada!"),
         EtapaMacroCandidatura.Recusado => (
             $"Atualização sobre sua candidatura — {vaga}",
             $"Olá, {nome}.\nAgradecemos seu interesse na vaga {vaga}, mas seguiremos com outro candidato neste processo. Sucesso na jornada!"),

@@ -68,6 +68,8 @@ public sealed class NotificacaoTemplateService : INotificacaoTemplateService
         EtapaMacroCandidatura.Teste,
         EtapaMacroCandidatura.Proposta,
         EtapaMacroCandidatura.Contratado,
+        EtapaMacroCandidatura.ReprovadoRh,
+        EtapaMacroCandidatura.ReprovadoGestor,
         EtapaMacroCandidatura.Recusado,
         EtapaMacroCandidatura.Desistiu,
     };
@@ -253,8 +255,14 @@ public sealed class NotificacaoTemplateService : INotificacaoTemplateService
             "Proposta enviada — {vagaTitulo}",
             "Olá, {candidatoNome}!\nTemos uma proposta para você na vaga {vagaTitulo}. Verifique seu portal ou e-mail para os detalhes."),
         EtapaMacroCandidatura.Contratado => (
-            "Contratação confirmada — {vagaTitulo}",
-            "Parabéns, {candidatoNome}!\nSua contratação para a vaga {vagaTitulo} foi confirmada. Boas-vindas ao time!"),
+            "Processo de admissão iniciado — {vagaTitulo}",
+            "Parabéns, {candidatoNome}!\nVocê está em processo de admissão para a vaga {vagaTitulo}. Em breve nossa equipe entrará em contato com os próximos passos."),
+        EtapaMacroCandidatura.ReprovadoRh => (
+            "Atualização sobre sua candidatura — {vagaTitulo}",
+            "Olá, {candidatoNome}.\nAgradecemos seu interesse na vaga {vagaTitulo}. Após análise do RH, seguiremos com outro candidato neste processo. Sucesso na jornada!"),
+        EtapaMacroCandidatura.ReprovadoGestor => (
+            "Atualização sobre sua candidatura — {vagaTitulo}",
+            "Olá, {candidatoNome}.\nAgradecemos seu interesse na vaga {vagaTitulo}. Após avaliação do gestor, seguiremos com outro candidato neste processo. Sucesso na jornada!"),
         EtapaMacroCandidatura.Recusado => (
             "Atualização sobre sua candidatura — {vagaTitulo}",
             "Olá, {candidatoNome}.\nAgradecemos seu interesse na vaga {vagaTitulo}, mas seguiremos com outro candidato neste processo. Sucesso na jornada!"),
