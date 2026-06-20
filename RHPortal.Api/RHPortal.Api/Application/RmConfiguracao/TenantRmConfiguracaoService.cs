@@ -170,7 +170,7 @@ public sealed class TenantRmConfiguracaoService : ITenantRmConfiguracaoService
 
         config.Mode = string.IsNullOrWhiteSpace(request.Mode) ? "stub" : request.Mode.Trim();
         config.CreateEndpointUrl = NullIfBlank(request.CreateEndpointUrl);
-        config.GetEndpointUrl = NullIfBlank(request.GetEndpointUrl);
+        config.GetEndpointUrl = null;
         config.ParecerEndpointUrl = NullIfBlank(request.ParecerEndpointUrl);
         config.RequestTimeoutSeconds = Math.Clamp(request.RequestTimeoutSeconds, 1, 600);
         config.RestUsername = NullIfBlank(request.RestUsername);
@@ -377,7 +377,7 @@ public sealed class TenantRmConfiguracaoService : ITenantRmConfiguracaoService
             return;
 
         config.CreateEndpointUrl ??= legacy.RmRequisicaoCreateEndpointUrl;
-        config.GetEndpointUrl ??= legacy.RmRequisicaoGetEndpointUrl;
+        config.GetEndpointUrl = null;
         config.ParecerEndpointUrl ??= legacy.RmRequisicaoParecerEndpointUrl;
         config.RestUsername ??= legacy.RmRequisicaoCreateUsername;
         if (string.IsNullOrWhiteSpace(config.RestPasswordEncrypted) && !string.IsNullOrWhiteSpace(legacy.RmRequisicaoCreatePassword))
@@ -402,7 +402,7 @@ public sealed class TenantRmConfiguracaoService : ITenantRmConfiguracaoService
         }
 
         legacy.RmRequisicaoCreateEndpointUrl = config.CreateEndpointUrl;
-        legacy.RmRequisicaoGetEndpointUrl = config.GetEndpointUrl;
+        legacy.RmRequisicaoGetEndpointUrl = null;
         legacy.RmRequisicaoParecerEndpointUrl = config.ParecerEndpointUrl;
         legacy.RmRequisicaoCreateUsername = config.RestUsername;
         legacy.RmRequisicaoCreatePassword = null;

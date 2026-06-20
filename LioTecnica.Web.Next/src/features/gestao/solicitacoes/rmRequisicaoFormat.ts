@@ -14,14 +14,15 @@ export function formatSolicitacaoCodigoRm(input: {
   rmRequisicaoCodigo?: string | null;
   rmIdReq?: number | null;
 }): string {
+  if (input.rmIdReq != null) return String(input.rmIdReq);
+
   const cod = input.rmRequisicaoCodigo?.trim();
   if (cod && !cod.startsWith("STUB-")) {
     const parts = cod.split("|");
     if (parts.length === 3) {
-      return `${formatRmTipoRequisicao(parts[0])} · ${parts[2].trim()}`;
+      return parts[2].trim();
     }
   }
-  if (input.rmIdReq != null) return String(input.rmIdReq);
   return "";
 }
 

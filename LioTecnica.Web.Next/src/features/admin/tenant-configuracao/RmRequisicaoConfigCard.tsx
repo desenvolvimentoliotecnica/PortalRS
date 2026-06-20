@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 
 interface ConfiguracaoRmRequisicaoDto {
     endpointUrl: string | null;
-    getEndpointUrl: string | null;
     parecerEndpointUrl: string | null;
     username: string | null;
     password: string | null;
@@ -20,7 +19,6 @@ export default function RmRequisicaoConfigCard() {
     const [saving, setSaving] = useState(false);
     const [canManage, setCanManage] = useState(true);
     const [endpointUrl, setEndpointUrl] = useState("");
-    const [getEndpointUrl, setGetEndpointUrl] = useState("");
     const [parecerEndpointUrl, setParecerEndpointUrl] = useState("");
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -43,7 +41,6 @@ export default function RmRequisicaoConfigCard() {
 
                 setCanManage(true);
                 setEndpointUrl(json.endpointUrl ?? "");
-                setGetEndpointUrl(json.getEndpointUrl ?? "");
                 setParecerEndpointUrl(json.parecerEndpointUrl ?? "");
                 setUsername(json.username ?? "");
                 setPassword(json.password ?? "");
@@ -65,7 +62,6 @@ export default function RmRequisicaoConfigCard() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     endpointUrl: endpointUrl.trim() || null,
-                    getEndpointUrl: getEndpointUrl.trim() || null,
                     parecerEndpointUrl: parecerEndpointUrl.trim() || null,
                     username: username.trim() || null,
                     password: password.trim() || null,
@@ -81,7 +77,6 @@ export default function RmRequisicaoConfigCard() {
 
             const json = await res.json() as ConfiguracaoRmRequisicaoDto;
             setEndpointUrl(json.endpointUrl ?? "");
-            setGetEndpointUrl(json.getEndpointUrl ?? "");
             setParecerEndpointUrl(json.parecerEndpointUrl ?? "");
             setUsername(json.username ?? "");
             setPassword(json.password ?? "");
@@ -91,7 +86,7 @@ export default function RmRequisicaoConfigCard() {
         } finally {
             setSaving(false);
         }
-    }, [endpointUrl, getEndpointUrl, parecerEndpointUrl, password, username]);
+    }, [endpointUrl, parecerEndpointUrl, password, username]);
 
     if (!canManage) return null;
 
@@ -100,7 +95,7 @@ export default function RmRequisicaoConfigCard() {
             <div>
                 <h3 className="text-sm font-semibold">Configuração da integração de requisições RM</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                    Informe as URLs de criação (POST) e consulta (GET) e as credenciais BasicAuth usadas pelo RM.
+                    A consulta de requisições no portal usa SQL direto (aba Conexão SQL). Aqui configure apenas criação (POST), pareceres (GET) e credenciais REST.
                 </p>
             </div>
 
@@ -114,20 +109,6 @@ export default function RmRequisicaoConfigCard() {
                         placeholder="http://localhost:8051/RMSRestDataServer/rest/RhuReqAumentoQuadroData"
                         disabled={loading || saving}
                     />
-                </div>
-
-                <div className="md:col-span-3">
-                    <Label htmlFor="tenant-rm-get-endpoint-url">Endpoint GET de consulta</Label>
-                    <Input
-                        id="tenant-rm-get-endpoint-url"
-                        value={getEndpointUrl}
-                        onChange={(e) => setGetEndpointUrl(e.target.value)}
-                        placeholder="http://172.19.30.37:8051/api/framework/v1/consultaSQLServer/RealizaConsulta/KNG.V.003/0/V/?parameters=COLIGADA={COLIGADA};IDREQ={IDREQ}"
-                        disabled={loading || saving}
-                    />
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                        Use <code>{`{COLIGADA}`}</code> e <code>{`{IDREQ}`}</code> como variáveis, ou cole a URL TOTVS com <code>COLIGADA=1;IDREQ=1</code>; o portal troca esses valores ao consultar o status.
-                    </p>
                 </div>
 
                 <div className="md:col-span-3">

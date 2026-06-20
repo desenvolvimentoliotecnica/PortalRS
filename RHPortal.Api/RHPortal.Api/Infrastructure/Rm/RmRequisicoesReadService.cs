@@ -24,12 +24,11 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 
     public async Task<RmRequisicaoListResponse> ListAsync(RmRequisicaoListQuery query, CancellationToken ct)
     {
-        var (tenantConfig, requestTimeoutSeconds) = await BuildRmRequisicaoConfigAsync(ct);
         var connectionOptions = await _rmConfiguracaoService.GetConnectionOptionsAsync(ct);
-        if (!connectionOptions.IsConfigured
-            && !string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
+        if (!connectionOptions.IsConfigured)
         {
-            return await ListFromRestAsync(query, tenantConfig, requestTimeoutSeconds, ct);
+            throw new InvalidOperationException(
+                "Configure a conexão SQL do RM (servidor, banco e credenciais) para consultar requisições.");
         }
 
         var page = Math.Max(1, query.Page);
@@ -63,13 +62,9 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         if (!RmPortalRequisicaoVinculo.TryParse(rmRequisicaoCodigo, out var tipo, out var codCol, out var idReq))
             return null;
 
-        var (tenantConfig, requestTimeoutSeconds) = await BuildRmRequisicaoConfigAsync(ct);
         var connectionOptions = await _rmConfiguracaoService.GetConnectionOptionsAsync(ct);
-        if (!connectionOptions.IsConfigured
-            && !string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
-        {
-            return await TryGetCodStatusFromRestAsync(tenantConfig, requestTimeoutSeconds, tipo, codCol, idReq, ct);
-        }
+        if (!connectionOptions.IsConfigured)
+            return null;
 
         var cs = connectionOptions.GetConnectionString();
         await using var conn = new SqlConnection(cs);

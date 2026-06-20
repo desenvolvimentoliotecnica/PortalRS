@@ -558,6 +558,9 @@ export default function AdminRmRequisicoesScreen() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-24 cursor-pointer select-none whitespace-nowrap text-center" onClick={() => handleSort("id")}>
+                  Código RM<SortIcon col="id" />
+                </TableHead>
                 <TableHead className="cursor-pointer select-none whitespace-nowrap text-center" onClick={() => handleSort("abertura")}>
                   Abertura<SortIcon col="abertura" />
                 </TableHead>
@@ -584,13 +587,13 @@ export default function AdminRmRequisicoesScreen() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-muted-foreground py-10 text-center">
+                  <TableCell colSpan={10} className="text-muted-foreground py-10 text-center">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-muted-foreground py-10 text-center">
+                  <TableCell colSpan={10} className="text-muted-foreground py-10 text-center">
                     Nenhuma requisição encontrada (ou integração RM não configurada).
                   </TableCell>
                 </TableRow>
@@ -601,6 +604,9 @@ export default function AdminRmRequisicoesScreen() {
                     className="cursor-pointer"
                     onClick={() => setDetailRow(r)}
                   >
+                    <TableCell className="whitespace-nowrap text-center font-mono text-xs font-medium">
+                      {r.idreq}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap text-center text-xs">
                       {formatDt(r.dataabertura)}
                     </TableCell>

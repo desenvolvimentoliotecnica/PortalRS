@@ -112,11 +112,6 @@ public sealed class IntegracaoTotvsController : ControllerBase
         {
             return BadRequest(new { message = "Informe uma URL absoluta válida para o endpoint RM." });
         }
-        if (!string.IsNullOrWhiteSpace(request.GetEndpointUrl)
-            && !Uri.TryCreate(request.GetEndpointUrl.Trim(), UriKind.Absolute, out _))
-        {
-            return BadRequest(new { message = "Informe uma URL absoluta válida para o endpoint GET RM." });
-        }
         if (!string.IsNullOrWhiteSpace(request.ParecerEndpointUrl)
             && !Uri.TryCreate(request.ParecerEndpointUrl.Trim(), UriKind.Absolute, out _))
         {
@@ -135,7 +130,7 @@ public sealed class IntegracaoTotvsController : ControllerBase
             SqlApplicationIntent = current.SqlApplicationIntent,
             Mode = current.Mode,
             CreateEndpointUrl = request.EndpointUrl,
-            GetEndpointUrl = request.GetEndpointUrl,
+            GetEndpointUrl = null,
             ParecerEndpointUrl = request.ParecerEndpointUrl,
             RequestTimeoutSeconds = current.RequestTimeoutSeconds,
             RestUsername = request.Username,
@@ -231,7 +226,6 @@ public sealed class IntegracaoTotvsController : ControllerBase
             return Forbid();
 
         if (!IsValidAbsoluteUrl(request.CreateEndpointUrl)
-            || !IsValidAbsoluteUrl(request.GetEndpointUrl)
             || !IsValidAbsoluteUrl(request.ParecerEndpointUrl)
             || !IsValidAbsoluteUrl(request.GestoresRmUrlTemplate))
         {
