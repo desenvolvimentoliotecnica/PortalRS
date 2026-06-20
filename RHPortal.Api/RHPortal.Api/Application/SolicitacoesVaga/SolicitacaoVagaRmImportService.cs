@@ -74,7 +74,14 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         {
             try
             {
-                var result = await ImportarLinhaAsync(row, maps, tenantId, ct);
+                ImportLineResult result;
+                if (RmRequisicaoTipos.IsImportavelComoSolicitacaoDesligamento(row.TipoRequisicao))
+                    result = await ImportarLinhaDesligamentoAsync(row, maps, tenantId, ct);
+                else if (RmRequisicaoTipos.IsImportavelComoSolicitacaoVaga(row.TipoRequisicao))
+                    result = await ImportarLinhaVagaAsync(row, maps, tenantId, ct);
+                else
+                    result = ImportLineResult.Ignored($"{BuildHumanKey(row)}: tipo {row.TipoRequisicao} não importável.");
+
                 switch (result.Status)
                 {
                     case ImportLineStatus.Created:
@@ -105,7 +112,7 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         return new RmRequisicaoImportResponse(rmRows.Items.Count, criados, atualizados, vagasCriadas, ignorados, erros, mensagens);
     }
 
-    private async Task<ImportLineResult> ImportarLinhaAsync(
+    private async Task<ImportLineResult> ImportarLinhaVagaAsync(
         RmRequisicaoRowDto row,
         IReadOnlyList<RmRequisicaoStatusMap> maps,
         string tenantId,
@@ -114,18 +121,8 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         if (!row.Codcolrequisicao.HasValue || row.Idreq <= 0 || string.IsNullOrWhiteSpace(row.TipoRequisicao))
             return ImportLineResult.Ignored($"{BuildHumanKey(row)}: vínculo RM incompleto.");
 
-        if (!RmRequisicaoTipos.IsImportavelComoSolicitacaoVaga(row.TipoRequisicao))
-            return ImportLineResult.Ignored($"{BuildHumanKey(row)}: tipo {row.TipoRequisicao} não gera solicitação de vaga (somente AUMENTO_QUADRO e SUBSTITUICAO).");
-
-        var map = row.Codstatus.HasValue
-            ? RmRequisicaoStatusMapResolver.ResolveFirst(maps, row.Codstatus.Value)
-            : null;
-
-        if (map is null || !RmRequisicaoStatusMapResolver.TryParsePortalStatus(map, out var mappedStatus))
-            return ImportLineResult.Ignored($"{BuildHumanKey(row)}: CODSTATUS {row.Codstatus?.ToString() ?? "null"} sem mapa válido.");
-
-        if (mappedStatus is not (SolicitacaoStatus.Aprovada or SolicitacaoStatus.Concluida))
-            return ImportLineResult.Ignored($"{BuildHumanKey(row)}: status RM mapeado para {mappedStatus}, não aprovado.");
+        if (!TryResolveMappedStatus(row, maps, out var mappedStatus, out var statusError))
+            return statusError!;
 
         var rmCodigo = RmPortalRequisicaoVinculo.Build(row.TipoRequisicao.Trim(), row.Codcolrequisicao.Value, row.Idreq);
         var now = DateTimeOffset.UtcNow;
@@ -161,6 +158,86 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         var vagaCriada = !vagaAntes.HasValue && entity.VagaId.HasValue;
         var status = created ? ImportLineStatus.Created : ImportLineStatus.Updated;
         return new ImportLineResult(status, vagaCriada, $"{BuildHumanKey(row)}: {(created ? "importada" : "atualizada")} e vaga {(vagaCriada ? "criada" : "mantida")}.");
+    }
+
+    private async Task<ImportLineResult> ImportarLinhaDesligamentoAsync(
+        RmRequisicaoRowDto row,
+        IReadOnlyList<RmRequisicaoStatusMap> maps,
+        string tenantId,
+        CancellationToken ct)
+    {
+        if (!row.Codcolrequisicao.HasValue || row.Idreq <= 0 || string.IsNullOrWhiteSpace(row.TipoRequisicao))
+            return ImportLineResult.Ignored($"{BuildHumanKey(row)}: vínculo RM incompleto.");
+
+        if (!TryResolveMappedStatus(row, maps, out var mappedStatus, out var statusError))
+            return statusError!;
+
+        var funcionario = await ResolveFuncionarioDesligamentoAsync(row, ct);
+        if (funcionario is null)
+        {
+            var chapa = row.ChapaFuncionario?.Trim();
+            return ImportLineResult.Ignored(
+                $"{BuildHumanKey(row)}: funcionário RM{(string.IsNullOrWhiteSpace(chapa) ? "" : $" (chapa {chapa})")} não encontrado no Portal.");
+        }
+
+        var rmCodigo = RmPortalRequisicaoVinculo.Build(row.TipoRequisicao.Trim(), row.Codcolrequisicao.Value, row.Idreq);
+        var now = DateTimeOffset.UtcNow;
+        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(s => s.RmRequisicaoCodigo == rmCodigo, ct);
+        var created = entity is null;
+
+        if (entity is null)
+        {
+            var solicitante = await ResolveSolicitanteAsync(row, ct);
+            if (solicitante is null)
+                return ImportLineResult.Ignored($"{BuildHumanKey(row)}: requisitante RM não encontrado no Portal.");
+
+            entity = new SolicitacaoDesligamento
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                SolicitanteId = solicitante.Id,
+                FuncionarioId = funcionario.Id,
+                CreatedAtUtc = ResolveDataAberturaRm(row, now),
+            };
+            _db.SolicitacoesDesligamento.Add(entity);
+        }
+
+        await MapDesligamentoRowAsync(entity, row, mappedStatus, funcionario, now, ct);
+        await _db.SaveChangesAsync(ct);
+
+        var status = created ? ImportLineStatus.Created : ImportLineStatus.Updated;
+        return new ImportLineResult(
+            status,
+            false,
+            $"{BuildHumanKey(row)}: solicitação de desligamento {(created ? "importada" : "atualizada")} (IDREQ {row.Idreq}).");
+    }
+
+    private static bool TryResolveMappedStatus(
+        RmRequisicaoRowDto row,
+        IReadOnlyList<RmRequisicaoStatusMap> maps,
+        out SolicitacaoStatus mappedStatus,
+        out ImportLineResult? error)
+    {
+        mappedStatus = default;
+        error = null;
+
+        var map = row.Codstatus.HasValue
+            ? RmRequisicaoStatusMapResolver.ResolveFirst(maps, row.Codstatus.Value)
+            : null;
+
+        if (map is null || !RmRequisicaoStatusMapResolver.TryParsePortalStatus(map, out mappedStatus))
+        {
+            error = ImportLineResult.Ignored($"{BuildHumanKey(row)}: CODSTATUS {row.Codstatus?.ToString() ?? "null"} sem mapa válido.");
+            return false;
+        }
+
+        if (mappedStatus is not (SolicitacaoStatus.Aprovada or SolicitacaoStatus.Concluida))
+        {
+            error = ImportLineResult.Ignored($"{BuildHumanKey(row)}: status RM mapeado para {mappedStatus}, não aprovado.");
+            return false;
+        }
+
+        return true;
     }
 
     private async Task ImportarPareceresAsync(SolicitacaoVaga entity, RmRequisicaoRowDto row, DateTimeOffset now, CancellationToken ct)
@@ -251,6 +328,57 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
         entity.JobPositionId = await ResolveJobPositionIdAsync(row.Codfuncao, row.NomeFuncao, ct);
     }
 
+    private async Task MapDesligamentoRowAsync(
+        SolicitacaoDesligamento entity,
+        RmRequisicaoRowDto row,
+        SolicitacaoStatus status,
+        Funcionario funcionario,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        entity.FuncionarioId = funcionario.Id;
+        entity.DataDesligamento = ResolveDataDesligamentoRm(row);
+        entity.TipoDesligamento = TipoDesligamento.SemJustaCausa;
+        entity.MotivoDesligamento = TrimTo(row.Justificativa, 4000)
+            ?? $"Desligamento importado do RM (IDREQ {row.Idreq}).";
+        entity.TipoAvisoPrevio = TipoAvisoPrevio.Indenizado;
+        entity.DiasAvisoPrevio = 30;
+        entity.PossuiEstabilidade = false;
+        entity.ElegivelRecontratacao = false;
+        entity.SubstituirPosicao = false;
+        entity.Status = status == SolicitacaoStatus.Concluida ? SolicitacaoStatus.Aprovada : status;
+        entity.ApprovedAtUtc ??= now;
+        entity.CreatedAtUtc = ResolveDataAberturaRm(row, entity.CreatedAtUtc);
+        entity.UpdatedAtUtc = now;
+        entity.RmRequisicaoCodigo = RmPortalRequisicaoVinculo.Build(row.TipoRequisicao.Trim(), row.Codcolrequisicao!.Value, row.Idreq);
+        entity.RmCodColRequisicao = (short?)row.Codcolrequisicao;
+        entity.RmIdReq = row.Idreq;
+        entity.RmCodStatus = (short?)row.Codstatus;
+        entity.RmUltimaStatusDescricaoRm = TrimTo(row.StatusDescricao, 240);
+        entity.RmUltimaSincronizacaoUtc = now;
+        entity.IntegracaoResultado = IntegracaoResultado.Sucesso;
+        entity.IntegracaoMensagem = "Desligamento importado do RM como origem aprovada.";
+        entity.IntegradaEmUtc ??= now;
+
+        var centroCustoId = funcionario.CentroCustoId
+            ?? await ResolveCentroCustoIdAsync(row.Codccusto, row.Codsecao, ct);
+        entity.UnitId = funcionario.UnitId ?? await ResolveUnitIdAsync(row.Codfilial, ct);
+        entity.EmpresaId = await ResolveEmpresaIdAsync(row.Codcolrequisicao, row.Codfilial, centroCustoId, entity.UnitId, ct);
+    }
+
+    private static DateOnly ResolveDataDesligamentoRm(RmRequisicaoRowDto row)
+    {
+        var source = row.Dataprevista ?? row.Dataabertura ?? row.Reccreatedon;
+        if (!source.HasValue)
+            return DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var value = source.Value;
+        if (value.Kind == DateTimeKind.Unspecified)
+            value = DateTime.SpecifyKind(value, DateTimeKind.Local);
+
+        return DateOnly.FromDateTime(value);
+    }
+
     private static DateTimeOffset ResolveDataAberturaRm(RmRequisicaoRowDto row, DateTimeOffset fallback)
     {
         var source = row.Dataabertura ?? row.Reccreatedon;
@@ -290,6 +418,29 @@ public sealed class SolicitacaoVagaRmImportService : ISolicitacaoVagaRmImportSer
             .OrderByDescending(f => f.Status == FuncionarioStatus.Active)
             .ThenBy(f => f.Name)
             .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<Funcionario?> ResolveFuncionarioDesligamentoAsync(RmRequisicaoRowDto row, CancellationToken ct)
+    {
+        var chapa = row.ChapaFuncionario?.Trim();
+        if (!string.IsNullOrWhiteSpace(chapa))
+        {
+            var byChapa = await _db.Funcionarios
+                .OrderByDescending(f => f.Status == FuncionarioStatus.Active)
+                .FirstOrDefaultAsync(f => f.MatriculaRm == chapa, ct);
+            if (byChapa is not null)
+                return byChapa;
+        }
+
+        var nome = row.NomeFuncionarioEnvolvido?.Trim();
+        if (!string.IsNullOrWhiteSpace(nome))
+        {
+            return await _db.Funcionarios
+                .OrderByDescending(f => f.Status == FuncionarioStatus.Active)
+                .FirstOrDefaultAsync(f => f.Name == nome, ct);
+        }
+
+        return null;
     }
 
     private async Task<Guid?> ResolveCentroCustoIdAsync(string? codCcusto, string? codSecao, CancellationToken ct)

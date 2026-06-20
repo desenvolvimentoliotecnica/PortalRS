@@ -107,7 +107,8 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             var term = query.Q.Trim().ToLower();
             q = q.Where(s =>
                 (s.Funcionario != null && s.Funcionario.Name.ToLower().Contains(term)) ||
-                s.MotivoDesligamento.ToLower().Contains(term));
+                s.MotivoDesligamento.ToLower().Contains(term) ||
+                (s.RmIdReq != null && s.RmIdReq.ToString().Contains(term)));
         }
 
         q = q.OrderByDescending(s => s.CreatedAtUtc);
@@ -125,6 +126,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             s.TipoDesligamento,
             s.DataDesligamento,
             s.CreatedAtUtc,
+            s.RmIdReq,
         }).ToListAsync(ct);
 
         var ids = rawRows.Select(r => r.Id).ToList();
@@ -135,7 +137,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         {
             etapasPendentes.TryGetValue(r.Id, out var ep);
             return new SolicitacaoDesligamentoGridRow(
-                r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome,
+                r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome, r.RmIdReq,
                 r.TipoDesligamento, r.DataDesligamento, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
                 ep?.AssumedByUserId,

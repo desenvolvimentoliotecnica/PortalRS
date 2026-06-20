@@ -21,7 +21,7 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// O Portal mantém rastreabilidade, mas oculta criação/aprovação interna e materializa
     /// vagas a partir da sincronização RM.
     /// </summary>
-    public bool RequisicoesVagaOrigemRm { get; set; } = false;
+    public bool RequisicoesVagaOrigemRm { get; set; } = true;
 
     /// <summary>
     /// Quando true, o worker automático importa periodicamente requisições RM e materializa

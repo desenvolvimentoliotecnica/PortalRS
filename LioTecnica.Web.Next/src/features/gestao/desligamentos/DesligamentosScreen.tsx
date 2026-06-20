@@ -60,6 +60,7 @@ interface SolicitacaoDesligamentoGridRow {
     status: number;
     solicitanteNome: string | null;
     funcionarioNome: string | null;
+    rmIdReq?: number | null;
     tipoDesligamento: number;
     dataDesligamento: string | null;
     createdAtUtc: string;
@@ -717,6 +718,7 @@ export default function DesligamentosScreen() {
                                     }}
                                 />
                             </TableHead>
+                            <TableHead className="w-24 text-center">Código RM</TableHead>
                             <TableHead>Funcionário</TableHead>
                             <TableHead>Tipo</TableHead>
                             <TableHead>Data Desligamento</TableHead>
@@ -729,7 +731,7 @@ export default function DesligamentosScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -750,6 +752,9 @@ export default function DesligamentosScreen() {
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         ) : null}
+                                    </TableCell>
+                                    <TableCell className="text-center font-mono text-xs font-medium">
+                                        {r.rmIdReq ?? "—"}
                                     </TableCell>
                                     <TableCell>
                                         <div className="font-semibold">{r.funcionarioNome || "—"}</div>
@@ -945,7 +950,7 @@ export default function DesligamentosScreen() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                                     {statusFilter === "ativas"
                                 ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
                                 : "Nenhuma solicitação encontrada."}

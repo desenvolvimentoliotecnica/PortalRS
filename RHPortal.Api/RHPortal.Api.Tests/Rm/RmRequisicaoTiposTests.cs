@@ -27,6 +27,15 @@ public sealed class RmRequisicaoTiposTests
         Assert.Equal(esperado, RmRequisicaoTipos.IsImportavelComoSolicitacaoVaga(tipo));
     }
 
+    [Theory]
+    [InlineData("DESLIGAMENTO", true)]
+    [InlineData("AUMENTO_QUADRO", false)]
+    [InlineData("SUBSTITUICAO", false)]
+    public void IsImportavelComoSolicitacaoDesligamento_SomenteDesligamento(string tipo, bool esperado)
+    {
+        Assert.Equal(esperado, RmRequisicaoTipos.IsImportavelComoSolicitacaoDesligamento(tipo));
+    }
+
     [Fact]
     public void TryParseTipoFromVinculo_ExtraiTipoDoCodigoRm()
     {

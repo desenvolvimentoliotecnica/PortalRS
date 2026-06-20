@@ -1332,6 +1332,14 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.HasQueryFilter(x => x.TenantId == _tenantContext.TenantId);
         });
 
+        modelBuilder.Entity<SolicitacaoDesligamento>(b =>
+        {
+            b.Property(x => x.RmRequisicaoCodigo).HasMaxLength(120);
+            b.Property(x => x.RmUltimaStatusDescricaoRm).HasMaxLength(240);
+            b.HasIndex(x => new { x.TenantId, x.RmRequisicaoCodigo })
+                .HasFilter("\"RmRequisicaoCodigo\" IS NOT NULL");
+        });
+
         modelBuilder.Entity<SolicitacaoVagaIntegracaoTentativa>(b =>
         {
             b.ToTable("SolicitacaoVagaIntegracaoTentativas");

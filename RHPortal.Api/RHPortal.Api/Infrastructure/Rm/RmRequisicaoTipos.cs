@@ -24,6 +24,12 @@ public static class RmRequisicaoTipos
         Substituicao,
     ];
 
+    /// <summary>Tipos que geram <see cref="RhPortal.Api.Domain.Entities.SolicitacaoDesligamento"/> na aba Desligamento.</summary>
+    public static readonly string[] ImportaveisSolicitacaoDesligamento =
+    [
+        Desligamento,
+    ];
+
     public static bool IsVisivelConsulta(string? tipo) =>
         !string.IsNullOrWhiteSpace(tipo)
         && VisiveisConsulta.Contains(Normalize(tipo), StringComparer.OrdinalIgnoreCase);
@@ -31,6 +37,10 @@ public static class RmRequisicaoTipos
     public static bool IsImportavelComoSolicitacaoVaga(string? tipo) =>
         !string.IsNullOrWhiteSpace(tipo)
         && ImportaveisSolicitacaoVaga.Contains(Normalize(tipo), StringComparer.OrdinalIgnoreCase);
+
+    public static bool IsImportavelComoSolicitacaoDesligamento(string? tipo) =>
+        !string.IsNullOrWhiteSpace(tipo)
+        && ImportaveisSolicitacaoDesligamento.Contains(Normalize(tipo), StringComparer.OrdinalIgnoreCase);
 
     public static string? TryParseTipoFromVinculo(string? rmRequisicaoCodigo)
     {

@@ -48,7 +48,7 @@ const TIPO_OPTIONS = [
   { value: "DESLIGAMENTO", label: "Desligamento" },
 ] as const;
 
-const RM_TIPOS_IMPORTAVEIS = new Set(["AUMENTO_QUADRO", "SUBSTITUICAO"]);
+const RM_TIPOS_IMPORTAVEIS = new Set(["AUMENTO_QUADRO", "SUBSTITUICAO", "DESLIGAMENTO"]);
 
 const CODSTATUS_VISIVEIS = [1, 3] as const;
 
@@ -548,8 +548,8 @@ export default function AdminRmRequisicoesScreen() {
           Total no filtro atual: <span className="font-semibold text-foreground">{total}</span>
           <span className="ml-2 opacity-80">Período padrão: últimos 3 meses (ajuste as datas se precisar de histórico maior).</span>
           {tipo === "DESLIGAMENTO" && (
-            <span className="ml-2 text-amber-700">
-              Desligamentos aparecem na consulta, mas não são importados como solicitação de vaga.
+            <span className="ml-2 text-emerald-700">
+              Desligamentos importados aparecem na aba Desligamento em Gestão → Solicitações (filtro Aprovadas).
             </span>
           )}
         </div>

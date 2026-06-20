@@ -119,6 +119,7 @@ public sealed record SolicitacaoDesligamentoGridRow(
     SolicitacaoStatus Status,
     string? SolicitanteNome,
     string? FuncionarioNome,
+    int? RmIdReq,
     TipoDesligamento TipoDesligamento,
     DateOnly DataDesligamento,
     DateTimeOffset CreatedAtUtc,

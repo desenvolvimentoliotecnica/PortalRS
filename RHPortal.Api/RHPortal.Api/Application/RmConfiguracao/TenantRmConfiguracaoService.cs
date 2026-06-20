@@ -358,6 +358,7 @@ public sealed class TenantRmConfiguracaoService : ITenantRmConfiguracaoService
             DiasPrevisaoPadrao = _createDefaults.DiasPrevisaoPadrao,
             RecCreatedBy = _createDefaults.RecCreatedBy,
             RecModifiedBy = _createDefaults.RecModifiedBy,
+            RequisicoesVagaOrigemRm = true,
             StatusSyncEnabled = _statusDefaults.Enabled,
             StatusSyncIntervalMinutes = _statusDefaults.IntervalMinutes,
             StatusSyncMaxPerRun = _statusDefaults.MaxPerRun,
