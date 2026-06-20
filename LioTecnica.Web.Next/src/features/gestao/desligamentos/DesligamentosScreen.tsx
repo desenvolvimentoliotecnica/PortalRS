@@ -22,6 +22,7 @@ import {
     UserCheck,
     Ban,
     Copy,
+    MoreHorizontal,
     Zap,
     Loader2,
     CalendarDays,
@@ -47,6 +48,13 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import DesligamentoFormModal from "./DesligamentoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
@@ -686,7 +694,7 @@ export default function DesligamentosScreen() {
                             <TableHead>Status</TableHead>
                             <TableHead>Aguardando</TableHead>
                             <TableHead>Data Criação</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
+                            <TableHead className="w-12" />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -743,169 +751,131 @@ export default function DesligamentosScreen() {
                                         )}
                                     </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                            {/* Rascunho: editar, enviar, excluir */}
-                                            {r.status === 0 && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                        <Send />
-                                                    </Button>
-                                                    <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
-                                                        <Trash2 />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* AjustesNecessarios: editar, enviar */}
-                                            {r.status === 4 && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                        <Send />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Aguarda Fila (6): exibe "Assumir" se pode assumir, ou aprovação se já assumiu */}
-                                            {r.status === 6 && r.etapaPendenteCanAssume && (
-                                                <Button
-                                                    variant="default"
-                                                    size="xs"
-                                                    title="Assumir etapa para aprovação"
-                                                    className="gap-1 bg-blue-600 hover:bg-blue-700 text-white"
-                                                    onClick={(e) => { e.stopPropagation(); void quickAssume(r.id); }}
-                                                >
-                                                    <UserCheck className="size-3" />
-                                                    Assumir
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" size="icon-sm">
+                                                    <MoreHorizontal className="size-4" />
                                                 </Button>
-                                            )}
-                                            {r.status === 6 && r.etapaPendenteCanApprove && !r.etapaPendenteCanAssume && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
-                                                        className="hover:text-emerald-600 hover:border-emerald-300"
-                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
-                                                        <CheckCircle2 />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
-                                                        className="hover:text-amber-600 hover:border-amber-300"
-                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
-                                                        <AlertTriangle />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
-                                                        className="hover:text-red-600 hover:border-red-300"
-                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
-                                                        <XCircle />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Pendente (1): ações inline se pode aprovar, senão editar */}
-                                            {r.status === 1 && r.etapaPendenteCanAssume ? (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
-                                                        className="hover:text-emerald-600 hover:border-emerald-300"
-                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
-                                                        <CheckCircle2 />
-                                                    </Button>
-                                                    {r.etapaPendenteIsQueue && (
-                                                        <Button variant="outline" size="icon-xs" title="Assumir"
-                                                            className="hover:text-blue-600 hover:border-blue-300"
-                                                            onClick={(e) => { e.stopPropagation(); void quickAssume(r.id); }}>
-                                                            <UserCheck />
-                                                        </Button>
-                                                    )}
-                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
-                                                        className="hover:text-amber-600 hover:border-amber-300"
-                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
-                                                        <AlertTriangle />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
-                                                        className="hover:text-red-600 hover:border-red-300"
-                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
-                                                        <XCircle />
-                                                    </Button>
-                                                </>
-                                            ) : r.status === 1 && r.etapaPendenteCanApprove ? (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
-                                                        className="hover:text-emerald-600 hover:border-emerald-300"
-                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
-                                                        <CheckCircle2 />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
-                                                        className="hover:text-amber-600 hover:border-amber-300"
-                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
-                                                        <AlertTriangle />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
-                                                        className="hover:text-red-600 hover:border-red-300"
-                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
-                                                        <XCircle />
-                                                    </Button>
-                                                </>
-                                            ) : r.status === 1 ? (
-                                                <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
-                                                    <Pencil />
-                                                </Button>
-                                            ) : null}
-                                            {/* Aprovada: efetivar (RH/Admin) + visualizar + gerar carta */}
-                                            {r.status === 2 && (
-                                                <>
-                                                    {(isAdmin || isRH) && (
-                                                        <Button variant="outline" size="icon-xs" title="Efetivar desligamento"
-                                                            className="hover:text-blue-600 hover:border-blue-300"
-                                                            onClick={(e) => { e.stopPropagation(); void efetivarDesligamento(r.id); }}
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-52">
+                                                {(r.status === 2 || r.status === 3 || r.status === 7 || r.status === 8) && (
+                                                    <DropdownMenuItem onClick={() => openView(r)}>
+                                                        <Eye className="mr-2 size-4" />
+                                                        Visualizar
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {r.status === 0 && (
+                                                    <>
+                                                        <DropdownMenuItem onClick={() => openEdit(r)}>
+                                                            <Pencil className="mr-2 size-4" />
+                                                            Editar
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => void submitForApproval(r.id)}>
+                                                            <Send className="mr-2 size-4" />
+                                                            Enviar para aprovação
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                {r.status === 4 && (
+                                                    <>
+                                                        <DropdownMenuItem onClick={() => openEdit(r)}>
+                                                            <Pencil className="mr-2 size-4" />
+                                                            Editar
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => void submitForApproval(r.id)}>
+                                                            <Send className="mr-2 size-4" />
+                                                            Enviar para aprovação
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                {r.status === 6 && r.etapaPendenteCanAssume && (
+                                                    <DropdownMenuItem onClick={() => void quickAssume(r.id)}>
+                                                        <UserCheck className="mr-2 size-4" />
+                                                        Assumir
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {((r.status === 6 && r.etapaPendenteCanApprove && !r.etapaPendenteCanAssume)
+                                                    || (r.status === 1 && (r.etapaPendenteCanAssume || r.etapaPendenteCanApprove))) && (
+                                                    <>
+                                                        <DropdownMenuItem
+                                                            className="text-emerald-600 focus:text-emerald-600"
+                                                            onClick={() => void quickApprove(r.id)}
                                                         >
-                                                            <Zap />
-                                                        </Button>
-                                                    )}
-                                                    <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                        <Eye />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Gerar carta" onClick={() => void gerarCarta(r.id)}>
-                                                        <FileText />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Em Integração: visualizar */}
-                                            {r.status === 7 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* Concluída: visualizar */}
-                                            {r.status === 8 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* Reprovada: visualizar */}
-                                            {r.status === 3 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* Cancelar: pendente ou ajustes */}
-                                            {(r.status === 1 || r.status === 4) && (
-                                                <Button variant="outline" size="icon-xs" title="Cancelar solicitação"
-                                                    className="hover:text-red-600 hover:border-red-300"
-                                                    onClick={(e) => { e.stopPropagation(); void cancelSolicitacao(r.id); }}>
-                                                    <Ban />
-                                                </Button>
-                                            )}
-                                            {/* Copiar: todos os status */}
-                                            <Button variant="outline" size="icon-xs" title="Copiar solicitação"
-                                                onClick={(e) => { e.stopPropagation(); void copySolicitacao(r.id); }}>
-                                                <Copy />
-                                            </Button>
-                                            {/* Acompanhamento: todas as linhas */}
-                                            <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
-                                                <Activity />
-                                            </Button>
-                                        </div>
+                                                            <CheckCircle2 className="mr-2 size-4" />
+                                                            Aprovar
+                                                        </DropdownMenuItem>
+                                                        {r.status === 1 && r.etapaPendenteIsQueue && r.etapaPendenteCanAssume && (
+                                                            <DropdownMenuItem onClick={() => void quickAssume(r.id)}>
+                                                                <UserCheck className="mr-2 size-4" />
+                                                                Assumir
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        <DropdownMenuItem onClick={() => setChangesTarget(r.id)}>
+                                                            <AlertTriangle className="mr-2 size-4" />
+                                                            Solicitar ajustes
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            className="text-destructive focus:text-destructive"
+                                                            onClick={() => setRejectTarget(r.id)}
+                                                        >
+                                                            <XCircle className="mr-2 size-4" />
+                                                            Reprovar
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                {r.status === 1 && !r.etapaPendenteCanAssume && !r.etapaPendenteCanApprove && (
+                                                    <DropdownMenuItem onClick={() => openEditForApproval(r)}>
+                                                        <Pencil className="mr-2 size-4" />
+                                                        Editar e reenviar
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {r.status === 2 && (isAdmin || isRH) && (
+                                                    <DropdownMenuItem onClick={() => void efetivarDesligamento(r.id)}>
+                                                        <Zap className="mr-2 size-4" />
+                                                        Efetivar desligamento
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {r.status === 2 && (
+                                                    <DropdownMenuItem onClick={() => void gerarCarta(r.id)}>
+                                                        <FileText className="mr-2 size-4" />
+                                                        Gerar carta
+                                                    </DropdownMenuItem>
+                                                )}
+                                                <DropdownMenuItem onClick={() => void copySolicitacao(r.id)}>
+                                                    <Copy className="mr-2 size-4" />
+                                                    Copiar solicitação
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => void openTimeline(r)}>
+                                                    <Activity className="mr-2 size-4" />
+                                                    Acompanhamento
+                                                </DropdownMenuItem>
+                                                {(r.status === 1 || r.status === 4) && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="text-orange-600 focus:text-orange-600"
+                                                            onClick={() => void cancelSolicitacao(r.id)}
+                                                        >
+                                                            <Ban className="mr-2 size-4" />
+                                                            Cancelar solicitação
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                {r.status === 0 && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="text-destructive focus:text-destructive"
+                                                            onClick={() => setDeleteTarget(r)}
+                                                        >
+                                                            <Trash2 className="mr-2 size-4" />
+                                                            Excluir
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
                             ))

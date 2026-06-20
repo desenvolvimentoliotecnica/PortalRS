@@ -23,6 +23,7 @@ import {
     Activity,
     Ban,
     Copy,
+    MoreHorizontal,
     Plus,
     ChevronDown,
     ChevronUp,
@@ -51,6 +52,13 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { RhAnalistaAutocomplete } from "@/components/autocomplete/RhAnalistaAutocomplete";
 
 import SolicitacaoFormModal, { type SolicitacaoDraft } from "./SolicitacaoFormModal";
@@ -652,6 +660,21 @@ function SolicitacoesVagaContent() {
         setFormOpen(true);
     }
 
+    function openCopyFromRow(row: SolicitacaoGridRow) {
+        setCopySourceId(row.id);
+        setEditId(null);
+        setViewId(null);
+        setViewMetaRow(null);
+        setResubmit(false);
+        setFormInitialData(null);
+        if (prefersMobileForm) {
+            router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(row.id)}`);
+            return;
+        }
+        bumpFormNonce();
+        setFormOpen(true);
+    }
+
     async function openTimeline(row: SolicitacaoGridRow) {
         setTimelineOpen(true);
         setTimelineLoading(true);
@@ -965,7 +988,7 @@ function SolicitacoesVagaContent() {
                             <TableHead className="w-1 whitespace-nowrap text-left cursor-pointer select-none" onClick={() => handleSort("requisitante")}>
                                 Requisitante<SortIcon col="requisitante" />
                             </TableHead>
-                            <TableHead className="w-1 whitespace-nowrap text-center">Ações</TableHead>
+                            <TableHead className="w-12" />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1036,106 +1059,112 @@ function SolicitacoesVagaContent() {
                                             {r.solicitanteNome ?? "—"}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                            {isExternoAoSolicitanteLista(r) ? (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                        <Eye />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
-                                                        <Activity />
-                                                    </Button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    {/* Rascunho: editar, enviar, excluir */}
-                                                    {!requisicoesVagaOrigemRm && (r.status === 0 || r.status === "Rascunho") && (
-                                                        <>
-                                                            <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                                <Pencil />
-                                                            </Button>
-                                                            <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                                <Send />
-                                                            </Button>
-                                                            <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
-                                                                <Trash2 />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    {/* AjustesNecessarios: editar, enviar */}
-                                                    {!requisicoesVagaOrigemRm && (r.status === 4 || r.status === "AjustesNecessarios") && (
-                                                        <>
-                                                            <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                                <Pencil />
-                                                            </Button>
-                                                            <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                                <Send />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    {/* Pendente: editar e reenviar + cancelar */}
-                                                    {!requisicoesVagaOrigemRm && (r.status === 1 || r.status === "PendenteAprovacao") && (
-                                                        <>
-                                                            <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
-                                                                <Pencil />
-                                                            </Button>
-                                                            <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
-                                                                <Ban />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    {/* Aprovada/Reprovada: apenas visualizar */}
-                                                    {(requisicoesVagaOrigemRm ||
-                                                      r.status === 2 || r.status === "Aprovada" ||
-                                                      r.status === 3 || r.status === "Reprovada") && (
-                                                        <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                            <Eye />
-                                                        </Button>
-                                                    )}
-                                                    {/* AguardaRH / AguardaHC: visualizar + cancelar se sem movimentação */}
-                                                    {!requisicoesVagaOrigemRm && (r.status === 5 || r.status === "PendenteAprovacaoRh" ||
-                                                      r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
-                                                        <>
-                                                            <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                                <Eye />
-                                                            </Button>
-                                                            <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
-                                                                <Ban />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    {/* Copiar: todas as linhas */}
-                                                    {!requisicoesVagaOrigemRm && (
-                                                        <Button
-                                                            variant="outline"
-                                                            size="icon-xs"
-                                                            title="Copiar vaga"
-                                                            onClick={() => {
-                                                                setCopySourceId(r.id);
-                                                                setEditId(null);
-                                                                setViewId(null);
-                                                                setViewMetaRow(null);
-                                                                setResubmit(false);
-                                                                setFormInitialData(null);
-                                                                if (prefersMobileForm) {
-                                                                    router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(r.id)}`);
-                                                                    return;
-                                                                }
-                                                                bumpFormNonce();
-                                                                setFormOpen(true);
-                                                            }}
-                                                        >
-                                                            <Copy className="size-3.5" />
-                                                        </Button>
-                                                    )}
-                                                    {/* Acompanhamento: todas as linhas */}
-                                                    <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
-                                                        <Activity />
-                                                    </Button>
-                                                </>
-                                            )}
-                                        </div>
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" size="icon-sm">
+                                                    <MoreHorizontal className="size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-52">
+                                                {isExternoAoSolicitanteLista(r) ? (
+                                                    <>
+                                                        <DropdownMenuItem onClick={() => openView(r)}>
+                                                            <Eye className="mr-2 size-4" />
+                                                            Visualizar
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => void openTimeline(r)}>
+                                                            <Activity className="mr-2 size-4" />
+                                                            Acompanhamento
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {(requisicoesVagaOrigemRm
+                                                            || r.status === 2 || r.status === "Aprovada"
+                                                            || r.status === 3 || r.status === "Reprovada"
+                                                            || r.status === 5 || r.status === "PendenteAprovacaoRh"
+                                                            || r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
+                                                            <DropdownMenuItem onClick={() => openView(r)}>
+                                                                <Eye className="mr-2 size-4" />
+                                                                Visualizar
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (r.status === 0 || r.status === "Rascunho") && (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => openEdit(r)}>
+                                                                    <Pencil className="mr-2 size-4" />
+                                                                    Editar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => void submitForApproval(r.id)}>
+                                                                    <Send className="mr-2 size-4" />
+                                                                    Enviar para aprovação
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (r.status === 4 || r.status === "AjustesNecessarios") && (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => openEdit(r)}>
+                                                                    <Pencil className="mr-2 size-4" />
+                                                                    Editar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => void submitForApproval(r.id)}>
+                                                                    <Send className="mr-2 size-4" />
+                                                                    Enviar para aprovação
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (r.status === 1 || r.status === "PendenteAprovacao") && (
+                                                            <DropdownMenuItem onClick={() => openEditForApproval(r)}>
+                                                                <Pencil className="mr-2 size-4" />
+                                                                Editar e reenviar
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        <DropdownMenuItem onClick={() => void openTimeline(r)}>
+                                                            <Activity className="mr-2 size-4" />
+                                                            Acompanhamento
+                                                        </DropdownMenuItem>
+                                                        {!requisicoesVagaOrigemRm && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => openCopyFromRow(r)}>
+                                                                    <Copy className="mr-2 size-4" />
+                                                                    Copiar vaga
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (
+                                                            (r.status === 1 || r.status === "PendenteAprovacao"
+                                                                || r.status === 5 || r.status === "PendenteAprovacaoRh"
+                                                                || r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
+                                                                <>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem
+                                                                        className="text-orange-600 focus:text-orange-600"
+                                                                        onClick={() => void cancelSolicitacao(r.id)}
+                                                                    >
+                                                                        <Ban className="mr-2 size-4" />
+                                                                        Cancelar solicitação
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (r.status === 0 || r.status === "Rascunho") && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive focus:text-destructive"
+                                                                    onClick={() => setDeleteTarget(r)}
+                                                                >
+                                                                    <Trash2 className="mr-2 size-4" />
+                                                                    Excluir
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
                             ))
