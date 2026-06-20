@@ -120,7 +120,12 @@ function formatDt(s: string | null): string {
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message.trim() ? error.message : fallback;
+  if (error instanceof Error) {
+    if (error.name === "AbortError" || /aborted|timeout|cancel/i.test(error.message))
+      return "Consulta ao RM excedeu o tempo limite. Reduza o período de abertura ou aplique filtros (tipo/status).";
+    if (error.message.trim()) return error.message;
+  }
+  return fallback;
 }
 
 function isRmIntegrationConfigMissing(message: string): boolean {
@@ -176,10 +181,10 @@ function formatIsoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Período padrão: últimos 12 meses — evita consulta RM sem filtro (muito lenta). */
+/** Período padrão: últimos 3 meses — evita consulta RM sem filtro (muito lenta). */
 function defaultRmConsultaDataDe(): string {
   const d = new Date();
-  d.setMonth(d.getMonth() - 12);
+  d.setMonth(d.getMonth() - 3);
   return formatIsoDate(d);
 }
 
@@ -271,7 +276,7 @@ export default function AdminRmRequisicoesScreen() {
       params.set("sortBy", sortKey);
       params.set("sortDir", sortDir);
 
-      const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" }, 120_000);
+      const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" }, 300_000);
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { detail?: string; title?: string } | null;
         const msg =
@@ -541,7 +546,7 @@ export default function AdminRmRequisicoesScreen() {
 
         <div className="text-muted-foreground mb-3 text-xs">
           Total no filtro atual: <span className="font-semibold text-foreground">{total}</span>
-          <span className="ml-2 opacity-80">Período padrão: últimos 12 meses (ajuste as datas se precisar de histórico maior).</span>
+          <span className="ml-2 opacity-80">Período padrão: últimos 3 meses (ajuste as datas se precisar de histórico maior).</span>
           {tipo === "DESLIGAMENTO" && (
             <span className="ml-2 text-amber-700">
               Desligamentos aparecem na consulta, mas não são importados como solicitação de vaga.
