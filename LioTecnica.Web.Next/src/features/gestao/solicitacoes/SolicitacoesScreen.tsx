@@ -30,6 +30,7 @@ import {
     ChevronsUpDown,
 } from "lucide-react";
 import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
+import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 
@@ -299,7 +300,8 @@ export default function SolicitacoesScreen() {
     const [topTab, setTopTab] = useState<TopTab>(initialTab);
 
     return (
-        <section className="space-y-4">
+        <section className={`${VAGAS_FONT_135X_CLASS} space-y-4`}>
+            <style>{VAGAS_FONT_135X_STYLE}</style>
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight">Solicitações</h1>
                 <p className="text-muted-foreground text-sm mt-0.5">
@@ -863,29 +865,27 @@ function SolicitacoesVagaContent() {
             {/* Ao aprovar, troca direto para aba triagem */}
 
             {/* ── filters + table ── */}
-            <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
-                {/* ── Header + filtros ── */}
-                <div className="mb-3 space-y-3">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mr-auto">
-                            <CalendarDays className="size-3.5" />
-                            <span>Criado em:</span>
-                            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data inicial" />
-                            <span>–</span>
-                            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data final" />
-                            {(dateFrom || dateTo) && (
-                                <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground underline">Limpar</button>
-                            )}
-                        </div>
-                        <div className="relative min-w-[200px]">
-                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                className="pl-9 h-8"
-                                placeholder="Buscar código RM, título, área…"
-                                value={q}
-                                onChange={(e) => setQ(e.target.value)}
-                            />
-                        </div>
+            <div className="rounded-xl border border-border/40 bg-card shadow-sm">
+                <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mr-auto">
+                        <CalendarDays className="size-3.5" />
+                        <span>Criado em:</span>
+                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data inicial" />
+                        <span>–</span>
+                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data final" />
+                        {(dateFrom || dateTo) && (
+                            <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground underline">Limpar</button>
+                        )}
+                    </div>
+                    <div className="relative min-w-[180px] flex-1 max-w-sm">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            className="pl-8 h-8 text-sm"
+                            placeholder="Buscar código RM, título, área…"
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                        />
+                    </div>
                         {canDistribuirParaAnalistaRh && (
                             <Button
                                 size="sm"
@@ -909,7 +909,6 @@ function SolicitacoesVagaContent() {
                             <RefreshCw className="size-4" />
                             <span className="hidden sm:inline">Atualizar</span>
                         </Button>
-                    </div>
                 </div>
 
                 <Table>
@@ -997,8 +996,8 @@ function SolicitacoesVagaContent() {
                                         {solicitacaoCodigoRm(r) || "—"}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="font-semibold" title={r.titulo}>{truncateTitle(r.titulo)}</span>
+                                        <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                            <span title={r.titulo}>{truncateTitle(r.titulo)}</span>
                                             {r.isConfidencial && (
                                                 <span title="Vaga Confidencial"><Lock className="size-3.5 text-amber-600" /></span>
                                             )}
@@ -1015,12 +1014,12 @@ function SolicitacoesVagaContent() {
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={r.centroCustoNome ?? ""}>
+                                        <div className="max-w-[220px] truncate text-xs text-muted-foreground" title={r.centroCustoNome ?? ""}>
                                             {r.centroCustoNome ?? "—"}
                                         </div>
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap text-center">
-                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${tipoSolicitacaoBadgeClass(Number(r.tipoSolicitacao), r.rmTipoRequisicao)}`}>
+                                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tipoSolicitacaoBadgeClass(Number(r.tipoSolicitacao), r.rmTipoRequisicao)}`}>
                                             {formatTipoSolicitacaoLabel(Number(r.tipoSolicitacao), r.rmTipoRequisicao)}
                                         </span>
                                     </TableCell>
@@ -1038,11 +1037,11 @@ function SolicitacoesVagaContent() {
                                             <span className="text-muted-foreground text-xs">—</span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        <span className="text-xs font-medium text-foreground">{formatDate(r.createdAtUtc)}</span>
+                                    <TableCell className="whitespace-nowrap text-center text-xs text-muted-foreground">
+                                        <span className="font-medium text-foreground">{formatDate(r.createdAtUtc)}</span>
                                     </TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        <span className="text-xs text-muted-foreground">{formatOpenDays(r.createdAtUtc)}</span>
+                                    <TableCell className="whitespace-nowrap text-center text-xs text-muted-foreground">
+                                        {formatOpenDays(r.createdAtUtc)}
                                     </TableCell>
                                     <TableCell className="text-left">
                                         <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={r.solicitanteNome ?? ""}>
