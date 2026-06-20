@@ -4,11 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoFormPreferred";
 import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
-import {
-    EMPTY_SOLICITACAO_CONTAGENS,
-    expandStatusKeys,
-    type SolicitacaoVagaContagens,
-} from "@/features/gestao/solicitacoes/solicitacaoStatusRules";
 import { useAuth, useHasPermission, useIsAdminOrOwner } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -19,13 +14,10 @@ import {
     Pencil,
     Trash2,
     Send,
-    Clock,
     CheckCircle2,
-    Columns3,
-    List,
     XCircle,
     AlertTriangle,
-    FileText,
+    CalendarDays,
     Lock,
     UserMinus,
     Briefcase,
@@ -210,38 +202,6 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return (await res.json()) as T;
 }
 
-/** Colunas do kanban (rótulo legado; status real vem de `SolicitacaoVagaStatusBadgeEl`). */
-const KANBAN_COL_META: Record<"Rascunho" | "PendenteAprovacao" | "Aprovada" | "Reprovada", { label: string; color: string; icon: React.ElementType }> = {
-    "Rascunho": { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
-    "PendenteAprovacao": { label: "Em andamento", color: "bg-amber-500/15 text-amber-700", icon: Clock },
-    "Aprovada": { label: "Aprovada / avançadas", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    "Reprovada": { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
-};
-
-const ROW_STATUS_COL_PENDENTE_LIKE = new Set<string>([
-    "PendenteAprovacao", "1",
-    "AjustesNecessarios", "4",
-    "PendenteAprovacaoRh", "5",
-    "EmIntegracao", "7",
-    "PendenteAprovacaoAumentoHC", "10",
-    "PendenteTriagem", "11",
-    "EmTriagem", "12",
-    "DevolvidaTriagemGestor", "13",
-    "PendenteIntegracaoRm", "14",
-    "ErroIntegracaoRm", "15",
-    "AguardandoReprocessamentoRm", "16",
-]);
-
-
-function rowStatusMatchesKanbanCol(r: SolicitacaoGridRow, col: keyof typeof KANBAN_COL_META): boolean {
-    const s = String(r.status);
-    if (col === "PendenteAprovacao") return ROW_STATUS_COL_PENDENTE_LIKE.has(s);
-    return s === col || (col === "Rascunho" && (s === "0" || s === "Rascunho"))
-        || (col === "Aprovada" && (s === "Aprovada" || s === "2" || s === "Concluida" || s === "8"))
-        || (col === "Reprovada" && (s === "Reprovada" || s === "3"))
-        ;
-}
-
 const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
     "Baixa": { label: "Baixa", color: "bg-sky-500/15 text-sky-700" },
     "Media": { label: "Média", color: "bg-amber-500/15 text-amber-700" },
@@ -406,20 +366,13 @@ function SolicitacoesVagaContent() {
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
     const [pendingRows, setPendingRows] = useState<SolicitacaoGridRow[]>([]);
-    const [contagens, setContagens] = useState<SolicitacaoVagaContagens>(EMPTY_SOLICITACAO_CONTAGENS);
     const [selectedSolicitacaoIds, setSelectedSolicitacaoIds] = useState<string[]>([]);
     const [requisicoesVagaOrigemRm, setRequisicoesVagaOrigemRm] = useState(false);
 
     /* ── filters ── */
     const [q, setQ] = useState("");
-    // "ativas" = padrão enterprise: mostra itens em andamento no fluxo,
-    // incluindo solicitações já aprovadas que ainda seguem para tratativa do RH.
-    const [statusFilter, setStatusFilter] = useState("ativas");
-    const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
-        if (typeof window === "undefined") return "list";
-        return (localStorage.getItem("renderrh.solicitacoes.viewMode") as "list" | "kanban") || "list";
-    });
-    const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.solicitacoes.viewMode", m); };
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [sortKey, setSortKey] = useState<SolicitacaoSortKey>("data");
@@ -518,10 +471,9 @@ function SolicitacoesVagaContent() {
             } catch { /* ignore */ }
         }
 
-        const [myData, allData, contagensData] = await Promise.all([
-            fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true&pageSize=100`),
-            fetchJson<SolicitacaoGridRow[]>(`${API}?pageSize=100`).catch(() => []),
-            fetchJson<SolicitacaoVagaContagens>(`${API}/contagens`).catch(() => EMPTY_SOLICITACAO_CONTAGENS),
+        const [myData, allData] = await Promise.all([
+            fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true&pageSize=500`),
+            fetchJson<SolicitacaoGridRow[]>(`${API}?pageSize=500`).catch(() => []),
         ]);
         const allItems = Array.isArray(allData) ? allData : [];
         const mine = Array.isArray(myData) ? myData : [];
@@ -541,7 +493,6 @@ function SolicitacoesVagaContent() {
             nextRows = dedupeSolicitacoesPorId([...mine, ...allItems, ...precisoAprovar]);
         }
         setRows(nextRows);
-        setContagens(contagensData ?? EMPTY_SOLICITACAO_CONTAGENS);
 
         const isPendente = (s: number | string) => s === 1 || s === "PendenteAprovacao";
         const pending = funcId
@@ -567,25 +518,12 @@ function SolicitacoesVagaContent() {
         return () => { alive = false; };
     }, [syncList]);
 
-    const statusAtivosSet = useMemo(
-        () => expandStatusKeys(contagens.statusAtivosKeys),
-        [contagens.statusAtivosKeys],
-    );
-    const statusAprovadosSet = useMemo(
-        () => expandStatusKeys(contagens.statusAprovadosKeys),
-        [contagens.statusAprovadosKeys],
-    );
-
     /* ── filtering ── */
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
-            const s = String(r.status);
-            if (statusFilter === "ativas" && !statusAtivosSet.has(s)) return false;
-            if (statusFilter === "aprovadas" && !statusAprovadosSet.has(s)) return false;
-            if (statusFilter === "reprovadas" && s !== "Reprovada" && s !== "3") return false;
-            if (statusFilter === "canceladas" && s !== "Cancelada" && s !== "6") return false;
-            // "todas" — sem filtro de status
+            if (dateFrom && r.createdAtUtc && new Date(r.createdAtUtc) < new Date(dateFrom)) return false;
+            if (dateTo && r.createdAtUtc && new Date(r.createdAtUtc) > new Date(`${dateTo}T23:59:59`)) return false;
             if (!term) return true;
             const blob = [
                 solicitacaoCodigoRm(r),
@@ -597,11 +535,11 @@ function SolicitacoesVagaContent() {
             ].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [q, rows, statusFilter, statusAtivosSet, statusAprovadosSet]);
+    }, [q, rows, dateFrom, dateTo]);
 
     useEffect(() => {
         setPage(1);
-    }, [q, statusFilter, pageSize]);
+    }, [q, dateFrom, dateTo, pageSize]);
 
     const sorted = useMemo(() => {
         const getValue = (r: SolicitacaoGridRow): string | number => {
@@ -928,47 +866,25 @@ function SolicitacoesVagaContent() {
             <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
                 {/* ── Header + filtros ── */}
                 <div className="mb-3 space-y-3">
-                    {/* linha 1: filtros + busca + ações */}
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                        {(() => {
-                            const chips = [
-                                { key: "ativas",     label: "Ativas",      count: contagens.ativas,     cls: "bg-amber-500/10 text-amber-700 border-amber-300 data-[active=true]:bg-amber-500 data-[active=true]:text-white data-[active=true]:border-amber-500" },
-                                { key: "aprovadas",  label: "Aprovadas",   count: contagens.aprovadas,  cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
-                                { key: "reprovadas", label: "Reprovadas",  count: contagens.reprovadas, cls: "bg-red-500/10 text-red-700 border-red-300 data-[active=true]:bg-red-600 data-[active=true]:text-white data-[active=true]:border-red-600" },
-                                { key: "canceladas", label: "Canceladas",  count: contagens.canceladas, cls: "bg-zinc-500/10 text-zinc-600 border-zinc-300 data-[active=true]:bg-zinc-600 data-[active=true]:text-white data-[active=true]:border-zinc-600" },
-                                { key: "todas",      label: "Todas",       count: contagens.todas,      cls: "bg-muted text-muted-foreground border-border data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:border-foreground" },
-                            ] as const;
-                            return (
-                                <div className="flex flex-wrap justify-end gap-1.5">
-                                    {chips.map(c => (
-                                        <button
-                                            key={c.key}
-                                            type="button"
-                                            data-active={statusFilter === c.key}
-                                            onClick={() => setStatusFilter(c.key)}
-                                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-medium transition-all ${c.cls}`}
-                                        >
-                                            {c.label}
-                                            <span className="rounded-full bg-black/10 px-1.5 py-px text-[10px] font-semibold tabular-nums">{c.count}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            );
-                        })()}
-                        <div className="flex items-center gap-2">
-                            <div className="relative min-w-[200px]">
-                                <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    className="pl-9 h-8"
-                                    placeholder="Buscar código RM, título, área…"
-                                    value={q}
-                                    onChange={(e) => setQ(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex items-center rounded-md border border-input bg-background p-0.5">
-                                <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista"><List className="size-3.5" /></button>
-                                <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban"><Columns3 className="size-3.5" /></button>
-                            </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mr-auto">
+                            <CalendarDays className="size-3.5" />
+                            <span>Criado em:</span>
+                            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data inicial" />
+                            <span>–</span>
+                            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data final" />
+                            {(dateFrom || dateTo) && (
+                                <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground underline">Limpar</button>
+                            )}
+                        </div>
+                        <div className="relative min-w-[200px]">
+                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                className="pl-9 h-8"
+                                placeholder="Buscar código RM, título, área…"
+                                value={q}
+                                onChange={(e) => setQ(e.target.value)}
+                            />
                         </div>
                         {canDistribuirParaAnalistaRh && (
                             <Button
@@ -996,8 +912,6 @@ function SolicitacoesVagaContent() {
                     </div>
                 </div>
 
-                {viewMode === "list" ? (
-                <>
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -1241,9 +1155,7 @@ function SolicitacoesVagaContent() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={canDistribuirParaAnalistaRh ? 12 : 11} className="text-center text-muted-foreground py-8">
-                                    {statusFilter === "ativas"
-                                        ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
-                                        : "Nenhuma solicitação encontrada para o filtro selecionado."}
+                                    Nenhuma solicitação encontrada para os filtros selecionados.
                                 </TableCell>
                             </TableRow>
                         )}
@@ -1261,63 +1173,6 @@ function SolicitacoesVagaContent() {
                             setPage(1);
                         }}
                     />
-                )}
-                </>
-                ) : (
-                    /* ── Kanban View ── */
-                    <div className="p-4 overflow-x-auto">
-                        {loading ? (
-                            <div className="flex gap-4">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="w-64 shrink-0 space-y-3">
-                                        <div className="h-8 animate-pulse rounded-lg bg-muted" />
-                                        <div className="h-20 animate-pulse rounded-lg bg-muted" />
-                                        <div className="h-20 animate-pulse rounded-lg bg-muted" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="flex gap-4 items-start">
-                                {(["Rascunho", "PendenteAprovacao", "Aprovada", "Reprovada"] as const).map((col) => {
-                                    const meta = KANBAN_COL_META[col];
-                                    const Icon = meta.icon;
-                                    const colItems = filtered.filter((r) => rowStatusMatchesKanbanCol(r, col));
-                                    return (
-                                        <div key={col} className="w-64 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
-                                            <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
-                                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.color}`}>
-                                                    <Icon className="size-3" />{meta.label}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground ml-auto">{colItems.length}</span>
-                                            </div>
-                                            <div className="flex-1 space-y-2 p-2 max-h-[calc(100vh-340px)] overflow-y-auto">
-                                                {colItems.length === 0 ? (
-                                                    <div className="rounded-lg border border-dashed border-border/40 py-8 text-center text-xs text-muted-foreground">
-                                                        Nenhuma
-                                                    </div>
-                                                ) : colItems.map((r) => (
-                                                    <div
-                                                        key={r.id}
-                                                        className="rounded-lg border border-border/50 bg-card p-3 shadow-sm"
-                                                    >
-                                                        <div className="text-sm font-medium leading-tight truncate">{r.titulo}</div>
-                                                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                                            <span>{r.qtdPosicoes} pos.</span>
-                                                            <span>{urgenciaBadge(r.urgencia)}</span>
-                                                        </div>
-                                                        <div className="mt-2 text-[10px] text-muted-foreground">
-                                                            {formatDate(r.createdAtUtc)}
-                                                            {r.solicitanteNome && <> · {r.solicitanteNome}</>}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
                 )}
             </div>
 
