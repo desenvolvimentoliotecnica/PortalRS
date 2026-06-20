@@ -30,9 +30,14 @@ public sealed class RmRequisicaoParecerReadService(
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         ApplyBasicAuthentication(request, config);
 
+        var timeoutSeconds = Math.Max(
+            RmRequisicoesQueries.SqlCommandTimeoutSeconds,
+            Math.Clamp(createOptions.RequestTimeoutSeconds, 1, 600));
+
         var client = httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
         using var response = await client.SendAsync(request, timeoutCts.Token);
         var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);

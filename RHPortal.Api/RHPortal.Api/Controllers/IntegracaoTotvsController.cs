@@ -297,9 +297,11 @@ public sealed class IntegracaoTotvsController : ControllerBase
                 request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(raw)));
             }
 
+            var timeoutSeconds = Math.Max(1, config.RequestTimeoutSeconds);
             var client = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, config.RequestTimeoutSeconds)));
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
             using var response = await client.SendAsync(request, timeoutCts.Token);
             return Ok(new { ok = response.IsSuccessStatusCode, status = (int)response.StatusCode, message = response.ReasonPhrase });
         }

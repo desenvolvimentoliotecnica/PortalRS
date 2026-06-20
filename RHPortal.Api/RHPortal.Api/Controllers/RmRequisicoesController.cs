@@ -91,6 +91,15 @@ public sealed class RmRequisicoesController : ControllerBase
                 Status = StatusCodes.Status504GatewayTimeout
             });
         }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new ProblemDetails
+            {
+                Title = "Consulta ao RM excedeu o tempo limite",
+                Detail = "O endpoint REST do RM demorou mais que o permitido. Reduza o período ou verifique a integração RM.",
+                Status = StatusCodes.Status504GatewayTimeout
+            });
+        }
     }
 
     private async Task<RmRequisicaoListResponse> EnrichAsync(RmRequisicaoListResponse result, CancellationToken ct)

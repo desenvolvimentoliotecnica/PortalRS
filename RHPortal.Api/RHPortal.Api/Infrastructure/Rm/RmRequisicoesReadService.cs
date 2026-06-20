@@ -211,6 +211,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         ApplyBasicAuthentication(request, config);
 
         var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(Math.Max(1, requestTimeoutSeconds));
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, requestTimeoutSeconds)));
 
