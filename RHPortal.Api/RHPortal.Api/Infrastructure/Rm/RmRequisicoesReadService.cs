@@ -72,7 +72,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 
         await using var cmd = new SqlCommand(RmRequisicoesQueries.SqlCodStatusPorVinculo, conn);
         cmd.CommandTimeout = RmRequisicoesQueries.SqlCommandTimeoutSeconds;
-        cmd.Parameters.AddWithValue("@Tipo", tipo);
+        AddFilterParameters(cmd, tipo, dataDe: null, dataAte: null, searchPattern: null, codStatusCsv: null);
         cmd.Parameters.AddWithValue("@CodCol", codCol);
         cmd.Parameters.AddWithValue("@IdReq", idReq);
 
