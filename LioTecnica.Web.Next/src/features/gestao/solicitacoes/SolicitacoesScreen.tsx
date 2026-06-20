@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoFormPreferred";
-import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
 import { useAuth, useHasPermission, useIsAdminOrOwner } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -68,7 +67,9 @@ import PaginationBar from "@/components/pagination/PaginationBar";
 import {
     formatSolicitacaoCodigoRm,
     formatTipoSolicitacaoLabel,
+    rowMatchesTipoSolicitacaoFilter,
     tipoSolicitacaoBadgeClass,
+    type TipoSolicitacaoFilter,
 } from "@/features/gestao/solicitacoes/rmRequisicaoFormat";
 
 /* ──────────────────────────── types ──────────────────────────── */
@@ -183,7 +184,7 @@ interface SolicitacaoDetail {
 
 type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
 type UrgenciaKey = 0 | 1 | 2 | 3 | string;
-type SolicitacaoSortKey = "codigoRm" | "titulo" | "secao" | "tipo" | "posicoes" | "urgencia" | "status" | "aguardando" | "data" | "abertoHa" | "requisitante";
+type SolicitacaoSortKey = "codigoRm" | "titulo" | "secao" | "tipo" | "posicoes" | "urgencia" | "data" | "abertoHa" | "requisitante";
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -213,10 +214,6 @@ const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
     2: { label: "Alta", color: "bg-orange-500/15 text-orange-700" },
     3: { label: "Crítica", color: "bg-red-500/15 text-red-700" },
 };
-
-function statusBadge(status: number | string) {
-    return <SolicitacaoVagaStatusBadgeEl raw={status} />;
-}
 
 function urgenciaBadge(urgencia: number | string) {
     const u = URGENCIA_MAP[urgencia] ?? URGENCIA_MAP["Media"] ?? URGENCIA_MAP[1];
@@ -375,6 +372,7 @@ function SolicitacoesVagaContent() {
     const [q, setQ] = useState("");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+    const [tipoFilter, setTipoFilter] = useState<TipoSolicitacaoFilter>("todas");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [sortKey, setSortKey] = useState<SolicitacaoSortKey>("data");
@@ -526,6 +524,7 @@ function SolicitacoesVagaContent() {
         return rows.filter((r) => {
             if (dateFrom && r.createdAtUtc && new Date(r.createdAtUtc) < new Date(dateFrom)) return false;
             if (dateTo && r.createdAtUtc && new Date(r.createdAtUtc) > new Date(`${dateTo}T23:59:59`)) return false;
+            if (!rowMatchesTipoSolicitacaoFilter(r, tipoFilter)) return false;
             if (!term) return true;
             const blob = [
                 solicitacaoCodigoRm(r),
@@ -537,11 +536,11 @@ function SolicitacoesVagaContent() {
             ].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [q, rows, dateFrom, dateTo]);
+    }, [q, rows, dateFrom, dateTo, tipoFilter]);
 
     useEffect(() => {
         setPage(1);
-    }, [q, dateFrom, dateTo, pageSize]);
+    }, [q, dateFrom, dateTo, tipoFilter, pageSize]);
 
     const sorted = useMemo(() => {
         const getValue = (r: SolicitacaoGridRow): string | number => {
@@ -551,8 +550,6 @@ function SolicitacoesVagaContent() {
             if (sortKey === "tipo") return String(r.tipoSolicitacao);
             if (sortKey === "posicoes") return r.qtdPosicoes ?? 0;
             if (sortKey === "urgencia") return String(r.urgencia);
-            if (sortKey === "status") return String(r.status);
-            if (sortKey === "aguardando") return r.etapaPendenteCom ?? r.etapaPendenteLabel ?? "";
             if (sortKey === "requisitante") return r.solicitanteNome ?? "";
             return new Date(r.createdAtUtc).getTime() || 0;
         };
@@ -877,6 +874,16 @@ function SolicitacoesVagaContent() {
                             <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground underline">Limpar</button>
                         )}
                     </div>
+                    <select
+                        value={tipoFilter}
+                        onChange={(e) => setTipoFilter(e.target.value as TipoSolicitacaoFilter)}
+                        className="rounded-md border border-input bg-background px-3 text-sm"
+                        aria-label="Filtrar por tipo de requisição"
+                    >
+                        <option value="todas">Todas</option>
+                        <option value="aumento_quadro">Aumento de Quadro</option>
+                        <option value="substituicao">Substituição</option>
+                    </select>
                     <div className="relative min-w-[180px] flex-1 max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -949,12 +956,6 @@ function SolicitacoesVagaContent() {
                             <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("posicoes")}>
                                 Posições<SortIcon col="posicoes" />
                             </TableHead>
-                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("status")}>
-                                Status<SortIcon col="status" />
-                            </TableHead>
-                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("aguardando")}>
-                                Aguardando<SortIcon col="aguardando" />
-                            </TableHead>
                             <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("data")}>
                                 Data<SortIcon col="data" />
                             </TableHead>
@@ -970,7 +971,7 @@ function SolicitacoesVagaContent() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 12 : 11} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 10 : 9} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -1024,19 +1025,6 @@ function SolicitacoesVagaContent() {
                                         </span>
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap text-center text-sm font-mono">{r.qtdPosicoes}</TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">{statusBadge(r.status)}</TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        {(r.status === 1 || r.status === "PendenteAprovacao" || r.status === 5 || r.status === "PendenteAprovacaoRh") && r.etapaPendenteLabel ? (
-                                            <div className="text-xs leading-tight">
-                                                <div className="text-muted-foreground">{r.etapaPendenteLabel}</div>
-                                                {r.etapaPendenteCom && (
-                                                    <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-muted-foreground text-xs">—</span>
-                                        )}
-                                    </TableCell>
                                     <TableCell className="whitespace-nowrap text-center text-xs text-muted-foreground">
                                         <span className="font-medium text-foreground">{formatDate(r.createdAtUtc)}</span>
                                     </TableCell>
@@ -1153,7 +1141,7 @@ function SolicitacoesVagaContent() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 12 : 11} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 10 : 9} className="text-center text-muted-foreground py-8">
                                     Nenhuma solicitação encontrada para os filtros selecionados.
                                 </TableCell>
                             </TableRow>
