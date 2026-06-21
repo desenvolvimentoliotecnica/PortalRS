@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.EntrevistasSaida;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Common;
+using RhPortal.Api.Contracts.EntrevistasSaida;
 using RhPortal.Api.Contracts.SolicitacoesDesligamento;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -33,7 +35,7 @@ public interface ISolicitacaoDesligamentoService
     /// Propaga reprovação a partir da vaga origem. Não valida permissões do usuário.
     /// Idempotente: ignora se o desligamento já está em estado terminal.
     /// </summary>
-    /// <summary>Datasul confirma resultado da integração — move para Concluida ou registra erro.</summary>
+    /// <summary>Legado — integração TOTVS para desligamento descontinuada.</summary>
     Task<SolicitacaoDesligamentoResponse?> ConfirmarIntegracaoAsync(Guid id, IntegracaoResultado resultado, string? mensagem, CancellationToken ct);
 
     Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct);
@@ -55,6 +57,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
     private readonly ApprovalWorkflowHelper _workflow;
     private readonly IEmailQueueService _emailQueue;
     private readonly IEntrevistaSaidaService _entrevistaSaida;
+    private readonly IOcupacaoHistoricoService _ocupacaoService;
     private readonly IServiceProvider _serviceProvider;
     private readonly StatusHistoricoService _statusHistorico;
 
@@ -65,6 +68,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         ApprovalWorkflowHelper workflow,
         IEmailQueueService emailQueue,
         IEntrevistaSaidaService entrevistaSaida,
+        IOcupacaoHistoricoService ocupacaoService,
         IServiceProvider serviceProvider,
         StatusHistoricoService statusHistorico)
     {
@@ -74,6 +78,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _workflow = workflow;
         _emailQueue = emailQueue;
         _entrevistaSaida = entrevistaSaida;
+        _ocupacaoService = ocupacaoService;
         _statusHistorico = statusHistorico;
         _serviceProvider = serviceProvider;
     }
@@ -433,8 +438,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
             await _db.SaveChangesAsync(ct);
 
-            // Nota: a ocupação da vaga será fechada no painel de integração TOTVS,
-            // quando o envio for confirmado (IntegracaoResultado.Sucesso).
+            // Headcount e inativação do colaborador ocorrem na efetivação no Portal.
 
             await _workflow.NotifyByFuncionarioIdAsync(
                 entity.SolicitanteId,
@@ -468,13 +472,32 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         if (entity.Status != SolicitacaoStatus.Aprovada)
             throw new InvalidOperationException("Apenas solicitações com status Aprovada podem ser efetivadas.");
 
+        var entrevistaStatus = await _entrevistaSaida.GetStatusBatchAsync(
+            [(entity.Id, entity.FuncionarioId)], ct);
+        if (!entrevistaStatus.TryGetValue(entity.Id, out var entrevista)
+            || entrevista.Status != EntrevistaSaidaStatusCode.Respondida)
+        {
+            throw new InvalidOperationException(
+                "A efetivação só é permitida após a entrevista de saída ser respondida.");
+        }
+
         var statusAnteriorEfetivarDesl = entity.Status.ToString();
-        entity.Status = SolicitacaoStatus.EmIntegracao;
+        entity.Status = SolicitacaoStatus.Concluida;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _statusHistorico.RegistrarAsync(
             TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
             statusAnteriorEfetivarDesl, entity.Status.ToString(), _currentUser, ct: ct);
+
+        await _ocupacaoService.FecharOcupacaoAsync(
+            entity.FuncionarioId, MotivoSaidaOcupacao.Desligamento, entity.Id, ct);
+
+        var funcionario = await _db.Set<Funcionario>().FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct);
+        if (funcionario is not null)
+        {
+            funcionario.Status = FuncionarioStatus.Inactive;
+            funcionario.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -728,33 +751,11 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         return (await GetByIdAsync(copy.Id, ct))!;
     }
 
-    public async Task<SolicitacaoDesligamentoResponse?> ConfirmarIntegracaoAsync(
+    public Task<SolicitacaoDesligamentoResponse?> ConfirmarIntegracaoAsync(
         Guid id, IntegracaoResultado resultado, string? mensagem, CancellationToken ct)
     {
-        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
-        if (entity is null) return null;
-
-        if (entity.Status != SolicitacaoStatus.EmIntegracao)
-            throw new InvalidOperationException("Apenas solicitações em EmIntegracao podem ter o resultado confirmado.");
-
-        entity.IntegracaoResultado = resultado;
-        entity.IntegracaoMensagem = mensagem;
-        entity.IntegradaEmUtc = DateTimeOffset.UtcNow;
-        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-        if (resultado == IntegracaoResultado.Sucesso)
-        {
-            var statusAnterior = entity.Status.ToString();
-            entity.Status = SolicitacaoStatus.Concluida;
-
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
-                statusAnterior, entity.Status.ToString(), _currentUser, null, ct);
-        }
-        // Erro: mantém EmIntegracao para o RH visualizar e reprocessar
-
-        await _db.SaveChangesAsync(ct);
-        return await GetByIdAsync(id, ct);
+        throw new InvalidOperationException(
+            "Integração TOTVS para desligamento foi descontinuada. Conclua a solicitação pelo Portal (Efetivar).");
     }
 
     public async Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct)

@@ -9,7 +9,7 @@
 
 ## 1. Para que serve este manual
 
-Este documento explica **passo a passo**, com os cliques na tela, como conduzir um desligamento no Portal RH — desde a solicitação até a integração com o TOTVS RM e a **entrevista de saída** enviada ao colaborador.
+Este documento explica **passo a passo**, com os cliques na tela, como conduzir um desligamento no Portal RH — desde a solicitação até a **conclusão no Portal**, com **entrevista de saída** e rastreabilidade interna (sem integração TOTVS na efetivação).
 
 Use-o para treinar novas analistas, padronizar o atendimento e tirar dúvidas do dia a dia.
 
@@ -24,7 +24,7 @@ Use-o para treinar novas analistas, padronizar o atendimento e tirar dúvidas do
 | **Acesso ao menu** | Item **Desligamentos** visível em **Gestão** (pacote *Folha de Pagamento* ativo no tenant) |
 | **Permissões** | Ver desligamentos + gerenciar entrevista de saída (perfis Analista/Especialista de RH já recebem isso após atualização do ambiente) |
 | **Colaborador cadastrado** | Funcionário ativo no Portal, com **e-mail corporativo** (obrigatório para entrevista de saída) |
-| **Dados TOTVS no cadastro** | Código de empresa e estabelecimento do funcionário preenchidos corretamente (necessário para integração) |
+| **Dados TOTVS no cadastro** | Código de empresa e estabelecimento do funcionário (referência cadastral; a efetivação não integra com o ERP) |
 
 ### 2.2 Duas visões na mesma tela — entenda a diferença
 
@@ -48,20 +48,18 @@ Ao abrir **Gestão → Desligamentos**, no canto superior direito há dois botõ
       ↓
 3. Aprovadores concluem o fluxo → status Aprovada
       ↓
-4. RH efetiva → status Em Integração (envio ao TOTVS)
+4. RH envia entrevista de saída (manual, por e-mail com link)
       ↓
-5. RH envia entrevista de saída (manual, por e-mail com link)
+5. Colaborador responde o questionário pelo link (fora do Portal, no celular ou PC)
       ↓
-6. Colaborador responde o questionário pelo link (fora do Portal, no celular ou PC)
+6. RH acompanha respostas na grid / relatório
       ↓
-7. RH acompanha respostas na grid / relatório
+7. RH efetiva → status Concluída (libera headcount e inativa colaborador no Portal)
       ↓
 8. (Opcional) RH gera carta de desligamento
-      ↓
-9. Integração TOTVS confirma → status Concluída
 ```
 
-A **entrevista de saída não dispara sozinha** ao efetivar. O RH decide **quando** enviar, clicando em **Enviar entrevista de saída**.
+A **entrevista de saída é obrigatória antes de efetivar**. O RH envia manualmente em **Enviar entrevista de saída**; só após o colaborador responder aparece a ação **Efetivar desligamento**.
 
 ---
 
@@ -141,20 +139,22 @@ Para reprovar ou solicitar ajustes:
 
 ## 7. Passo a passo — Efetivar o desligamento (RH)
 
-Somente perfis **RH** ou **Administrador** veem esta ação quando o status é **Aprovada**.
+Somente perfis **RH** ou **Administrador** veem esta ação quando o status é **Aprovada** **e** a coluna **Entrevista** está **Respondida**.
 
-1. Revise tipo, data e justificativa ( **⋯** → **Visualizar** ).
-2. Clique em **⋯** → **Efetivar desligamento**.
-3. Leia a mensagem de confirmação (*“Ao efetivar, a solicitação entra em integração com o TOTVS…”*).
-4. Clique em **Efetivar**.
+1. Confirme que a entrevista de saída foi respondida (coluna **Entrevista** = Respondida; ou **⋯** → **Ver respostas**).
+2. Revise tipo, data e justificativa ( **⋯** → **Visualizar** ).
+3. Clique em **⋯** → **Efetivar desligamento**.
+4. Leia a mensagem: *“A solicitação de desligamento será concluída. Deseja continuar?”*
+5. Clique em **Efetivar**.
 
 **O que acontece:**
 
-- Status muda para **Em Integração** (badge azul).
-- O registro entra na fila do **Painel de Integração TOTVS** (tipo Desligamento).
-- **Não** envia entrevista de saída automaticamente — você fará isso no passo 9.
+- Status muda para **Concluída** (badge cinza/verde conforme tema).
+- O **headcount da vaga** é liberado no Portal.
+- O colaborador passa a **Inativo** no cadastro do Portal.
+- **Não** há envio ao Painel Integração TOTVS.
 
-> Após efetivar, não é possível desfazer pelo Portal sem intervenção no TOTVS. Confira a data antes de confirmar.
+> Se **Efetivar desligamento** não aparecer no menu, a entrevista ainda não foi respondida. Envie o questionário e aguarde o preenchimento.
 
 ---
 
@@ -178,7 +178,7 @@ Na tela **Questionário de entrevista de saída**:
 
 ## 9. Passo a passo — Enviar a entrevista de saída ao colaborador
 
-Disponível para quem tem permissão de **entrevista de saída**, quando o desligamento está **Aprovada**, **Em Integração** ou **Concluída**.
+Disponível para quem tem permissão de **entrevista de saída**, quando o desligamento está **Aprovada** ou **Concluída**.
 
 1. Localize a linha na aba **Datasul**.
 2. Confira a coluna **Entrevista**:
@@ -231,22 +231,11 @@ Com status **Aprovada** (antes ou depois de efetivar, conforme política interna
 
 ---
 
-## 12. Passo a passo — Acompanhar integração TOTVS
+## 12. Integração TOTVS — desligamento
 
-1. No menu, acesse **Integração TOTVS** (ou `/integracao-totvs`).
-2. Filtre por tipo **Desligamento** ou use a aba/filtro **Pendente**.
-3. Localize o registro pelo nome do funcionário ou ID da solicitação.
-4. Aguarde o processamento automático (worker/serviço de integração).
+O fluxo de **solicitação de desligamento (aba Datasul)** **não** utiliza mais o Painel Integração TOTVS. A conclusão ocorre apenas no Portal, pelo passo **Efetivar desligamento** (após entrevista respondida).
 
-**Resultados possíveis:**
-
-| Situação na integração | Status no Portal | O que fazer |
-|------------------------|------------------|-------------|
-| Sucesso | **Concluída** | Conferir baixa do colaborador no RM |
-| Falha | **Em Integração** com erro | Abrir detalhe, corrigir dado no Portal ou RM e **reprocessar** conforme orientação do Painel |
-| Pendente | **Em Integração** | Aguardar próximo ciclo de sync |
-
-Você também pode usar **⋯** → **Acompanhamento** na listagem Datasul para ver o histórico de aprovações.
+A aba **TOTVS RM** continua disponível apenas para **consultar** desligamentos espelhados do RM (importação de leitura).
 
 ---
 
@@ -259,7 +248,7 @@ Algumas linhas na aba **Datasul** chegam **automaticamente** pela integração c
 1. Identifique a linha com **Código RM** (número na primeira coluna).
 2. Confira funcionário, data e tipo.
 3. Se ainda estiver pendente de aprovação, conduza o fluxo normal (assumir/aprovar).
-4. Quando **Aprovada**, **efetive** e **envie a entrevista de saída** manualmente — o import **não** dispara entrevista sozinho.
+4. Quando **Aprovada**, **envie a entrevista de saída**, aguarde resposta e **efetive** — o import **não** dispara entrevista sozinho.
 
 ---
 
@@ -270,9 +259,8 @@ Algumas linhas na aba **Datasul** chegam **automaticamente** pela integração c
 | **Rascunho** | Criada mas não enviada | Editar → Enviar para aprovação |
 | **Pendente** | Aguardando aprovador | Assumir / Aprovar / Reprovar |
 | **Aguarda Fila** | Etapa em fila de perfil (ex.: RH) | Assumir → Aprovar |
-| **Aprovada** | Liberada para operação RH | Efetivar + Enviar entrevista + Gerar carta |
-| **Em Integração** | Enviada ao TOTVS | Acompanhar Painel Integração |
-| **Concluída** | Integração OK | Arquivar; entrevista/respostas se ainda pendentes |
+| **Aprovada** | Liberada para operação RH | Enviar entrevista → aguardar resposta → Efetivar |
+| **Concluída** | Desligamento concluído no Portal | Arquivar; carta/relatório se necessário |
 | **Reprovada** | Fluxo encerrado negativamente | Comunicar gestor; copiar solicitação se necessário |
 | **Ajustes** | Devolvida para correção | Gestor edita e reenvia |
 | **Cancelada** | Solicitação cancelada | Nenhuma ação |
@@ -325,9 +313,9 @@ O colaborador **não acessa o Portal RH** para responder.
 | Menu Desligamentos com cadeado | Pacote Folha inativo no tenant | Solicitar ativação do pacote ao administrador |
 | “Configure o questionário…” ao enviar | Template não salvo | Passo 8 — salvar questionário |
 | “Sem e-mail corporativo” | Funcionário sem e-mail | Cadastro → Funcionários → editar e-mail |
-| Entrevista não sai ao efetivar | Comportamento esperado | Enviar manualmente (passo 9) |
-| Não vejo **Efetivar** | Perfil sem RH/Admin ou status ≠ Aprovada | Verificar perfil e status |
-| Integração falhou | Dados TOTVS divergentes | Painel Integração → mensagem de erro → corrigir e reprocessar |
+| Entrevista não sai ao efetivar | Comportamento esperado | Enviar entrevista **antes** de efetivar (passo 9) |
+| Não vejo **Efetivar** | Entrevista não respondida, perfil sem RH/Admin ou status ≠ Aprovada | Enviar questionário, aguardar resposta; verificar perfil e status |
+| Erro ao efetivar | Entrevista ainda não respondida | Coluna Entrevista = Respondida antes de efetivar |
 | Coluna Entrevista não aparece | Sem permissão `entrevista-saida` | Administrador ajusta perfil/menus |
 
 ---
@@ -335,22 +323,21 @@ O colaborador **não acessa o Portal RH** para responder.
 ## 19. Checklist da Analista de RH (por desligamento)
 
 - [ ] Solicitação **Aprovada** com data e tipo conferidos  
-- [ ] **Efetivada** (Em Integração)  
 - [ ] Questionário de saída **configurado** (primeira vez ou revisado)  
-- [ ] **Entrevista enviada** e coluna mostra Enviada → Respondida  
+- [ ] **Entrevista enviada** e coluna mostra Enviada → **Respondida**  
 - [ ] Respostas revisadas (modal ou relatório)  
+- [ ] **Efetivada** (status **Concluída** no Portal)  
 - [ ] **Carta** gerada, se aplicável  
-- [ ] **Integração TOTVS** concluída com sucesso (status Concluída)  
-- [ ] Colaborador baixado no RM (conferência final)
+- [ ] Headcount liberado e colaborador **Inativo** no Portal (conferência)
 
 ---
 
 ## 20. Contatos e escalonamento
 
 - **Dúvidas de permissão ou menu:** Administrador do tenant / TI  
-- **Falhas de integração RM:** Equipe de integração / suporte TOTVS (com print do Painel Integração)  
+- **Falhas de processo ou permissão:** Administrador do tenant / TI  
 - **Melhorias no questionário ou fluxo:** Product Owner de RH  
 
 ---
 
-*Documento alinhado ao fluxo implementado em jun/2026 (entrevista de saída manual, aba Datasul, integração TOTVS). Atualize este manual quando houver mudanças de tela ou política interna da empresa.*
+*Documento alinhado ao fluxo implementado em jun/2026 (conclusão 100% Portal, entrevista obrigatória antes de efetivar).*

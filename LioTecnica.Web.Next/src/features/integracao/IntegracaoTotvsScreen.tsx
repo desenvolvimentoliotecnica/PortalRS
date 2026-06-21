@@ -58,7 +58,6 @@ interface IntegracaoTotvsPainelResponse {
 const TIPO_LABELS: Record<number, string> = {
     1: "Admissao",
     2: "Pgto Extra",
-    3: "Desligamento",
     4: "Promocao",
     5: "Alt. Endereco",
     6: "Dependente",
@@ -70,7 +69,6 @@ const TIPO_LABELS: Record<number, string> = {
 const TIPO_COLORS: Record<number, string> = {
     1: "bg-blue-100 text-blue-800",
     2: "bg-purple-100 text-purple-800",
-    3: "bg-red-100 text-red-800",
     4: "bg-emerald-100 text-emerald-800",
     5: "bg-cyan-100 text-cyan-800",
     6: "bg-orange-100 text-orange-800",

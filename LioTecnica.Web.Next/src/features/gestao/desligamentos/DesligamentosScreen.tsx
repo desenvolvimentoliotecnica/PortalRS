@@ -467,12 +467,12 @@ export default function DesligamentosScreen() {
     async function efetivarDesligamento(id: string) {
         if (!(await confirmDialog({
             title: "Efetivar desligamento",
-            description: "Ao efetivar, a solicitação entra em integração com o TOTVS. O headcount da vaga será liberado após a confirmação da integração. Deseja continuar?",
+            description: "A solicitação de desligamento será concluída. Deseja continuar?",
             confirmText: "Efetivar",
         }))) return;
         try {
             await fetchJson(`${API}/${id}/efetivar`, { method: "POST" });
-            toast.success("Desligamento efetivado. Aguardando integração TOTVS.");
+            toast.success("Desligamento concluído no Portal.");
             await syncList();
         } catch (e) {
             toast.error(`Falha ao efetivar: ${e instanceof Error ? e.message : "erro"}`);
@@ -530,6 +530,10 @@ export default function DesligamentosScreen() {
 
     function canVerRespostasEntrevista(row: SolicitacaoDesligamentoGridRow) {
         return normalizeEntrevistaStatus(row.entrevistaSaidaStatus) === "Respondida";
+    }
+
+    function canEfetivarDesligamento(row: SolicitacaoDesligamentoGridRow) {
+        return row.status === 2 && canVerRespostasEntrevista(row);
     }
 
     function handleFormClose() {
@@ -929,7 +933,7 @@ export default function DesligamentosScreen() {
                                                         Editar e reenviar
                                                     </DropdownMenuItem>
                                                 )}
-                                                {r.status === 2 && (isAdmin || isRH) && (
+                                                {canEfetivarDesligamento(r) && (isAdmin || isRH) && (
                                                     <DropdownMenuItem onClick={() => void efetivarDesligamento(r.id)}>
                                                         <Zap className="mr-2 size-4" />
                                                         Efetivar desligamento
