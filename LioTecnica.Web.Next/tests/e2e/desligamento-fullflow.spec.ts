@@ -182,3 +182,51 @@ test("Desligamento: criar → aprovar → gerar payload TOTVS em Pendente TOTVS"
         null, 2
     )}`);
 });
+
+test("Desligamento: entrevista de saída manual — enviar e status na grid", async ({ page }) => {
+    const stamp = Date.now().toString().slice(-6);
+
+    await loginViaUI(page);
+
+    const funcBody = {
+        name: `QA Entrevista ${stamp}`,
+        email: `qa.entrevista.${stamp}@qualiit-test.com`,
+        status: "Active",
+        headcount: 1,
+    };
+    const funcRes = await api(page, "POST", "/api/funcionarios", funcBody);
+    expect(funcRes.status).toBe(201);
+    const funcionario = JSON.parse(funcRes.text);
+
+    const deslBody = {
+        funcionarioId: funcionario.id,
+        dataDesligamento: "2026-06-30",
+        tipoDesligamento: "PedidoDemissao",
+        motivoDesligamento: `Teste entrevista E2E ${stamp}`,
+        tipoAvisoPrevio: "Dispensado",
+        diasAvisoPrevio: 30,
+        possuiEstabilidade: false,
+        elegivelRecontratacao: true,
+        substituirPosicao: false,
+    };
+    const createRes = await api(page, "POST", "/api/solicitacoes-desligamento", deslBody);
+    expect(createRes.status).toBeLessThan(300);
+    const desligamento = JSON.parse(createRes.text);
+
+    await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/submit`);
+    await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/approve`, { observacao: "E2E entrevista" });
+
+    const enviarRes = await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/entrevista-saida/enviar`);
+    expect(enviarRes.status, `Enviar entrevista falhou: ${enviarRes.text.slice(0, 300)}`).toBe(204);
+
+    const detalheRes = await api(page, "GET", `/api/solicitacoes-desligamento/${desligamento.id}/entrevista-saida`);
+    expect(detalheRes.status).toBe(200);
+    const detalhe = JSON.parse(detalheRes.text);
+    expect(detalhe.status).toBe("Enviada");
+
+    const listRes = await api(page, "GET", "/api/solicitacoes-desligamento?pageSize=500");
+    expect(listRes.status).toBe(200);
+    const rows = JSON.parse(listRes.text) as Array<{ id: string; entrevistaSaidaStatus?: string }>;
+    const row = rows.find((r) => r.id === desligamento.id);
+    expect(row?.entrevistaSaidaStatus).toBe("Enviada");
+});

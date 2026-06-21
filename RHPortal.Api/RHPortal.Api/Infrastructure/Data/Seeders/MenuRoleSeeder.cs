@@ -116,6 +116,8 @@ public static class MenuRoleSeeder
                 "talentos.view",
                 "projetos.view",
                 "documentacao-padrao.manage",
+                "folha.desligamentos.view",
+                "folha.entrevista-saida.manage",
             ],
             ["Especialista de RH"] =
             [
@@ -124,6 +126,8 @@ public static class MenuRoleSeeder
                 "feedback.send",
                 "feedback.view",
                 "feedback.gamificacao.view",
+                "folha.desligamentos.view",
+                "folha.entrevista-saida.manage",
             ],
         };
 

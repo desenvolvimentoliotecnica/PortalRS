@@ -84,6 +84,7 @@ public static class RolePermissionManifest
         "folha.batida-ponto.view",
         "folha.pagamento-extra.view",
         "folha.desligamentos.view",
+        "folha.entrevista-saida.manage",
     ];
 
     /// <summary>Permissions for Colaborador role.</summary>

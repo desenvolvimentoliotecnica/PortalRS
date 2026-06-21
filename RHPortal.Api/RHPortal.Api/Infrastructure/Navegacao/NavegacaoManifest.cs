@@ -140,6 +140,8 @@ public static class NavegacaoManifest
         new("nav-batida-ponto",             "Batida de Ponto",        "/gestao/batida-ponto",            "clock",             "folha.batida-ponto.view",  ModuloKeyOverride: "folha-pagamento", Ordem: 10),
         new("nav-pagamento-extra",          "Pagamento Extra",        "/gestao/comissoes",               "badge-dollar-sign", "folha.pagamento-extra.view", ModuloKeyOverride: "folha-pagamento", Ordem: 20),
         new("nav-desligamentos",            "Desligamentos",          "/gestao/desligamentos",           "user-minus",        "folha.desligamentos.view", ModuloKeyOverride: "folha-pagamento", Ordem: 30),
+        new("nav-entrevista-template",      "Questionário de saída",  "/gestao/desligamentos/entrevista-template", "clipboard-list", "folha.entrevista-saida.manage", ModuloKeyOverride: "folha-pagamento", Ordem: 31),
+        new("nav-entrevistas-saida",        "Entrevistas de saída",   "/gestao/desligamentos/entrevistas-saida", "message-square-text", "folha.entrevista-saida.manage", ModuloKeyOverride: "folha-pagamento", Ordem: 32),
 
         // ── Cadastros (core) ─────────────────────────────────────────────────
         new("nav-empresas",                 "Empresas",               "/empresas",                       "building2",         "areas.view",               Ordem: 10),

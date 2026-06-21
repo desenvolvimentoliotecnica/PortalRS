@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RhPortal.Api.Application.Common;
@@ -56,7 +55,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
     private readonly ApprovalWorkflowHelper _workflow;
     private readonly IEmailQueueService _emailQueue;
     private readonly IEntrevistaSaidaService _entrevistaSaida;
-    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IServiceProvider _serviceProvider;
     private readonly StatusHistoricoService _statusHistorico;
 
@@ -67,7 +65,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         ApprovalWorkflowHelper workflow,
         IEmailQueueService emailQueue,
         IEntrevistaSaidaService entrevistaSaida,
-        IHttpContextAccessor httpContextAccessor,
         IServiceProvider serviceProvider,
         StatusHistoricoService statusHistorico)
     {
@@ -78,7 +75,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _emailQueue = emailQueue;
         _entrevistaSaida = entrevistaSaida;
         _statusHistorico = statusHistorico;
-        _httpContextAccessor = httpContextAccessor;
         _serviceProvider = serviceProvider;
     }
 
@@ -121,6 +117,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         {
             s.Id,
             s.Status,
+            s.FuncionarioId,
             SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
             FuncionarioNome = s.Funcionario != null ? s.Funcionario.Name : (string?)null,
             s.TipoDesligamento,
@@ -133,16 +130,24 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
             ids, TipoFluxoAprovacao.Desligamento, ct, currentUserId: _currentUser.UserId);
 
+        var entrevistaStatus = await _entrevistaSaida.GetStatusBatchAsync(
+            rawRows.Select(r => (r.Id, r.FuncionarioId)).ToList(),
+            ct);
+
         return rawRows.Select(r =>
         {
             etapasPendentes.TryGetValue(r.Id, out var ep);
+            entrevistaStatus.TryGetValue(r.Id, out var entrevista);
             return new SolicitacaoDesligamentoGridRow(
                 r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome, r.RmIdReq,
                 r.TipoDesligamento, r.DataDesligamento, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
                 ep?.AssumedByUserId,
                 ep?.CanAssume ?? false,
-                ep?.CanApprove ?? false);
+                ep?.CanApprove ?? false,
+                entrevista?.Status,
+                entrevista?.EnviadaEmUtc,
+                entrevista?.RespondidaEmUtc);
         }).ToList();
     }
 
@@ -472,16 +477,6 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             statusAnteriorEfetivarDesl, entity.Status.ToString(), _currentUser, ct: ct);
 
         await _db.SaveChangesAsync(ct);
-
-        // Disparar entrevista de saída ao funcionário (best-effort)
-        try
-        {
-            var httpCtx = _httpContextAccessor.HttpContext;
-            await _entrevistaSaida.CriarEEnviarAsync(
-                entity.Id, entity.FuncionarioId,
-                httpCtx?.Request.Scheme, httpCtx?.Request.Host.Host, ct);
-        }
-        catch { /* best-effort */ }
 
         return await GetByIdAsync(id, ct);
     }

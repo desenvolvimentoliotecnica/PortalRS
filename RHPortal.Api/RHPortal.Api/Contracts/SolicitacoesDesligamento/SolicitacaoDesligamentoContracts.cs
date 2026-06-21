@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using RhPortal.Api.Contracts.EntrevistasSaida;
 using RhPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.SolicitacoesDesligamento;
@@ -129,7 +130,10 @@ public sealed record SolicitacaoDesligamentoGridRow(
     Guid? EtapaPendenteAprovadorId,
     Guid? EtapaPendenteAssumedByUserId,
     bool EtapaPendenteCanAssume,
-    bool EtapaPendenteCanApprove
+    bool EtapaPendenteCanApprove,
+    EntrevistaSaidaStatusCode? EntrevistaSaidaStatus,
+    DateTimeOffset? EntrevistaSaidaEnviadaEmUtc,
+    DateTimeOffset? EntrevistaSaidaRespondidaEmUtc
 );
 
 public sealed record SolicitacaoDesligamentoPendenteIntegracaoRow(

@@ -197,6 +197,9 @@ public static class DbSeeder
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.RenderCoinRewardSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
 
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.EntrevistaSaidaTemplateSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+
                     // Garante defaults do catálogo de módulos para tenants provisionados antes da
                     // introdução do TenantModules (idempotente).
                     var tenantModuleService = tenantScope.ServiceProvider.GetRequiredService<TenantModuleService>();

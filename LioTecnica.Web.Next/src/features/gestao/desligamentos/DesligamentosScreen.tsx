@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import Link from "next/link";
+import { useAuth, useHasPermission } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
     Search,
@@ -26,6 +27,7 @@ import {
     Zap,
     Loader2,
     CalendarDays,
+    MessageSquare,
 } from "lucide-react";
 import { AGING_BUCKETS, type AgingBucket, matchesAgingBucket } from "@/features/shared/urgencia";
 import { apiFetch } from "@/lib/api";
@@ -60,6 +62,17 @@ import DesligamentoFormModal from "./DesligamentoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import {
+    ENTREVISTA_STATUS_COLORS,
+    ENTREVISTA_STATUS_LABELS,
+    enviarEntrevistaSaida,
+    formatRespostaValor,
+    getEntrevistaSaidaDetalhe,
+    normalizeEntrevistaStatus,
+    reenviarEntrevistaSaida,
+    type EntrevistaSaidaDetalhe,
+    type EntrevistaSaidaStatusCode,
+} from "./entrevistaSaidaApi";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -77,6 +90,9 @@ interface SolicitacaoDesligamentoGridRow {
     etapaPendenteIsQueue?: boolean;
     etapaPendenteCanAssume?: boolean;
     etapaPendenteCanApprove?: boolean;
+    entrevistaSaidaStatus?: EntrevistaSaidaStatusCode | string | null;
+    entrevistaSaidaEnviadaEmUtc?: string | null;
+    entrevistaSaidaRespondidaEmUtc?: string | null;
 }
 
 interface SolicitacaoDesligamentoResponse {
@@ -197,10 +213,20 @@ function formatDate(iso: string | null | undefined) {
     }
 }
 
+function entrevistaBadge(status: EntrevistaSaidaStatusCode | string | null | undefined) {
+    const key = normalizeEntrevistaStatus(status);
+    return (
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${ENTREVISTA_STATUS_COLORS[key]}`}>
+            {ENTREVISTA_STATUS_LABELS[key]}
+        </span>
+    );
+}
+
 /* ──────────────────────────── component ──────────────────────────── */
 
 export default function DesligamentosScreen() {
     const { me } = useAuth();
+    const canManageEntrevista = useHasPermission("folha.entrevista-saida.manage");
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
     const isRH = me?.roles?.some((r: string) => r.toLowerCase() === "rh") ?? false;
     const myFuncionarioId = (me as { funcionarioId?: string } | null)?.funcionarioId;
@@ -246,6 +272,12 @@ export default function DesligamentosScreen() {
 
     /* ── delete confirm ── */
     const [deleteTarget, setDeleteTarget] = useState<SolicitacaoDesligamentoGridRow | null>(null);
+
+    /* ── entrevista de saída ── */
+    const [entrevistaDetalhe, setEntrevistaDetalhe] = useState<EntrevistaSaidaDetalhe | null>(null);
+    const [entrevistaDetalheOpen, setEntrevistaDetalheOpen] = useState(false);
+    const [entrevistaDetalheLoading, setEntrevistaDetalheLoading] = useState(false);
+    const [entrevistaFuncionario, setEntrevistaFuncionario] = useState<string | null>(null);
 
     /* ── approval actions ── */
     const [approvalObs, setApprovalObs] = useState("");
@@ -447,6 +479,59 @@ export default function DesligamentosScreen() {
         }
     }
 
+    async function enviarEntrevista(id: string, funcionarioNome: string | null) {
+        if (!(await confirmDialog({
+            title: "Enviar entrevista de saída",
+            description: `Enviar o questionário de entrevista de saída para ${funcionarioNome ?? "o colaborador"}? Um e-mail com link será disparado.`,
+            confirmText: "Enviar entrevista",
+        }))) return;
+        try {
+            await enviarEntrevistaSaida(id);
+            toast.success("Entrevista de saída enviada por e-mail.");
+            await syncList();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao enviar entrevista.");
+        }
+    }
+
+    async function reenviarEntrevista(id: string) {
+        try {
+            await reenviarEntrevistaSaida(id);
+            toast.success("Link da entrevista reenviado por e-mail.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao reenviar entrevista.");
+        }
+    }
+
+    async function verRespostasEntrevista(row: SolicitacaoDesligamentoGridRow) {
+        setEntrevistaDetalheOpen(true);
+        setEntrevistaDetalheLoading(true);
+        setEntrevistaDetalhe(null);
+        setEntrevistaFuncionario(row.funcionarioNome);
+        try {
+            const detalhe = await getEntrevistaSaidaDetalhe(row.id);
+            setEntrevistaDetalhe(detalhe);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao carregar respostas.");
+            setEntrevistaDetalheOpen(false);
+        } finally {
+            setEntrevistaDetalheLoading(false);
+        }
+    }
+
+    function canEnviarEntrevista(row: SolicitacaoDesligamentoGridRow) {
+        const status = normalizeEntrevistaStatus(row.entrevistaSaidaStatus);
+        return status === "NaoEnviada" || status === "Expirada" || status === "SemTemplate" || status === "SemEmail";
+    }
+
+    function canReenviarEntrevista(row: SolicitacaoDesligamentoGridRow) {
+        return normalizeEntrevistaStatus(row.entrevistaSaidaStatus) === "Enviada";
+    }
+
+    function canVerRespostasEntrevista(row: SolicitacaoDesligamentoGridRow) {
+        return normalizeEntrevistaStatus(row.entrevistaSaidaStatus) === "Respondida";
+    }
+
     function handleFormClose() {
         setFormOpen(false);
         setViewId(null);
@@ -603,6 +688,16 @@ export default function DesligamentosScreen() {
                         <Plus className="size-4" />
                         <span className="hidden sm:inline">Nova solicitação</span>
                     </Button>
+                    {canManageEntrevista && (
+                        <>
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href="/gestao/desligamentos/entrevista-template">Configurar questionário</Link>
+                            </Button>
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href="/gestao/desligamentos/entrevistas-saida">Relatório entrevistas</Link>
+                            </Button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -692,6 +787,7 @@ export default function DesligamentosScreen() {
                             <TableHead>Tipo</TableHead>
                             <TableHead>Data Desligamento</TableHead>
                             <TableHead>Status</TableHead>
+                            {canManageEntrevista && <TableHead>Entrevista</TableHead>}
                             <TableHead>Aguardando</TableHead>
                             <TableHead>Data Criação</TableHead>
                             <TableHead className="w-12" />
@@ -700,7 +796,7 @@ export default function DesligamentosScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canManageEntrevista ? 10 : 9} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -734,6 +830,9 @@ export default function DesligamentosScreen() {
                                     <TableCell className="text-sm">{TIPO_DESLIGAMENTO_MAP[r.tipoDesligamento] ?? "—"}</TableCell>
                                     <TableCell className="text-sm">{formatDate(r.dataDesligamento)}</TableCell>
                                     <TableCell>{statusBadge(r.status)}</TableCell>
+                                    {canManageEntrevista && (
+                                        <TableCell>{entrevistaBadge(r.entrevistaSaidaStatus)}</TableCell>
+                                    )}
                                     <TableCell>
                                         {(r.status === 1 || r.status === 6) && r.etapaPendenteLabel ? (
                                             <div className="text-xs leading-tight">
@@ -842,6 +941,24 @@ export default function DesligamentosScreen() {
                                                         Gerar carta
                                                     </DropdownMenuItem>
                                                 )}
+                                                {canManageEntrevista && (r.status === 2 || r.status === 7 || r.status === 8) && canEnviarEntrevista(r) && (
+                                                    <DropdownMenuItem onClick={() => void enviarEntrevista(r.id, r.funcionarioNome)}>
+                                                        <MessageSquare className="mr-2 size-4" />
+                                                        Enviar entrevista de saída
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {canManageEntrevista && canReenviarEntrevista(r) && (
+                                                    <DropdownMenuItem onClick={() => void reenviarEntrevista(r.id)}>
+                                                        <Send className="mr-2 size-4" />
+                                                        Reenviar link
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {canManageEntrevista && canVerRespostasEntrevista(r) && (
+                                                    <DropdownMenuItem onClick={() => void verRespostasEntrevista(r)}>
+                                                        <Eye className="mr-2 size-4" />
+                                                        Ver respostas
+                                                    </DropdownMenuItem>
+                                                )}
                                                 <DropdownMenuItem onClick={() => void copySolicitacao(r.id)}>
                                                     <Copy className="mr-2 size-4" />
                                                     Copiar solicitação
@@ -881,7 +998,7 @@ export default function DesligamentosScreen() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canManageEntrevista ? 10 : 9} className="text-center text-muted-foreground py-8">
                                     Nenhuma solicitação encontrada.
                                 </TableCell>
                             </TableRow>
@@ -1128,6 +1245,36 @@ export default function DesligamentosScreen() {
                         <Button variant="outline" onClick={() => { setChangesTarget(null); setChangesObs(""); }}>Cancelar</Button>
                         <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void confirmChanges()}>Solicitar ajustes</Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Entrevista respostas ── */}
+            <Dialog open={entrevistaDetalheOpen} onOpenChange={setEntrevistaDetalheOpen}>
+                <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Entrevista de saída — {entrevistaFuncionario ?? "Colaborador"}</DialogTitle>
+                        <DialogDescription>
+                            {entrevistaDetalhe?.respondidaEmUtc
+                                ? `Respondida em ${formatDate(entrevistaDetalhe.respondidaEmUtc)}`
+                                : "Respostas do questionário"}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {entrevistaDetalheLoading ? (
+                        <div className="text-center text-muted-foreground py-8">Carregando…</div>
+                    ) : entrevistaDetalhe?.respostas?.length ? (
+                        <div className="space-y-3">
+                            {entrevistaDetalhe.respostas.map((resp, idx) => (
+                                <div key={idx} className="rounded-md border border-border/40 p-3">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">
+                                        {resp.pergunta}
+                                    </div>
+                                    <div className="text-sm">{formatRespostaValor(resp)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-muted-foreground">Nenhuma resposta disponível.</div>
+                    )}
                 </DialogContent>
             </Dialog>
 
