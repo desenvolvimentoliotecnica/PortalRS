@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
@@ -124,28 +124,6 @@ type PortalAccessibility = {
   pcdComprovacao?: string | null
   pcdObservacoes?: string | null
 }
-type PortalAgendaBlock = { id: string; tipo?: string | null; titulo?: string | null; data?: string | null; horario?: string | null; observacoes?: string | null; updatedAtUtc: string }
-type PortalAgenda = {
-  preferences: {
-    formatoEntrevista?: string | null
-    inicioDisponivel?: string | null
-    avisoPrevio?: string | null
-    observacoes?: string | null
-    diaSeg: boolean
-    diaTer: boolean
-    diaQua: boolean
-    diaQui: boolean
-    diaSex: boolean
-    diaSab: boolean
-    diaDom: boolean
-    periodoManha: boolean
-    periodoTarde: boolean
-    periodoNoite: boolean
-    horarioPreferido?: string | null
-    fusoHorario?: string | null
-  }
-  blocks: PortalAgendaBlock[]
-}
 type PortalNotifications = {
   canalEmail: boolean
   canalWhatsapp: boolean
@@ -246,7 +224,6 @@ type WorkspaceState = {
   experience: PortalExperienceProject | null
   preferences: PortalPreferences | null
   accessibility: PortalAccessibility | null
-  agenda: PortalAgenda | null
   notifications: PortalNotifications | null
   internalNotifications: PortalInternalNotificationsResponse | null
   documents: PortalDocument[]
@@ -255,22 +232,21 @@ type WorkspaceState = {
 }
 
 const WORKSPACE_SECTIONS = [
-  { id: 'perfil-curriculo', label: 'Perfil e currículo', icon: 'fa-user' },
-  { id: 'experiencias', label: 'Experiências', icon: 'fa-briefcase' },
+  { id: 'perfil-curriculo', label: 'Perfil e currÃ­culo', icon: 'fa-user' },
+  { id: 'experiencias', label: 'ExperiÃªncias', icon: 'fa-briefcase' },
   { id: 'projetos', label: 'Projetos', icon: 'fa-diagram-project' },
-  { id: 'preferencias', label: 'Preferências de vaga', icon: 'fa-bullseye' },
-  { id: 'agenda', label: 'Agenda e disponibilidade', icon: 'fa-calendar-alt' },
-  { id: 'skills', label: 'Portfólio e links', icon: 'fa-link' },
-  { id: 'competencias', label: 'Competências', icon: 'fa-layer-group' },
+  { id: 'preferencias', label: 'PreferÃªncias de vaga', icon: 'fa-bullseye' },
+  { id: 'skills', label: 'PortfÃ³lio e links', icon: 'fa-link' },
+  { id: 'competencias', label: 'CompetÃªncias', icon: 'fa-layer-group' },
   { id: 'credenciais', label: 'Credenciais', icon: 'fa-certificate' },
-  { id: 'notificacoes', label: 'Notificações', icon: 'fa-bell' },
+  { id: 'notificacoes', label: 'NotificaÃ§Ãµes', icon: 'fa-bell' },
   { id: 'lgpd', label: 'LGPD e privacidade', icon: 'fa-shield-alt' },
-  { id: 'educacao', label: 'Educação', icon: 'fa-graduation-cap' },
-  { id: 'cursos-formacoes', label: 'Cursos e formações', icon: 'fa-book-open' },
+  { id: 'educacao', label: 'EducaÃ§Ã£o', icon: 'fa-graduation-cap' },
+  { id: 'cursos-formacoes', label: 'Cursos e formaÃ§Ãµes', icon: 'fa-book-open' },
   { id: 'documentos', label: 'Documentos', icon: 'fa-paperclip' },
-  { id: 'referencias', label: 'Referências', icon: 'fa-users' },
+  { id: 'referencias', label: 'ReferÃªncias', icon: 'fa-users' },
   { id: 'acessibilidade', label: 'Acessibilidade', icon: 'fa-universal-access' },
-  { id: 'matches', label: 'Conclusão e aderência', icon: 'fa-chart-line' },
+  { id: 'matches', label: 'ConclusÃ£o e aderÃªncia', icon: 'fa-chart-line' },
 ] as const
 
 type WorkspaceSectionId = (typeof WORKSPACE_SECTIONS)[number]['id']
@@ -293,45 +269,45 @@ const ACCESS_LANGUAGE_STORAGE_KEY = 'portal-vagas-lang'
 const DEV_PROXY_BASE_URL = ''
 const IBGE_STATES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome'
 const IBGE_CITIES_URL = 'https://servicodados.ibge.gov.br/api/v1/localidades/estados'
-const FALLBACK_JOB_AREAS = ['Administrativo', 'Comercial', 'Financeiro', 'Operações', 'Recursos Humanos', 'Tecnologia da Informação']
-const SENIORITY_OPTIONS = ['Estágio', 'Trainee', 'Júnior', 'Pleno', 'Sênior', 'Especialista', 'Coordenação', 'Gerência', 'Diretoria']
-const AVAILABILITY_OPTIONS = ['Imediato', 'Até 15 dias', 'Até 30 dias', 'Até 60 dias', 'A combinar']
-const WORK_MODEL_OPTIONS = ['Presencial', 'Híbrido', 'Remoto', 'Indiferente']
-const WORKDAY_OPTIONS = ['Integral', 'Parcial', 'Noturno', 'Escala', 'Flexível', 'A combinar']
-const CONTRACT_OPTIONS = ['CLT', 'PJ', 'Temporário', 'Estágio', 'Trainee', 'A combinar']
-const YES_NO_NEGOTIABLE_OPTIONS = ['Sim', 'Não', 'A combinar']
+const FALLBACK_JOB_AREAS = ['Administrativo', 'Comercial', 'Financeiro', 'OperaÃ§Ãµes', 'Recursos Humanos', 'Tecnologia da InformaÃ§Ã£o']
+const SENIORITY_OPTIONS = ['EstÃ¡gio', 'Trainee', 'JÃºnior', 'Pleno', 'SÃªnior', 'Especialista', 'CoordenaÃ§Ã£o', 'GerÃªncia', 'Diretoria']
+const AVAILABILITY_OPTIONS = ['Imediato', 'AtÃ© 15 dias', 'AtÃ© 30 dias', 'AtÃ© 60 dias', 'A combinar']
+const WORK_MODEL_OPTIONS = ['Presencial', 'HÃ­brido', 'Remoto', 'Indiferente']
+const WORKDAY_OPTIONS = ['Integral', 'Parcial', 'Noturno', 'Escala', 'FlexÃ­vel', 'A combinar']
+const CONTRACT_OPTIONS = ['CLT', 'PJ', 'TemporÃ¡rio', 'EstÃ¡gio', 'Trainee', 'A combinar']
+const YES_NO_NEGOTIABLE_OPTIONS = ['Sim', 'NÃ£o', 'A combinar']
 const DISTANCE_OPTIONS = ['5', '10', '20', '30', '50', '75', '100']
-const ACCESSIBILITY_LANGUAGE_OPTIONS = ['Português', 'Inglês', 'Espanhol', 'Outro']
+const ACCESSIBILITY_LANGUAGE_OPTIONS = ['PortuguÃªs', 'InglÃªs', 'Espanhol', 'Outro']
 const ACCESSIBILITY_CHANNEL_OPTIONS = ['E-mail', 'WhatsApp', 'Telefone', 'SMS', 'Portal', 'Indiferente']
-const ACCESSIBILITY_TIME_OPTIONS = ['Manhã', 'Tarde', 'Noite', 'Horário comercial', 'A combinar']
-const PCD_IDENTIFICATION_OPTIONS = ['Sim', 'Não', 'Prefiro não informar']
-const PCD_TYPE_OPTIONS = ['Física', 'Auditiva', 'Visual', 'Intelectual', 'Psicossocial', 'Múltipla', 'Outra']
+const ACCESSIBILITY_TIME_OPTIONS = ['ManhÃ£', 'Tarde', 'Noite', 'HorÃ¡rio comercial', 'A combinar']
+const PCD_IDENTIFICATION_OPTIONS = ['Sim', 'NÃ£o', 'Prefiro nÃ£o informar']
+const PCD_TYPE_OPTIONS = ['FÃ­sica', 'Auditiva', 'Visual', 'Intelectual', 'Psicossocial', 'MÃºltipla', 'Outra']
 const BRAZILIAN_STATE_OPTIONS: BrazilianStateOption[] = [
   { sigla: 'AC', nome: 'Acre' },
   { sigla: 'AL', nome: 'Alagoas' },
-  { sigla: 'AP', nome: 'Amapá' },
+  { sigla: 'AP', nome: 'AmapÃ¡' },
   { sigla: 'AM', nome: 'Amazonas' },
   { sigla: 'BA', nome: 'Bahia' },
-  { sigla: 'CE', nome: 'Ceará' },
+  { sigla: 'CE', nome: 'CearÃ¡' },
   { sigla: 'DF', nome: 'Distrito Federal' },
-  { sigla: 'ES', nome: 'Espírito Santo' },
-  { sigla: 'GO', nome: 'Goiás' },
-  { sigla: 'MA', nome: 'Maranhão' },
+  { sigla: 'ES', nome: 'EspÃ­rito Santo' },
+  { sigla: 'GO', nome: 'GoiÃ¡s' },
+  { sigla: 'MA', nome: 'MaranhÃ£o' },
   { sigla: 'MT', nome: 'Mato Grosso' },
   { sigla: 'MS', nome: 'Mato Grosso do Sul' },
   { sigla: 'MG', nome: 'Minas Gerais' },
-  { sigla: 'PA', nome: 'Pará' },
-  { sigla: 'PB', nome: 'Paraíba' },
-  { sigla: 'PR', nome: 'Paraná' },
+  { sigla: 'PA', nome: 'ParÃ¡' },
+  { sigla: 'PB', nome: 'ParaÃ­ba' },
+  { sigla: 'PR', nome: 'ParanÃ¡' },
   { sigla: 'PE', nome: 'Pernambuco' },
-  { sigla: 'PI', nome: 'Piauí' },
+  { sigla: 'PI', nome: 'PiauÃ­' },
   { sigla: 'RJ', nome: 'Rio de Janeiro' },
   { sigla: 'RN', nome: 'Rio Grande do Norte' },
   { sigla: 'RS', nome: 'Rio Grande do Sul' },
-  { sigla: 'RO', nome: 'Rondônia' },
+  { sigla: 'RO', nome: 'RondÃ´nia' },
   { sigla: 'RR', nome: 'Roraima' },
   { sigla: 'SC', nome: 'Santa Catarina' },
-  { sigla: 'SP', nome: 'São Paulo' },
+  { sigla: 'SP', nome: 'SÃ£o Paulo' },
   { sigla: 'SE', nome: 'Sergipe' },
   { sigla: 'TO', nome: 'Tocantins' },
 ]
@@ -341,40 +317,40 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
   'pt-BR': {
     helpLink: 'Precisa de ajuda?',
     brandEyebrow: 'Portal de Vagas',
-    brandTitle: 'Construa sua carreira onde a inovação nasce.',
-    brandSubtitle: 'Entre no portal de vagas da Liotécnica para explorar oportunidades, completar seu perfil e acompanhar cada etapa da sua candidatura.',
+    brandTitle: 'Construa sua carreira onde a inovaÃ§Ã£o nasce.',
+    brandSubtitle: 'Entre no portal de vagas da LiotÃ©cnica para explorar oportunidades, completar seu perfil e acompanhar cada etapa da sua candidatura.',
     brandBadge: 'Vagas abertas em 2026',
-    secureLogin: 'Conexão segura - LGPD',
-    copyright: '© 2026 Liotécnica Indústria de Alimentos',
+    secureLogin: 'ConexÃ£o segura - LGPD',
+    copyright: 'Â© 2026 LiotÃ©cnica IndÃºstria de Alimentos',
     pillar1Title: '+1.500 colaboradores',
-    pillar1: 'Indústria líder no setor alimentício, presente em todo o Brasil.',
+    pillar1: 'IndÃºstria lÃ­der no setor alimentÃ­cio, presente em todo o Brasil.',
     pillar2Title: 'Plano de carreira',
     pillar2: 'Trilhas estruturadas, mentorias e programas de desenvolvimento.',
     pillar3Title: 'Pacote completo',
-    pillar3: 'Plano de saúde, refeição, Gympass, PLR e auxílio educação.',
+    pillar3: 'Plano de saÃºde, refeiÃ§Ã£o, Gympass, PLR e auxÃ­lio educaÃ§Ã£o.',
     title: 'Acesse sua conta',
-    subtitle: 'Acompanhe suas candidaturas, complete seu perfil e descubra vagas que combinam com você.',
+    subtitle: 'Acompanhe suas candidaturas, complete seu perfil e descubra vagas que combinam com vocÃª.',
     titleRegister: 'Crie sua conta',
-    subtitleRegister: 'Leva menos de 2 minutos. Você poderá completar seu perfil depois.',
-    tenant: 'Organização',
+    subtitleRegister: 'Leva menos de 2 minutos. VocÃª poderÃ¡ completar seu perfil depois.',
+    tenant: 'OrganizaÃ§Ã£o',
     email: 'E-mail',
     emailPlaceholder: 'voce@empresa.com',
     password: 'Senha',
-    passwordPlaceholder: 'Mínimo 8 caracteres',
+    passwordPlaceholder: 'MÃ­nimo 8 caracteres',
     forgot: 'Esqueci minha senha',
     rememberMe: 'Manter conectado neste dispositivo',
     loginButton: 'Entrar no portal',
     processing: 'Entrando...',
     creating: 'Criando conta...',
-    createHint: 'Ainda não tem cadastro?',
+    createHint: 'Ainda nÃ£o tem cadastro?',
     createAccess: 'Criar conta',
-    haveAccount: 'Já tem uma conta?',
+    haveAccount: 'JÃ¡ tem uma conta?',
     signIn: 'Entrar',
     languageLabel: 'Idioma',
     helpTitle: 'Como funciona o processo seletivo',
-    helpSubtitle: 'Etapas para acompanhar sua candidatura na Liotécnica.',
-    helpStep1: 'Crie seu perfil único e candidate-se às vagas em poucos cliques.',
-    helpStep2: 'Nossa equipe analisa seu perfil e dá retorno em até 5 dias úteis.',
+    helpSubtitle: 'Etapas para acompanhar sua candidatura na LiotÃ©cnica.',
+    helpStep1: 'Crie seu perfil Ãºnico e candidate-se Ã s vagas em poucos cliques.',
+    helpStep2: 'Nossa equipe analisa seu perfil e dÃ¡ retorno em atÃ© 5 dias Ãºteis.',
     helpStep3: 'Entrevista com gestor.',
     helpStep4: 'Recebimento da oferta, exames e onboarding.',
     close: 'Fechar',
@@ -392,21 +368,21 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
     ssoGoogle: 'Continuar com Google',
     unavailable: 'em breve',
     or: 'ou',
-    termsPrefix: 'Ao continuar, você concorda com os',
+    termsPrefix: 'Ao continuar, vocÃª concorda com os',
     termsUse: 'Termos de uso',
     termsAnd: 'e a',
-    privacyPolicy: 'Política de Privacidade',
-    termsSuffix: 'da Liotécnica.',
-    passwordsDontMatch: 'As senhas não conferem.',
+    privacyPolicy: 'PolÃ­tica de Privacidade',
+    termsSuffix: 'da LiotÃ©cnica.',
+    passwordsDontMatch: 'As senhas nÃ£o conferem.',
   },
   'en-US': {
     helpLink: 'Need help?',
     brandEyebrow: 'Jobs Portal',
     brandTitle: 'Build your career where innovation begins.',
-    brandSubtitle: 'Access Liotécnica jobs, complete your profile, and follow every step of your application.',
+    brandSubtitle: 'Access LiotÃ©cnica jobs, complete your profile, and follow every step of your application.',
     brandBadge: 'Open roles in 2026',
     secureLogin: 'Secure connection - LGPD',
-    copyright: '© 2026 Liotécnica Food Industries',
+    copyright: 'Â© 2026 LiotÃ©cnica Food Industries',
     pillar1Title: '1,500+ employees',
     pillar1: 'Leading food-industry company, present across Brazil.',
     pillar2Title: 'Career growth',
@@ -433,7 +409,7 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
     signIn: 'Sign in',
     languageLabel: 'Language',
     helpTitle: 'How the hiring process works',
-    helpSubtitle: 'Steps to follow your application at Liotécnica.',
+    helpSubtitle: 'Steps to follow your application at LiotÃ©cnica.',
     helpStep1: 'Quick signup and a single profile.',
     helpStep2: 'Screening and response within 5 days.',
     helpStep3: 'Interview with the manager.',
@@ -453,7 +429,7 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
     ssoGoogle: 'Continue with Google',
     unavailable: 'coming soon',
     or: 'or',
-    termsPrefix: 'By continuing, you agree to Liotécnica',
+    termsPrefix: 'By continuing, you agree to LiotÃ©cnica',
     termsUse: 'Terms of Use',
     termsAnd: 'and',
     privacyPolicy: 'Privacy Policy',
@@ -461,65 +437,65 @@ const ACCESS_TRANSLATIONS: Record<AccessLanguage, Record<string, string>> = {
     passwordsDontMatch: 'Passwords do not match.',
   },
   'es-ES': {
-    helpLink: '¿Necesitas ayuda?',
+    helpLink: 'Â¿Necesitas ayuda?',
     brandEyebrow: 'Portal de Vacantes',
-    brandTitle: 'Construye tu carrera donde nace la innovación.',
-    brandSubtitle: 'Accede al portal de vacantes de Liotécnica para explorar oportunidades, completar tu perfil y seguir tu candidatura.',
+    brandTitle: 'Construye tu carrera donde nace la innovaciÃ³n.',
+    brandSubtitle: 'Accede al portal de vacantes de LiotÃ©cnica para explorar oportunidades, completar tu perfil y seguir tu candidatura.',
     brandBadge: 'Vacantes abiertas en 2026',
-    secureLogin: 'Conexión segura - LGPD',
-    copyright: '© 2026 Liotécnica Industria de Alimentos',
+    secureLogin: 'ConexiÃ³n segura - LGPD',
+    copyright: 'Â© 2026 LiotÃ©cnica Industria de Alimentos',
     pillar1Title: '+1.500 colaboradores',
-    pillar1: 'Industria líder del sector alimenticio, presente en todo Brasil.',
+    pillar1: 'Industria lÃ­der del sector alimenticio, presente en todo Brasil.',
     pillar2Title: 'Plan de carrera',
-    pillar2: 'Trayectorias estructuradas, mentorías y programas de desarrollo.',
+    pillar2: 'Trayectorias estructuradas, mentorÃ­as y programas de desarrollo.',
     pillar3Title: 'Beneficios completos',
-    pillar3: 'Salud, comida, Gympass, participación en utilidades y apoyo educativo.',
+    pillar3: 'Salud, comida, Gympass, participaciÃ³n en utilidades y apoyo educativo.',
     title: 'Accede a tu cuenta',
     subtitle: 'Sigue tus candidaturas, completa tu perfil y descubre vacantes para ti.',
     titleRegister: 'Crea tu cuenta',
-    subtitleRegister: 'Toma menos de 2 minutos. Puedes completar tu perfil después.',
-    tenant: 'Organización',
+    subtitleRegister: 'Toma menos de 2 minutos. Puedes completar tu perfil despuÃ©s.',
+    tenant: 'OrganizaciÃ³n',
     email: 'Correo',
     emailPlaceholder: 'tu@empresa.com',
-    password: 'Contraseña',
-    passwordPlaceholder: 'Mínimo 8 caracteres',
-    forgot: 'Olvidé mi contraseña',
+    password: 'ContraseÃ±a',
+    passwordPlaceholder: 'MÃ­nimo 8 caracteres',
+    forgot: 'OlvidÃ© mi contraseÃ±a',
     rememberMe: 'Mantenerme conectado en este dispositivo',
     loginButton: 'Entrar al portal',
     processing: 'Entrando...',
     creating: 'Creando cuenta...',
-    createHint: '¿Aún no tienes cuenta?',
+    createHint: 'Â¿AÃºn no tienes cuenta?',
     createAccess: 'Crear cuenta',
-    haveAccount: '¿Ya tienes cuenta?',
+    haveAccount: 'Â¿Ya tienes cuenta?',
     signIn: 'Entrar',
     languageLabel: 'Idioma',
-    helpTitle: 'Cómo funciona el proceso',
-    helpSubtitle: 'Pasos para seguir tu candidatura en Liotécnica.',
-    helpStep1: 'Crea tu perfil único y postúlate en pocos clics.',
-    helpStep2: 'Nuestro equipo revisa tu perfil y responde en hasta 5 días hábiles.',
+    helpTitle: 'CÃ³mo funciona el proceso',
+    helpSubtitle: 'Pasos para seguir tu candidatura en LiotÃ©cnica.',
+    helpStep1: 'Crea tu perfil Ãºnico y postÃºlate en pocos clics.',
+    helpStep2: 'Nuestro equipo revisa tu perfil y responde en hasta 5 dÃ­as hÃ¡biles.',
     helpStep3: 'Entrevista con el responsable.',
-    helpStep4: 'Oferta, exámenes e incorporación.',
+    helpStep4: 'Oferta, exÃ¡menes e incorporaciÃ³n.',
     close: 'Cerrar',
     fullName: 'Nombre completo',
     fullNamePlaceholder: 'Como en tu documento',
-    phone: 'Teléfono',
+    phone: 'TelÃ©fono',
     phonePlaceholder: '+34 600 000 000',
     city: 'Ciudad',
     cityPlaceholder: 'Selecciona tu ciudad',
     uf: 'Estado',
     ufPlaceholder: 'Selecciona estado',
     loadingCities: 'Cargando ciudades...',
-    confirmPassword: 'Confirmar contraseña',
+    confirmPassword: 'Confirmar contraseÃ±a',
     ssoMicrosoft: 'Continuar con Microsoft',
     ssoGoogle: 'Continuar con Google',
-    unavailable: 'próximamente',
+    unavailable: 'prÃ³ximamente',
     or: 'o',
     termsPrefix: 'Al continuar, aceptas los',
-    termsUse: 'Términos de uso',
+    termsUse: 'TÃ©rminos de uso',
     termsAnd: 'y la',
-    privacyPolicy: 'Política de Privacidad',
-    termsSuffix: 'de Liotécnica.',
-    passwordsDontMatch: 'Las contraseñas no coinciden.',
+    privacyPolicy: 'PolÃ­tica de Privacidad',
+    termsSuffix: 'de LiotÃ©cnica.',
+    passwordsDontMatch: 'Las contraseÃ±as no coinciden.',
   },
 }
 
@@ -606,7 +582,7 @@ function PortalApp() {
               <div className="portal-actions">
                 {session ?(
                   <div className="portal-user-menu">
-                    <Link className="portal-action-link" to={withTenant('/candidato', tenantId)}>Meu espaço</Link>
+                    <Link className="portal-action-link" to={withTenant('/candidato', tenantId)}>Meu espaÃ§o</Link>
                     <button
                       className="portal-user-btn"
                       type="button"
@@ -631,7 +607,7 @@ function PortalApp() {
                             setUserMenuOpen(false)
                           }}
                         >
-                          Meu espaço
+                          Meu espaÃ§o
                         </Link>
                         <div className="portal-user-dropdown-divider" />
                         <button
@@ -729,7 +705,7 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
   useEffect(() => {
     let cancelled = false
     fetch(IBGE_STATES_URL)
-      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponÃ­vel')))
       .then((states) => {
         if (cancelled) return
         const normalized = states
@@ -756,7 +732,7 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
     let cancelled = false
     setCityLoading(true)
     fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(register.uf)}/municipios?orderBy=nome`)
-      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponÃ­vel')))
       .then((cities) => {
         if (cancelled) return
         const names = cities.map((city) => city.nome).filter(Boolean)
@@ -836,7 +812,7 @@ function AccessPage({ ctx }: { ctx: AuthContext }) {
 
         <div className="auth-brand-top">
           <div className="auth-brand-lockup">
-            <img src="/images/logo-liotecnica.png" alt="Liotécnica" />
+            <img src="/images/logo-liotecnica.png" alt="LiotÃ©cnica" />
           </div>
           <span className="auth-brand-secure">
             <i className="fas fa-lock" aria-hidden="true"></i>
@@ -1054,7 +1030,7 @@ function parseExperienceStartDate(value?: string | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-/** Cargo em experiência sem data de fim, senão a experiência mais recente; por fim “cargo alvo” das preferências. */
+/** Cargo em experiÃªncia sem data de fim, senÃ£o a experiÃªncia mais recente; por fim â€œcargo alvoâ€ das preferÃªncias. */
 function deriveCargoAtualFromExperiences(experiences: PortalExperience[], cargoAlvo?: string | null): string {
   if (!experiences.length) return trimApplyField(cargoAlvo)
   const hasFim = (e: PortalExperience) => trimApplyField(e.fim).length > 0
@@ -1069,7 +1045,7 @@ function deriveCargoAtualFromExperiences(experiences: PortalExperience[], cargoA
   return trimApplyField(cargoAlvo)
 }
 
-/** Estimativa a partir da data de início mais antiga nas experiências (campo data do formulário). */
+/** Estimativa a partir da data de inÃ­cio mais antiga nas experiÃªncias (campo data do formulÃ¡rio). */
 function deriveAnosExperienciaFromExperiences(experiences: PortalExperience[]): string {
   const times = experiences
     .map((e) => parseExperienceStartDate(e.inicio)?.getTime())
@@ -1081,7 +1057,7 @@ function deriveAnosExperienciaFromExperiences(experiences: PortalExperience[]): 
   return String(rounded)
 }
 
-/** Apenas dígitos; limita a 0–80 (contrato da API). */
+/** Apenas dÃ­gitos; limita a 0â€“80 (contrato da API). */
 function sanitizeAnosExperienciaInput(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 3)
   if (digits === '') return ''
@@ -1122,7 +1098,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
     setError(null)
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
-        setMessage(attempt === 1 ?'Buscando oportunidades abertas...' : `API indisponível, tentando novamente (${attempt}/3)...`)
+        setMessage(attempt === 1 ?'Buscando oportunidades abertas...' : `API indisponÃ­vel, tentando novamente (${attempt}/3)...`)
         const params = new URLSearchParams({
           tenantId: ctx.tenantId,
           page: '1',
@@ -1141,7 +1117,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           await sleep(1800 * attempt)
           continue
         }
-        setError(readError(err) || 'Portal temporariamente indisponível. Tente novamente mais tarde.')
+        setError(readError(err) || 'Portal temporariamente indisponÃ­vel. Tente novamente mais tarde.')
         setLoading(false)
         return
       }
@@ -1194,7 +1170,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
     ]).then(([profile, skillsPortfolio, expProject, preferences]) => {
       if (cancelled) return
       if (!profile) {
-        setApplyResult('Não foi possível carregar seus dados básicos. Saia e entre novamente no portal para atualizar sua sessão.')
+        setApplyResult('NÃ£o foi possÃ­vel carregar seus dados bÃ¡sicos. Saia e entre novamente no portal para atualizar sua sessÃ£o.')
         return
       }
       const experiences = expProject?.experiences ?? []
@@ -1232,8 +1208,8 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
     if (appliedJobIds.has(job.id)) {
       setApplicationFeedback({
         type: 'success',
-        title: 'Você já se candidatou',
-        message: `Sua candidatura para "${job.titulo}" já está registrada.`,
+        title: 'VocÃª jÃ¡ se candidatou',
+        message: `Sua candidatura para "${job.titulo}" jÃ¡ estÃ¡ registrada.`,
       })
       return
     }
@@ -1286,7 +1262,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
       setSelectedJob(null)
       setApplicationFeedback({
         type: 'error',
-        title: 'Não foi possível enviar',
+        title: 'NÃ£o foi possÃ­vel enviar',
         message: readError(err),
       })
     } finally {
@@ -1298,8 +1274,8 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
       <section className="jobs-board-hero">
         <div className="portal-container jobs-board-hero-inner">
           <div className="jobs-board-heading">
-            <h1>Vagas abertas <em>na Liotécnica</em></h1>
-            <p>{jobs.length} {jobs.length === 1 ? 'oportunidade disponível' : 'oportunidades disponíveis'} · atualizado hoje</p>
+            <h1>Vagas abertas <em>na LiotÃ©cnica</em></h1>
+            <p>{jobs.length} {jobs.length === 1 ? 'oportunidade disponÃ­vel' : 'oportunidades disponÃ­veis'} Â· atualizado hoje</p>
           </div>
           <div className="jobs-board-controls">
             <div className="jobs-board-search">
@@ -1307,7 +1283,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
               <input
                 name="q"
                 type="search"
-                placeholder="Buscar por cargo, área ou cidade..."
+                placeholder="Buscar por cargo, Ã¡rea ou cidade..."
                 autoComplete="off"
                 value={filters.q}
                 onChange={(e) => setFilters((v) => ({ ...v, q: e.target.value }))}
@@ -1326,17 +1302,17 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
             </button>
             <select className="jobs-board-sort" value={filters.sort} onChange={(e) => setFilters((v) => ({ ...v, sort: e.target.value }))}>
               <option value="recent">Mais recentes</option>
-              <option value="salaryDesc">Maior salário</option>
+              <option value="salaryDesc">Maior salÃ¡rio</option>
               <option value="companyAsc">Empresa (A-Z)</option>
             </select>
             <button className="jobs-board-search-btn" type="button" onClick={() => void loadJobs()}>Buscar</button>
           </div>
           {showFilters ?(
             <section className="jobs-board-filters">
-              <JobFilterGroup label="Área" options={filterOptions.area} value={filters.area} onChange={(area) => setFilters((v) => ({ ...v, area }))} />
-              <JobFilterGroup label="Localização" options={filterOptions.location} value={filters.location} onChange={(location) => setFilters((v) => ({ ...v, location }))} />
+              <JobFilterGroup label="Ãrea" options={filterOptions.area} value={filters.area} onChange={(area) => setFilters((v) => ({ ...v, area }))} />
+              <JobFilterGroup label="LocalizaÃ§Ã£o" options={filterOptions.location} value={filters.location} onChange={(location) => setFilters((v) => ({ ...v, location }))} />
               <JobFilterGroup label="Modalidade" options={filterOptions.mode} value={filters.mode} onChange={(mode) => setFilters((v) => ({ ...v, mode }))} />
-              <JobFilterGroup label="Contratação" options={filterOptions.type} value={filters.type} onChange={(type) => setFilters((v) => ({ ...v, type }))} />
+              <JobFilterGroup label="ContrataÃ§Ã£o" options={filterOptions.type} value={filters.type} onChange={(type) => setFilters((v) => ({ ...v, type }))} />
               <JobFilterGroup label="Senioridade" options={filterOptions.level} value={filters.level} onChange={(level) => setFilters((v) => ({ ...v, level }))} />
               <div className="jobs-board-filter-actions">
                 <span>{activeFilterCount} filtro{activeFilterCount === 1 ? '' : 's'} ativo{activeFilterCount === 1 ? '' : 's'}</span>
@@ -1359,7 +1335,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
             <div className="service-unavailable-icon" aria-hidden="true">
               <i className="fas fa-cloud-slash"></i>
             </div>
-            <h3>Portal temporariamente indisponível</h3>
+            <h3>Portal temporariamente indisponÃ­vel</h3>
             <p>{error}</p>
             <button className="toolbar-btn toolbar-btn-primary" type="button" onClick={() => void loadJobs()}>Tentar novamente</button>
           </section>
@@ -1401,7 +1377,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                       {alreadyApplied ?(
                         <span className="jobs-board-pill applied">
                           <i className="fas fa-check" aria-hidden="true"></i>
-                          Já candidatado
+                          JÃ¡ candidatado
                         </span>
                       ) : null}
                     </div>
@@ -1442,14 +1418,14 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
           <div className="modal-backdrop" onClick={() => setSelectedJob(null)}>
             <div className="modal-card application-modal-card" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <div className="eyebrow">Candidatura rápida</div>
+                <div className="eyebrow">Candidatura rÃ¡pida</div>
                 <button className="application-modal-close" type="button" onClick={() => setSelectedJob(null)} aria-label="Fechar">
                   <i className="fas fa-times" aria-hidden="true"></i>
                 </button>
               </div>
               <div className="application-modal-body">
                 <JobDetailsPanel job={selectedJob} />
-                <section className="application-form-panel" aria-label="Formulário de candidatura">
+                <section className="application-form-panel" aria-label="FormulÃ¡rio de candidatura">
                   <form className="stack-form" onSubmit={submitApplication}>
                 <div className="grid two">
                   <label><span>Nome</span><input value={applyData.nome} onChange={(e) => setApplyData((v) => ({ ...v, nome: e.target.value }))} required readOnly={Boolean(ctx.session)} /></label>
@@ -1461,12 +1437,12 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                 </div>
                 <div className="grid two">
                   <label><span>LinkedIn</span><input value={applyData.linkedin} onChange={(e) => setApplyData((v) => ({ ...v, linkedin: e.target.value }))} /></label>
-                  <label><span>Portfólio</span><input value={applyData.portfolio} onChange={(e) => setApplyData((v) => ({ ...v, portfolio: e.target.value }))} /></label>
+                  <label><span>PortfÃ³lio</span><input value={applyData.portfolio} onChange={(e) => setApplyData((v) => ({ ...v, portfolio: e.target.value }))} /></label>
                 </div>
                 <div className="grid two">
                   <label><span>Cargo atual</span><input value={applyData.cargoAtual} onChange={(e) => setApplyData((v) => ({ ...v, cargoAtual: e.target.value }))} /></label>
                   <label>
-                    <span>Anos de experiência</span>
+                    <span>Anos de experiÃªncia</span>
                     <input
                       inputMode="numeric"
                       autoComplete="off"
@@ -1476,9 +1452,9 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                     />
                   </label>
                 </div>
-                <label><span>Observações</span><textarea rows={4} value={applyData.observacoes} onChange={(e) => setApplyData((v) => ({ ...v, observacoes: e.target.value }))} /></label>
+                <label><span>ObservaÃ§Ãµes</span><textarea rows={4} value={applyData.observacoes} onChange={(e) => setApplyData((v) => ({ ...v, observacoes: e.target.value }))} /></label>
                 <label>
-                  <span>Currículo (PDF, DOC ou DOCX)</span>
+                  <span>CurrÃ­culo (PDF, DOC ou DOCX)</span>
                   <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setApplyData((v) => ({ ...v, arquivo: e.target.files?.[0] ?? null }))} />
                 </label>
                 {applyResult ?<div className={`inline-alert ${applyResult.includes('sucesso') ?'success' : 'error'}`}>{applyResult}</div> : null}
@@ -1540,7 +1516,7 @@ function JobFilterGroup({
             <span>{option}</span>
           </label>
         )) : (
-          <span className="jobs-board-filter-empty">Sem opções</span>
+          <span className="jobs-board-filter-empty">Sem opÃ§Ãµes</span>
         )}
       </div>
     </div>
@@ -1563,9 +1539,9 @@ function JobDetailsPanel({ job }: { job: PortalJob }) {
       </div>
 
       <div className="application-job-meta">
-        <DetailItem label="Área" value={job.area || 'Não informado'} />
+        <DetailItem label="Ãrea" value={job.area || 'NÃ£o informado'} />
         <DetailItem label="Local" value={formatJobLocation(job)} />
-        <DetailItem label="Salário" value={formatSalary(job.salarioMinimo, job.salarioMaximo)} />
+        <DetailItem label="SalÃ¡rio" value={formatSalary(job.salarioMinimo, job.salarioMaximo)} />
         <DetailItem label="Vagas" value={`${job.quantidadeVagas || 1}`} />
       </div>
 
@@ -1577,8 +1553,8 @@ function JobDetailsPanel({ job }: { job: PortalJob }) {
       </div>
 
       <section className="application-detail-section">
-        <h5>Descrição</h5>
-        <p>{job.descricaoPublica?.trim() || 'Descrição pública não informada para esta vaga.'}</p>
+        <h5>DescriÃ§Ã£o</h5>
+        <p>{job.descricaoPublica?.trim() || 'DescriÃ§Ã£o pÃºblica nÃ£o informada para esta vaga.'}</p>
       </section>
 
       <section className="application-detail-section">
@@ -1630,7 +1606,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const [experience, setExperience] = useState<PortalExperienceProject | null>(null)
   const [preferences, setPreferences] = useState<PortalPreferences | null>(null)
   const [accessibility, setAccessibility] = useState<PortalAccessibility | null>(null)
-  const [agenda, setAgenda] = useState<PortalAgenda | null>(null)
   const [notifications, setNotifications] = useState<PortalNotifications | null>(null)
   const [lgpd, setLgpd] = useState<PortalLgpd | null>(null)
   const [documents, setDocuments] = useState<PortalDocument[]>([])
@@ -1662,7 +1637,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const [skillDraft, setSkillDraft] = useState({
     tipo: 'Hard',
     nome: '',
-    nivel: 'Intermediário',
+    nivel: 'IntermediÃ¡rio',
     evidencia: '',
   })
   const [certEditorOpen, setCertEditorOpen] = useState(false)
@@ -1705,7 +1680,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
       experienceData,
       preferencesData,
       accessibilityData,
-      agendaData,
       notificationsData,
       documentsData,
       referencesData,
@@ -1719,7 +1693,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
       authFetch<PortalExperienceProject>(`/api/public/portal-candidates/${candidateId}/experience-projects`),
       authFetch<PortalPreferences>(`/api/public/portal-candidates/${candidateId}/preferences`),
       authFetch<PortalAccessibility>(`/api/public/portal-candidates/${candidateId}/accessibility`),
-      authFetch<PortalAgenda>(`/api/public/portal-candidates/${candidateId}/agenda`),
       authFetch<PortalNotifications>(`/api/public/portal-candidates/${candidateId}/notifications`),
       authFetch<{ items: PortalDocument[] }>(`/api/public/portal-candidates/${candidateId}/documents`),
       authFetch<{ items: PortalReference[] }>(`/api/public/portal-candidates/${candidateId}/references`),
@@ -1744,7 +1717,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
       experienceData,
       preferencesData,
       accessibilityData,
-      agendaData,
       notificationsData,
       documents: documentsData.items ?? [],
       references: referencesData.items ?? [],
@@ -1762,7 +1734,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     setExperience(snapshot.experienceData)
     setPreferences(snapshot.preferencesData)
     setAccessibility(snapshot.accessibilityData)
-    setAgenda(snapshot.agendaData)
     setNotifications(snapshot.notificationsData)
     setDocuments(snapshot.documents)
     setReferences(snapshot.references)
@@ -1893,7 +1864,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   async function savePortfolioSummary(
     prefs = portfolioPrefsForm,
     links = portfolioLinksForm,
-    successText = 'Competências & portfólio atualizados.',
+    successText = 'CompetÃªncias & portfÃ³lio atualizados.',
   ) {
     await saveJson(
       `/api/public/portal-candidates/${candidateId}/skills-portfolio`,
@@ -1916,7 +1887,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     setSkillDraft({
       tipo: skill?.tipo ?? 'Hard',
       nome: skill?.nome ?? '',
-      nivel: skill?.nivel ?? 'Intermediário',
+      nivel: skill?.nivel ?? 'IntermediÃ¡rio',
       evidencia: skill?.evidencia ?? '',
     })
     setSkillEditorOpen(true)
@@ -1924,7 +1895,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
   async function saveSkillEditor() {
     if (!skillDraft.nome.trim()) {
-      setMessage('Informe o nome da competência.')
+      setMessage('Informe o nome da competÃªncia.')
       return
     }
     const path = editingSkillId
@@ -1938,7 +1909,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
         nivel: skillDraft.nivel,
         evidencia: skillDraft.evidencia.trim(),
       },
-      editingSkillId ?'Competência atualizada.' : 'Competência adicionada.',
+      editingSkillId ?'CompetÃªncia atualizada.' : 'CompetÃªncia adicionada.',
       editingSkillId ?'PUT' : 'POST',
     )
     setSkillEditorOpen(false)
@@ -1958,7 +1929,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
   async function saveCertificationEditor() {
     if (!certDraft.nome.trim()) {
-      setMessage('Informe o nome da certificação.')
+      setMessage('Informe o nome da certificaÃ§Ã£o.')
       return
     }
     const path = editingCertId
@@ -1972,7 +1943,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
         ano: certDraft.ano.trim(),
         link: certDraft.link.trim(),
       },
-      editingCertId ?'Certificação atualizada.' : 'Certificação adicionada.',
+      editingCertId ?'CertificaÃ§Ã£o atualizada.' : 'CertificaÃ§Ã£o adicionada.',
       editingCertId ?'PUT' : 'POST',
     )
     setCertEditorOpen(false)
@@ -1995,31 +1966,30 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const matchesCount = matches.length
   const referencesCount = references.length
 
-  const currentRole = portfolio?.preferences.workModel || preferences?.CargoAlvo || 'Perfil em construção'
-  const currentLocation = [form.cidade, form.uf].filter(Boolean).join(', ') || 'Localidade não informada'
-  const linkedinValue = profile?.linkedinUrl || portfolioLinksForm.linkedin || 'Não informado'
+  const currentRole = portfolio?.preferences.workModel || preferences?.CargoAlvo || 'Perfil em construÃ§Ã£o'
+  const currentLocation = [form.cidade, form.uf].filter(Boolean).join(', ') || 'Localidade nÃ£o informada'
+  const linkedinValue = profile?.linkedinUrl || portfolioLinksForm.linkedin || 'NÃ£o informado'
   const clampProgress = (value?: number | null) => Math.max(0, Math.min(100, Math.round(value ?? 0)))
   const countProgress = (count: number) => (count > 0 ?100 : 0)
   const sectionProgress = (key: string, fallback = 0) => clampProgress(completion?.sections?.[key] ?? fallback)
 
   const primarySectionTiles = [
-    { key: 'perfil', label: 'Identidade', sub: 'Dados básicos, avatar e currículo', icon: 'fa-user', value: sectionProgress('perfil', completion?.overall ?? 0), kind: 'percent' as const },
-    { key: 'exp', label: 'Experiência & Projetos', sub: 'Histórico profissional e entregas', icon: 'fa-briefcase', value: sectionProgress('exp', countProgress((experience?.experiences.length ?? 0) + (experience?.projects.length ?? 0))), kind: 'percent' as const },
-    { key: 'formacao', label: 'Formação & Educação', sub: 'Cursos, instituições e destaques', icon: 'fa-graduation-cap', value: sectionProgress('formacao', countProgress(education?.items.length ?? 0)), kind: 'percent' as const },
-    { key: 'comp', label: 'Competências & Portfólio', sub: 'Skills, certificados e links', icon: 'fa-bolt', value: sectionProgress('comp', countProgress((portfolio?.skills.length ?? 0) + (portfolio?.certifications.length ?? 0))), kind: 'percent' as const },
-    { key: 'pref', label: 'Preferências / Objetivos', sub: 'Pretensão, benefícios e prioridades', icon: 'fa-bullseye', value: sectionProgress('pref'), kind: 'percent' as const },
-    { key: 'agenda', label: 'Disponibilidade & Agenda', sub: 'Horários, entrevistas e bloqueios', icon: 'fa-calendar-alt', value: sectionProgress('agenda', countProgress(agenda?.blocks.length ?? 0)), kind: 'percent' as const },
-    { key: 'notif', label: 'Notificações & Comunicação', sub: 'Canais, alertas e frequência', icon: 'fa-bell', value: sectionProgress('notif'), kind: 'percent' as const },
+    { key: 'perfil', label: 'Identidade', sub: 'Dados bÃ¡sicos, avatar e currÃ­culo', icon: 'fa-user', value: sectionProgress('perfil', completion?.overall ?? 0), kind: 'percent' as const },
+    { key: 'exp', label: 'ExperiÃªncia & Projetos', sub: 'HistÃ³rico profissional e entregas', icon: 'fa-briefcase', value: sectionProgress('exp', countProgress((experience?.experiences.length ?? 0) + (experience?.projects.length ?? 0))), kind: 'percent' as const },
+    { key: 'formacao', label: 'FormaÃ§Ã£o & EducaÃ§Ã£o', sub: 'Cursos, instituiÃ§Ãµes e destaques', icon: 'fa-graduation-cap', value: sectionProgress('formacao', countProgress(education?.items.length ?? 0)), kind: 'percent' as const },
+    { key: 'comp', label: 'CompetÃªncias & PortfÃ³lio', sub: 'Skills, certificados e links', icon: 'fa-bolt', value: sectionProgress('comp', countProgress((portfolio?.skills.length ?? 0) + (portfolio?.certifications.length ?? 0))), kind: 'percent' as const },
+    { key: 'pref', label: 'PreferÃªncias / Objetivos', sub: 'PretensÃ£o, benefÃ­cios e prioridades', icon: 'fa-bullseye', value: sectionProgress('pref'), kind: 'percent' as const },
+    { key: 'notif', label: 'NotificaÃ§Ãµes & ComunicaÃ§Ã£o', sub: 'Canais, alertas e frequÃªncia', icon: 'fa-bell', value: sectionProgress('notif'), kind: 'percent' as const },
     { key: 'docs', label: 'Documentos & Anexos', sub: 'Arquivos e comprovantes', icon: 'fa-paperclip', value: documents.length, progress: countProgress(documents.length), kind: 'count' as const },
-    { key: 'refs', label: 'Referências', sub: 'Contatos profissionais', icon: 'fa-users', value: referencesCount, progress: countProgress(referencesCount), kind: 'count' as const },
-    { key: 'acess', label: 'Acessibilidade & Inclusão', sub: 'Preferências e necessidades de apoio', icon: 'fa-universal-access', value: sectionProgress('acess'), kind: 'percent' as const },
-    { key: 'lgpd', label: 'Privacidade / LGPD', sub: 'Consentimentos e retenção de dados', icon: 'fa-shield-alt', value: sectionProgress('lgpd', lgpd?.processarCandidatura ?100 : 0), kind: 'percent' as const },
+    { key: 'refs', label: 'ReferÃªncias', sub: 'Contatos profissionais', icon: 'fa-users', value: referencesCount, progress: countProgress(referencesCount), kind: 'count' as const },
+    { key: 'acess', label: 'Acessibilidade & InclusÃ£o', sub: 'PreferÃªncias e necessidades de apoio', icon: 'fa-universal-access', value: sectionProgress('acess'), kind: 'percent' as const },
+    { key: 'lgpd', label: 'Privacidade / LGPD', sub: 'Consentimentos e retenÃ§Ã£o de dados', icon: 'fa-shield-alt', value: sectionProgress('lgpd', lgpd?.processarCandidatura ?100 : 0), kind: 'percent' as const },
   ]
 
   const secondarySectionTiles = [
     { key: 'testes', label: 'Testes', sub: 'Etapas complementares do RH', icon: 'fa-clipboard-check', value: sectionProgress('testes'), kind: 'percent' as const },
-    { key: 'hist', label: 'Histórico de candidaturas', sub: 'Acompanhamento das inscrições', icon: 'fa-history', value: sectionProgress('hist'), kind: 'percent' as const },
-    { key: 'matches', label: 'Vagas sugeridas', sub: 'Oportunidades com maior aderência', icon: 'fa-star', value: matchesCount, progress: countProgress(matchesCount), kind: 'count' as const },
+    { key: 'hist', label: 'HistÃ³rico de candidaturas', sub: 'Acompanhamento das inscriÃ§Ãµes', icon: 'fa-history', value: sectionProgress('hist'), kind: 'percent' as const },
+    { key: 'matches', label: 'Vagas sugeridas', sub: 'Oportunidades com maior aderÃªncia', icon: 'fa-star', value: matchesCount, progress: countProgress(matchesCount), kind: 'count' as const },
     { key: 'clear', label: 'Limpar perfil', sub: 'Remover dados auxiliares do perfil', icon: 'fa-eraser', value: 0, progress: 0, kind: 'action' as const },
   ]
 
@@ -2027,7 +1997,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const selectedTile = selectedSection ? sectionTiles.find((tile) => tile.key === selectedSection) ?? null : null
   const tileProgress = (tile: (typeof sectionTiles)[number]) => tile.kind === 'action' ?0 : clampProgress('progress' in tile ?tile.progress : tile.value)
   const tileStatus = (tile: (typeof sectionTiles)[number]) => {
-    if (tile.kind === 'action') return 'Ação'
+    if (tile.kind === 'action') return 'AÃ§Ã£o'
     const progress = tileProgress(tile)
     if (progress === 100) return 'Completo'
     if (progress >= 50) return 'Em andamento'
@@ -2050,17 +2020,17 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
               </div>
               <div>
                 <h2 className="profile-modal-title">{form.nome || ctx.session?.candidate.nome || 'Meu perfil'}</h2>
-                <div className="profile-modal-subtitle">{currentRole} · {currentLocation}</div>
+                <div className="profile-modal-subtitle">{currentRole} Â· {currentLocation}</div>
               </div>
             </div>
             <div className="profile-modal-header-actions">
               <button className="profile-modal-action secondary" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>
                 <i className="fas fa-eye" aria-hidden="true"></i>
-                <span>Visualizar currículo</span>
+                <span>Visualizar currÃ­culo</span>
               </button>
               <button className="profile-modal-action primary" type="button" onClick={() => void downloadResumePdf(authFetch, candidateId)}>
                 <i className="fas fa-file-pdf" aria-hidden="true"></i>
-                <span>Baixar currículo</span>
+                <span>Baixar currÃ­culo</span>
               </button>
               <button type="button" className="profile-modal-close" onClick={onClose} aria-label="Fechar">
                 <i className="fas fa-times" aria-hidden="true"></i>
@@ -2071,7 +2041,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
           <div className="profile-modal-body">
             {message ?<div className={`inline-alert ${message.includes('sucesso') ?'success' : 'error'}`}>{message}</div> : null}
             {loading ?(
-              <PageLoading label="Sincronizando seu perfil e suas preferências..." />
+              <PageLoading label="Sincronizando seu perfil e suas preferÃªncias..." />
             ) : (
               <div className={`profile-modal-grid${selectedSection ?' is-detail' : ''}`}>
                 {!selectedSection ?(
@@ -2079,15 +2049,15 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                     <div className="profile-mini-grid">
                       <div className="profile-mini-card">
                         <span>E-mail</span>
-                        <strong>{form.email || 'Não informado'}</strong>
+                        <strong>{form.email || 'NÃ£o informado'}</strong>
                       </div>
                       <div className="profile-mini-card">
                         <span>Telefone</span>
-                        <strong>{formatBrazilianPhone(form.fone) || 'Não informado'}</strong>
+                        <strong>{formatBrazilianPhone(form.fone) || 'NÃ£o informado'}</strong>
                       </div>
                       <div className="profile-mini-card">
                         <span>Celular</span>
-                        <strong>{formatBrazilianPhone(form.celular) || 'Não informado'}</strong>
+                        <strong>{formatBrazilianPhone(form.celular) || 'NÃ£o informado'}</strong>
                       </div>
                       <div className="profile-mini-card">
                         <span>LinkedIn</span>
@@ -2096,7 +2066,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                     </div>
 
                     <div className="profile-modal-section-heading">
-                      <span>Áreas do perfil</span>
+                      <span>Ãreas do perfil</span>
                       <strong>{clampProgress(completion?.overall)}% completo</strong>
                     </div>
 
@@ -2132,7 +2102,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                     <div className="profile-secondary-area">
                       <div className="profile-modal-section-heading compact">
-                        <span>Ações complementares</span>
+                        <span>AÃ§Ãµes complementares</span>
                       </div>
                       <div className="profile-secondary-grid">
                         {secondarySectionTiles.map((tile) => (
@@ -2157,11 +2127,11 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         <div className="profile-section-detail-head">
                           <div>
                             <div className="profile-section-detail-title">{selectedTile?.label}</div>
-                            <div className="profile-section-detail-subtitle">{selectedTile?.sub || 'Detalhes da seção selecionada.'}</div>
+                            <div className="profile-section-detail-subtitle">{selectedTile?.sub || 'Detalhes da seÃ§Ã£o selecionada.'}</div>
                           </div>
                           <button className="profile-back-button" type="button" onClick={() => setSelectedSection(null)}>
                             <i className="fas fa-arrow-left" aria-hidden="true"></i>
-                            <span>Todas as áreas</span>
+                            <span>Todas as Ã¡reas</span>
                           </button>
                         </div>
                       ) : null}
@@ -2204,21 +2174,21 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                           <div className="toolbar-row">
                             <label className="upload-label">
-                              Enviar currículo
+                              Enviar currÃ­culo
                               <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
                                 const file = event.target.files?.[0]
-                                if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'Currículo enviado.')
+                                if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'CurrÃ­culo enviado.')
                               }} />
                             </label>
                             <label className="upload-label">
-                              Parsear currículo
+                              Parsear currÃ­culo
                               <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
                                 const file = event.target.files?.[0]
                                 if (!file) return
                                 const formData = new FormData()
                                 formData.append('arquivo', file)
                                 void authFetch<Record<string, unknown>>(`/api/public/portal-candidates/${candidateId}/parse-resume`, { method: 'POST', body: formData }, false)
-                                  .then(() => setMessage('Currículo processado com sucesso.'))
+                                  .then(() => setMessage('CurrÃ­culo processado com sucesso.'))
                                   .catch((err) => setMessage(readError(err)))
                               }} />
                             </label>
@@ -2240,7 +2210,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                           <div className="detail-group">
                             <div className="detail-group-title">Privacidade</div>
                             <p className="detail-paragraph">
-                              No MVP React, os testes ainda serão trazidos em detalhe como no .NET. A estrutura da seção e o fluxo de navegação já foram espelhados.
+                              No MVP React, os testes ainda serÃ£o trazidos em detalhe como no .NET. A estrutura da seÃ§Ã£o e o fluxo de navegaÃ§Ã£o jÃ¡ foram espelhados.
                             </p>
                           </div>
                         </div>
@@ -2250,13 +2220,13 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         <div className="profile-section-detail-body">
                           <div className="profile-detail-toolbar">
                             <div>
-                              <div className="profile-section-detail-title">Competências & Portfólio</div>
+                              <div className="profile-section-detail-title">CompetÃªncias & PortfÃ³lio</div>
                               <div className="profile-section-detail-subtitle">Organize skills, idiomas, certificados e links.</div>
                             </div>
                             <div className="profile-detail-toolbar-actions">
                               <button className="profile-back-button" type="button" onClick={() => setSelectedSection(null)}>
                                 <i className="fas fa-arrow-left" aria-hidden="true"></i>
-                                <span>Voltar às seções</span>
+                                <span>Voltar Ã s seÃ§Ãµes</span>
                               </button>
                               <button className="profile-clear-button" type="button" onClick={() => void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, {
                                 workModel: '',
@@ -2269,7 +2239,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                                 portfolio: '',
                                 drive: '',
                                 tags: '',
-                              }, 'Competências & portfólio limpos.')}>
+                              }, 'CompetÃªncias & portfÃ³lio limpos.')}>
                                 <i className="fas fa-eraser" aria-hidden="true"></i>
                                 <span>Limpar</span>
                               </button>
@@ -2278,7 +2248,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
 
                           <div className="profile-skill-top-grid">
                             <section className="profile-skill-card">
-                              <div className="profile-skill-card-title"><i className="fas fa-briefcase" aria-hidden="true"></i><span>Preferências</span></div>
+                              <div className="profile-skill-card-title"><i className="fas fa-briefcase" aria-hidden="true"></i><span>PreferÃªncias</span></div>
                               <div className="profile-skill-fields-grid">
                                 <label className="profile-mini-field">
                                   <span>Modelo de trabalho</span>
@@ -2289,7 +2259,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                                   >
                                     <option value="">Selecionar</option>
                                     <option value="Presencial">Presencial</option>
-                                    <option value="Híbrido">Híbrido</option>
+                                    <option value="HÃ­brido">HÃ­brido</option>
                                     <option value="Remoto">Remoto</option>
                                   </select>
                                 </label>
@@ -2302,13 +2272,13 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                                   >
                                     <option value="">Selecionar</option>
                                     <option value="Imediata">Imediata</option>
-                                    <option value="Até 15 dias">Até 15 dias</option>
-                                    <option value="Até 30 dias">Até 30 dias</option>
+                                    <option value="AtÃ© 15 dias">AtÃ© 15 dias</option>
+                                    <option value="AtÃ© 30 dias">AtÃ© 30 dias</option>
                                     <option value="A combinar">A combinar</option>
                                   </select>
                                 </label>
                                 <label className="profile-mini-field">
-                                  <span>Pretensão (R$)</span>
+                                  <span>PretensÃ£o (R$)</span>
                                   <input
                                     placeholder="Ex.: 4500"
                                     value={portfolioPrefsForm.salary}
@@ -2331,9 +2301,9 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                                   </select>
                                 </label>
                                 <label className="profile-mini-field profile-mini-field-full">
-                                  <span>Observação</span>
+                                  <span>ObservaÃ§Ã£o</span>
                                   <input
-                                    placeholder="Ex.: Disponível para viagens"
+                                    placeholder="Ex.: DisponÃ­vel para viagens"
                                     value={portfolioPrefsForm.note}
                                     onChange={(e) => setPortfolioPrefsForm((v) => ({ ...v, note: e.target.value }))}
                                     onBlur={() => void savePortfolioSummary()}
@@ -2343,7 +2313,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                             </section>
 
                             <section className="profile-skill-card">
-                              <div className="profile-skill-card-title"><i className="fas fa-link" aria-hidden="true"></i><span>Links de portfólio</span></div>
+                              <div className="profile-skill-card-title"><i className="fas fa-link" aria-hidden="true"></i><span>Links de portfÃ³lio</span></div>
                               <div className="profile-skill-fields-grid">
                                 <label className="profile-mini-field">
                                   <span>LinkedIn</span>
@@ -2364,7 +2334,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                                   />
                                 </label>
                                 <label className="profile-mini-field">
-                                  <span>Portfólio</span>
+                                  <span>PortfÃ³lio</span>
                                   <input
                                     placeholder="https://..."
                                     value={portfolioLinksForm.portfolio}
@@ -2389,7 +2359,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                                     <i className="fab fa-github" aria-hidden="true"></i><span>Abrir GitHub</span>
                                   </button>
                                   <button className="profile-link-button" type="button" onClick={() => openPortfolioLink(portfolioLinksForm.portfolio)}>
-                                    <i className="fas fa-globe" aria-hidden="true"></i><span>Abrir Portfólio</span>
+                                    <i className="fas fa-globe" aria-hidden="true"></i><span>Abrir PortfÃ³lio</span>
                                   </button>
                                   <button className="profile-link-button" type="button" onClick={() => openPortfolioLink(portfolioLinksForm.drive)}>
                                     <i className="fab fa-google-drive" aria-hidden="true"></i><span>Abrir Drive</span>
@@ -2403,7 +2373,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                             <div className="profile-block-head">
                               <div className="profile-block-title">
                                 <i className="fas fa-tools" aria-hidden="true"></i>
-                                <span>Competências</span>
+                                <span>CompetÃªncias</span>
                                 <small>(Hard/Soft/Idiomas)</small>
                               </div>
                               <button className="profile-add-button" type="button" onClick={() => openSkillEditor()}>
@@ -2420,7 +2390,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                                 ))}
                               </div>
                             ) : (
-                              <div className="profile-empty-note">Nenhuma competência adicionada ainda.</div>
+                              <div className="profile-empty-note">Nenhuma competÃªncia adicionada ainda.</div>
                             )}
                           </section>
 
@@ -2428,7 +2398,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                             <div className="profile-block-head">
                               <div className="profile-block-title">
                                 <i className="fas fa-certificate" aria-hidden="true"></i>
-                                <span>Certificações & Cursos</span>
+                                <span>CertificaÃ§Ãµes & Cursos</span>
                               </div>
                               <button className="profile-add-button" type="button" onClick={() => openCertificationEditor()}>
                                 <i className="fas fa-plus" aria-hidden="true"></i><span>Adicionar</span>
@@ -2440,17 +2410,17 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                                   <article className="profile-cert-item" key={cert.id}>
                                     <div>
                                       <strong>{cert.nome}</strong>
-                                      <p>{[cert.instituicao, cert.ano].filter(Boolean).join(' • ') || 'Sem detalhes adicionais'}</p>
+                                      <p>{[cert.instituicao, cert.ano].filter(Boolean).join(' â€¢ ') || 'Sem detalhes adicionais'}</p>
                                     </div>
                                     <div className="profile-cert-actions">
                                       <button className="ghost-btn" type="button" onClick={() => openCertificationEditor(cert)}>Editar</button>
-                                      <button className="ghost-btn danger" type="button" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${cert.id}`, 'Certificação removida.')}>Remover</button>
+                                      <button className="ghost-btn danger" type="button" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${cert.id}`, 'CertificaÃ§Ã£o removida.')}>Remover</button>
                                     </div>
                                   </article>
                                 ))}
                               </div>
                             ) : (
-                              <div className="profile-empty-note">Nenhum curso/certificação informado ainda.</div>
+                              <div className="profile-empty-note">Nenhum curso/certificaÃ§Ã£o informado ainda.</div>
                             )}
                           </section>
                         </div>
@@ -2460,14 +2430,14 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         <div className="profile-section-detail-body">
                           <div className="subsection-card">
                             <div className="subsection-head">
-                              <strong>Resumo da formação</strong>
+                              <strong>Resumo da formaÃ§Ã£o</strong>
                             </div>
                             <RecordForm
                               fields={[
-                                fieldSelect('nivel', education?.summary.nivel, EDUCATION_SUMMARY_NIVEL_PRESETS, 'Nível'),
-                                field('areaPrincipal', education?.summary.areaPrincipal, 'input', 'Área principal'),
-                                fieldSelect('situacao', education?.summary.situacao, EDUCATION_SUMMARY_SITUACAO_PRESETS, 'Situação'),
-                                fieldDate('dataConclusao', education?.summary.dataConclusao, 'Data de conclusão'),
+                                fieldSelect('nivel', education?.summary.nivel, EDUCATION_SUMMARY_NIVEL_PRESETS, 'NÃ­vel'),
+                                field('areaPrincipal', education?.summary.areaPrincipal, 'input', 'Ãrea principal'),
+                                fieldSelect('situacao', education?.summary.situacao, EDUCATION_SUMMARY_SITUACAO_PRESETS, 'SituaÃ§Ã£o'),
+                                fieldDate('dataConclusao', education?.summary.dataConclusao, 'Data de conclusÃ£o'),
                                 field('destaques', education?.summary.destaques, 'textarea', 'Destaques'),
                               ]}
                               onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
@@ -2476,22 +2446,22 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                             />
                           </div>
                           <EducationRepeaterSection
-                            title="Cursos e formações"
+                            title="Cursos e formaÃ§Ãµes"
                             items={education?.items ?? []}
                             describe={(item) =>
                               [
-                                item.instituicao || 'Instituição livre',
+                                item.instituicao || 'InstituiÃ§Ã£o livre',
                                 item.status || 'Status aberto',
-                                [item.inicio, item.fim].filter(Boolean).join(' – '),
+                                [item.inicio, item.fim].filter(Boolean).join(' â€“ '),
                               ]
                                 .filter((part) => Boolean(part && String(part).trim()))
-                                .join(' • ')
+                                .join(' â€¢ ')
                             }
-                            onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Formação adicionada.', 'POST')}
+                            onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'FormaÃ§Ã£o adicionada.', 'POST')}
                             onUpdate={(item, values) =>
-                              void saveJson(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, values, 'Formação atualizada.')
+                              void saveJson(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, values, 'FormaÃ§Ã£o atualizada.')
                             }
-                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Formação removida.')}
+                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'FormaÃ§Ã£o removida.')}
                             setAnnouncement={setMessage}
                           />
                         </div>
@@ -2500,9 +2470,9 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                       {selectedSection === 'exp' ?(
                         <div className="profile-section-detail-body">
                           <RepeaterSection
-                            title="Experiências"
+                            title="ExperiÃªncias"
                             items={experience?.experiences ?? []}
-                            describe={(item) => `${item.cargo} • ${item.inicio || '?'} a ${item.fim || 'atual'}`}
+                            describe={(item) => `${item.cargo} â€¢ ${item.inicio || '?'} a ${item.fim || 'atual'}`}
                             fields={[
                               { name: 'empresa', label: 'Empresa' },
                               { name: 'cargo', label: 'Cargo' },
@@ -2518,11 +2488,11 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                           <RepeaterSection
                             title="Projetos"
                             items={experience?.projects ?? []}
-                            describe={(item) => `${item.periodo || 'Período livre'} • ${item.stack || 'Stack aberta'}`}
+                            describe={(item) => `${item.periodo || 'PerÃ­odo livre'} â€¢ ${item.stack || 'Stack aberta'}`}
                             fields={[
                               { name: 'nome', label: 'Nome' },
-                              { name: 'periodo', label: 'Período' },
-                              { name: 'descricao', label: 'Descrição' },
+                              { name: 'periodo', label: 'PerÃ­odo' },
+                              { name: 'descricao', label: 'DescriÃ§Ã£o' },
                               { name: 'link', label: 'Link' },
                               { name: 'stack', label: 'Stack' },
                               { name: 'destaques', label: 'Destaques' },
@@ -2537,7 +2507,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         <div className="profile-section-detail-body">
                           <CandidateLgpdWorkspaceForm
                             data={lgpd}
-                            onSubmit={(payload) => void saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, payload, 'Preferências LGPD atualizadas.')}
+                            onSubmit={(payload) => void saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, payload, 'PreferÃªncias LGPD atualizadas.')}
                             onOpenReceipt={() => void openLgpdReceipt(authFetch, candidateId)}
                           />
                         </div>
@@ -2565,7 +2535,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                               field('BeneficiosDesejados', asString(preferences?.BeneficiosDesejados)),
                               field('NaoAbreMaoDe', asString(preferences?.NaoAbreMaoDe)),
                             ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'Preferências salvas.')}
+                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'PreferÃªncias salvas.')}
                           />
                         </div>
                       ) : null}
@@ -2575,13 +2545,13 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                           <RepeaterSection
                             title="Documentos"
                             items={documents}
-                            describe={(item) => `${item.tipo} • ${item.data || 'Sem data'}${item.fileName ?` • ${item.fileName}` : ''}`}
+                            describe={(item) => `${item.tipo} â€¢ ${item.data || 'Sem data'}${item.fileName ?` â€¢ ${item.fileName}` : ''}`}
                             fields={[
                               { name: 'tipo', label: 'Tipo' },
                               { name: 'nome', label: 'Nome' },
                               { name: 'link', label: 'Link' },
                               { name: 'data', label: 'Data' },
-                              { name: 'observacoes', label: 'Observações' },
+                              { name: 'observacoes', label: 'ObservaÃ§Ãµes' },
                               { name: 'fileName', label: 'Nome do arquivo' },
                             ]}
                             onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/documents`, values, 'Documento salvo.', 'POST')}
@@ -2593,25 +2563,25 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                       {selectedSection === 'refs' ?(
                         <div className="profile-section-detail-body">
                           <RepeaterSection
-                            title="Referências"
+                            title="ReferÃªncias"
                             items={references}
-                            describe={(item) => `${item.relacao || 'Relação livre'} • ${item.contato || 'Contato não informado'}`}
+                            describe={(item) => `${item.relacao || 'RelaÃ§Ã£o livre'} â€¢ ${item.contato || 'Contato nÃ£o informado'}`}
                             fields={[
                               { name: 'nome', label: 'Nome' },
-                              { name: 'relacao', label: 'Relação' },
+                              { name: 'relacao', label: 'RelaÃ§Ã£o' },
                               { name: 'empresa', label: 'Empresa' },
                               { name: 'cargo', label: 'Cargo' },
                               { name: 'contato', label: 'Contato' },
-                              { name: 'periodo', label: 'Período' },
+                              { name: 'periodo', label: 'PerÃ­odo' },
                               { name: 'linkedin', label: 'LinkedIn' },
-                              { name: 'observacoes', label: 'Observações' },
+                              { name: 'observacoes', label: 'ObservaÃ§Ãµes' },
                               { name: 'podeContatar', label: 'Pode contatar?(true/false)' },
                             ]}
                             onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/references`, {
                               ...values,
                               podeContatar: Boolean(values.podeContatar),
-                            }, 'Referência salva.', 'POST')}
-                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, 'Referência removida.')}
+                            }, 'ReferÃªncia salva.', 'POST')}
+                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, 'ReferÃªncia removida.')}
                           />
                         </div>
                       ) : null}
@@ -2644,55 +2614,12 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         </div>
                       ) : null}
 
-                      {selectedSection === 'agenda' ?(
-                        <div className="profile-section-detail-body">
-                          <RecordForm
-                            fields={[
-                              field('formatoEntrevista', agenda?.preferences.formatoEntrevista),
-                              field('inicioDisponivel', agenda?.preferences.inicioDisponivel),
-                              field('avisoPrevio', agenda?.preferences.avisoPrevio),
-                              field('observacoes', agenda?.preferences.observacoes, 'textarea'),
-                              field('horarioPreferido', agenda?.preferences.horarioPreferido),
-                              field('fusoHorario', agenda?.preferences.fusoHorario),
-                            ]}
-                            checks={[
-                              check('diaSeg', agenda?.preferences.diaSeg),
-                              check('diaTer', agenda?.preferences.diaTer),
-                              check('diaQua', agenda?.preferences.diaQua),
-                              check('diaQui', agenda?.preferences.diaQui),
-                              check('diaSex', agenda?.preferences.diaSex),
-                              check('diaSab', agenda?.preferences.diaSab),
-                              check('diaDom', agenda?.preferences.diaDom),
-                              check('periodoManha', agenda?.preferences.periodoManha),
-                              check('periodoTarde', agenda?.preferences.periodoTarde),
-                              check('periodoNoite', agenda?.preferences.periodoNoite),
-                            ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, values, 'Preferências de agenda salvas.')}
-                          />
-
-                          <RepeaterSection
-                            title="Bloqueios"
-                            items={agenda?.blocks ?? []}
-                            describe={(item) => `${item.data || 'Data'} • ${item.horario || 'Horário'} • ${item.observacoes || 'Sem observações'}`}
-                            fields={[
-                              { name: 'tipo', label: 'Tipo' },
-                              { name: 'titulo', label: 'Titulo' },
-                              { name: 'data', label: 'Data' },
-                              { name: 'horario', label: 'Horário' },
-                              { name: 'observacoes', label: 'Observações' },
-                            ]}
-                            onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, values, 'Bloqueio adicionado.', 'POST')}
-                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}
-                          />
-                        </div>
-                      ) : null}
-
                       {selectedSection === 'hist' ?(
                         <div className="profile-section-detail-body">
                           <div className="detail-group">
-                            <div className="detail-group-title">Histórico de candidaturas</div>
+                            <div className="detail-group-title">HistÃ³rico de candidaturas</div>
                             <div className="detail-callout">
-                              <strong>Paridade em andamento:</strong> a timeline detalhada entra na próxima rodada, mas o fluxo do modal já está alinhado com o .NET.
+                              <strong>Paridade em andamento:</strong> a timeline detalhada entra na prÃ³xima rodada, mas o fluxo do modal jÃ¡ estÃ¡ alinhado com o .NET.
                             </div>
                           </div>
                         </div>
@@ -2702,7 +2629,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                         <div className="profile-section-detail-body">
                           <CandidateNotificationsWorkspaceForm
                             data={notifications}
-                            onSubmit={(payload) => void saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'Notificações atualizadas.')}
+                            onSubmit={(payload) => void saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'NotificaÃ§Ãµes atualizadas.')}
                           />
                         </div>
                       ) : null}
@@ -2735,7 +2662,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                           <div className="detail-group">
                             <div className="detail-group-title">Limpar perfil</div>
                             <p className="detail-paragraph">
-                              Use esta ação para limpar os dados auxiliares do perfil, como no portal .NET.
+                              Use esta aÃ§Ã£o para limpar os dados auxiliares do perfil, como no portal .NET.
                             </p>
                             <button className="profile-danger-button" type="button" onClick={() => void handleResetProfile()}>
                               <i className="fas fa-eraser" aria-hidden="true"></i>
@@ -2755,7 +2682,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
             <div className="profile-inline-modal-backdrop" onClick={() => setSkillEditorOpen(false)}>
               <div className="profile-inline-modal-card" onClick={(event) => event.stopPropagation()}>
                 <div className="profile-inline-modal-header">
-                  <h3>Competência</h3>
+                  <h3>CompetÃªncia</h3>
                   <button type="button" className="profile-modal-close" onClick={() => setSkillEditorOpen(false)} aria-label="Fechar">
                     <i className="fas fa-times" aria-hidden="true"></i>
                   </button>
@@ -2771,18 +2698,18 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                   </label>
                   <label className="profile-mini-field">
                     <span>Nome</span>
-                    <input value={skillDraft.nome} onChange={(e) => setSkillDraft((v) => ({ ...v, nome: e.target.value }))} placeholder="Ex.: Excel, Comunicação, Inglês" />
+                    <input value={skillDraft.nome} onChange={(e) => setSkillDraft((v) => ({ ...v, nome: e.target.value }))} placeholder="Ex.: Excel, ComunicaÃ§Ã£o, InglÃªs" />
                   </label>
                   <label className="profile-mini-field">
-                    <span>Nível</span>
+                    <span>NÃ­vel</span>
                     <select value={skillDraft.nivel} onChange={(e) => setSkillDraft((v) => ({ ...v, nivel: e.target.value }))}>
-                      <option value="Básico">Básico</option>
-                      <option value="Intermediário">Intermediário</option>
-                      <option value="Avançado">Avançado</option>
+                      <option value="BÃ¡sico">BÃ¡sico</option>
+                      <option value="IntermediÃ¡rio">IntermediÃ¡rio</option>
+                      <option value="AvanÃ§ado">AvanÃ§ado</option>
                     </select>
                   </label>
                   <label className="profile-mini-field">
-                    <span>Evidência (opcional)</span>
+                    <span>EvidÃªncia (opcional)</span>
                     <input value={skillDraft.evidencia} onChange={(e) => setSkillDraft((v) => ({ ...v, evidencia: e.target.value }))} placeholder="Ex.: Projeto X, curso Y" />
                   </label>
                 </div>
@@ -2798,7 +2725,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
             <div className="profile-inline-modal-backdrop" onClick={() => setCertEditorOpen(false)}>
               <div className="profile-inline-modal-card" onClick={(event) => event.stopPropagation()}>
                 <div className="profile-inline-modal-header">
-                  <h3>Certificação / Curso</h3>
+                  <h3>CertificaÃ§Ã£o / Curso</h3>
                   <button type="button" className="profile-modal-close" onClick={() => setCertEditorOpen(false)} aria-label="Fechar">
                     <i className="fas fa-times" aria-hidden="true"></i>
                   </button>
@@ -2806,11 +2733,11 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                 <div className="profile-inline-modal-body">
                   <label className="profile-mini-field">
                     <span>Nome</span>
-                    <input value={certDraft.nome} onChange={(e) => setCertDraft((v) => ({ ...v, nome: e.target.value }))} placeholder="Ex.: NR-10, Excel Avançado" />
+                    <input value={certDraft.nome} onChange={(e) => setCertDraft((v) => ({ ...v, nome: e.target.value }))} placeholder="Ex.: NR-10, Excel AvanÃ§ado" />
                   </label>
                   <div className="profile-inline-modal-grid">
                     <label className="profile-mini-field">
-                      <span>Instituição</span>
+                      <span>InstituiÃ§Ã£o</span>
                       <input value={certDraft.instituicao} onChange={(e) => setCertDraft((v) => ({ ...v, instituicao: e.target.value }))} placeholder="Ex.: SENAI" />
                     </label>
                     <label className="profile-mini-field">
@@ -2832,7 +2759,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
           ) : null}
 
           <div className="profile-modal-footer">
-            <span className="profile-modal-lgpd-note">Suas informações são privadas e protegidas pela LGPD.</span>
+            <span className="profile-modal-lgpd-note">Suas informaÃ§Ãµes sÃ£o privadas e protegidas pela LGPD.</span>
             <button className="profile-modal-footer-btn primary" type="button" onClick={onClose} disabled={loading}>
               Concluir
             </button>
@@ -2857,7 +2784,6 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     experience: null,
     preferences: null,
     accessibility: null,
-    agenda: null,
     notifications: null,
     internalNotifications: null,
     documents: [],
@@ -2881,7 +2807,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     setMessage(null)
 
     try {
-      const [profile, completion, matches, portfolio, education, experience, preferences, accessibility, agenda, notifications, internalNotifications, documents, references, lgpd] = await Promise.all([
+      const [profile, completion, matches, portfolio, education, experience, preferences, accessibility, notifications, internalNotifications, documents, references, lgpd] = await Promise.all([
         authFetch<PortalProfile>(`/api/public/portal-candidates/${candidateId}`),
         authFetch<PortalCompletion>(`/api/public/portal-candidates/${candidateId}/profile-completion`),
         authFetch<{ matches: PortalMatchItem[] }>(`/api/public/portal-candidates/${candidateId}/job-matches`),
@@ -2890,7 +2816,6 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         authFetch<PortalExperienceProject>(`/api/public/portal-candidates/${candidateId}/experience-projects`),
         authFetch<PortalPreferences>(`/api/public/portal-candidates/${candidateId}/preferences`),
         authFetch<PortalAccessibility>(`/api/public/portal-candidates/${candidateId}/accessibility`),
-        authFetch<PortalAgenda>(`/api/public/portal-candidates/${candidateId}/agenda`),
         authFetch<PortalNotifications>(`/api/public/portal-candidates/${candidateId}/notifications`),
         authFetch<PortalInternalNotificationsResponse>(`/api/public/portal-candidates/${candidateId}/portal-notifications`),
         authFetch<{ items: PortalDocument[] }>(`/api/public/portal-candidates/${candidateId}/documents`),
@@ -2907,7 +2832,6 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         experience,
         preferences,
         accessibility,
-        agenda,
         notifications,
         internalNotifications,
         documents: documents.items ?? [],
@@ -2992,7 +2916,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
 
   async function deleteDocument(item: PortalDocument) {
     try {
-      if (!ctx.session) throw new Error('Sessão não encontrada.')
+      if (!ctx.session) throw new Error('SessÃ£o nÃ£o encontrada.')
       const ensured = await ensureSession(ctx.session, ctx.tenantId)
       ctx.setSession(ensured)
 
@@ -3035,8 +2959,8 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
       await refreshWorkspace()
       if (path.includes('/curriculos')) {
         setUploadFeedback({
-          title: 'Currículo enviado com sucesso',
-          message: 'O arquivo já está disponível para consulta na seção Documentos do seu perfil.',
+          title: 'CurrÃ­culo enviado com sucesso',
+          message: 'O arquivo jÃ¡ estÃ¡ disponÃ­vel para consulta na seÃ§Ã£o Documentos do seu perfil.',
         })
       }
     } catch (err) {
@@ -3077,14 +3001,14 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
   }
 
   if (loading) {
-    return <PageLoading label="Sincronizando seu perfil e suas preferências..." />
+    return <PageLoading label="Sincronizando seu perfil e suas preferÃªncias..." />
   }
 
   if (message && !state.profile) {
     return (
       <main className="page-shell">
         <section className="state-card unavailable">
-          <h3>Não foi possível carregar seu espaço</h3>
+          <h3>NÃ£o foi possÃ­vel carregar seu espaÃ§o</h3>
           <p>{message}</p>
           <button className="primary-btn" type="button" onClick={() => void refreshWorkspace()}>Tentar novamente</button>
         </section>
@@ -3095,7 +3019,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
   const profileComplete = Math.max(0, Math.min(100, Math.round(state.completion?.overall ?? 0)))
   const candidateName = state.profile?.nome || ctx.session?.candidate.nome || 'Candidato'
   const candidateEmail = state.profile?.email || ctx.session?.candidate.email || ''
-  const currentRole = state.portfolio?.preferences.workModel || asString(state.preferences?.CargoAlvo) || 'Perfil em construção'
+  const currentRole = state.portfolio?.preferences.workModel || asString(state.preferences?.CargoAlvo) || 'Perfil em construÃ§Ã£o'
   const internalNotificationCount = state.internalNotifications?.pendentes ?? 0
   const workspaceNavItems = WORKSPACE_SECTIONS.map((section) => ({
     ...section,
@@ -3147,7 +3071,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             </div>
           </section>
 
-          <nav className="workspace-sidebar-nav" aria-label="Navegação do meu espaço">
+          <nav className="workspace-sidebar-nav" aria-label="NavegaÃ§Ã£o do meu espaÃ§o">
             {workspaceNavItems.map((item) => (
               <button
                 className={activeWorkspaceSection === item.id ?'is-active' : ''}
@@ -3166,8 +3090,8 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         <section className="workspace-main-pane">
           <section className="workspace-identity-hero">
             <div>
-              <div className="eyebrow">Meu espaço</div>
-              <h1>Olá, <em>{candidateName.split(' ')[0]}</em></h1>
+              <div className="eyebrow">Meu espaÃ§o</div>
+              <h1>OlÃ¡, <em>{candidateName.split(' ')[0]}</em></h1>
               <p>{candidateEmail}</p>
             </div>
             <div className="workspace-actions">
@@ -3217,7 +3141,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
 
           <div className="content-grid workspace-content-grid is-single-section">
         <section className="content-column">
-          <WorkspaceSection active={activeWorkspaceSection === 'perfil-curriculo'} id="perfil-curriculo" title="Perfil e currículo" description="Dados pessoais, foto, resumo e documentos principais.">
+          <WorkspaceSection active={activeWorkspaceSection === 'perfil-curriculo'} id="perfil-curriculo" title="Perfil e currÃ­culo" description="Dados pessoais, foto, resumo e documentos principais.">
             <CandidateProfileResumeForm
               authFetch={authFetch}
               avatarPreview={avatarPreview}
@@ -3234,37 +3158,37 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             {resumeParsePreview ?<pre className="json-preview">{resumeParsePreview}</pre> : null}
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'matches'} id="matches" title="Conclusão e aderência" description="Diagnóstico automático do perfil e vagas com maior match.">
+          <WorkspaceSection active={activeWorkspaceSection === 'matches'} id="matches" title="ConclusÃ£o e aderÃªncia" description="DiagnÃ³stico automÃ¡tico do perfil e vagas com maior match.">
             <CandidateMatchInsightsSection completion={state.completion} matches={state.matches} onSelectSection={selectWorkspaceSection} />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'skills'} id="skills" title="Portfólio e links" description="Preferências rápidas de trabalho, URLs públicos e tags — visão inicial para recrutadores.">
+          <WorkspaceSection active={activeWorkspaceSection === 'skills'} id="skills" title="PortfÃ³lio e links" description="PreferÃªncias rÃ¡pidas de trabalho, URLs pÃºblicos e tags â€” visÃ£o inicial para recrutadores.">
             <CandidateSkillsPortfolioWorkspace portfolio={state.portfolio} candidateId={candidateId} saveJson={saveJson} setMessage={setMessage} />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'competencias'} id="competencias" title="Competências" description="Liste tecnologias, idiomas, metodologias e outras capacidades com nível e evidência.">
+          <WorkspaceSection active={activeWorkspaceSection === 'competencias'} id="competencias" title="CompetÃªncias" description="Liste tecnologias, idiomas, metodologias e outras capacidades com nÃ­vel e evidÃªncia.">
             <div className="sp-workspace nl-form">
               <SkillsPortfolioRepeater candidateId={candidateId} items={state.portfolio?.skills ?? []} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
             </div>
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'credenciais'} id="credenciais" title="Credenciais" description="Certificações, cursos e credenciais com instituição, período ou link público para validação.">
+          <WorkspaceSection active={activeWorkspaceSection === 'credenciais'} id="credenciais" title="Credenciais" description="CertificaÃ§Ãµes, cursos e credenciais com instituiÃ§Ã£o, perÃ­odo ou link pÃºblico para validaÃ§Ã£o.">
             <div className="sp-workspace nl-form">
               <CertificationsPortfolioRepeater candidateId={candidateId} items={state.portfolio?.certifications ?? []} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
             </div>
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'educacao'} id="educacao" title="Educação" description="Nível, área, situação e destaques do seu percurso acadêmico.">
+          <WorkspaceSection active={activeWorkspaceSection === 'educacao'} id="educacao" title="EducaÃ§Ã£o" description="NÃ­vel, Ã¡rea, situaÃ§Ã£o e destaques do seu percurso acadÃªmico.">
             <div className="subsection-card">
               <div className="subsection-head">
-                <strong>Resumo da formação</strong>
+                <strong>Resumo da formaÃ§Ã£o</strong>
               </div>
               <RecordForm
                 fields={[
-                  fieldSelect('nivel', state.education?.summary.nivel, EDUCATION_SUMMARY_NIVEL_PRESETS, 'Nível'),
-                  field('areaPrincipal', state.education?.summary.areaPrincipal, 'input', 'Área principal'),
-                  fieldSelect('situacao', state.education?.summary.situacao, EDUCATION_SUMMARY_SITUACAO_PRESETS, 'Situação'),
-                  fieldDate('dataConclusao', state.education?.summary.dataConclusao, 'Data de conclusão'),
+                  fieldSelect('nivel', state.education?.summary.nivel, EDUCATION_SUMMARY_NIVEL_PRESETS, 'NÃ­vel'),
+                  field('areaPrincipal', state.education?.summary.areaPrincipal, 'input', 'Ãrea principal'),
+                  fieldSelect('situacao', state.education?.summary.situacao, EDUCATION_SUMMARY_SITUACAO_PRESETS, 'SituaÃ§Ã£o'),
+                  fieldDate('dataConclusao', state.education?.summary.dataConclusao, 'Data de conclusÃ£o'),
                   field('destaques', state.education?.summary.destaques, 'textarea', 'Destaques'),
                 ]}
                 onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education`, values, 'Resumo educacional salvo.')}
@@ -3274,38 +3198,38 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             </div>
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'cursos-formacoes'} id="cursos-formacoes" title="Cursos e formações" description="Cursos, instituições, períodos e certificações. Adicione ou edite cada registro.">
+          <WorkspaceSection active={activeWorkspaceSection === 'cursos-formacoes'} id="cursos-formacoes" title="Cursos e formaÃ§Ãµes" description="Cursos, instituiÃ§Ãµes, perÃ­odos e certificaÃ§Ãµes. Adicione ou edite cada registro.">
             <EducationRepeaterSection
-              title="Formações registradas"
+              title="FormaÃ§Ãµes registradas"
               items={state.education?.items ?? []}
               describe={(item) =>
                 [
-                  item.instituicao || 'Instituição livre',
+                  item.instituicao || 'InstituiÃ§Ã£o livre',
                   item.status || 'Status aberto',
-                  [item.inicio, item.fim].filter(Boolean).join(' – '),
+                  [item.inicio, item.fim].filter(Boolean).join(' â€“ '),
                 ]
                   .filter((part) => Boolean(part && String(part).trim()))
-                  .join(' • ')
+                  .join(' â€¢ ')
               }
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'Formação adicionada.', 'POST')}
+              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/education/items`, values, 'FormaÃ§Ã£o adicionada.', 'POST')}
               onUpdate={(item, values) =>
-                saveJson(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, values, 'Formação atualizada.')
+                saveJson(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, values, 'FormaÃ§Ã£o atualizada.')
               }
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'Formação removida.')}
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/education/items/${item.id}`, 'FormaÃ§Ã£o removida.')}
               setAnnouncement={setMessage}
             />
           </WorkspaceSection>
         </section>
 
         <section className="content-column">
-          <WorkspaceSection active={activeWorkspaceSection === 'experiencias'} id="experiencias" title="Experiências" description="Linha do tempo profissional.">
+          <WorkspaceSection active={activeWorkspaceSection === 'experiencias'} id="experiencias" title="ExperiÃªncias" description="Linha do tempo profissional.">
             <ExperienceRepeaterSection
-              title="Experiências"
+              title="ExperiÃªncias"
               items={state.experience?.experiences ?? []}
-              describe={(item) => `${item.cargo} • ${item.inicio || '?'} a ${item.fim || 'atual'}`}
-              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences`, values, 'Experiência adicionada.', 'POST')}
-              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, values, 'Experiência atualizada.')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, 'Experiência removida.')}
+              describe={(item) => `${item.cargo} â€¢ ${item.inicio || '?'} a ${item.fim || 'atual'}`}
+              onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences`, values, 'ExperiÃªncia adicionada.', 'POST')}
+              onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, values, 'ExperiÃªncia atualizada.')}
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/experiences/${item.id}`, 'ExperiÃªncia removida.')}
             />
           </WorkspaceSection>
 
@@ -3313,26 +3237,22 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             <ProjectRepeaterSection
               title="Projetos"
               items={state.experience?.projects ?? []}
-              describe={(item) => `${item.periodo || 'Período livre'} • ${item.stack || 'Stack aberta'}`}
+              describe={(item) => `${item.periodo || 'PerÃ­odo livre'} â€¢ ${item.stack || 'Stack aberta'}`}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/projects`, values, 'Projeto adicionado.', 'POST')}
               onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/projects/${item.id}`, values, 'Projeto atualizado.')}
               onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/projects/${item.id}`, 'Projeto removido.')}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'preferencias'} id="preferencias" title="Preferências de vaga" description="Objetivo profissional, deslocamento, jornada e remuneração.">
+          <WorkspaceSection active={activeWorkspaceSection === 'preferencias'} id="preferencias" title="PreferÃªncias de vaga" description="Objetivo profissional, deslocamento, jornada e remuneraÃ§Ã£o.">
             <CandidateJobPreferencesForm
               preferences={state.preferences}
               tenantId={ctx.tenantId}
-              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'Preferências salvas.')}
+              onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'PreferÃªncias salvas.')}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'agenda'} id="agenda" title="Agenda e disponibilidade" description="Combine disponibilidade para entrevistas com bloqueios quando você não pode ser contactado.">
-            <CandidateAgendaWorkspace agenda={state.agenda} candidateId={candidateId} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
-          </WorkspaceSection>
-
-          <WorkspaceSection active={activeWorkspaceSection === 'notificacoes'} id="notificacoes" title="Notificações" description="Escolha canais, ritmo dos avisos e horários de silêncio.">
+          <WorkspaceSection active={activeWorkspaceSection === 'notificacoes'} id="notificacoes" title="NotificaÃ§Ãµes" description="Escolha canais, ritmo dos avisos e horÃ¡rios de silÃªncio.">
             <CandidateInternalMessagesPanel
               messages={state.internalNotifications?.items ?? []}
               pendingCount={state.internalNotifications?.pendentes ?? 0}
@@ -3341,14 +3261,14 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             />
             <CandidateNotificationsWorkspaceForm
               data={state.notifications}
-              onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'Notificações atualizadas.')}
+              onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/notifications`, payload, 'NotificaÃ§Ãµes atualizadas.')}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'lgpd'} id="lgpd" title="LGPD e privacidade" description="Consentimentos, tratamento de dados e comprovante de preferências (LGPD).">
+          <WorkspaceSection active={activeWorkspaceSection === 'lgpd'} id="lgpd" title="LGPD e privacidade" description="Consentimentos, tratamento de dados e comprovante de preferÃªncias (LGPD).">
             <CandidateLgpdWorkspaceForm
               data={state.lgpd}
-              onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, payload, 'Preferências LGPD atualizadas.')}
+              onSubmit={(payload) => saveJson(`/api/public/portal-candidates/${candidateId}/lgpd`, payload, 'PreferÃªncias LGPD atualizadas.')}
               onOpenReceipt={() => void openLgpdReceipt(authFetch, candidateId)}
             />
           </WorkspaceSection>
@@ -3364,23 +3284,23 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
             />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'referencias'} id="referencias" title="Referências" description="Contatos profissionais que podem apoiar sua trajetória.">
+          <WorkspaceSection active={activeWorkspaceSection === 'referencias'} id="referencias" title="ReferÃªncias" description="Contatos profissionais que podem apoiar sua trajetÃ³ria.">
             <ReferenceRepeaterSection
-              title="Referências"
+              title="ReferÃªncias"
               items={state.references}
               onAdd={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/references`, {
                 ...values,
                 podeContatar: Boolean(values.podeContatar),
-              }, 'Referência salva.', 'POST')}
+              }, 'ReferÃªncia salva.', 'POST')}
               onUpdate={(item, values) => saveJson(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, {
                 ...values,
                 podeContatar: Boolean(values.podeContatar),
-              }, 'Referência atualizada.')}
-              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, 'Referência removida.')}
+              }, 'ReferÃªncia atualizada.')}
+              onDelete={(item) => removeItem(`/api/public/portal-candidates/${candidateId}/references/${item.id}`, 'ReferÃªncia removida.')}
             />
           </WorkspaceSection>
 
-          <WorkspaceSection active={activeWorkspaceSection === 'acessibilidade'} id="acessibilidade" title="Acessibilidade" description="Preferências de comunicação, inclusão e necessidades de acessibilidade.">
+          <WorkspaceSection active={activeWorkspaceSection === 'acessibilidade'} id="acessibilidade" title="Acessibilidade" description="PreferÃªncias de comunicaÃ§Ã£o, inclusÃ£o e necessidades de acessibilidade.">
             <CandidateAccessibilityForm
               accessibility={state.accessibility}
               onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/accessibility`, values, 'Acessibilidade atualizada.')}
@@ -3420,27 +3340,27 @@ function CandidateMatchInsightsSection({
           <small>perfil</small>
         </div>
         <div className="match-insights-copy">
-          <div className="eyebrow">Diagnóstico do candidato</div>
-          <h3>{overall >= 80 ? 'Seu perfil já está bem encaminhado.' : 'Complete os pontos certos para ganhar aderência.'}</h3>
+          <div className="eyebrow">DiagnÃ³stico do candidato</div>
+          <h3>{overall >= 80 ? 'Seu perfil jÃ¡ estÃ¡ bem encaminhado.' : 'Complete os pontos certos para ganhar aderÃªncia.'}</h3>
           <p>
-            Cruzamos a conclusão do seu perfil com as vagas abertas para indicar onde ajustar informações e quais oportunidades parecem mais próximas.
+            Cruzamos a conclusÃ£o do seu perfil com as vagas abertas para indicar onde ajustar informaÃ§Ãµes e quais oportunidades parecem mais prÃ³ximas.
           </p>
         </div>
       </section>
 
-      <div className="match-kpi-grid" aria-label="Resumo de aderência">
+      <div className="match-kpi-grid" aria-label="Resumo de aderÃªncia">
         <article>
           <span>Perfil completo</span>
           <strong>{overall}%</strong>
-          <small>{sections.length ? `${sections.length} áreas avaliadas` : 'Aguardando diagnóstico'}</small>
+          <small>{sections.length ? `${sections.length} Ã¡reas avaliadas` : 'Aguardando diagnÃ³stico'}</small>
         </article>
         <article>
           <span>Pontos de melhoria</span>
           <strong>{suggestions.length || incompleteSections}</strong>
-          <small>{suggestions.length ? 'sugestões priorizadas' : 'áreas incompletas'}</small>
+          <small>{suggestions.length ? 'sugestÃµes priorizadas' : 'Ã¡reas incompletas'}</small>
         </article>
         <article>
-          <span>Melhor aderência</span>
+          <span>Melhor aderÃªncia</span>
           <strong>{matches.length ? `${topMatch}%` : '-'}</strong>
           <small>{matches.length ? `${matches.length} vagas sugeridas` : 'sem vagas sugeridas agora'}</small>
         </article>
@@ -3449,10 +3369,10 @@ function CandidateMatchInsightsSection({
       <section className="match-panel">
         <div className="match-panel-head">
           <div>
-            <span className="eyebrow">Mapa de conclusão</span>
-            <h4>Áreas do perfil</h4>
+            <span className="eyebrow">Mapa de conclusÃ£o</span>
+            <h4>Ãreas do perfil</h4>
           </div>
-          <p>Priorize os itens com menor percentual para melhorar a qualidade das recomendações.</p>
+          <p>Priorize os itens com menor percentual para melhorar a qualidade das recomendaÃ§Ãµes.</p>
         </div>
         {sections.length ? (
           <div className="match-section-grid">
@@ -3468,7 +3388,7 @@ function CandidateMatchInsightsSection({
                   <div className="match-progress-bar" aria-hidden="true">
                     <span style={{ width: `${section.value}%` }}></span>
                   </div>
-                  <small>{section.value}% concluído</small>
+                  <small>{section.value}% concluÃ­do</small>
                 </>
               )
               if (targetSection) {
@@ -3478,7 +3398,7 @@ function CandidateMatchInsightsSection({
                     key={section.key}
                     type="button"
                     onClick={() => onSelectSection(targetSection)}
-                    aria-label={`Abrir seção ${section.label}`}
+                    aria-label={`Abrir seÃ§Ã£o ${section.label}`}
                   >
                     {cardContent}
                   </button>
@@ -3494,8 +3414,8 @@ function CandidateMatchInsightsSection({
           </div>
         ) : (
           <div className="match-empty-state">
-            <strong>Diagnóstico ainda não disponível.</strong>
-            <p>Atualize seu perfil ou tente novamente em alguns instantes para carregar a conclusão.</p>
+            <strong>DiagnÃ³stico ainda nÃ£o disponÃ­vel.</strong>
+            <p>Atualize seu perfil ou tente novamente em alguns instantes para carregar a conclusÃ£o.</p>
           </div>
         )}
       </section>
@@ -3504,8 +3424,8 @@ function CandidateMatchInsightsSection({
         <section className="match-panel">
           <div className="match-panel-head">
             <div>
-              <span className="eyebrow">Próximas melhorias</span>
-              <h4>Sugestões para aumentar aderência</h4>
+              <span className="eyebrow">PrÃ³ximas melhorias</span>
+              <h4>SugestÃµes para aumentar aderÃªncia</h4>
             </div>
           </div>
           {suggestions.length ? (
@@ -3523,8 +3443,8 @@ function CandidateMatchInsightsSection({
             </div>
           ) : (
             <div className="match-empty-state compact">
-              <strong>Nenhuma sugestão pendente.</strong>
-              <p>Seu perfil não possui alertas prioritários neste momento.</p>
+              <strong>Nenhuma sugestÃ£o pendente.</strong>
+              <p>Seu perfil nÃ£o possui alertas prioritÃ¡rios neste momento.</p>
             </div>
           )}
         </section>
@@ -3543,13 +3463,13 @@ function CandidateMatchInsightsSection({
                 return (
                   <article className="match-job-card" key={match.vagaId}>
                     <div className="match-job-card-head">
-                      <strong>{match.title || 'Vaga sem título'}</strong>
+                      <strong>{match.title || 'Vaga sem tÃ­tulo'}</strong>
                       <span>{score}%</span>
                     </div>
                     <p>{formatMatchLocation(match)}</p>
                     <div className="match-job-tags">
-                      <span>{match.area || 'Área não informada'}</span>
-                      <span>{match.mode || 'Formato flexível'}</span>
+                      <span>{match.area || 'Ãrea nÃ£o informada'}</span>
+                      <span>{match.mode || 'Formato flexÃ­vel'}</span>
                       {match.level ? <span>{match.level}</span> : null}
                     </div>
                     <div className="match-progress-bar" aria-hidden="true">
@@ -3563,7 +3483,7 @@ function CandidateMatchInsightsSection({
           ) : (
             <div className="match-empty-state compact">
               <strong>Nenhuma vaga sugerida agora.</strong>
-              <p>Complete preferências, competências e experiências para melhorar o matching.</p>
+              <p>Complete preferÃªncias, competÃªncias e experiÃªncias para melhorar o matching.</p>
             </div>
           )}
         </section>
@@ -3599,21 +3519,21 @@ function CandidateAccessibilityForm({
   }
 
   const supportOptions: Array<{ key: keyof PortalAccessibility; title: string; description: string; icon: string }> = [
-    { key: 'precisaLegendas', title: 'Legendas', description: 'Prefiro conteúdos e entrevistas com legenda.', icon: 'fa-closed-captioning' },
-    { key: 'precisaInterprete', title: 'Intérprete', description: 'Preciso de intérprete de Libras ou apoio similar.', icon: 'fa-hands' },
-    { key: 'precisaLeitorTela', title: 'Leitor de tela', description: 'Uso tecnologia assistiva para navegação.', icon: 'fa-eye' },
-    { key: 'precisaBaixaEstimulo', title: 'Baixo estímulo', description: 'Prefiro ambientes com menos ruído e estímulos.', icon: 'fa-volume-low' },
-    { key: 'precisaMobilidade', title: 'Mobilidade', description: 'Preciso de apoio de acesso físico ou deslocamento.', icon: 'fa-wheelchair' },
-    { key: 'precisaTempoExtra', title: 'Tempo extra', description: 'Preciso de mais tempo em testes ou dinâmicas.', icon: 'fa-clock' },
+    { key: 'precisaLegendas', title: 'Legendas', description: 'Prefiro conteÃºdos e entrevistas com legenda.', icon: 'fa-closed-captioning' },
+    { key: 'precisaInterprete', title: 'IntÃ©rprete', description: 'Preciso de intÃ©rprete de Libras ou apoio similar.', icon: 'fa-hands' },
+    { key: 'precisaLeitorTela', title: 'Leitor de tela', description: 'Uso tecnologia assistiva para navegaÃ§Ã£o.', icon: 'fa-eye' },
+    { key: 'precisaBaixaEstimulo', title: 'Baixo estÃ­mulo', description: 'Prefiro ambientes com menos ruÃ­do e estÃ­mulos.', icon: 'fa-volume-low' },
+    { key: 'precisaMobilidade', title: 'Mobilidade', description: 'Preciso de apoio de acesso fÃ­sico ou deslocamento.', icon: 'fa-wheelchair' },
+    { key: 'precisaTempoExtra', title: 'Tempo extra', description: 'Preciso de mais tempo em testes ou dinÃ¢micas.', icon: 'fa-clock' },
   ]
 
   return (
     <form className="accessibility-form" onSubmit={handleSubmit}>
       <section className="accessibility-hero-card">
         <div>
-          <span className="eyebrow">Experiência inclusiva</span>
+          <span className="eyebrow">ExperiÃªncia inclusiva</span>
           <h3>Conte como podemos conduzir o processo seletivo com mais conforto.</h3>
-          <p>Essas informações ajudam o RH a ajustar comunicação, etapas e recursos de acessibilidade quando necessário.</p>
+          <p>Essas informaÃ§Ãµes ajudam o RH a ajustar comunicaÃ§Ã£o, etapas e recursos de acessibilidade quando necessÃ¡rio.</p>
         </div>
         <div className="accessibility-privacy-note">
           <i className="fas fa-shield-alt" aria-hidden="true"></i>
@@ -3624,18 +3544,18 @@ function CandidateAccessibilityForm({
       <section className="accessibility-card">
         <div className="accessibility-card-head">
           <div>
-            <span className="eyebrow">Comunicação</span>
+            <span className="eyebrow">ComunicaÃ§Ã£o</span>
             <strong>Como prefere ser contatado?</strong>
           </div>
-          <p>Escolha idioma, canal e melhor horário para contato.</p>
+          <p>Escolha idioma, canal e melhor horÃ¡rio para contato.</p>
         </div>
         <div className="accessibility-grid">
           <AccessibilitySelect label="Idioma preferido" value={asString(form.idioma)} options={ACCESSIBILITY_LANGUAGE_OPTIONS} onChange={(value) => updateField('idioma', value)} />
           <AccessibilitySelect label="Canal preferido" value={asString(form.canal)} options={ACCESSIBILITY_CHANNEL_OPTIONS} onChange={(value) => updateField('canal', value)} />
-          <AccessibilitySelect label="Melhor horário" value={asString(form.melhorHorario)} options={ACCESSIBILITY_TIME_OPTIONS} onChange={(value) => updateField('melhorHorario', value)} />
+          <AccessibilitySelect label="Melhor horÃ¡rio" value={asString(form.melhorHorario)} options={ACCESSIBILITY_TIME_OPTIONS} onChange={(value) => updateField('melhorHorario', value)} />
           <label className="accessibility-field is-full">
-            <span>Observações de comunicação</span>
-            <textarea rows={4} value={asString(form.observacoesComunicacao)} onChange={(event) => updateField('observacoesComunicacao', event.target.value)} placeholder="Ex.: prefiro mensagens por WhatsApp, evitar ligações pela manhã..." />
+            <span>ObservaÃ§Ãµes de comunicaÃ§Ã£o</span>
+            <textarea rows={4} value={asString(form.observacoesComunicacao)} onChange={(event) => updateField('observacoesComunicacao', event.target.value)} placeholder="Ex.: prefiro mensagens por WhatsApp, evitar ligaÃ§Ãµes pela manhÃ£..." />
           </label>
         </div>
       </section>
@@ -3643,10 +3563,10 @@ function CandidateAccessibilityForm({
       <section className="accessibility-card">
         <div className="accessibility-card-head">
           <div>
-            <span className="eyebrow">Apoios necessários</span>
+            <span className="eyebrow">Apoios necessÃ¡rios</span>
             <strong>Recursos para entrevistas, testes e etapas online</strong>
           </div>
-          <p>Marque tudo que ajude a tornar a experiência mais adequada.</p>
+          <p>Marque tudo que ajude a tornar a experiÃªncia mais adequada.</p>
         </div>
         <div className="accessibility-support-grid">
           {supportOptions.map((option) => (
@@ -3665,32 +3585,32 @@ function CandidateAccessibilityForm({
         </div>
         <label className="accessibility-field">
           <span>Detalhes das necessidades</span>
-          <textarea rows={4} value={asString(form.detalhesNecessidades)} onChange={(event) => updateField('detalhesNecessidades', event.target.value)} placeholder="Descreva adaptações, equipamentos, restrições ou qualquer informação importante." />
+          <textarea rows={4} value={asString(form.detalhesNecessidades)} onChange={(event) => updateField('detalhesNecessidades', event.target.value)} placeholder="Descreva adaptaÃ§Ãµes, equipamentos, restriÃ§Ãµes ou qualquer informaÃ§Ã£o importante." />
         </label>
       </section>
 
       <section className="accessibility-card">
         <div className="accessibility-card-head">
           <div>
-            <span className="eyebrow">PCD e inclusão</span>
-            <strong>Informações opcionais sobre deficiência</strong>
+            <span className="eyebrow">PCD e inclusÃ£o</span>
+            <strong>InformaÃ§Ãµes opcionais sobre deficiÃªncia</strong>
           </div>
-          <p>Preencha somente se fizer sentido para você.</p>
+          <p>Preencha somente se fizer sentido para vocÃª.</p>
         </div>
         <label className="accessibility-consent">
           <input type="checkbox" checked={form.consentimentoPcd} onChange={() => toggleField('consentimentoPcd')} />
-          <span>Autorizo o uso dessas informações para adaptações no processo seletivo e enquadramento PCD, quando aplicável.</span>
+          <span>Autorizo o uso dessas informaÃ§Ãµes para adaptaÃ§Ãµes no processo seletivo e enquadramento PCD, quando aplicÃ¡vel.</span>
         </label>
         <div className="accessibility-grid">
           <AccessibilitySelect label="Deseja se identificar como PCD?" value={asString(form.pcdIdentificacao)} options={PCD_IDENTIFICATION_OPTIONS} onChange={(value) => updateField('pcdIdentificacao', value)} />
-          <AccessibilitySelect label="Tipo de deficiência" value={asString(form.pcdTipo)} options={PCD_TYPE_OPTIONS} onChange={(value) => updateField('pcdTipo', value)} />
+          <AccessibilitySelect label="Tipo de deficiÃªncia" value={asString(form.pcdTipo)} options={PCD_TYPE_OPTIONS} onChange={(value) => updateField('pcdTipo', value)} />
           <label className="accessibility-field">
-            <span>Comprovação ou laudo</span>
-            <input value={asString(form.pcdComprovacao)} onChange={(event) => updateField('pcdComprovacao', event.target.value)} placeholder="Ex.: tenho laudo disponível, envio quando solicitado..." />
+            <span>ComprovaÃ§Ã£o ou laudo</span>
+            <input value={asString(form.pcdComprovacao)} onChange={(event) => updateField('pcdComprovacao', event.target.value)} placeholder="Ex.: tenho laudo disponÃ­vel, envio quando solicitado..." />
           </label>
           <label className="accessibility-field is-full">
-            <span>Observações sobre inclusão</span>
-            <textarea rows={4} value={asString(form.pcdObservacoes)} onChange={(event) => updateField('pcdObservacoes', event.target.value)} placeholder="Inclua informações relevantes para acolhimento, acessibilidade ou adaptações." />
+            <span>ObservaÃ§Ãµes sobre inclusÃ£o</span>
+            <textarea rows={4} value={asString(form.pcdObservacoes)} onChange={(event) => updateField('pcdObservacoes', event.target.value)} placeholder="Inclua informaÃ§Ãµes relevantes para acolhimento, acessibilidade ou adaptaÃ§Ãµes." />
           </label>
         </div>
       </section>
@@ -3798,7 +3718,7 @@ function CandidateJobPreferencesForm({
   useEffect(() => {
     let cancelled = false
     fetch(IBGE_STATES_URL)
-      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponÃ­vel')))
       .then((states) => {
         if (cancelled) return
         const normalized = states
@@ -3823,7 +3743,7 @@ function CandidateJobPreferencesForm({
 
     let cancelled = false
     fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(form.UfPreferida)}/municipios?orderBy=nome`)
-      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponÃ­vel')))
       .then((cities) => {
         if (cancelled) return
         const names = cities.map((city) => city.nome).filter(Boolean)
@@ -3885,12 +3805,12 @@ function CandidateJobPreferencesForm({
       <section className="job-preferences-card">
         <div className="job-preferences-card-head">
           <span>Objetivo</span>
-          <strong>Conte para quais vagas você quer ser considerado.</strong>
+          <strong>Conte para quais vagas vocÃª quer ser considerado.</strong>
         </div>
         <div className="job-preferences-grid">
           <PreferenceTextField label="Cargo alvo" value={form.CargoAlvo} onChange={(value) => updateField('CargoAlvo', value)} placeholder="Ex.: Analista Financeiro" />
           <PreferenceSelectField label="Senioridade" value={form.Senioridade} options={SENIORITY_OPTIONS} onChange={(value) => updateField('Senioridade', value)} />
-          <PreferenceSelectField label="Início disponível" value={form.InicioDisponivel} options={AVAILABILITY_OPTIONS} onChange={(value) => updateField('InicioDisponivel', value)} />
+          <PreferenceSelectField label="InÃ­cio disponÃ­vel" value={form.InicioDisponivel} options={AVAILABILITY_OPTIONS} onChange={(value) => updateField('InicioDisponivel', value)} />
           <label className="job-preferences-field is-full">
             <span>Resumo profissional</span>
             <textarea rows={4} value={form.Resumo} onChange={(event) => updateField('Resumo', event.target.value)} placeholder="Fale brevemente sobre seu objetivo e momento de carreira." />
@@ -3900,11 +3820,11 @@ function CandidateJobPreferencesForm({
 
       <section className="job-preferences-card">
         <div className="job-preferences-card-head">
-          <span>Áreas e modelo</span>
-          <strong>Preferências para encontrar oportunidades compatíveis.</strong>
+          <span>Ãreas e modelo</span>
+          <strong>PreferÃªncias para encontrar oportunidades compatÃ­veis.</strong>
         </div>
         <div className="job-preferences-field is-full">
-          <span>Áreas de interesse</span>
+          <span>Ãreas de interesse</span>
           <div className="job-preferences-chip-grid">
             {areaOptions.map((area) => (
               <button
@@ -3917,7 +3837,7 @@ function CandidateJobPreferencesForm({
               </button>
             ))}
           </div>
-          <small>{areaStatus === 'fallback' ?'Usando lista padrão porque não foi possível derivar áreas das vagas agora.' : 'Opções derivadas das vagas abertas do tenant.'}</small>
+          <small>{areaStatus === 'fallback' ?'Usando lista padrÃ£o porque nÃ£o foi possÃ­vel derivar Ã¡reas das vagas agora.' : 'OpÃ§Ãµes derivadas das vagas abertas do tenant.'}</small>
         </div>
         <div className="job-preferences-grid">
           <PreferenceSelectField label="Modelo de trabalho" value={form.ModeloTrabalho} options={WORK_MODEL_OPTIONS} onChange={(value) => updateField('ModeloTrabalho', value)} />
@@ -3929,11 +3849,11 @@ function CandidateJobPreferencesForm({
       <section className="job-preferences-card">
         <div className="job-preferences-card-head">
           <span>Localidade</span>
-          <strong>Defina deslocamento, viagens e mudança.</strong>
+          <strong>Defina deslocamento, viagens e mudanÃ§a.</strong>
         </div>
         <div className="job-preferences-grid">
           <PreferenceSelectField label="Viagens" value={form.Viagens} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('Viagens', value)} />
-          <PreferenceSelectField label="Mudança" value={form.Mudanca} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('Mudanca', value)} />
+          <PreferenceSelectField label="MudanÃ§a" value={form.Mudanca} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('Mudanca', value)} />
           <label className="job-preferences-field">
             <span>UF preferida</span>
             <select value={form.UfPreferida} onChange={(event) => setForm((current) => ({ ...current, UfPreferida: event.target.value, CidadePreferida: '' }))}>
@@ -3952,34 +3872,34 @@ function CandidateJobPreferencesForm({
               ))}
             </select>
           </label>
-          <PreferenceSelectField label="Distância máxima" value={form.DistanciaMaxKm} options={DISTANCE_OPTIONS} onChange={(value) => updateField('DistanciaMaxKm', value)} suffix="km" />
+          <PreferenceSelectField label="DistÃ¢ncia mÃ¡xima" value={form.DistanciaMaxKm} options={DISTANCE_OPTIONS} onChange={(value) => updateField('DistanciaMaxKm', value)} suffix="km" />
           <label className="job-preferences-field is-full">
-            <span>Observações de deslocamento</span>
-            <textarea rows={3} value={form.ObsDeslocamento} onChange={(event) => updateField('ObsDeslocamento', event.target.value)} placeholder="Ex.: aceito deslocamento para unidades próximas ao transporte público." />
+            <span>ObservaÃ§Ãµes de deslocamento</span>
+            <textarea rows={3} value={form.ObsDeslocamento} onChange={(event) => updateField('ObsDeslocamento', event.target.value)} placeholder="Ex.: aceito deslocamento para unidades prÃ³ximas ao transporte pÃºblico." />
           </label>
         </div>
       </section>
 
       <section className="job-preferences-card">
         <div className="job-preferences-card-head">
-          <span>Remuneração e benefícios</span>
+          <span>RemuneraÃ§Ã£o e benefÃ­cios</span>
           <strong>Ajude o RH a entender suas expectativas.</strong>
         </div>
         <div className="job-preferences-grid">
-          <PreferenceTextField label="Pretensão salarial" value={form.PretensaoSalarial} onChange={(value) => updateField('PretensaoSalarial', formatCurrencyInput(value))} placeholder="R$ 0,00" inputMode="numeric" />
-          <PreferenceSelectField label="Pretensão negociável" value={form.PretensaoNegociavel} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('PretensaoNegociavel', value)} />
+          <PreferenceTextField label="PretensÃ£o salarial" value={form.PretensaoSalarial} onChange={(value) => updateField('PretensaoSalarial', formatCurrencyInput(value))} placeholder="R$ 0,00" inputMode="numeric" />
+          <PreferenceSelectField label="PretensÃ£o negociÃ¡vel" value={form.PretensaoNegociavel} options={YES_NO_NEGOTIABLE_OPTIONS} onChange={(value) => updateField('PretensaoNegociavel', value)} />
           <label className="job-preferences-field is-full">
-            <span>Benefícios desejados</span>
-            <textarea rows={3} value={form.BeneficiosDesejados} onChange={(event) => updateField('BeneficiosDesejados', event.target.value)} placeholder="Ex.: plano de saúde, vale alimentação, auxílio educação." />
+            <span>BenefÃ­cios desejados</span>
+            <textarea rows={3} value={form.BeneficiosDesejados} onChange={(event) => updateField('BeneficiosDesejados', event.target.value)} placeholder="Ex.: plano de saÃºde, vale alimentaÃ§Ã£o, auxÃ­lio educaÃ§Ã£o." />
           </label>
           <label className="job-preferences-field is-full">
-            <span>Não abro mão de</span>
-            <textarea rows={3} value={form.NaoAbreMaoDe} onChange={(event) => updateField('NaoAbreMaoDe', event.target.value)} placeholder="Ex.: contrato CLT, modelo híbrido, escala específica." />
+            <span>NÃ£o abro mÃ£o de</span>
+            <textarea rows={3} value={form.NaoAbreMaoDe} onChange={(event) => updateField('NaoAbreMaoDe', event.target.value)} placeholder="Ex.: contrato CLT, modelo hÃ­brido, escala especÃ­fica." />
           </label>
         </div>
       </section>
 
-      <button className="secondary-btn" type="submit">Salvar preferências</button>
+      <button className="secondary-btn" type="submit">Salvar preferÃªncias</button>
     </form>
   )
 }
@@ -4040,7 +3960,7 @@ type AuthContext = {
 
 function createAuthorizedClient(ctx: AuthContext) {
   return async function request<T>(path: string, init?: RequestInit, json = true): Promise<T> {
-    if (!ctx.session) throw new Error('Sessão não encontrada.')
+    if (!ctx.session) throw new Error('SessÃ£o nÃ£o encontrada.')
 
     const ensured = await ensureSession(ctx.session, ctx.tenantId)
     ctx.setSession(ensured)
@@ -4071,7 +3991,7 @@ function createAuthorizedClient(ctx: AuthContext) {
 }
 
 async function fetchAuthorizedBlobUrl(ctx: AuthContext, path: string) {
-  if (!ctx.session) throw new Error('Sessão não encontrada.')
+  if (!ctx.session) throw new Error('SessÃ£o nÃ£o encontrada.')
   const ensured = await ensureSession(ctx.session, ctx.tenantId)
   ctx.setSession(ensured)
 
@@ -4191,7 +4111,7 @@ function CandidateProfileResumeForm({
   useEffect(() => {
     let cancelled = false
     fetch(IBGE_STATES_URL)
-      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponível')))
+      .then((response) => response.ok ? response.json() as Promise<BrazilianStateOption[]> : Promise.reject(new Error('IBGE indisponÃ­vel')))
       .then((states) => {
         if (cancelled) return
         const normalized = states
@@ -4218,7 +4138,7 @@ function CandidateProfileResumeForm({
     let cancelled = false
     setCityLoading(true)
     fetch(`${IBGE_CITIES_URL}/${encodeURIComponent(form.uf)}/municipios?orderBy=nome`)
-      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponível')))
+      .then((response) => response.ok ? response.json() as Promise<Array<{ nome: string }>> : Promise.reject(new Error('IBGE indisponÃ­vel')))
       .then((cities) => {
         if (cancelled) return
         setCityOptions(cities.map((city) => city.nome).filter(Boolean))
@@ -4335,7 +4255,7 @@ function CandidateProfileResumeForm({
           <span>Resumo</span>
           <textarea rows={4} value={form.resumoProfissional} onChange={(event) => setForm((current) => ({ ...current, resumoProfissional: event.target.value }))} />
         </label>
-        <button className="primary-btn" type="submit">Salvar seção</button>
+        <button className="primary-btn" type="submit">Salvar seÃ§Ã£o</button>
       </form>
 
       <section className={`profile-resume-card${latestResume ? ' has-resume' : ' is-empty'}`}>
@@ -4343,26 +4263,26 @@ function CandidateProfileResumeForm({
           <i className="fas fa-file-lines"></i>
         </div>
         <div className="profile-resume-copy">
-          <span className="eyebrow">Currículo principal</span>
-          <strong>{latestResume?.nomeArquivo ?? 'Nenhum currículo enviado ainda'}</strong>
+          <span className="eyebrow">CurrÃ­culo principal</span>
+          <strong>{latestResume?.nomeArquivo ?? 'Nenhum currÃ­culo enviado ainda'}</strong>
           <p>
             {latestResume
-              ? `Enviado em ${formatDateTime(latestResume.createdAtUtc)}. Também disponível na seção Documentos.`
-              : 'Envie um arquivo PDF, DOC ou DOCX para deixar seu currículo disponível no portal.'}
+              ? `Enviado em ${formatDateTime(latestResume.createdAtUtc)}. TambÃ©m disponÃ­vel na seÃ§Ã£o Documentos.`
+              : 'Envie um arquivo PDF, DOC ou DOCX para deixar seu currÃ­culo disponÃ­vel no portal.'}
           </p>
         </div>
         <div className="profile-resume-actions">
           <label className="upload-label">
-            {latestResume ? 'Substituir currículo' : 'Enviar currículo'}
+            {latestResume ? 'Substituir currÃ­culo' : 'Enviar currÃ­culo'}
             <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
               const file = event.target.files?.[0]
-              if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'Currículo enviado.')
+              if (file) void uploadFile(`/api/public/portal-candidates/${candidateId}/curriculos`, 'arquivo', file, 'CurrÃ­culo enviado.')
             }} />
           </label>
           {latestResume ? (
             <>
               <label className="upload-label">
-                Parsear currículo
+                Parsear currÃ­culo
                 <input type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
                   const file = event.target.files?.[0]
                   if (!file) return
@@ -4373,7 +4293,7 @@ function CandidateProfileResumeForm({
                     .catch((err) => setMessage(readError(err)))
                 }} />
               </label>
-              <button className="secondary-btn" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>Abrir currículo HTML</button>
+              <button className="secondary-btn" type="button" onClick={() => void openResumeHtml(authFetch, candidateId)}>Abrir currÃ­culo HTML</button>
               <button className="secondary-btn" type="button" onClick={() => void downloadResumePdf(authFetch, candidateId)}>Baixar PDF gerado</button>
               <button className="ghost-btn" type="button" onClick={onOpenDocuments}>Ver em Documentos</button>
             </>
@@ -4385,18 +4305,18 @@ function CandidateProfileResumeForm({
 }
 
 const EDUCATION_TIPO_PRESETS = [
-  'Graduação',
-  'Tecnólogo',
-  'Técnico',
-  'Pós-graduação',
+  'GraduaÃ§Ã£o',
+  'TecnÃ³logo',
+  'TÃ©cnico',
+  'PÃ³s-graduaÃ§Ã£o',
   'MBA',
   'Mestrado',
   'Doutorado',
   'Curso livre',
-  'Certificação',
+  'CertificaÃ§Ã£o',
 ] as const
 
-const EDUCATION_STATUS_PRESETS = ['Concluído', 'Em andamento', 'Cursando', 'Interrompido'] as const
+const EDUCATION_STATUS_PRESETS = ['ConcluÃ­do', 'Em andamento', 'Cursando', 'Interrompido'] as const
 
 function buildEducationTipoOptions(current?: string | null) {
   const s = new Set<string>(EDUCATION_TIPO_PRESETS as unknown as string[])
@@ -4504,12 +4424,12 @@ function EducationRepeaterSection({
         ))}
         {items.length === 0 ? <div className="empty-inline">Nenhum item registrado ainda.</div> : null}
       </div>
-      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar formação</button>
+      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar formaÃ§Ã£o</button>
       {modalOpen ? createPortal((
         <div className="workspace-form-modal-backdrop" onClick={closeModal}>
           <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="workspace-form-modal-header">
-              <h3>{editingItem ? 'Editar formação' : 'Adicionar formação'}</h3>
+              <h3>{editingItem ? 'Editar formaÃ§Ã£o' : 'Adicionar formaÃ§Ã£o'}</h3>
               <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
                 <i className="fas fa-times" aria-hidden="true"></i>
               </button>
@@ -4546,12 +4466,12 @@ function EducationRepeaterSection({
                   <input
                     value={draft.curso}
                     onChange={(event) => setDraft((current) => ({ ...current, curso: event.target.value }))}
-                    placeholder="Ex.: Ciência da Computação"
+                    placeholder="Ex.: CiÃªncia da ComputaÃ§Ã£o"
                     required
                   />
                 </label>
                 <label>
-                  <span>Instituição</span>
+                  <span>InstituiÃ§Ã£o</span>
                   <input
                     value={draft.instituicao}
                     onChange={(event) => setDraft((current) => ({ ...current, instituicao: event.target.value }))}
@@ -4565,7 +4485,7 @@ function EducationRepeaterSection({
                       value={draft.tipo}
                       onChange={(event) => setDraft((current) => ({ ...current, tipo: event.target.value }))}
                     >
-                      <option value="">—</option>
+                      <option value="">â€”</option>
                       {tipoOptions.map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
@@ -4577,7 +4497,7 @@ function EducationRepeaterSection({
                       value={draft.status}
                       onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
                     >
-                      <option value="">—</option>
+                      <option value="">â€”</option>
                       {statusOptions.map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
@@ -4586,7 +4506,7 @@ function EducationRepeaterSection({
                 </div>
                 <div className="project-period-row">
                   <label>
-                    <span>Início</span>
+                    <span>InÃ­cio</span>
                     <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
                   </label>
                   <label>
@@ -4595,7 +4515,7 @@ function EducationRepeaterSection({
                   </label>
                 </div>
                 <label>
-                  <span>Observações</span>
+                  <span>ObservaÃ§Ãµes</span>
                   <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} />
                 </label>
                 <label>
@@ -4609,7 +4529,7 @@ function EducationRepeaterSection({
               </div>
               <div className="workspace-form-modal-actions">
                 <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
-                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar formação' : 'Adicionar formação'}</button>
+                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar formaÃ§Ã£o' : 'Adicionar formaÃ§Ã£o'}</button>
               </div>
             </form>
           </div>
@@ -4702,12 +4622,12 @@ function ExperienceRepeaterSection({
         ))}
         {items.length === 0 ?<div className="empty-inline">Nenhum item registrado ainda.</div> : null}
       </div>
-      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar Experiência</button>
+      <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar ExperiÃªncia</button>
       {modalOpen ? createPortal((
         <div className="workspace-form-modal-backdrop" onClick={closeModal}>
           <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="workspace-form-modal-header">
-              <h3>{editingItem ?'Editar Experiência' : 'Adicionar Experiência'}</h3>
+              <h3>{editingItem ?'Editar ExperiÃªncia' : 'Adicionar ExperiÃªncia'}</h3>
               <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
                 <i className="fas fa-times" aria-hidden="true"></i>
               </button>
@@ -4735,7 +4655,7 @@ function ExperienceRepeaterSection({
                     <input value={draft.cargo} onChange={(event) => setDraft((current) => ({ ...current, cargo: event.target.value }))} />
                   </label>
                   <label>
-                    <span>Início</span>
+                    <span>InÃ­cio</span>
                     <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
                   </label>
                   <label>
@@ -4748,13 +4668,13 @@ function ExperienceRepeaterSection({
                   <input value={draft.local} onChange={(event) => setDraft((current) => ({ ...current, local: event.target.value }))} />
                 </label>
                 <label>
-                  <span>Descrição</span>
+                  <span>DescriÃ§Ã£o</span>
                   <textarea rows={4} value={draft.atividades} onChange={(event) => setDraft((current) => ({ ...current, atividades: event.target.value }))} />
                 </label>
               </div>
               <div className="workspace-form-modal-actions">
                 <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
-                <button className="secondary-btn" type="submit">{editingItem ?'Salvar Experiência' : 'Adicionar Experiência'}</button>
+                <button className="secondary-btn" type="submit">{editingItem ?'Salvar ExperiÃªncia' : 'Adicionar ExperiÃªncia'}</button>
               </div>
             </form>
           </div>
@@ -4904,7 +4824,7 @@ function ProjectRepeaterSection({
                 </label>
                 <div className="project-period-row">
                   <label>
-                    <span>Início</span>
+                    <span>InÃ­cio</span>
                     <input type="date" value={draft.inicio} onChange={(event) => setDraft((current) => ({ ...current, inicio: event.target.value }))} />
                   </label>
                   <label>
@@ -4913,7 +4833,7 @@ function ProjectRepeaterSection({
                   </label>
                 </div>
                 <label>
-                  <span>Descrição</span>
+                  <span>DescriÃ§Ã£o</span>
                   <textarea rows={4} value={draft.descricao} onChange={(event) => setDraft((current) => ({ ...current, descricao: event.target.value }))} />
                 </label>
                 <label>
@@ -5026,7 +4946,7 @@ function DocumentRepeaterSection({
     } catch (err) {
       setDeleteFeedback({
         type: 'error',
-        title: 'Não foi possível remover',
+        title: 'NÃ£o foi possÃ­vel remover',
         message: readError(err),
       })
     } finally {
@@ -5076,12 +4996,12 @@ function DocumentRepeaterSection({
       setUploadFeedback({
         type: 'success',
         title: 'Documento enviado com sucesso',
-        message: `O arquivo "${fileName}" já está disponível na sua lista de documentos.`,
+        message: `O arquivo "${fileName}" jÃ¡ estÃ¡ disponÃ­vel na sua lista de documentos.`,
       })
     } catch (err) {
       setUploadFeedback({
         type: 'error',
-        title: 'Não foi possível enviar',
+        title: 'NÃ£o foi possÃ­vel enviar',
         message: readError(err),
       })
     } finally {
@@ -5110,7 +5030,7 @@ function DocumentRepeaterSection({
                 </div>
                 <div>
                   <strong>{displayName}</strong>
-                  <p>{item.tipo || 'Tipo não informado'}</p>
+                  <p>{item.tipo || 'Tipo nÃ£o informado'}</p>
                 </div>
               </div>
               <dl className={`document-meta-grid${item.data ? '' : ' is-single'}`}>
@@ -5144,7 +5064,7 @@ function DocumentRepeaterSection({
           <div className="document-empty-state">
             <i className="fas fa-folder-open" aria-hidden="true"></i>
             <strong>Nenhum documento cadastrado ainda.</strong>
-            <p>Inclua currículos, certificados, comprovantes ou links relevantes para o seu processo seletivo.</p>
+            <p>Inclua currÃ­culos, certificados, comprovantes ou links relevantes para o seu processo seletivo.</p>
             <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar primeiro documento</button>
           </div>
         ) : null}
@@ -5168,11 +5088,11 @@ function DocumentRepeaterSection({
                   <span>Tipo</span>
                   <select value={draft.tipo} onChange={(event) => setDraft((current) => ({ ...current, tipo: event.target.value }))}>
                     <option value="">Selecione</option>
-                    <option value="Currículo">Currículo</option>
+                    <option value="CurrÃ­culo">CurrÃ­culo</option>
                     <option value="Certificado">Certificado</option>
-                    <option value="Diploma/Declaração">Diploma/Declaração</option>
+                    <option value="Diploma/DeclaraÃ§Ã£o">Diploma/DeclaraÃ§Ã£o</option>
                     <option value="Comprovante">Comprovante</option>
-                    <option value="Portfólio">Portfólio</option>
+                    <option value="PortfÃ³lio">PortfÃ³lio</option>
                     <option value="Outros">Outro</option>
                   </select>
                 </label>
@@ -5189,8 +5109,8 @@ function DocumentRepeaterSection({
                   </label>
                 ) : null}
                 <label>
-                  <span>Observações</span>
-                  <textarea rows={4} value={draft.observacoes} disabled={uploadPending} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Informe contexto, validade, emissor ou qualquer observação importante." />
+                  <span>ObservaÃ§Ãµes</span>
+                  <textarea rows={4} value={draft.observacoes} disabled={uploadPending} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Informe contexto, validade, emissor ou qualquer observaÃ§Ã£o importante." />
                 </label>
                 {uploadPending ? (
                   <div className="document-upload-pending">
@@ -5244,7 +5164,7 @@ function DocumentRepeaterSection({
             </div>
             <h3 id="document-delete-title">Remover documento?</h3>
             <p id="document-delete-message">
-              Esta ação remove o arquivo da sua lista de documentos. Você poderá enviar novamente depois, se necessário.
+              Esta aÃ§Ã£o remove o arquivo da sua lista de documentos. VocÃª poderÃ¡ enviar novamente depois, se necessÃ¡rio.
             </p>
             <div className="swal-actions">
               <button className="secondary-btn" type="button" disabled={deletePending} onClick={() => setDeleteTarget(null)}>Cancelar</button>
@@ -5354,34 +5274,34 @@ function ReferenceRepeaterSection({
           <span className="eyebrow">Rede profissional</span>
           <strong>{title}</strong>
         </div>
-        <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar referência</button>
+        <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar referÃªncia</button>
       </div>
       <div className="reference-list-grid">
         {items.map((item) => (
           <article key={item.id} className="reference-card">
             <div className="reference-card-head">
-              <div className="reference-avatar" aria-hidden="true">{getInitials(item.nome || 'Referência')}</div>
+              <div className="reference-avatar" aria-hidden="true">{getInitials(item.nome || 'ReferÃªncia')}</div>
               <div>
-                <strong>{item.nome || 'Referência sem nome'}</strong>
-                <p>{[item.relacao, item.empresa].filter(Boolean).join(' - ') || 'Relação não informada'}</p>
+                <strong>{item.nome || 'ReferÃªncia sem nome'}</strong>
+                <p>{[item.relacao, item.empresa].filter(Boolean).join(' - ') || 'RelaÃ§Ã£o nÃ£o informada'}</p>
               </div>
             </div>
             <dl className="reference-meta-grid">
               <div>
                 <dt>Cargo</dt>
-                <dd>{item.cargo || 'Não informado'}</dd>
+                <dd>{item.cargo || 'NÃ£o informado'}</dd>
               </div>
               <div>
                 <dt>Contato</dt>
-                <dd>{item.contato || 'Não informado'}</dd>
+                <dd>{item.contato || 'NÃ£o informado'}</dd>
               </div>
               <div>
-                <dt>Período</dt>
-                <dd>{item.periodo || 'Não informado'}</dd>
+                <dt>PerÃ­odo</dt>
+                <dd>{item.periodo || 'NÃ£o informado'}</dd>
               </div>
               <div>
                 <dt>Contato permitido</dt>
-                <dd>{item.podeContatar ? 'Sim' : 'Não'}</dd>
+                <dd>{item.podeContatar ? 'Sim' : 'NÃ£o'}</dd>
               </div>
             </dl>
             {item.linkedin ? <a className="reference-link" href={item.linkedin} target="_blank" rel="noreferrer">LinkedIn</a> : null}
@@ -5395,9 +5315,9 @@ function ReferenceRepeaterSection({
         {items.length === 0 ?(
           <div className="reference-empty-state">
             <i className="fas fa-users" aria-hidden="true"></i>
-            <strong>Nenhuma referência cadastrada ainda.</strong>
-            <p>Adicione contatos profissionais que possam confirmar sua trajetória, projetos ou experiência.</p>
-            <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar primeira referência</button>
+            <strong>Nenhuma referÃªncia cadastrada ainda.</strong>
+            <p>Adicione contatos profissionais que possam confirmar sua trajetÃ³ria, projetos ou experiÃªncia.</p>
+            <button className="secondary-btn" type="button" onClick={openCreate}>Adicionar primeira referÃªncia</button>
           </div>
         ) : null}
       </div>
@@ -5405,7 +5325,7 @@ function ReferenceRepeaterSection({
         <div className="workspace-form-modal-backdrop" onClick={closeModal}>
           <div className="workspace-form-modal-card" onClick={(event) => event.stopPropagation()}>
             <div className="workspace-form-modal-header">
-              <h3>{editingItem ? 'Editar Referência' : 'Adicionar Referência'}</h3>
+              <h3>{editingItem ? 'Editar ReferÃªncia' : 'Adicionar ReferÃªncia'}</h3>
               <button className="profile-modal-close" type="button" onClick={closeModal} aria-label="Fechar">
                 <i className="fas fa-times" aria-hidden="true"></i>
               </button>
@@ -5429,7 +5349,7 @@ function ReferenceRepeaterSection({
                 </label>
                 <div className="reference-detail-row">
                   <label>
-                    <span>Relação</span>
+                    <span>RelaÃ§Ã£o</span>
                     <input value={draft.relacao} onChange={(event) => setDraft((current) => ({ ...current, relacao: event.target.value }))} placeholder="Ex.: gestor, colega, cliente..." />
                   </label>
                   <label>
@@ -5443,7 +5363,7 @@ function ReferenceRepeaterSection({
                     <input value={draft.cargo} onChange={(event) => setDraft((current) => ({ ...current, cargo: event.target.value }))} />
                   </label>
                   <label>
-                    <span>Período</span>
+                    <span>PerÃ­odo</span>
                     <input value={draft.periodo} onChange={(event) => setDraft((current) => ({ ...current, periodo: event.target.value }))} placeholder="Ex.: 2021 a 2024" />
                   </label>
                 </div>
@@ -5456,17 +5376,17 @@ function ReferenceRepeaterSection({
                   <input value={draft.linkedin} onChange={(event) => setDraft((current) => ({ ...current, linkedin: event.target.value }))} placeholder="https://linkedin.com/in/..." />
                 </label>
                 <label>
-                  <span>Observações</span>
-                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Contexto da relação, melhor forma de contato ou observações importantes." />
+                  <span>ObservaÃ§Ãµes</span>
+                  <textarea rows={4} value={draft.observacoes} onChange={(event) => setDraft((current) => ({ ...current, observacoes: event.target.value }))} placeholder="Contexto da relaÃ§Ã£o, melhor forma de contato ou observaÃ§Ãµes importantes." />
                 </label>
                 <label className="reference-consent-row">
                   <input type="checkbox" checked={draft.podeContatar} onChange={(event) => setDraft((current) => ({ ...current, podeContatar: event.target.checked }))} />
-                  <span>Autorizo contato com esta referência quando necessário.</span>
+                  <span>Autorizo contato com esta referÃªncia quando necessÃ¡rio.</span>
                 </label>
               </div>
               <div className="workspace-form-modal-actions">
                 <button className="ghost-btn" type="button" onClick={closeModal}>Cancelar</button>
-                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar Referência' : 'Adicionar Referência'}</button>
+                <button className="secondary-btn" type="submit">{editingItem ? 'Salvar ReferÃªncia' : 'Adicionar ReferÃªncia'}</button>
               </div>
             </form>
           </div>
@@ -5476,15 +5396,15 @@ function ReferenceRepeaterSection({
   )
 }
 
-/** Contrato com campo Frequencia (varchar 40) — valores estáveis recomendados. */
+/** Contrato com campo Frequencia (varchar 40) â€” valores estÃ¡veis recomendados. */
 const NOTIFICATION_FREQUENCY_OPTIONS = [
   { value: 'immediate', label: 'Imediato' },
-  { value: 'daily', label: 'Resumo diário' },
+  { value: 'daily', label: 'Resumo diÃ¡rio' },
   { value: 'weekly', label: 'Resumo semanal' },
   { value: 'urgent', label: 'Somente urgentes' },
 ] as const
 
-/** Mantém valores antigos (rótulos em texto) alinhados aos códigos acima quando o candidato já tinha dados salvos. */
+/** MantÃ©m valores antigos (rÃ³tulos em texto) alinhados aos cÃ³digos acima quando o candidato jÃ¡ tinha dados salvos. */
 function slugNormNotifications(s: string) {
   return s
     .normalize('NFD')
@@ -5515,13 +5435,13 @@ function canonicalFrequenciaFromApi(raw: string): string {
 }
 
 /**
- * Silêncio ativo: ver CandidaturaNotificacaoService.EstaDentroSilencio — valores reconhecidos como ligado: true / 1 / on.
- * Vazio=null respeita início/fim quando preenchidos; "false" e outros desligam pela flag explícita.
+ * SilÃªncio ativo: ver CandidaturaNotificacaoService.EstaDentroSilencio â€” valores reconhecidos como ligado: true / 1 / on.
+ * Vazio=null respeita inÃ­cio/fim quando preenchidos; "false" e outros desligam pela flag explÃ­cita.
  */
 const SILENCIO_ATIVO_OPTIONS = [
-  { value: '', label: 'Automático (preferência não definida; usa só os horários se preenchidos)' },
+  { value: '', label: 'AutomÃ¡tico (preferÃªncia nÃ£o definida; usa sÃ³ os horÃ¡rios se preenchidos)' },
   { value: 'true', label: 'Sim (true)' },
-  { value: 'false', label: 'Não (false) — ignorar horários mesmo preenchidos' },
+  { value: 'false', label: 'NÃ£o (false) â€” ignorar horÃ¡rios mesmo preenchidos' },
 ] as const
 
 function canonicalSilencioAtivoFromApi(raw: string): string {
@@ -5533,11 +5453,11 @@ function canonicalSilencioAtivoFromApi(raw: string): string {
   return t
 }
 
-/** Contrato campo SilencioPrioridade (varchar 20) — apenas metadados; sem lógica adicional na API atual. */
+/** Contrato campo SilencioPrioridade (varchar 20) â€” apenas metadados; sem lÃ³gica adicional na API atual. */
 const SILENCIO_PRIORIDADE_OPTIONS = [
-  { value: '', label: '—' },
+  { value: '', label: 'â€”' },
   { value: 'normal', label: 'Normal' },
-  { value: 'urgent', label: 'Só urgentes' },
+  { value: 'urgent', label: 'SÃ³ urgentes' },
   { value: 'all', label: 'Todas' },
 ] as const
 
@@ -5560,7 +5480,7 @@ function mergedLabeledOptions(
   const list = presets.map((o) => ({ value: o.value, label: o.label }))
   if (!n) return list
   if (!list.some((o) => o.value === n))
-    list.push({ value: n, label: n.length <= 56 ? `(legado) ${n}` : `(valor legado não listado)` })
+    list.push({ value: n, label: n.length <= 56 ? `(legado) ${n}` : `(valor legado nÃ£o listado)` })
   return list
 }
 
@@ -5584,19 +5504,19 @@ function CandidateInternalMessagesPanel({
       <div className="nl-card-head">
         <div>
           <span className="eyebrow">Mensagens do RH</span>
-          <strong id="rh-messages-title">Ações solicitadas pela equipe de recrutamento</strong>
+          <strong id="rh-messages-title">AÃ§Ãµes solicitadas pela equipe de recrutamento</strong>
         </div>
         {pendingCount > 0 ? (
-          <p><strong>{pendingCount}</strong> pendência(s) aguardando sua ação.</p>
+          <p><strong>{pendingCount}</strong> pendÃªncia(s) aguardando sua aÃ§Ã£o.</p>
         ) : (
-          <p>Nenhuma pendência do RH no momento.</p>
+          <p>Nenhuma pendÃªncia do RH no momento.</p>
         )}
       </div>
 
       {messages.length === 0 ? (
         <div className="nl-privacy-pill" role="note">
           <i className="fas fa-circle-check" aria-hidden="true"></i>
-          <span>Quando o RH solicitar atualização de dados, a mensagem aparecerá aqui.</span>
+          <span>Quando o RH solicitar atualizaÃ§Ã£o de dados, a mensagem aparecerÃ¡ aqui.</span>
         </div>
       ) : (
         <div className="rh-message-list">
@@ -5609,7 +5529,7 @@ function CandidateInternalMessagesPanel({
                   <div>
                     <strong>{message.titulo}</strong>
                     <small>
-                      {message.vagaTitulo ? `Vaga: ${message.vagaTitulo} · ` : ''}
+                      {message.vagaTitulo ? `Vaga: ${message.vagaTitulo} Â· ` : ''}
                       {formatDateTime(message.createdAtUtc)}
                     </small>
                   </div>
@@ -5708,13 +5628,13 @@ function CandidateNotificationsWorkspaceForm({
     <form className="nl-form" onSubmit={handleSubmit}>
       <header className="nl-hero nl-hero-muted">
         <div>
-          <span className="eyebrow">Preferências de comunicação</span>
+          <span className="eyebrow">PreferÃªncias de comunicaÃ§Ã£o</span>
           <h4>Controle quando e como quer ser avisado sobre o processo seletivo.</h4>
-          <p>Você pode ajustar canais, frequência e períodos em que prefere não receber mensagens.</p>
+          <p>VocÃª pode ajustar canais, frequÃªncia e perÃ­odos em que prefere nÃ£o receber mensagens.</p>
         </div>
         <div className="nl-privacy-pill" role="note">
           <i className="fas fa-bell" aria-hidden="true"></i>
-          <span>Preferências aplicadas às comunicações deste portal candidato.</span>
+          <span>PreferÃªncias aplicadas Ã s comunicaÃ§Ãµes deste portal candidato.</span>
         </div>
       </header>
 
@@ -5722,16 +5642,16 @@ function CandidateNotificationsWorkspaceForm({
         <div className="nl-card-head">
           <div>
             <span className="eyebrow">Canais permitidos</span>
-            <strong id="nl-channels-title">Onde podemos falar com você?</strong>
+            <strong id="nl-channels-title">Onde podemos falar com vocÃª?</strong>
           </div>
-          <p>Não marque canais que você não usa ou não deseja para evitar ruído.</p>
+          <p>NÃ£o marque canais que vocÃª nÃ£o usa ou nÃ£o deseja para evitar ruÃ­do.</p>
         </div>
         <div className="nl-toggle-grid" role="group" aria-label="Canais permitidos">
           {[
             { key: 'canalEmail', title: 'E-mail', desc: 'Convites, retornos e resumos.', iconClass: 'fas fa-envelope' },
-            { key: 'canalWhatsapp', title: 'WhatsApp', desc: 'Alertas rápidos e lembretes.', iconClass: 'fab fa-whatsapp' },
-            { key: 'canalSms', title: 'SMS', desc: 'Avisos curtos quando necessário.', iconClass: 'fas fa-comment-dots' },
-            { key: 'canalPush', title: 'Push / app', desc: 'Notificações no navegador ou aplicativo.', iconClass: 'fas fa-mobile-screen' },
+            { key: 'canalWhatsapp', title: 'WhatsApp', desc: 'Alertas rÃ¡pidos e lembretes.', iconClass: 'fab fa-whatsapp' },
+            { key: 'canalSms', title: 'SMS', desc: 'Avisos curtos quando necessÃ¡rio.', iconClass: 'fas fa-comment-dots' },
+            { key: 'canalPush', title: 'Push / app', desc: 'NotificaÃ§Ãµes no navegador ou aplicativo.', iconClass: 'fas fa-mobile-screen' },
           ].map((row) => (
             <button
               key={row.key}
@@ -5757,22 +5677,22 @@ function CandidateNotificationsWorkspaceForm({
         </div>
         <div className="nl-fields-grid nl-fields-grid--2">
           <label className="nl-field">
-            <span>Frequência dos resumos</span>
+            <span>FrequÃªncia dos resumos</span>
             <select
               value={canonicalFrequenciaFromApi(String(values.frequencia))}
               onChange={(e) => setField('frequencia', e.target.value)}
             >
-              <option value="">— Definir depois —</option>
+              <option value="">â€” Definir depois â€”</option>
               {freqOptionsMerged.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <small className="nl-field-hint">Valores gravados pela API como códigos: immediate · daily · weekly · urgent (até 40 caracteres).</small>
+            <small className="nl-field-hint">Valores gravados pela API como cÃ³digos: immediate Â· daily Â· weekly Â· urgent (atÃ© 40 caracteres).</small>
           </label>
           <label className="nl-field">
             <span>Idioma dos avisos</span>
             <select value={String(values.idioma)} onChange={(e) => setField('idioma', e.target.value)}>
-              <option value="">—</option>
+              <option value="">â€”</option>
               {langOptions.map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -5783,8 +5703,8 @@ function CandidateNotificationsWorkspaceForm({
             <input type="email" autoComplete="email" value={String(values.email)} onChange={(e) => setField('email', e.target.value)} placeholder="voce@exemplo.com" />
           </label>
           <label className="nl-field nl-field-span-2">
-            <span>Telefone ou WhatsApp prioritário</span>
-            <input type="tel" autoComplete="tel" value={String(values.telefone)} onChange={(e) => setField('telefone', e.target.value)} placeholder="DDI + DDD + número" />
+            <span>Telefone ou WhatsApp prioritÃ¡rio</span>
+            <input type="tel" autoComplete="tel" value={String(values.telefone)} onChange={(e) => setField('telefone', e.target.value)} placeholder="DDI + DDD + nÃºmero" />
           </label>
         </div>
       </section>
@@ -5793,13 +5713,13 @@ function CandidateNotificationsWorkspaceForm({
         <div className="nl-card-head">
           <div>
             <span className="eyebrow">Quiet hours</span>
-            <strong>Horários de silêncio</strong>
+            <strong>HorÃ¡rios de silÃªncio</strong>
           </div>
-          <p>Evite disparos nos intervalos que não quer ser incomodado (quando configurado).</p>
+          <p>Evite disparos nos intervalos que nÃ£o quer ser incomodado (quando configurado).</p>
         </div>
         <div className="nl-fields-grid nl-fields-grid--2">
           <label className="nl-field nl-field-span-2">
-            <span>Janela de silêncio ativa (SilencioAtivo)</span>
+            <span>Janela de silÃªncio ativa (SilencioAtivo)</span>
             <select
               value={canonicalSilencioAtivoFromApi(String(values.silencioAtivo))}
               onChange={(e) => setField('silencioAtivo', e.target.value)}
@@ -5808,10 +5728,10 @@ function CandidateNotificationsWorkspaceForm({
                 <option key={`${opt.label}-${opt.value}`} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <small className="nl-field-hint">Servidor aceita até 10 caracteres. Quando aplicável, valores reconhecidos como “ligado” são true, 1 ou on.</small>
+            <small className="nl-field-hint">Servidor aceita atÃ© 10 caracteres. Quando aplicÃ¡vel, valores reconhecidos como â€œligadoâ€ sÃ£o true, 1 ou on.</small>
           </label>
           <label className="nl-field">
-            <span>Início (HH:mm)</span>
+            <span>InÃ­cio (HH:mm)</span>
             <input
               value={String(values.silencioInicio)}
               onChange={(e) => setField('silencioInicio', e.target.value)}
@@ -5831,7 +5751,7 @@ function CandidateNotificationsWorkspaceForm({
             />
           </label>
           <label className="nl-field nl-field-span-2">
-            <span>Prioridade durante o silêncio (SilencioPrioridade)</span>
+            <span>Prioridade durante o silÃªncio (SilencioPrioridade)</span>
             <select
               value={canonicalSilencioPrioridadeFromApi(String(values.silencioPrioridade))}
               onChange={(e) => setField('silencioPrioridade', e.target.value)}
@@ -5840,7 +5760,7 @@ function CandidateNotificationsWorkspaceForm({
                 <option key={`${opt.label}-${opt.value}`} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <small className="nl-field-hint">Texto livre até 20 caracteres; sugerimos normal · urgent · all.</small>
+            <small className="nl-field-hint">Texto livre atÃ© 20 caracteres; sugerimos normal Â· urgent Â· all.</small>
           </label>
         </div>
       </section>
@@ -5858,11 +5778,11 @@ function CandidateNotificationsWorkspaceForm({
         </label>
         <div className="nl-alert-grid">
           {[
-            { key: 'alertaNovasVagas', label: 'Novas vagas alinhadas', hint: 'Sugestões com base em perfil.', icon: 'fa-briefcase' },
-            { key: 'alertaAtualizacoes', label: 'Atualizações do processo', hint: 'Mudanças de etapa e status.', icon: 'fa-arrows-rotate' },
-            { key: 'alertaEntrevistas', label: 'Entrevistas e dinâmicas', hint: 'Convites com data e formato.', icon: 'fa-video' },
-            { key: 'alertaMensagens', label: 'Mensagens diretas', hint: 'Comunicações pessoais do recrutador.', icon: 'fa-comments' },
-            { key: 'alertaDocumentos', label: 'Documentos e formulários', hint: 'Novos formulários solicitados.', icon: 'fa-file-lines' },
+            { key: 'alertaNovasVagas', label: 'Novas vagas alinhadas', hint: 'SugestÃµes com base em perfil.', icon: 'fa-briefcase' },
+            { key: 'alertaAtualizacoes', label: 'AtualizaÃ§Ãµes do processo', hint: 'MudanÃ§as de etapa e status.', icon: 'fa-arrows-rotate' },
+            { key: 'alertaEntrevistas', label: 'Entrevistas e dinÃ¢micas', hint: 'Convites com data e formato.', icon: 'fa-video' },
+            { key: 'alertaMensagens', label: 'Mensagens diretas', hint: 'ComunicaÃ§Ãµes pessoais do recrutador.', icon: 'fa-comments' },
+            { key: 'alertaDocumentos', label: 'Documentos e formulÃ¡rios', hint: 'Novos formulÃ¡rios solicitados.', icon: 'fa-file-lines' },
             { key: 'alertaLembretes', label: 'Lembretes e prazos', hint: 'SLA ou entregas pendentes.', icon: 'fa-clock' },
           ].map((row) => (
             <label key={row.key} className="nl-chip-check">
@@ -5880,12 +5800,12 @@ function CandidateNotificationsWorkspaceForm({
           ))}
         </div>
         <label className="nl-field nl-assinatura">
-          <span>Observações para o rodapé dos e-mails (opcional)</span>
-          <textarea rows={4} value={String(values.assinatura)} onChange={(e) => setField('assinatura', e.target.value)} placeholder="Informações adicionais que podem aparecer na assinatura dos avisos." />
+          <span>ObservaÃ§Ãµes para o rodapÃ© dos e-mails (opcional)</span>
+          <textarea rows={4} value={String(values.assinatura)} onChange={(e) => setField('assinatura', e.target.value)} placeholder="InformaÃ§Ãµes adicionais que podem aparecer na assinatura dos avisos." />
         </label>
       </section>
 
-      <button className="primary-btn nl-submit" type="submit">Salvar notificações</button>
+      <button className="primary-btn nl-submit" type="submit">Salvar notificaÃ§Ãµes</button>
     </form>
   )
 }
@@ -5945,8 +5865,8 @@ function CandidateLgpdWorkspaceForm({
       <header className="nl-hero nl-hero-accent">
         <div>
           <span className="eyebrow">Privacidade e consentimento</span>
-          <h4>Você define como seus dados aparecem no processo.</h4>
-          <p>Informações tratadas conforme LGPD para recrutamento, triagem de talentos e comunicações relacionadas ao portal.</p>
+          <h4>VocÃª define como seus dados aparecem no processo.</h4>
+          <p>InformaÃ§Ãµes tratadas conforme LGPD para recrutamento, triagem de talentos e comunicaÃ§Ãµes relacionadas ao portal.</p>
         </div>
         <div className="nl-privacy-pill" role="note">
           <i className="fas fa-shield-alt" aria-hidden="true"></i>
@@ -5957,36 +5877,36 @@ function CandidateLgpdWorkspaceForm({
       <section className="nl-card" aria-labelledby="nl-lgpd-consents-title">
         <div className="nl-card-head">
           <div>
-            <span className="eyebrow">Preferências tratadas pela equipe</span>
+            <span className="eyebrow">PreferÃªncias tratadas pela equipe</span>
             <strong id="nl-lgpd-consents-title">Uso principal dos dados</strong>
           </div>
-          <p>Marque apenas o que estiver confortável. Recomendamos ler cada item antes de salvar.</p>
+          <p>Marque apenas o que estiver confortÃ¡vel. Recomendamos ler cada item antes de salvar.</p>
         </div>
         <div className="nl-lgpd-grid">
           {[
             {
               key: 'processarCandidatura',
               title: 'Processar dados da candidatura',
-              desc: 'Permite curadoria do RH nas informações para esta vaga.',
+              desc: 'Permite curadoria do RH nas informaÃ§Ãµes para esta vaga.',
             },
             {
               key: 'permitirContato',
               title: 'Permitir convites externos',
-              desc: 'Possibilita iniciativas relacionadas quando houver vagas próximas.',
+              desc: 'Possibilita iniciativas relacionadas quando houver vagas prÃ³ximas.',
             },
             {
               key: 'bancoTalentos',
               title: 'Incluir no banco interno',
-              desc: 'Dados ficam disponíveis para vagas futuras similares.',
+              desc: 'Dados ficam disponÃ­veis para vagas futuras similares.',
             },
             {
               key: 'dadosSensiveis',
-              title: 'Declarar dados sensíveis opcionais',
-              desc: 'Quando marcado, usamos apenas para adequações obrigatórias ou informadas por você.',
+              title: 'Declarar dados sensÃ­veis opcionais',
+              desc: 'Quando marcado, usamos apenas para adequaÃ§Ãµes obrigatÃ³rias ou informadas por vocÃª.',
             },
             {
               key: 'comunicacoes',
-              title: 'Comunicações institucionais',
+              title: 'ComunicaÃ§Ãµes institucionais',
               desc: 'Newsletter de carreira, convites pesquisados e convites relacionados ao portal.',
             },
           ].map((row) => (
@@ -6008,13 +5928,13 @@ function CandidateLgpdWorkspaceForm({
       <section className="nl-card">
         <div className="nl-card-head">
           <div>
-            <span className="eyebrow">Governança de dados</span>
-            <strong>Retenção e compartilhamento</strong>
+            <span className="eyebrow">GovernanÃ§a de dados</span>
+            <strong>RetenÃ§Ã£o e compartilhamento</strong>
           </div>
         </div>
         <div className="nl-fields-grid nl-fields-grid--2">
           <label className="nl-field">
-            <span>Prazo de retenção (meses)</span>
+            <span>Prazo de retenÃ§Ã£o (meses)</span>
             <input
               inputMode="numeric"
               pattern="[0-9]*"
@@ -6027,7 +5947,7 @@ function CandidateLgpdWorkspaceForm({
           <label className="nl-field">
             <span>Escopo de compartilhamento interno</span>
             <select value={String(values.compartilhamento)} onChange={(e) => setValues((v) => ({ ...v, compartilhamento: e.target.value }))}>
-              <option value="">— Informar quando necessário —</option>
+              <option value="">â€” Informar quando necessÃ¡rio â€”</option>
               {scopeOptions.map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -6037,17 +5957,17 @@ function CandidateLgpdWorkspaceForm({
             {data?.consentidoEmUtc ? (
               <p><strong>Consentimento registrado:</strong>{' '} {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.consentidoEmUtc))}</p>
             ) : (
-              <p className="nl-muted-copy">Consentimento será registrado após primeira confirmação nesta tela.</p>
+              <p className="nl-muted-copy">Consentimento serÃ¡ registrado apÃ³s primeira confirmaÃ§Ã£o nesta tela.</p>
             )}
             {data?.revogadoEmUtc ? (
-              <p><strong>Revogações anteriores:</strong>{' '} {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.revogadoEmUtc))}</p>
+              <p><strong>RevogaÃ§Ãµes anteriores:</strong>{' '} {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.revogadoEmUtc))}</p>
             ) : null}
           </div>
         </div>
       </section>
 
       <div className="nl-actions-row">
-        <button className="primary-btn nl-submit" type="submit">Salvar preferências LGPD</button>
+        <button className="primary-btn nl-submit" type="submit">Salvar preferÃªncias LGPD</button>
         <button type="button" className="secondary-btn nl-receipt-btn" onClick={() => onOpenReceipt()}>
           <i className="fas fa-file-invoice" aria-hidden="true"></i>
           <span>Ver comprovante LGPD</span>
@@ -6057,384 +5977,9 @@ function CandidateLgpdWorkspaceForm({
   )
 }
 
-const AGENDA_FORMATO_PRESETS = ['Presencial', 'Videochamada', 'Telefone', 'Indiferente'] as const
-const AGENDA_FUSO_PRESETS = ['America/Sao_Paulo', 'America/Fortaleza', 'America/Manaus', 'America/Recife', 'UTC'] as const
-const AGENDA_BLOCK_TIPO_PRESETS = ['Viagem', 'Saúde', 'Estudos', 'Família', 'Trabalho externo', 'Outro'] as const
 
-const AGENDA_WEEKDAY_KEYS = [
-  { key: 'diaSeg', short: 'Seg', label: 'Segunda-feira' },
-  { key: 'diaTer', short: 'Ter', label: 'Terça-feira' },
-  { key: 'diaQua', short: 'Qua', label: 'Quarta-feira' },
-  { key: 'diaQui', short: 'Qui', label: 'Quinta-feira' },
-  { key: 'diaSex', short: 'Sex', label: 'Sexta-feira' },
-  { key: 'diaSab', short: 'Sáb', label: 'Sábado' },
-  { key: 'diaDom', short: 'Dom', label: 'Domingo' },
-] as const
-
-const AGENDA_PERIOD_KEYS = [
-  { key: 'periodoManha', label: 'Manhã', hint: 'Ex.: 08–12h', iconClass: 'fas fa-sun' },
-  { key: 'periodoTarde', label: 'Tarde', hint: 'Ex.: 13–18h', iconClass: 'fas fa-cloud-sun' },
-  { key: 'periodoNoite', label: 'Noite', hint: 'Após 18h', iconClass: 'fas fa-moon' },
-] as const
-
-type AgendaPrefsForm = {
-  formatoEntrevista: string
-  inicioDisponivel: string
-  avisoPrevio: string
-  observacoes: string
-  horarioPreferido: string
-  fusoHorario: string
-  diaSeg: boolean
-  diaTer: boolean
-  diaQua: boolean
-  diaQui: boolean
-  diaSex: boolean
-  diaSab: boolean
-  diaDom: boolean
-  periodoManha: boolean
-  periodoTarde: boolean
-  periodoNoite: boolean
-}
-
-function normalizeAgendaPrefsForm(a: PortalAgenda | null): AgendaPrefsForm {
-  const p = a?.preferences
-  return {
-    formatoEntrevista: p?.formatoEntrevista ?? '',
-    inicioDisponivel: p?.inicioDisponivel ?? '',
-    avisoPrevio: p?.avisoPrevio ?? '',
-    observacoes: p?.observacoes ?? '',
-    horarioPreferido: p?.horarioPreferido ?? '',
-    fusoHorario: p?.fusoHorario ?? '',
-    diaSeg: Boolean(p?.diaSeg),
-    diaTer: Boolean(p?.diaTer),
-    diaQua: Boolean(p?.diaQua),
-    diaQui: Boolean(p?.diaQui),
-    diaSex: Boolean(p?.diaSex),
-    diaSab: Boolean(p?.diaSab),
-    diaDom: Boolean(p?.diaDom),
-    periodoManha: Boolean(p?.periodoManha),
-    periodoTarde: Boolean(p?.periodoTarde),
-    periodoNoite: Boolean(p?.periodoNoite),
-  }
-}
-
-function CandidateAgendaWorkspace({
-  agenda,
-  candidateId,
-  saveJson,
-  removeItem,
-  setMessage,
-}: {
-  agenda: PortalAgenda | null
-  candidateId: string
-  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
-  removeItem: (path: string, successText: string) => void | Promise<void>
-  setMessage: (message: string | null) => void
-}) {
-  const initial = useMemo(() => normalizeAgendaPrefsForm(agenda), [agenda])
-  const [values, setValues] = useState(initial)
-  useEffect(() => {
-    setValues(initial)
-  }, [initial])
-
-  function toggle<K extends keyof AgendaPrefsForm>(key: K) {
-    setValues((v) => ({ ...v, [key]: !Boolean(v[key]) }))
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const payload = {
-      formatoEntrevista: values.formatoEntrevista.trim().slice(0, 40) || null,
-      inicioDisponivel: values.inicioDisponivel.trim().slice(0, 40) || null,
-      avisoPrevio: values.avisoPrevio.trim().slice(0, 40) || null,
-      observacoes: values.observacoes.trim().slice(0, 400) || null,
-      horarioPreferido: values.horarioPreferido.trim().slice(0, 40) || null,
-      fusoHorario: values.fusoHorario.trim().slice(0, 60) || null,
-      diaSeg: Boolean(values.diaSeg),
-      diaTer: Boolean(values.diaTer),
-      diaQua: Boolean(values.diaQua),
-      diaQui: Boolean(values.diaQui),
-      diaSex: Boolean(values.diaSex),
-      diaSab: Boolean(values.diaSab),
-      diaDom: Boolean(values.diaDom),
-      periodoManha: Boolean(values.periodoManha),
-      periodoTarde: Boolean(values.periodoTarde),
-      periodoNoite: Boolean(values.periodoNoite),
-    }
-    void saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, payload, 'Preferências de agenda salvas.')
-  }
-
-  return (
-    <div className="ag-workspace nl-form">
-      <header className="ag-hero nl-hero nl-hero-accent">
-        <div>
-          <span className="eyebrow">Recrutamento</span>
-          <h4>Quando posso participar de entrevistas?</h4>
-          <p>
-            Informe formato preferido, janelas de horário e dias da semana. Isso ajuda o RH a convidar você sem atritos —
-            os bloqueios ficam logo abaixo para dias em que você não pode ser contactado.
-          </p>
-        </div>
-        <div className="nl-privacy-pill" role="note">
-          <i className="fas fa-calendar-check" aria-hidden="true"></i>
-          <span>Você pode ajustar estes dados a qualquer momento; eles não substituem confirmações formais de agenda.</span>
-        </div>
-      </header>
-
-      <form className="nl-card ag-panel" onSubmit={handleSubmit}>
-        <div className="nl-card-head">
-          <div>
-            <span className="eyebrow">Preferências</span>
-            <strong>Formato e tempo</strong>
-          </div>
-          <p>Campos opcionais com limite compatível com o cadastro no servidor (até 40 caracteres nos campos curtos).</p>
-        </div>
-        <div className="nl-fields-grid nl-fields-grid--2">
-          <label className="nl-field">
-            <span>Formato de entrevista</span>
-            <select value={values.formatoEntrevista} onChange={(e) => setValues((v) => ({ ...v, formatoEntrevista: e.target.value }))}>
-              <option value="">—</option>
-              {mergeEducationSummarySelectOptions(AGENDA_FORMATO_PRESETS as unknown as readonly string[], values.formatoEntrevista).map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </label>
-          <label className="nl-field">
-            <span>Início disponível</span>
-            <input value={values.inicioDisponivel} onChange={(e) => setValues((v) => ({ ...v, inicioDisponivel: e.target.value }))} placeholder="Ex.: imediato, em 15 dias" maxLength={40} />
-          </label>
-          <label className="nl-field">
-            <span>Aviso prévio desejado</span>
-            <input value={values.avisoPrevio} onChange={(e) => setValues((v) => ({ ...v, avisoPrevio: e.target.value }))} placeholder="Ex.: 24h, 48h, 1 semana" maxLength={40} />
-          </label>
-          <label className="nl-field">
-            <span>Melhor faixa de horário (texto livre)</span>
-            <input value={values.horarioPreferido} onChange={(e) => setValues((v) => ({ ...v, horarioPreferido: e.target.value }))} placeholder="Ex.: manhãs após 9h, evitar almoço" maxLength={40} />
-          </label>
-          <label className="nl-field nl-field-span-2">
-            <span>Fuso ou referência de horário</span>
-            <select value={values.fusoHorario} onChange={(e) => setValues((v) => ({ ...v, fusoHorario: e.target.value }))}>
-              <option value="">—</option>
-              {mergeEducationSummarySelectOptions(AGENDA_FUSO_PRESETS as unknown as readonly string[], values.fusoHorario).map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </label>
-          <label className="nl-field nl-field-span-2">
-            <span>Observações para o RH</span>
-            <textarea rows={3} value={values.observacoes} onChange={(e) => setValues((v) => ({ ...v, observacoes: e.target.value }))} placeholder="Ex.: prefiro encaixes curtos; disponível apenas às quartas para dinâmicas presenciais." maxLength={400} />
-          </label>
-        </div>
-
-        <div className="ag-subsection">
-          <div className="ag-subsection-head">
-            <strong>Dias da semana em que aceita conversas</strong>
-            <p className="nl-muted-copy">Toque para ligar ou desligar cada dia — foco nos dias úteis é comum.</p>
-          </div>
-          <div className="nl-toggle-grid nl-toggle-grid--week" role="group" aria-label="Dias disponíveis para entrevista">
-            {AGENDA_WEEKDAY_KEYS.map((d) => (
-              <button
-                key={d.key}
-                type="button"
-                className={`nl-toggle ag-weekday-toggle${values[d.key as keyof AgendaPrefsForm] ? ' is-on' : ''}`}
-                onClick={() => toggle(d.key as keyof AgendaPrefsForm)}
-                aria-pressed={Boolean(values[d.key as keyof AgendaPrefsForm])}
-                title={d.label}
-              >
-                <span>{d.short}</span>
-                <small aria-hidden="true">{d.label}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="ag-subsection">
-          <div className="ag-subsection-head">
-            <strong>Períodos preferidos no dia</strong>
-            <p className="nl-muted-copy">Ajuda o RH a encaixar janelas sem sobrepor sua rotina.</p>
-          </div>
-          <div className="nl-toggle-grid nl-toggle-grid--periods" role="group" aria-label="Períodos preferidos">
-            {AGENDA_PERIOD_KEYS.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                className={`nl-toggle${values[p.key as keyof AgendaPrefsForm] ? ' is-on' : ''}`}
-                onClick={() => toggle(p.key as keyof AgendaPrefsForm)}
-                aria-pressed={Boolean(values[p.key as keyof AgendaPrefsForm])}
-              >
-                <i className={p.iconClass} aria-hidden="true"></i>
-                <span>{p.label}</span>
-                <small>{p.hint}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button className="primary-btn ag-save-btn" type="submit">Salvar preferências de agenda</button>
-      </form>
-
-      <AgendaBlocksRepeater blocks={agenda?.blocks ?? []} candidateId={candidateId} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
-    </div>
-  )
-}
-
-function AgendaBlocksRepeater({
-  blocks,
-  candidateId,
-  saveJson,
-  removeItem,
-  setMessage,
-}: {
-  blocks: PortalAgendaBlock[]
-  candidateId: string
-  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
-  removeItem: (path: string, successText: string) => void | Promise<void>
-  setMessage: (message: string | null) => void
-}) {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<PortalAgendaBlock | null>(null)
-  const [draft, setDraft] = useState({ tipo: '', titulo: '', data: '', horario: '', observacoes: '' })
-
-  const tipoOpts = useMemo(() => mergeEducationSummarySelectOptions(AGENDA_BLOCK_TIPO_PRESETS as unknown as readonly string[], draft.tipo), [draft.tipo])
-
-  function openCreate() {
-    setEditing(null)
-    setDraft({ tipo: AGENDA_BLOCK_TIPO_PRESETS[0] ?? 'Outro', titulo: '', data: '', horario: '', observacoes: '' })
-    setModalOpen(true)
-  }
-
-  function openEdit(item: PortalAgendaBlock) {
-    setEditing(item)
-    setDraft({
-      tipo: item.tipo ?? '',
-      titulo: item.titulo ?? '',
-      data: item.data ?? '',
-      horario: item.horario ?? '',
-      observacoes: item.observacoes ?? '',
-    })
-    setModalOpen(true)
-  }
-
-  function closeModal() {
-    setModalOpen(false)
-    setEditing(null)
-  }
-
-  return (
-    <section className="nl-card ag-blocks-panel">
-      <div className="nl-card-head">
-        <div>
-          <span className="eyebrow">Indisponibilidade</span>
-          <strong>Bloqueios na agenda</strong>
-        </div>
-        <p>Use para viagens, provas ou qualquer intervalo em que não deve receber convites ou lembretes de entrevista.</p>
-      </div>
-
-      <div className="ag-block-list">
-        {blocks.map((item) => (
-          <article key={item.id} className="ag-block-card">
-            <div>
-              <div className="ag-block-heading">
-                <strong>{item.titulo?.trim() || 'Bloqueio sem título'}</strong>
-                {item.tipo?.trim() ? <span className="sp-badge">{item.tipo}</span> : null}
-              </div>
-              <p className="ag-block-meta">
-                {[item.data, item.horario].filter(Boolean).join(' · ') || 'Data e horário não informados'}
-              </p>
-              {item.observacoes?.trim() ? <p className="ag-block-note">{item.observacoes}</p> : null}
-            </div>
-            <div className="sp-item-actions">
-              <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
-              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}>Remover</button>
-            </div>
-          </article>
-        ))}
-        {blocks.length === 0 ? (
-          <div className="sp-empty ag-blocks-empty">
-            <i className="fas fa-calendar-xmark" aria-hidden="true"></i>
-            <p>Nenhum bloqueio cadastrado. Adicione quando souber que não poderá ser contactado.</p>
-          </div>
-        ) : null}
-      </div>
-
-      <button type="button" className="secondary-btn ag-add-block-btn" onClick={openCreate}>
-        Adicionar bloqueio
-      </button>
-
-      {modalOpen ? createPortal(
-        <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
-          <div className="workspace-form-modal-card workspace-form-modal-card--agenda" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="workspace-form-modal-header">
-              <h3>{editing ? 'Editar bloqueio' : 'Novo bloqueio'}</h3>
-              <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
-                <i className="fas fa-times" aria-hidden="true"></i>
-              </button>
-            </div>
-            <form
-              className="project-form-grid"
-              onSubmit={(event) => {
-                event.preventDefault()
-                const titulo = draft.titulo.trim().slice(0, 120)
-                if (!titulo) {
-                  setMessage('Informe um título ou motivo breve para o bloqueio.')
-                  return
-                }
-                const payload = {
-                  tipo: draft.tipo.trim().slice(0, 40) || null,
-                  titulo,
-                  data: draft.data.trim().slice(0, 40) || null,
-                  horario: draft.horario.trim().slice(0, 40) || null,
-                  observacoes: draft.observacoes.trim().slice(0, 400) || null,
-                }
-                if (editing) {
-                  void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${editing.id}`, payload, 'Bloqueio atualizado.')
-                } else {
-                  void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, payload, 'Bloqueio adicionado.', 'POST')
-                }
-                closeModal()
-              }}
-            >
-              <div className="workspace-form-modal-body">
-                <label className="nl-field">
-                  <span>Motivo / tipo</span>
-                  <select value={draft.tipo} onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))}>
-                    {tipoOpts.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="nl-field">
-                  <span>Título ou descrição curta</span>
-                  <input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex.: viagem a trabalho" maxLength={120} />
-                </label>
-                <label className="nl-field">
-                  <span>Data ou período</span>
-                  <input value={draft.data} onChange={(e) => setDraft((d) => ({ ...d, data: e.target.value }))} placeholder="Ex.: 2026-05-12 ou semana 12–16/05" maxLength={40} />
-                </label>
-                <label className="nl-field">
-                  <span>Horário ou faixa</span>
-                  <input value={draft.horario} onChange={(e) => setDraft((d) => ({ ...d, horario: e.target.value }))} placeholder="Ex.: manhã inteira, 14–18h" maxLength={40} />
-                </label>
-                <label className="nl-field">
-                  <span>Observações</span>
-                  <textarea rows={3} value={draft.observacoes} onChange={(e) => setDraft((d) => ({ ...d, observacoes: e.target.value }))} maxLength={400} />
-                </label>
-              </div>
-              <div className="workspace-form-modal-actions">
-                <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
-                <button type="submit" className="secondary-btn">{editing ? 'Salvar bloqueio' : 'Adicionar'}</button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body,
-      ) : null}
-    </section>
-  )
-}
-
-const SKILL_TIPO_PRESETS = ['Tecnologia', 'Idioma', 'Metodologia', 'Soft skill', 'Ferramenta', 'Domínio', 'Outro'] as const
-const SKILL_NIVEL_PRESETS = ['Iniciante', 'Intermediário', 'Avançado', 'Especialista', 'Expert', 'Nativo / bilíngue'] as const
+const SKILL_TIPO_PRESETS = ['Tecnologia', 'Idioma', 'Metodologia', 'Soft skill', 'Ferramenta', 'DomÃ­nio', 'Outro'] as const
+const SKILL_NIVEL_PRESETS = ['Iniciante', 'IntermediÃ¡rio', 'AvanÃ§ado', 'Especialista', 'Expert', 'Nativo / bilÃ­ngue'] as const
 const PORTFOLIO_SHIFT_PRESETS = [...WORKDAY_OPTIONS]
 
 function spOpenExternalUrl(raw: string, onEmpty?: () => void) {
@@ -6496,7 +6041,7 @@ function CandidateSkillsPortfolioWorkspace({
       drive: prefs.drive.trim().slice(0, 260) || null,
       tags: prefs.tags.trim().slice(0, 400) || null,
     }
-    void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, payload, 'Preferências e links salvos.')
+    void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio`, payload, 'PreferÃªncias e links salvos.')
   }
 
   return (
@@ -6504,31 +6049,31 @@ function CandidateSkillsPortfolioWorkspace({
       <header className="sp-hero nl-hero nl-hero-accent">
         <div>
           <span className="eyebrow">Destaque-se em poucos campos</span>
-          <h4>Portfólio, links e mensagem rápida para recrutadores</h4>
+          <h4>PortfÃ³lio, links e mensagem rÃ¡pida para recrutadores</h4>
           <p>
             Defina modelo de trabalho preferido, onde o RH pode te encontrar na web e palavras-chave do seu perfil.
-            As competências e credenciais detalhadas ficam nos menus próprios à esquerda.
+            As competÃªncias e credenciais detalhadas ficam nos menus prÃ³prios Ã  esquerda.
           </p>
         </div>
         <div className="nl-privacy-pill" role="note">
           <i className="fas fa-circle-info" aria-hidden="true"></i>
-          <span>Links públicos devem iniciar com <code className="sp-code-inline">https://</code> quando possível.</span>
+          <span>Links pÃºblicos devem iniciar com <code className="sp-code-inline">https://</code> quando possÃ­vel.</span>
         </div>
       </header>
 
       <form className="sp-panel nl-card" onSubmit={handleSavePortfolio}>
         <div className="nl-card-head">
           <div>
-            <span className="eyebrow">Visão rápida</span>
-            <strong>Preferências e links do portfólio</strong>
+            <span className="eyebrow">VisÃ£o rÃ¡pida</span>
+            <strong>PreferÃªncias e links do portfÃ³lio</strong>
           </div>
-          <p>Modelo de trabalho, links públicos e tags passam no mesmo salvamento — preencha o que fizer sentido para o seu momento de carreira.</p>
+          <p>Modelo de trabalho, links pÃºblicos e tags passam no mesmo salvamento â€” preencha o que fizer sentido para o seu momento de carreira.</p>
         </div>
         <div className="nl-fields-grid nl-fields-grid--2">
           <label className="nl-field">
             <span>Modelo de trabalho</span>
             <select value={prefs.workModel} onChange={(e) => patchPrefs('workModel', e.target.value)}>
-              <option value="">—</option>
+              <option value="">â€”</option>
               {mergeEducationSummarySelectOptions(WORK_MODEL_OPTIONS, prefs.workModel).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -6537,20 +6082,20 @@ function CandidateSkillsPortfolioWorkspace({
           <label className="nl-field">
             <span>Disponibilidade</span>
             <select value={prefs.availability} onChange={(e) => patchPrefs('availability', e.target.value)}>
-              <option value="">—</option>
+              <option value="">â€”</option>
               {mergeEducationSummarySelectOptions(AVAILABILITY_OPTIONS, prefs.availability).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
           </label>
           <label className="nl-field">
-            <span>Pretensão / faixa breve</span>
-            <input value={prefs.salary} onChange={(e) => patchPrefs('salary', e.target.value)} placeholder="Ex.: R$ 8–10k PJ" maxLength={40} />
+            <span>PretensÃ£o / faixa breve</span>
+            <input value={prefs.salary} onChange={(e) => patchPrefs('salary', e.target.value)} placeholder="Ex.: R$ 8â€“10k PJ" maxLength={40} />
           </label>
           <label className="nl-field">
             <span>Jornada / turno preferido</span>
             <select value={prefs.shift} onChange={(e) => patchPrefs('shift', e.target.value)}>
-              <option value="">—</option>
+              <option value="">â€”</option>
               {mergeEducationSummarySelectOptions(PORTFOLIO_SHIFT_PRESETS, prefs.shift).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -6558,13 +6103,13 @@ function CandidateSkillsPortfolioWorkspace({
           </label>
           <label className="nl-field nl-field-span-2">
             <span>Notas para o RH (opcional)</span>
-            <textarea rows={3} value={prefs.note} onChange={(e) => patchPrefs('note', e.target.value)} placeholder="Ex.: aberto a remoto nacional, disponível para mudança..." maxLength={200} />
+            <textarea rows={3} value={prefs.note} onChange={(e) => patchPrefs('note', e.target.value)} placeholder="Ex.: aberto a remoto nacional, disponÃ­vel para mudanÃ§a..." maxLength={200} />
           </label>
         </div>
 
         <div className="sp-links-head">
-          <strong>URLs públicos</strong>
-          <p className="nl-muted-copy">Opcionalmente abrimos cada endereço em nova aba para você conferir antes de gravar.</p>
+          <strong>URLs pÃºblicos</strong>
+          <p className="nl-muted-copy">Opcionalmente abrimos cada endereÃ§o em nova aba para vocÃª conferir antes de gravar.</p>
         </div>
         <div className="sp-links-grid">
           <label className="nl-field">
@@ -6582,10 +6127,10 @@ function CandidateSkillsPortfolioWorkspace({
             </div>
           </label>
           <label className="nl-field">
-            <span><i className="fas fa-briefcase" aria-hidden="true"></i> Portfólio / site</span>
+            <span><i className="fas fa-briefcase" aria-hidden="true"></i> PortfÃ³lio / site</span>
             <div className="sp-link-inline-row">
               <input type="url" value={prefs.portfolioUrl} onChange={(e) => patchPrefs('portfolioUrl', e.target.value)} placeholder="https://..." />
-              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.portfolioUrl, () => setMessage('Informe o URL do portfólio.'))}>Abrir</button>
+              <button type="button" className="ghost-btn sp-mini-link-btn" onClick={() => spOpenExternalUrl(prefs.portfolioUrl, () => setMessage('Informe o URL do portfÃ³lio.'))}>Abrir</button>
             </div>
           </label>
           <label className="nl-field">
@@ -6597,10 +6142,10 @@ function CandidateSkillsPortfolioWorkspace({
           </label>
           <label className="nl-field nl-field-span-2">
             <span>Palavras-chave (tags)</span>
-            <textarea rows={2} value={prefs.tags} onChange={(e) => patchPrefs('tags', e.target.value)} placeholder="Ex.: React · Node · Scrum · inglês técnico" maxLength={400} />
+            <textarea rows={2} value={prefs.tags} onChange={(e) => patchPrefs('tags', e.target.value)} placeholder="Ex.: React Â· Node Â· Scrum Â· inglÃªs tÃ©cnico" maxLength={400} />
           </label>
         </div>
-        <button className="primary-btn sp-save-prefs-btn" type="submit">Salvar preferências e links</button>
+        <button className="primary-btn sp-save-prefs-btn" type="submit">Salvar preferÃªncias e links</button>
       </form>
     </div>
   )
@@ -6628,7 +6173,7 @@ function SkillsPortfolioRepeater({
 
   function openCreate() {
     setEditing(null)
-    setDraft({ tipo: SKILL_TIPO_PRESETS[0] ?? '', nome: '', nivel: SKILL_NIVEL_PRESETS[1] ?? 'Intermediário', evidencia: '' })
+    setDraft({ tipo: SKILL_TIPO_PRESETS[0] ?? '', nome: '', nivel: SKILL_NIVEL_PRESETS[1] ?? 'IntermediÃ¡rio', evidencia: '' })
     setModalOpen(true)
   }
 
@@ -6652,10 +6197,10 @@ function SkillsPortfolioRepeater({
     <section className="sp-panel nl-card">
       <div className="nl-card-head">
         <div>
-          <span className="eyebrow">Competências</span>
+          <span className="eyebrow">CompetÃªncias</span>
           <strong>Lista de skills</strong>
         </div>
-        <p>Detalhe tipo, nível e uma evidência (certificação, projeto ou resultado).</p>
+        <p>Detalhe tipo, nÃ­vel e uma evidÃªncia (certificaÃ§Ã£o, projeto ou resultado).</p>
       </div>
 
       <div className="sp-item-list">
@@ -6667,7 +6212,7 @@ function SkillsPortfolioRepeater({
                 <span className="sp-badge">{item.tipo}</span>
                 <span className="sp-badge sp-badge-soft">{item.nivel}</span>
               </div>
-              {item.evidencia?.trim() ? <p className="sp-item-meta">{item.evidencia}</p> : <p className="sp-item-meta sp-muted">Sem evidência curta cadastrada.</p>}
+              {item.evidencia?.trim() ? <p className="sp-item-meta">{item.evidencia}</p> : <p className="sp-item-meta sp-muted">Sem evidÃªncia curta cadastrada.</p>}
             </div>
             <div className="sp-item-actions">
               <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
@@ -6684,14 +6229,14 @@ function SkillsPortfolioRepeater({
       </div>
 
       <button className="secondary-btn sp-add-btn" type="button" onClick={openCreate}>
-        Adicionar competência
+        Adicionar competÃªncia
       </button>
 
       {modalOpen ? createPortal(
         <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
           <div className="workspace-form-modal-card workspace-form-modal-card--skills" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="sp-skill-modal-title">
             <div className="workspace-form-modal-header">
-              <h3 id="sp-skill-modal-title">{editing ? 'Editar competência' : 'Nova competência'}</h3>
+              <h3 id="sp-skill-modal-title">{editing ? 'Editar competÃªncia' : 'Nova competÃªncia'}</h3>
               <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
                 <i className="fas fa-times" aria-hidden="true"></i>
               </button>
@@ -6704,16 +6249,16 @@ function SkillsPortfolioRepeater({
                 const tipo = draft.tipo.trim().slice(0, 40)
                 const nivel = draft.nivel.trim().slice(0, 40)
                 if (!nome || !tipo || !nivel) {
-                  setMessage('Informe nome, tipo e nível da competência.')
+                  setMessage('Informe nome, tipo e nÃ­vel da competÃªncia.')
                   return
                 }
                 const evidencia = draft.evidencia.trim().slice(0, 300) || undefined
                 const payload = { tipo, nome, nivel, evidencia: evidencia ?? null }
                 const pathEditing = `/api/public/portal-candidates/${candidateId}/skills-portfolio/skills/${editing?.id ?? ''}`
                 if (editing) {
-                  void saveJson(pathEditing, payload, 'Competência atualizada.')
+                  void saveJson(pathEditing, payload, 'CompetÃªncia atualizada.')
                 } else {
-                  void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills`, payload, 'Competência adicionada.', 'POST')
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/skills`, payload, 'CompetÃªncia adicionada.', 'POST')
                 }
                 closeModal()
               }}
@@ -6728,11 +6273,11 @@ function SkillsPortfolioRepeater({
                   </select>
                 </label>
                 <label className="nl-field">
-                  <span>Nome da competência</span>
-                  <input value={draft.nome} onChange={(e) => setDraft((d) => ({ ...d, nome: e.target.value }))} placeholder="Ex.: TypeScript · Inglês C1 · Facilitação Agile" maxLength={120} />
+                  <span>Nome da competÃªncia</span>
+                  <input value={draft.nome} onChange={(e) => setDraft((d) => ({ ...d, nome: e.target.value }))} placeholder="Ex.: TypeScript Â· InglÃªs C1 Â· FacilitaÃ§Ã£o Agile" maxLength={120} />
                 </label>
                 <label className="nl-field">
-                  <span>Nível</span>
+                  <span>NÃ­vel</span>
                   <select value={draft.nivel} onChange={(e) => setDraft((d) => ({ ...d, nivel: e.target.value }))}>
                     {nivelOptions.map((opt) => (
                       <option key={opt} value={opt}>{opt}</option>
@@ -6740,13 +6285,13 @@ function SkillsPortfolioRepeater({
                   </select>
                 </label>
                 <label className="nl-field">
-                  <span>Evidência (opcional)</span>
-                  <textarea rows={3} value={draft.evidencia} onChange={(e) => setDraft((d) => ({ ...d, evidencia: e.target.value }))} placeholder="Ex.: certificado X, projeto no GitHub, avaliações internas" maxLength={300} />
+                  <span>EvidÃªncia (opcional)</span>
+                  <textarea rows={3} value={draft.evidencia} onChange={(e) => setDraft((d) => ({ ...d, evidencia: e.target.value }))} placeholder="Ex.: certificado X, projeto no GitHub, avaliaÃ§Ãµes internas" maxLength={300} />
                 </label>
               </div>
               <div className="workspace-form-modal-actions">
                 <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
-                <button type="submit" className="secondary-btn">{editing ? 'Salvar alterações' : 'Adicionar'}</button>
+                <button type="submit" className="secondary-btn">{editing ? 'Salvar alteraÃ§Ãµes' : 'Adicionar'}</button>
               </div>
             </form>
           </div>
@@ -6801,9 +6346,9 @@ function CertificationsPortfolioRepeater({
       <div className="nl-card-head">
         <div>
           <span className="eyebrow">Credenciais</span>
-          <strong>Certificações e cursos</strong>
+          <strong>CertificaÃ§Ãµes e cursos</strong>
         </div>
-        <p>Cursos rápidos, certificações oficiais ou treinamentos com link de validação.</p>
+        <p>Cursos rÃ¡pidos, certificaÃ§Ãµes oficiais ou treinamentos com link de validaÃ§Ã£o.</p>
       </div>
 
       <div className="sp-item-list">
@@ -6814,39 +6359,39 @@ function CertificationsPortfolioRepeater({
                 <strong>{item.nome}</strong>
                 {item.ano?.trim() ? <span className="sp-badge sp-badge-soft">{item.ano}</span> : null}
               </div>
-              <p className="sp-item-meta">{item.instituicao?.trim() || 'Instituição não informada'}</p>
+              <p className="sp-item-meta">{item.instituicao?.trim() || 'InstituiÃ§Ã£o nÃ£o informada'}</p>
               {item.link?.trim() ? (
                 <button type="button" className="sp-text-link-btn" onClick={() => spOpenExternalUrl(item.link ?? '')}>
                   <i className="fas fa-arrow-up-right-from-square"></i>
-                  {' '}Abrir comprovação / link público
+                  {' '}Abrir comprovaÃ§Ã£o / link pÃºblico
                 </button>
               ) : (
-                <p className="sp-item-meta sp-muted">Sem link de verificação</p>
+                <p className="sp-item-meta sp-muted">Sem link de verificaÃ§Ã£o</p>
               )}
             </div>
             <div className="sp-item-actions">
               <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
-              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${item.id}`, 'Certificação removida.')}>Remover</button>
+              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${item.id}`, 'CertificaÃ§Ã£o removida.')}>Remover</button>
             </div>
           </article>
         ))}
         {items.length === 0 ? (
           <div className="sp-empty">
             <i className="fas fa-certificate" aria-hidden="true"></i>
-            <p>Nenhuma certificação cadastrada. Ótimo para destaque em cloud, idiomas ou certificações comportamentais.</p>
+            <p>Nenhuma certificaÃ§Ã£o cadastrada. Ã“timo para destaque em cloud, idiomas ou certificaÃ§Ãµes comportamentais.</p>
           </div>
         ) : null}
       </div>
 
       <button className="secondary-btn sp-add-btn" type="button" onClick={openCreate}>
-        Adicionar certificação
+        Adicionar certificaÃ§Ã£o
       </button>
 
       {modalOpen ? createPortal(
         <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
           <div className="workspace-form-modal-card workspace-form-modal-card--skills" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <div className="workspace-form-modal-header">
-              <h3>{editing ? 'Editar certificação' : 'Nova certificação'}</h3>
+              <h3>{editing ? 'Editar certificaÃ§Ã£o' : 'Nova certificaÃ§Ã£o'}</h3>
               <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
                 <i className="fas fa-times" aria-hidden="true"></i>
               </button>
@@ -6857,7 +6402,7 @@ function CertificationsPortfolioRepeater({
                 event.preventDefault()
                 const nome = draft.nome.trim().slice(0, 160)
                 if (!nome) {
-                  setMessage('Informe o nome da certificação ou curso.')
+                  setMessage('Informe o nome da certificaÃ§Ã£o ou curso.')
                   return
                 }
                 const instituicao = draft.instituicao.trim().slice(0, 160) || undefined
@@ -6868,21 +6413,21 @@ function CertificationsPortfolioRepeater({
                   void saveJson(
                     `/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications/${editing.id}`,
                     payload,
-                    'Certificação atualizada.',
+                    'CertificaÃ§Ã£o atualizada.',
                   )
                 } else {
-                  void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications`, payload, 'Certificação adicionada.', 'POST')
+                  void saveJson(`/api/public/portal-candidates/${candidateId}/skills-portfolio/certifications`, payload, 'CertificaÃ§Ã£o adicionada.', 'POST')
                 }
                 closeModal()
               }}
             >
               <div className="workspace-form-modal-body">
                 <label className="nl-field">
-                  <span>Nome da certificação ou curso</span>
+                  <span>Nome da certificaÃ§Ã£o ou curso</span>
                   <input value={draft.nome} onChange={(e) => setDraft((d) => ({ ...d, nome: e.target.value }))} maxLength={160} />
                 </label>
                 <label className="nl-field">
-                  <span>Instituição (opcional)</span>
+                  <span>InstituiÃ§Ã£o (opcional)</span>
                   <input value={draft.instituicao} onChange={(e) => setDraft((d) => ({ ...d, instituicao: e.target.value }))} maxLength={160} />
                 </label>
                 <label className="nl-field">
@@ -6890,13 +6435,13 @@ function CertificationsPortfolioRepeater({
                   <input value={draft.ano} onChange={(e) => setDraft((d) => ({ ...d, ano: e.target.value }))} placeholder="Ex.: 2024 ou 06/2025" maxLength={10} />
                 </label>
                 <label className="nl-field">
-                  <span>Link público (opcional)</span>
+                  <span>Link pÃºblico (opcional)</span>
                   <input type="url" value={draft.link} onChange={(e) => setDraft((d) => ({ ...d, link: e.target.value }))} placeholder="https://..." maxLength={260} />
                 </label>
               </div>
               <div className="workspace-form-modal-actions">
                 <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
-                <button type="submit" className="secondary-btn">{editing ? 'Salvar alterações' : 'Adicionar'}</button>
+                <button type="submit" className="secondary-btn">{editing ? 'Salvar alteraÃ§Ãµes' : 'Adicionar'}</button>
               </div>
             </form>
           </div>
@@ -6911,7 +6456,7 @@ function RecordForm({
   fields,
   checks,
   onSubmit,
-  submitLabel = 'Salvar seção',
+  submitLabel = 'Salvar seÃ§Ã£o',
   submitButtonClassName = 'primary-btn',
   formClassName,
 }: {
@@ -6952,7 +6497,7 @@ function RecordForm({
               value={String(values[fieldItem.name] ?? '')}
               onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))}
             >
-              <option value="">—</option>
+              <option value="">â€”</option>
               {mergeEducationSummarySelectOptions(fieldItem.options, String(values[fieldItem.name] ?? '')).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -7056,18 +6601,18 @@ function PageLoading({ label }: { label: string }) {
 
 const EDUCATION_SUMMARY_NIVEL_PRESETS = [
   'Ensino fundamental',
-  'Ensino médio',
-  'Técnico',
-  'Tecnólogo',
-  'Superior (graduação)',
-  'Pós-graduação',
+  'Ensino mÃ©dio',
+  'TÃ©cnico',
+  'TecnÃ³logo',
+  'Superior (graduaÃ§Ã£o)',
+  'PÃ³s-graduaÃ§Ã£o',
   'Mestrado',
   'Doutorado',
 ] as const
 
 const EDUCATION_SUMMARY_SITUACAO_PRESETS = [
   'Cursando',
-  'Concluído',
+  'ConcluÃ­do',
   'Incompleto',
   'Interrompido',
   'Trancado',
@@ -7115,14 +6660,14 @@ function formatSalary(min?: number | null, max?: number | null) {
 
 function formatJobDate(value: string) {
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Data não informada'
+  if (Number.isNaN(date.getTime())) return 'Data nÃ£o informada'
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(date)
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) return 'Data não informada'
+  if (!value) return 'Data nÃ£o informada'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Data não informada'
+  if (Number.isNaN(date.getTime())) return 'Data nÃ£o informada'
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date)
 }
 
@@ -7375,32 +6920,32 @@ function readError(error: unknown) {
 }
 
 const COMPLETION_SECTION_LABELS: Record<string, string> = {
-  perfil: 'Perfil básico',
+  perfil: 'Perfil bÃ¡sico',
   testes: 'Testes',
-  comp: 'Competências',
-  competencias: 'Competências',
+  comp: 'CompetÃªncias',
+  competencias: 'CompetÃªncias',
   certs: 'Credenciais',
   credenciais: 'Credenciais',
   certificacoes: 'Credenciais',
-  formacao: 'Formação',
-  educacao: 'Educação',
-  exp: 'Experiências',
-  experiencias: 'Experiências',
+  formacao: 'FormaÃ§Ã£o',
+  educacao: 'EducaÃ§Ã£o',
+  exp: 'ExperiÃªncias',
+  experiencias: 'ExperiÃªncias',
   projetos: 'Projetos',
   lgpd: 'Privacidade e LGPD',
-  pref: 'Preferências',
-  preferencias: 'Preferências',
+  pref: 'PreferÃªncias',
+  preferencias: 'PreferÃªncias',
   acess: 'Acessibilidade',
   acessibilidade: 'Acessibilidade',
   agenda: 'Agenda',
-  hist: 'Histórico',
-  historico: 'Histórico',
-  notif: 'Notificações',
-  notificacoes: 'Notificações',
+  hist: 'HistÃ³rico',
+  historico: 'HistÃ³rico',
+  notif: 'NotificaÃ§Ãµes',
+  notificacoes: 'NotificaÃ§Ãµes',
   docs: 'Documentos',
   documentos: 'Documentos',
-  refs: 'Referências',
-  referencias: 'Referências',
+  refs: 'ReferÃªncias',
+  referencias: 'ReferÃªncias',
 }
 
 function clampCompletionPercent(value?: number | null) {
@@ -7430,7 +6975,6 @@ function getCompletionTargetSection(key: string): WorkspaceSectionId | null {
     projetos: 'projetos',
     pref: 'preferencias',
     preferencias: 'preferencias',
-    agenda: 'agenda',
     comp: 'competencias',
     competencias: 'competencias',
     certs: 'credenciais',
@@ -7451,7 +6995,7 @@ function getCompletionTargetSection(key: string): WorkspaceSectionId | null {
 
 function getCompletionTone(value: number) {
   if (value >= 100) return { label: 'Completo', className: 'is-complete' }
-  if (value >= 70) return { label: 'Bom avanço', className: 'is-good' }
+  if (value >= 70) return { label: 'Bom avanÃ§o', className: 'is-good' }
   if (value >= 40) return { label: 'Em progresso', className: 'is-medium' }
   return { label: 'Priorizar', className: 'is-low' }
 }
@@ -7460,12 +7004,12 @@ function formatSuggestionImpact(value?: string | null) {
   const normalized = normalizeSearchText(value ?? '')
   if (normalized.includes('alto')) return { label: 'Alto impacto', className: 'is-high' }
   if (normalized.includes('baixo')) return { label: 'Baixo impacto', className: 'is-low' }
-  return { label: 'Médio impacto', className: 'is-medium' }
+  return { label: 'MÃ©dio impacto', className: 'is-medium' }
 }
 
 function formatMatchLocation(match: PortalMatchItem) {
   const location = [match.city, match.uf].filter(Boolean).join(', ')
-  return [match.area, location].filter(Boolean).join(' - ') || 'Local e área não informados'
+  return [match.area, location].filter(Boolean).join(' - ') || 'Local e Ã¡rea nÃ£o informados'
 }
 
 function normalizeAccessibility(accessibility: PortalAccessibility | null): PortalAccessibility {
