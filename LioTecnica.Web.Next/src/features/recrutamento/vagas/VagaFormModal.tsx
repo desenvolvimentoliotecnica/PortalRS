@@ -9,7 +9,6 @@ import { env } from "@/lib/env";
 import { getTenantId } from "@/lib/session";
 import { lookupCep } from "@/lib/cepLookup";
 import { confirmDialog } from "@/lib/confirm-dialog";
-import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
 import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
@@ -1235,7 +1234,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   async function handleSave() {
     if (!draft.titulo.trim()) { toast.error("Informe o título da vaga."); setTab("identificacao"); return; }
     if (!draft.status) { toast.error("Selecione o status."); setTab("dados"); return; }
-    if (!draft.cargoId) { toast.error("Selecione o cargo."); setTab("identificacao"); return; }
 
     // Ao publicar, exige campos essenciais preenchidos
     if (draft.status.toLowerCase() === "aberta") {
@@ -1404,29 +1402,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
               <SectionHeader title="Identificação da vaga" />
 
-              <Field label="Título da vaga" required span="col-span-12 md:col-span-8">
+              <Field label="Título da vaga" required span="col-span-12">
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} />
               </Field>
 
-              <Field label="Cargo" required span="col-span-12 md:col-span-4">
-                <CargoAutocomplete
-                  value={draft.cargoCode || draft.cargoId}
-                  defaultCargoLabel={draft.cargoCode ? { code: draft.cargoCode, name: draft.cargoName } : undefined}
-                  onChange={(code) => set("cargoCode", code)}
-                  onSelectId={(id) => set("cargoId", id)}
-                  onSelect={(item: CargoLookup) => {
-                    setDraft(d => ({
-                      ...d,
-                      cargoId: item.id,
-                      cargoCode: item.code,
-                      cargoName: item.name,
-                      centroCustoId: d.centroCustoId || item.centroCustoId || d.centroCustoId,
-                      senioridade: d.senioridade || (item.seniority ? item.seniority.toLowerCase() : ""),
-                    }));
-                  }}
-                  placeholder="Digite código ou nome do cargo..."
-                />
-              </Field>
               <Field label="Função" span="col-span-12 md:col-span-6">
                 <input
                   readOnly
