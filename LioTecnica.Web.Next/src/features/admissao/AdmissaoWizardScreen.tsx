@@ -642,7 +642,18 @@ export default function AdmissaoWizardScreen() {
             setSubmitting(true);
             await save();
             const res = await apiFetch(`/api/pre-admissao/${id}/submit`, { method: "POST" });
-            if (res.ok) { toast.success("Admissão finalizada com sucesso!"); router.push("/admissao?submitted=1"); return; }
+            if (res.ok) {
+                const detail = await res.json().catch(() => null) as { status?: number | string } | null;
+                const st = detail?.status;
+                const aprovada = st === 3 || st === "Aprovada";
+                toast.success(aprovada
+                    ? "Admissão concluída e aprovada automaticamente."
+                    : "Admissão enviada para revisão do RH.");
+                router.push(aprovada
+                    ? `/admissao/revisao?id=${encodeURIComponent(id)}&submitted=1`
+                    : `/admissao/revisao?id=${encodeURIComponent(id)}&submitted=1&review=1`);
+                return;
+            }
 
             // 422 → backend identificou campo TOTVS faltando; redireciona ao step culpado.
             if (res.status === 422) {

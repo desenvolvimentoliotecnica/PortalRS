@@ -1095,7 +1095,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                 .FirstOrDefaultAsync(jp => jp.Id == jobPositionId.Value, ct);
         }
 
-        // Reusar pré-admissão existente do candidato (evita duplicar)
+        // Reusar pré-admissão existente do candidato (evita duplicar) — somente rascunhos
+        // ou coleta em andamento na mesma vaga. Registros já preenchidos/aprovados de testes
+        // anteriores não devem ser reabertos silenciosamente.
         var existing = await _db.Set<Domain.Entities.PreAdmissao>()
             .Where(pa => pa.CandidatoId == candidato.Id
                 && pa.Status != PreAdmissaoStatus.Rejeitada
@@ -1103,9 +1105,17 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .OrderByDescending(pa => pa.CreatedAtUtc)
             .FirstOrDefaultAsync(ct);
 
-        Console.Error.WriteLine($"[IniciarManual] CandidatoId={candidato.Id}, existing={existing?.Id}, status={existing?.Status}");
+        var vagaAtual = candidato.VagaId != Guid.Empty ? candidato.VagaId : (Guid?)null;
+        var podeReutilizarExistente = existing is not null
+            && existing.Status is PreAdmissaoStatus.Rascunho
+                or PreAdmissaoStatus.Enviado
+                or PreAdmissaoStatus.Acessado
+                or PreAdmissaoStatus.PreenchidoParcial
+            && (existing.VagaId is null || vagaAtual is null || existing.VagaId == vagaAtual);
 
-        if (existing != null)
+        Console.Error.WriteLine($"[IniciarManual] CandidatoId={candidato.Id}, existing={existing?.Id}, status={existing?.Status}, reuse={podeReutilizarExistente}");
+
+        if (podeReutilizarExistente && existing is not null)
         {
             if (request.TipoContratacao.HasValue)
                 existing.TipoContratacao = request.TipoContratacao;

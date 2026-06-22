@@ -211,8 +211,11 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
 
     /* link generation */
     const [linkCpf, setLinkCpf] = useState("");
+    const [enviarEmailLink, setEnviarEmailLink] = useState(true);
+    const [enviarWhatsappLink, setEnviarWhatsappLink] = useState(false);
     const [generatingLink, setGeneratingLink] = useState(false);
     const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+    const [linkEmailEnviado, setLinkEmailEnviado] = useState(false);
 
     /* manual upload */
     const [uploadTipo, setUploadTipo] = useState(0);
@@ -312,13 +315,19 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     async function handleGerarLink() {
         setGeneratingLink(true);
         try {
-            const res = await fetchJson<{ url: string }>(`/api/pre-admissao/${id}/gerar-link`, {
+            const res = await fetchJson<{ publicUrl?: string; url?: string; emailEnviado?: boolean; whatsappEnviado?: boolean }>(`/api/pre-admissao/${id}/gerar-link`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ cpf: linkCpf.trim() }),
+                body: JSON.stringify({
+                    cpf: linkCpf.trim(),
+                    enviarEmail: enviarEmailLink,
+                    enviarWhatsapp: enviarWhatsappLink,
+                }),
             });
-            setGeneratedUrl(res.url);
-            toast.success("Link gerado com sucesso!");
+            setGeneratedUrl(res.publicUrl ?? res.url ?? null);
+            setLinkEmailEnviado(!!res.emailEnviado);
+            toast.success(res.emailEnviado ? "Link gerado e e-mail enviado!" : "Link gerado com sucesso!");
+            await load();
         } catch (e) {
             toast.error(`Falha ao gerar link: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
@@ -404,6 +413,8 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
 
     const canApprove = data.status === 2;
     const canReject = data.status === 1 || data.status === 2;
+    const canGerarLinkCandidato = data.status === 0 || data.status === 1 || data.status === 6 || data.status === 7;
+    const canSolicitarDocumentos = data.status === 0 || data.status === 1;
     const docsValidados = data.documentos.filter(d => d.status === 1).length;
     const docsTotal = data.documentos.length;
 
@@ -520,7 +531,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
             </div>
 
             {/* CARD A: Solicitar Documentos */}
-            {data.status === 1 && (
+            {canSolicitarDocumentos && (
                 <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Solicitar Documentos</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -570,12 +581,15 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
             )}
 
             {/* CARD B: Link de Acesso do Candidato */}
-            {data.status === 1 && (
-                <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+            {canGerarLinkCandidato && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20 p-5 shadow-sm">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                         <Link className="size-4 inline-block mr-1 -mt-0.5" />
                         Link de Acesso do Candidato
                     </h2>
+                    <p className="text-xs text-muted-foreground mb-4">
+                        Informe o CPF, gere o link e envie ao candidato para preenchimento no Portal de Admissão.
+                    </p>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <div className="flex-1">
                             <label className="text-xs font-medium text-muted-foreground">CPF do Candidato</label>
@@ -589,10 +603,23 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                         <div className="flex items-end">
                             <Button size="sm" onClick={() => void handleGerarLink()} disabled={generatingLink || !linkCpf.trim()}>
                                 <Link className="size-4 mr-1" />
-                                {generatingLink ? "Gerando..." : "Gerar Link"}
+                                {generatingLink ? "Gerando..." : "Gerar e enviar link"}
                             </Button>
                         </div>
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-4 text-sm">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={enviarEmailLink} onChange={(e) => setEnviarEmailLink(e.target.checked)} className="size-4 rounded accent-primary" />
+                            Enviar por e-mail{data.email ? ` (${data.email})` : ""}
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={enviarWhatsappLink} onChange={(e) => setEnviarWhatsappLink(e.target.checked)} className="size-4 rounded accent-primary" />
+                            Enviar por WhatsApp{data.celular ? ` (${data.celular})` : ""}
+                        </label>
+                    </div>
+                    {linkEmailEnviado && (
+                        <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">E-mail de acesso enviado ao candidato.</p>
+                    )}
                     {generatedUrl && (
                         <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/40 px-4 py-3">
                             <code className="text-xs flex-1 min-w-0 truncate select-all">{generatedUrl}</code>
