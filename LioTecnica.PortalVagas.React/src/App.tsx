@@ -260,7 +260,11 @@ function normalizeWorkspaceSection(hash: string): WorkspaceSectionId {
 type AccessLanguage = 'pt-BR' | 'en-US' | 'es-ES'
 type BrazilianStateOption = { sigla: string; nome: string }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://localhost:7073'
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
+const API_BASE_URL =
+  rawApiBaseUrl === undefined
+    ? 'https://localhost:7073'
+    : rawApiBaseUrl.replace(/\/$/, '')
 const DEFAULT_TENANT = (import.meta.env.VITE_DEFAULT_TENANT as string | undefined) ?? 'liotecnica'
 const TENANT_QUERY_KEY = 'tenantId'
 const ACCESS_LANGUAGE_STORAGE_KEY = 'portal-vagas-lang'
@@ -6886,13 +6890,14 @@ async function buildApiUrl(path: string, tenantId?: string) {
 }
 
 async function resolveApiBaseUrl() {
-  if (resolvedApiBaseUrl) return resolvedApiBaseUrl
+  if (resolvedApiBaseUrl !== null) return resolvedApiBaseUrl
 
   if (import.meta.env.DEV) {
     resolvedApiBaseUrl = DEV_PROXY_BASE_URL
     return resolvedApiBaseUrl
   }
 
+  // VITE_API_BASE_URL vazio → same-origin (/api via nginx do container).
   resolvedApiBaseUrl = API_BASE_URL
   return resolvedApiBaseUrl
 }

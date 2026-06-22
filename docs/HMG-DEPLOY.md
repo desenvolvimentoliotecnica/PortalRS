@@ -34,7 +34,7 @@ Os defaults no workflow apontam para `http://10.0.0.80:5000` (API), `http://10.0
 |----------|-----|
 | `HMG_NEXT_PUBLIC_API_BASE` | Build Next.js — deixe **vazio** (padrão): chamadas vão por `/api/` no nginx `:3000` (evita CORS). Não use `http://…:5000` após TLS Entra. |
 | `HMG_NEXT_PUBLIC_PORTAL_ORIGIN` | Build Next.js — origem do portal admin |
-| `HMG_VITE_API_BASE_URL` | Build Vite — base URL da API |
+| `HMG_VITE_API_BASE_URL` | Build Vite — deixe **vazio** (padrão): chamadas vão por `/api/` no nginx do container `:3050` (evita CORS/TLS na :5000). |
 | `HMG_VITE_DEFAULT_TENANT` | Build Vite — tenant por defeito |
 
 ## Secrets obrigatórios (repositório)
