@@ -100,10 +100,12 @@ public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
 
         _lastRunByTenant[tenantId] = now;
         var maxPerRun = Math.Clamp(config.ImportacaoAutomaticaMaxPorExecucao, 1, 500);
+        var dataAte = DateOnly.FromDateTime(DateTime.UtcNow);
+        var dataDe = dataAte.AddMonths(-3);
 
         var log = new StringBuilder();
         AppendLog(log, $"Iniciando ciclo automático RM para tenant {tenantId}.");
-        AppendLog(log, $"Configuração: intervalo={interval.TotalMinutes:0} minuto(s), maxPorExecucao={maxPerRun}.");
+        AppendLog(log, $"Configuração: intervalo={interval.TotalMinutes:0} minuto(s), maxPorExecucao={maxPerRun}, período={dataDe:yyyy-MM-dd}..{dataAte:yyyy-MM-dd}.");
 
         var run = new RmImportacaoAutomaticaRun
         {
@@ -124,7 +126,9 @@ public sealed class RmSolicitacaoStatusSyncHostedService : BackgroundService
         {
             var importResult = await import.ImportarAprovadasAsync(new RmRequisicaoImportRequest
             {
-                PageSize = maxPerRun
+                PageSize = maxPerRun,
+                DataAberturaDe = dataDe,
+                DataAberturaAte = dataAte,
             }, ct);
 
             run.TotalLidos = importResult.TotalLidos;

@@ -94,14 +94,7 @@ public static class NavegacaoManifest
     {
         // ── Principais (destacados, respeitam gate de módulo) ────────────────
         new("nav-dashboard",                "Dashboard",              "/dashboard",                      "layoutdashboard",   "dashboard.view",           Destacado: true, Ordem: 10),
-        // Painel de Solicitações — decidido como TRANSVERSAL CORE (Onda 14, 2026-04-20).
-        // Justificativa: agregador analítico multi-tipo (Vaga / Promoção / Desligamento /
-        // Férias / Benefício / Dependente / Endereço) que cruza R&S, Folha e Cadastros.
-        // Mantê-lo em "Gestão de Pessoas" excluiria o gestor que precisa ver pedidos de
-        // R&S e Folha; dividi-lo por pacote (opção B3) perderia a visão consolidada.
-        // Fica em "Principais" como "visão consolidada do RH".
-        new("nav-painel-solicitacoes",      "Painel de Solicitações", "/gestao/painel-solicitacoes",     "gitbranch",         "gestao.dashboard",         Destacado: true, Ordem: 40),
-        new("nav-gestao-solicitacoes-vaga","Solicitações de Vaga",   "/gestao/solicitacoes",            "clipboardlist",     "solicitacoes-vaga.view",   Destacado: true, Ordem: 50),
+        new("nav-gestao-solicitacoes-vaga","Solicitações",           "/gestao/solicitacoes",            "clipboardlist",     "solicitacoes-vaga.view",   Destacado: true, Ordem: 50),
         new("nav-gestao-aprovacoes-vaga",  "Aprovações",             "/gestao/aprovacoes",               "listchecks",        "aprovacoes-vaga.view",      Destacado: true, Ordem: 60),
 
         // ── Recrutamento e Seleção (pacote) ──────────────────────────────────
@@ -124,7 +117,6 @@ public static class NavegacaoManifest
         new("nav-rh-contrat-aprovacoes",    "Contratações — Aprovações", "/gestao/aprovacoes",           "listchecks",         "gestao.dashboard",       Ordem: 98),
 
         // ── Gestão de Pessoas (pacote) ───────────────────────────────────────
-        // (Painel de Solicitações foi promovido para "Principais" — Onda 14)
         new("nav-gestao-dashboard",         "Dashboard Gestão",       "/gestao/dashboard",               "layoutdashboard",   "gestao.dashboard",         Ordem: 20),
         new("nav-planos-desenvolvimento",   "PDI",                    "/gestao/planosdesenvolvimento",   "target",            "feedback.desenvolvimento", Ordem: 30),
         new("nav-humor",                    "Humor",                  "/gestao/humor",                   "smile",             "gestao.humor",             Ordem: 40),
@@ -148,6 +140,8 @@ public static class NavegacaoManifest
         new("nav-batida-ponto",             "Batida de Ponto",        "/gestao/batida-ponto",            "clock",             "folha.batida-ponto.view",  ModuloKeyOverride: "folha-pagamento", Ordem: 10),
         new("nav-pagamento-extra",          "Pagamento Extra",        "/gestao/comissoes",               "badge-dollar-sign", "folha.pagamento-extra.view", ModuloKeyOverride: "folha-pagamento", Ordem: 20),
         new("nav-desligamentos",            "Desligamentos",          "/gestao/desligamentos",           "user-minus",        "folha.desligamentos.view", ModuloKeyOverride: "folha-pagamento", Ordem: 30),
+        new("nav-entrevista-template",      "Questionário de saída",  "/gestao/desligamentos/entrevista-template", "clipboard-list", "folha.entrevista-saida.manage", ModuloKeyOverride: "folha-pagamento", Ordem: 31),
+        new("nav-entrevistas-saida",        "Entrevistas de saída",   "/gestao/desligamentos/entrevistas-saida", "message-square-text", "folha.entrevista-saida.manage", ModuloKeyOverride: "folha-pagamento", Ordem: 32),
 
         // ── Cadastros (core) ─────────────────────────────────────────────────
         new("nav-empresas",                 "Empresas",               "/empresas",                       "building2",         "areas.view",               Ordem: 10),
@@ -192,6 +186,7 @@ public static class NavegacaoManifest
         new("nav-admin-api-keys",           "API Keys",               "/admin/api-keys",                 "bi-key",            "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 50),
         new("nav-admin-localization",       "Localização",            "/admin/localization",             "bi-translate",      "localization-config.manage", Ordem: 60),
         new("nav-admin-tenant-config",      "Configurações do Tenant","/admin/tenant-configuracao",      "bi-gear",           "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 70),
+        new("nav-admin-configuracao-rm",    "Configuração RM",        "/admin/configuracao-rm",          "database",          "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 72),
         // Fase 4 LLM-agnóstico — tela única do módulo "ai". Quando módulo OFF,
         // o item ainda aparece para o admin, mas a UI mostra banner "IA não habilitada".
         new("nav-admin-ia",                 "Configuração de IA",     "/admin/ia",                       "brain",             "ai.config",                GrupoUiOverride: "configuracoes", Ordem: 75),

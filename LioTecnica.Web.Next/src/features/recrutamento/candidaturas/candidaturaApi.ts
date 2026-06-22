@@ -10,6 +10,8 @@ export type EtapaMacroCandidatura =
   | "Teste"
   | "Proposta"
   | "Contratado"
+  | "ReprovadoRh"
+  | "ReprovadoGestor"
   | "Recusado"
   | "Desistiu";
 
@@ -21,6 +23,8 @@ export const ETAPAS_KANBAN: EtapaMacroCandidatura[] = [
   "Teste",
   "Proposta",
   "Contratado",
+  "ReprovadoRh",
+  "ReprovadoGestor",
   "Recusado",
   "Desistiu",
 ];
@@ -35,6 +39,8 @@ const ETAPA_BY_INDEX: Record<number, EtapaMacroCandidatura> = {
   6: "Recusado",
   7: "Desistiu",
   8: "EntrevistaTecnica",
+  9: "ReprovadoRh",
+  10: "ReprovadoGestor",
 };
 
 export function resolveEtapa(v: number | string): EtapaMacroCandidatura {

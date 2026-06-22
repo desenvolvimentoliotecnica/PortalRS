@@ -1,10 +1,11 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RhPortal.Api.Application.Common;
 using RhPortal.Api.Application.EntrevistasSaida;
+using RhPortal.Api.Application.OcupacaoHistorico;
 using RhPortal.Api.Application.SolicitacoesVaga;
 using RhPortal.Api.Contracts.Common;
+using RhPortal.Api.Contracts.EntrevistasSaida;
 using RhPortal.Api.Contracts.SolicitacoesDesligamento;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -34,7 +35,7 @@ public interface ISolicitacaoDesligamentoService
     /// Propaga reprovação a partir da vaga origem. Não valida permissões do usuário.
     /// Idempotente: ignora se o desligamento já está em estado terminal.
     /// </summary>
-    /// <summary>Datasul confirma resultado da integração — move para Concluida ou registra erro.</summary>
+    /// <summary>Legado — integração TOTVS para desligamento descontinuada.</summary>
     Task<SolicitacaoDesligamentoResponse?> ConfirmarIntegracaoAsync(Guid id, IntegracaoResultado resultado, string? mensagem, CancellationToken ct);
 
     Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct);
@@ -56,7 +57,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
     private readonly ApprovalWorkflowHelper _workflow;
     private readonly IEmailQueueService _emailQueue;
     private readonly IEntrevistaSaidaService _entrevistaSaida;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IOcupacaoHistoricoService _ocupacaoService;
     private readonly IServiceProvider _serviceProvider;
     private readonly StatusHistoricoService _statusHistorico;
 
@@ -67,7 +68,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         ApprovalWorkflowHelper workflow,
         IEmailQueueService emailQueue,
         IEntrevistaSaidaService entrevistaSaida,
-        IHttpContextAccessor httpContextAccessor,
+        IOcupacaoHistoricoService ocupacaoService,
         IServiceProvider serviceProvider,
         StatusHistoricoService statusHistorico)
     {
@@ -77,8 +78,8 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         _workflow = workflow;
         _emailQueue = emailQueue;
         _entrevistaSaida = entrevistaSaida;
+        _ocupacaoService = ocupacaoService;
         _statusHistorico = statusHistorico;
-        _httpContextAccessor = httpContextAccessor;
         _serviceProvider = serviceProvider;
     }
 
@@ -107,7 +108,8 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             var term = query.Q.Trim().ToLower();
             q = q.Where(s =>
                 (s.Funcionario != null && s.Funcionario.Name.ToLower().Contains(term)) ||
-                s.MotivoDesligamento.ToLower().Contains(term));
+                s.MotivoDesligamento.ToLower().Contains(term) ||
+                (s.RmIdReq != null && s.RmIdReq.ToString().Contains(term)));
         }
 
         q = q.OrderByDescending(s => s.CreatedAtUtc);
@@ -120,27 +122,37 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         {
             s.Id,
             s.Status,
+            s.FuncionarioId,
             SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
             FuncionarioNome = s.Funcionario != null ? s.Funcionario.Name : (string?)null,
             s.TipoDesligamento,
             s.DataDesligamento,
             s.CreatedAtUtc,
+            s.RmIdReq,
         }).ToListAsync(ct);
 
         var ids = rawRows.Select(r => r.Id).ToList();
         var etapasPendentes = await _workflow.GetEtapasPendentesAsync(
             ids, TipoFluxoAprovacao.Desligamento, ct, currentUserId: _currentUser.UserId);
 
+        var entrevistaStatus = await _entrevistaSaida.GetStatusBatchAsync(
+            rawRows.Select(r => (r.Id, r.FuncionarioId)).ToList(),
+            ct);
+
         return rawRows.Select(r =>
         {
             etapasPendentes.TryGetValue(r.Id, out var ep);
+            entrevistaStatus.TryGetValue(r.Id, out var entrevista);
             return new SolicitacaoDesligamentoGridRow(
-                r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome,
+                r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome, r.RmIdReq,
                 r.TipoDesligamento, r.DataDesligamento, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
                 ep?.AssumedByUserId,
                 ep?.CanAssume ?? false,
-                ep?.CanApprove ?? false);
+                ep?.CanApprove ?? false,
+                entrevista?.Status,
+                entrevista?.EnviadaEmUtc,
+                entrevista?.RespondidaEmUtc);
         }).ToList();
     }
 
@@ -426,8 +438,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
 
             await _db.SaveChangesAsync(ct);
 
-            // Nota: a ocupação da vaga será fechada no painel de integração TOTVS,
-            // quando o envio for confirmado (IntegracaoResultado.Sucesso).
+            // Headcount e inativação do colaborador ocorrem na efetivação no Portal.
 
             await _workflow.NotifyByFuncionarioIdAsync(
                 entity.SolicitanteId,
@@ -461,25 +472,34 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         if (entity.Status != SolicitacaoStatus.Aprovada)
             throw new InvalidOperationException("Apenas solicitações com status Aprovada podem ser efetivadas.");
 
+        var entrevistaStatus = await _entrevistaSaida.GetStatusBatchAsync(
+            [(entity.Id, entity.FuncionarioId)], ct);
+        if (!entrevistaStatus.TryGetValue(entity.Id, out var entrevista)
+            || entrevista.Status != EntrevistaSaidaStatusCode.Respondida)
+        {
+            throw new InvalidOperationException(
+                "A efetivação só é permitida após a entrevista de saída ser respondida.");
+        }
+
         var statusAnteriorEfetivarDesl = entity.Status.ToString();
-        entity.Status = SolicitacaoStatus.EmIntegracao;
+        entity.Status = SolicitacaoStatus.Concluida;
         entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _statusHistorico.RegistrarAsync(
             TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
             statusAnteriorEfetivarDesl, entity.Status.ToString(), _currentUser, ct: ct);
 
-        await _db.SaveChangesAsync(ct);
+        await _ocupacaoService.FecharOcupacaoAsync(
+            entity.FuncionarioId, MotivoSaidaOcupacao.Desligamento, entity.Id, ct);
 
-        // Disparar entrevista de saída ao funcionário (best-effort)
-        try
+        var funcionario = await _db.Set<Funcionario>().FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct);
+        if (funcionario is not null)
         {
-            var httpCtx = _httpContextAccessor.HttpContext;
-            await _entrevistaSaida.CriarEEnviarAsync(
-                entity.Id, entity.FuncionarioId,
-                httpCtx?.Request.Scheme, httpCtx?.Request.Host.Host, ct);
+            funcionario.Status = FuncionarioStatus.Inactive;
+            funcionario.UpdatedAtUtc = DateTimeOffset.UtcNow;
         }
-        catch { /* best-effort */ }
+
+        await _db.SaveChangesAsync(ct);
 
         return await GetByIdAsync(id, ct);
     }
@@ -731,33 +751,11 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
         return (await GetByIdAsync(copy.Id, ct))!;
     }
 
-    public async Task<SolicitacaoDesligamentoResponse?> ConfirmarIntegracaoAsync(
+    public Task<SolicitacaoDesligamentoResponse?> ConfirmarIntegracaoAsync(
         Guid id, IntegracaoResultado resultado, string? mensagem, CancellationToken ct)
     {
-        var entity = await _db.SolicitacoesDesligamento.FirstOrDefaultAsync(x => x.Id == id, ct);
-        if (entity is null) return null;
-
-        if (entity.Status != SolicitacaoStatus.EmIntegracao)
-            throw new InvalidOperationException("Apenas solicitações em EmIntegracao podem ter o resultado confirmado.");
-
-        entity.IntegracaoResultado = resultado;
-        entity.IntegracaoMensagem = mensagem;
-        entity.IntegradaEmUtc = DateTimeOffset.UtcNow;
-        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-        if (resultado == IntegracaoResultado.Sucesso)
-        {
-            var statusAnterior = entity.Status.ToString();
-            entity.Status = SolicitacaoStatus.Concluida;
-
-            await _statusHistorico.RegistrarAsync(
-                TipoEntidadeStatus.SolicitacaoDesligamento, entity.Id,
-                statusAnterior, entity.Status.ToString(), _currentUser, null, ct);
-        }
-        // Erro: mantém EmIntegracao para o RH visualizar e reprocessar
-
-        await _db.SaveChangesAsync(ct);
-        return await GetByIdAsync(id, ct);
+        throw new InvalidOperationException(
+            "Integração TOTVS para desligamento foi descontinuada. Conclua a solicitação pelo Portal (Efetivar).");
     }
 
     public async Task ReprovarEmCascataAsync(Guid id, string? observacao, CancellationToken ct)

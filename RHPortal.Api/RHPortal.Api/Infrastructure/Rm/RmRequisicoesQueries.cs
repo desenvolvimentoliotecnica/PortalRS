@@ -3,10 +3,38 @@ namespace RhPortal.Api.Infrastructure.Rm;
 /// <summary>Unificação de requisições RM — mesma semântica da consulta analítica (views VREQ*).</summary>
 internal static class RmRequisicoesQueries
 {
+    /// <summary>Consultas ao SQL Server RM podem ser lentas (rede + UNION + joins).</summary>
+    internal const int SqlCommandTimeoutSeconds = 180;
+
+    /// <summary>Filtros aplicados em cada view VREQ* antes do UNION (reduz volume lido).</summary>
+    private const string BranchFilterAumento = """
+        WHERE (@Tipo IS NULL OR @Tipo = 'AUMENTO_QUADRO')
+        AND (@DataDe IS NULL OR R.DATAABERTURA >= @DataDe)
+        AND (@DataAte IS NULL OR R.DATAABERTURA < DATEADD(day, 1, @DataAte))
+        AND (@CodStatusCsv IS NULL OR CHARINDEX(',' + CAST(R.CODSTATUS AS VARCHAR(20)) + ',', @CodStatusCsv) > 0)
+        AND (@SearchPattern IS NULL OR (CAST(R.IDREQ AS VARCHAR(20)) LIKE @SearchPattern OR R.JUSTIFICATIVA LIKE @SearchPattern))
+        """;
+
+    private const string BranchFilterSubstituicao = """
+        WHERE (@Tipo IS NULL OR @Tipo = 'SUBSTITUICAO')
+        AND (@DataDe IS NULL OR R.DATAABERTURA >= @DataDe)
+        AND (@DataAte IS NULL OR R.DATAABERTURA < DATEADD(day, 1, @DataAte))
+        AND (@CodStatusCsv IS NULL OR CHARINDEX(',' + CAST(R.CODSTATUS AS VARCHAR(20)) + ',', @CodStatusCsv) > 0)
+        AND (@SearchPattern IS NULL OR (CAST(R.IDREQ AS VARCHAR(20)) LIKE @SearchPattern OR R.JUSTIFICATIVA LIKE @SearchPattern))
+        """;
+
+    private const string BranchFilterDesligamento = """
+        WHERE (@Tipo IS NULL OR @Tipo = 'DESLIGAMENTO')
+        AND (@DataDe IS NULL OR R.DATAABERTURA >= @DataDe)
+        AND (@DataAte IS NULL OR R.DATAABERTURA < DATEADD(day, 1, @DataAte))
+        AND (@CodStatusCsv IS NULL OR CHARINDEX(',' + CAST(R.CODSTATUS AS VARCHAR(20)) + ',', @CodStatusCsv) > 0)
+        AND (@SearchPattern IS NULL OR (CAST(R.IDREQ AS VARCHAR(20)) LIKE @SearchPattern OR R.JUSTIFICATIVA LIKE @SearchPattern))
+        """;
     /// <summary>
     /// CTE + projeção com joins (sem ORDER/WHERE final). Prefixo para COUNT ou página.
     /// </summary>
-    internal const string CteAndBase = """
+    internal static string CteAndBase =>
+        $"""
 WITH REQUISICOES AS
 (
     SELECT
@@ -38,6 +66,7 @@ WITH REQUISICOES AS
         R.RECMODIFIEDBY,
         R.RECMODIFIEDON
     FROM VREQAUMENTOQUADRO R
+    {BranchFilterAumento}
     UNION ALL
     SELECT
         'SUBSTITUICAO',
@@ -68,6 +97,7 @@ WITH REQUISICOES AS
         R.RECMODIFIEDBY,
         R.RECMODIFIEDON
     FROM VREQSUBSTITUICAO R
+    {BranchFilterSubstituicao}
     UNION ALL
     SELECT
         'DESLIGAMENTO',
@@ -98,6 +128,7 @@ WITH REQUISICOES AS
         R.RECMODIFIEDBY,
         R.RECMODIFIEDON
     FROM VREQDESLIGAMENTO R
+    {BranchFilterDesligamento}
 ),
 Base AS (
     SELECT

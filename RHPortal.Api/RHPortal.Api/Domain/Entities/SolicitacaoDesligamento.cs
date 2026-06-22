@@ -81,6 +81,26 @@ public sealed class SolicitacaoDesligamento : ITenantEntity
 
     public DateTimeOffset? IntegradaEmUtc { get; set; }
 
+    /// <summary>Código de vínculo RM (<c>TIPO|COL|IDREQ</c>, ex.: <c>DESLIGAMENTO|1|8421</c>).</summary>
+    [StringLength(120)]
+    public string? RmRequisicaoCodigo { get; set; }
+
+    /// <summary>Coligada da requisição RM (<c>CODCOLREQUISICAO</c>).</summary>
+    public short? RmCodColRequisicao { get; set; }
+
+    /// <summary>Identificador numérico da requisição no RM (<c>IDREQ</c>).</summary>
+    public int? RmIdReq { get; set; }
+
+    /// <summary>Espelho do <c>CODSTATUS</c> da requisição no RM.</summary>
+    public short? RmCodStatus { get; set; }
+
+    /// <summary>Último <c>STATUS_DESCRICAO</c> lido no RM.</summary>
+    [StringLength(240)]
+    public string? RmUltimaStatusDescricaoRm { get; set; }
+
+    /// <summary>Último instante sincronizado com estado da requisição no RM.</summary>
+    public DateTimeOffset? RmUltimaSincronizacaoUtc { get; set; }
+
     public Guid? EfetivadoManualmentePorId { get; set; }
     public DateTimeOffset? EfetivadoManualmenteEmUtc { get; set; }
 

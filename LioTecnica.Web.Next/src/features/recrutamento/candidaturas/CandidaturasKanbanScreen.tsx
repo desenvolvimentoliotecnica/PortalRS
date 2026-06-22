@@ -37,7 +37,9 @@ const ETAPA_LABELS: Record<EtapaMacroCandidatura, string> = {
   EntrevistaTecnica: "Entrevista técnica",
   Teste: "Teste",
   Proposta: "Proposta",
-  Contratado: "Contratado",
+  Contratado: "Em processo de admissão",
+  ReprovadoRh: "Reprovado RH",
+  ReprovadoGestor: "Reprovado Gestor",
   Recusado: "Recusado",
   Desistiu: "Desistiu",
 };
@@ -50,7 +52,9 @@ const ETAPA_STYLES: Record<EtapaMacroCandidatura, { header: string; accent: stri
   Teste:      { header: "bg-fuchsia-50 text-fuchsia-900", accent: "border-fuchsia-200" },
   Proposta:   { header: "bg-amber-50 text-amber-900",     accent: "border-amber-200" },
   Contratado: { header: "bg-emerald-50 text-emerald-900", accent: "border-emerald-200" },
-  Recusado:   { header: "bg-rose-50 text-rose-900",       accent: "border-rose-200" },
+  ReprovadoRh: { header: "bg-orange-50 text-orange-900", accent: "border-orange-200" },
+  ReprovadoGestor: { header: "bg-rose-50 text-rose-900", accent: "border-rose-200" },
+  Recusado:   { header: "bg-red-50 text-red-900",       accent: "border-red-200" },
   Desistiu:   { header: "bg-neutral-100 text-neutral-700", accent: "border-neutral-200" },
 };
 

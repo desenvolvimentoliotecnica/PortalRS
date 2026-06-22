@@ -168,6 +168,8 @@ public static class DbSeeder
                     // Seeds idempotentes de tabelas parametrizáveis (rodam a cada startup — no-op se já populadas).
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.MotivoRequisicaoVagaSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantRmIntegrationDefaultsSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.RmRequisicaoStatusMapSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.DocumentacaoPadraoConfigSeeder
@@ -193,6 +195,9 @@ public static class DbSeeder
 
                     // Catálogo Render Coins (Entrega 1.8) — 6 recompensas seed.
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.RenderCoinRewardSeeder
+                        .EnsureAsync(tenantDb, tenantId, ct);
+
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.EntrevistaSaidaTemplateSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
 
                     // Garante defaults do catálogo de módulos para tenants provisionados antes da

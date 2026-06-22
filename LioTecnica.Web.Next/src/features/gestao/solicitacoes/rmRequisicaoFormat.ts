@@ -14,14 +14,15 @@ export function formatSolicitacaoCodigoRm(input: {
   rmRequisicaoCodigo?: string | null;
   rmIdReq?: number | null;
 }): string {
+  if (input.rmIdReq != null) return String(input.rmIdReq);
+
   const cod = input.rmRequisicaoCodigo?.trim();
   if (cod && !cod.startsWith("STUB-")) {
     const parts = cod.split("|");
     if (parts.length === 3) {
-      return `${formatRmTipoRequisicao(parts[0])} · ${parts[2].trim()}`;
+      return parts[2].trim();
     }
   }
-  if (input.rmIdReq != null) return String(input.rmIdReq);
   return "";
 }
 
@@ -40,4 +41,31 @@ export function tipoSolicitacaoBadgeClass(tipoSolicitacao: number, rmTipoRequisi
   if (rm === "SUBSTITUICAO" || tipoSolicitacao === 1) return "bg-blue-500/15 text-blue-700";
   if (rm === "AUMENTO_QUADRO" || tipoSolicitacao === 2) return "bg-emerald-500/15 text-emerald-700";
   return "bg-sky-500/15 text-sky-700";
+}
+
+export type TipoSolicitacaoFilter = "todas" | "aumento_quadro" | "substituicao";
+
+function normalizeTipoSolicitacaoKind(input: {
+  tipoSolicitacao: number | string;
+  rmTipoRequisicao?: string | null;
+}): "substituicao" | "aumento_quadro" | "outro" {
+  const rm = (input.rmTipoRequisicao ?? "").toUpperCase();
+  if (rm === "SUBSTITUICAO") return "substituicao";
+  if (rm === "AUMENTO_QUADRO") return "aumento_quadro";
+
+  const raw = input.tipoSolicitacao;
+  if (raw === 1 || raw === "1" || raw === "Substituicao") return "substituicao";
+  if (raw === 2 || raw === "2" || raw === "AumentoQuadro") return "aumento_quadro";
+  return "outro";
+}
+
+export function rowMatchesTipoSolicitacaoFilter(
+  row: { tipoSolicitacao: number | string; rmTipoRequisicao?: string | null },
+  filter: TipoSolicitacaoFilter,
+): boolean {
+  if (filter === "todas") return true;
+  const kind = normalizeTipoSolicitacaoKind(row);
+  if (filter === "substituicao") return kind === "substituicao";
+  if (filter === "aumento_quadro") return kind === "aumento_quadro";
+  return true;
 }

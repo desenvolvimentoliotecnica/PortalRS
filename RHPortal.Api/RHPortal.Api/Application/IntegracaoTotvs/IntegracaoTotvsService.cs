@@ -111,37 +111,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
             all.AddRange(pgtoExtra);
         }
 
-        // ── 3. Desligamento ──
-        if (query.Tipo is null or TipoIntegracao.Desligamento)
-        {
-            var desligamentos = await _db.SolicitacoesDesligamento
-                .AsNoTracking()
-                .Include(s => s.Funcionario)
-                .Where(s => s.Status == SolicitacaoStatus.EmIntegracao || s.Status == SolicitacaoStatus.Concluida)
-                .Select(s => new IntegracaoTotvsListItem(
-                    s.Id,
-                    (short)TipoIntegracao.Desligamento,
-                    "Desligamento",
-                    s.Funcionario != null ? s.Funcionario.Name : "—",
-                    null,
-                    "Desligamento — " + s.TipoDesligamento.ToString(),
-                    s.ApprovedAtUtc,
-                    s.IntegracaoResultado,
-                    s.IntegracaoMensagem,
-                    s.IntegradaEmUtc,
-                    null,
-                    null,
-                    null,
-                    0,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
-                ))
-                .ToListAsync(ct);
-            all.AddRange(desligamentos);
-        }
+        // ── 3. Desligamento — integração descontinuada (fluxo 100% Portal) ──
 
         // ── 4. Promoção ──
         if (query.Tipo is null or TipoIntegracao.Promocao)
@@ -729,13 +699,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 };
             }
             case TipoIntegracao.Desligamento:
-            {
-                var s = await _db.SolicitacoesDesligamento.AsNoTracking()
-                    .Include(x => x.Funcionario).Include(x => x.Solicitante)
-                    .FirstOrDefaultAsync(x => x.Id == id, ct);
-                if (s is null) return null;
-                return BuildDesligamentoPayload(s);
-            }
+                return null;
             case TipoIntegracao.Promocao:
             {
                 var s = await _db.SolicitacoesPromocao.AsNoTracking()
@@ -929,37 +893,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 break;
             }
             case TipoIntegracao.Desligamento:
-            {
-                var entity = await _db.SolicitacoesDesligamento.FindAsync(new object[] { id }, ct)
-                    ?? throw new KeyNotFoundException($"SolicitacaoDesligamento {id} não encontrada.");
-                entity.IntegracaoResultado = request.Resultado;
-                entity.IntegracaoMensagem = request.Mensagem;
-                entity.IntegradaEmUtc = now;
-
-                if (request.Resultado == IntegracaoResultado.Sucesso)
-                {
-                    // Marcar solicitação como concluída + liberar headcount da vaga
-                    entity.Status = SolicitacaoStatus.Concluida;
-                    entity.UpdatedAtUtc = now;
-                    await _ocupacaoService.FecharOcupacaoAsync(
-                        entity.FuncionarioId, MotivoSaidaOcupacao.Desligamento, entity.Id, ct);
-
-                    // Marcar colaborador como inativo
-                    var funcionarioDeslig = await _db.Set<Funcionario>()
-                        .FindAsync(new object[] { entity.FuncionarioId }, ct);
-                    if (funcionarioDeslig is not null)
-                    {
-                        funcionarioDeslig.Status = FuncionarioStatus.Inactive;
-                        funcionarioDeslig.UpdatedAtUtc = now;
-                    }
-                }
-                solicitanteId = entity.SolicitanteId;
-                tipoLabel = "desligamento";
-                var funcDeslig = await _db.Set<Funcionario>().AsNoTracking()
-                    .FirstOrDefaultAsync(f => f.Id == entity.FuncionarioId, ct);
-                resumo = funcDeslig?.Name ?? "funcionário";
-                break;
-            }
+                throw new InvalidOperationException(
+                    "Integração TOTVS para desligamento foi descontinuada. Conclua a solicitação pelo Portal (Efetivar).");
             case TipoIntegracao.Promocao:
             {
                 var entity = await _db.SolicitacoesPromocao.FindAsync(new object[] { id }, ct)
@@ -1146,14 +1081,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 break;
             }
             case TipoIntegracao.Desligamento:
-            {
-                var entity = await _db.SolicitacoesDesligamento.FindAsync(new object[] { id }, ct)
-                    ?? throw new KeyNotFoundException($"SolicitacaoDesligamento {id} não encontrada.");
-                entity.IntegracaoResultado = null;
-                entity.IntegracaoMensagem = null;
-                entity.IntegradaEmUtc = null;
-                break;
-            }
+                throw new InvalidOperationException(
+                    "Integração TOTVS para desligamento foi descontinuada.");
             case TipoIntegracao.Promocao:
             {
                 var entity = await _db.SolicitacoesPromocao.FindAsync(new object[] { id }, ct)
@@ -1220,6 +1149,9 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
     public async Task<EfetivarManualResponse> EfetivarManualAsync(
         TipoIntegracao tipo, Guid id, Guid? responsavelId, CancellationToken ct)
     {
+        if (tipo == TipoIntegracao.Desligamento)
+            throw new InvalidOperationException("Integração TOTVS para desligamento foi descontinuada.");
+
         if (await IsJaSucessoAsync(tipo, id, ct))
             throw new InvalidOperationException(
                 "Esta integração já foi efetivada com Sucesso e não pode ser forçada novamente.");
@@ -1403,21 +1335,7 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 x.IntegradaEmUtc, x.ApprovedAtUtc));
         }
 
-        // Desligamento
-        foreach (var x in await _db.SolicitacoesDesligamento.AsNoTracking()
-            .Include(e => e.Funcionario)
-            .Where(e => e.ApprovedAtUtc != null && e.ApprovedAtUtc < corte
-                     && (e.IntegracaoResultado == null
-                         || e.IntegracaoResultado == IntegracaoResultado.Falha
-                         || e.IntegracaoResultado == IntegracaoResultado.FalhaDefinitiva))
-            .ToListAsync(ct))
-        {
-            Classify(new IntegracaoReconciliacaoItemResponse(
-                x.Id, (short)TipoIntegracao.Desligamento, "Desligamento", x.Funcionario?.Name ?? "—",
-                x.IntegracaoResultado, x.IntegracaoMensagem,
-                x.TentativasIntegracao, x.UltimaTentativaUtc,
-                x.IntegradaEmUtc, x.ApprovedAtUtc));
-        }
+        // Desligamento — integração descontinuada (fluxo 100% Portal)
 
         // Promoção
         foreach (var x in await _db.SolicitacoesPromocao.AsNoTracking()
@@ -1574,23 +1492,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
                 break;
             }
             case TipoIntegracao.Desligamento:
-            {
-                var entity = await _db.SolicitacoesDesligamento.FindAsync(new object[] { id }, ct)
-                    ?? throw new KeyNotFoundException($"SolicitacaoDesligamento {id} não encontrada.");
-                var statusAnterior = entity.Status.ToString();
-                entity.IntegracaoResultado        = null;
-                entity.IntegracaoMensagem         = null;
-                entity.IntegradaEmUtc             = null;
-                entity.EfetivadoManualmentePorId  = null;
-                entity.EfetivadoManualmenteEmUtc  = null;
-                if (entity.Status == SolicitacaoStatus.Concluida)
-                    entity.Status = SolicitacaoStatus.EmIntegracao;
-                entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
-                if (tipoEntidade.HasValue)
-                    await _statusHistorico.RegistrarAsync(tipoEntidade.Value, entity.Id,
-                        statusAnterior, entity.Status.ToString(), currentUser, "Voltado para pendente manualmente", ct);
-                break;
-            }
+                throw new InvalidOperationException(
+                    "Integração TOTVS para desligamento foi descontinuada.");
             case TipoIntegracao.Promocao:
             {
                 var entity = await _db.SolicitacoesPromocao.FindAsync(new object[] { id }, ct)
@@ -1680,18 +1583,8 @@ public sealed class IntegracaoTotvsService : IIntegracaoTotvsService
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<IReadOnlyList<object>> ListDesligamentosPayloadAsync(SolicitacaoStatus[] statuses, CancellationToken ct)
-    {
-        var items = await _db.SolicitacoesDesligamento
-            .AsNoTracking()
-            .Include(x => x.Funcionario)
-            .Include(x => x.Solicitante)
-            .Where(x => statuses.Contains(x.Status))
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .ToListAsync(ct);
-
-        return items.Select(BuildDesligamentoPayload).ToList<object>();
-    }
+    public Task<IReadOnlyList<object>> ListDesligamentosPayloadAsync(SolicitacaoStatus[] statuses, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<object>>(Array.Empty<object>());
 
     private static object BuildDesligamentoPayload(SolicitacaoDesligamento s)
     {

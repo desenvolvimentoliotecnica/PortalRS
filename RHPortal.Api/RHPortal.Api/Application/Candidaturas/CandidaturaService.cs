@@ -248,6 +248,8 @@ public sealed class CandidaturaService : ICandidaturaService
         cand.Status = novaEtapa switch
         {
             EtapaMacroCandidatura.Contratado => CandidaturaStatus.Contratado,
+            EtapaMacroCandidatura.ReprovadoRh => CandidaturaStatus.Reprovado,
+            EtapaMacroCandidatura.ReprovadoGestor => CandidaturaStatus.Reprovado,
             EtapaMacroCandidatura.Recusado => CandidaturaStatus.Reprovado,
             EtapaMacroCandidatura.Desistiu => CandidaturaStatus.Desistiu,
             _ => cand.Status,
@@ -486,7 +488,9 @@ public sealed class CandidaturaService : ICandidaturaService
             (EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista técnica"),
             (EtapaMacroCandidatura.Teste, "Teste"),
             (EtapaMacroCandidatura.Proposta, "Proposta"),
-            (EtapaMacroCandidatura.Contratado, "Contratado"),
+            (EtapaMacroCandidatura.Contratado, "Em processo de admissão"),
+            (EtapaMacroCandidatura.ReprovadoRh, "Reprovado RH"),
+            (EtapaMacroCandidatura.ReprovadoGestor, "Reprovado Gestor"),
             (EtapaMacroCandidatura.Recusado, "Recusado"),
             (EtapaMacroCandidatura.Desistiu, "Desistiu"),
         };
@@ -659,7 +663,7 @@ public sealed class CandidaturaService : ICandidaturaService
             (EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista Técnica"),
             (EtapaMacroCandidatura.Teste,       "Teste"),
             (EtapaMacroCandidatura.Proposta,    "Proposta"),
-            (EtapaMacroCandidatura.Contratado,  "Contratado"),
+            (EtapaMacroCandidatura.Contratado,  "Em processo de admissão"),
         };
 
         // Para representar o funil "cumulativo": etapa N = quem ESTÁ ou JÁ PASSOU pela etapa N
@@ -677,7 +681,10 @@ public sealed class CandidaturaService : ICandidaturaService
                 for (int i = 0; i <= idx; i++) totaisCumulativos[i] += g.Total;
             }
             // Recusados/Desistidos: contam como passaram pela Aplicada (entraram no funil)
-            else if (g.Etapa == EtapaMacroCandidatura.Recusado || g.Etapa == EtapaMacroCandidatura.Desistiu)
+            else if (g.Etapa is EtapaMacroCandidatura.ReprovadoRh
+                     or EtapaMacroCandidatura.ReprovadoGestor
+                     or EtapaMacroCandidatura.Recusado
+                     or EtapaMacroCandidatura.Desistiu)
             {
                 totaisCumulativos[0] += g.Total;
             }
@@ -792,9 +799,11 @@ public sealed class CandidaturaService : ICandidaturaService
         EtapaMacroCandidatura.EntrevistaTecnica => 10,
         EtapaMacroCandidatura.Teste       => 7,
         EtapaMacroCandidatura.Proposta    => 5,
-        EtapaMacroCandidatura.Contratado  => 365, // terminal
-        EtapaMacroCandidatura.Recusado    => 365, // terminal
-        EtapaMacroCandidatura.Desistiu    => 365, // terminal
+        EtapaMacroCandidatura.Contratado       => 365, // terminal
+        EtapaMacroCandidatura.ReprovadoRh      => 365, // terminal
+        EtapaMacroCandidatura.ReprovadoGestor => 365, // terminal
+        EtapaMacroCandidatura.Recusado         => 365, // terminal
+        EtapaMacroCandidatura.Desistiu         => 365, // terminal
         _                                 => 7,
     };
 

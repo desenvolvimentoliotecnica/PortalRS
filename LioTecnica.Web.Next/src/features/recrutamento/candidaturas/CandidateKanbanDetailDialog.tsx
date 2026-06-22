@@ -96,7 +96,9 @@ function etapaLabel(value: CandidaturaHistoricoItem["etapaNova"]) {
     EntrevistaTecnica: "Entrevista técnica",
     Teste: "Teste",
     Proposta: "Proposta",
-    Contratado: "Contratado",
+    Contratado: "Em processo de admissão",
+    ReprovadoRh: "Reprovado RH",
+    ReprovadoGestor: "Reprovado Gestor",
     Recusado: "Recusado",
     Desistiu: "Desistiu",
   }[etapa] ?? etapa;

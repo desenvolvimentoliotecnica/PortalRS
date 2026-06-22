@@ -2,11 +2,13 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.Cartas;
-using RhPortal.Api.Application.IntegracaoTotvs;
+using RhPortal.Api.Application.EntrevistasSaida;
 using RhPortal.Api.Application.SolicitacoesDesligamento;
+using RhPortal.Api.Contracts.EntrevistasSaida;
 using RhPortal.Api.Contracts.SolicitacoesDesligamento;
 using RhPortal.Api.Contracts.SolicitacoesPromocao;
 using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Security;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Controllers;
@@ -19,27 +21,23 @@ namespace RhPortal.Api.Controllers;
 public sealed class SolicitacoesDesligamentoController : ControllerBase
 {
     private readonly ISolicitacaoDesligamentoService _service;
-    private readonly IIntegracaoTotvsService _integracaoService;
     private readonly ICurrentUserContext _userContext;
     private readonly ICartaService _cartaService;
+    private readonly IEntrevistaSaidaService _entrevistaSaida;
 
     public SolicitacoesDesligamentoController(
         ISolicitacaoDesligamentoService service,
-        IIntegracaoTotvsService integracaoService,
         ICurrentUserContext userContext,
-        ICartaService cartaService)
+        ICartaService cartaService,
+        IEntrevistaSaidaService entrevistaSaida)
     {
         _service = service;
-        _integracaoService = integracaoService;
         _userContext = userContext;
         _cartaService = cartaService;
+        _entrevistaSaida = entrevistaSaida;
     }
 
     /// <summary>Lista solicitações de desligamento com filtro por perfil.</summary>
-    /// <remarks>
-    /// Quando <c>statuses</c> contém apenas <c>EmIntegracao</c> (7) e/ou <c>Concluida</c> (8),
-    /// retorna o payload completo de integração TOTVS em vez do grid simplificado.
-    /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<SolicitacaoDesligamentoGridRow>), StatusCodes.Status200OK)]
     public async Task<IActionResult> List(
@@ -52,12 +50,6 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         [FromQuery] int? pageSize,
         CancellationToken ct)
     {
-        var integrationStatuses = new[] { SolicitacaoStatus.EmIntegracao, SolicitacaoStatus.Concluida };
-        var requestedStatuses = statuses ?? (status.HasValue ? [status.Value] : []);
-
-        if (requestedStatuses.Length > 0 && requestedStatuses.All(s => integrationStatuses.Contains(s)))
-            return Ok(await _integracaoService.ListDesligamentosPayloadAsync(requestedStatuses, ct));
-
         var canViewAll = _userContext.IsAdmin || _userContext.IsRH;
         var effectiveApenasMeus = canViewAll ? (apenasMeus ?? false) : true;
 
@@ -245,7 +237,7 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         }
     }
 
-    /// <summary>Efetiva o desligamento aprovado — move para Em Integração e envia ao painel TOTVS.</summary>
+    /// <summary>Conclui o desligamento no Portal (requer entrevista de saída respondida).</summary>
     [HttpPost("{id:guid}/efetivar")]
     [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -267,7 +259,7 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         }
     }
 
-    /// <summary>Datasul confirma o resultado da integração do desligamento (sucesso ou erro).</summary>
+    /// <summary>Legado — integração TOTVS para desligamento descontinuada.</summary>
     [HttpPost("{id:guid}/confirmar-integracao")]
     [ProducesResponseType(typeof(SolicitacaoDesligamentoResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -318,6 +310,35 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+    }
+
+    /// <summary>Envia entrevista de saída manualmente ao colaborador.</summary>
+    [HttpPost("{id:guid}/entrevista-saida/enviar")]
+    [RequirePermission("folha.entrevista-saida.manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> EnviarEntrevistaSaida(Guid id, CancellationToken ct)
+        => MapEntrevistaEnvioResult(await _entrevistaSaida.EnviarAsync(id, ct));
+
+    /// <summary>Reenvia link da entrevista de saída (não respondida, não expirada).</summary>
+    [HttpPost("{id:guid}/entrevista-saida/reenviar")]
+    [RequirePermission("folha.entrevista-saida.manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ReenviarEntrevistaSaida(Guid id, CancellationToken ct)
+        => MapEntrevistaEnvioResult(await _entrevistaSaida.ReenviarAsync(id, ct));
+
+    /// <summary>Status e respostas da entrevista de saída vinculada ao desligamento.</summary>
+    [HttpGet("{id:guid}/entrevista-saida")]
+    [RequirePermission("folha.entrevista-saida.manage")]
+    [ProducesResponseType(typeof(EntrevistaSaidaDetalheDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetEntrevistaSaida(Guid id, CancellationToken ct)
+    {
+        var detalhe = await _entrevistaSaida.GetDetalheAsync(id, ct);
+        return detalhe is null ? NotFound() : Ok(detalhe);
     }
 
     [HttpGet("integracao/pendentes")]
@@ -377,4 +398,16 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
             sb.AppendLine($"{r.FuncionarioNome};{r.TipoDesligamento};{r.DataDesligamento:dd/MM/yyyy};{r.Status};{r.SolicitanteNome};{r.CreatedAtUtc:dd/MM/yyyy}");
         return sb.ToString();
     }
+
+    private static IActionResult MapEntrevistaEnvioResult(EntrevistaSaidaEnvioResult result)
+        => result switch
+        {
+            EntrevistaSaidaEnvioResult.Sucesso => new NoContentResult(),
+            EntrevistaSaidaEnvioResult.SolicitacaoNaoEncontrada => new NotFoundObjectResult(new { code = "SolicitacaoNaoEncontrada", message = "Solicitação de desligamento não encontrada." }),
+            EntrevistaSaidaEnvioResult.SemTemplate => new ConflictObjectResult(new { code = "SemTemplate", message = "Configure o questionário de entrevista de saída antes de enviar." }),
+            EntrevistaSaidaEnvioResult.SemEmail => new ConflictObjectResult(new { code = "SemEmail", message = "O funcionário não possui e-mail corporativo cadastrado." }),
+            EntrevistaSaidaEnvioResult.JaRespondida => new ConflictObjectResult(new { code = "JaRespondida", message = "Esta entrevista já foi respondida." }),
+            EntrevistaSaidaEnvioResult.Expirada => new ConflictObjectResult(new { code = "Expirada", message = "O link da entrevista expirou. Envie uma nova entrevista." }),
+            _ => new StatusCodeResult(StatusCodes.Status500InternalServerError),
+        };
 }

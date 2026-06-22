@@ -17,8 +17,7 @@ const NAV_MANIFEST: ReadonlyArray<{
 }> = [
     // ── Top-level (outside any group) ──────────────────────────────────
     { id: "nav-dashboard",                 label: "Dashboard",                  href: "/dashboard",                      icon: "layoutdashboard",  permission: "dashboard.view" },
-    { id: "nav-painel-solicitacoes",       label: "Painel de Solicitações",      href: "/gestao/painel-solicitacoes",     icon: "gitbranch",        permission: "gestao.dashboard" },
-    { id: "nav-gestao-solicitacoes-vaga",  label: "Solicitações de Vaga",        href: "/gestao/solicitacoes",          icon: "clipboardlist",     permission: "solicitacoes-vaga.view" },
+    { id: "nav-gestao-solicitacoes-vaga",  label: "Solicitações",                href: "/gestao/solicitacoes",          icon: "clipboardlist",     permission: "solicitacoes-vaga.view" },
     { id: "nav-gestao-aprovacoes-vaga",    label: "Aprovações",                   href: "/gestao/aprovacoes",            icon: "listchecks",        permission: "aprovacoes-vaga.view" },
     { id: "nav-agendas",                   label: "Agenda",                     href: "/agendas",                        icon: "calendar",         permission: "agenda.view" },
 

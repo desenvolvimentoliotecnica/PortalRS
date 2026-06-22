@@ -22,7 +22,6 @@ type RmConfig = {
   sqlApplicationIntent: string | null;
   mode: string;
   createEndpointUrl: string | null;
-  getEndpointUrl: string | null;
   parecerEndpointUrl: string | null;
   requestTimeoutSeconds: number;
   restUsername: string | null;
@@ -142,7 +141,6 @@ const DEFAULT_CONFIG: RmConfig = {
   sqlApplicationIntent: "ReadOnly",
   mode: "stub",
   createEndpointUrl: "",
-  getEndpointUrl: "",
   parecerEndpointUrl: "",
   requestTimeoutSeconds: 60,
   restUsername: "",
@@ -287,11 +285,10 @@ export default function ConfiguracaoRmScreen() {
     }
   };
 
-  const runTest = async (kind: "sql" | "rest") => {
+  const runTest = async (kind: "sql") => {
     setTesting(kind);
     try {
-      const url = kind === "sql" ? "/api/integracao-totvs/configuracao-rm/testar-sql" : "/api/integracao-totvs/configuracao-rm/testar-rest-get";
-      const res = await apiFetch(url, { method: "POST" });
+      const res = await apiFetch("/api/integracao-totvs/configuracao-rm/testar-sql", { method: "POST" });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string; status?: number };
       if (body.ok) toast.success(body.message ?? "Teste concluído com sucesso.");
       else toast.error(body.message ?? `Teste falhou${body.status ? ` (${body.status})` : ""}.`);
@@ -421,10 +418,9 @@ export default function ConfiguracaoRmScreen() {
         </TabsContent>
 
         <TabsContent value="rest">
-          <Card title="Endpoints REST RM" desc="Usado para criar, consultar status e ler pareceres de requisições RM.">
+          <Card title="Endpoints REST RM" desc="Criação de requisições (POST) e pareceres (GET). A listagem admin usa SQL direto na aba Conexão SQL.">
             <div className="grid gap-4">
               <TextField label="Endpoint POST de criação" value={config.createEndpointUrl} onChange={(v) => setField("createEndpointUrl", v)} />
-              <TextField label="Endpoint GET de consulta" value={config.getEndpointUrl} onChange={(v) => setField("getEndpointUrl", v)} />
               <TextField label="Endpoint GET de pareceres" value={config.parecerEndpointUrl} onChange={(v) => setField("parecerEndpointUrl", v)} />
               <div className="grid gap-4 md:grid-cols-4">
                 <TextField label="Modo" value={config.mode} onChange={(v) => setField("mode", v)} placeholder="stub | rest | disabled" />
@@ -442,12 +438,6 @@ export default function ConfiguracaoRmScreen() {
                 <NumberField label="Timeout REST (s)" value={config.requestTimeoutSeconds} onChange={(v) => setField("requestTimeoutSeconds", v)} />
                 <NumberField label="Máx. tentativas" value={config.maxTentativas} onChange={(v) => setField("maxTentativas", v)} />
                 <NumberField label="CODSTATUS inicial" value={config.codStatusInicial} onChange={(v) => setField("codStatusInicial", v)} />
-                <div className="flex items-end">
-                  <Button type="button" variant="outline" className="gap-2" disabled={testing === "rest"} onClick={() => void runTest("rest")}>
-                    <TestTube2 className="size-4" />
-                    Testar GET
-                  </Button>
-                </div>
               </div>
             </div>
           </Card>

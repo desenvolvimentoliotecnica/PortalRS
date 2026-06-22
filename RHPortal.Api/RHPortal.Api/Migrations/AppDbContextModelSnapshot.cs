@@ -9806,6 +9806,26 @@ namespace RhPortal.Api.Migrations
                     b.Property<bool>("PossuiEstabilidade")
                         .HasColumnType("boolean");
 
+                    b.Property<short?>("RmCodColRequisicao")
+                        .HasColumnType("smallint");
+
+                    b.Property<short?>("RmCodStatus")
+                        .HasColumnType("smallint");
+
+                    b.Property<int?>("RmIdReq")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RmRequisicaoCodigo")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTimeOffset?>("RmUltimaSincronizacaoUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RmUltimaStatusDescricaoRm")
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
                     b.Property<Guid?>("SolicitacaoVagaGeradaId")
                         .HasColumnType("uuid");
 
@@ -9852,6 +9872,9 @@ namespace RhPortal.Api.Migrations
                     b.HasIndex("SolicitanteId");
 
                     b.HasIndex("UnitId");
+
+                    b.HasIndex("TenantId", "RmRequisicaoCodigo")
+                        .HasFilter("\"RmRequisicaoCodigo\" IS NOT NULL");
 
                     b.ToTable("SolicitacoesDesligamento");
                 });

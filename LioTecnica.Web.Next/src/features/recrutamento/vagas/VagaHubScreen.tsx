@@ -166,7 +166,7 @@ type WorkflowRhHubResponse = WorkflowRhHubItem[] | { items?: WorkflowRhHubItem[]
 
 function normalizeEtapaMacro(value: string | number | null | undefined): string {
   if (typeof value === "number") {
-    return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu"][value] ?? "Aplicada";
+    return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu", "EntrevistaTecnica", "ReprovadoRh", "ReprovadoGestor"][value] ?? "Aplicada";
   }
   return value ?? "Aplicada";
 }

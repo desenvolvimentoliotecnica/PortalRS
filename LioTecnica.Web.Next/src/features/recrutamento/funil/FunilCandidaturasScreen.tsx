@@ -116,7 +116,7 @@ export default function FunilCandidaturasScreen() {
             <div className="rounded-lg border border-neutral-200 bg-white p-4">
               <div className="text-xs text-muted-foreground uppercase">Contratados</div>
               <div className="mt-1 text-2xl font-bold text-emerald-600">
-                {data.etapas.find((e) => e.titulo === "Contratado")?.total ?? 0}
+                {data.etapas.find((e) => e.titulo === "Em processo de admissão")?.total ?? 0}
               </div>
             </div>
             <div className="rounded-lg border border-neutral-200 bg-white p-4">
@@ -124,7 +124,7 @@ export default function FunilCandidaturasScreen() {
               <div className="mt-1 text-2xl font-bold text-violet-600">
                 {(() => {
                   const aplicada = data.etapas.find((e) => e.titulo === "Aplicada")?.total ?? 0;
-                  const contratado = data.etapas.find((e) => e.titulo === "Contratado")?.total ?? 0;
+                  const contratado = data.etapas.find((e) => e.titulo === "Em processo de admissão")?.total ?? 0;
                   if (aplicada === 0) return "—";
                   return `${((contratado * 100) / aplicada).toFixed(1)}%`;
                 })()}

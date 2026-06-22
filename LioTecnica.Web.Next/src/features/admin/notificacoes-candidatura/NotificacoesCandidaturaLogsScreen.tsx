@@ -44,6 +44,8 @@ const ETAPAS: EtapaMacroCandidatura[] = [
   "Teste",
   "Proposta",
   "Contratado",
+  "ReprovadoRh",
+  "ReprovadoGestor",
   "Recusado",
   "Desistiu",
 ];

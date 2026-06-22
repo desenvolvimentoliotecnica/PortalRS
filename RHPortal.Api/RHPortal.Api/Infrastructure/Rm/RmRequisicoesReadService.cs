@@ -24,9 +24,12 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 
     public async Task<RmRequisicaoListResponse> ListAsync(RmRequisicaoListQuery query, CancellationToken ct)
     {
-        var tenantConfig = await BuildRmRequisicaoConfigAsync(ct);
-        if (!string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
-            return await ListFromRestAsync(query, tenantConfig, ct);
+        var connectionOptions = await _rmConfiguracaoService.GetConnectionOptionsAsync(ct);
+        if (!connectionOptions.IsConfigured)
+        {
+            throw new InvalidOperationException(
+                "Configure a conexão SQL do RM (servidor, banco e credenciais) para consultar requisições.");
+        }
 
         var page = Math.Max(1, query.Page);
         const int maxPageSize = 100;
@@ -39,31 +42,17 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         string? searchPattern = BuildLikePattern(query.Search);
         string? codStatusCsv = BuildCodStatusCsv(query.CodStatusIn);
 
-        var cs = (await _rmConfiguracaoService.GetConnectionOptionsAsync(ct)).GetConnectionString();
-        await using var conn = new SqlConnection(cs);
-        await conn.OpenAsync(ct);
+        var cs = connectionOptions.GetConnectionString();
 
-        int totalCount;
-        await using (var cmdCount = new SqlCommand(RmRequisicoesQueries.SqlCount, conn))
+        var countTask = ExecuteCountAsync(cs, tipo, dataDe, dataAte, searchPattern, codStatusCsv, ct);
+        var pageTask = ExecutePageAsync(cs, query.SortBy, query.SortDir, offset, pageSize, tipo, dataDe, dataAte, searchPattern, codStatusCsv, ct);
+        await Task.WhenAll(countTask, pageTask);
+
+        return new RmRequisicaoListResponse
         {
-            AddFilterParameters(cmdCount, tipo, dataDe, dataAte, searchPattern, codStatusCsv);
-            var scalar = await cmdCount.ExecuteScalarAsync(ct);
-            totalCount = scalar is int i ? i : Convert.ToInt32(scalar ?? 0);
-        }
-
-        var items = new List<RmRequisicaoRowDto>();
-        await using (var cmdPage = new SqlCommand(RmRequisicoesQueries.SqlPage(query.SortBy, query.SortDir), conn))
-        {
-            AddFilterParameters(cmdPage, tipo, dataDe, dataAte, searchPattern, codStatusCsv);
-            cmdPage.Parameters.AddWithValue("@Offset", offset);
-            cmdPage.Parameters.AddWithValue("@PageSize", pageSize);
-
-            await using var reader = await cmdPage.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-                items.Add(MapRow(reader));
-        }
-
-        return new RmRequisicaoListResponse { Items = items, TotalCount = totalCount };
+            Items = await pageTask,
+            TotalCount = await countTask
+        };
     }
 
     public async Task<RmRequisicaoCodStatusSnapshot?> TryGetCodStatusByPortalCodigoAsync(string rmRequisicaoCodigo, CancellationToken ct)
@@ -73,16 +62,17 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         if (!RmPortalRequisicaoVinculo.TryParse(rmRequisicaoCodigo, out var tipo, out var codCol, out var idReq))
             return null;
 
-        var tenantConfig = await BuildRmRequisicaoConfigAsync(ct);
-        if (!string.IsNullOrWhiteSpace(tenantConfig.GetEndpointUrl))
-            return await TryGetCodStatusFromRestAsync(tenantConfig, tipo, codCol, idReq, ct);
+        var connectionOptions = await _rmConfiguracaoService.GetConnectionOptionsAsync(ct);
+        if (!connectionOptions.IsConfigured)
+            return null;
 
-        var cs = (await _rmConfiguracaoService.GetConnectionOptionsAsync(ct)).GetConnectionString();
+        var cs = connectionOptions.GetConnectionString();
         await using var conn = new SqlConnection(cs);
         await conn.OpenAsync(ct);
 
         await using var cmd = new SqlCommand(RmRequisicoesQueries.SqlCodStatusPorVinculo, conn);
-        cmd.Parameters.AddWithValue("@Tipo", tipo);
+        cmd.CommandTimeout = RmRequisicoesQueries.SqlCommandTimeoutSeconds;
+        AddFilterParameters(cmd, tipo, dataDe: null, dataAte: null, searchPattern: null, codStatusCsv: null);
         cmd.Parameters.AddWithValue("@CodCol", codCol);
         cmd.Parameters.AddWithValue("@IdReq", idReq);
 
@@ -99,12 +89,15 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             SafeInt(reader, "IDREQ") ?? idReq);
     }
 
-    private async Task<ConfiguracaoRmRequisicaoDto> BuildRmRequisicaoConfigAsync(CancellationToken ct)
+    private async Task<(ConfiguracaoRmRequisicaoDto Config, int RequestTimeoutSeconds)> BuildRmRequisicaoConfigAsync(CancellationToken ct)
     {
         var publicConfig = await _rmConfiguracaoService.GetAsync(ct);
         var createOptions = await _rmConfiguracaoService.GetCreateOptionsAsync(ct);
+        var timeoutSeconds = Math.Max(
+            RmRequisicoesQueries.SqlCommandTimeoutSeconds,
+            Math.Clamp(createOptions.RequestTimeoutSeconds, 1, 600));
 
-        return new ConfiguracaoRmRequisicaoDto
+        var config = new ConfiguracaoRmRequisicaoDto
         {
             EndpointUrl = publicConfig.CreateEndpointUrl,
             GetEndpointUrl = publicConfig.GetEndpointUrl,
@@ -112,11 +105,61 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
             Username = createOptions.Username,
             Password = createOptions.Password,
         };
+
+        return (config, timeoutSeconds);
+    }
+
+    private static async Task<int> ExecuteCountAsync(
+        string connectionString,
+        string? tipo,
+        DateTime? dataDe,
+        DateTime? dataAte,
+        string? searchPattern,
+        string? codStatusCsv,
+        CancellationToken ct)
+    {
+        await using var conn = new SqlConnection(connectionString);
+        await conn.OpenAsync(ct);
+        await using var cmdCount = new SqlCommand(RmRequisicoesQueries.SqlCount, conn);
+        cmdCount.CommandTimeout = RmRequisicoesQueries.SqlCommandTimeoutSeconds;
+        AddFilterParameters(cmdCount, tipo, dataDe, dataAte, searchPattern, codStatusCsv);
+        var scalar = await cmdCount.ExecuteScalarAsync(ct);
+        return scalar is int i ? i : Convert.ToInt32(scalar ?? 0);
+    }
+
+    private static async Task<List<RmRequisicaoRowDto>> ExecutePageAsync(
+        string connectionString,
+        string? sortBy,
+        string? sortDir,
+        int offset,
+        int pageSize,
+        string? tipo,
+        DateTime? dataDe,
+        DateTime? dataAte,
+        string? searchPattern,
+        string? codStatusCsv,
+        CancellationToken ct)
+    {
+        var items = new List<RmRequisicaoRowDto>();
+        await using var conn = new SqlConnection(connectionString);
+        await conn.OpenAsync(ct);
+        await using var cmdPage = new SqlCommand(RmRequisicoesQueries.SqlPage(sortBy, sortDir), conn);
+        cmdPage.CommandTimeout = RmRequisicoesQueries.SqlCommandTimeoutSeconds;
+        AddFilterParameters(cmdPage, tipo, dataDe, dataAte, searchPattern, codStatusCsv);
+        cmdPage.Parameters.AddWithValue("@Offset", offset);
+        cmdPage.Parameters.AddWithValue("@PageSize", pageSize);
+
+        await using var reader = await cmdPage.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            items.Add(MapRow(reader));
+
+        return items;
     }
 
     private async Task<RmRequisicaoListResponse> ListFromRestAsync(
         RmRequisicaoListQuery query,
         ConfiguracaoRmRequisicaoDto config,
+        int requestTimeoutSeconds,
         CancellationToken ct)
     {
         var page = Math.Max(1, query.Page);
@@ -124,7 +167,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         var pageSize = Math.Clamp(query.PageSize < 1 ? 20 : query.PageSize, 1, maxPageSize);
         var offset = (page - 1) * pageSize;
 
-        var items = await FetchRestRowsAsync(config, codCol: null, idReq: null, ct);
+        var items = await FetchRestRowsAsync(config, requestTimeoutSeconds, codCol: null, idReq: null, ct);
         var filtered = ApplyRestSort(ApplyRestFilters(items, query), query).ToList();
 
         return new RmRequisicaoListResponse
@@ -136,12 +179,13 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 
     private async Task<RmRequisicaoCodStatusSnapshot?> TryGetCodStatusFromRestAsync(
         ConfiguracaoRmRequisicaoDto config,
+        int requestTimeoutSeconds,
         string tipo,
         int codCol,
         int idReq,
         CancellationToken ct)
     {
-        var items = await FetchRestRowsAsync(config, codCol, idReq, ct);
+        var items = await FetchRestRowsAsync(config, requestTimeoutSeconds, codCol, idReq, ct);
         var row = items.FirstOrDefault(i =>
             i.Codcolrequisicao == codCol &&
             i.Idreq == idReq);
@@ -159,6 +203,7 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
 
     private async Task<IReadOnlyList<RmRequisicaoRowDto>> FetchRestRowsAsync(
         ConfiguracaoRmRequisicaoDto config,
+        int requestTimeoutSeconds,
         int? codCol,
         int? idReq,
         CancellationToken ct)
@@ -169,8 +214,9 @@ public sealed class RmRequisicoesReadService : IRmRequisicoesReadService
         ApplyBasicAuthentication(request, config);
 
         var client = _httpClientFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(Math.Max(1, requestTimeoutSeconds));
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, requestTimeoutSeconds)));
 
         using var response = await client.SendAsync(request, timeoutCts.Token);
         var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);

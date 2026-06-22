@@ -33,6 +33,8 @@ const ETAPAS_EDITAVEIS: EtapaMacroCandidatura[] = [
   "Teste",
   "Proposta",
   "Contratado",
+  "ReprovadoRh",
+  "ReprovadoGestor",
   "Recusado",
   "Desistiu",
 ];
@@ -46,7 +48,9 @@ const ETAPA_LABEL: Record<EtapaMacroCandidatura, string> = {
   EntrevistaTecnica: "Entrevista técnica",
   Teste: "Teste",
   Proposta: "Proposta",
-  Contratado: "Contratado",
+  Contratado: "Em processo de admissão",
+  ReprovadoRh: "Reprovado RH",
+  ReprovadoGestor: "Reprovado Gestor",
   Recusado: "Recusado",
   Desistiu: "Desistiu",
 };
@@ -59,6 +63,8 @@ const ETAPA_COLOR: Record<EtapaMacroCandidatura, string> = {
   Teste: "bg-amber-50 text-amber-800 border-amber-200",
   Proposta: "bg-cyan-50 text-cyan-800 border-cyan-200",
   Contratado: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  ReprovadoRh: "bg-orange-50 text-orange-800 border-orange-200",
+  ReprovadoGestor: "bg-rose-50 text-rose-800 border-rose-200",
   Recusado: "bg-red-50 text-red-800 border-red-200",
   Desistiu: "bg-zinc-50 text-zinc-700 border-zinc-200",
 };

@@ -89,6 +89,8 @@ public sealed class CandidaturasSlaAtrasadasTool : IAgentTool
             .Where(c => c.EtapaAtualDesdeUtc != null
                      && c.EtapaAtualDesdeUtc < cutoff
                      && c.EtapaMacro != RhPortal.Api.Domain.Enums.EtapaMacroCandidatura.Contratado
+                     && c.EtapaMacro != RhPortal.Api.Domain.Enums.EtapaMacroCandidatura.ReprovadoRh
+                     && c.EtapaMacro != RhPortal.Api.Domain.Enums.EtapaMacroCandidatura.ReprovadoGestor
                      && c.EtapaMacro != RhPortal.Api.Domain.Enums.EtapaMacroCandidatura.Recusado
                      && c.EtapaMacro != RhPortal.Api.Domain.Enums.EtapaMacroCandidatura.Desistiu)
             .Join(_db.Candidatos.AsNoTracking(), c => c.CandidatoId, ca => ca.Id, (c, ca) => new { c, ca })

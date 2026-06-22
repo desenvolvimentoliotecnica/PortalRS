@@ -58,78 +58,10 @@ import { useAuth } from "@/hooks/useAuth";
 import VagaFormModal from "./VagaFormModal";
 import SolicitacaoFormModal from "@/features/gestao/solicitacoes/SolicitacaoFormModal";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
+import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
 
 const BASE = "/app";
 const MATCHING_LAST_VAGA_KEY = "renderrh.matching.lastVagaId";
-const VAGAS_FONT_135X_STYLE = `
-    .vagas-font-135x {
-        font-size: 1.35rem;
-        line-height: 1.85rem;
-    }
-
-    .vagas-font-135x .text-\\[9px\\] {
-        font-size: 12.15px !important;
-        line-height: 1.05rem !important;
-    }
-
-    .vagas-font-135x .text-\\[10px\\] {
-        font-size: 13.5px !important;
-        line-height: 1.15rem !important;
-    }
-
-    .vagas-font-135x .text-\\[11px\\] {
-        font-size: 14.85px !important;
-        line-height: 1.2rem !important;
-    }
-
-    .vagas-font-135x .text-xs {
-        font-size: 1.0125rem !important;
-        line-height: 1.45rem !important;
-    }
-
-    .vagas-font-135x .text-sm {
-        font-size: 1.18125rem !important;
-        line-height: 1.55rem !important;
-    }
-
-    .vagas-font-135x .text-base {
-        font-size: 1.35rem !important;
-        line-height: 1.85rem !important;
-    }
-
-    .vagas-font-135x .text-lg {
-        font-size: 1.51875rem !important;
-        line-height: 2rem !important;
-    }
-
-    .vagas-font-135x .text-xl {
-        font-size: 1.6875rem !important;
-        line-height: 2.2rem !important;
-    }
-
-    .vagas-font-135x .text-2xl {
-        font-size: 2.025rem !important;
-        line-height: 2.5rem !important;
-    }
-
-    .vagas-font-135x input:not([type="checkbox"]),
-    .vagas-font-135x select,
-    .vagas-font-135x textarea,
-    .vagas-font-135x button {
-        font-size: 1.18125rem !important;
-        line-height: 1.55rem !important;
-    }
-
-    .vagas-font-135x input:not([type="checkbox"]),
-    .vagas-font-135x select,
-    .vagas-font-135x button {
-        min-height: 3rem;
-    }
-
-    .vagas-font-135x textarea {
-        min-height: 5rem;
-    }
-`;
 
 function truncateTitle(value: string | null | undefined, maxLength = 60): string {
     const text = value?.trim();
@@ -1097,80 +1029,14 @@ export default function VagasScreen() {
         critica: { label: "Crítica", cls: "text-red-800 bg-red-100 border-red-300" },
     };
     const priMeta = prioridadeMeta[currentVagaPrioridade.toLowerCase()] ?? { label: currentVagaPrioridade || "—", cls: "text-muted-foreground bg-muted/30 border-border/50" };
-    const flowSteps = showManagerSections ? [
-        {
-            step: "1",
-            title: "Solicite ou acompanhe a abertura",
-            description: "Use o mesmo painel para criar solicitações, revisar pendências e enxergar quando a vaga estiver liberada.",
-            icon: Plus,
-        },
-        {
-            step: "2",
-            title: "Valide aprovações",
-            description: "As solicitações que ainda dependem de análise ficam visíveis ao lado, sem trocar de tela.",
-            icon: ShieldCheck,
-        },
-        {
-            step: "3",
-            title: "Consulte as vagas abertas",
-            description: "Assim que aprovadas, as vagas entram na lista principal para o RH tocar a seleção.",
-            icon: Briefcase,
-        },
-    ] : [
-        {
-            step: "1",
-            title: "Configure e publique a vaga",
-            description: "Ajuste dados, requisitos e visibilidade. Na aba Publicação, ative o portal e gere o link para candidatos externos.",
-            icon: PenSquare,
-        },
-        {
-            step: "2",
-            title: "Rode o matching",
-            description: "Abra o matching da vaga para priorizar candidatos, aprovar, reprovar ou manter em análise.",
-            icon: ShieldCheck,
-        },
-        {
-            step: "3",
-            title: "Envie para rodadas",
-            description: "Os aprovados seguem para rodadas de seleção e depois para o processo seletivo estruturado.",
-            icon: FolderOpen,
-        },
-        {
-            step: "4",
-            title: "Feche com admissão",
-            description: "Depois da etapa seletiva, o candidato aprovado segue para pré-admissão e contratação.",
-            icon: CheckCircle2,
-        },
-    ];
 
     return (
-        <section className="vagas-font-135x space-y-4">
+        <section className={`${VAGAS_FONT_135X_CLASS} space-y-4`}>
             <style>{VAGAS_FONT_135X_STYLE}</style>
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-2xl font-semibold tracking-tight">Quadro de Vagas</h1>
             </div>
-
-            {/* Tutorial colapsado */}
-            <details className="group rounded-lg border border-border/40 bg-card shadow-sm">
-                <summary className="cursor-pointer select-none px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
-                    <svg className="size-3.5 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 16 16" fill="currentColor"><path d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"/></svg>
-                    Como funciona o fluxo de vagas?
-                </summary>
-                <div className={`px-4 pb-3 pt-1 grid gap-2 ${showManagerSections ? "md:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
-                    {flowSteps.map((step) => (
-                        <div key={step.step} className="flex items-start gap-2.5 rounded-lg bg-slate-50/80 p-3">
-                            <div className="rounded-lg bg-white border border-border/50 p-1.5 shrink-0 shadow-sm">
-                                <step.icon className="size-3.5 text-slate-500" />
-                            </div>
-                            <div className="min-w-0">
-                                <div className="text-[11px] font-semibold text-foreground">{step.title}</div>
-                                <div className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{step.description}</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </details>
 
             {/* ── next step banner ── */}
             {lastCreatedVagaId && (

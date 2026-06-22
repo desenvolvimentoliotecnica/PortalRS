@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -83,6 +84,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionProblemDetailsHandler>();
+builder.Services.AddRequestTimeouts(options =>
+{
+    options.DefaultPolicy = new RequestTimeoutPolicy { Timeout = TimeSpan.FromMinutes(2) };
+    options.AddPolicy("RmConsulta", TimeSpan.FromMinutes(5));
+});
 
 // Response Compression (Brotli + Gzip)
 builder.Services.AddResponseCompression(options =>
@@ -726,6 +732,7 @@ if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 }
 
 app.UseExceptionHandler();
+app.UseRequestTimeouts();
 app.UseResponseCompression();
 
 app.UseHttpsRedirection();
