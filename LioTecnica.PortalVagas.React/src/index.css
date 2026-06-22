@@ -5044,9 +5044,10 @@ body {
   letter-spacing: 0.2px;
 }
 
-.portal-brand i {
-  color: #0b1f3b;
-  font-size: 1.45rem;
+.portal-brand-logo {
+  display: block;
+  height: 60px;
+  width: auto;
 }
 
 .portal-actions {
