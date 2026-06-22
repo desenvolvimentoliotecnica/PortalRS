@@ -8,6 +8,11 @@ import type { BffNavItem } from "@/lib/schemas/bff";
  *
  * To add a new screen: add one entry here — no DB seeding, no per-tenant config.
  */
+const OWNER_ONLY_NAV_IDS = new Set([
+    "nav-gestao-aprovacoes-vaga",
+    "nav-rh-contrat-aprovacoes",
+]);
+
 const NAV_MANIFEST: ReadonlyArray<{
     id: string;
     label: string;
@@ -109,7 +114,9 @@ export function hasPermission(permissions: readonly string[], key: string): bool
  * Pass `me.permissions` from the BffMe object.
  */
 export function buildNavItemsForPermissions(permissions: string[]): BffNavItem[] {
+    const isOwner = permissions.includes("*");
     return NAV_MANIFEST
+        .filter((item) => isOwner || !OWNER_ONLY_NAV_IDS.has(item.id))
         .filter((item) => hasPermission(permissions, item.permission))
         .map((item) => ({
             id: item.id,

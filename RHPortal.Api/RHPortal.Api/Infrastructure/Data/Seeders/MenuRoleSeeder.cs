@@ -111,7 +111,6 @@ public static class MenuRoleSeeder
                 "feedback.view",
                 "feedback.gamificacao.view",
                 "gestao.dashboard",
-                "aprovacoes-vaga.view",
                 "portalvagas.view",
                 "talentos.view",
                 "projetos.view",

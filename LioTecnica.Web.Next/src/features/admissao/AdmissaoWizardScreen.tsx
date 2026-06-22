@@ -759,28 +759,28 @@ export default function AdmissaoWizardScreen() {
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Identificação</div>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                                 <div className="col-span-2 lg:col-span-3"><Field field="nome" label="Nome Completo *" value={form.nome} onChange={v => set("nome", v)} /></div>
-                                <div className="col-span-2"><Field field="nomeAbreviado" label="Nome Abreviado *" value={form.nomeAbreviado} onChange={v => set("nomeAbreviado", v)} placeholder="Máx. 12 caracteres" maxLength={12} /></div>
+                                <div className="col-span-2"><Field field="nomeAbreviado" label="Nome Abreviado" value={form.nomeAbreviado} onChange={v => set("nomeAbreviado", v)} placeholder="Máx. 12 caracteres" maxLength={12} /></div>
                                 <div className="col-span-2"><Field field="nomeSocial" label="Nome Social" value={form.nomeSocial} onChange={v => set("nomeSocial", v)} hint="Nome pelo qual a pessoa deseja ser reconhecida" /></div>
                                 <Field field="cpf" label="CPF *" value={form.cpf} onChange={v => set("cpf", v)} placeholder="000.000.000-00" maxLength={14} />
                                 <Field field="dataNascimento" label="Data Nascimento *" value={form.dataNascimento} onChange={v => set("dataNascimento", v)} type="date" />
-                                <Select field="sexo" label="Sexo *" value={form.sexo} options={SEXO_OPTIONS} onChange={v => set("sexo", Number(v))} />
-                                <Select field="estadoCivil" label="Estado Civil *" value={form.estadoCivil} options={ESTADO_CIVIL_OPTIONS} onChange={v => set("estadoCivil", Number(v))} />
-                                <Select field="origemFuncionario" label="Origem *" value={form.origemFuncionario} options={ORIGEM_FUNCIONARIO} onChange={v => set("origemFuncionario", Number(v))} />
+                                <Select field="sexo" label="Sexo" value={form.sexo} options={SEXO_OPTIONS} onChange={v => set("sexo", Number(v))} />
+                                <Select field="estadoCivil" label="Estado Civil" value={form.estadoCivil} options={ESTADO_CIVIL_OPTIONS} onChange={v => set("estadoCivil", Number(v))} />
+                                <Select field="origemFuncionario" label="Origem" value={form.origemFuncionario} options={ORIGEM_FUNCIONARIO} onChange={v => set("origemFuncionario", Number(v))} />
                                 <Field field="nacionalidade" label="Nacionalidade" value={form.nacionalidade} onChange={v => set("nacionalidade", v)} placeholder="Brasileira" />
-                                <Field field="paisNacionalidade" label="País Nacionalidade *" value={form.paisNacionalidade} onChange={v => set("paisNacionalidade", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras (BRA, USA, ARG)" />
-                                <div className="col-span-2"><Field field="naturalCidade" label="Natural (Cidade) *" value={form.naturalCidade} onChange={v => set("naturalCidade", v)} /></div>
-                                <Select field="naturalUf" label="UF *" value={form.naturalUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("naturalUf", v)} />
-                                <Field field="paisNascimento" label="País Nascimento *" value={form.paisNascimento} onChange={v => set("paisNascimento", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras" />
+                                <Field field="paisNacionalidade" label="País Nacionalidade" value={form.paisNacionalidade} onChange={v => set("paisNacionalidade", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras (BRA, USA, ARG)" />
+                                <div className="col-span-2"><Field field="naturalCidade" label="Natural (Cidade)" value={form.naturalCidade} onChange={v => set("naturalCidade", v)} /></div>
+                                <Select field="naturalUf" label="UF Naturalidade" value={form.naturalUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("naturalUf", v)} />
+                                <Field field="paisNascimento" label="País Nascimento" value={form.paisNascimento} onChange={v => set("paisNascimento", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras" />
                                 <Field field="municipioNascimentoIbge" label="Município Nasc. (IBGE)" value={form.municipioNascimentoIbge != null ? String(form.municipioNascimentoIbge) : ""} onChange={v => { const n = parseInt(v, 10); set("municipioNascimentoIbge", Number.isFinite(n) ? n : null); }} type="number" placeholder="3550308" maxLength={7} hint="7 dígitos — cód. IBGE da cidade de nascimento" />
-                                <div className="col-span-2 md:col-span-3"><Field field="nomeMae" label="Nome da Mãe" value={form.nomeMae} onChange={v => set("nomeMae", v)} /></div>
-                                <div className="col-span-2 md:col-span-3"><Field field="nomePai" label="Nome do Pai" value={form.nomePai} onChange={v => set("nomePai", v)} /></div>
+                                <div className="col-span-2 md:col-span-3"><Field field="nomeMae" label="Nome da Mãe *" value={form.nomeMae} onChange={v => set("nomeMae", v)} /></div>
+                                <div className="col-span-2 md:col-span-3"><Field field="nomePai" label="Nome do Pai *" value={form.nomePai} onChange={v => set("nomePai", v)} /></div>
                             </div>
                         </section>
 
                         <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">RG — Registro Geral <span className="text-muted-foreground/70 normal-case">(se informar um, preencha os três)</span></div>
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">RG — Registro Geral</div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <Field field="rg" label="RG" value={form.rg} onChange={v => set("rg", v)} />
+                                <Field field="rg" label="RG *" value={form.rg} onChange={v => set("rg", v)} />
                                 <Field field="rgOrgaoExpedidor" label="Órgão Expedidor" value={form.rgOrgaoExpedidor} onChange={v => set("rgOrgaoExpedidor", v)} placeholder="SSP" maxLength={10} />
                                 <Select field="rgUfExpedidor" label="UF" value={form.rgUfExpedidor} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("rgUfExpedidor", v)} />
                                 <Field field="rgDataExpedicao" label="Data Expedição" value={form.rgDataExpedicao} onChange={v => set("rgDataExpedicao", v)} type="date" />
@@ -788,22 +788,11 @@ export default function AdmissaoWizardScreen() {
                         </section>
 
                         <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">RIC — Registro Identidade Civil (obrigatório TOTVS)</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                <div className="col-span-2"><Field field="regIdentidCivilNumero" label="RIC Nº *" value={form.regIdentidCivilNumero} onChange={v => set("regIdentidCivilNumero", v)} /></div>
-                                <Field field="regIdentidCivilOrgEmiss" label="Órgão Expedidor *" value={form.regIdentidCivilOrgEmiss} onChange={v => set("regIdentidCivilOrgEmiss", v)} placeholder="SSP" maxLength={10} />
-                                <Select field="regIdentidCivilUf" label="UF *" value={form.regIdentidCivilUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("regIdentidCivilUf", v)} />
-                                <Field field="regIdentidCivilCidade" label="Cidade *" value={form.regIdentidCivilCidade} onChange={v => set("regIdentidCivilCidade", v)} />
-                                <Field field="regIdentidCivilDataExped" label="Data Expedição" value={form.regIdentidCivilDataExped} onChange={v => set("regIdentidCivilDataExped", v)} type="date" />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Características Físicas *</div>
+                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Características Físicas</div>
                             <div className="grid grid-cols-3 gap-3 max-w-2xl">
-                                <Select field="cutis" label="Raça/Cor *" value={form.cutis} options={CUTIS_OPTIONS} onChange={v => set("cutis", Number(v))} />
-                                <Select field="cabelo" label="Cabelo *" value={form.cabelo} options={CABELO_OPTIONS} onChange={v => set("cabelo", Number(v))} />
-                                <Select field="olhos" label="Olhos *" value={form.olhos} options={OLHOS_OPTIONS} onChange={v => set("olhos", Number(v))} />
+                                <Select field="cutis" label="Raça/Cor" value={form.cutis} options={CUTIS_OPTIONS} onChange={v => set("cutis", Number(v))} />
+                                <Select field="cabelo" label="Cabelo" value={form.cabelo} options={CABELO_OPTIONS} onChange={v => set("cabelo", Number(v))} />
+                                <Select field="olhos" label="Olhos" value={form.olhos} options={OLHOS_OPTIONS} onChange={v => set("olhos", Number(v))} />
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mt-3">
                                 <Field field="altura" label="Altura (cm)" value={form.altura != null ? String(form.altura) : ""} onChange={v => { const n = parseInt(v, 10); set("altura", Number.isFinite(n) ? n : null); }} type="number" placeholder="175" maxLength={3} />
@@ -850,7 +839,7 @@ export default function AdmissaoWizardScreen() {
                         <h5 className="font-semibold text-sm flex items-center gap-2"><MapPin className="size-4" /> Endereço</h5>
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                             <div data-field="cep" className="col-span-2 md:col-span-1">
-                                <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("cep") ? "text-red-600" : "text-muted-foreground"}`}>CEP *</label>
+                                <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("cep") ? "text-red-600" : "text-muted-foreground"}`}>CEP</label>
                                 <div className="flex gap-1">
                                     <Input
                                         value={form.cep || ""}
@@ -862,13 +851,13 @@ export default function AdmissaoWizardScreen() {
                                     <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={handleCep} type="button">🔍</Button>
                                 </div>
                             </div>
-                            <div className="col-span-2 md:col-span-3"><Field field="logradouro" label="Logradouro *" value={form.logradouro} onChange={v => set("logradouro", v)} /></div>
+                            <div className="col-span-2 md:col-span-3"><Field field="logradouro" label="Logradouro" value={form.logradouro} onChange={v => set("logradouro", v)} /></div>
                             <Field field="numero" label="Número" value={form.numero} onChange={v => set("numero", v)} maxLength={10} />
                             <Field field="complemento" label="Complemento" value={form.complemento} onChange={v => set("complemento", v)} />
-                            <div className="col-span-2"><Field field="bairro" label="Bairro *" value={form.bairro} onChange={v => set("bairro", v)} /></div>
+                            <div className="col-span-2"><Field field="bairro" label="Bairro" value={form.bairro} onChange={v => set("bairro", v)} /></div>
                             <div className="col-span-2"><Field field="cidade" label="Cidade *" value={form.cidade} onChange={v => set("cidade", v)} /></div>
                             <Select field="uf" label="UF *" value={form.uf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("uf", v)} />
-                            <Field field="municipioEnderecoIbge" label="Código IBGE *" value={form.municipioEnderecoIbge != null ? String(form.municipioEnderecoIbge) : ""} onChange={v => {
+                            <Field field="municipioEnderecoIbge" label="Código IBGE" value={form.municipioEnderecoIbge != null ? String(form.municipioEnderecoIbge) : ""} onChange={v => {
                                 const n = parseInt(v, 10);
                                 set("municipioEnderecoIbge", Number.isFinite(n) ? n : null);
                             }} type="number" placeholder="3550308" maxLength={7} hint="7 dígitos — preenchido automaticamente pelo CEP" />
@@ -945,7 +934,7 @@ export default function AdmissaoWizardScreen() {
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                                 <div data-field="codEmpresa" className="col-span-2 md:col-span-3">
                                     <label className={`text-[11px] font-medium block mb-0.5 flex items-center ${fieldErrors.has("codEmpresa") ? "text-red-600" : "text-muted-foreground"}`}>
-                                        Empresa *<Hint text="Busca nas empresas do tenant. Vira cCodEmpresa no TOTVS." />
+                                        Empresa<Hint text="Busca nas empresas do tenant. Vira cCodEmpresa no TOTVS." />
                                     </label>
                                     <EmpresaAutocomplete
                                         value={null}
@@ -963,20 +952,20 @@ export default function AdmissaoWizardScreen() {
                                         valueAsCode
                                     />
                                 </div>
-                                <Field field="dataAdmissao" label="Data Admissão *" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
-                                <Field field="salario" label="Salário (R$) *" value={form.salario != null ? String(form.salario) : ""} onChange={v => {
+                                <Field field="dataAdmissao" label="Data Admissão" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
+                                <Field field="salario" label="Salário (R$)" value={form.salario != null ? String(form.salario) : ""} onChange={v => {
                                     if (!v) { set("salario", null); return; }
                                     const n = parseFloat(v);
                                     set("salario", Number.isFinite(n) ? n : null);
                                 }} type="number" placeholder="0,00" />
-                                <Select field="tipoContratacao" label="Contratação *" value={form.tipoContratacao} options={TIPO_CONTRATACAO} onChange={v => set("tipoContratacao", Number(v))} />
-                                <Field field="cargaHorariaSemanal" label="Carga Horária/sem *" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => {
+                                <Select field="tipoContratacao" label="Contratação" value={form.tipoContratacao} options={TIPO_CONTRATACAO} onChange={v => set("tipoContratacao", Number(v))} />
+                                <Field field="cargaHorariaSemanal" label="Carga Horária/sem" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => {
                                     if (!v) { set("cargaHorariaSemanal", null); return; }
                                     const n = parseInt(v, 10);
                                     if (!Number.isFinite(n) || n < 0) { set("cargaHorariaSemanal", null); return; }
                                     set("cargaHorariaSemanal", Math.min(n, 32767));
                                 }} type="number" placeholder="44" maxLength={3} />
-                                <Field field="pisPasep" label="PIS/PASEP" value={form.pisPasep} onChange={v => set("pisPasep", v)} maxLength={11} hint="11 dígitos sem máscara" />
+                                <Field field="pisPasep" label="PIS/PASEP *" value={form.pisPasep} onChange={v => set("pisPasep", v)} maxLength={11} hint="11 dígitos sem máscara" />
                                 <Field field="salarioSimulado" label="Salário Simulado (R$)" value={form.salarioSimulado != null ? String(form.salarioSimulado) : ""} onChange={v => { if (!v) { set("salarioSimulado", null); return; } const n = parseFloat(v); set("salarioSimulado", Number.isFinite(n) ? n : null); }} type="number" placeholder="0,00" hint="Salário simulado para cálculos TOTVS" />
                                 <Field field="dataOpcaoFgts" label="Data Opção FGTS" value={form.dataOpcaoFgts} onChange={v => set("dataOpcaoFgts", v)} type="date" />
                                 <Field field="dataTerminoContrato" label="Data Término Contrato" value={form.dataTerminoContrato != null ? String(form.dataTerminoContrato) : ""} onChange={v => { const n = parseInt(v, 10); set("dataTerminoContrato", Number.isFinite(n) ? n : null); }} type="number" maxLength={8} placeholder="DDMMAAAA" hint="Obrigatório p/ CLT Prazo Determinado (vínculo 20). Formato DDMMAAAA ex: 30082021" />
@@ -1002,7 +991,7 @@ export default function AdmissaoWizardScreen() {
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Cargo e Vínculo TOTVS</div>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 <div data-field="codCargoTotvs" className={`col-span-2 ${fieldErrors.has("codCargoTotvs") ? "[&_input]:border-red-500 [&_input]:focus-visible:ring-red-500" : ""}`}>
-                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("codCargoTotvs") ? "text-red-600" : "text-muted-foreground"}`}>Cargo TOTVS *</label>
+                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("codCargoTotvs") ? "text-red-600" : "text-muted-foreground"}`}>Cargo TOTVS</label>
                                     <CargoAutocomplete
                                       value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : ""}
                                       onChange={() => {}}
@@ -1012,21 +1001,21 @@ export default function AdmissaoWizardScreen() {
                                       }}
                                     />
                                 </div>
-                                <Select field="codVinculoEmpregaticio" label="Vínculo *" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
-                                <Select field="tipoFuncionario" label="Tipo Func. *" value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
+                                <Select field="codVinculoEmpregaticio" label="Vínculo" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
+                                <Select field="tipoFuncionario" label="Tipo Func." value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
                                 <div data-field="categoriaSalarial" className={fieldErrors.has("categoriaSalarial") ? "[&_input]:border-red-500 [&_input]:focus-visible:ring-red-500" : ""}>
-                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("categoriaSalarial") ? "text-red-600" : "text-muted-foreground"}`}>Cat. Salarial *</label>
+                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("categoriaSalarial") ? "text-red-600" : "text-muted-foreground"}`}>Cat. Salarial</label>
                                     <CategoriaSalarialAutocomplete
                                       value={form.categoriaSalarial != null ? String(form.categoriaSalarial) : ""}
                                       onChange={(code) => set("categoriaSalarial", toIntOrNull(code))}
                                     />
                                 </div>
-                                <Select field="grauInstrucao" label="Grau de Instrução *" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
-                                <Select field="emitCartPonto" label="Emite Cart. Ponto *" value={form.emitCartPonto} options={EMIT_CART_PONTO} onChange={v => set("emitCartPonto", v)} />
-                                <Select field="tipoEstatistica" label="Estatística *" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
-                                <Select field="formaPagamento" label="Forma Pagto *" value={form.formaPagamento} options={FORMA_PAGAMENTO} onChange={v => set("formaPagamento", Number(v))} />
-                                <Select field="tipoAdmissaoFgts" label="Tipo Adm. FGTS *" value={form.tipoAdmissaoFgts} options={TIPO_ADMISSAO_FGTS} onChange={v => set("tipoAdmissaoFgts", Number(v))} />
-                                <Field field="paisLocalidade" label="País Localidade *" value={form.paisLocalidade} onChange={v => set("paisLocalidade", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras" />
+                                <Select field="grauInstrucao" label="Grau de Instrução" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
+                                <Select field="emitCartPonto" label="Emite Cart. Ponto" value={form.emitCartPonto} options={EMIT_CART_PONTO} onChange={v => set("emitCartPonto", v)} />
+                                <Select field="tipoEstatistica" label="Estatística" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
+                                <Select field="formaPagamento" label="Forma Pagto" value={form.formaPagamento} options={FORMA_PAGAMENTO} onChange={v => set("formaPagamento", Number(v))} />
+                                <Select field="tipoAdmissaoFgts" label="Tipo Adm. FGTS" value={form.tipoAdmissaoFgts} options={TIPO_ADMISSAO_FGTS} onChange={v => set("tipoAdmissaoFgts", Number(v))} />
+                                <Field field="paisLocalidade" label="País Localidade" value={form.paisLocalidade} onChange={v => set("paisLocalidade", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras" />
                                 <Field field="codNivel" label="Cód. Nível" value={form.codNivel != null ? String(form.codNivel) : ""} onChange={v => { const n = parseInt(v, 10); set("codNivel", Number.isFinite(n) ? n : null); }} type="number" hint="Nível do cargo TOTVS" />
                             </div>
                         </section>
@@ -1035,15 +1024,15 @@ export default function AdmissaoWizardScreen() {
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Lotação e Turno</div>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 <div data-field="codTurno">
-                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Cód. Turno *</label>
+                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Cód. Turno</label>
                                     <TurnoAutocomplete value={form.codTurno ?? null} onChange={(code) => set("codTurno", toIntOrNull(code))} />
                                 </div>
                                 <div data-field="centroCusto">
-                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Centro de Custo *</label>
+                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Centro de Custo</label>
                                     <CentroCustoAutocomplete value={form.centroCusto ?? null} onChange={(code) => set("centroCusto", code || null)} />
                                 </div>
                                 <div data-field="unidadeLotacao">
-                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Unid. Lotação *</label>
+                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Unid. Lotação</label>
                                     <UnidadeLotacaoAutocomplete value={form.unidadeLotacao ?? null} onChange={(code) => set("unidadeLotacao", code || null)} />
                                 </div>
                                 <Field field="codPlanoLotacao" label="Cód. Plano Lotação" value={form.codPlanoLotacao != null ? String(form.codPlanoLotacao) : ""} onChange={v => { const n = parseInt(v, 10); set("codPlanoLotacao", Number.isFinite(n) ? n : null); }} type="number" placeholder="101" />
@@ -1054,10 +1043,10 @@ export default function AdmissaoWizardScreen() {
                         <section className="border-t border-border/30 pt-3">
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Jornada, Ponto e Sindicato (TOTVS)</div>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                <Field field="codTurma" label="Cód. Turma *" value={form.codTurma != null ? String(form.codTurma) : ""} onChange={v => set("codTurma", toIntOrNull(v))} type="number" />
-                                <Field field="indFuncVinculado" label="Ind. Func. Vinc. *" value={form.indFuncVinculado != null ? String(form.indFuncVinculado) : ""} onChange={v => set("indFuncVinculado", toIntOrNull(v))} type="number" />
+                                <Field field="codTurma" label="Cód. Turma" value={form.codTurma != null ? String(form.codTurma) : ""} onChange={v => set("codTurma", toIntOrNull(v))} type="number" />
+                                <Field field="indFuncVinculado" label="Ind. Func. Vinc." value={form.indFuncVinculado != null ? String(form.indFuncVinculado) : ""} onChange={v => set("indFuncVinculado", toIntOrNull(v))} type="number" />
                                 <div data-field="tipoMaoDeObra">
-                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("tipoMaoDeObra") ? "text-red-600" : "text-muted-foreground"}`}>Tipo Mão-de-Obra *</label>
+                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("tipoMaoDeObra") ? "text-red-600" : "text-muted-foreground"}`}>Tipo Mão-de-Obra</label>
                                     <select
                                         className={`w-full h-8 rounded-md border bg-background px-2 text-sm ${fieldErrors.has("tipoMaoDeObra") ? "border-red-500 focus-visible:ring-red-500" : "border-input"}`}
                                         value={form.tipoMaoDeObra ?? ""}
@@ -1070,25 +1059,25 @@ export default function AdmissaoWizardScreen() {
                                         <option value="OPE">OPE — Operacional</option>
                                     </select>
                                 </div>
-                                <Field field="codSindicato" label="Cód. Sindicato *" value={form.codSindicato != null ? String(form.codSindicato) : ""} onChange={v => set("codSindicato", toIntOrNull(v))} type="number" />
+                                <Field field="codSindicato" label="Cód. Sindicato" value={form.codSindicato != null ? String(form.codSindicato) : ""} onChange={v => set("codSindicato", toIntOrNull(v))} type="number" />
                                 <FlagSN field="contribSindicDia" label="Contrib. Sindical Dia" value={form.contribSindicDia} onChange={v => set("contribSindicDia", v)} hint='CLT padrão: "S"' />
-                                <Field field="codLocalMarcacao" label="Cód. Loc. Marcação *" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : ""} onChange={v => set("codLocalMarcacao", toIntOrNull(v))} type="number" />
-                                <Field field="codClassFuncPontoEletronico" label="Classif. Func. Ponto *" value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : ""} onChange={v => set("codClassFuncPontoEletronico", toIntOrNull(v))} type="number" />
-                                <Field field="codLocalidade" label="Cód. Localidade *" value={form.codLocalidade != null ? String(form.codLocalidade) : ""} onChange={v => set("codLocalidade", toIntOrNull(v))} type="number" />
+                                <Field field="codLocalMarcacao" label="Cód. Loc. Marcação" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : ""} onChange={v => set("codLocalMarcacao", toIntOrNull(v))} type="number" />
+                                <Field field="codClassFuncPontoEletronico" label="Classif. Func. Ponto" value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : ""} onChange={v => set("codClassFuncPontoEletronico", toIntOrNull(v))} type="number" />
+                                <Field field="codLocalidade" label="Cód. Localidade" value={form.codLocalidade != null ? String(form.codLocalidade) : ""} onChange={v => set("codLocalidade", toIntOrNull(v))} type="number" />
                             </div>
                         </section>
 
                         <section className="border-t border-border/30 pt-3">
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Documentos Militares / Estrangeiro / CAGED (TOTVS)</div>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                <Select field="docMilitarTipo" label="Tipo Doc. Militar *" value={form.docMilitarTipo} options={DOC_MILITAR_TIPO} onChange={v => set("docMilitarTipo", Number(v))} />
-                                <Field field="docMilitarRegiao" label="Região *" value={form.docMilitarRegiao != null ? String(form.docMilitarRegiao) : ""} onChange={v => set("docMilitarRegiao", toIntOrNull(v))} type="number" />
-                                <Field field="docMilitarCircunscricao" label="Circunscrição *" value={form.docMilitarCircunscricao != null ? String(form.docMilitarCircunscricao) : ""} onChange={v => set("docMilitarCircunscricao", toIntOrNull(v))} type="number" />
+                                <Select field="docMilitarTipo" label="Tipo Doc. Militar" value={form.docMilitarTipo} options={DOC_MILITAR_TIPO} onChange={v => set("docMilitarTipo", Number(v))} />
+                                <Field field="docMilitarRegiao" label="Região" value={form.docMilitarRegiao != null ? String(form.docMilitarRegiao) : ""} onChange={v => set("docMilitarRegiao", toIntOrNull(v))} type="number" />
+                                <Field field="docMilitarCircunscricao" label="Circunscrição" value={form.docMilitarCircunscricao != null ? String(form.docMilitarCircunscricao) : ""} onChange={v => set("docMilitarCircunscricao", toIntOrNull(v))} type="number" />
                                 <Field field="docMilitarNumero" label="Doc. Nº" value={form.docMilitarNumero} onChange={v => set("docMilitarNumero", v)} />
                                 <Field field="docMilitarSerie" label="Série" value={form.docMilitarSerie} onChange={v => set("docMilitarSerie", v)} maxLength={5} />
                                 <div></div>
-                                <Select field="tipoVistoEstrangeiro" label="Tipo Visto Estrang. *" value={form.tipoVistoEstrangeiro} options={TIPO_VISTO_ESTRANGEIRO} onChange={v => set("tipoVistoEstrangeiro", Number(v))} />
-                                <Select field="ocorrenciaCAGED" label="Ocorrência CAGED *" value={form.ocorrenciaCAGED} options={OCORRENCIA_CAGED} onChange={v => set("ocorrenciaCAGED", Number(v))} />
+                                <Select field="tipoVistoEstrangeiro" label="Tipo Visto Estrang." value={form.tipoVistoEstrangeiro} options={TIPO_VISTO_ESTRANGEIRO} onChange={v => set("tipoVistoEstrangeiro", Number(v))} />
+                                <Select field="ocorrenciaCAGED" label="Ocorrência CAGED" value={form.ocorrenciaCAGED} options={OCORRENCIA_CAGED} onChange={v => set("ocorrenciaCAGED", Number(v))} />
                             </div>
                         </section>
 
@@ -1141,50 +1130,50 @@ export default function AdmissaoWizardScreen() {
                         <section>
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">FGTS / INSS</div>
                             <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                <FlagSN field="optanteFgts"  label="Optante FGTS *"  value={form.optanteFgts}  onChange={v => set("optanteFgts", v)}  hint="CLT regular: Sim" />
-                                <FlagSN field="recolheFgts"  label="Recolhe FGTS *"  value={form.recolheFgts}  onChange={v => set("recolheFgts", v)}  hint="CLT padrão: Sim" />
-                                <FlagSN field="recolheInss"  label="Recolhe INSS *"  value={form.recolheInss}  onChange={v => set("recolheInss", v)}  hint="CLT padrão: Sim" />
+                                <FlagSN field="optanteFgts"  label="Optante FGTS"  value={form.optanteFgts}  onChange={v => set("optanteFgts", v)}  hint="CLT regular: Sim" />
+                                <FlagSN field="recolheFgts"  label="Recolhe FGTS"  value={form.recolheFgts}  onChange={v => set("recolheFgts", v)}  hint="CLT padrão: Sim" />
+                                <FlagSN field="recolheInss"  label="Recolhe INSS"  value={form.recolheInss}  onChange={v => set("recolheInss", v)}  hint="CLT padrão: Sim" />
                             </div>
                         </section>
 
                         <section>
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Sindicato</div>
                             <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                <FlagSN field="sindicalizado"       label="Sindicalizado *"             value={form.sindicalizado}       onChange={v => set("sindicalizado", v)}       hint="Comum: Não" />
-                                <FlagSN field="descContribSindical" label="Desconta Contrib. Sindical *" value={form.descContribSindical} onChange={v => set("descContribSindical", v)} hint="Pós Reforma 2017: Não" />
-                                <FlagSN field="resideExterior"      label="Reside no Exterior *"        value={form.resideExterior}      onChange={v => set("resideExterior", v)}      hint="Quase sempre: Não" />
+                                <FlagSN field="sindicalizado"       label="Sindicalizado"             value={form.sindicalizado}       onChange={v => set("sindicalizado", v)}       hint="Comum: Não" />
+                                <FlagSN field="descContribSindical" label="Desconta Contrib. Sindical" value={form.descContribSindical} onChange={v => set("descContribSindical", v)} hint="Pós Reforma 2017: Não" />
+                                <FlagSN field="resideExterior"      label="Reside no Exterior"        value={form.resideExterior}      onChange={v => set("resideExterior", v)}      hint="Quase sempre: Não" />
                             </div>
                         </section>
 
                         <section>
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Cálculo da folha</div>
                             <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                <FlagSN field="cargaAutomTurno"  label="Carga Aut. Turno *"   value={form.cargaAutomTurno}  onChange={v => set("cargaAutomTurno", v)}  hint="Mensalista turno fixo: Sim" />
-                                <FlagSN field="calcula13"        label="Calcula 13º *"         value={form.calcula13}        onChange={v => set("calcula13", v)}        hint="CLT regular: Sim" />
-                                <FlagSN field="recebeFerias"     label="Recebe Férias *"       value={form.recebeFerias}     onChange={v => set("recebeFerias", v)}     hint="CLT regular: Sim" />
-                                <FlagSN field="considEmissRAIS"  label="Considera RAIS *"      value={form.considEmissRAIS}  onChange={v => set("considEmissRAIS", v)}  hint="CLT: Sim (obrigatório)" />
+                                <FlagSN field="cargaAutomTurno"  label="Carga Aut. Turno"   value={form.cargaAutomTurno}  onChange={v => set("cargaAutomTurno", v)}  hint="Mensalista turno fixo: Sim" />
+                                <FlagSN field="calcula13"        label="Calcula 13º"         value={form.calcula13}        onChange={v => set("calcula13", v)}        hint="CLT regular: Sim" />
+                                <FlagSN field="recebeFerias"     label="Recebe Férias"       value={form.recebeFerias}     onChange={v => set("recebeFerias", v)}     hint="CLT regular: Sim" />
+                                <FlagSN field="considEmissRAIS"  label="Considera RAIS"      value={form.considEmissRAIS}  onChange={v => set("considEmissRAIS", v)}  hint="CLT: Sim (obrigatório)" />
                             </div>
                         </section>
 
                         <section>
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Adicionais (marque se aplica ao funcionário)</div>
                             <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                <FlagSN field="recebePericul"      label="Periculosidade *"  value={form.recebePericul}      onChange={v => set("recebePericul", v)}      hint="Ambiente periculoso: Sim" />
-                                <FlagSN field="recebeInsalub"      label="Insalubridade *"   value={form.recebeInsalub}      onChange={v => set("recebeInsalub", v)}      hint="Ambiente insalubre: Sim" />
-                                <FlagSN field="recebeAdiantamento" label="Adiantamento *"    value={form.recebeAdiantamento} onChange={v => set("recebeAdiantamento", v)} hint="Empresa faz adto. quinzenal: Sim" />
+                                <FlagSN field="recebePericul"      label="Periculosidade"  value={form.recebePericul}      onChange={v => set("recebePericul", v)}      hint="Ambiente periculoso: Sim" />
+                                <FlagSN field="recebeInsalub"      label="Insalubridade"   value={form.recebeInsalub}      onChange={v => set("recebeInsalub", v)}      hint="Ambiente insalubre: Sim" />
+                                <FlagSN field="recebeAdiantamento" label="Adiantamento"    value={form.recebeAdiantamento} onChange={v => set("recebeAdiantamento", v)} hint="Empresa faz adto. quinzenal: Sim" />
                             </div>
                         </section>
 
                         <section className="border-t border-border/30 pt-3">
                             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Parâmetros eSocial</div>
                             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                <Select field="tipoLogradouroESocial"     label="Tipo Logradouro *"          value={form.tipoLogradouroESocial}     options={TIPO_LOGRADOURO_ESOCIAL} onChange={v => set("tipoLogradouroESocial", v || null)}              hint="Mesmo tipo do endereço (R, AV...)" />
-                                <Select field="categoriaTrabalhoESocial" label="Cat. Trabalhador *"          value={form.categoriaTrabalhoESocial} options={CATEGORIA_ESOCIAL}       onChange={v => set("categoriaTrabalhoESocial", Number(v) || null)} hint="Empregado CLT: 101" />
-                                <Select field="indAdmissao"              label="Indicativo Admissão *"       value={form.indAdmissao}              options={IND_ADMISSAO}            onChange={v => set("indAdmissao", Number(v) || null)}              hint="Novo funcionário: 1" />
-                                <Select field="tipoAdmissaoESocial"      label="Tipo Admissão *"             value={form.tipoAdmissaoESocial}      options={TIPO_ADMISSAO_ESOCIAL}   onChange={v => set("tipoAdmissaoESocial", Number(v) || null)}      hint="Admissão padrão: 1" />
-                                <Select field="regimeTrabalhista"        label="Regime Trabalhista *"        value={form.regimeTrabalhista}        options={REGIME_TRABALHISTA}      onChange={v => set("regimeTrabalhista", Number(v) || null)}        hint="CLT: 1" />
-                                <Select field="regimePrevidenciario"     label="Regime Previdenciário *"     value={form.regimePrevidenciario}     options={REGIME_PREVIDENCIARIO}   onChange={v => set("regimePrevidenciario", Number(v) || null)}     hint="CLT: 1 (RGPS)" />
-                                <Select field="regimeJornada"            label="Regime de Jornada *"         value={form.regimeJornada}            options={REGIME_JORNADA}          onChange={v => set("regimeJornada", Number(v) || null)}            hint="Horário fixo: 1" />
+                                <Select field="tipoLogradouroESocial"     label="Tipo Logradouro"          value={form.tipoLogradouroESocial}     options={TIPO_LOGRADOURO_ESOCIAL} onChange={v => set("tipoLogradouroESocial", v || null)}              hint="Mesmo tipo do endereço (R, AV...)" />
+                                <Select field="categoriaTrabalhoESocial" label="Cat. Trabalhador"          value={form.categoriaTrabalhoESocial} options={CATEGORIA_ESOCIAL}       onChange={v => set("categoriaTrabalhoESocial", Number(v) || null)} hint="Empregado CLT: 101" />
+                                <Select field="indAdmissao"              label="Indicativo Admissão"       value={form.indAdmissao}              options={IND_ADMISSAO}            onChange={v => set("indAdmissao", Number(v) || null)}              hint="Novo funcionário: 1" />
+                                <Select field="tipoAdmissaoESocial"      label="Tipo Admissão"             value={form.tipoAdmissaoESocial}      options={TIPO_ADMISSAO_ESOCIAL}   onChange={v => set("tipoAdmissaoESocial", Number(v) || null)}      hint="Admissão padrão: 1" />
+                                <Select field="regimeTrabalhista"        label="Regime Trabalhista"        value={form.regimeTrabalhista}        options={REGIME_TRABALHISTA}      onChange={v => set("regimeTrabalhista", Number(v) || null)}        hint="CLT: 1" />
+                                <Select field="regimePrevidenciario"     label="Regime Previdenciário"     value={form.regimePrevidenciario}     options={REGIME_PREVIDENCIARIO}   onChange={v => set("regimePrevidenciario", Number(v) || null)}     hint="CLT: 1 (RGPS)" />
+                                <Select field="regimeJornada"            label="Regime de Jornada"         value={form.regimeJornada}            options={REGIME_JORNADA}          onChange={v => set("regimeJornada", Number(v) || null)}            hint="Horário fixo: 1" />
                                 <Select field="naturezaAtividade"        label="Natureza da Atividade"       value={form.naturezaAtividade}        options={NATUREZA_ATIVIDADE_OPTIONS} onChange={v => set("naturezaAtividade", v === "" ? null : Number(v))} hint="Empresa urbana: 1" />
                                 <Field field="matriculaESocial" label="Matrícula eSocial" value={form.matriculaESocial} onChange={v => set("matriculaESocial", v)} maxLength={30} hint="Gerada após integração — pode ficar em branco" />
                                 <Field field="codFpas" label="Cód. FPAS" value={form.codFpas != null ? String(form.codFpas) : ""} onChange={v => { const n = parseInt(v, 10); set("codFpas", Number.isFinite(n) ? n : null); }} type="number" placeholder="515" hint="Código FPAS (Fundo de Previdência e Assistência Social)" />

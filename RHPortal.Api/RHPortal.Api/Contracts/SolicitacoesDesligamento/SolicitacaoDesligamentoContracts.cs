@@ -120,6 +120,7 @@ public sealed record SolicitacaoDesligamentoGridRow(
     SolicitacaoStatus Status,
     string? SolicitanteNome,
     string? FuncionarioNome,
+    string? CargoAtualNome,
     int? RmIdReq,
     TipoDesligamento TipoDesligamento,
     DateOnly DataDesligamento,

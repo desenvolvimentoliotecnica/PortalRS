@@ -404,12 +404,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         {
             var currentUserEhAnalistaRh = await CurrentUserEhAnalistaRhAsync(ct);
             var listaAmplaRh =
-                (!currentUserEhAnalistaRh
-                 && (_currentUser.IsRH
+                (currentUserEhAnalistaRh
+                 || _currentUser.IsRH
                  || _currentUser.HasPermission("*")
                  || _currentUser.HasPermission("rh.contratacoes.view")
                  || _currentUser.HasPermission("rh.contratacoes.triagem")
-                 || _currentUser.HasPermission("rh.contratacoes.selecao")))
+                 || _currentUser.HasPermission("rh.contratacoes.selecao"))
                 && apenasMeus != true;
 
             if (!listaAmplaRh)
@@ -2759,14 +2759,13 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     {
         if (_currentUser.IsAdmin) return true;
         var currentUserEhAnalistaRh = await CurrentUserEhAnalistaRhAsync(ct);
-        // Deve espelhar a regra de "lista ampla" em ListAsync: perfil RH (IsRH) sem ser Analista RH vê todas,
-        // senão GET devolve 404 para itens que a grid lista normalmente.
-        if (!currentUserEhAnalistaRh
-            && (_currentUser.IsRH
+        // Analista de RH enxerga todas as requisições (mesma regra de lista ampla do perfil RH).
+        if (currentUserEhAnalistaRh
+            || _currentUser.IsRH
                 || _currentUser.HasPermission("*")
                 || _currentUser.HasPermission("rh.contratacoes.view")
                 || _currentUser.HasPermission("rh.contratacoes.triagem")
-                || _currentUser.HasPermission("rh.contratacoes.selecao")))
+                || _currentUser.HasPermission("rh.contratacoes.selecao"))
             return true;
 
         var currentFuncionarioId = _currentUser.FuncionarioId;

@@ -88,7 +88,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
     {
         var q = _db.SolicitacoesDesligamento.AsNoTracking()
             .Include(s => s.Solicitante)
-            .Include(s => s.Funcionario)
+            .Include(s => s.Funcionario).ThenInclude(f => f!.JobPosition)
             .AsQueryable();
 
         if (query.ApenasMeus == true && currentFuncionarioId.HasValue)
@@ -125,6 +125,9 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             s.FuncionarioId,
             SolicitanteNome = s.Solicitante != null ? s.Solicitante.Name : (string?)null,
             FuncionarioNome = s.Funcionario != null ? s.Funcionario.Name : (string?)null,
+            CargoAtualNome = s.Funcionario != null && s.Funcionario.JobPosition != null
+                ? s.Funcionario.JobPosition.Name
+                : (string?)null,
             s.TipoDesligamento,
             s.DataDesligamento,
             s.CreatedAtUtc,
@@ -144,7 +147,7 @@ public sealed class SolicitacaoDesligamentoService : ISolicitacaoDesligamentoSer
             etapasPendentes.TryGetValue(r.Id, out var ep);
             entrevistaStatus.TryGetValue(r.Id, out var entrevista);
             return new SolicitacaoDesligamentoGridRow(
-                r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome, r.RmIdReq,
+                r.Id, r.Status, r.SolicitanteNome, r.FuncionarioNome, r.CargoAtualNome, r.RmIdReq,
                 r.TipoDesligamento, r.DataDesligamento, r.CreatedAtUtc,
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId,
                 ep?.AssumedByUserId,

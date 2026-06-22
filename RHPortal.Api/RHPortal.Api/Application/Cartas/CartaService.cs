@@ -12,9 +12,9 @@ namespace RhPortal.Api.Application.Cartas;
 
 public interface ICartaService
 {
-    Task<string> GerarCartaDesligamentoAsync(Guid solicitacaoId, CancellationToken ct);
-    Task<string> GerarCartaPromocaoAsync(Guid solicitacaoId, CancellationToken ct);
-    Task<string> GerarCartaFeriasAsync(Guid solicitacaoId, CancellationToken ct);
+    Task<CartaResult> GerarCartaDesligamentoAsync(Guid solicitacaoId, CancellationToken ct);
+    Task<CartaResult> GerarCartaPromocaoAsync(Guid solicitacaoId, CancellationToken ct);
+    Task<CartaResult> GerarCartaFeriasAsync(Guid solicitacaoId, CancellationToken ct);
 }
 
 public sealed class CartaService : ICartaService
@@ -30,7 +30,7 @@ public sealed class CartaService : ICartaService
         _storage = storage;
     }
 
-    public async Task<string> GerarCartaDesligamentoAsync(Guid solicitacaoId, CancellationToken ct)
+    public async Task<CartaResult> GerarCartaDesligamentoAsync(Guid solicitacaoId, CancellationToken ct)
     {
         var sol = await _db.SolicitacoesDesligamento.AsNoTracking()
             .Include(s => s.Funcionario).ThenInclude(f => f != null ? f.JobPosition : null)
@@ -70,10 +70,10 @@ public sealed class CartaService : ICartaService
         };
 
         var key = $"{_tenantContext.TenantId}/cartas/desligamento/{solicitacaoId:N}.docx";
-        return await GerarEUploadAsync(linhas, key, ct);
+        return await GerarEEntregarAsync(linhas, key, ct);
     }
 
-    public async Task<string> GerarCartaPromocaoAsync(Guid solicitacaoId, CancellationToken ct)
+    public async Task<CartaResult> GerarCartaPromocaoAsync(Guid solicitacaoId, CancellationToken ct)
     {
         var sol = await _db.SolicitacoesPromocao.AsNoTracking()
             .Include(s => s.Funcionario)
@@ -118,10 +118,10 @@ public sealed class CartaService : ICartaService
         };
 
         var key = $"{_tenantContext.TenantId}/cartas/movimentacao/{solicitacaoId:N}.docx";
-        return await GerarEUploadAsync(linhas, key, ct);
+        return await GerarEEntregarAsync(linhas, key, ct);
     }
 
-    public async Task<string> GerarCartaFeriasAsync(Guid solicitacaoId, CancellationToken ct)
+    public async Task<CartaResult> GerarCartaFeriasAsync(Guid solicitacaoId, CancellationToken ct)
     {
         var sol = await _db.SolicitacoesFerias.AsNoTracking()
             .Include(s => s.Solicitante).ThenInclude(f => f != null ? f.JobPosition : null)
@@ -160,20 +160,39 @@ public sealed class CartaService : ICartaService
         };
 
         var key = $"{_tenantContext.TenantId}/cartas/ferias/{solicitacaoId:N}.docx";
-        return await GerarEUploadAsync(linhas, key, ct);
+        return await GerarEEntregarAsync(linhas, key, ct);
     }
 
     // ── helpers ──
 
     /// <summary>
-    /// Gera o DOCX em memória a partir de linhas de texto e faz upload para S3.
-    /// Retorna a presigned URL para download.
-    /// linhas: (texto, negrito, tamanhoGrande)
+    /// Gera o DOCX e entrega via S3 (URL presigned) ou download direto quando S3 não está configurado.
     /// </summary>
-    private async Task<string> GerarEUploadAsync(
+    private async Task<CartaResult> GerarEEntregarAsync(
         IEnumerable<(string Texto, bool Negrito, bool Grande)> linhas,
         string key,
         CancellationToken ct)
+    {
+        const string contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        var bytes = GerarDocxBytes(linhas);
+        var fileName = Path.GetFileName(key);
+
+        try
+        {
+            using var ms = new MemoryStream(bytes);
+            await _storage.UploadAsync(ms, key, contentType, ct);
+            return CartaResult.FromUrl(_storage.GetPresignedUrl(key, TimeSpan.FromHours(24)));
+        }
+        catch (InvalidOperationException ex) when (IsS3NotConfigured(ex))
+        {
+            return CartaResult.FromContent(bytes, fileName);
+        }
+    }
+
+    private static bool IsS3NotConfigured(InvalidOperationException ex)
+        => ex.Message.Contains("AWS S3 não configurado", StringComparison.OrdinalIgnoreCase);
+
+    private static byte[] GerarDocxBytes(IEnumerable<(string Texto, bool Negrito, bool Grande)> linhas)
     {
         using var ms = new MemoryStream();
         using (var doc = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document, true))
@@ -211,8 +230,6 @@ public sealed class CartaService : ICartaService
             mainPart.Document.Save();
         }
 
-        ms.Position = 0;
-        await _storage.UploadAsync(ms, key, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ct);
-        return _storage.GetPresignedUrl(key, TimeSpan.FromHours(24));
+        return ms.ToArray();
     }
 }

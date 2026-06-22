@@ -27,7 +27,7 @@ namespace RhPortal.Api.Tests.PreAdmissao;
 /// 1. PreAdmissaoDefaultsSeeder — campos BRA/S/N default no Create
 /// 2. UpdateAsync com payload completo (cenário "happy path" do LUCAS)
 /// 3. SubmitAsync auto-aprovação quando TOTVS validator passa
-/// 4. SubmitAsync retorna TotvsValidationException com campos faltando
+/// 4. SubmitAsync exige campos mínimos de admissão; TOTVS completo só na auto-aprovação/aprovação manual
 /// 5. IntegracaoTotvsService.GetDetalheAsync inclui todos os campos que o
 ///    employee-sync-service mapper espera (regIdentidCivil*, tipoConta int, etc)
 /// </summary>
@@ -378,10 +378,9 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
     // ── 4. Submit com dados incompletos ──────────────────────────────────────
 
     [Fact]
-    public async Task Submit_SemRic_LancaTotvsValidationException()
+    public async Task Submit_SemRic_MantemPreenchidoSemAutoAprovar()
     {
-        // Cria payload SEM os campos RIC → validator TOTVS deve estourar.
-        var (_, svc) = CriarServico();
+        var (db, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
 
         var payloadSemRic = PayloadHappyPath() with
@@ -393,26 +392,20 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
         };
         await svc.UpdateAsync(created.Id, payloadSemRic, isPrivileged: true, CancellationToken.None);
 
-        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
-            svc.SubmitAsync(created.Id, CancellationToken.None));
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
 
-        // Deve listar os 4 campos RIC como obrigatórios
-        Assert.Contains(ex.Issues, i => i.Campo == "RegIdentidCivilNumero");
-        Assert.Contains(ex.Issues, i => i.Campo == "RegIdentidCivilCidade");
-        Assert.Contains(ex.Issues, i => i.Campo == "RegIdentidCivilUf");
-        Assert.Contains(ex.Issues, i => i.Campo == "RegIdentidCivilOrgEmiss");
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
     }
 
     [Fact]
-    public async Task Submit_MantemStatusPreenchidoQuandoFalha()
+    public async Task Submit_FalhaCamposAdmissao_MantemRascunho()
     {
-        // Quando validator falha no submit, o status deve ficar em Preenchido
-        // (não volta pra Rascunho) — permite RH corrigir e tentar de novo.
         var (db, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
 
-        var payloadSemRic = PayloadHappyPath() with { RegIdentidCivilNumero = null };
-        await svc.UpdateAsync(created.Id, payloadSemRic, isPrivileged: true, CancellationToken.None);
+        var payloadSemPais = PayloadHappyPath() with { NomePai = null };
+        await svc.UpdateAsync(created.Id, payloadSemPais, isPrivileged: true, CancellationToken.None);
 
         await Assert.ThrowsAsync<TotvsValidationException>(() =>
             svc.SubmitAsync(created.Id, CancellationToken.None));
@@ -420,7 +413,7 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
         var entity = await db.Set<Domain.Entities.PreAdmissao>()
             .IgnoreQueryFilters()
             .FirstAsync(x => x.Id == created.Id);
-        Assert.Equal(PreAdmissaoStatus.Preenchido, entity.Status);
+        Assert.Equal(PreAdmissaoStatus.Rascunho, entity.Status);
     }
 
     // ── 5. DetailResponse (fonte do payload pro sync-service) ──────────────
@@ -521,12 +514,9 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
     }
 
     [Fact]
-    public async Task Submit_CenarioSophie_RicComPlaceholder1_RejeitaComErroDeTamanhoMinimo()
+    public async Task Submit_CenarioSophie_RicComPlaceholder1_TotvsValidatorRejeitaTamanhoMinimo()
     {
-        // Sophie preencheu regIdentidCivilNumero="1" e regIdentidCivilCidade="1"
-        // (placeholder lixo) — passou pelo validator antigo (só checava blank).
-        // Novo validator rejeita por tamanho mínimo.
-        var (_, svc) = CriarServico();
+        var (db, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
         var payload = PayloadHappyPath() with
         {
@@ -535,11 +525,14 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
         };
         await svc.UpdateAsync(created.Id, payload, isPrivileged: true, CancellationToken.None);
 
-        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
-            svc.SubmitAsync(created.Id, CancellationToken.None));
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
 
-        Assert.Contains(ex.Issues, i => i.Campo == "RegIdentidCivilNumero" && i.TipoRegra == "Formato");
-        Assert.Contains(ex.Issues, i => i.Campo == "RegIdentidCivilCidade" && i.TipoRegra == "Formato");
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+        Assert.Contains(issues, i => i.Campo == "RegIdentidCivilNumero" && i.TipoRegra == "Formato");
+        Assert.Contains(issues, i => i.Campo == "RegIdentidCivilCidade" && i.TipoRegra == "Formato");
     }
 
     [Fact]
@@ -563,11 +556,9 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
     }
 
     [Fact]
-    public async Task Submit_SemFlagsSN_LancaValidacaoExigindoPreenchimentoManual()
+    public async Task Submit_SemFlagsSN_MantemPreenchidoSemAutoAprovar()
     {
-        // Comportamento novo: seeder NÃO preenche mais flags S/N por padrão.
-        // Se RH submeter sem preencher, validator lança exception com lista de campos faltando.
-        var (_, svc) = CriarServico();
+        var (db, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
 
         var payloadSemFlags = PayloadHappyPath() with
@@ -581,22 +572,23 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
         };
         await svc.UpdateAsync(created.Id, payloadSemFlags, isPrivileged: true, CancellationToken.None);
 
-        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
-            svc.SubmitAsync(created.Id, CancellationToken.None));
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
 
-        // Cada flag S/N ausente vira uma issue — RH sabe exatamente o que falta preencher.
-        Assert.Contains(ex.Issues, i => i.Campo == "OptanteFgts");
-        Assert.Contains(ex.Issues, i => i.Campo == "RecolheFgts");
-        Assert.Contains(ex.Issues, i => i.Campo == "RecolheInss");
-        Assert.Contains(ex.Issues, i => i.Campo == "Sindicalizado");
-        Assert.Contains(ex.Issues, i => i.Campo == "TipoLogradouroESocial");
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+        Assert.Contains(issues, i => i.Campo == "OptanteFgts");
+        Assert.Contains(issues, i => i.Campo == "RecolheFgts");
+        Assert.Contains(issues, i => i.Campo == "RecolheInss");
+        Assert.Contains(issues, i => i.Campo == "Sindicalizado");
+        Assert.Contains(issues, i => i.Campo == "TipoLogradouroESocial");
     }
 
     [Fact]
-    public async Task Submit_SemFormaPagamentoOuTipoAdmissaoFgts_LancaException()
+    public async Task Submit_SemFormaPagamentoOuTipoAdmissaoFgts_MantemPreenchidoSemAutoAprovar()
     {
-        // Novos campos obrigatórios do validator (depois do bug da Sophie).
-        var (_, svc) = CriarServico();
+        var (db, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
         var payload = PayloadHappyPath() with
         {
@@ -605,24 +597,30 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
         };
         await svc.UpdateAsync(created.Id, payload, isPrivileged: true, CancellationToken.None);
 
-        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
-            svc.SubmitAsync(created.Id, CancellationToken.None));
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
 
-        Assert.Contains(ex.Issues, i => i.Campo == "FormaPagamento");
-        Assert.Contains(ex.Issues, i => i.Campo == "TipoAdmissaoFgts");
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+        Assert.Contains(issues, i => i.Campo == "FormaPagamento");
+        Assert.Contains(issues, i => i.Campo == "TipoAdmissaoFgts");
     }
 
     [Fact]
-    public async Task Submit_SemTipoLogradouroESocial_LancaException()
+    public async Task Submit_SemTipoLogradouroESocial_MantemPreenchidoSemAutoAprovar()
     {
-        // tipoLogradouroESocial agora é obrigatório — seeder não preenche mais.
-        var (_, svc) = CriarServico();
+        var (db, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
         await svc.UpdateAsync(created.Id, PayloadHappyPath() with { TipoLogradouroESocial = null }, isPrivileged: true, CancellationToken.None);
 
-        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
-            svc.SubmitAsync(created.Id, CancellationToken.None));
-        Assert.Contains(ex.Issues, i => i.Campo == "TipoLogradouroESocial");
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
+
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+        Assert.Contains(issues, i => i.Campo == "TipoLogradouroESocial");
     }
 
     [Fact]
@@ -709,11 +707,9 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
     }
 
     [Fact]
-    public async Task Submit_SemDocMilitar_LancaValidacaoExigindoPreenchimento()
+    public async Task Submit_SemDocMilitar_MantemPreenchidoSemAutoAprovar()
     {
-        // Novo comportamento: seeder não preenche mais DocMilitar/Visto/CAGED.
-        // Se RH mandar null no PUT, submit falha e cobra do RH preencher.
-        var (_, svc) = CriarServico();
+        var (db, svc) = CriarServico();
         var created = await svc.CreateAsync(RequestCriacao(), CancellationToken.None);
 
         await svc.UpdateAsync(created.Id, PayloadHappyPath() with
@@ -725,14 +721,17 @@ public sealed class PreAdmissaoDefaultsIntegracaoTests
             OcorrenciaCAGED = null,
         }, isPrivileged: true, CancellationToken.None);
 
-        var ex = await Assert.ThrowsAsync<TotvsValidationException>(() =>
-            svc.SubmitAsync(created.Id, CancellationToken.None));
+        var result = await svc.SubmitAsync(created.Id, CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
 
-        Assert.Contains(ex.Issues, i => i.Campo == "DocMilitarTipo");
-        Assert.Contains(ex.Issues, i => i.Campo == "DocMilitarRegiao");
-        Assert.Contains(ex.Issues, i => i.Campo == "DocMilitarCircunscricao");
-        Assert.Contains(ex.Issues, i => i.Campo == "TipoVistoEstrangeiro");
-        Assert.Contains(ex.Issues, i => i.Campo == "OcorrenciaCAGED");
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == created.Id);
+        var issues = PreAdmissaoTotvsValidator.Validate(entity);
+        Assert.Contains(issues, i => i.Campo == "DocMilitarTipo");
+        Assert.Contains(issues, i => i.Campo == "DocMilitarRegiao");
+        Assert.Contains(issues, i => i.Campo == "DocMilitarCircunscricao");
+        Assert.Contains(issues, i => i.Campo == "TipoVistoEstrangeiro");
+        Assert.Contains(issues, i => i.Campo == "OcorrenciaCAGED");
     }
 
     [Fact]

@@ -23,7 +23,7 @@ import { FuncionarioAutocomplete, type FuncionarioLookup } from "@/components/au
 import { AGING_BUCKETS, type AgingBucket, matchesAgingBucket } from "@/features/shared/urgencia";
 
 const ATIVAS = new Set(["0", "1", "4", "5"]); // Rascunho, Pendente, Ajustes, PendenteAprovacaoRh
-import { apiFetch } from "@/lib/api";
+import { apiFetch, gerarCartaDownload } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -391,8 +391,8 @@ export default function FeriasScreen() {
 
     async function gerarCarta(id: string) {
         try {
-            const res = await fetchJson<{ url: string }>(`${API}/${id}/carta`, { method: "POST" });
-            window.open(res.url, "_blank");
+            await gerarCartaDownload(`${API}/${id}/carta`, `carta-ferias-${id}.docx`);
+            toast.success("Carta gerada com sucesso.");
         } catch (e) {
             toast.error(`Falha ao gerar carta: ${e instanceof Error ? e.message : "erro"}`);
         }
