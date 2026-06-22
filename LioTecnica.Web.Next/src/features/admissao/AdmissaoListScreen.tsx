@@ -18,6 +18,10 @@ import {
     ArrowRightLeft,
     Bell,
     ClipboardList,
+    Link,
+    MoreHorizontal,
+    Trash2,
+    RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +47,13 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { TableSkeleton } from "@/components/ui/ScreenSkeleton";
 import { useRouter, useSearchParams } from "next/navigation";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /* ── types ── */
 
@@ -73,6 +84,7 @@ interface PreAdmissaoRow {
     documentosRejeitados: number;
     integracaoResultado: number | string | null;
     integracaoMensagem: string | null;
+    lastActivityUtc?: string | null;
 }
 
 const STATUS_MAP: Record<number | string, { label: string; color: string; icon: React.ElementType }> = {
@@ -113,6 +125,31 @@ function isFalhaIntegracao(v: number | string | null | undefined): boolean {
     return v === 2 || v === 3 || v === "Falha" || v === "FalhaDefinitiva";
 }
 
+function statusCode(status: number | string): number {
+    if (typeof status === "number") return status;
+    const map: Record<string, number> = {
+        Rascunho: 0, Enviado: 1, Preenchido: 2, Aprovada: 3, Rejeitada: 4,
+        Integrada: 5, Acessado: 6, PreenchidoParcial: 7, EmIntegracao: 8,
+    };
+    return map[status] ?? -1;
+}
+
+function matchesStatusFilter(row: PreAdmissaoRow, filter: string): boolean {
+    if (filter === "all") return true;
+    if (filter === "aguardando-rh") return isStatusPreenchido(row.status) && row.preenchidoPor === 0;
+    return statusCode(row.status) === Number(filter);
+}
+
+function isRascunhoOuEnviado(status: number | string): boolean {
+    const c = statusCode(status);
+    return c === 0 || c === 1;
+}
+
+function formatCreatedAt(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 function resolveStatusDisplay(row: PreAdmissaoRow): { label: string; color: string; icon: React.ElementType } {
     if (isStatusAprovada(row.status)) {
         if (isFalhaIntegracao(row.integracaoResultado)) return FALHA_TOTVS;
@@ -129,15 +166,17 @@ export default function AdmissaoListScreen() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { data = [], isLoading, refetch: loadList } = useApiQuery<PreAdmissaoRow[]>(
-        ["pre-admissao"],
-        "/api/pre-admissao"
+        ["pre-admissao", "list", 500],
+        "/api/pre-admissao?pageSize=500"
     );
     const [q, setQ] = useState("");
-    const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [statusFilter, setStatusFilter] = useState<string>("ativos");
     const [readmissaoCpf, setReadmissaoCpf] = useState("");
     const [readmissaoOpen, setReadmissaoOpen] = useState(false);
     const [creating, setCreating] = useState(false);
     const [showSubmittedBanner, setShowSubmittedBanner] = useState(() => searchParams.get("submitted") === "1");
+    const [deleteTarget, setDeleteTarget] = useState<PreAdmissaoRow | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     // ── Concluir + modal de validação TOTVS ──
     const [concluindoId, setConcluindoId] = useState<string | null>(null);
@@ -227,16 +266,34 @@ export default function AdmissaoListScreen() {
         }
     }
 
+    async function handleDeleteConfirm() {
+        if (!deleteTarget || deleting) return;
+        setDeleting(true);
+        try {
+            const res = await apiFetch(`/api/pre-admissao/${encodeURIComponent(deleteTarget.id)}`, { method: "DELETE" });
+            if (!res.ok) {
+                const body = await res.json().catch(() => null) as { message?: string } | null;
+                throw new Error(body?.message ?? `HTTP ${res.status}`);
+            }
+            toast.success(`Pré-admissão de ${deleteTarget.nome} excluída.`);
+            setDeleteTarget(null);
+            void loadList();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Erro ao excluir.");
+        } finally {
+            setDeleting(false);
+        }
+    }
+
     const filtered = data.filter((r) => {
-        if (statusFilter === "aguardando-rh") {
-            if (!(isStatusPreenchido(r.status) && r.preenchidoPor === 0)) return false;
-        } else if (statusFilter !== "all" && r.status !== Number(statusFilter)) return false;
+        if (statusFilter === "ativos" && statusCode(r.status) === 4) return false;
+        if (!matchesStatusFilter(r, statusFilter === "ativos" ? "all" : statusFilter)) return false;
         if (q.trim()) {
             const blob = [r.nome, r.cpf, r.email, r.cargoNome, r.areaNome].filter(Boolean).join(" ").toLowerCase();
             if (!blob.includes(q.trim().toLowerCase())) return false;
         }
         return true;
-    });
+    }).sort((a, b) => new Date(b.createdAtUtc).getTime() - new Date(a.createdAtUtc).getTime());
 
     const kpis = {
         total: data.length,
@@ -253,9 +310,14 @@ export default function AdmissaoListScreen() {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Pré-Admissão</h1>
-                    <p className="text-muted-foreground text-sm mt-0.5">Gerencie as pré-admissões de novos colaboradores</p>
+                    <p className="text-muted-foreground text-sm mt-0.5">
+                        Gerencie pré-admissões — use a busca por nome/e-mail ou exclua registros de teste obsoletos.
+                    </p>
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => void loadList()}>
+                        <RefreshCw className="size-4" /> Atualizar
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setStatusFilter("1")}>
                         <FileText className="size-4" /> Docs Pendentes
                     </Button>
@@ -272,8 +334,8 @@ export default function AdmissaoListScreen() {
             {showSubmittedBanner && (
                 <NextStepBanner
                     variant="success"
-                    title="Admissão enviada para revisão!"
-                    description="O RH irá revisar os dados e documentos. Acompanhe o status na lista abaixo."
+                    title="Admissão finalizada"
+                    description="O registro foi atualizado. Busque pelo nome do candidato na lista — a coluna de datas mostra também a última atualização (↻)."
                     onDismiss={() => setShowSubmittedBanner(false)}
                 />
             )}
@@ -293,8 +355,10 @@ export default function AdmissaoListScreen() {
                 <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
                     <div className="flex flex-wrap gap-1">
                         {[
+                            { key: "ativos", label: "Ativos" },
                             { key: "all", label: "Todos" },
                             { key: "0", label: "Rascunho" },
+                            { key: "1", label: "Link enviado" },
                             { key: "aguardando-rh", label: "Aguardando RH" },
                             { key: "2", label: "Em Revisão" },
                             { key: "3", label: "Aprovada" },
@@ -313,7 +377,7 @@ export default function AdmissaoListScreen() {
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input className="w-[260px] pl-9" placeholder="Buscar nome, CPF…" value={q} onChange={(e) => setQ(e.target.value)} />
+                        <Input className="w-[280px] pl-9" placeholder="Buscar nome, CPF, e-mail…" value={q} onChange={(e) => setQ(e.target.value)} />
                     </div>
                 </div>
 
@@ -321,24 +385,22 @@ export default function AdmissaoListScreen() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Nome</TableHead>
+                            <TableHead>E-mail</TableHead>
                             <TableHead>CPF</TableHead>
                             <TableHead>Cargo</TableHead>
-                            <TableHead>Área</TableHead>
-                            <TableHead>Unidade</TableHead>
-                            <TableHead className="text-center">Admissão</TableHead>
                             <TableHead className="text-center">Status</TableHead>
                             <TableHead className="text-center">Docs</TableHead>
                             <TableHead className="text-right">Criado em</TableHead>
-                            <TableHead className="text-center w-[90px]">Ações</TableHead>
+                            <TableHead className="text-center w-[72px]">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading && (
-                            <TableRow><TableCell colSpan={10} className="py-4"><TableSkeleton rows={5} /></TableCell></TableRow>
+                            <TableRow><TableCell colSpan={8} className="py-4"><TableSkeleton rows={5} /></TableCell></TableRow>
                         )}
                         {!isLoading && filtered.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={10} className="py-16 text-center">
+                                <TableCell colSpan={8} className="py-16 text-center">
                                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                         <Users className="size-10 opacity-20" />
                                         <p className="text-sm font-medium">Nenhuma admissão em andamento</p>
@@ -350,20 +412,22 @@ export default function AdmissaoListScreen() {
                         {filtered.map((r) => {
                             const s = resolveStatusDisplay(r);
                             const Icon = s.icon;
-                            const isDraft = r.status === 0 || r.status === 1 || r.status === "Rascunho" || r.status === "Enviado";
+                            const isDraft = isRascunhoOuEnviado(r.status);
+                            const canDelete = statusCode(r.status) !== 5;
                             return (
                                 <TableRow
                                     key={r.id}
                                     className="cursor-pointer hover:bg-muted/40"
-                                    onClick={() => isDraft ? router.push(`/admissao/nova?id=${r.id}`) : router.push(`/admissao/revisao?id=${r.id}`)}
+                                    onClick={() => {
+                                        if (isDraft) router.push(`/admissao/tracking/${r.id}`);
+                                        else router.push(`/admissao/revisao?id=${r.id}`);
+                                    }}
                                     title={s.label === "Falha TOTVS" && r.integracaoMensagem ? r.integracaoMensagem : undefined}
                                 >
                                     <TableCell className="font-semibold text-sm">{r.nome}</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">{r.email || "—"}</TableCell>
                                     <TableCell className="text-sm font-mono">{r.cpf || "—"}</TableCell>
                                     <TableCell className="text-xs text-muted-foreground">{r.cargoNome || "—"}</TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">{r.areaNome || "—"}</TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">{r.unitNome || "—"}</TableCell>
-                                    <TableCell className="text-center text-xs">{r.dataAdmissao || "—"}</TableCell>
                                     <TableCell className="text-center">
                                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.color}`}>
                                             <Icon className="size-3" /> {s.label}
@@ -383,25 +447,75 @@ export default function AdmissaoListScreen() {
                                             <span className="text-xs text-muted-foreground">—</span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="text-right text-xs text-muted-foreground">
-                                        {new Date(r.createdAtUtc).toLocaleDateString("pt-BR")}
+                                    <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap">
+                                        <div>{formatCreatedAt(r.createdAtUtc)}</div>
+                                        {r.lastActivityUtc && r.lastActivityUtc !== r.createdAtUtc && (
+                                            <div className="text-[10px] opacity-70">↻ {formatCreatedAt(r.lastActivityUtc)}</div>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-center" onClick={e => e.stopPropagation()}>
-                                        <button
-                                            title="Abrir revisão"
-                                            onClick={() => router.push(`/admissao/revisao?id=${r.id}`)}
-                                            className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-background px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                        >
-                                            <ClipboardList className="size-3.5" /> Revisar
-                                        </button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="size-8">
+                                                    <MoreHorizontal className="size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {isDraft && (
+                                                    <DropdownMenuItem onClick={() => router.push(`/admissao/tracking/${r.id}`)}>
+                                                        <Link className="size-4 mr-2" /> Enviar link ao candidato
+                                                    </DropdownMenuItem>
+                                                )}
+                                                <DropdownMenuItem onClick={() => router.push(`/admissao/revisao?id=${r.id}`)}>
+                                                    <ClipboardList className="size-4 mr-2" /> Revisar
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => router.push(`/admissao/nova?id=${r.id}`)}>
+                                                    <Pencil className="size-4 mr-2" /> Wizard RH
+                                                </DropdownMenuItem>
+                                                {canDelete && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="text-red-600 focus:text-red-600"
+                                                            onClick={() => setDeleteTarget(r)}
+                                                        >
+                                                            <Trash2 className="size-4 mr-2" /> Excluir
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
                             );
                         })}
                     </TableBody>
                 </Table>
-                <div className="mt-3 text-xs text-muted-foreground">{filtered.length} registros</div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                    {filtered.length} de {data.length} registro(s)
+                    {statusFilter === "ativos" ? " · rejeitadas ocultas" : ""}
+                </div>
             </div>
+
+            {/* Excluir confirmação */}
+            <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Excluir pré-admissão?</DialogTitle>
+                        <DialogDescription>
+                            Remove permanentemente <b>{deleteTarget?.nome}</b> e documentos anexados. Use para limpar registros de teste.
+                            Admissões já integradas ao TOTVS não podem ser excluídas.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancelar</Button>
+                        <Button variant="destructive" onClick={() => void handleDeleteConfirm()} disabled={deleting}>
+                            {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4 mr-1" />}
+                            Excluir
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* ── Modal de Validação TOTVS ── */}
             <Dialog

@@ -1448,9 +1448,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               });
               if (res.ok) {
                 const data = (await res.json()) as { id: string };
-                router.push(`/admissao/nova?id=${encodeURIComponent(data.id)}`);
+                router.push(`/admissao/tracking/${encodeURIComponent(data.id)}`);
               } else {
-                toast.error("Erro ao abrir admissão");
+                const body = await res.json().catch(() => null) as { message?: string } | null;
+                toast.error(body?.message ?? "Erro ao abrir admissão");
               }
             }}
           />

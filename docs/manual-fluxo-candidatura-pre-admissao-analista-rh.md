@@ -9,18 +9,54 @@ Guia passo a passo para **Analistas de RH** conduzirem um candidato desde a apli
 
 ## Visão geral
 
-O processo tem **duas grandes fases**:
+No tenant **Liotecnica**, a requisição **não nasce no Portal**. O gestor cria e conduz a aprovação no **TOTVS RM**; quando o status no RM indica **aprovada**, o **worker** importa automaticamente para o Portal (`SolicitacaoVaga` + vaga em rascunho). A partir daí, o RH opera no Portal.
 
-1. **Recrutamento e seleção** — candidato percorre etapas no funil (kanban) até aceitar a proposta.
-2. **Pré-admissão** — RH solicita documentação, candidato envia pelo portal público, RH valida e segue para integração.
+O processo tem **três grandes fases**:
+
+1. **Requisição (RM → Portal)** — gestor cria no RM, aprova no RM, worker importa; Especialista distribui para Analista.
+2. **Recrutamento e seleção** — candidato percorre etapas no funil (kanban) até aceitar a proposta.
+3. **Pré-admissão** — RH solicita documentação, candidato envia pelo portal público, RH valida e segue para integração.
 
 ```text
-Portal de Vagas          Funil (Kanban)              Pré-admissão
-───────────────          ───────────────             ─────────────
-Candidato aplica    →    RH conduz etapas      →     RH envia link
-                         até Proposta/Contratado      Candidato envia docs
-                                                      RH revisa e aprova
+TOTVS RM                 Portal RH                   Portal de Vagas
+────────                 ─────────                   ───────────────
+Gestor cria         →    Worker importa         →    Candidato aplica
+Aprova no RM             Especialista distribui        Funil até Proposta
+                         Analista publica vaga         Pré-admissão (docs)
 ```
+
+> **Importante:** com a flag *Requisições de vaga vêm aprovadas do RM* ligada, o botão **Nova posição** some em **Gestão → Solicitações**. Aprovação de requisição no menu **Aprovações** do Portal **não** faz parte deste fluxo.
+
+---
+
+## Fluxograma 0 — Da requisição RM à vaga publicável
+
+```mermaid
+flowchart LR
+    subgraph RM["TOTVS RM"]
+        R1[Gestor cria requisição de vaga]
+        R2[Fluxo de aprovação no RM]
+        R3[CODSTATUS aprovado / concluído]
+    end
+
+    subgraph PORTAL["Portal RH"]
+        P1[Worker importa automaticamente]
+        P2[Solicitação Aprovada + vaga rascunho]
+        P3[Especialista distribui → Analista RH]
+        P4[Analista publica vaga no hub]
+    end
+
+    R1 --> R2 --> R3 --> P1 --> P2 --> P3 --> P4
+```
+
+**Conferência técnica (Owner):** menu **Configurações → Configurações do Tenant** (`/app/admin/tenant-configuracao`) → seção **Recrutamento**:
+
+| Campo | Valor esperado (Liotecnica) |
+|-------|-----------------------------|
+| Requisições de vaga vêm aprovadas do RM | ligado |
+| Executar importação automática de requisições RM | ligado |
+
+Histórico de ciclos do worker: mesma tela (**Ver execuções** / **Baixar último log**) ou **Administração → Requisições RM**.
 
 ---
 
@@ -28,6 +64,8 @@ Candidato aplica    →    RH conduz etapas      →     RH envia link
 
 | Item | Onde conferir |
 |------|----------------|
+| Requisição **aprovada no RM** e **importada** no Portal | Gestão → Solicitações (origem RM) ou Admin → Requisições RM |
+| Vaga distribuída para o **Analista RH** | Gestão → Solicitações → ação Distribuir |
 | Vaga **Aberta** e publicada | Recrutamento → Vagas → Hub da vaga |
 | **Documentação padrão** configurada (RG, CPF, etc.) | Administração → Documentação Padrão |
 | Candidato com **e-mail** e **celular** (obrigatório na aprovação) | Hub da vaga → editar candidato |
@@ -137,15 +175,23 @@ stateDiagram-v2
 
 ## Etapas do funil — o que fazer em cada uma
 
-### 0. Antes de «Aplicada» — publicação e candidatura
+### 0. Antes de «Aplicada» — RM, importação, distribuição e publicação
 
 | Quem | Ação | Onde |
 |------|------|------|
-| RH | Publica a vaga | Hub da vaga → Publicar |
+| Gestor | Cria requisição de vaga | **TOTVS RM** (não no Portal) |
+| Aprovador | Aprova requisição | **TOTVS RM** |
+| Sistema | Importa requisição aprovada + cria vaga rascunho | Worker automático (intervalo configurável, ex.: 15 min) |
+| Especialista RH | Distribui requisição/vaga para Analista | Menu raiz **Solicitações** → aba **Requisição de Pessoal** (`/app/gestao/solicitacoes`) |
+| Analista RH | Revisa rascunho e **publica** a vaga | **Recrutamento e Seleção → Vagas** (`/app/vagas`) → menu **⋯** → **Ver detalhes** → **Preencher Dados** → aba **Filtros matching (IA)** → **Descrição de Cargo (template DNALIO)** → salvar → **Publicar** |
 | Candidato | Aplica e mantém currículo atualizado | Portal de Vagas (externo) |
 | Sistema | Cria candidatura em **Aplicada** | Automático |
 
-**Menu RH:** Recrutamento → Vagas → Hub → aba **Candidatos & Match**
+**Menu RH (após importação):** **Solicitações** → **Recrutamento e Seleção → Vagas** → Hub → aba **Candidatos & Match**
+
+**Distribuição (Especialista RH):** na linha da requisição → menu **⋯** → **Visualizar** → no rodapé do modal, campo **Distribuir para Analista de RH** → buscar analista → **Distribuir**. A vaga vinculada passa a aparecer na lista de **Vagas** da analista (status inicial: **Rascunho**).
+
+**Publicação (Analista RH):** na linha da vaga → menu **⋯** → **Ver detalhes** → **Preencher Dados** → aba **Filtros matching (IA)** → selecionar **Descrição de Cargo (template DNALIO)** → salvar → voltar ao hub → **Publicar**. Com origem RM, a requisição já vem aprovada — **headcount pendente** e aprovações internas do Portal **não** fazem parte deste fluxo.
 
 ---
 
@@ -159,7 +205,7 @@ stateDiagram-v2
 | Ver **compatibilidade** e **análise IA** | Botões na linha do candidato |
 | Conferir currículo | Visualizar / Baixar CV |
 | Completar contato se faltar | ⋯ → Editar candidato **ou** ⋯ → Avisar candidato |
-| Avançar no funil | Recrutamento → **Candidaturas** → arrastar para **Em triagem** |
+| Avançar no funil | **Recrutamento e Seleção → Kanban de Candidaturas** (`/app/recrutamento/candidaturas`) → arrastar card entre colunas |
 
 **Avisar candidato:** solicita apenas **e-mail, celular ou telefone** no Portal de Vagas — **não** pede RG/CPF/comprovantes.
 
@@ -185,7 +231,9 @@ stateDiagram-v2
 
 | Ação do RH | Como |
 |------------|------|
-| Agendar e registrar feedback | Observações + mover no kanban |
+| Agendar e registrar feedback | Kanban → mover para **Entrevista** → preencher data, horário, responsável e formato → confirmar |
+| Validar agendamento | **Agenda** (`/app/agendas`) → conferir evento criado |
+| Validar comunicação | Caixa de e-mail do candidato → confirmar recebimento do e-mail de entrevista |
 | Aprovar | Avançar para **Teste** ou **Proposta** |
 | Reprovar | **Reprovado RH**, **Reprovado Gestor** ou **Recusado** |
 
@@ -213,9 +261,9 @@ stateDiagram-v2
 | Reenviar proposta | Hub → ⋯ → Reenviar proposta |
 | Negociar / aguardar resposta | Manter em **Proposta** |
 | Após aceite | Kanban → **Contratado** (opcional, mas recomendado) |
-| **Iniciar pré-admissão** | Hub → ⋯ → **Aprovar candidato** |
+| **Iniciar pré-admissão** | Hub → ⋯ → **Aprovar candidato** (só em **Proposta**) **ou** **Acompanhar admissão** (após aceite da proposta) |
 
-> **Importante:** o botão **Aprovar candidato** só fica disponível com a candidatura na etapa **Proposta**. Não use antes de concluir entrevistas/testes.
+> **Importante:** **Aprovar candidato** só fica disponível com a candidatura na etapa **Proposta** e **antes** do aceite da proposta pelo candidato. Se o candidato já aceitou (status **Em processo de admissão**), use **Acompanhar admissão**.
 
 ---
 
@@ -244,18 +292,33 @@ Documentos típicos CLT: RG, CPF, comprovante de residência, CTPS, título de e
 
 ### Passo B — Disparar a coleta (a partir da vaga)
 
-1. **Recrutamento** → **Vagas** → abrir vaga → **Candidatos & Match**
-2. Localizar candidato em **Proposta** (ou já **Contratado**)
+Há **dois caminhos**, conforme o candidato já aceitou ou não a proposta:
+
+#### Caminho A — Candidatura ainda em **Proposta** (candidato **não** aceitou a proposta)
+
+1. **Recrutamento e Seleção → Vagas** → Hub → **Candidatos & Match**
+2. Localizar candidato com status **Proposta**
 3. Confirmar **e-mail** e **celular**
 4. Menu **⋯** → **Aprovar candidato**
 5. Escolher tipo de contratação (**CLT** ou **PJ**)
-6. Conferir lista de documentos exibida no modal
-7. Enviar:
-   - **Via WhatsApp**, ou
-   - **Via E-mail**, ou
-   - Preencher manualmente (RH preenche no wizard interno)
+6. Conferir lista de documentos no modal
+7. Enviar via **WhatsApp**, **E-mail** ou preencher manualmente (RH)
 
-O sistema cria a **pré-admissão**, carrega os documentos da configuração padrão e gera o **link público**.
+#### Caminho B — Candidato **já aceitou** a proposta (status **Em processo de admissão**)
+
+Quando o candidato aceita pelo **link público da proposta**, o sistema avança automaticamente para **Em processo de admissão** (Contratado). Nesse ponto:
+
+- **Aprovar candidato** fica **indisponível** — comportamento esperado (só vale na etapa **Proposta**)
+- A vaga pode aparecer como **Preenchida** (headcount atendido)
+
+**Use este fluxo:**
+
+1. Hub da vaga → **Candidatos & Match** → menu **⋯** → **Acompanhar admissão**
+2. O sistema cria a **pré-admissão** e abre o wizard (`/app/admissao/nova?id=...`)
+3. **Admissão → Pré-Admissão** (`/app/admissao`) → localizar o candidato → abrir **Tracking** (`/app/admissao/tracking/{id}`)
+4. Em **Link de Acesso do Candidato**: informar **CPF** → **Gerar Link** → copiar e enviar ao candidato (ou usar o envio por e-mail do modal **Aprovar candidato** no Caminho A)
+
+> **Ordem recomendada no UAT:** enviar proposta → **aguardar aceite do candidato** → **Acompanhar admissão** → gerar link no tracking. Se quiser testar o modal **Aprovar candidato**, dispare a pré-admissão **antes** do candidato aceitar a proposta.
 
 ---
 
@@ -292,8 +355,9 @@ O sistema cria a **pré-admissão**, carrega os documentos da configuração pad
 | Objetivo | Menu / tela |
 |----------|-------------|
 | Ver candidatos da vaga | Recrutamento → Vagas → Hub → **Candidatos & Match** |
-| Mover etapas no funil | Recrutamento → **Candidaturas** (kanban) |
-| Gerenciar propostas | Recrutamento → **Propostas** |
+| Mover etapas no funil | **Recrutamento e Seleção → Kanban de Candidaturas** (`/app/recrutamento/candidaturas`) |
+| Gerenciar propostas | **Recrutamento e Seleção → Propostas** (`/app/recrutamento/propostas-vaga`) |
+| Ver agenda de entrevistas | **Agenda** (`/app/agendas`) |
 | Configurar docs solicitados | Administração → **Documentação Padrão** |
 | Lista de pré-admissões | Admissão → **Pré-Admissão** |
 | Detalhe / validar docs | Admissão → Tracking do registro |

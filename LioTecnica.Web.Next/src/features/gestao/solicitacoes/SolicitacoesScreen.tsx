@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoFormPreferred";
 import { useAuth, useHasPermission, useIsAdminOrOwner } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -19,7 +19,6 @@ import {
     CalendarDays,
     Lock,
     UserMinus,
-    Briefcase,
     Activity,
     Ban,
     Copy,
@@ -29,7 +28,6 @@ import {
     ChevronUp,
     ChevronsUpDown,
 } from "lucide-react";
-import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
 import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
@@ -286,59 +284,17 @@ async function showAnalistaRhObrigatoriaAlert() {
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-/* ══════════════════════════════════════════════════════════════
-   Wrapper com tabs: Vagas | Desligamentos
-   ══════════════════════════════════════════════════════════════ */
-
-type TopTab = "vagas" | "desligamentos";
-
-const TOP_TABS: { id: TopTab; label: string; icon: React.ElementType }[] = [
-    { id: "vagas", label: "Requisição de Pessoal", icon: Briefcase },
-    { id: "desligamentos", label: "Desligamento", icon: UserMinus },
-];
-
 export default function SolicitacoesScreen() {
-    const searchParams = useSearchParams();
-    const tabParam = searchParams.get("tab");
-    const initialTab: TopTab =
-        tabParam === "desligamentos" ? "desligamentos" : "vagas";
-    const [topTab, setTopTab] = useState<TopTab>(initialTab);
-
     return (
         <section className={`${VAGAS_FONT_135X_CLASS} space-y-4`}>
             <style>{VAGAS_FONT_135X_STYLE}</style>
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight">Solicitações</h1>
                 <p className="text-muted-foreground text-sm mt-0.5">
-                    Gerencie solicitações de vagas e desligamentos
+                    Gerencie solicitações de vagas e substituições.
                 </p>
             </div>
-
-            {/* ── Top-level tabs ── */}
-            <div className="flex gap-1 border-b border-border/40">
-                {TOP_TABS.map(tab => {
-                    const Icon = tab.icon;
-                    const active = topTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setTopTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-[1px] transition-colors ${
-                                active
-                                    ? "border-primary text-primary"
-                                    : "border-transparent text-muted-foreground hover:text-foreground"
-                            }`}
-                        >
-                            <Icon className="size-4" />
-                            {tab.label}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {topTab === "vagas" && <SolicitacoesVagaContent />}
-            {topTab === "desligamentos" && <DesligamentosScreen />}
+            <SolicitacoesVagaContent />
         </section>
     );
 }
