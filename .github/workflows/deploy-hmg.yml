@@ -57,7 +57,7 @@ jobs:
           echo "next_public_origin=${NEXT_ORIGIN:-http://10.0.0.80:3000}" >> "$GITHUB_OUTPUT"
           echo "next_public_app_environment=HMG" >> "$GITHUB_OUTPUT"
           echo "next_public_app_version=${PACKAGE_VERSION}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "vite_api=${VITE_API:-https://10.0.0.80:5000}" >> "$GITHUB_OUTPUT"
+          echo "vite_api=${VITE_API:-}" >> "$GITHUB_OUTPUT"
           echo "vite_tenant=${VITE_TENANT:-liotecnica}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx

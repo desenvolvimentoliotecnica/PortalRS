@@ -709,7 +709,7 @@ for svc in $SERVICES; do
     portal-vagas)
       echo "==> Build Portal Vagas $TAG"
       build_cached portal-vagas -f LioTecnica.PortalVagas.React/Dockerfile \\
-        --build-arg VITE_API_BASE_URL={shlex.quote(self.cfg.api_base)} \\
+        --build-arg VITE_API_BASE_URL= \\
         --build-arg VITE_DEFAULT_TENANT={shlex.quote(self.cfg.tenant)} \\
         -t "$PREFIX/rhportal-portal-vagas:$TAG" LioTecnica.PortalVagas.React
       ;;
@@ -838,7 +838,7 @@ retry_url() {{
   name="$1"
   url="$2"
   for attempt in $(seq 1 30); do
-    code=$(curl -fsS -o /dev/null -w '%{{http_code}}' "$url" 2>/tmp/rhportal-curl-error || true)
+    code=$(curl -sS -o /dev/null -w '%{{http_code}}' "$url" 2>/tmp/rhportal-curl-error || true)
     if [[ "$code" == "200" ]]; then
       echo "${{name}}:200"
       return 0
@@ -851,7 +851,14 @@ retry_url() {{
   return 1
 }}
 echo "==> Endpoints obrigatorios"
-retry_url api-swagger http://127.0.0.1:{port}/swagger/index.html
+retry_url api-health http://127.0.0.1:{port}/health
+swagger_code=$(curl -sS -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/swagger/index.html 2>/dev/null || true)
+echo "api-swagger:${{swagger_code:-FAIL}}"
+if [[ "$swagger_code" == "401" ]]; then
+  echo "WARN: Swagger retornou 401 (protegido); isso e esperado em Production/DEV com auth."
+elif [[ "$swagger_code" != "200" && "$swagger_code" != "401" ]]; then
+  echo "WARN: Swagger inesperado (code=${{swagger_code:-FAIL}}); verifique manualmente se necessario."
+fi
 retry_url web-health http://127.0.0.1:3000/health
 retry_url web-app http://127.0.0.1:3000/app/login
 retry_url portal-vagas http://127.0.0.1:3050/
