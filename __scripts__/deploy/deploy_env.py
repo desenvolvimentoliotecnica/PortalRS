@@ -24,7 +24,12 @@ class DeployEnvironment:
     app_environment: str
     docker_network: str
     docker_network_subnet: str
+    # Porta publicada no host (referência); validação pós-deploy usa health_api_check_url.
     health_api_port: int
+    # URL loopback no servidor para curl /health após docker compose up.
+    health_api_check_url: str
+    # Build Next.js: vazio = chamadas /api/ via nginx do Portal Admin (evita CORS).
+    next_public_api_base: str
     container_api: str
     container_web: str
     container_portal_vagas: str
@@ -65,6 +70,7 @@ ENVIRONMENTS: dict[str, DeployEnvironment] = {
         branch="portalRH-HML",
         default_host="10.0.0.80",
         default_remote_dir="/home/administrator/rh-deploys",
+        # URL pública (Entra ID, scripts externos). Porta 5000 = HTTPS via Nginx do host.
         default_api_url="https://10.0.0.80:5000",
         default_admin_url="http://10.0.0.80:3000",
         default_portal_vagas_url="http://10.0.0.80:3050",
@@ -78,7 +84,9 @@ ENVIRONMENTS: dict[str, DeployEnvironment] = {
         app_environment="HMG",
         docker_network="rhportal-net",
         docker_network_subnet="192.168.241.0/24",
-        health_api_port=5000,
+        health_api_port=5001,
+        health_api_check_url="http://127.0.0.1:5001/health",
+        next_public_api_base="",
         container_api="rhportal-api",
         container_web="rhportal-web-next",
         container_portal_vagas="rhportal-portal-vagas",
@@ -104,6 +112,8 @@ ENVIRONMENTS: dict[str, DeployEnvironment] = {
         docker_network="rhportal-net",
         docker_network_subnet="192.168.240.0/24",
         health_api_port=5000,
+        health_api_check_url="http://127.0.0.1:5000/health",
+        next_public_api_base="",
         container_api="rhportal-dev-api",
         container_web="rhportal-dev-web-next",
         container_portal_vagas="rhportal-dev-portal-vagas",

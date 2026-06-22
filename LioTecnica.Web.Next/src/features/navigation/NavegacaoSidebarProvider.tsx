@@ -11,8 +11,8 @@ import {
 
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { hrefsFromPermissions } from "@/features/navigation/menuPermissions";
 import {
-  hrefsFromPermissions,
   normalizeNavegacaoSidebarResponse,
   type NavegacaoSidebarResponse,
   type NavGrupoResponse,

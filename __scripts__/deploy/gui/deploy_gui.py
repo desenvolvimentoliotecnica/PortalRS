@@ -699,7 +699,7 @@ for svc in $SERVICES; do
     web-next)
       echo "==> Build Web Next $TAG"
       build_cached web-next -f LioTecnica.Web.Next/Dockerfile \\
-        --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.cfg.api_base)} \\
+        --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.env.next_public_api_base)} \\
         --build-arg NEXT_PUBLIC_PORTAL_ORIGIN={shlex.quote(self.cfg.admin_base)} \\
         --build-arg NEXT_PUBLIC_PORTAL_VAGAS_URL={shlex.quote(self.cfg.portal_vagas_url)} \\
         --build-arg NEXT_PUBLIC_APP_ENVIRONMENT={shlex.quote(self.env.app_environment)} \\
@@ -824,6 +824,7 @@ fi
             for c in env.containers
         )
         port = env.health_api_port
+        api_health_url = env.health_api_check_url
         script = f"""
 set -euo pipefail
 echo "==> Containers"
@@ -851,7 +852,7 @@ retry_url() {{
   return 1
 }}
 echo "==> Endpoints obrigatorios"
-retry_url api-health http://127.0.0.1:{port}/health
+retry_url api-health {shlex.quote(api_health_url)}
 swagger_code=$(curl -sS -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/swagger/index.html 2>/dev/null || true)
 echo "api-swagger:${{swagger_code:-FAIL}}"
 if [[ "$swagger_code" == "401" ]]; then
@@ -864,7 +865,7 @@ retry_url web-app http://127.0.0.1:3000/app/login
 retry_url portal-vagas http://127.0.0.1:3050/
 echo "==> Health agregado da API"
 health_body=$(mktemp)
-health_code=$(curl -sS -o "$health_body" -w '%{{http_code}}' http://127.0.0.1:{port}/health || true)
+health_code=$(curl -sS -o "$health_body" -w '%{{http_code}}' {shlex.quote(api_health_url)} || true)
 echo "api-health:${{health_code}}"
 cat "$health_body"
 echo
@@ -1038,7 +1039,7 @@ class DeployGui(tk.Tk):
         ttk.Button(form, text="Procurar", command=self._browse_repo).grid(row=2, column=6, padx=6, pady=4, sticky="ew")
 
         self._entry(form, "Dir remoto", self.remote_dir_var, 3, 0, colspan=3)
-        self._entry(form, "API URL", self.api_var, 3, 4, colspan=1)
+        self._entry(form, "API URL (pública)", self.api_var, 3, 4, colspan=1)
         self._entry(form, "Admin URL", self.admin_var, 4, 0, colspan=3)
         self._entry(form, "Portal Vagas URL", self.portal_vagas_var, 4, 4, colspan=1)
         self._entry(form, "Tenant", self.tenant_var, 5, 0, colspan=1)
