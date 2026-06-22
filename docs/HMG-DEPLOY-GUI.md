@@ -55,6 +55,15 @@ Preencha:
 
 A senha nao e salva em arquivo.
 
+## API URL e validacao de health (HMG)
+
+| Campo | Valor HMG | Observacao |
+| --- | --- | --- |
+| **API URL (publica)** | `https://10.0.0.80:5000` | Entra ID e acesso externo. **Nao use HTTP** — a porta 5000 do host so aceita HTTPS (Nginx TLS). |
+| Health pos-deploy | `http://127.0.0.1:5001/health` | Automatico na GUI: API Docker publicada em `127.0.0.1:5001`, nao na 5000. |
+
+Ao trocar o ambiente para **HMG** na combo, os defaults recarregam (`https://…:5000`). O build do Portal Admin **nao** embute essa URL — as chamadas vao por `/api/` no `:3000`.
+
 ## Como gerar o .exe
 
 ```powershell
@@ -81,7 +90,7 @@ Exemplo:
   "user": "administrator",
   "repo_path": "D:\\Projetos\\PortalRH\\RH-devops-Lucas",
   "remote_deploy_dir": "/home/administrator/rh-deploys",
-  "api_url": "http://10.0.0.80:5000",
+  "api_url": "https://10.0.0.80:5000",
   "admin_url": "http://10.0.0.80:3000",
   "tenant": "liotecnica"
 }
