@@ -5,10 +5,13 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import {
   AlertCircle,
   BarChart3,
+  BriefcaseBusiness,
+  CalendarDays,
   CheckCircle2,
   ChevronRight,
   FileText,
   RefreshCw,
+  UserRoundCheck,
   UsersRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";

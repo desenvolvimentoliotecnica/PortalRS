@@ -85,10 +85,17 @@ DEFAULT_CONFIG = {
 
 
 class DeployError(RuntimeError):
-    def __init__(self, message: str, suggestion: str | None = None, exit_code: int | None = None):
+    def __init__(
+        self,
+        message: str,
+        suggestion: str | None = None,
+        exit_code: int | None = None,
+        output: str | None = None,
+    ):
         super().__init__(message)
         self.suggestion = suggestion
         self.exit_code = exit_code
+        self.output = output or ""
 
 
 @dataclass
@@ -174,6 +181,10 @@ class SshSession:
                 "Confira host, usuario, senha, rede/VPN e se o SSH esta ativo no servidor.",
             ) from exc
         self.client = client
+        transport = client.get_transport()
+        if transport is not None:
+            # Evita queda de SSH/firewall durante builds longos (dotnet publish, npm build).
+            transport.set_keepalive(30)
         self.sftp = client.open_sftp()
         self.log.ok("SSH conectado.")
         return self
@@ -205,10 +216,18 @@ class SshSession:
         exit_code = channel.recv_exit_status()
         text = "".join(output)
         if check and exit_code != 0:
+            suggestion = "Leia as ultimas linhas do log acima; corrija o erro no servidor e tente novamente."
+            if self._looks_like_buildx_transport_failure(text):
+                suggestion = (
+                    "Falha de conexao do Docker BuildKit durante build longo. "
+                    "Tente o deploy novamente; se repetir, reinicie o builder no servidor "
+                    "(docker buildx ls; docker buildx rm <builder>) ou use modo Completo."
+                )
             raise DeployError(
                 f"Comando remoto falhou na etapa '{label}'.",
-                "Leia as ultimas linhas do log acima; corrija o erro no servidor e tente novamente.",
+                suggestion,
                 exit_code=exit_code,
+                output=text,
             )
         if exit_code == 0:
             self.log.ok(f"Etapa remota concluida: {label}")
@@ -225,6 +244,18 @@ class SshSession:
             output.append(chunk)
             for line in chunk.splitlines():
                 self.log.info(line)
+
+    @staticmethod
+    def _looks_like_buildx_transport_failure(text: str) -> bool:
+        lowered = text.lower()
+        markers = (
+            "rpc error",
+            "graceful_stop",
+            "error reading from server: eof",
+            "closing transport due to",
+            "failed to receive status",
+        )
+        return any(marker in lowered for marker in markers)
 
     def mkdir_p(self, remote_path: str) -> None:
         parts = [p for p in remote_path.split("/") if p]
@@ -648,23 +679,11 @@ echo "Snapshot extraido em $CURRENT_SRC"
 """
         ssh.run(script, "extrair snapshot")
 
-    def _remote_build(self, ssh: SshSession) -> None:
-        src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
-        services = " ".join(self.services_to_build)
-        image_pairs = " ".join(
-            f"{repo}:{self.env.container_for_image(repo)}" for repo in self.env.image_repos
-        )
-        script = f"""
-set -euo pipefail
-cd {shlex.quote(src)}
-TAG={shlex.quote(self.sha)}
-PREFIX={shlex.quote(IMAGE_PREFIX)}
-DEPLOY_ROOT={shlex.quote(self.cfg.remote_deploy_dir.rstrip('/'))}
-SERVICES={shlex.quote(services)}
-IMAGE_PAIRS={shlex.quote(image_pairs)}
-export DOCKER_BUILDKIT=1
-mkdir -p "$DEPLOY_ROOT/build-cache"
-build_cached() {{
+    def _remote_build_shell_preamble(self, src: str, *, use_buildx_cache: bool) -> str:
+        deploy_root = self.cfg.remote_deploy_dir.rstrip("/")
+        if use_buildx_cache:
+            build_fn = """
+build_cached() {
   svc="$1"
   shift
   cache_dir="$DEPLOY_ROOT/build-cache/$svc"
@@ -672,57 +691,110 @@ build_cached() {{
   if docker buildx version >/dev/null 2>&1; then
     echo "Cache BuildKit: $cache_dir"
     rm -rf "$cache_dir.new"
-    docker buildx build \\
+    if docker buildx build \\
       --progress=plain \\
       --load \\
       --cache-from "type=local,src=$cache_dir" \\
       --cache-to "type=local,dest=$cache_dir.new,mode=min" \\
-      "$@"
-    rm -rf "$cache_dir.old"
-    if [[ -d "$cache_dir.new" ]]; then
-      mv "$cache_dir" "$cache_dir.old" 2>/dev/null || true
-      mv "$cache_dir.new" "$cache_dir"
+      "$@"; then
       rm -rf "$cache_dir.old"
+      if [[ -d "$cache_dir.new" ]]; then
+        mv "$cache_dir" "$cache_dir.old" 2>/dev/null || true
+        mv "$cache_dir.new" "$cache_dir"
+        rm -rf "$cache_dir.old"
+      fi
+      return 0
     fi
-  else
-    echo "Build sem buildx/cache persistente para $svc"
-    docker build "$@"
+    echo "WARN: buildx falhou; tentando docker build classico"
   fi
-}}
-echo "Servicos selecionados para build: ${{SERVICES:-nenhum}}"
-for svc in $SERVICES; do
-  case "$svc" in
-    api)
-      echo "==> Build API $TAG"
-      build_cached api -f RHPortal.Api/Dockerfile -t "$PREFIX/rhportal-api:$TAG" .
-      ;;
-    web-next)
-      echo "==> Build Web Next $TAG"
-      build_cached web-next -f LioTecnica.Web.Next/Dockerfile \\
-        --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.env.next_public_api_base)} \\
-        --build-arg NEXT_PUBLIC_PORTAL_ORIGIN={shlex.quote(self.cfg.admin_base)} \\
-        --build-arg NEXT_PUBLIC_PORTAL_VAGAS_URL={shlex.quote(self.cfg.portal_vagas_url)} \\
-        --build-arg NEXT_PUBLIC_APP_ENVIRONMENT={shlex.quote(self.env.app_environment)} \\
-        --build-arg NEXT_PUBLIC_APP_VERSION={shlex.quote(self.sha[:12])} \\
-        -t "$PREFIX/rhportal-web-next:$TAG" .
-      ;;
-    portal-vagas)
-      echo "==> Build Portal Vagas $TAG"
-      build_cached portal-vagas -f LioTecnica.PortalVagas.React/Dockerfile \\
-        --build-arg VITE_API_BASE_URL= \\
-        --build-arg VITE_DEFAULT_TENANT={shlex.quote(self.cfg.tenant)} \\
-        -t "$PREFIX/rhportal-portal-vagas:$TAG" LioTecnica.PortalVagas.React
-      ;;
-    ai)
-      echo "==> Build AI $TAG"
-      build_cached ai -f RHPortal.Ai/Dockerfile -t "$PREFIX/rhportal-ai:$TAG" .
-      ;;
-    *)
-      echo "Servico desconhecido: $svc" >&2
-      exit 44
-      ;;
-  esac
-done
+  docker build "$@"
+}
+"""
+        else:
+            build_fn = """
+build_cached() {
+  shift
+  docker build "$@"
+}
+"""
+        return f"""
+set -euo pipefail
+cd {shlex.quote(src)}
+TAG={shlex.quote(self.sha)}
+PREFIX={shlex.quote(IMAGE_PREFIX)}
+DEPLOY_ROOT={shlex.quote(deploy_root)}
+export DOCKER_BUILDKIT=1
+mkdir -p "$DEPLOY_ROOT/build-cache"
+{build_fn}
+"""
+
+    def _remote_build_service_command(self, svc: str) -> str:
+        if svc == "api":
+            return """
+echo "==> Build API $TAG"
+build_cached api -f RHPortal.Api/Dockerfile -t "$PREFIX/rhportal-api:$TAG" .
+"""
+        if svc == "web-next":
+            return f"""
+echo "==> Build Web Next $TAG"
+build_cached web-next -f LioTecnica.Web.Next/Dockerfile \\
+  --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.env.next_public_api_base)} \\
+  --build-arg NEXT_PUBLIC_PORTAL_ORIGIN={shlex.quote(self.cfg.admin_base)} \\
+  --build-arg NEXT_PUBLIC_PORTAL_VAGAS_URL={shlex.quote(self.cfg.portal_vagas_url)} \\
+  --build-arg NEXT_PUBLIC_APP_ENVIRONMENT={shlex.quote(self.env.app_environment)} \\
+  --build-arg NEXT_PUBLIC_APP_VERSION={shlex.quote(self.sha[:12])} \\
+  -t "$PREFIX/rhportal-web-next:$TAG" .
+"""
+        if svc == "portal-vagas":
+            return f"""
+echo "==> Build Portal Vagas $TAG"
+build_cached portal-vagas -f LioTecnica.PortalVagas.React/Dockerfile \\
+  --build-arg VITE_API_BASE_URL= \\
+  --build-arg VITE_DEFAULT_TENANT={shlex.quote(self.cfg.tenant)} \\
+  -t "$PREFIX/rhportal-portal-vagas:$TAG" LioTecnica.PortalVagas.React
+"""
+        if svc == "ai":
+            return """
+echo "==> Build AI $TAG"
+build_cached ai -f RHPortal.Ai/Dockerfile -t "$PREFIX/rhportal-ai:$TAG" .
+"""
+        raise DeployError(f"Servico de build desconhecido: {svc}")
+
+    def _remote_build(self, ssh: SshSession) -> None:
+        src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
+        if self.services_to_build:
+            self.log.info(f"Servicos selecionados para build: {' '.join(self.services_to_build)}")
+        for svc in self.services_to_build:
+            label = SERVICE_LABELS.get(svc, svc)
+            # API demora varios minutos no dotnet publish; docker build classico e mais estavel que buildx cache.
+            use_buildx_cache = svc != "api"
+            script = (
+                self._remote_build_shell_preamble(src, use_buildx_cache=use_buildx_cache)
+                + self._remote_build_service_command(svc)
+            )
+            try:
+                ssh.run(script, f"build Docker: {label}")
+            except DeployError as exc:
+                if use_buildx_cache and SshSession._looks_like_buildx_transport_failure(exc.output):
+                    self.log.warn(
+                        f"Buildx instavel em {label}; retentando com docker build classico (sem cache local)."
+                    )
+                    fallback = (
+                        self._remote_build_shell_preamble(src, use_buildx_cache=False)
+                        + self._remote_build_service_command(svc)
+                    )
+                    ssh.run(fallback, f"build Docker (fallback): {label}")
+                else:
+                    raise
+
+        image_pairs = " ".join(
+            f"{repo}:{self.env.container_for_image(repo)}" for repo in self.env.image_repos
+        )
+        retag_script = f"""
+set -euo pipefail
+TAG={shlex.quote(self.sha)}
+PREFIX={shlex.quote(IMAGE_PREFIX)}
+IMAGE_PAIRS={shlex.quote(image_pairs)}
 echo "==> Garantindo tag $TAG para servicos reaproveitados"
 for pair in $IMAGE_PAIRS; do
   img_repo="${{pair%%:*}}"
@@ -744,7 +816,7 @@ done
 echo "==> Imagens criadas"
 docker images "$PREFIX/" --format 'table {{{{.Repository}}}}\\t{{{{.Tag}}}}\\t{{{{.CreatedSince}}}}\\t{{{{.Size}}}}' | grep "$TAG" || true
 """
-        ssh.run(script, "build das imagens Docker")
+        ssh.run(retag_script, "retag de imagens Docker")
 
     def _remote_up(self, ssh: SshSession) -> None:
         env = self.env
