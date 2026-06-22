@@ -17,6 +17,9 @@ POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-rhportal-prd-postgres}"
 
 cd "$COMPOSE_DIR"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PURGE_SCRIPT="${PURGE_SCRIPT:-$SCRIPT_DIR/docker-deploy-purge.sh}"
+
 if [[ -n "${GHCR_PULL_TOKEN:-}" && -n "${GHCR_PULL_USER:-}" ]]; then
   echo "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "$GHCR_PULL_USER" --password-stdin
 fi
@@ -27,6 +30,15 @@ if [[ ! -f "$PRD_ENV_FILE" ]]; then
 fi
 
 mkdir -p "$PRD_API_APP_DATA_DIR"
+
+if [[ -x "$PURGE_SCRIPT" ]]; then
+  DEPLOY_PURGE_REGISTRY_PREFIX="$PRD_REGISTRY_PREFIX" \
+  DEPLOY_PURGE_KEEP_TAG="$PRD_IMAGE_TAG" \
+  DEPLOY_PURGE_PHASE=pre-pull \
+  bash "$PURGE_SCRIPT"
+else
+  echo "WARN: $PURGE_SCRIPT não encontrado; deploy continua sem purge pré-pull."
+fi
 
 current_subnet="$(docker network inspect "$DOCKER_NETWORK_NAME" --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null || true)"
 if [[ -n "$current_subnet" && "$current_subnet" != "$DOCKER_NETWORK_SUBNET" ]]; then
@@ -56,6 +68,13 @@ done
 
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 docker compose -f "$COMPOSE_FILE" ps
+
+if [[ -x "$PURGE_SCRIPT" ]]; then
+  DEPLOY_PURGE_REGISTRY_PREFIX="$PRD_REGISTRY_PREFIX" \
+  DEPLOY_PURGE_KEEP_TAG="$PRD_IMAGE_TAG" \
+  DEPLOY_PURGE_PHASE=post-up \
+  bash "$PURGE_SCRIPT"
+fi
 
 sleep 8
 curl -fsS "http://127.0.0.1:5000/health" | head -c 400 || echo "(verifica logs da API se health falhar)"
