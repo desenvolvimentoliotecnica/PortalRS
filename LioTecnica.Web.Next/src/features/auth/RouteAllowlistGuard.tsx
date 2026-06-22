@@ -9,9 +9,8 @@ import { isHrefAllowed } from "@/features/navigation/menuPermissions";
 
 /**
  * Bloqueia acesso direto por URL a rotas fora da allowlist do perfil.
- * A allowlist vem do backend (`/api/navegacao/sidebar`), via o
- * `NavegacaoSidebarProvider` — um href entra na allowlist quando o item vem
- * como acessível (`acessivel`, sem motivo de bloqueio).
+ * A allowlist vem do backend (`/api/navegacao/sidebar`) + permissões JWT.
+ * Sub-rotas (ex.: `/admissao/tracking/{id}`) herdam o prefixo do menu pai.
  *
  * Owner/Admin/Wildcard passam sem filtro (visibleHrefs=null). Demais perfis
  * são redirecionados para /dashboard ao tentar abrir rota não permitida.
