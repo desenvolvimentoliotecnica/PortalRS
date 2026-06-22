@@ -295,7 +295,7 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
         }
     }
 
-    /// <summary>Gera carta de desligamento em DOCX e retorna URL presigned S3 (24h).</summary>
+    /// <summary>Gera carta de desligamento em DOCX (S3 presigned ou download direto).</summary>
     [HttpPost("{id:guid}/carta")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -303,8 +303,8 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
     {
         try
         {
-            var url = await _cartaService.GerarCartaDesligamentoAsync(id, ct);
-            return Ok(new { url });
+            var result = await _cartaService.GerarCartaDesligamentoAsync(id, ct);
+            return result.ToActionResult();
         }
         catch (InvalidOperationException ex)
         {
@@ -393,9 +393,9 @@ public sealed class SolicitacoesDesligamentoController : ControllerBase
     private static string BuildCsv(IReadOnlyList<SolicitacaoDesligamentoGridRow> rows)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Funcionário;Tipo;Data Desligamento;Status;Solicitante;Data Criação");
+        sb.AppendLine("Funcionário;Cargo Atual;Data Desligamento;Solicitante;Data Criação");
         foreach (var r in rows)
-            sb.AppendLine($"{r.FuncionarioNome};{r.TipoDesligamento};{r.DataDesligamento:dd/MM/yyyy};{r.Status};{r.SolicitanteNome};{r.CreatedAtUtc:dd/MM/yyyy}");
+            sb.AppendLine($"{r.FuncionarioNome};{r.CargoAtualNome};{r.DataDesligamento:dd/MM/yyyy};{r.SolicitanteNome};{r.CreatedAtUtc:dd/MM/yyyy}");
         return sb.ToString();
     }
 

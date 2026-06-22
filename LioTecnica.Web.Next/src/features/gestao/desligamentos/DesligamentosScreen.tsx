@@ -28,9 +28,10 @@ import {
     Loader2,
     CalendarDays,
     MessageSquare,
+    Filter,
 } from "lucide-react";
 import { AGING_BUCKETS, type AgingBucket, matchesAgingBucket } from "@/features/shared/urgencia";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, gerarCartaDownload } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +82,7 @@ interface SolicitacaoDesligamentoGridRow {
     status: number;
     solicitanteNome: string | null;
     funcionarioNome: string | null;
+    cargoAtualNome?: string | null;
     rmIdReq?: number | null;
     tipoDesligamento: number;
     dataDesligamento: string | null;
@@ -238,14 +240,10 @@ export default function DesligamentosScreen() {
 
     /* ── filters ── */
     const [q, setQ] = useState("");
-    const [centroCustoFilter, setCentroCustoFilter] = useState("all");
-    const [centrosCusto, setCentrosCusto] = useState<{ id: string; code: string; description: string; displayLabel?: string }[]>([]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
 
-    /* ── bulk selection ── */
-    const [selected, setSelected] = useState<Set<string>>(new Set());
 
     /* ── inline action dialogs ── */
     const [rejectTarget, setRejectTarget] = useState<string | null>(null);
@@ -284,13 +282,10 @@ export default function DesligamentosScreen() {
 
     /* ── data loading ── */
     const syncList = useCallback(async () => {
-        const params = new URLSearchParams({ pageSize: "500" });
-        if (centroCustoFilter !== "all") params.set("areaId", centroCustoFilter);
-        const url = `${API}?${params.toString()}`;
+        const url = `${API}?pageSize=500`;
         const data = await fetchJson<SolicitacaoDesligamentoGridRow[]>(url);
         setRows(Array.isArray(data) ? data.map(r => ({ ...r, status: normalizeStatus(r.status) })) : []);
-        setSelected(new Set());
-    }, [centroCustoFilter]);
+    }, []);
 
     useEffect(() => {
         let alive = true;
@@ -300,14 +295,6 @@ export default function DesligamentosScreen() {
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [syncList]);
-
-    /* ── fetch centros de custo for filter ── */
-    useEffect(() => {
-        apiFetch("/api/centros-custo/lookup")
-            .then((r) => r.json())
-            .then((d: { id: string; code: string; description: string; displayLabel?: string }[]) => setCentrosCusto(Array.isArray(d) ? d : []))
-            .catch(() => { });
-    }, []);
 
     /* ── filtering ── */
     const filtered = useMemo(() => {
@@ -608,26 +595,17 @@ export default function DesligamentosScreen() {
         }
     }
 
-    async function bulkApprove() {
-        const ids = [...selected];
-        await Promise.all(ids.map((id) => quickApprove(id)));
-        setSelected(new Set());
-        await syncList();
-    }
-
     async function gerarCarta(id: string) {
         try {
-            const res = await fetchJson<{ url: string }>(`${API}/${id}/carta`, { method: "POST" });
-            window.open(res.url, "_blank");
+            await gerarCartaDownload(`${API}/${id}/carta`, `carta-desligamento-${id}.docx`);
+            toast.success("Carta gerada com sucesso.");
         } catch (e) {
             toast.error(`Falha ao gerar carta: ${e instanceof Error ? e.message : "erro"}`);
         }
     }
 
     function exportCsv() {
-        const params = new URLSearchParams();
-        if (centroCustoFilter !== "all") params.set("areaId", centroCustoFilter);
-        apiFetch(`${API}/export?${params.toString()}`)
+        apiFetch(`${API}/export`)
             .then((res) => res.blob())
             .then((blob) => {
                 const a = document.createElement("a");
@@ -707,7 +685,7 @@ export default function DesligamentosScreen() {
 
             {/* ── filters + table ── */}
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                {/* Row 1: title + search + area */}
+                {/* Row 1: title + search */}
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <div className="font-semibold">Solicitações de desligamento</div>
@@ -715,31 +693,17 @@ export default function DesligamentosScreen() {
                             {loading ? "Carregando…" : `${filtered.length} solicitação${filtered.length !== 1 ? "ões" : ""}`}
                         </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative min-w-[220px] flex-1">
-                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                className="pl-9"
-                                placeholder="Buscar funcionário…"
-                                value={q}
-                                onChange={(e) => setQ(e.target.value)}
-                            />
-                        </div>
-                        {centrosCusto.length > 0 && (
-                            <select
-                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                                value={centroCustoFilter}
-                                onChange={(e) => setCentroCustoFilter(e.target.value)}
-                            >
-                                <option value="all">Todos centros de custo</option>
-                                {centrosCusto.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.displayLabel || `${c.code} — ${c.description}`}</option>
-                                ))}
-                            </select>
-                        )}
+                    <div className="relative min-w-[220px] flex-1 max-w-md">
+                        <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            className="pl-9"
+                            placeholder="Buscar funcionário…"
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                        />
                     </div>
                 </div>
-                {/* Row 2: date range + aging */}
+                {/* Row 2: date range + aging + limpar filtros */}
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <CalendarDays className="size-3.5" />
@@ -748,9 +712,6 @@ export default function DesligamentosScreen() {
                     <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data inicial" />
                     <span className="text-xs text-muted-foreground">–</span>
                     <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data final" />
-                    {(dateFrom || dateTo) && (
-                        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground underline">Limpar</button>
-                    )}
                     <div className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Clock className="size-3.5" />
                         <span>Aging:</span>
@@ -758,41 +719,32 @@ export default function DesligamentosScreen() {
                     {AGING_BUCKETS.map((b) => (
                         <button key={b.value} type="button" onClick={() => setAgingBucket(prev => prev === b.value ? "" : b.value)} className={`inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-medium transition-colors ${agingBucket === b.value ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}>{b.label}</button>
                     ))}
+                    {(q || dateFrom || dateTo || agingBucket) && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="ml-auto h-8"
+                            onClick={() => {
+                                setQ("");
+                                setDateFrom("");
+                                setDateTo("");
+                                setAgingBucket("");
+                            }}
+                        >
+                            <Filter className="size-3.5" />
+                            Limpar Filtros
+                        </Button>
+                    )}
                 </div>
-
-                {selected.size > 0 && (
-                    <div className="mb-3 flex items-center gap-3 rounded-lg bg-primary/5 border border-primary/20 px-4 py-2">
-                        <span className="text-sm font-medium">{selected.size} selecionada(s)</span>
-                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-7 px-3 text-xs" onClick={() => void bulkApprove()}>
-                            <CheckCircle2 className="size-3 mr-1" /> Aprovar todas
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 px-3 text-xs" onClick={() => setSelected(new Set())}>
-                            Limpar seleção
-                        </Button>
-                    </div>
-                )}
 
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-10">
-                                <input
-                                    type="checkbox"
-                                    className="rounded border-border"
-                                    checked={selected.size > 0 && filtered.filter(r => r.etapaPendenteCanAssume).every(r => selected.has(r.id))}
-                                    onChange={(e) => {
-                                        const eligible = filtered.filter(r => r.etapaPendenteCanAssume).map(r => r.id);
-                                        setSelected(e.target.checked ? new Set(eligible) : new Set());
-                                    }}
-                                />
-                            </TableHead>
                             <TableHead className="w-24 text-center">Código RM</TableHead>
                             <TableHead>Funcionário</TableHead>
-                            <TableHead>Tipo</TableHead>
+                            <TableHead>Cargo Atual</TableHead>
                             <TableHead>Data Desligamento</TableHead>
-                            <TableHead>Status</TableHead>
                             {canManageEntrevista && <TableHead>Entrevista</TableHead>}
-                            <TableHead>Aguardando</TableHead>
                             <TableHead>Data Criação</TableHead>
                             <TableHead className="w-12" />
                         </TableRow>
@@ -800,28 +752,13 @@ export default function DesligamentosScreen() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={canManageEntrevista ? 10 : 9} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canManageEntrevista ? 7 : 6} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
                         ) : filtered.length ? (
                             filtered.map((r) => (
                                 <TableRow key={r.id} className="hover:bg-muted/40">
-                                    <TableCell>
-                                        {r.etapaPendenteCanAssume ? (
-                                            <input
-                                                type="checkbox"
-                                                className="rounded border-border"
-                                                checked={selected.has(r.id)}
-                                                onChange={(e) => {
-                                                    const next = new Set(selected);
-                                                    if (e.target.checked) next.add(r.id); else next.delete(r.id);
-                                                    setSelected(next);
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                        ) : null}
-                                    </TableCell>
                                     <TableCell className="text-center font-mono text-xs font-medium">
                                         {r.rmIdReq ?? "—"}
                                     </TableCell>
@@ -831,28 +768,11 @@ export default function DesligamentosScreen() {
                                             <div className="text-muted-foreground text-xs">Solicitante: {r.solicitanteNome}</div>
                                         )}
                                     </TableCell>
-                                    <TableCell className="text-sm">{TIPO_DESLIGAMENTO_MAP[r.tipoDesligamento] ?? "—"}</TableCell>
+                                    <TableCell className="text-sm">{r.cargoAtualNome || "—"}</TableCell>
                                     <TableCell className="text-sm">{formatDate(r.dataDesligamento)}</TableCell>
-                                    <TableCell>{statusBadge(r.status)}</TableCell>
                                     {canManageEntrevista && (
                                         <TableCell>{entrevistaBadge(r.entrevistaSaidaStatus)}</TableCell>
                                     )}
-                                    <TableCell>
-                                        {(r.status === 1 || r.status === 6) && r.etapaPendenteLabel ? (
-                                            <div className="text-xs leading-tight">
-                                                <div className="text-muted-foreground">{r.etapaPendenteLabel}</div>
-                                                {r.etapaPendenteCom ? (
-                                                    <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
-                                                ) : (
-                                                    <div className="font-medium">{
-                                                        r.etapaPendenteIsQueue ? "Aguardando consenso" : "Aguardando"
-                                                    }</div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-muted-foreground text-xs">—</span>
-                                        )}
-                                    </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
                                     <TableCell onClick={(e) => e.stopPropagation()}>
                                         <DropdownMenu>
@@ -1002,7 +922,7 @@ export default function DesligamentosScreen() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={canManageEntrevista ? 10 : 9} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canManageEntrevista ? 7 : 6} className="text-center text-muted-foreground py-8">
                                     Nenhuma solicitação encontrada.
                                 </TableCell>
                             </TableRow>

@@ -26,6 +26,8 @@ public static class NavegacaoManifest
         bool Destacado = false,
         int Ordem = 0,
         bool OcultarDoOwner = false,
+        /// <summary>Visível apenas para Owner (JWT com permissão wildcard <c>*</c>).</summary>
+        bool SomenteOwner = false,
         // Se true: sidebar usa target=_blank (ex.: Portal de Vagas noutra origem/porta; href pode vir da config).
         bool OpenInNewTab = false);
 
@@ -95,7 +97,7 @@ public static class NavegacaoManifest
         // ── Principais (destacados, respeitam gate de módulo) ────────────────
         new("nav-dashboard",                "Dashboard",              "/dashboard",                      "layoutdashboard",   "dashboard.view",           Destacado: true, Ordem: 10),
         new("nav-gestao-solicitacoes-vaga","Solicitações",           "/gestao/solicitacoes",            "clipboardlist",     "solicitacoes-vaga.view",   Destacado: true, Ordem: 50),
-        new("nav-gestao-aprovacoes-vaga",  "Aprovações",             "/gestao/aprovacoes",               "listchecks",        "aprovacoes-vaga.view",      Destacado: true, Ordem: 60),
+        new("nav-gestao-aprovacoes-vaga",  "Aprovações",             "/gestao/aprovacoes",               "listchecks",        "aprovacoes-vaga.view",      Destacado: true, Ordem: 60, SomenteOwner: true),
 
         // ── Recrutamento e Seleção (pacote) ──────────────────────────────────
         new("nav-vagas",                    "Vagas",                  "/vagas",                          "briefcase",         "vagas.view",               Ordem: 10),
@@ -114,7 +116,7 @@ public static class NavegacaoManifest
         new("nav-talentos",                 "Banco de Talentos",      "/talentos",                       "sparkles",          "candidatos.view",          ModuloKeyOverride: "candidatos", Ordem: 95),
         new("nav-rh-contrat-triagem",       "Contratações — Triagem",  "/rh/contratacoes/triagem",        "clipboardlist",      "rh.contratacoes.triagem",  Ordem: 96),
         new("nav-rh-contrat-selecao",       "Contratações — Seleção", "/rh/contratacoes/selecao",        "usercheck",          "rh.contratacoes.selecao",  Ordem: 97),
-        new("nav-rh-contrat-aprovacoes",    "Contratações — Aprovações", "/gestao/aprovacoes",           "listchecks",         "gestao.dashboard",       Ordem: 98),
+        new("nav-rh-contrat-aprovacoes",    "Contratações — Aprovações", "/gestao/aprovacoes",           "listchecks",         "gestao.dashboard",       Ordem: 98, SomenteOwner: true),
 
         // ── Gestão de Pessoas (pacote) ───────────────────────────────────────
         new("nav-gestao-dashboard",         "Dashboard Gestão",       "/gestao/dashboard",               "layoutdashboard",   "gestao.dashboard",         Ordem: 20),

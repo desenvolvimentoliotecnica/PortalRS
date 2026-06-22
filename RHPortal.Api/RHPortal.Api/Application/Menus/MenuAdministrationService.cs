@@ -103,7 +103,8 @@ public sealed class MenuAdministrationService
     /// <summary>Permission keys visíveis apenas para o Owner — excluídos do sidebar de qualquer tenant.</summary>
     private static readonly HashSet<string> OwnerOnlyPermissionKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        "aws-settings.manage"
+        "aws-settings.manage",
+        "aprovacoes-vaga.view",
     };
 
     private static IReadOnlyList<MenuForCurrentUserResponse> ExcludeConfigOnlyMenus(IReadOnlyList<MenuForCurrentUserResponse> menus) =>

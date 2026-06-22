@@ -397,7 +397,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // ainda está null, então não sobrescreve valores do RH.
         await PreAdmissaoDefaultsSeeder.ApplyAsync(e, _db, _tenantContext.TenantId!, ct);
 
-        // Run validations
+        var admissionIssues = PreAdmissaoAdmissionValidator.Validate(e);
+        if (admissionIssues.Count > 0)
+            throw new TotvsValidationException(admissionIssues);
+
         e.ValidacaoCpfOk = ValidarCpf(e.Cpf);
         e.ValidacaoCepOk = !string.IsNullOrWhiteSpace(e.Cep);
         e.ValidacaoBancoOk = !string.IsNullOrWhiteSpace(e.BancoCodigo) && !string.IsNullOrWhiteSpace(e.Conta);
@@ -420,20 +423,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.SubmittedAtUtc = DateTimeOffset.UtcNow;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        // Auto-aprovar: se os campos obrigatórios do TOTVS estiverem todos preenchidos,
-        // já avança direto para Aprovada (Pendente TOTVS), sem exigir ação manual do RH.
-        // Se a validação falhar, mantém Preenchido e relança os erros para o chamador.
-        var issues = PreAdmissaoTotvsValidator.Validate(e);
-        if (issues.Count == 0)
+        // Auto-aprovar somente quando a validação TOTVS completa passar.
+        // Campos extras do TOTVS podem ser preenchidos depois; o submit exige apenas os mínimos de admissão.
+        var totvsIssues = PreAdmissaoTotvsValidator.Validate(e);
+        if (totvsIssues.Count == 0)
         {
             e.Status = PreAdmissaoStatus.Aprovada;
             e.ApprovedAtUtc = DateTimeOffset.UtcNow;
         }
 
         await _db.SaveChangesAsync(ct);
-
-        if (issues.Count > 0)
-            throw new TotvsValidationException(issues);
 
         // Se auto-aprovou, criar acesso ao portal (mesmo fluxo de ApproveAsync).
         if (e.Status == PreAdmissaoStatus.Aprovada)
@@ -1061,6 +1060,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     public async Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct)
     {
         var candidato = await _db.Set<Candidato>()
+            .Include(c => c.Talento)
+                .ThenInclude(t => t!.Pessoa)
             .FirstOrDefaultAsync(c => c.Id == request.CandidatoId && c.TenantId == _tenantContext.TenantId, ct)
             ?? throw new InvalidOperationException("Candidato não encontrado.");
 
@@ -1117,6 +1118,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                 existing.VagaId = candidato.VagaId;
             if (string.IsNullOrWhiteSpace(existing.Celular))
                 existing.Celular = (candidato.Celular ?? candidato.Fone)?.Trim();
+            PreAdmissaoCandidatoPrefill.ApplyIfEmpty(existing, candidato);
             existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(ct);
             return (await GetByIdAsync(existing.Id, ct))!;
@@ -1132,6 +1134,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Nome = candidato.Nome.Trim(),
             Email = candidato.Email?.Trim(),
             Celular = (candidato.Celular ?? candidato.Fone)?.Trim(),
+            Cidade = candidato.Cidade?.Trim(),
+            Uf = candidato.Uf?.Trim(),
             JobPositionId = request.JobPositionId,
             CodCargoTotvs = jobPosition?.TotvsCargoBasicId,
             CentroCustoId = request.CentroCustoId ?? vaga?.CentroCustoId,
@@ -1143,6 +1147,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
+
+        PreAdmissaoCandidatoPrefill.ApplyIfEmpty(entity, candidato);
 
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);

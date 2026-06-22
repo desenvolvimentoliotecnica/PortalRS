@@ -179,16 +179,25 @@ public sealed class NavegacaoSidebarServiceTests
     }
 
     [Fact]
-    public void Build_PendenciasESolicitacoes_VaoParaPrincipais()
+    public void Build_PendenciasESolicitacoes_AprovacoesSomenteOwner()
     {
-        var resp = NavegacaoSidebarService.Build(
+        var respTenant = NavegacaoSidebarService.Build(
             permissions: new[] { "aprovacoes-vaga.view", "solicitacoes-vaga.view" },
             enabledModuleKeys: TodosModulosHabilitados(),
             contextoEspecial: null);
 
-        var principais = resp.Grupos.Single(g => g.Key == "principais");
-        Assert.Contains(principais.Itens, i => i.Href == "/gestao/aprovacoes");
-        Assert.Contains(principais.Itens, i => i.Href == "/gestao/solicitacoes");
+        var principaisTenant = respTenant.Grupos.Single(g => g.Key == "principais");
+        Assert.DoesNotContain(principaisTenant.Itens, i => i.Href == "/gestao/aprovacoes");
+        Assert.Contains(principaisTenant.Itens, i => i.Href == "/gestao/solicitacoes");
+
+        var respOwner = NavegacaoSidebarService.Build(
+            permissions: new[] { "*" },
+            enabledModuleKeys: TodosModulosHabilitados(),
+            contextoEspecial: "owner-em-tenant");
+
+        var principaisOwner = respOwner.Grupos.Single(g => g.Key == "principais");
+        Assert.Contains(principaisOwner.Itens, i => i.Href == "/gestao/aprovacoes");
+        Assert.Contains(principaisOwner.Itens, i => i.Href == "/gestao/solicitacoes");
     }
 
     [Fact]

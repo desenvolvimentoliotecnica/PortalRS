@@ -53,8 +53,6 @@ type JobItem = {
   tagsKeywordsRaw?: string | null;
   tagsStackRaw?: string | null;
   tagsResponsabilidadesRaw?: string | null;
-  salarioMinimo?: number | null;
-  salarioMaximo?: number | null;
   createdAtUtc?: string | null;
   empresaNome?: string | null;
   tenantName?: string | null;

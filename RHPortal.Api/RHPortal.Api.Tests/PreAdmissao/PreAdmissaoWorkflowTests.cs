@@ -130,6 +130,21 @@ public sealed class PreAdmissaoWorkflowTests
         return pessoa.Id;
     }
 
+    private static async Task PreencherCamposObrigatoriosAdmissaoAsync(AppDbContext db, Guid id)
+    {
+        var entity = await db.Set<Domain.Entities.PreAdmissao>().FirstAsync(x => x.Id == id);
+        entity.Rg = "353673791";
+        entity.Cpf = CpfValido;
+        entity.DataNascimento = new DateOnly(1990, 1, 10);
+        entity.Cidade = "Sao Paulo";
+        entity.Uf = "SP";
+        entity.NomeMae = "Maria Teste";
+        entity.NomePai = "Joao Teste";
+        entity.PisPasep = "38752119521";
+        entity.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+    }
+
     private static async Task PreencherCamposObrigatoriosTotvsAsync(AppDbContext db, Guid id)
     {
         var entity = await db.Set<Domain.Entities.PreAdmissao>().FirstAsync(x => x.Id == id);
@@ -165,28 +180,25 @@ public sealed class PreAdmissaoWorkflowTests
 
     // ── Submit (Rascunho/Enviado → Preenchido → auto-aprova se TOTVS ok) ──
     //
-    // Após PreAdmissaoDefaultsIntegracaoTests: Submit agora tenta auto-aprovar
-    // rodando o validator TOTVS. Se faltarem campos, mantém Preenchido e lança
-    // TotvsValidationException. Testes abaixo ajustados para refletir isso.
+    // Submit exige apenas os campos mínimos de admissão (PreAdmissaoAdmissionValidator).
+    // A validação TOTVS completa roda só para auto-aprovação; falhas TOTVS não bloqueiam o submit.
 
     [Fact]
-    public async Task Submit_StatusRascunho_SemDadosTotvs_LancaTotvsValidationException()
+    public async Task Submit_StatusRascunho_SemCamposAdmissao_LancaTotvsValidationException()
     {
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Rascunho);
 
-        // Dados mínimos (nome/cpf) não passam no validator TOTVS → exception.
         await Assert.ThrowsAsync<TotvsValidationException>(
             () => svc.SubmitAsync(id, CancellationToken.None));
 
-        // Porém o status muda para Preenchido (persiste antes de validar).
         var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == id);
-        Assert.Equal(PreAdmissaoStatus.Preenchido, entity.Status);
-        Assert.NotNull(entity.SubmittedAtUtc);
+        Assert.Equal(PreAdmissaoStatus.Rascunho, entity.Status);
+        Assert.Null(entity.SubmittedAtUtc);
     }
 
     [Fact]
-    public async Task Submit_StatusEnviado_SemDadosTotvs_LancaTotvsValidationException()
+    public async Task Submit_StatusEnviado_SemCamposAdmissao_LancaTotvsValidationException()
     {
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Enviado);
@@ -195,14 +207,12 @@ public sealed class PreAdmissaoWorkflowTests
             () => svc.SubmitAsync(id, CancellationToken.None));
 
         var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == id);
-        Assert.Equal(PreAdmissaoStatus.Preenchido, entity.Status);
+        Assert.Equal(PreAdmissaoStatus.Enviado, entity.Status);
     }
 
     [Fact]
-    public async Task Submit_StatusPreenchido_SemDadosTotvs_LancaTotvsValidationException()
+    public async Task Submit_StatusPreenchido_SemCamposAdmissao_LancaTotvsValidationException()
     {
-        // Status Preenchido é submissível (o Submit roda validator e pode ir pra Aprovada);
-        // com dados mínimos, ainda falha por não passar no validator.
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido);
 
@@ -211,12 +221,25 @@ public sealed class PreAdmissaoWorkflowTests
     }
 
     [Fact]
+    public async Task Submit_ComCamposAdmissao_TransicionaParaPreenchido()
+    {
+        var (db, svc) = CriarServico();
+        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Rascunho, cpf: CpfValido);
+        await PreencherCamposObrigatoriosAdmissaoAsync(db, id);
+
+        var result = await svc.SubmitAsync(id, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(PreAdmissaoStatus.Preenchido, result.Status);
+        Assert.NotNull(result.SubmittedAtUtc);
+    }
+
+    [Fact]
     public async Task Submit_StatusPreenchido_RevalidaEMantemPreenchido()
     {
-        // Status Preenchido é submissível (o Submit roda validator e pode ir pra Aprovada);
-        // com dados mínimos, ainda falha por não passar no validator.
         var (db, svc) = CriarServico();
-        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido);
+        var id = SeedPreAdmissao(db, PreAdmissaoStatus.Preenchido, cpf: CpfValido);
+        await PreencherCamposObrigatoriosAdmissaoAsync(db, id);
 
         var result = await svc.SubmitAsync(id, CancellationToken.None);
 
@@ -228,13 +251,11 @@ public sealed class PreAdmissaoWorkflowTests
     [Fact]
     public async Task Submit_CpfValido_SetaValidacaoCpfOkTrue()
     {
-        // CPF válido: o ValidacaoCpfOk é marcado antes do validator TOTVS rodar;
-        // se faltar TOTVS, a exception estoura mas o flag foi persistido.
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Rascunho, cpf: CpfValido);
+        await PreencherCamposObrigatoriosAdmissaoAsync(db, id);
 
-        await Assert.ThrowsAsync<TotvsValidationException>(
-            () => svc.SubmitAsync(id, CancellationToken.None));
+        await svc.SubmitAsync(id, CancellationToken.None);
 
         var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == id);
         Assert.True(entity.ValidacaoCpfOk);
@@ -245,9 +266,12 @@ public sealed class PreAdmissaoWorkflowTests
     {
         var (db, svc) = CriarServico();
         var id = SeedPreAdmissao(db, PreAdmissaoStatus.Rascunho, cpf: "000.000.000-00");
+        await PreencherCamposObrigatoriosAdmissaoAsync(db, id);
+        var entityBefore = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == id);
+        entityBefore.Cpf = "000.000.000-00";
+        await db.SaveChangesAsync();
 
-        await Assert.ThrowsAsync<TotvsValidationException>(
-            () => svc.SubmitAsync(id, CancellationToken.None));
+        await svc.SubmitAsync(id, CancellationToken.None);
 
         var entity = await db.Set<Domain.Entities.PreAdmissao>().IgnoreQueryFilters().FirstAsync(x => x.Id == id);
         Assert.False(entity.ValidacaoCpfOk);

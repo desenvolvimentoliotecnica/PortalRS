@@ -107,6 +107,7 @@ public sealed class NavegacaoSidebarService
         {
             // 1) Permissão + filtro de contexto owner
             if (isOwnerContext && item.OcultarDoOwner) continue;
+            if (item.SomenteOwner && !hasWildcard) continue;
             var temPermissao = hasWildcard || permSet.Contains(item.PermissionKey);
             if (!temPermissao) continue; // não emite sem permissão (matches UX atual)
 

@@ -37,25 +37,12 @@ async function loginViaUI(page: Page) {
 }
 
 /**
- * Lista dos 45 campos obrigatórios do wizard — deve bater 1:1 com o
+ * Campos obrigatórios do wizard — deve bater 1:1 com o
  * `validatePreAdmissao` em `src/features/admissao/validation.ts`.
  */
 const CAMPOS_OBRIGATORIOS = [
-    // Step 0 — Pessoal
-    "nome", "nomeAbreviado", "cpf", "dataNascimento", "sexo", "estadoCivil",
-    "paisNacionalidade", "paisNascimento", "naturalUf", "naturalCidade", "origemFuncionario",
-    "regIdentidCivilNumero", "regIdentidCivilOrgEmiss", "regIdentidCivilUf", "regIdentidCivilCidade",
-    "cutis", "cabelo", "olhos",
-    // Step 1 — Endereço
-    "cep", "logradouro", "bairro", "cidade", "uf", "municipioEnderecoIbge",
-    // Step 4 — Trabalhista
-    "dataAdmissao", "salario", "codCargoTotvs", "codVinculoEmpregaticio", "tipoFuncionario",
-    "categoriaSalarial", "grauInstrucao", "cargaHorariaSemanal", "emitCartPonto", "tipoEstatistica",
-    "codTurma", "indFuncVinculado", "tipoMaoDeObra", "codSindicato", "codLocalMarcacao",
-    "codClassFuncPontoEletronico", "codLocalidade",
-    "formaPagamento", "tipoAdmissaoFgts", "paisLocalidade",
-    "docMilitarTipo", "docMilitarRegiao", "docMilitarCircunscricao",
-    "tipoVistoEstrangeiro", "ocorrenciaCAGED",
+    "nome", "rg", "cpf", "dataNascimento", "nomeMae", "nomePai",
+    "cidade", "uf", "pisPasep",
 ];
 
 test("Wizard bloqueia submit vazio e destaca todos campos obrigatórios em vermelho", async ({ page }) => {

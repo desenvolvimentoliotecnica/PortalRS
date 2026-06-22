@@ -14,8 +14,6 @@ public sealed record PortalVagaCardResponse(
     string? TagsKeywordsRaw,
     string? TagsStackRaw,
     string? TagsResponsabilidadesRaw,
-    decimal? SalarioMinimo,
-    decimal? SalarioMaximo,
     DateTimeOffset CreatedAtUtc,
     string? TenantName,
     string? DescricaoPublica,

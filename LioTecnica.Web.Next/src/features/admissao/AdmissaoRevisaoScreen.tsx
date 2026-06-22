@@ -831,13 +831,6 @@ export default function AdmissaoRevisaoScreen() {
                         <Info label="UF Expedidor" value={data.rgUfExpedidor} />
                         <Info label="Data Expedição" value={data.rgDataExpedicao} />
                     </Section>
-                    <Section title="RIC — Registro Identidade Civil" icon={FileText}>
-                        <Info label="Número" value={data.regIdentidCivilNumero} />
-                        <Info label="Órgão Emissor" value={data.regIdentidCivilOrgEmiss} />
-                        <Info label="UF" value={data.regIdentidCivilUf} />
-                        <Info label="Cidade" value={data.regIdentidCivilCidade} />
-                        <Info label="Data Expedição" value={data.regIdentidCivilDataExped} />
-                    </Section>
                     <Section title="Características Físicas" icon={User}>
                         <Info label="Raça/Cor" value={data.cutis != null ? CUTIS_L[data.cutis] : null} />
                         <Info label="Cabelo" value={data.cabelo != null ? CABELO_L[data.cabelo] : null} />

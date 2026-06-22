@@ -360,13 +360,12 @@ function SolicitacoesVagaContent() {
     const isRhEspecialista = normalizedRoles.some((role) => role.includes("especialista") && role.includes("rh"));
     const isRhLegadoAmplo = normalizedRoles.some((role) => role === "rh" || role.startsWith("recrutador"));
     const rhListaAmpla =
-        !isRhAnalista && (
-            isRhEspecialista
-            || isRhLegadoAmplo
-            || canViewRhContratacoes
-            || canTriagemRhContratacoes
-            || canSelecaoRhContratacoes
-        );
+        isRhAnalista
+        || isRhEspecialista
+        || isRhLegadoAmplo
+        || canViewRhContratacoes
+        || canTriagemRhContratacoes
+        || canSelecaoRhContratacoes;
     const canDistribuirParaAnalistaRh = isAdminOrOwner || isRhEspecialista;
 
     /* ── data ── */
