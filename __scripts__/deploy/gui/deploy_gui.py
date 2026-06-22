@@ -950,6 +950,7 @@ class DeployGui(tk.Tk):
         self.mode_var = tk.StringVar(value="smart")
         self.config_data = self._load_config()
         self._build_ui()
+        self.protocol("WM_DELETE_WINDOW", self._on_close_request)
         self.after(100, self._process_queue)
 
     def _apply_environment_defaults(self, env_id: str) -> None:
@@ -1126,6 +1127,23 @@ class DeployGui(tk.Tk):
         if not messagebox.askyesno("Confirmar rollback", "Deseja voltar para o ultimo SHA anterior salvo no servidor?"):
             return
         self._start_worker("rollback")
+
+    def _is_worker_running(self) -> bool:
+        return self.worker is not None and self.worker.is_alive()
+
+    def _on_close_request(self) -> None:
+        if self._is_worker_running():
+            if not messagebox.askyesno(
+                "Deploy em andamento",
+                "Ha um deploy ou rollback em execucao.\n\n"
+                "Se fechar agora, a operacao sera interrompida no meio. "
+                "O servidor pode ficar com build parcial ou stack inconsistente, "
+                "mas em geral e seguro rodar o deploy novamente.\n\n"
+                "Deseja fechar mesmo assim?",
+                icon="warning",
+            ):
+                return
+        self.destroy()
 
     def _start_worker(self, action: str) -> None:
         if self.worker and self.worker.is_alive():
