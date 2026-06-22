@@ -15,6 +15,9 @@ DOCKER_NETWORK_SUBNET="${DOCKER_NETWORK_SUBNET:-192.168.240.0/24}"
 
 cd "$COMPOSE_DIR"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PURGE_SCRIPT="${PURGE_SCRIPT:-$SCRIPT_DIR/docker-deploy-purge.sh}"
+
 if [[ -n "${GHCR_PULL_TOKEN:-}" && -n "${GHCR_PULL_USER:-}" ]]; then
   echo "$GHCR_PULL_TOKEN" | docker login ghcr.io -u "$GHCR_PULL_USER" --password-stdin
 fi
@@ -22,6 +25,15 @@ fi
 if [[ ! -f "$DEV_ENV_FILE" ]]; then
   echo "ERRO: $DEV_ENV_FILE não existe. Crie o arquivo de ambiente antes do deploy."
   exit 1
+fi
+
+if [[ -x "$PURGE_SCRIPT" ]]; then
+  DEPLOY_PURGE_REGISTRY_PREFIX="$DEV_REGISTRY_PREFIX" \
+  DEPLOY_PURGE_KEEP_TAG="$DEV_IMAGE_TAG" \
+  DEPLOY_PURGE_PHASE=pre-pull \
+  bash "$PURGE_SCRIPT"
+else
+  echo "WARN: $PURGE_SCRIPT não encontrado; deploy continua sem purge pré-pull."
 fi
 
 docker compose -f "$COMPOSE_FILE" pull
@@ -45,6 +57,13 @@ fi
 
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 docker compose -f "$COMPOSE_FILE" ps
+
+if [[ -x "$PURGE_SCRIPT" ]]; then
+  DEPLOY_PURGE_REGISTRY_PREFIX="$DEV_REGISTRY_PREFIX" \
+  DEPLOY_PURGE_KEEP_TAG="$DEV_IMAGE_TAG" \
+  DEPLOY_PURGE_PHASE=post-up \
+  bash "$PURGE_SCRIPT"
+fi
 
 sleep 8
 curl -fsS "http://127.0.0.1:5000/health" | head -c 400 || echo "(verifica logs da API se health falhar)"

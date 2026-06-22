@@ -574,8 +574,12 @@ function PortalApp() {
           <nav className="portal-navbar">
             <div className="portal-container portal-nav-inner">
               <Link className="portal-brand" to={withTenant('/', tenantId)}>
-                <i className="fas fa-flask" aria-hidden="true"></i>
-                <span>LT Portal de Vagas</span>
+                <img
+                  className="portal-brand-logo"
+                  src="/images/logo-liotecnica.png"
+                  alt="Liotécnica"
+                />
+                <span>Portal de Vagas</span>
               </Link>
               <div className="portal-actions">
                 {session ?(

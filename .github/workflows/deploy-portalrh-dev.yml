@@ -140,6 +140,8 @@ jobs:
         run: |
           cp docker-compose.portalrh-dev.yml ~/rhportal-dev/
           cp __scripts__/deploy/portalrh-dev-compose-pull-up.sh ~/rhportal-dev/
+          cp __scripts__/deploy/docker-deploy-purge.sh ~/rhportal-dev/
+          chmod +x ~/rhportal-dev/portalrh-dev-compose-pull-up.sh ~/rhportal-dev/docker-deploy-purge.sh
 
       - name: Pull images and recreate stack
         run: |
