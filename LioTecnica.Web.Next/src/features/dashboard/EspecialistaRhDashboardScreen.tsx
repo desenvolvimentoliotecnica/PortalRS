@@ -5,14 +5,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import {
   AlertCircle,
   BarChart3,
-  BriefcaseBusiness,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
-  ClipboardList,
   FileText,
   RefreshCw,
-  UserRoundCheck,
   UsersRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -130,13 +126,6 @@ const toneClasses: Record<Tone, { soft: string; text: string; border: string; bg
   red: { soft: "bg-rose-50 text-rose-600", text: "text-rose-600", border: "border-rose-100", bg: "bg-rose-50" },
   slate: { soft: "bg-slate-100 text-slate-600", text: "text-slate-600", border: "border-slate-100", bg: "bg-slate-50" },
 };
-
-const quickActions = [
-  { label: "Distribuir requisições", icon: ClipboardList, href: "/app/gestao/painel-solicitacoes" },
-  { label: "Monitorar vagas", icon: BriefcaseBusiness, href: "/app/vagas" },
-  { label: "Ver agenda", icon: CalendarDays, href: "/app/agendas" },
-  { label: "Pipeline de candidatos", icon: UserRoundCheck, href: "/app/candidaturas" },
-];
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await apiFetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
@@ -298,10 +287,9 @@ export default function EspecialistaRhDashboardScreen({ displayName }: { display
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight text-slate-900">Bom dia, {firstName(displayName)}</h1>
-          <p className="mt-1 text-sm font-medium text-slate-500">
-            Aqui está a visão global de recrutamento, distribuição do time e agenda.
-            {loading ? " Carregando indicadores..." : null}
-          </p>
+          {loading ? (
+            <p className="mt-1 text-sm font-medium text-slate-500">Carregando indicadores...</p>
+          ) : null}
           {partialError ? (
             <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
               Alguns indicadores não puderam ser carregados e foram exibidos com os últimos valores disponíveis.
@@ -322,22 +310,6 @@ export default function EspecialistaRhDashboardScreen({ displayName }: { display
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(360px,1fr)]">
         <div className="space-y-4">
-          <Panel>
-            <PanelHeader title="Ações rápidas" />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {quickActions.map(({ label, icon: Icon, href }) => (
-                <Link
-                  key={label}
-                  href={href}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-blue-100 bg-white px-4 text-sm font-semibold text-blue-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50"
-                >
-                  <Icon className="size-4" />
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </Panel>
-
           <Panel>
             <PanelHeader title="Funil global de recrutamento" action="Ver candidaturas" actionHref="/app/candidaturas" />
             <div className="mt-4 grid gap-3 md:grid-cols-5">

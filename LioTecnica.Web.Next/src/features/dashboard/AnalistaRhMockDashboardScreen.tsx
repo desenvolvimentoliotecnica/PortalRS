@@ -8,10 +8,7 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
-  Filter,
   MoreVertical,
-  Plus,
-  Send,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -153,13 +150,6 @@ const toneClasses: Record<Tone, { soft: string; text: string; border: string; bg
     bg: "bg-rose-50",
   },
 };
-
-const quickActions = [
-  { label: "Nova vaga", icon: Plus, href: "/app/vagas?open=create" },
-  { label: "Triar candidatos", icon: Filter, href: "/app/candidaturas" },
-  { label: "Agendar entrevista", icon: CalendarDays, href: "/app/agendas" },
-  { label: "Publicar vaga", icon: Send, href: "/app/vagas" },
-];
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await apiFetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
@@ -411,22 +401,6 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(360px,1fr)]">
         <div className="space-y-4">
-          <Panel className="p-4">
-            <PanelHeader title="Ações rápidas" />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {quickActions.map(({ label, icon: Icon, href }) => (
-                <a
-                  key={label}
-                  href={href}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-blue-100 bg-white px-4 text-sm font-semibold text-blue-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50"
-                >
-                  <Icon className="size-4" />
-                  {label}
-                </a>
-              ))}
-            </div>
-          </Panel>
-
           <Panel className="p-4">
             <PanelHeader title="Pipeline de Recrutamento" />
             <div className="mt-4 grid gap-3 md:grid-cols-5">
