@@ -97,6 +97,7 @@ public static class NavegacaoManifest
         // ── Principais (destacados, respeitam gate de módulo) ────────────────
         new("nav-dashboard",                "Dashboard",              "/dashboard",                      "layoutdashboard",   "dashboard.view",           Destacado: true, Ordem: 10),
         new("nav-gestao-solicitacoes-vaga","Solicitações",           "/gestao/solicitacoes",            "clipboardlist",     "solicitacoes-vaga.view",   Destacado: true, Ordem: 50),
+        new("nav-desligamentos",            "Desligamentos",          "/gestao/desligamentos",           "user-minus",        "folha.desligamentos.view", ModuloKeyOverride: "recrutamento", Destacado: true, Ordem: 55),
         new("nav-gestao-aprovacoes-vaga",  "Aprovações",             "/gestao/aprovacoes",               "listchecks",        "aprovacoes-vaga.view",      Destacado: true, Ordem: 60, SomenteOwner: true),
 
         // ── Recrutamento e Seleção (pacote) ──────────────────────────────────
@@ -141,7 +142,6 @@ public static class NavegacaoManifest
         // ── Folha de Pagamento (pacote inativo hoje — itens aparecem bloqueados) ──
         new("nav-batida-ponto",             "Batida de Ponto",        "/gestao/batida-ponto",            "clock",             "folha.batida-ponto.view",  ModuloKeyOverride: "folha-pagamento", Ordem: 10),
         new("nav-pagamento-extra",          "Pagamento Extra",        "/gestao/comissoes",               "badge-dollar-sign", "folha.pagamento-extra.view", ModuloKeyOverride: "folha-pagamento", Ordem: 20),
-        new("nav-desligamentos",            "Desligamentos",          "/gestao/desligamentos",           "user-minus",        "folha.desligamentos.view", ModuloKeyOverride: "folha-pagamento", Ordem: 30),
         new("nav-entrevista-template",      "Questionário de saída",  "/gestao/desligamentos/entrevista-template", "clipboard-list", "folha.entrevista-saida.manage", ModuloKeyOverride: "folha-pagamento", Ordem: 31),
         new("nav-entrevistas-saida",        "Entrevistas de saída",   "/gestao/desligamentos/entrevistas-saida", "message-square-text", "folha.entrevista-saida.manage", ModuloKeyOverride: "folha-pagamento", Ordem: 32),
 
