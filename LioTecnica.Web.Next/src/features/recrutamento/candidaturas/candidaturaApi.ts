@@ -21,7 +21,7 @@ export const ETAPA_KANBAN_LABELS: Record<EtapaMacroCandidatura, string> = {
   EmTriagem: "Triagem",
   Entrevista: "Entrevista RH",
   EntrevistaTecnica: "Entrevista Técnica/Gestão",
-  Teste: "Testes (quando aplicável)",
+  Teste: "Testes",
   Proposta: "Envio da Proposta",
   Contratado: "Aprovado",
   ReprovadoRh: "Reprovado RH",

@@ -811,7 +811,7 @@ public sealed class CandidaturaService : ICandidaturaService
         new(EtapaMacroCandidatura.EmTriagem, "Triagem", e => e == EtapaMacroCandidatura.EmTriagem),
         new(EtapaMacroCandidatura.Entrevista, "Entrevista RH", e => e == EtapaMacroCandidatura.Entrevista),
         new(EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista Técnica/Gestão", e => e == EtapaMacroCandidatura.EntrevistaTecnica),
-        new(EtapaMacroCandidatura.Teste, "Testes (quando aplicável)", e => e == EtapaMacroCandidatura.Teste),
+        new(EtapaMacroCandidatura.Teste, "Testes", e => e == EtapaMacroCandidatura.Teste),
         new(EtapaMacroCandidatura.Proposta, "Envio da Proposta", e => e == EtapaMacroCandidatura.Proposta),
         new(EtapaMacroCandidatura.Contratado, "Aprovado", e => e == EtapaMacroCandidatura.Contratado),
         new(EtapaMacroCandidatura.ReprovadoRh, "Reprovado RH", e => e == EtapaMacroCandidatura.ReprovadoRh),
