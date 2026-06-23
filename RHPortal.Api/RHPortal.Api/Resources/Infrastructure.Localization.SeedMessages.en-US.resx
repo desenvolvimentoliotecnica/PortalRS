@@ -102,6 +102,12 @@
   <data name="Seed.Menu.SolicitacoesVaga" xml:space="preserve">
     <value>Job Requests</value>
   </data>
+  <data name="Seed.Menu.Desligamentos" xml:space="preserve">
+    <value>Offboarding</value>
+  </data>
+  <data name="Seed.Menu.EntrevistaSaidaTemplate" xml:space="preserve">
+    <value>Exit interview questionnaire</value>
+  </data>
   <data name="Seed.Menu.Aprovacoes" xml:space="preserve">
     <value>Approvals</value>
   </data>
