@@ -102,6 +102,12 @@
   <data name="Seed.Menu.SolicitacoesVaga" xml:space="preserve">
     <value>Solicitações de Vaga</value>
   </data>
+  <data name="Seed.Menu.Desligamentos" xml:space="preserve">
+    <value>Desligamentos</value>
+  </data>
+  <data name="Seed.Menu.EntrevistaSaidaTemplate" xml:space="preserve">
+    <value>Questionário de saída</value>
+  </data>
   <data name="Seed.Menu.Aprovacoes" xml:space="preserve">
     <value>Aprovações</value>
   </data>

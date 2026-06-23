@@ -64,12 +64,15 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.triagem]: "Candidaturas",
   [RECRUITMENT_ROUTE_KEYS.admissao]: "Admissão",
   [RECRUITMENT_ROUTE_KEYS.integracao]: "Integração TOTVS",
+  [RECRUITMENT_ROUTE_KEYS.desligamentos]: "Desligamentos",
   [RECRUITMENT_ROUTE_KEYS.painelSolicitacoes]: "Painel de Solicitações",
   [RECRUITMENT_ROUTE_KEYS.meuTime]: "Meu Time",
 };
 
 export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.dashboard,
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,
+  RECRUITMENT_ROUTE_KEYS.desligamentos,
   RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.portalVagas,
   RECRUITMENT_ROUTE_KEYS.talentos,

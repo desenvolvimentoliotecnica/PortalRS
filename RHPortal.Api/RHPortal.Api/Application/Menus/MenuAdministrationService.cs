@@ -54,6 +54,8 @@ public sealed class MenuAdministrationService
             ["gestao.planos"] = "Seed.Menu.GestaoPlanos",
             ["gestao.humor"] = "Seed.Menu.GestaoHumor",
             ["gestao.resumo"] = "Seed.Menu.GestaoResumo",
+            ["folha.desligamentos.view"] = "Seed.Menu.Desligamentos",
+            ["folha.entrevista-saida.manage"] = "Seed.Menu.EntrevistaSaidaTemplate",
             ["departments.view"] = "Seed.Menu.Departamentos",
             ["areas.view"] = "Seed.Menu.Areas",
             ["categories.view"] = "Seed.Menu.Funcoes",
