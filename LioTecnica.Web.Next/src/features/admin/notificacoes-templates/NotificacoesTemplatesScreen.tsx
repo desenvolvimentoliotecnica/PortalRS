@@ -18,6 +18,7 @@ import {
   type CanalNotificacao,
   type EtapaMacroCandidatura,
   type NotificacaoTemplateItem,
+  ETAPA_KANBAN_LABELS,
   listarNotificacoesTemplates,
   resolveCanal,
   resolveEtapa,
@@ -41,19 +42,7 @@ const ETAPAS_EDITAVEIS: EtapaMacroCandidatura[] = [
 
 const CANAIS: CanalNotificacao[] = ["Email", "WhatsApp"];
 
-const ETAPA_LABEL: Record<EtapaMacroCandidatura, string> = {
-  Aplicada: "Aplicada",
-  EmTriagem: "Em triagem",
-  Entrevista: "Entrevista",
-  EntrevistaTecnica: "Entrevista técnica",
-  Teste: "Teste",
-  Proposta: "Proposta",
-  Contratado: "Em processo de admissão",
-  ReprovadoRh: "Reprovado RH",
-  ReprovadoGestor: "Reprovado Gestor",
-  Recusado: "Recusado",
-  Desistiu: "Desistiu",
-};
+const ETAPA_LABEL = ETAPA_KANBAN_LABELS;
 
 const ETAPA_COLOR: Record<EtapaMacroCandidatura, string> = {
   Aplicada: "bg-sky-50 text-sky-800 border-sky-200",

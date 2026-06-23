@@ -351,7 +351,9 @@ public sealed class CandidaturaService : ICandidaturaService
             string.IsNullOrWhiteSpace(request.Observacao) ? null : $"Observação: {request.Observacao.Trim()}",
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
-        var tituloEtapa = etapa == EtapaMacroCandidatura.EntrevistaTecnica ? "Entrevista técnica" : "Entrevista";
+        var tituloEtapa = etapa == EtapaMacroCandidatura.EntrevistaTecnica
+            ? "Entrevista Técnica/Gestão"
+            : "Entrevista RH";
 
         _db.AgendaEvents.Add(new AgendaEvent
         {
@@ -480,27 +482,14 @@ public sealed class CandidaturaService : ICandidaturaService
             rows.Select(r => (r.CandidatoId, r.VagaId, r.MatchScore)),
             ct);
 
-        var etapas = new[]
-        {
-            (EtapaMacroCandidatura.Aplicada, "Aplicada"),
-            (EtapaMacroCandidatura.EmTriagem, "Em triagem"),
-            (EtapaMacroCandidatura.Entrevista, "Entrevista"),
-            (EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista técnica"),
-            (EtapaMacroCandidatura.Teste, "Teste"),
-            (EtapaMacroCandidatura.Proposta, "Proposta"),
-            (EtapaMacroCandidatura.Contratado, "Em processo de admissão"),
-            (EtapaMacroCandidatura.ReprovadoRh, "Reprovado RH"),
-            (EtapaMacroCandidatura.ReprovadoGestor, "Reprovado Gestor"),
-            (EtapaMacroCandidatura.Recusado, "Recusado"),
-            (EtapaMacroCandidatura.Desistiu, "Desistiu"),
-        };
+        var etapas = KanbanColunasDefinicao();
 
         var nowSla = DateTimeOffset.UtcNow;
-        var colunas = etapas.Select(e =>
+        var colunas = etapas.Select(def =>
         {
-            var slaEtapaDefault = SlaDiasPorEtapa(e.Item1);
+            var slaEtapaDefault = SlaDiasPorEtapa(def.EtapaChave);
             var itens = rows
-                .Where(r => r.EtapaMacro == e.Item1)
+                .Where(r => def.IncluirEtapa(r.EtapaMacro))
                 .Select(r =>
                 {
                     var dataRef = r.EtapaAtualDesdeUtc ?? r.AplicadaEmUtc;
@@ -532,7 +521,7 @@ public sealed class CandidaturaService : ICandidaturaService
                         semaforo);
                 })
                 .ToList();
-            return new KanbanColunaResponse(e.Item1, e.Item2, itens.Count, itens);
+            return new KanbanColunaResponse(def.EtapaChave, def.Titulo, itens.Count, itens);
         }).ToList();
 
         return new KanbanCandidaturasResponse(colunas, total);
@@ -657,13 +646,13 @@ public sealed class CandidaturaService : ICandidaturaService
         // Etapas terminais (Recusado, Desistiu) não fazem parte do funil — exibidas separadas no UI se quiser
         var funilOrdenado = new[]
         {
-            (EtapaMacroCandidatura.Aplicada,    "Aplicada"),
-            (EtapaMacroCandidatura.EmTriagem,   "Em Triagem"),
-            (EtapaMacroCandidatura.Entrevista,  "Entrevista"),
-            (EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista Técnica"),
-            (EtapaMacroCandidatura.Teste,       "Teste"),
-            (EtapaMacroCandidatura.Proposta,    "Proposta"),
-            (EtapaMacroCandidatura.Contratado,  "Em processo de admissão"),
+            (EtapaMacroCandidatura.Aplicada,    "Candidatura"),
+            (EtapaMacroCandidatura.EmTriagem,   "Triagem"),
+            (EtapaMacroCandidatura.Entrevista,  "Entrevista RH"),
+            (EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista Técnica/Gestão"),
+            (EtapaMacroCandidatura.Teste,       "Testes"),
+            (EtapaMacroCandidatura.Proposta,    "Envio da Proposta"),
+            (EtapaMacroCandidatura.Contratado,  "Aprovado"),
         };
 
         // Para representar o funil "cumulativo": etapa N = quem ESTÁ ou JÁ PASSOU pela etapa N
@@ -809,4 +798,24 @@ public sealed class CandidaturaService : ICandidaturaService
 
     private static bool IsEtapaComAgendaEntrevista(EtapaMacroCandidatura etapa)
         => etapa is EtapaMacroCandidatura.Entrevista or EtapaMacroCandidatura.EntrevistaTecnica;
+
+    private sealed record KanbanColunaDef(
+        EtapaMacroCandidatura EtapaChave,
+        string Titulo,
+        Func<EtapaMacroCandidatura, bool> IncluirEtapa);
+
+    /// <summary>Colunas do Kanban de Candidaturas (funil Key User — 10 colunas).</summary>
+    private static IReadOnlyList<KanbanColunaDef> KanbanColunasDefinicao() =>
+    [
+        new(EtapaMacroCandidatura.Aplicada, "Candidatura", e => e == EtapaMacroCandidatura.Aplicada),
+        new(EtapaMacroCandidatura.EmTriagem, "Triagem", e => e == EtapaMacroCandidatura.EmTriagem),
+        new(EtapaMacroCandidatura.Entrevista, "Entrevista RH", e => e == EtapaMacroCandidatura.Entrevista),
+        new(EtapaMacroCandidatura.EntrevistaTecnica, "Entrevista Técnica/Gestão", e => e == EtapaMacroCandidatura.EntrevistaTecnica),
+        new(EtapaMacroCandidatura.Teste, "Testes (quando aplicável)", e => e == EtapaMacroCandidatura.Teste),
+        new(EtapaMacroCandidatura.Proposta, "Envio da Proposta", e => e == EtapaMacroCandidatura.Proposta),
+        new(EtapaMacroCandidatura.Contratado, "Aprovado", e => e == EtapaMacroCandidatura.Contratado),
+        new(EtapaMacroCandidatura.ReprovadoRh, "Reprovado RH", e => e == EtapaMacroCandidatura.ReprovadoRh),
+        new(EtapaMacroCandidatura.ReprovadoGestor, "Reprovado Gestão", e => e == EtapaMacroCandidatura.ReprovadoGestor),
+        new(EtapaMacroCandidatura.Desistiu, "Declinado", e => e is EtapaMacroCandidatura.Recusado or EtapaMacroCandidatura.Desistiu),
+    ];
 }
