@@ -20,6 +20,14 @@ const CONFIG_OPTIONS = [
 ];
 
 const TIPOS_EXTRAS: DocItem[] = [
+    { tipoDocumento: 24, label: "Exame Médico", configuracao: 2 },
+    { tipoDocumento: 25, label: "Comprovante de vacinação COVID-19", configuracao: 2 },
+    { tipoDocumento: 26, label: "Carta de boas-vindas assinada", configuracao: 2 },
+    { tipoDocumento: 27, label: "Print — validação de CEP (Correios)", configuracao: 2 },
+    { tipoDocumento: 28, label: "Print — consulta CPF (Receita Federal)", configuracao: 2 },
+    { tipoDocumento: 29, label: "CPF dos filhos", configuracao: 2 },
+    { tipoDocumento: 30, label: "Comprovante de frequência escolar dos filhos", configuracao: 2 },
+    { tipoDocumento: 31, label: "RG e CPF do cônjuge/companheiro(a)", configuracao: 2 },
     { tipoDocumento: 20, label: "CNPJ", configuracao: 2 },
     { tipoDocumento: 21, label: "Contrato Social/MEI", configuracao: 2 },
     { tipoDocumento: 22, label: "Conta Bancária PJ", configuracao: 2 },

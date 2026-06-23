@@ -16,6 +16,7 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { TIPO_DOC_LABELS } from "@/features/admissaoportal/constants";
 
 /* ────── types ────── */
 
@@ -70,24 +71,7 @@ const STATUS_STEPS = [
     { value: 5, label: "Integrada", desc: "Dados enviados ao TOTVS com sucesso" },
 ];
 
-const TIPO_DOC_LABEL: Record<number, string> = {
-    0: "RG",
-    1: "CPF",
-    2: "CNH",
-    3: "Titulo de Eleitor",
-    4: "Reservista",
-    5: "Comprovante de Residencia",
-    6: "Certidao Nasc./Casamento",
-    7: "PIS/PASEP",
-    8: "Outro",
-    9: "Carteira de Trabalho (CTPS)",
-    10: "Declaracao de Uniao Estavel",
-    11: "RG dos Filhos",
-    12: "Certidao de Nascimento dos Filhos",
-    13: "Carteira de Vacinacao dos Filhos",
-    14: "Comprovante Bancario",
-    15: "Foto 3x4",
-};
+const TIPO_DOC_LABEL = TIPO_DOC_LABELS;
 
 const STATUS_DOC_LABEL: Record<number, string> = {
     0: "Pendente",

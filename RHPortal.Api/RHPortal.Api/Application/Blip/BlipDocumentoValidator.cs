@@ -224,6 +224,11 @@ REGRAS:
         TipoDocumento.CarteiraTrabalhoCTPS      => "CTPS",
         TipoDocumento.ComprovanteBancario       => "ComprovanteBancario",
         TipoDocumento.CertidaoNascimentoCasamento => "CertidaoNascimentoCasamento",
+        TipoDocumento.ExameMedico               => "ExameMedico",
+        TipoDocumento.ComprovanteVacinaCovid    => "ComprovanteVacinaCovid",
+        TipoDocumento.CartaBoasVindas           => "CartaBoasVindas",
+        TipoDocumento.PrintValidacaoCep         => "PrintValidacaoCep",
+        TipoDocumento.PrintConsultaCpfReceita   => "PrintConsultaCpfReceita",
         _                                       => tipo.ToString()
     };
 
@@ -238,7 +243,12 @@ REGRAS:
         TipoDocumento.CertidaoNascimentoCasamento => "Certidão de Nascimento/Casamento",
         TipoDocumento.PisPasep                    => "PIS/PASEP",
         TipoDocumento.CarteiraTrabalhoCTPS        => "Carteira de Trabalho (CTPS)",
-        TipoDocumento.ComprovanteBancario         => "Comprovante Bancário",
+        TipoDocumento.ComprovanteBancario         => "Abertura de Conta no Bradesco / Cartão",
+        TipoDocumento.ExameMedico                 => "Exame Médico",
+        TipoDocumento.ComprovanteVacinaCovid      => "Comprovante de vacinação COVID-19",
+        TipoDocumento.CartaBoasVindas             => "Carta de boas-vindas assinada",
+        TipoDocumento.PrintValidacaoCep           => "Print — validação de CEP (Correios)",
+        TipoDocumento.PrintConsultaCpfReceita     => "Print — consulta CPF (Receita Federal)",
         _                                         => tipo.ToString()
     };
 }
