@@ -84,6 +84,34 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly IConfiguration _configuration;
     private readonly IHostEnvironment _hostEnvironment;
 
+    /// <summary>Lista CLT alinhada à relação de documentos enviada manualmente pelo RH.</summary>
+    private static readonly TipoDocumento[] CltDocumentosPadraoFallback =
+    [
+        TipoDocumento.CarteiraTrabalhoCTPS,
+        TipoDocumento.TituloEleitor,
+        TipoDocumento.RG,
+        TipoDocumento.CPF,
+        TipoDocumento.PisPasep,
+        TipoDocumento.Foto3x4,
+        TipoDocumento.Reservista,
+        TipoDocumento.CertidaoNascimentoCasamento,
+        TipoDocumento.ComprovanteResidencia,
+        TipoDocumento.Escolaridade,
+        TipoDocumento.CNH,
+        TipoDocumento.ComprovanteBancario,
+        TipoDocumento.ExameMedico,
+        TipoDocumento.ComprovanteVacinaCovid,
+        TipoDocumento.CartaBoasVindas,
+        TipoDocumento.PrintValidacaoCep,
+        TipoDocumento.PrintConsultaCpfReceita,
+        TipoDocumento.CertidaoNascimentoFilho,
+        TipoDocumento.RGFilho,
+        TipoDocumento.CpfFilho,
+        TipoDocumento.CarteiraVacinacaoFilho,
+        TipoDocumento.FrequenciaEscolarFilho,
+        TipoDocumento.RgCpfConjuge,
+    ];
+
     public PreAdmissaoService(
         AppDbContext db,
         ITenantContext tenantContext,
@@ -1221,7 +1249,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             var docsTipo = entity.TipoContratacao switch
             {
                 TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
-                _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
+                _ => CltDocumentosPadraoFallback,
             };
             foreach (var tipo in docsTipo)
             {
@@ -1642,22 +1670,35 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     internal static string TipoDocumentoLabel(TipoDocumento tipo) => tipo switch
     {
-        TipoDocumento.RG => "RG",
-        TipoDocumento.CPF => "CPF",
-        TipoDocumento.CNH => "CNH",
+        TipoDocumento.RG => "Carteira de Identidade (R.G.)",
+        TipoDocumento.CPF => "Cadastro de Pessoas Físicas (C.P.F.)",
+        TipoDocumento.CNH => "Carteira Nacional de Habilitação",
         TipoDocumento.TituloEleitor => "Título de Eleitor",
         TipoDocumento.Reservista => "Reservista",
-        TipoDocumento.ComprovanteResidencia => "Comprovante de Residência",
-        TipoDocumento.CertidaoNascimentoCasamento => "Certidão Nasc./Casamento",
-        TipoDocumento.PisPasep => "PIS/PASEP",
+        TipoDocumento.ComprovanteResidencia => "Comprovante de Endereço",
+        TipoDocumento.CertidaoNascimentoCasamento => "Certidão de Nascimento ou Casamento",
+        TipoDocumento.PisPasep => "Cartão do PIS",
         TipoDocumento.Outro => "Outro",
         TipoDocumento.CarteiraTrabalhoCTPS => "Carteira de Trabalho (CTPS)",
         TipoDocumento.DeclaracaoUniaoEstavel => "Declaração de União Estável",
-        TipoDocumento.RGFilho => "RG dos Filhos",
-        TipoDocumento.CertidaoNascimentoFilho => "Certidão de Nascimento dos Filhos",
-        TipoDocumento.CarteiraVacinacaoFilho => "Carteira de Vacinação dos Filhos",
-        TipoDocumento.ComprovanteBancario => "Comprovante Bancário",
-        TipoDocumento.Foto3x4 => "Foto 3x4",
+        TipoDocumento.RGFilho => "RG dos filhos",
+        TipoDocumento.CertidaoNascimentoFilho => "Certidão de Nascimento dos filhos",
+        TipoDocumento.CarteiraVacinacaoFilho => "Cartão de Vacinação dos filhos",
+        TipoDocumento.ComprovanteBancario => "Abertura de Conta no Bradesco / Cartão",
+        TipoDocumento.Foto3x4 => "Foto 3x4 ou de perfil (crachá)",
+        TipoDocumento.Escolaridade => "Comprovante de Escolaridade",
+        TipoDocumento.ExameMedico => "Exame Médico",
+        TipoDocumento.ComprovanteVacinaCovid => "Comprovante de vacinação COVID-19",
+        TipoDocumento.CartaBoasVindas => "Carta de boas-vindas assinada",
+        TipoDocumento.PrintValidacaoCep => "Print — validação de CEP (Correios)",
+        TipoDocumento.PrintConsultaCpfReceita => "Print — consulta CPF (Receita Federal)",
+        TipoDocumento.CpfFilho => "CPF dos filhos",
+        TipoDocumento.FrequenciaEscolarFilho => "Comprovante de frequência escolar dos filhos",
+        TipoDocumento.RgCpfConjuge => "RG e CPF do cônjuge/companheiro(a)",
+        TipoDocumento.CNPJ => "CNPJ",
+        TipoDocumento.ContratoSocialMEI => "Contrato Social/MEI",
+        TipoDocumento.ContaBancariaPJ => "Conta Bancária PJ",
+        TipoDocumento.CertidoesNegativas => "Certidões Negativas",
         _ => tipo.ToString(),
     };
 }

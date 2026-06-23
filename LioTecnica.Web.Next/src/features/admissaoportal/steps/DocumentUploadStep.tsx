@@ -2,26 +2,26 @@
 
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { ExternalLink } from "lucide-react";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import DocumentCard from "../components/DocumentCard";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 import { TIPOS_COM_VERSO } from "../constants";
+import {
+    ADMISSAO_INSTRUCOES_INTRO,
+    ADMISSAO_SITES_EXTERNOS,
+    groupDocumentosBySection,
+    type DocSolicitadoItem,
+} from "../admissaoDocumentoCatalog";
 import {
     admissaoPortalFetch,
     validateDocument,
     type AdmissaoPortalSession,
 } from "../publicApi";
 
-interface DocSolicitado {
-    tipo: number;
-    label: string;
-    obrigatorio: boolean;
-    jaEnviado: boolean;
-}
-
 interface Props {
     session: AdmissaoPortalSession;
-    documentosSolicitados: DocSolicitado[];
+    documentosSolicitados: DocSolicitadoItem[];
     onDataRefresh: () => void;
     disabled?: boolean;
 }
@@ -36,29 +36,36 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
         mergeAiFields, overwriteAiFields,
     } = useAdmissaoWizardStore();
 
+    const sections = groupDocumentosBySection(documentosSolicitados);
+
     const handleFileSelected = useCallback(async (tipo: number, file: File, side: "frente" | "verso") => {
         const isVerso = side === "verso";
         const setDoc = isVerso ? setUploadedDocVerso : setUploadedDoc;
         const setAi  = isVerso ? setAiExtractionVerso : setAiExtraction;
 
-        // Marcar como processando
+        const localPreview = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+
         setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: null, processing: true });
 
-        // ── 1. Upload (caminho crítico) ──
         try {
             await uploadFile(session, tipo, file, side);
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Erro ao enviar documento.";
             setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: msg, processing: false });
+            if (localPreview) URL.revokeObjectURL(localPreview);
             toast.error(msg);
             return;
         }
 
-        // Upload OK
-        setDoc(tipo, { tipo, nomeArquivo: file.name, tamanhoBytes: file.size, status: 0 });
+        setDoc(tipo, {
+            tipo,
+            nomeArquivo: file.name,
+            tamanhoBytes: file.size,
+            status: 0,
+            thumbnail: localPreview,
+        });
         onDataRefresh();
 
-        // ── 2. Validação via IA (melhor esforço) ──
         try {
             const { base64, mediaType } = await prepareImageForAi(file);
             const aiResult = await validateDocument(session, tipo, base64, mediaType);
@@ -94,8 +101,8 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
                     mergeAiFields(aiResult.extractedFields);
                 }
                 toast.success(`${side === "verso" ? "Verso" : "Documento"} reconhecido! Dados preenchidos.`);
-            } else if (!aiResult.isValid) {
-                toast.warning(aiResult.validationMessage || "Nao foi possivel reconhecer o documento automaticamente.");
+            } else if (!aiResult.isValid && mediaType !== "application/pdf") {
+                toast.warning(aiResult.validationMessage || "Não foi possível reconhecer o documento automaticamente.");
             }
         } catch {
             setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: null, processing: false });
@@ -103,36 +110,67 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
     }, [session, formData, setUploadedDoc, setUploadedDocVerso, setAiExtraction, setAiExtractionVerso, mergeAiFields, overwriteAiFields, onDataRefresh]);
 
     return (
-        <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-                Tire uma foto de cada documento. Para RG e CNH, envie frente e verso separadamente.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {documentosSolicitados.map((ds) => (
-                    <DocumentCard
-                        key={ds.tipo}
-                        tipo={ds.tipo}
-                        obrigatorio={ds.obrigatorio}
-                        uploadedDoc={uploadedDocs.get(ds.tipo)}
-                        uploadedDocVerso={uploadedDocsVerso.get(ds.tipo)}
-                        aiResult={aiExtractions.get(ds.tipo)}
-                        aiResultVerso={aiExtractionsVerso.get(ds.tipo)}
-                        onFileSelected={handleFileSelected}
-                        disabled={disabled}
-                    />
-                ))}
+        <div className="space-y-6">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">
+                    Relação de documentos para admissão
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">{ADMISSAO_INSTRUCOES_INTRO}</p>
             </div>
+
+            {sections.map(({ section, items }) => (
+                <div key={section.id} className="space-y-3">
+                    <div>
+                        <h3 className="text-sm font-semibold">{section.title}</h3>
+                        {section.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{section.description}</p>
+                        )}
+                    </div>
+
+                    {section.id === "sites" && (
+                        <ul className="space-y-1.5 mb-2">
+                            {ADMISSAO_SITES_EXTERNOS.map((site) => (
+                                <li key={site.url}>
+                                    <a
+                                        href={site.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                                    >
+                                        <ExternalLink className="size-3.5 shrink-0" />
+                                        {site.label}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {items.map((ds) => (
+                            <DocumentCard
+                                key={ds.tipo}
+                                tipo={ds.tipo}
+                                labelOverride={ds.label}
+                                obrigatorio={ds.obrigatorio}
+                                uploadedDoc={uploadedDocs.get(ds.tipo)}
+                                uploadedDocVerso={uploadedDocsVerso.get(ds.tipo)}
+                                aiResult={aiExtractions.get(ds.tipo)}
+                                aiResultVerso={aiExtractionsVerso.get(ds.tipo)}
+                                onFileSelected={handleFileSelected}
+                                disabled={disabled}
+                            />
+                        ))}
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
 
-/** Converte qualquer imagem para JPEG via canvas (aceito pelo OpenAI), redimensionando se necessário. */
 async function prepareImageForAi(file: File): Promise<{ base64: string; mediaType: string }> {
     const MAX_DIMENSION = 2048;
     const QUALITY = 0.88;
 
-    // PDFs não passam pelo canvas — envia como está
     if (file.type === "application/pdf") {
         const reader = new FileReader();
         return new Promise((resolve, reject) => {
@@ -166,7 +204,6 @@ async function prepareImageForAi(file: File): Promise<{ base64: string; mediaTyp
         };
 
         img.onerror = () => {
-            // Fallback: envia o arquivo original
             URL.revokeObjectURL(objectUrl);
             const reader = new FileReader();
             reader.onload = () => {
@@ -187,7 +224,6 @@ async function uploadFile(session: AdmissaoPortalSession, tipo: number, file: Fi
     const fd = new FormData();
     fd.append("file", file);
     fd.append("tipo", String(tipo));
-    // lado: 0=Unico, 1=Frente, 2=Verso
     const lado = side === "verso" ? 2 : TIPOS_COM_VERSO.has(tipo) ? 1 : 0;
     fd.append("lado", String(lado));
     const res = await admissaoPortalFetch(
