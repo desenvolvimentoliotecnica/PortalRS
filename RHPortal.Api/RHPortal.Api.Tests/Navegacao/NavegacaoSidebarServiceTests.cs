@@ -57,8 +57,8 @@ public sealed class NavegacaoSidebarServiceTests
         var totalItens = resp.Grupos.Sum(g => g.Itens.Count);
         Assert.Equal(esperado, totalItens);
 
-        // Invariante adicional: pacote 'folha-pagamento' hoje está inativo → 3 itens omitidos.
-        Assert.True(itensDePacoteInativo >= 3);
+        // Invariante adicional: pacote 'folha-pagamento' hoje está inativo → itens folha omitidos (exceto Desligamentos, em Principais).
+        Assert.True(itensDePacoteInativo >= 2);
     }
 
     [Fact]
@@ -95,13 +95,31 @@ public sealed class NavegacaoSidebarServiceTests
         var grupoFolha = resp.Grupos.FirstOrDefault(g => g.Key == "folha-pagamento");
         Assert.Null(grupoFolha);
 
-        // E também não pode vazar em nenhum outro grupo.
+        // E também não pode vazar batida/comissoes/entrevista (folha inativo). Desligamentos fica em Principais.
         var folhaEmQualquerGrupo = resp.Grupos
             .SelectMany(g => g.Itens)
             .Any(i => i.Href.StartsWith("/gestao/batida-ponto")
                    || i.Href.StartsWith("/gestao/comissoes")
-                   || i.Href.StartsWith("/gestao/desligamentos"));
+                   || i.Href.StartsWith("/gestao/desligamentos/entrevista"));
         Assert.False(folhaEmQualquerGrupo);
+    }
+
+    [Fact]
+    public void Build_AnalistaRh_VeDesligamentosAposSolicitacoes()
+    {
+        var resp = NavegacaoSidebarService.Build(
+            permissions: new[] { "solicitacoes-vaga.view", "folha.desligamentos.view" },
+            enabledModuleKeys: TodosModulosHabilitados(),
+            contextoEspecial: null);
+
+        var principais = resp.Grupos.Single(g => g.Key == "principais");
+        var hrefs = principais.Itens.Select(i => i.Href).ToList();
+        var idxSolicitacoes = hrefs.IndexOf("/gestao/solicitacoes");
+        var idxDesligamentos = hrefs.IndexOf("/gestao/desligamentos");
+        Assert.True(idxSolicitacoes >= 0);
+        Assert.True(idxDesligamentos >= 0);
+        Assert.True(idxDesligamentos > idxSolicitacoes);
+        Assert.True(principais.Itens.First(i => i.Href == "/gestao/desligamentos").Acessivel);
     }
 
     [Fact]
@@ -453,7 +471,9 @@ public sealed class NavegacaoSidebarServiceTests
         var hrefs = resp.Grupos.SelectMany(g => g.Itens).Select(i => i.Href).ToList();
         Assert.DoesNotContain("/gestao/batida-ponto", hrefs);
         Assert.DoesNotContain("/gestao/comissoes", hrefs);
-        Assert.DoesNotContain("/gestao/desligamentos", hrefs);
+        Assert.DoesNotContain("/gestao/desligamentos/entrevista-template", hrefs);
+        // Desligamentos operacional fica em Principais (fora do pacote folha inativo).
+        Assert.Contains("/gestao/desligamentos", hrefs);
     }
 
     [Fact]
