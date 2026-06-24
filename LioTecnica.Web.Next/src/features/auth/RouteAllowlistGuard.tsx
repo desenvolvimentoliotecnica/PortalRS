@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useNavegacaoSidebar } from "@/features/navigation/NavegacaoSidebarProvider";
-import { isHrefAllowed } from "@/features/navigation/menuPermissions";
+import { isRouteAllowedForUser } from "@/features/navigation/menuPermissions";
 
 /**
  * Bloqueia acesso direto por URL a rotas fora da allowlist do perfil.
@@ -24,11 +24,9 @@ export function RouteAllowlistGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authLoading || navLoading || !me) return;
 
-    const normalized = pathname.replace(/^\/app(?=\/|$)/, "") || "/";
-
     if (!visibleHrefs) return; // sem restrição (owner/admin/wildcard)
 
-    if (isHrefAllowed(normalized, visibleHrefs)) return;
+    if (isRouteAllowedForUser(pathname, visibleHrefs, me.permissions ?? [])) return;
 
     router.replace("/dashboard");
   }, [authLoading, navLoading, me, pathname, router, visibleHrefs]);
