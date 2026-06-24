@@ -11,6 +11,10 @@ import { DOC_FRENTE_LABELS, DOC_HINTS, DOC_VERSO_LABELS } from "../admissaoDocum
 import DocumentPreviewLightbox, { type PreviewItem, isPdfPreview } from "@/components/documents/DocumentPreviewLightbox";
 import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 
+/** Altura fixa das zonas de upload para alinhar cards simples e frente/verso. */
+const DROPZONE_HEIGHT = "h-[9.5rem]";
+const SIDE_LABEL_HEIGHT = "h-9";
+
 interface Props {
     index: number;
     tipo: number;
@@ -40,31 +44,31 @@ export default function DocumentCard({
 
     return (
         <>
-            <div className="flex flex-col rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden h-full">
-                {/* Header */}
-                <div className="px-4 pt-4 pb-2">
+            <div className="flex flex-col rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden h-full min-h-[18.5rem]">
+                {/* Header — altura estável do título + hint */}
+                <div className="px-4 pt-4 pb-3 min-h-[5.5rem]">
                     <div className="flex items-start gap-2.5">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary mt-0.5">
                             {index > 0 ? index : "·"}
                         </span>
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-start gap-1">
-                                <h3 className="text-sm font-semibold leading-snug text-foreground">{label}</h3>
+                            <div className="flex items-start gap-1 min-h-[1.25rem]">
+                                <h3 className="text-sm font-semibold leading-snug text-foreground line-clamp-2">{label}</h3>
                                 {obrigatorio && (
                                     <span className="text-red-500 font-bold leading-none shrink-0" title="Obrigatório">*</span>
                                 )}
                             </div>
-                            {hint && (
-                                <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{hint}</p>
-                            )}
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2 min-h-[2.5rem]">
+                                {hint || "\u00A0"}
+                            </p>
                         </div>
                     </div>
                 </div>
 
                 {/* Body */}
-                <div className="px-4 pb-3 flex-1">
+                <div className="px-4 pb-3 flex-1 flex flex-col">
                     {hasVerso ? (
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-2 items-stretch flex-1">
                             <UploadSlot
                                 sideLabel={DOC_FRENTE_LABELS[tipo] || "Frente"}
                                 uploadedDoc={uploadedDoc}
@@ -106,8 +110,8 @@ export default function DocumentCard({
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2.5 border-t border-border/30 bg-muted/20">
-                    <p className="text-[10px] text-muted-foreground text-center">
+                <div className="px-4 py-2.5 border-t border-border/30 bg-muted/20 mt-auto">
+                    <p className="text-[10px] text-muted-foreground text-center leading-snug">
                         Formatos aceitos: PDF, JPG, PNG. Máx. 10MB
                     </p>
                 </div>
@@ -154,6 +158,14 @@ interface SlotProps {
     onPreview: (item: PreviewItem) => void;
 }
 
+function SideLabel({ children }: { children: React.ReactNode }) {
+    return (
+        <p className={`${SIDE_LABEL_HEIGHT} flex items-end text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2 shrink-0`}>
+            {children}
+        </p>
+    );
+}
+
 function UploadSlot({
     sideLabel, uploadedDoc, aiResult, disabled, onSelect, onFileDropped, onRemove, onPreview,
 }: SlotProps) {
@@ -175,11 +187,9 @@ function UploadSlot({
 
     if (uploadedDoc && previewUrl && !isProcessing) {
         return (
-            <div className="flex flex-col gap-2">
-                {sideLabel && (
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{sideLabel}</p>
-                )}
-                <div className="relative rounded-lg border border-emerald-200/80 bg-emerald-50/30 dark:bg-emerald-950/10 overflow-hidden">
+            <div className="flex flex-col h-full gap-2">
+                {sideLabel ? <SideLabel>{sideLabel}</SideLabel> : <span className={SIDE_LABEL_HEIGHT} />}
+                <div className="relative flex-1 rounded-lg border border-emerald-200/80 bg-emerald-50/30 dark:bg-emerald-950/10 overflow-hidden min-h-[7.5rem]">
                     <button
                         type="button"
                         onClick={() => onPreview(toPreviewItem(
@@ -187,12 +197,12 @@ function UploadSlot({
                             uploadedDoc.nomeArquivo,
                             isPdf ? "application/pdf" : undefined,
                         ))}
-                        className="group relative flex w-full aspect-[4/3] items-center justify-center bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        className="group relative flex w-full h-full min-h-[7.5rem] items-center justify-center bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         aria-label={`Visualizar ${uploadedDoc.nomeArquivo}`}
                     >
                         {isPdf ? (
                             <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
-                                <FileText className="size-10 text-red-500/80" />
+                                <FileText className="size-8 text-red-500/80" />
                                 <span className="text-[10px] font-medium uppercase">PDF</span>
                             </div>
                         ) : (
@@ -212,7 +222,7 @@ function UploadSlot({
                     </button>
                 </div>
                 {!disabled && (
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 shrink-0">
                         <Button
                             type="button"
                             variant="outline"
@@ -239,15 +249,13 @@ function UploadSlot({
     }
 
     return (
-        <div className="flex flex-col gap-1">
-            {sideLabel && (
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{sideLabel}</p>
-            )}
+        <div className="flex flex-col h-full">
+            {sideLabel ? <SideLabel>{sideLabel}</SideLabel> : <span className={SIDE_LABEL_HEIGHT} aria-hidden />}
             <div
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-3 py-5 transition-colors min-h-[9rem] ${
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-2 py-4 transition-colors ${DROPZONE_HEIGHT} ${
                     dragOver
                         ? "border-primary bg-primary/5"
                         : "border-primary/25 bg-primary/[0.02] hover:border-primary/40"
@@ -255,20 +263,20 @@ function UploadSlot({
             >
                 {isProcessing ? (
                     <>
-                        <Loader2 className="size-8 text-primary animate-spin mb-2" />
-                        <p className="text-xs text-muted-foreground text-center">Enviando...</p>
+                        <Loader2 className="size-7 text-primary animate-spin mb-2 shrink-0" />
+                        <p className="text-[11px] text-muted-foreground text-center leading-snug px-1">Enviando...</p>
                     </>
                 ) : (
                     <>
-                        <CloudUpload className="size-8 text-primary/70 mb-2" />
-                        <p className="text-xs text-muted-foreground text-center mb-2 leading-snug">
+                        <CloudUpload className="size-7 text-primary/70 mb-2 shrink-0" />
+                        <p className="text-[11px] text-muted-foreground text-center mb-2 leading-snug px-1">
                             Arraste o arquivo aqui ou
                         </p>
                         {!disabled && (
                             <Button
                                 type="button"
                                 size="sm"
-                                className="h-8 text-xs px-4"
+                                className="h-7 text-[11px] px-3 shrink-0"
                                 onClick={onSelect}
                             >
                                 Selecionar arquivo

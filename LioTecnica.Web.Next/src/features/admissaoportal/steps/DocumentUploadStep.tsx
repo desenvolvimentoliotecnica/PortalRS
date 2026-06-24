@@ -9,10 +9,14 @@ import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 import { TIPOS_COM_VERSO } from "../constants";
 import {
     ADMISSAO_SITES_EXTERNOS,
+    DOC_FRENTE_LABELS,
+    DOC_VERSO_LABELS,
     groupDocumentosBySection,
     sortDocumentosSolicitados,
     type DocSolicitadoItem,
 } from "../admissaoDocumentoCatalog";
+import { confirmDocumentAiValidation } from "../documentAiValidationDialog";
+import { TIPO_DOC_LABELS } from "../constants";
 import {
     admissaoPortalFetch,
     removeDocument,
@@ -59,6 +63,19 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
     const progress = countDocProgress(sorted, uploadedDocs, uploadedDocsVerso);
     const progressPct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
+    const docLabelByTipo = useMemo(() => {
+        const map = new Map<number, string>();
+        for (const ds of sorted) map.set(ds.tipo, ds.label);
+        return map;
+    }, [sorted]);
+
+    const removeUploaded = useCallback(async (tipo: number, side: "frente" | "verso", docId: string) => {
+        await removeDocument(session, docId);
+        if (side === "verso") removeUploadedDocVerso(tipo);
+        else removeUploadedDoc(tipo);
+        onDataRefresh();
+    }, [session, removeUploadedDoc, removeUploadedDocVerso, onDataRefresh]);
+
     const handleFileSelected = useCallback(async (tipo: number, file: File, side: "frente" | "verso") => {
         const isVerso = side === "verso";
         const setDoc = isVerso ? setUploadedDocVerso : setUploadedDoc;
@@ -103,6 +120,13 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
         });
         onDataRefresh();
 
+        const documentLabel = docLabelByTipo.get(tipo) || TIPO_DOC_LABELS[tipo] || "Documento";
+        const sideLabel = side === "verso"
+            ? (DOC_VERSO_LABELS[tipo] || "Verso")
+            : TIPOS_COM_VERSO.has(tipo)
+              ? (DOC_FRENTE_LABELS[tipo] || "Frente")
+              : undefined;
+
         try {
             const { base64, mediaType } = await prepareImageForAi(file);
             const aiResult = await validateDocument(session, tipo, base64, mediaType);
@@ -116,6 +140,25 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
                 validationMessage: aiResult.validationMessage,
                 processing: false,
             });
+
+            const keepDocument = await confirmDocumentAiValidation(aiResult, {
+                documentLabel,
+                sideLabel,
+                fileName: file.name,
+            });
+
+            if (!keepDocument) {
+                if (uploaded?.id) {
+                    try {
+                        await removeUploaded(tipo, side, uploaded.id);
+                    } catch {
+                        toast.error("Erro ao remover documento.");
+                    }
+                } else {
+                    removeDoc(tipo);
+                }
+                return;
+            }
 
             if (aiResult.isValid && Object.keys(aiResult.extractedFields).length > 0) {
                 const conflitos = Object.entries(aiResult.extractedFields).filter(
@@ -137,14 +180,29 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
                 } else {
                     mergeAiFields(aiResult.extractedFields);
                 }
-                toast.success(`${side === "verso" ? "Verso" : "Documento"} reconhecido! Dados preenchidos.`);
-            } else if (!aiResult.isValid && mediaType !== "application/pdf") {
-                toast.warning(aiResult.validationMessage || "Não foi possível reconhecer o documento automaticamente.");
             }
         } catch {
             setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: null, processing: false });
+
+            const keepDocument = await confirmDocumentAiValidation(
+                {
+                    isValid: false,
+                    confidence: 0,
+                    validationMessage: "Não foi possível concluir a análise automática deste arquivo.",
+                    documentType: null,
+                },
+                { documentLabel, sideLabel, fileName: file.name },
+            );
+
+            if (!keepDocument && uploaded?.id) {
+                try {
+                    await removeUploaded(tipo, side, uploaded.id);
+                } catch {
+                    toast.error("Erro ao remover documento.");
+                }
+            }
         }
-    }, [session, formData, uploadedDocs, uploadedDocsVerso, setUploadedDoc, setUploadedDocVerso, removeUploadedDoc, removeUploadedDocVerso, setAiExtraction, setAiExtractionVerso, mergeAiFields, overwriteAiFields, onDataRefresh]);
+    }, [session, formData, uploadedDocs, uploadedDocsVerso, docLabelByTipo, setUploadedDoc, setUploadedDocVerso, removeUploadedDoc, removeUploadedDocVerso, removeUploaded, setAiExtraction, setAiExtractionVerso, mergeAiFields, overwriteAiFields, onDataRefresh]);
 
     const handleRemove = useCallback(async (tipo: number, side: "frente" | "verso", docId: string) => {
         const ok = await confirmDialog({
@@ -156,15 +214,12 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
         if (!ok) return;
 
         try {
-            await removeDocument(session, docId);
-            if (side === "verso") removeUploadedDocVerso(tipo);
-            else removeUploadedDoc(tipo);
+            await removeUploaded(tipo, side, docId);
             toast.success("Documento removido.");
-            onDataRefresh();
         } catch {
             toast.error("Erro ao remover documento.");
         }
-    }, [session, removeUploadedDoc, removeUploadedDocVerso, onDataRefresh]);
+    }, [removeUploaded]);
 
     return (
         <div className="space-y-6 -mt-1">
@@ -232,7 +287,7 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
                         </ul>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
                         {items.map((ds) => {
                             const obrigatorioIndex = obrigatorios.findIndex((o) => o.tipo === ds.tipo);
                             const index = obrigatorioIndex >= 0 ? obrigatorioIndex + 1 : 0;
