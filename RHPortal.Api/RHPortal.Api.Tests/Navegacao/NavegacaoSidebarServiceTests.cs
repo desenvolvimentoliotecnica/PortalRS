@@ -432,6 +432,23 @@ public sealed class NavegacaoSidebarServiceTests
         Assert.Equal("owner-em-tenant", resp.ContextoEspecial);
     }
 
+    [Fact]
+    public void Build_OwnerEmTenant_PortalAdmissaoComTenantIdNaUrl()
+    {
+        var resp = NavegacaoSidebarService.Build(
+            permissions: new[] { "*" },
+            enabledModuleKeys: TodosModulosHabilitados(),
+            contextoEspecial: "owner-em-tenant",
+            tenantId: "demo");
+
+        var recrutamento = resp.Grupos.FirstOrDefault(g => g.Key == "recrutamento-selecao");
+        Assert.NotNull(recrutamento);
+        var item = recrutamento!.Itens.FirstOrDefault(i => i.Id == "nav-portal-admissao");
+        Assert.NotNull(item);
+        Assert.Equal("/DocumentoAdmissao?tenantId=demo", item!.Href);
+        Assert.True(item.OpenInNewTab);
+    }
+
     // ── Alinhamento de buckets (Fase C) ────────────────────────────────────
 
     [Fact]

@@ -5,6 +5,9 @@ import {
     ArrowLeft,
     Check,
     Database,
+    ExternalLink,
+    FileUp,
+    Globe,
     Loader2,
     LogIn,
     Pencil,
@@ -378,6 +381,46 @@ export default function TenantDetailScreen({ tenantId }: { tenantId: string }) {
                                     </>
                                 )}
                             </dl>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="shadow-lt">
+                        <CardHeader>
+                            <CardTitle className="text-base">Portais públicos (exemplo)</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <p className="text-xs text-muted-foreground">
+                                Links de referência para este tenant. O portal de admissão exige também o{" "}
+                                <code className="text-[10px] bg-muted px-1 rounded">preAdmissaoId</code>{" "}
+                                gerado em Admissão → Tracking ao enviar o link ao candidato.
+                            </p>
+                            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                                <Button variant="outline" size="sm" asChild>
+                                    <a
+                                        href={`/PortalVagas?tenantId=${encodeURIComponent(tenant.tenantId)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <Globe className="size-4 mr-1.5" />
+                                        Portal de Vagas
+                                        <ExternalLink className="size-3 ml-1.5 opacity-60" />
+                                    </a>
+                                </Button>
+                                <Button variant="outline" size="sm" asChild>
+                                    <a
+                                        href={`/DocumentoAdmissao?tenantId=${encodeURIComponent(tenant.tenantId)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <FileUp className="size-4 mr-1.5" />
+                                        Portal de Admissão
+                                        <ExternalLink className="size-3 ml-1.5 opacity-60" />
+                                    </a>
+                                </Button>
+                            </div>
+                            <code className="block text-[10px] bg-muted/60 rounded px-2 py-1.5 break-all text-muted-foreground">
+                                /DocumentoAdmissao?tenantId={tenant.tenantId}&amp;preAdmissaoId=&#123;uuid&#125;
+                            </code>
                         </CardContent>
                     </Card>
 

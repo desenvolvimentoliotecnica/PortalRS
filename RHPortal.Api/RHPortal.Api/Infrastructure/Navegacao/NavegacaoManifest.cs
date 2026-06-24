@@ -113,6 +113,7 @@ public static class NavegacaoManifest
         new("nav-processo-seletivo",        "Processo Seletivo",      "/gestao/processo-seletivo",       "listchecks",        "processo-seletivo.view",   Ordem: 70),
         new("nav-agendas",                  "Agenda",                 "/agendas",                        "calendar",          "agenda.view",              Ordem: 80),
         new("nav-portalvagas",              "Portal de Vagas",        "/portalvagas",                    "globe",             "portalvagas.view",         Ordem: 90, OpenInNewTab: true),
+        new("nav-portal-admissao",          "Portal de Admissão (exemplo)", "/DocumentoAdmissao",        "fileup",            "admissao.view",            Ordem: 91, OpenInNewTab: true, SomenteOwner: true),
         new("nav-painel-rh",                "Painel RH",              "/painel-rh",                      "layoutdashboard",    "entrada.view",             Ordem: 92),
         new("nav-talentos",                 "Banco de Talentos",      "/talentos",                       "sparkles",          "candidatos.view",          ModuloKeyOverride: "candidatos", Ordem: 95),
         new("nav-rh-contrat-triagem",       "Contratações — Triagem",  "/rh/contratacoes/triagem",        "clipboardlist",      "rh.contratacoes.triagem",  Ordem: 96),
