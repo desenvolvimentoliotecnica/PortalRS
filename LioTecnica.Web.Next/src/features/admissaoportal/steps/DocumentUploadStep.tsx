@@ -1,20 +1,21 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Info, Lock } from "lucide-react";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import DocumentCard from "../components/DocumentCard";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 import { TIPOS_COM_VERSO } from "../constants";
 import {
-    ADMISSAO_INSTRUCOES_INTRO,
     ADMISSAO_SITES_EXTERNOS,
     groupDocumentosBySection,
+    sortDocumentosSolicitados,
     type DocSolicitadoItem,
 } from "../admissaoDocumentoCatalog";
 import {
     admissaoPortalFetch,
+    removeDocument,
     validateDocument,
     type AdmissaoPortalSession,
 } from "../publicApi";
@@ -26,31 +27,62 @@ interface Props {
     disabled?: boolean;
 }
 
+function countDocProgress(
+    docs: DocSolicitadoItem[],
+    uploadedDocs: Map<number, { tipo: number }>,
+    uploadedDocsVerso: Map<number, { tipo: number }>,
+): { done: number; total: number } {
+    const obrigatorios = docs.filter((d) => d.obrigatorio);
+    let done = 0;
+    for (const ds of obrigatorios) {
+        if (!uploadedDocs.has(ds.tipo)) continue;
+        if (TIPOS_COM_VERSO.has(ds.tipo) && !uploadedDocsVerso.has(ds.tipo)) continue;
+        done++;
+    }
+    return { done, total: obrigatorios.length };
+}
+
 export default function DocumentUploadStep({ session, documentosSolicitados, onDataRefresh, disabled }: Props) {
     const {
         uploadedDocs, uploadedDocsVerso,
         aiExtractions, aiExtractionsVerso,
         formData,
         setUploadedDoc, setUploadedDocVerso,
+        removeUploadedDoc, removeUploadedDocVerso,
         setAiExtraction, setAiExtractionVerso,
         mergeAiFields, overwriteAiFields,
     } = useAdmissaoWizardStore();
 
-    const sections = groupDocumentosBySection(documentosSolicitados);
+    const sorted = useMemo(() => sortDocumentosSolicitados(documentosSolicitados), [documentosSolicitados]);
+    const sections = useMemo(() => groupDocumentosBySection(sorted), [sorted]);
+    const obrigatorios = useMemo(() => sorted.filter((d) => d.obrigatorio), [sorted]);
+    const progress = countDocProgress(sorted, uploadedDocs, uploadedDocsVerso);
+    const progressPct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
     const handleFileSelected = useCallback(async (tipo: number, file: File, side: "frente" | "verso") => {
         const isVerso = side === "verso";
         const setDoc = isVerso ? setUploadedDocVerso : setUploadedDoc;
         const setAi  = isVerso ? setAiExtractionVerso : setAiExtraction;
+        const removeDoc = isVerso ? removeUploadedDocVerso : removeUploadedDoc;
+
+        const existing = isVerso ? uploadedDocsVerso.get(tipo) : uploadedDocs.get(tipo);
+        if (existing?.id) {
+            try {
+                await removeDocument(session, existing.id);
+                removeDoc(tipo);
+            } catch {
+                toast.error("Erro ao substituir documento. Tente novamente.");
+                return;
+            }
+        }
 
         const localPreview = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
 
         setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: null, processing: true });
 
-        let serverUrl: string | undefined;
+        let uploaded: { id?: string; presignedUrl?: string; createdAtUtc?: string } | undefined;
         try {
-            const uploaded = await uploadFile(session, tipo, file, side) as { presignedUrl?: string } | undefined;
-            serverUrl = uploaded?.presignedUrl;
+            uploaded = await uploadFile(session, tipo, file, side);
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Erro ao enviar documento.";
             setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: msg, processing: false });
@@ -60,12 +92,14 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
         }
 
         setDoc(tipo, {
+            id: uploaded?.id,
             tipo,
             nomeArquivo: file.name,
             tamanhoBytes: file.size,
             status: 0,
             thumbnail: localPreview,
-            presignedUrl: serverUrl ?? localPreview,
+            presignedUrl: uploaded?.presignedUrl ?? localPreview,
+            createdAtUtc: uploaded?.createdAtUtc,
         });
         onDataRefresh();
 
@@ -110,28 +144,78 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
         } catch {
             setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: null, processing: false });
         }
-    }, [session, formData, setUploadedDoc, setUploadedDocVerso, setAiExtraction, setAiExtractionVerso, mergeAiFields, overwriteAiFields, onDataRefresh]);
+    }, [session, formData, uploadedDocs, uploadedDocsVerso, setUploadedDoc, setUploadedDocVerso, removeUploadedDoc, removeUploadedDocVerso, setAiExtraction, setAiExtractionVerso, mergeAiFields, overwriteAiFields, onDataRefresh]);
+
+    const handleRemove = useCallback(async (tipo: number, side: "frente" | "verso", docId: string) => {
+        const ok = await confirmDialog({
+            title: "Remover documento?",
+            description: "O arquivo será excluído. Você poderá enviar outro documento depois.",
+            confirmText: "Remover",
+            cancelText: "Cancelar",
+        });
+        if (!ok) return;
+
+        try {
+            await removeDocument(session, docId);
+            if (side === "verso") removeUploadedDocVerso(tipo);
+            else removeUploadedDoc(tipo);
+            toast.success("Documento removido.");
+            onDataRefresh();
+        } catch {
+            toast.error("Erro ao remover documento.");
+        }
+    }, [session, removeUploadedDoc, removeUploadedDocVerso, onDataRefresh]);
 
     return (
-        <div className="space-y-6">
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">
-                    Relação de documentos para admissão
-                </h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">{ADMISSAO_INSTRUCOES_INTRO}</p>
+        <div className="space-y-6 -mt-1">
+            {/* Page header */}
+            <div>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Envio de Documentos</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Envie os documentos solicitados para continuidade do seu processo de admissão.
+                </p>
             </div>
 
-            {sections.map(({ section, items }) => (
-                <div key={section.id} className="space-y-3">
-                    <div>
-                        <h3 className="text-sm font-semibold">{section.title}</h3>
-                        {section.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{section.description}</p>
-                        )}
+            {/* Info banner */}
+            <div className="flex items-start gap-3 rounded-xl border border-blue-200/80 bg-blue-50/80 px-4 py-3 dark:border-blue-800/60 dark:bg-blue-950/20">
+                <Info className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <span className="font-semibold">Formatos aceitos:</span> PDF, JPG e PNG.
+                    {" "}Tamanho máximo por arquivo: 10MB.
+                </p>
+            </div>
+
+            {/* Progress */}
+            {obrigatorios.length > 0 && (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                        <span className="font-semibold">Documentos obrigatórios</span>
+                        <span className="text-muted-foreground tabular-nums">
+                            {progress.done} de {progress.total} documentos enviados
+                        </span>
                     </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                        <div
+                            className="h-full rounded-full bg-primary transition-all duration-500"
+                            style={{ width: `${progressPct}%` }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {sections.map(({ section, items }) => (
+                <div key={section.id} className="space-y-4">
+                    {section.id !== "principal" && (
+                        <div>
+                            <h2 className="text-base font-semibold">{section.title}</h2>
+                            {section.description && (
+                                <p className="text-xs text-muted-foreground mt-0.5">{section.description}</p>
+                            )}
+                        </div>
+                    )}
 
                     {section.id === "sites" && (
-                        <ul className="space-y-1.5 mb-2">
+                        <ul className="space-y-1.5">
                             {ADMISSAO_SITES_EXTERNOS.map((site) => (
                                 <li key={site.url}>
                                     <a
@@ -148,24 +232,39 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
                         </ul>
                     )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {items.map((ds) => (
-                            <DocumentCard
-                                key={ds.tipo}
-                                tipo={ds.tipo}
-                                labelOverride={ds.label}
-                                obrigatorio={ds.obrigatorio}
-                                uploadedDoc={uploadedDocs.get(ds.tipo)}
-                                uploadedDocVerso={uploadedDocsVerso.get(ds.tipo)}
-                                aiResult={aiExtractions.get(ds.tipo)}
-                                aiResultVerso={aiExtractionsVerso.get(ds.tipo)}
-                                onFileSelected={handleFileSelected}
-                                disabled={disabled}
-                            />
-                        ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {items.map((ds) => {
+                            const obrigatorioIndex = obrigatorios.findIndex((o) => o.tipo === ds.tipo);
+                            const index = obrigatorioIndex >= 0 ? obrigatorioIndex + 1 : 0;
+                            return (
+                                <DocumentCard
+                                    key={ds.tipo}
+                                    index={index}
+                                    tipo={ds.tipo}
+                                    labelOverride={ds.label}
+                                    obrigatorio={ds.obrigatorio}
+                                    uploadedDoc={uploadedDocs.get(ds.tipo)}
+                                    uploadedDocVerso={uploadedDocsVerso.get(ds.tipo)}
+                                    aiResult={aiExtractions.get(ds.tipo)}
+                                    aiResultVerso={aiExtractionsVerso.get(ds.tipo)}
+                                    onFileSelected={handleFileSelected}
+                                    onRemove={handleRemove}
+                                    disabled={disabled}
+                                />
+                            );
+                        })}
                     </div>
                 </div>
             ))}
+
+            {/* Security notice */}
+            <div className="flex items-start gap-2 rounded-lg border border-border/40 bg-muted/20 px-4 py-3">
+                <Lock className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                    Seus documentos estão seguros. Todas as informações são protegidas e utilizadas
+                    apenas para o processo de admissão.
+                </p>
+            </div>
         </div>
     );
 }
@@ -239,5 +338,6 @@ async function uploadFile(session: AdmissaoPortalSession, tipo: number, file: Fi
         const body = await res.json().catch(() => ({})) as { message?: string };
         throw new Error(body.message || `Erro ao enviar documento (${res.status}).`);
     }
-    return res.json();
+    const body = await res.json() as { id?: string; presignedUrl?: string; createdAtUtc?: string };
+    return body;
 }

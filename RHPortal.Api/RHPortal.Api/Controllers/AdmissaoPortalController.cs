@@ -145,6 +145,20 @@ public sealed class AdmissaoPortalController : ControllerBase
         }
     }
 
+    /// <summary>Candidato remove um documento enviado (antes da submissão final).</summary>
+    [HttpDelete("{preAdmissaoId:guid}/documentos/{docId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDocumento(Guid preAdmissaoId, Guid docId, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+        return await _service.DeleteDocumentoAsync(preAdmissaoId, cpf, docId, ct)
+            ? NoContent()
+            : NotFound(new { message = "Documento não encontrado ou acesso negado." });
+    }
+
     /// <summary>Candidato submete dados e documentos para revisão do RH.</summary>
     [HttpPost("{preAdmissaoId:guid}/submit")]
     [ProducesResponseType(StatusCodes.Status200OK)]

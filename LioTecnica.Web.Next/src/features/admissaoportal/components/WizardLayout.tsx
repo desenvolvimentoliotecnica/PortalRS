@@ -15,9 +15,10 @@ interface Props {
     nextDisabled?: boolean;
     hideNext?: boolean;
     hideBack?: boolean;
+    hideStepHeader?: boolean;
 }
 
-export default function WizardLayout({ children, onNext, onBack, nextLabel, nextDisabled, hideNext, hideBack }: Props) {
+export default function WizardLayout({ children, onNext, onBack, nextLabel, nextDisabled, hideNext, hideBack, hideStepHeader }: Props) {
     const { currentStep, completedSteps, isAutoSaving, lastSavedAt, setStep, markStepComplete } = useAdmissaoWizardStore();
     const [advancing, setAdvancing] = useState(false);
 
@@ -49,6 +50,7 @@ export default function WizardLayout({ children, onNext, onBack, nextLabel, next
             </div>
 
             {/* Step label + auto-save indicator */}
+            {!hideStepHeader && (
             <div className="flex items-center justify-between px-1">
                 <h2 className="text-base sm:text-lg font-semibold">
                     {STEP_LABELS[currentStep]}
@@ -64,6 +66,7 @@ export default function WizardLayout({ children, onNext, onBack, nextLabel, next
                     </span>
                 )}
             </div>
+            )}
 
             {/* Content */}
             <div className="min-h-[300px]">{children}</div>
