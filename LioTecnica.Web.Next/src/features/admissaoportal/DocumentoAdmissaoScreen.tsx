@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import {
     FileText, CheckCircle2, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
-import { validatePortalForm } from "./portalValidation";
+import { validatePortalForm, validateRequiredDocuments, validateDependentsStep, formatPortalValidationMessage, formatMissingDocumentsMessage } from "./portalValidation";
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
@@ -69,6 +69,11 @@ export default function DocumentoAdmissaoScreen() {
         setUploadedDoc,
         setUploadedDocVerso,
         computeCompletionPercent,
+        uploadedDocs,
+        uploadedDocsVerso,
+        hasDependentes,
+        dependentes,
+        setLastSavedAt,
     } = useAdmissaoWizardStore();
 
     // Check existing session
@@ -165,12 +170,73 @@ export default function DocumentoAdmissaoScreen() {
         finally { setLogging(false); }
     }
 
+    async function handleWizardNext(): Promise<boolean> {
+        if (!session || !data) return true;
+
+        switch (currentStep) {
+            case 0:
+                return true;
+
+            case 1: {
+                const missingDocs = validateRequiredDocuments(
+                    data.documentosSolicitados,
+                    uploadedDocs,
+                    uploadedDocsVerso,
+                    data.documentosEnviados,
+                );
+                if (missingDocs.length > 0) {
+                    toast.error(formatMissingDocumentsMessage(missingDocs));
+                    return false;
+                }
+                return true;
+            }
+
+            case 2: {
+                const errors = validatePortalForm(formData as Record<string, unknown>);
+                if (errors.length > 0) {
+                    toast.error(formatPortalValidationMessage(errors));
+                    return false;
+                }
+                try {
+                    await admissaoPortalFetch(
+                        session.tenantId,
+                        `/api/public/admissao-portal/${session.preAdmissaoId}/dados`,
+                        session.cpf,
+                        {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(formData),
+                        },
+                    );
+                    setLastSavedAt(new Date());
+                } catch {
+                    toast.error("Erro ao salvar seus dados. Tente novamente.");
+                    return false;
+                }
+                return true;
+            }
+
+            case 3: {
+                const depError = validateDependentsStep(hasDependentes, dependentes.length);
+                if (depError) {
+                    toast.error(depError);
+                    return false;
+                }
+                return true;
+            }
+
+            default:
+                return true;
+        }
+    }
+
     async function handleSubmit() {
         if (!session) return;
 
         // Fallback de segurança — ReviewStep já bloqueia e exibe painel inline
         const missing = validatePortalForm(formData as Record<string, unknown>);
         if (missing.length > 0) {
+            toast.error(formatPortalValidationMessage(missing));
             setStep(2);
             return;
         }
@@ -306,6 +372,7 @@ export default function DocumentoAdmissaoScreen() {
                         hideNext={currentStep === 4}
                         hideBack={currentStep === 0}
                         nextLabel={currentStep === 0 ? "Começar" : undefined}
+                        onNext={handleWizardNext}
                     >
                         {currentStep === 0 && (
                             <WelcomeStep nome={data.nome} documentosSolicitados={data.documentosSolicitados} />

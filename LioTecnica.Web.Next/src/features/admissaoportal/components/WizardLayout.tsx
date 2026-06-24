@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2, Cloud } from "lucide-react";
 import WizardStepper from "./WizardStepper";
@@ -8,7 +8,8 @@ import { useAdmissaoWizardStore, TOTAL_STEPS, STEP_LABELS } from "../useAdmissao
 
 interface Props {
     children: React.ReactNode;
-    onNext?: () => void | Promise<void>;
+    /** Retorne false (ou Promise<false>) para impedir avanço de etapa. */
+    onNext?: () => boolean | void | Promise<boolean | void>;
     onBack?: () => void;
     nextLabel?: string;
     nextDisabled?: boolean;
@@ -18,11 +19,21 @@ interface Props {
 
 export default function WizardLayout({ children, onNext, onBack, nextLabel, nextDisabled, hideNext, hideBack }: Props) {
     const { currentStep, completedSteps, isAutoSaving, lastSavedAt, setStep, markStepComplete } = useAdmissaoWizardStore();
+    const [advancing, setAdvancing] = useState(false);
 
     async function handleNext() {
-        if (onNext) await onNext();
-        markStepComplete(currentStep);
-        if (currentStep < TOTAL_STEPS - 1) setStep(currentStep + 1);
+        if (advancing) return;
+        setAdvancing(true);
+        try {
+            if (onNext) {
+                const canAdvance = await onNext();
+                if (canAdvance === false) return;
+            }
+            markStepComplete(currentStep);
+            if (currentStep < TOTAL_STEPS - 1) setStep(currentStep + 1);
+        } finally {
+            setAdvancing(false);
+        }
     }
 
     function handleBack() {
@@ -67,8 +78,9 @@ export default function WizardLayout({ children, onNext, onBack, nextLabel, next
                     <div />
                 )}
                 {!hideNext && (
-                    <Button size="lg" onClick={handleNext} disabled={nextDisabled} className="gap-1 min-w-[140px]">
-                        {nextLabel || "Próximo"} <ChevronRight className="size-4" />
+                    <Button size="lg" onClick={handleNext} disabled={nextDisabled || advancing} className="gap-1 min-w-[140px]">
+                        {advancing ? <Loader2 className="size-4 animate-spin" /> : null}
+                        {nextLabel || "Próximo"} {!advancing && <ChevronRight className="size-4" />}
                     </Button>
                 )}
             </div>

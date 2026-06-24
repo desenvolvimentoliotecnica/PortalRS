@@ -1,4 +1,5 @@
 import { TIPO_DOC_LABELS } from "@/features/admissaoportal/constants";
+import { DOC_FRENTE_LABELS, DOC_VERSO_LABELS } from "@/features/admissaoportal/admissaoDocumentoCatalog";
 
 /** Relação CLT padrão enviada pelo RH — ordem de exibição no tracking. */
 export const DOCS_CLT_OBRIGATORIOS: number[] = [
@@ -56,6 +57,43 @@ export function tipoDocumentoToCode(tipo: number | string): number {
   const s = String(tipo).trim();
   if (/^\d+$/.test(s)) return Number(s);
   return TIPO_DOC_ENUM_TO_CODE[s] ?? -1;
+}
+
+const STATUS_DOC_LABELS: Record<string, string> = {
+  "0": "Pendente validação",
+  "1": "Aprovado",
+  "2": "Rejeitado",
+  PendenteValidacao: "Pendente validação",
+  Aprovado: "Aprovado",
+  Rejeitado: "Rejeitado",
+};
+
+export function resolveTipoDocumentoLabel(tipo: number | string, lado?: number | null): string {
+  const code = tipoDocumentoToCode(tipo);
+  const base = TIPO_DOC_LABELS[code]
+    ?? (typeof tipo === "string" && !TIPO_DOC_ENUM_TO_CODE[tipo]
+      ? tipo.replace(/([a-z])([A-Z])/g, "$1 $2")
+      : `Documento (${tipo})`);
+
+  if (lado === 1 && DOC_FRENTE_LABELS[code]) return DOC_FRENTE_LABELS[code];
+  if (lado === 2 && DOC_VERSO_LABELS[code]) return DOC_VERSO_LABELS[code];
+  if (lado === 1) return `${base} — Frente`;
+  if (lado === 2) return `${base} — Verso`;
+  return base;
+}
+
+export function resolveStatusDocumentoLabel(status: number | string): string {
+  return STATUS_DOC_LABELS[String(status)] ?? String(status);
+}
+
+export function resolveStatusDocumentoCode(status: number | string): number {
+  if (typeof status === "number") return status;
+  const map: Record<string, number> = {
+    PendenteValidacao: 0,
+    Aprovado: 1,
+    Rejeitado: 2,
+  };
+  return map[status] ?? -1;
 }
 
 export type DocSelection = { checked: boolean; obrigatorio: boolean };
