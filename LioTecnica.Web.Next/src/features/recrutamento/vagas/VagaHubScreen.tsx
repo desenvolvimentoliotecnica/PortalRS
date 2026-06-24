@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import { admissaoTrackingPath } from "@/features/admissao/admissaoRoutes";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -1448,7 +1449,7 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               });
               if (res.ok) {
                 const data = (await res.json()) as { id: string };
-                router.push(`/admissao/tracking/${encodeURIComponent(data.id)}`);
+                router.push(admissaoTrackingPath(data.id));
               } else {
                 const body = await res.json().catch(() => null) as { message?: string } | null;
                 toast.error(body?.message ?? "Erro ao abrir admissão");
