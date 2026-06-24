@@ -115,6 +115,16 @@ export async function saveWizardProgress(session: AdmissaoPortalSession, current
     });
 }
 
+export async function removeDocument(session: AdmissaoPortalSession, docId: string) {
+    const res = await admissaoPortalFetch(
+        session.tenantId,
+        `${basePath(session)}/documentos/${docId}`,
+        session.cpf,
+        { method: "DELETE" },
+    );
+    if (!res.ok) throw new Error("Falha ao remover documento.");
+}
+
 // ── Types ──
 
 export interface DocumentValidationResponse {

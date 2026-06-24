@@ -29,7 +29,7 @@ import { validatePortalForm, validateRequiredDocuments, validateDependentsStep, 
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
-interface DocEnviado { id: string; tipo: number; lado: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; }
+interface DocEnviado { id: string; tipo: number; lado: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; createdAtUtc?: string; }
 interface DadosPessoais { [key: string]: unknown; }
 interface DependenteData { id: string; nomeCompleto: string; parentesco: number; cpf: string | null; dataNascimento: string; isPcd: boolean; }
 interface PortalData {
@@ -119,11 +119,13 @@ export default function DocumentoAdmissaoScreen() {
             // Hydrate uploaded docs — roteia frente/verso para slots corretos
             for (const doc of body.documentosEnviados) {
                 const docData = {
+                    id: doc.id,
                     tipo: doc.tipo,
                     nomeArquivo: doc.nomeArquivo,
                     tamanhoBytes: doc.tamanhoBytes,
                     status: doc.status,
                     presignedUrl: doc.presignedUrl,
+                    createdAtUtc: doc.createdAtUtc,
                 };
                 if (doc.lado === 2) { // Verso = 2
                     setUploadedDocVerso(doc.tipo, docData);
@@ -371,7 +373,8 @@ export default function DocumentoAdmissaoScreen() {
                     <WizardLayout
                         hideNext={currentStep === 4}
                         hideBack={currentStep === 0}
-                        nextLabel={currentStep === 0 ? "Começar" : undefined}
+                        hideStepHeader={currentStep === 1}
+                        nextLabel={currentStep === 0 ? "Começar" : currentStep === 1 ? "Continuar" : undefined}
                         onNext={handleWizardNext}
                     >
                         {currentStep === 0 && (

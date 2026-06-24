@@ -60,12 +60,14 @@ export interface DadosPessoais {
 }
 
 export interface UploadedDoc {
+    id?: string;
     tipo: number;
     nomeArquivo: string;
     tamanhoBytes: number;
     status: number;
     presignedUrl?: string;
     thumbnail?: string;
+    createdAtUtc?: string;
 }
 
 export interface AiExtractionResult {
@@ -114,6 +116,10 @@ interface AdmissaoWizardState {
     setHasDependentes: (v: boolean) => void;
     setUploadedDoc: (tipo: number, doc: UploadedDoc) => void;
     setUploadedDocVerso: (tipo: number, doc: UploadedDoc) => void;
+    removeUploadedDoc: (tipo: number) => void;
+    removeUploadedDocVerso: (tipo: number) => void;
+    clearAiExtraction: (tipo: number) => void;
+    clearAiExtractionVerso: (tipo: number) => void;
     setAiExtraction: (tipo: number, result: AiExtractionResult) => void;
     setAiExtractionVerso: (tipo: number, result: AiExtractionResult) => void;
     markStepComplete: (step: number) => void;
@@ -188,6 +194,38 @@ export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => 
             const m = new Map(s.uploadedDocsVerso);
             m.set(tipo, doc);
             return { uploadedDocsVerso: m };
+        }),
+
+    removeUploadedDoc: (tipo) =>
+        set((s) => {
+            const m = new Map(s.uploadedDocs);
+            m.delete(tipo);
+            const ai = new Map(s.aiExtractions);
+            ai.delete(tipo);
+            return { uploadedDocs: m, aiExtractions: ai };
+        }),
+
+    removeUploadedDocVerso: (tipo) =>
+        set((s) => {
+            const m = new Map(s.uploadedDocsVerso);
+            m.delete(tipo);
+            const ai = new Map(s.aiExtractionsVerso);
+            ai.delete(tipo);
+            return { uploadedDocsVerso: m, aiExtractionsVerso: ai };
+        }),
+
+    clearAiExtraction: (tipo) =>
+        set((s) => {
+            const m = new Map(s.aiExtractions);
+            m.delete(tipo);
+            return { aiExtractions: m };
+        }),
+
+    clearAiExtractionVerso: (tipo) =>
+        set((s) => {
+            const m = new Map(s.aiExtractionsVerso);
+            m.delete(tipo);
+            return { aiExtractionsVerso: m };
         }),
 
     setAiExtraction: (tipo, result) =>

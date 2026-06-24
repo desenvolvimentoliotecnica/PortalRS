@@ -22,6 +22,7 @@ public interface IAdmissaoPortalService
     Task<(int HttpStatus, string Mensagem)> EnviarDocumentoBlipAsync(BlipEnviarDocumentoRequest request, CancellationToken ct);
     Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest request, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse?> UploadDocAsync(Guid preAdmissaoId, string cpf, TipoDocumento tipo, LadoDocumento lado, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
+    Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct);
     Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
     Task<DocumentValidationResponse?> ValidateDocumentAsync(Guid preAdmissaoId, string cpf, DocumentValidationRequest request, CancellationToken ct);
     Task<IReadOnlyList<PreAdmissaoDependenteResponse>> ListDependentesAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
@@ -313,6 +314,24 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             doc.Status, null, doc.CreatedAtUtc, ResolveDocumentUrl(doc));
     }
 
+    public async Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct)
+    {
+        var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
+        if (pa is null) return false;
+
+        var doc = await _db.Set<PreAdmissaoDocumento>()
+            .FirstOrDefaultAsync(d => d.Id == docId && d.PreAdmissaoId == preAdmissaoId, ct);
+        if (doc is null) return false;
+
+        await DeleteStoredDocumentAsync(doc, ct);
+        _db.Set<PreAdmissaoDocumento>().Remove(doc);
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
+        pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "delete_doc", ct);
+        return true;
+    }
+
     public async Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct)
     {
         var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
@@ -542,6 +561,19 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
             return PreAdmissaoDocumentoStorage.BuildLocalStoragePath(pa.Id, storageFileName);
         }
+    }
+
+    private async Task DeleteStoredDocumentAsync(PreAdmissaoDocumento doc, CancellationToken ct)
+    {
+        if (PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath))
+        {
+            var path = PreAdmissaoDocumentoStorage.TryResolveLocalPath(_hostEnvironment, doc.TenantId, doc.StoragePath);
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                File.Delete(path);
+            return;
+        }
+
+        await _storage.DeleteAsync(doc.StoragePath, ct);
     }
 
     private string ResolveDocumentUrl(PreAdmissaoDocumento doc)
