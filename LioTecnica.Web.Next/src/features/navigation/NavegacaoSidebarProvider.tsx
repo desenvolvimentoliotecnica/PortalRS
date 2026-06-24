@@ -11,7 +11,7 @@ import {
 
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
-import { hrefsFromPermissions } from "@/features/navigation/menuPermissions";
+import { buildEffectiveVisibleHrefs } from "@/features/navigation/menuPermissions";
 import {
   normalizeNavegacaoSidebarResponse,
   type NavegacaoSidebarResponse,
@@ -114,10 +114,7 @@ export function NavegacaoSidebarProvider({ children }: { children: ReactNode }) 
           if (it.id === "nav-portalvagas") hrefs.add("/portalvagas");
         }
       }
-      for (const h of hrefsFromPermissions(me?.permissions ?? [])) {
-        if (h !== "*") hrefs.add(h);
-      }
-      visibleHrefs = hrefs;
+      visibleHrefs = buildEffectiveVisibleHrefs(hrefs, me?.permissions ?? []);
     }
 
     return {
