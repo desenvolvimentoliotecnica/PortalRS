@@ -2,11 +2,12 @@
 
 import React, { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, CheckCircle2, XCircle, AlertTriangle, Loader2, RotateCcw, Eye, FileText } from "lucide-react";
+import { Camera, CheckCircle2, XCircle, AlertTriangle, Loader2, RotateCcw } from "lucide-react";
 import type { AiExtractionResult, UploadedDoc } from "../useAdmissaoWizardStore";
 import { ACCEPTED_DOC_MIME, TIPO_DOC_LABELS, TIPOS_COM_VERSO } from "../constants";
 import { DOC_FRENTE_LABELS, DOC_HINTS, DOC_VERSO_LABELS } from "../admissaoDocumentoCatalog";
-import DocumentPreviewLightbox, { type PreviewItem } from "./DocumentPreviewLightbox";
+import DocumentPreviewLightbox, { type PreviewItem } from "@/components/documents/DocumentPreviewLightbox";
+import DocumentThumbnail, { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 
 interface Props {
     tipo: number;
@@ -128,117 +129,105 @@ function DocumentSide({ sideLabel, uploadedDoc, aiResult, disabled, onFileSelect
                           : "border-border/40 bg-muted/30"
             }`}
         >
-            <div className="flex items-start gap-2">
-                <div className="mt-0.5 shrink-0">
-                    {isProcessing ? (
-                        <Loader2 className="size-5 text-blue-500 animate-spin" />
-                    ) : isDone ? (
-                        <CheckCircle2 className="size-5 text-emerald-500" />
-                    ) : isUploadError ? (
-                        <XCircle className="size-5 text-red-500" />
-                    ) : isAiWarning ? (
-                        <AlertTriangle className="size-5 text-amber-500" />
-                    ) : (
-                        <Camera className="size-5 text-muted-foreground" />
-                    )}
-                </div>
-
+            <div className="flex gap-3 items-start">
                 <div className="flex-1 min-w-0">
-                    {sideLabel && (
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">{sideLabel}</p>
-                    )}
-
-                    {isProcessing && (
-                        <p className="text-xs text-blue-600 dark:text-blue-400">Analisando com IA...</p>
-                    )}
-
-                    {isDone && (
-                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                            Enviado com sucesso!
-                            {aiResult?.confidence != null && aiResult.confidence < 0.9 && (
-                                <span className="ml-1 opacity-70">
-                                    (confiança {Math.round(aiResult.confidence * 100)}% — revise)
-                                </span>
+                    <div className="flex items-start gap-2">
+                        <div className="mt-0.5 shrink-0">
+                            {isProcessing ? (
+                                <Loader2 className="size-5 text-blue-500 animate-spin" />
+                            ) : isDone ? (
+                                <CheckCircle2 className="size-5 text-emerald-500" />
+                            ) : isUploadError ? (
+                                <XCircle className="size-5 text-red-500" />
+                            ) : isAiWarning ? (
+                                <AlertTriangle className="size-5 text-amber-500" />
+                            ) : (
+                                <Camera className="size-5 text-muted-foreground" />
                             )}
-                        </p>
-                    )}
-
-                    {isUploadError && (
-                        <p className="text-xs text-red-600 dark:text-red-400">
-                            {aiResult!.validationMessage || "Erro ao enviar. Tente novamente."}
-                        </p>
-                    )}
-
-                    {isAiWarning && (
-                        <div className="space-y-0.5">
-                            {aiResult!.validationMessage && (
-                                <p className="text-xs text-amber-700 dark:text-amber-400">{aiResult!.validationMessage}</p>
-                            )}
-                            <p className="text-xs text-amber-700/60 dark:text-amber-400/60 italic">
-                                Documento salvo — preencha os dados manualmente se necessário.
-                            </p>
                         </div>
-                    )}
 
-                    {!isProcessing && !isDone && !isUploadError && !isAiWarning && (
-                        <p className="text-xs text-muted-foreground">
-                            Envie em PDF ou foto (JPG/PNG)
-                        </p>
-                    )}
+                        <div className="flex-1 min-w-0">
+                            {sideLabel && (
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">{sideLabel}</p>
+                            )}
 
-                    {uploadedDoc && !isProcessing && (
-                        <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
-                            {uploadedDoc.nomeArquivo}
-                        </p>
+                            {isProcessing && (
+                                <p className="text-xs text-blue-600 dark:text-blue-400">Analisando com IA...</p>
+                            )}
+
+                            {isDone && (
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                                    Enviado com sucesso!
+                                    {aiResult?.confidence != null && aiResult.confidence < 0.9 && (
+                                        <span className="ml-1 opacity-70">
+                                            (confiança {Math.round(aiResult.confidence * 100)}% — revise)
+                                        </span>
+                                    )}
+                                </p>
+                            )}
+
+                            {isUploadError && (
+                                <p className="text-xs text-red-600 dark:text-red-400">
+                                    {aiResult!.validationMessage || "Erro ao enviar. Tente novamente."}
+                                </p>
+                            )}
+
+                            {isAiWarning && (
+                                <div className="space-y-0.5">
+                                    {aiResult!.validationMessage && (
+                                        <p className="text-xs text-amber-700 dark:text-amber-400">{aiResult!.validationMessage}</p>
+                                    )}
+                                    <p className="text-xs text-amber-700/60 dark:text-amber-400/60 italic">
+                                        Documento salvo — preencha os dados manualmente se necessário.
+                                    </p>
+                                </div>
+                            )}
+
+                            {!isProcessing && !isDone && !isUploadError && !isAiWarning && (
+                                <p className="text-xs text-muted-foreground">
+                                    Envie em PDF ou foto (JPG/PNG)
+                                </p>
+                            )}
+
+                            {uploadedDoc && !isProcessing && (
+                                <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
+                                    {uploadedDoc.nomeArquivo}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {!disabled && (
+                        <Button
+                            variant={isDone ? "outline" : isAiWarning ? "outline" : "default"}
+                            size="sm"
+                            className="w-full mt-2 gap-1.5"
+                            disabled={isProcessing}
+                            onClick={onFileSelected}
+                        >
+                            {isDone || isUploadError || isAiWarning || uploadedDoc ? (
+                                <><RotateCcw className="size-3.5" />{isUploadError ? "Tentar novamente" : "Enviar outro"}</>
+                            ) : (
+                                <><Camera className="size-4" />Enviar PDF ou foto</>
+                            )}
+                        </Button>
                     )}
                 </div>
+
+                {uploadedDoc && previewUrl && !isProcessing && (
+                    <DocumentThumbnail
+                        url={previewUrl}
+                        nomeArquivo={uploadedDoc.nomeArquivo}
+                        contentType={isPdf ? "application/pdf" : undefined}
+                        onClick={() => onPreview(toPreviewItem(
+                            previewUrl,
+                            uploadedDoc.nomeArquivo,
+                            isPdf ? "application/pdf" : undefined,
+                        ))}
+                        size="md"
+                    />
+                )}
             </div>
-
-            {uploadedDoc && previewUrl && !isProcessing && (
-                <button
-                    type="button"
-                    className="mt-2 w-full rounded-md border border-border/60 overflow-hidden bg-background hover:ring-2 hover:ring-primary/30 transition-all group"
-                    onClick={() => onPreview({
-                        url: previewUrl,
-                        nomeArquivo: uploadedDoc.nomeArquivo,
-                        contentType: isPdf ? "application/pdf" : undefined,
-                    })}
-                >
-                    {isPdf ? (
-                        <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground group-hover:text-foreground">
-                            <FileText className="size-8" />
-                            <span className="text-xs font-medium">PDF — clique para visualizar</span>
-                        </div>
-                    ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                            src={previewUrl}
-                            alt={uploadedDoc.nomeArquivo}
-                            className="w-full max-h-32 object-contain bg-muted/20"
-                        />
-                    )}
-                    <div className="flex items-center justify-center gap-1 py-1.5 text-[10px] text-muted-foreground bg-muted/40">
-                        <Eye className="size-3" />
-                        Clique para ampliar
-                    </div>
-                </button>
-            )}
-
-            {!disabled && (
-                <Button
-                    variant={isDone ? "outline" : isAiWarning ? "outline" : "default"}
-                    size="sm"
-                    className="w-full mt-2 gap-1.5"
-                    disabled={isProcessing}
-                    onClick={onFileSelected}
-                >
-                    {isDone || isUploadError || isAiWarning || uploadedDoc ? (
-                        <><RotateCcw className="size-3.5" />{isUploadError ? "Tentar novamente" : "Enviar outro"}</>
-                    ) : (
-                        <><Camera className="size-4" />Enviar PDF ou foto</>
-                    )}
-                </Button>
-            )}
         </div>
     );
 }

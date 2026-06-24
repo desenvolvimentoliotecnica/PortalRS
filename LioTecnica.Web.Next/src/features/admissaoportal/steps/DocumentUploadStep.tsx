@@ -47,8 +47,10 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
 
         setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: null, processing: true });
 
+        let serverUrl: string | undefined;
         try {
-            await uploadFile(session, tipo, file, side);
+            const uploaded = await uploadFile(session, tipo, file, side) as { presignedUrl?: string } | undefined;
+            serverUrl = uploaded?.presignedUrl;
         } catch (err) {
             const msg = err instanceof Error ? err.message : "Erro ao enviar documento.";
             setAi(tipo, { tipo, isValid: false, confidence: 0, extractedFields: {}, validationMessage: msg, processing: false });
@@ -63,6 +65,7 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
             tamanhoBytes: file.size,
             status: 0,
             thumbnail: localPreview,
+            presignedUrl: serverUrl ?? localPreview,
         });
         onDataRefresh();
 

@@ -20,8 +20,13 @@ import { TIPO_DOC_LABELS } from "@/features/admissaoportal/constants";
 import {
     buildDefaultSelectedDocs,
     orderedTipoDocumentoEntries,
+    resolveStatusDocumentoCode,
+    resolveStatusDocumentoLabel,
+    resolveTipoDocumentoLabel,
     type DocSelection,
 } from "@/features/admissao/admissaoDocumentosPadrao";
+import DocumentPreviewLightbox, { type PreviewItem } from "@/components/documents/DocumentPreviewLightbox";
+import DocumentThumbnail, { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import {
     canAprovarPreAdmissao,
     canGerarLinkPreAdmissao,
@@ -40,11 +45,12 @@ import {
 
 interface DocumentoResponse {
     id: string;
-    tipo: number;
+    tipo: number | string;
+    lado?: number;
     nomeArquivo: string;
     contentType: string;
     tamanhoBytes: number;
-    status: number;
+    status: number | string;
     observacaoRh: string | null;
     createdAtUtc: string;
     presignedUrl: string;
@@ -224,6 +230,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const [rejectDocId, setRejectDocId] = useState<string | null>(null);
     const [rejectObs, setRejectObs] = useState("");
     const [validatingDocId, setValidatingDocId] = useState<string | null>(null);
+    const [docPreview, setDocPreview] = useState<PreviewItem | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -429,7 +436,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const canUploadManual = canUploadManualPreAdmissao(data.status);
     const aguardandoCandidato = isPreAdmissaoAguardandoCandidato(data.status);
     const statusVariant = PRE_ADMISSAO_STATUS_VARIANT[preAdmissaoStatusCode(data.status)] ?? "outline";
-    const docsValidados = data.documentos.filter(d => d.status === 1).length;
+    const docsValidados = data.documentos.filter(d => resolveStatusDocumentoCode(d.status) === 1).length;
     const docsTotal = data.documentos.length;
 
     return (
@@ -750,71 +757,116 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     <p className="text-sm text-muted-foreground">Nenhum documento recebido ainda.</p>
                 ) : (
                     <div className="space-y-2">
-                        {data.documentos.map((doc) => (
-                            <div key={doc.id} className="flex items-center gap-3 rounded-lg border border-border/40 px-4 py-3">
-                                <FileText className="size-4 text-muted-foreground shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium truncate">{doc.nomeArquivo}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {TIPO_DOC_LABEL[doc.tipo] ?? `Tipo ${doc.tipo}`} · {formatBytes(doc.tamanhoBytes)} · {formatDate(doc.createdAtUtc)}
+                        {data.documentos.map((doc) => {
+                            const statusCode = resolveStatusDocumentoCode(doc.status);
+                            const tipoLabel = resolveTipoDocumentoLabel(doc.tipo, doc.lado);
+                            const statusLabel = resolveStatusDocumentoLabel(doc.status);
+                            const canValidate = statusCode === 0 && canAprovarPreAdmissao(data.status);
+                            return (
+                            <div key={doc.id} className="flex items-start gap-3 rounded-lg border border-border/40 px-4 py-3">
+                                {doc.presignedUrl ? (
+                                    <DocumentThumbnail
+                                        url={doc.presignedUrl}
+                                        nomeArquivo={doc.nomeArquivo}
+                                        contentType={doc.contentType}
+                                        size="md"
+                                        className="mt-0.5"
+                                        onClick={() => setDocPreview(toPreviewItem(
+                                            doc.presignedUrl,
+                                            doc.nomeArquivo,
+                                            doc.contentType,
+                                        ))}
+                                    />
+                                ) : (
+                                    <div className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20">
+                                        <FileText className="size-5 text-muted-foreground" />
                                     </div>
-                                    {doc.status === 2 && doc.observacaoRh && (
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-semibold leading-snug">{tipoLabel}</div>
+                                    <div className="text-xs text-muted-foreground truncate mt-0.5">{doc.nomeArquivo}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                        {formatBytes(doc.tamanhoBytes)} · {formatDate(doc.createdAtUtc)}
+                                    </div>
+                                    {statusCode === 2 && doc.observacaoRh && (
                                         <div className="text-xs text-red-600 dark:text-red-400 mt-1">
                                             Motivo: {doc.observacaoRh}
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_DOC_COLOR[doc.status] ?? "bg-muted text-muted-foreground"}`}>
-                                        {STATUS_DOC_LABEL[doc.status] ?? doc.status}
+                                <div className="flex flex-col items-end gap-2 shrink-0 sm:flex-row sm:items-center">
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_DOC_COLOR[statusCode] ?? "bg-muted text-muted-foreground"}`}>
+                                        {statusLabel}
                                     </span>
-                                    {doc.presignedUrl && (
+                                    <div className="flex items-center gap-1">
+                                        {doc.presignedUrl && (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 gap-1 px-2"
+                                                    onClick={() => setDocPreview(toPreviewItem(
+                                                        doc.presignedUrl,
+                                                        doc.nomeArquivo,
+                                                        doc.contentType,
+                                                    ))}
+                                                    title="Visualizar"
+                                                >
+                                                    <Eye className="size-3.5" />
+                                                    <span className="hidden sm:inline text-xs">Ver</span>
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 gap-1 px-2"
+                                                    asChild
+                                                    title="Baixar"
+                                                >
+                                                    <a href={doc.presignedUrl} download={doc.nomeArquivo} target="_blank" rel="noopener noreferrer">
+                                                        <Download className="size-3.5" />
+                                                        <span className="hidden sm:inline text-xs">Baixar</span>
+                                                    </a>
+                                                </Button>
+                                            </>
+                                        )}
+                                        {canValidate && (
+                                            <>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                    onClick={() => void handleValidarDoc(doc.id, 1)}
+                                                    disabled={validatingDocId === doc.id}
+                                                    title="Validar"
+                                                >
+                                                    <CheckCircle2 className="size-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => { setRejectDocId(doc.id); setRejectObs(""); }}
+                                                    disabled={validatingDocId === doc.id}
+                                                    title="Rejeitar"
+                                                >
+                                                    <XCircle className="size-4" />
+                                                </Button>
+                                            </>
+                                        )}
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-8 w-8 p-0"
-                                            onClick={() => window.open(doc.presignedUrl, "_blank")}
-                                            title="Visualizar"
+                                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                                            onClick={() => void handleDeleteDoc(doc.id)}
+                                            title="Excluir"
                                         >
-                                            <Eye className="size-4" />
+                                            <Trash2 className="size-4" />
                                         </Button>
-                                    )}
-                                    {doc.status === 0 && canAprovarPreAdmissao(data.status) && (
-                                        <>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                onClick={() => void handleValidarDoc(doc.id, 1)}
-                                                disabled={validatingDocId === doc.id}
-                                                title="Validar"
-                                            >
-                                                <CheckCircle2 className="size-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                onClick={() => { setRejectDocId(doc.id); setRejectObs(""); }}
-                                                disabled={validatingDocId === doc.id}
-                                                title="Rejeitar"
-                                            >
-                                                <XCircle className="size-4" />
-                                            </Button>
-                                        </>
-                                    )}
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
-                                        onClick={() => void handleDeleteDoc(doc.id)}
-                                        title="Excluir"
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
+                                    </div>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -908,6 +960,8 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <DocumentPreviewLightbox preview={docPreview} onClose={() => setDocPreview(null)} />
         </section>
     );
 }
