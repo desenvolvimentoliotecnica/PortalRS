@@ -17,6 +17,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { TIPO_DOC_LABELS } from "@/features/admissaoportal/constants";
+import {
+    canAprovarPreAdmissao,
+    canGerarLinkPreAdmissao,
+    canRejeitarPreAdmissao,
+    canSolicitarDocumentosPreAdmissao,
+    canUploadManualPreAdmissao,
+    isPreAdmissaoAguardandoCandidato,
+    isPreAdmissaoRejeitada,
+    preAdmissaoStatusLabel,
+    preAdmissaoStatusCode,
+    preAdmissaoTimelinePhase,
+    type PreAdmissaoStatusValue,
+} from "@/features/admissao/preAdmissaoStatus";
 
 /* ────── types ────── */
 
@@ -34,7 +47,7 @@ interface DocumentoResponse {
 
 interface PreAdmissaoDetail {
     id: string;
-    status: number;
+    status: PreAdmissaoStatusValue;
     nome: string;
     cpf: string | null;
     email: string | null;
@@ -65,10 +78,10 @@ interface PreAdmissaoDetail {
 /* ────── constants ────── */
 
 const STATUS_STEPS = [
-    { value: 1, label: "Preenchimento Pendente", desc: "Aguardando candidato preencher dados" },
-    { value: 2, label: "Em Revisão", desc: "RH revisando os dados e documentos" },
-    { value: 3, label: "Aprovada", desc: "Aguardando integração com TOTVS" },
-    { value: 5, label: "Integrada", desc: "Dados enviados ao TOTVS com sucesso" },
+    { phase: 1, label: "Preenchimento Pendente", desc: "Aguardando candidato preencher dados" },
+    { phase: 2, label: "Em Revisão", desc: "RH revisando os dados e documentos" },
+    { phase: 3, label: "Aprovada", desc: "Aguardando integração com TOTVS" },
+    { phase: 4, label: "Integrada", desc: "Dados enviados ao TOTVS com sucesso" },
 ];
 
 const TIPO_DOC_LABEL = TIPO_DOC_LABELS;
@@ -85,15 +98,6 @@ const STATUS_DOC_COLOR: Record<number, string> = {
     2: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
 };
 
-const PRE_ADMISSAO_STATUS_LABEL: Record<number, string> = {
-    0: "Rascunho",
-    1: "Preenchimento Pendente",
-    2: "Em Revisão",
-    3: "Aprovada",
-    4: "Rejeitada",
-    5: "Integrada",
-};
-
 const PRE_ADMISSAO_STATUS_VARIANT: Record<number, "default" | "secondary" | "destructive" | "outline"> = {
     0: "outline",
     1: "secondary",
@@ -101,6 +105,9 @@ const PRE_ADMISSAO_STATUS_VARIANT: Record<number, "default" | "secondary" | "des
     3: "secondary",
     4: "destructive",
     5: "secondary",
+    6: "secondary",
+    7: "secondary",
+    8: "default",
 };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -130,8 +137,9 @@ function formatDate(iso: string | null | undefined) {
 
 /* ────── Timeline ────── */
 
-function Timeline({ status }: { status: number }) {
-    const isRejeitada = status === 4;
+function Timeline({ status }: { status: PreAdmissaoStatusValue }) {
+    const isRejeitada = isPreAdmissaoRejeitada(status);
+    const currentPhase = preAdmissaoTimelinePhase(status);
     return (
         <div className="flex items-start gap-0">
             {isRejeitada ? (
@@ -141,10 +149,10 @@ function Timeline({ status }: { status: number }) {
                 </div>
             ) : (
                 STATUS_STEPS.map((step, idx) => {
-                    const done = status >= step.value && status !== 4;
-                    const current = status === step.value;
+                    const done = currentPhase > step.phase;
+                    const current = currentPhase === step.phase;
                     return (
-                        <React.Fragment key={step.value}>
+                        <React.Fragment key={step.phase}>
                             <div className="flex flex-col items-center min-w-[100px]">
                                 <div className={`size-8 rounded-full flex items-center justify-center border-2 transition-colors ${done
                                     ? "bg-green-500 border-green-500 text-white"
@@ -162,7 +170,7 @@ function Timeline({ status }: { status: number }) {
                                 </div>
                             </div>
                             {idx < STATUS_STEPS.length - 1 && (
-                                <div className={`flex-1 h-0.5 mt-4 mx-1 ${status > step.value && status !== 4 ? "bg-green-500" : "bg-border"}`} />
+                                <div className={`flex-1 h-0.5 mt-4 mx-1 ${done ? "bg-green-500" : "bg-border"}`} />
                             )}
                         </React.Fragment>
                     );
@@ -395,10 +403,13 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
         );
     }
 
-    const canApprove = data.status === 2;
-    const canReject = data.status === 1 || data.status === 2;
-    const canGerarLinkCandidato = data.status === 0 || data.status === 1 || data.status === 6 || data.status === 7;
-    const canSolicitarDocumentos = data.status === 0 || data.status === 1;
+    const canApprove = canAprovarPreAdmissao(data.status);
+    const canReject = canRejeitarPreAdmissao(data.status);
+    const canGerarLinkCandidato = canGerarLinkPreAdmissao(data.status);
+    const canSolicitarDocumentos = canSolicitarDocumentosPreAdmissao(data.status);
+    const canUploadManual = canUploadManualPreAdmissao(data.status);
+    const aguardandoCandidato = isPreAdmissaoAguardandoCandidato(data.status);
+    const statusVariant = PRE_ADMISSAO_STATUS_VARIANT[preAdmissaoStatusCode(data.status)] ?? "outline";
     const docsValidados = data.documentos.filter(d => d.status === 1).length;
     const docsTotal = data.documentos.length;
 
@@ -411,14 +422,22 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                         <ArrowLeft className="size-4 mr-1" /> Voltar
                     </Button>
                     <h1 className="text-2xl font-semibold tracking-tight">{data.nome}</h1>
-                    <div className="flex items-center gap-2 mt-1">
-                        <Badge variant={PRE_ADMISSAO_STATUS_VARIANT[data.status]}>
-                            {PRE_ADMISSAO_STATUS_LABEL[data.status] ?? data.status}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant={statusVariant}>
+                            {preAdmissaoStatusLabel(data.status)}
                         </Badge>
                         <span className="text-xs text-muted-foreground">Criada em {formatDate(data.createdAtUtc)}</span>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {canGerarLinkCandidato && (
+                        <Button
+                            size="sm"
+                            onClick={() => document.getElementById("link-candidato")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                        >
+                            <Link className="size-4 mr-1" /> Enviar link ao candidato
+                        </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={async () => {
                         // Baixa o payload TOTVS exato (o mesmo que o sync-service consome).
                         // Atualiza em tempo real conforme o sync callback roda (matriculaRM, resultado).
@@ -452,6 +471,17 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     )}
                 </div>
             </div>
+
+            {aguardandoCandidato && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50/60 dark:border-sky-900 dark:bg-sky-950/20 px-5 py-4">
+                    <p className="text-sm font-medium text-sky-900 dark:text-sky-100">Próximo passo para o RH</p>
+                    <p className="text-sm text-sky-800/90 dark:text-sky-200/90 mt-1">
+                        {canSolicitarDocumentos
+                            ? "Revise os documentos solicitados abaixo, confirme o CPF e clique em «Gerar e enviar link» para o candidato acessar o Portal de Admissão."
+                            : "Acompanhe o preenchimento do candidato. Quando os documentos chegarem, valide nesta tela."}
+                    </p>
+                </div>
+            )}
 
             {/* Timeline */}
             <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm overflow-x-auto">
@@ -566,7 +596,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
 
             {/* CARD B: Link de Acesso do Candidato */}
             {canGerarLinkCandidato && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20 p-5 shadow-sm">
+                <div id="link-candidato" className="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20 p-5 shadow-sm scroll-mt-4">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                         <Link className="size-4 inline-block mr-1 -mt-0.5" />
                         Link de Acesso do Candidato
@@ -623,7 +653,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
             )}
 
             {/* CARD C: Upload Manual (RH) */}
-            {(data.status === 1 || data.status === 2) && (
+            {canUploadManual && (
                 <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                         <Upload className="size-4 inline-block mr-1 -mt-0.5" />
@@ -721,7 +751,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                                             <Eye className="size-4" />
                                         </Button>
                                     )}
-                                    {doc.status === 0 && data.status === 2 && (
+                                    {doc.status === 0 && canAprovarPreAdmissao(data.status) && (
                                         <>
                                             <Button
                                                 variant="ghost"

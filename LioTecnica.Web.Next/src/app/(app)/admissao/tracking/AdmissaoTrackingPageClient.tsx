@@ -10,13 +10,11 @@ export default function AdmissaoTrackingPageClient() {
 
   return (
     <AuthGuard>
-      <div className="p-6 max-w-5xl mx-auto">
-        {id ? (
-          <PreAdmissaoTrackingScreen id={id} />
-        ) : (
-          <p className="text-sm text-muted-foreground">Pré-admissão não informada.</p>
-        )}
-      </div>
+      {id ? (
+        <PreAdmissaoTrackingScreen id={id} />
+      ) : (
+        <p className="text-sm text-muted-foreground">Pré-admissão não informada.</p>
+      )}
     </AuthGuard>
   );
 }
