@@ -23,6 +23,7 @@ import {
     Trash2,
     RefreshCw,
 } from "lucide-react";
+import { admissaoTrackingPath } from "@/features/admissao/admissaoRoutes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -419,7 +420,7 @@ export default function AdmissaoListScreen() {
                                     key={r.id}
                                     className="cursor-pointer hover:bg-muted/40"
                                     onClick={() => {
-                                        if (isDraft) router.push(`/admissao/tracking/${r.id}`);
+                                        if (isDraft) router.push(admissaoTrackingPath(r.id));
                                         else router.push(`/admissao/revisao?id=${r.id}`);
                                     }}
                                     title={s.label === "Falha TOTVS" && r.integracaoMensagem ? r.integracaoMensagem : undefined}
@@ -462,7 +463,7 @@ export default function AdmissaoListScreen() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 {isDraft && (
-                                                    <DropdownMenuItem onClick={() => router.push(`/admissao/tracking/${r.id}`)}>
+                                                    <DropdownMenuItem onClick={() => router.push(admissaoTrackingPath(r.id))}>
                                                         <Link className="size-4 mr-2" /> Enviar link ao candidato
                                                     </DropdownMenuItem>
                                                 )}

@@ -22,6 +22,7 @@ import {
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { admissaoTrackingPath } from "@/features/admissao/admissaoRoutes";
 import { getKanbanVagas, type KanbanVagaFiltroItem } from "@/features/recrutamento/candidaturas/candidaturaApi";
 
 /* ────── constants ────── */
@@ -413,7 +414,7 @@ export default function ProcessoSeletivoScreen() {
             const data = await res.json();
             toast.success("Contratação aprovada! Redirecionando para pré-admissão...");
             setAprovarDialogOpen(false);
-            router.push(`/admissao/tracking/${data.id}`);
+            router.push(admissaoTrackingPath(data.id));
         } catch (e) {
             toast.error(`Falha: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
