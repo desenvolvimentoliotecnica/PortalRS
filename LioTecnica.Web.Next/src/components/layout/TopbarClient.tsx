@@ -6,6 +6,7 @@ import {
   Bell,
   Building2,
   ChevronDown,
+  FileUp,
   Globe,
   LogOut,
   Menu,
@@ -418,6 +419,20 @@ export default function TopbarClient({
                       Portal de Vagas
                     </Link>
                   </DropdownMenuItem>
+
+                  {/* Portal de Admissão (exemplo — Owner / preview do formulário público) */}
+                  {isInTenantContext && getTenantId() && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/DocumentoAdmissao?tenantId=${encodeURIComponent(getTenantId()!)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <FileUp className="size-4 mr-2" />
+                        Portal de Admissão (exemplo)
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
 
                   {/* Integração TOTVS */}
                   <DropdownMenuItem asChild>
