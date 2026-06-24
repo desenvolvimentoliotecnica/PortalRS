@@ -102,8 +102,6 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         TipoDocumento.ExameMedico,
         TipoDocumento.ComprovanteVacinaCovid,
         TipoDocumento.CartaBoasVindas,
-        TipoDocumento.PrintValidacaoCep,
-        TipoDocumento.PrintConsultaCpfReceita,
         TipoDocumento.CertidaoNascimentoFilho,
         TipoDocumento.RGFilho,
         TipoDocumento.CpfFilho,
@@ -1159,6 +1157,11 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             PreAdmissaoCandidatoPrefill.ApplyIfEmpty(existing, candidato);
             existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(ct);
+            await AdicionarDocumentosPadraoSolicitadosAsync(
+                existing.Id,
+                existing.JobPositionId,
+                existing.TipoContratacao ?? TipoContratacaoAdmissao.CLT,
+                ct);
             return (await GetByIdAsync(existing.Id, ct))!;
         }
 
