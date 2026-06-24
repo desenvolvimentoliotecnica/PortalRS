@@ -18,6 +18,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { TIPO_DOC_LABELS } from "@/features/admissaoportal/constants";
 import {
+    buildDefaultSelectedDocs,
+    orderedTipoDocumentoEntries,
+    type DocSelection,
+} from "@/features/admissao/admissaoDocumentosPadrao";
+import {
     canAprovarPreAdmissao,
     canGerarLinkPreAdmissao,
     canRejeitarPreAdmissao,
@@ -71,7 +76,7 @@ interface PreAdmissaoDetail {
     integracaoMensagem: string | null;
     integradaEmUtc: string | null;
     documentos: DocumentoResponse[];
-    documentosSolicitados: { tipoDocumento: number; label: string; obrigatorio: boolean }[];
+    documentosSolicitados: { tipoDocumento: number | string; label: string; obrigatorio: boolean }[];
     accessToken: string | null;
 }
 
@@ -198,8 +203,9 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const [rejeitarLoading, setRejeitarLoading] = useState(false);
 
     /* document solicitation */
-    const [selectedDocs, setSelectedDocs] = useState<Map<number, { checked: boolean; obrigatorio: boolean }>>(new Map());
+    const [selectedDocs, setSelectedDocs] = useState<Map<number, DocSelection>>(new Map());
     const [savingDocs, setSavingDocs] = useState(false);
+    const defaultsPersistedRef = React.useRef(false);
 
     /* link generation */
     const [linkCpf, setLinkCpf] = useState("");
@@ -233,18 +239,41 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
 
     useEffect(() => { void load(); }, [load]);
 
-    /* Initialize selectedDocs from server data */
+    const persistDocsSolicitados = useCallback(async (map: Map<number, DocSelection>, silent = false) => {
+        const documentos: { tipoDocumento: number; obrigatorio: boolean }[] = [];
+        map.forEach((val, key) => {
+            if (val.checked) documentos.push({ tipoDocumento: key, obrigatorio: val.obrigatorio });
+        });
+        await fetchJson(`/api/pre-admissao/${id}/documentos-solicitados`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ documentos }),
+        });
+        if (!silent) toast.success("Documentos solicitados salvos com sucesso!");
+        await load();
+    }, [id, load]);
+
+    /* Initialize selectedDocs from server data (API serializa enum como string) */
     useEffect(() => {
-        if (data?.documentosSolicitados) {
-            const map = new Map<number, { checked: boolean; obrigatorio: boolean }>();
-            data.documentosSolicitados.forEach(ds => map.set(ds.tipoDocumento, { checked: true, obrigatorio: ds.obrigatorio }));
-            setSelectedDocs(map);
-            setLinkCpf(data.cpf ?? "");
-            if (data.accessToken) {
-                setGeneratedUrl(`${window.location.origin}/DocumentoAdmissao?preAdmissaoId=${data.id}`);
-            }
+        if (!data) return;
+
+        setLinkCpf(data.cpf ?? "");
+        if (data.accessToken) {
+            setGeneratedUrl(`${window.location.origin}/DocumentoAdmissao?preAdmissaoId=${data.id}`);
         }
-    }, [data]);
+
+        if (!canSolicitarDocumentosPreAdmissao(data.status)) return;
+
+        const map = buildDefaultSelectedDocs(data.documentosSolicitados);
+        setSelectedDocs(map);
+
+        if (data.documentosSolicitados.length === 0 && !defaultsPersistedRef.current) {
+            defaultsPersistedRef.current = true;
+            void persistDocsSolicitados(map, true).catch(() => {
+                defaultsPersistedRef.current = false;
+            });
+        }
+    }, [data, persistDocsSolicitados]);
 
     async function handleAprovar() {
         setAprovarLoading(true);
@@ -286,17 +315,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     async function handleSaveDocsSolicitados() {
         setSavingDocs(true);
         try {
-            const documentos: { tipoDocumento: number; obrigatorio: boolean }[] = [];
-            selectedDocs.forEach((val, key) => {
-                if (val.checked) documentos.push({ tipoDocumento: key, obrigatorio: val.obrigatorio });
-            });
-            await fetchJson(`/api/pre-admissao/${id}/documentos-solicitados`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ documentos }),
-            });
-            toast.success("Documentos solicitados salvos com sucesso!");
-            await load();
+            await persistDocsSolicitados(selectedDocs);
         } catch (e) {
             toast.error(`Falha ao salvar documentos: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
@@ -547,40 +566,49 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
             {/* CARD A: Solicitar Documentos */}
             {canSolicitarDocumentos && (
                 <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Solicitar Documentos</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {Object.entries(TIPO_DOC_LABEL).map(([key, label]) => {
-                            const tipo = Number(key);
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Solicitar Documentos</h2>
+                    <p className="text-xs text-muted-foreground mb-4">
+                        Documentos padrão CLT já vêm selecionados como obrigatórios. Ajuste se necessário e salve.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {orderedTipoDocumentoEntries().map(([tipo, label]) => {
                             const entry = selectedDocs.get(tipo);
                             const checked = entry?.checked ?? false;
                             const obrigatorio = entry?.obrigatorio ?? false;
                             return (
-                                <div key={tipo} className="flex items-center gap-2 rounded-lg border border-border/40 px-3 py-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={(e) => {
-                                            const next = new Map(selectedDocs);
-                                            next.set(tipo, { checked: e.target.checked, obrigatorio });
-                                            setSelectedDocs(next);
-                                        }}
-                                        className="size-4 rounded border-gray-300 accent-primary"
-                                    />
-                                    <span className="text-sm flex-1 min-w-0 truncate">{label}</span>
-                                    {checked && (
-                                        <label className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={obrigatorio}
-                                                onChange={(e) => {
-                                                    const next = new Map(selectedDocs);
-                                                    next.set(tipo, { checked, obrigatorio: e.target.checked });
-                                                    setSelectedDocs(next);
-                                                }}
-                                                className="size-3 rounded"
-                                            />
-                                            Obrig.
-                                        </label>
+                                <div key={tipo} className="flex flex-col gap-1 rounded-lg border border-border/40 px-3 py-2">
+                                    <div className="flex items-start gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={(e) => {
+                                                const next = new Map(selectedDocs);
+                                                next.set(tipo, { checked: e.target.checked, obrigatorio: e.target.checked ? obrigatorio || true : false });
+                                                setSelectedDocs(next);
+                                            }}
+                                            className="size-4 mt-0.5 rounded border-gray-300 accent-primary shrink-0"
+                                        />
+                                        <span className="text-sm flex-1 min-w-0 leading-snug">{label}</span>
+                                        {checked && (
+                                            <label className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer" title="Obrigatório para o candidato">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={obrigatorio}
+                                                    onChange={(e) => {
+                                                        const next = new Map(selectedDocs);
+                                                        next.set(tipo, { checked, obrigatorio: e.target.checked });
+                                                        setSelectedDocs(next);
+                                                    }}
+                                                    className="size-3 rounded accent-primary"
+                                                />
+                                                Obrig.
+                                            </label>
+                                        )}
+                                    </div>
+                                    {tipo === 9 && checked && (
+                                        <p className="text-[10px] text-muted-foreground pl-6 leading-tight">
+                                            Inclui páginas de experiências e foto com data de emissão (frente e verso).
+                                        </p>
                                     )}
                                 </div>
                             );
