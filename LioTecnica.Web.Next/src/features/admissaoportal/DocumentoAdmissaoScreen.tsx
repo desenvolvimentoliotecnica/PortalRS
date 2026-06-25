@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import {
     FileText, CheckCircle2, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
-import { validatePortalForm, validateDependentsStep, formatPortalValidationMessage, formatMissingDocumentsMessage } from "./portalValidation";
+import { formatMissingDocumentsMessage } from "./portalValidation";
 import { buildWizardPlan, validateSingleDocument } from "./wizardSteps";
 
 /* types */
@@ -74,8 +74,6 @@ export default function DocumentoAdmissaoScreen() {
         computeCompletionPercent,
         uploadedDocs,
         uploadedDocsVerso,
-        hasDependentes,
-        dependentes,
         setLastSavedAt,
     } = useAdmissaoWizardStore();
 
@@ -224,11 +222,6 @@ export default function DocumentoAdmissaoScreen() {
             }
 
             case "dados": {
-                const errors = validatePortalForm(formData as Record<string, unknown>);
-                if (errors.length > 0) {
-                    toast.error(formatPortalValidationMessage(errors));
-                    return false;
-                }
                 try {
                     await admissaoPortalFetch(
                         session.tenantId,
@@ -248,14 +241,8 @@ export default function DocumentoAdmissaoScreen() {
                 return true;
             }
 
-            case "dependentes": {
-                const depError = validateDependentsStep(hasDependentes, dependentes.length);
-                if (depError) {
-                    toast.error(depError);
-                    return false;
-                }
+            case "dependentes":
                 return true;
-            }
 
             default:
                 return true;
@@ -265,21 +252,11 @@ export default function DocumentoAdmissaoScreen() {
     async function handleSubmit() {
         if (!session) return;
 
-        // Fallback de segurança — ReviewStep já bloqueia e exibe painel inline
-        const missing = validatePortalForm(formData as Record<string, unknown>);
-        if (missing.length > 0) {
-            toast.error(formatPortalValidationMessage(missing));
-            setStep(wizardPlan.dadosStep);
-            return;
-        }
-
-        // Save form data one final time
         await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/dados`, session.cpf, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData),
         });
-        // Submit
         const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/submit`, session.cpf, { method: "POST" });
         if (!res.ok) {
             const b = await res.json().catch(() => ({}));
@@ -369,6 +346,7 @@ export default function DocumentoAdmissaoScreen() {
     const stepInfo = wizardPlan.resolveStep(currentStep);
     const isWelcome = stepInfo.kind === "welcome";
     const isDocument = stepInfo.kind === "document";
+    const isDados = stepInfo.kind === "dados";
     const isReview = stepInfo.kind === "review";
     const docCount = wizardPlan.documentSteps.length;
 
@@ -411,8 +389,8 @@ export default function DocumentoAdmissaoScreen() {
                         plan={wizardPlan}
                         hideNext={isReview}
                         hideBack={isWelcome}
-                        hideStepHeader={isWelcome || isDocument}
-                        contentScrollable={stepInfo.kind === "dados" || stepInfo.kind === "dependentes" || isReview}
+                        hideStepHeader={isWelcome || isDocument || isDados}
+                        contentScrollable={false}
                         nextLabel={isWelcome ? "Começar" : "Continuar"}
                         onNext={handleWizardNext}
                     >
@@ -430,8 +408,14 @@ export default function DocumentoAdmissaoScreen() {
                                 totalDocs={docCount}
                             />
                         )}
-                        {stepInfo.kind === "dados" && session && (
-                            <ReviewDataStep session={session} disabled={isSubmitted} />
+                        {isDados && session && stepInfo.dadosSectionId != null && (
+                            <ReviewDataStep
+                                session={session}
+                                disabled={isSubmitted}
+                                sectionId={stepInfo.dadosSectionId}
+                                sectionIndex={stepInfo.dadosSectionIndex ?? 0}
+                                totalSections={wizardPlan.dadosSections.length}
+                            />
                         )}
                         {stepInfo.kind === "dependentes" && session && (
                             <DependentsStep session={session} disabled={isSubmitted} />

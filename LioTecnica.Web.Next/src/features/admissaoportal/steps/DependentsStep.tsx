@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, Edit2, Check, X, Users } from "lucide-react";
+import WizardStepPanel from "../components/WizardStepPanel";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 import {
     addDependente as apiAddDependente,
@@ -100,6 +101,7 @@ export default function DependentsStep({ session, disabled }: Props) {
     // Toggle: "Voce tem dependentes?"
     if (hasDependentes === null || hasDependentes === false) {
         return (
+            <WizardStepPanel wide>
             <div className="space-y-6">
                 <div className="text-center space-y-3">
                     <div className="mx-auto size-16 rounded-full bg-muted flex items-center justify-center">
@@ -124,10 +126,12 @@ export default function DependentsStep({ session, disabled }: Props) {
                     </p>
                 )}
             </div>
+            </WizardStepPanel>
         );
     }
 
     return (
+        <WizardStepPanel wide>
         <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
                 Adicione seus dependentes (conjuges, filhos, pais).
@@ -214,5 +218,6 @@ export default function DependentsStep({ session, disabled }: Props) {
                 </button>
             )}
         </div>
+        </WizardStepPanel>
     );
 }
