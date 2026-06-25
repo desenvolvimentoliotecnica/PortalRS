@@ -5,7 +5,7 @@ export default function DocumentoAdmissaoLayout({ children }: { children: ReactN
     // Portal público (o candidato acessa via link) — branding neutro (sem Render / Quali IT)
     // para funcionar como white-label em qualquer tenant.
     return (
-        <div className="min-h-dvh flex flex-col bg-gradient-to-b from-background to-muted/20">
+        <div className="h-dvh flex flex-col overflow-hidden bg-gradient-to-b from-background to-muted/20">
             {/* ── Header ── */}
             <header className="sticky top-0 z-10 shrink-0 border-b border-border/30 bg-background/90 backdrop-blur-sm">
                 <div className="px-4 sm:px-6 h-14 flex items-center gap-3">
@@ -26,15 +26,10 @@ export default function DocumentoAdmissaoLayout({ children }: { children: ReactN
                 </div>
             </header>
 
-            {/* ── Content (fills remaining height, direct children control their own layout) ── */}
-            <main className="flex-1 flex flex-col">
+            {/* ── Content (fills remaining height, no page scroll) ── */}
+            <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {children}
             </main>
-
-            {/* ── Footer ── */}
-            <footer className="shrink-0 py-4 text-center text-[11px] text-muted-foreground/50 select-none tracking-wide border-t border-border/20">
-                © {new Date().getFullYear()} · Portal de RH
-            </footer>
         </div>
     );
 }

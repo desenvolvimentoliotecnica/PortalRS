@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
@@ -25,7 +25,8 @@ import { Input } from "@/components/ui/input";
 import {
     FileText, CheckCircle2, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
-import { validatePortalForm, validateRequiredDocuments, validateDependentsStep, formatPortalValidationMessage, formatMissingDocumentsMessage } from "./portalValidation";
+import { validatePortalForm, validateDependentsStep, formatPortalValidationMessage, formatMissingDocumentsMessage } from "./portalValidation";
+import { buildWizardPlan, validateSingleDocument } from "./wizardSteps";
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
@@ -57,6 +58,7 @@ export default function DocumentoAdmissaoScreen() {
     const [loading, setLoading] = useState(false);
     // Prevents saveWizardProgress from overwriting the server step before loadData has restored it
     const hydratedRef = useRef(false);
+    const stepMigratedRef = useRef(false);
 
     const {
         currentStep,
@@ -66,6 +68,7 @@ export default function DocumentoAdmissaoScreen() {
         setFormData,
         setHasDependentes,
         setStep,
+        setWizardTotalSteps,
         setUploadedDoc,
         setUploadedDocVerso,
         computeCompletionPercent,
@@ -75,6 +78,21 @@ export default function DocumentoAdmissaoScreen() {
         dependentes,
         setLastSavedAt,
     } = useAdmissaoWizardStore();
+
+    const wizardPlan = useMemo(
+        () => buildWizardPlan(data?.documentosSolicitados ?? []),
+        [data?.documentosSolicitados],
+    );
+
+    // Sincroniza total de etapas e migra step legado uma vez após carregar dados
+    useEffect(() => {
+        if (!data) return;
+        setWizardTotalSteps(wizardPlan.totalSteps);
+        if (!stepMigratedRef.current && data.wizardCurrentStep != null) {
+            stepMigratedRef.current = true;
+            setStep(wizardPlan.migrateLegacyStep(data.wizardCurrentStep));
+        }
+    }, [data, wizardPlan, setWizardTotalSteps, setStep]);
 
     // Check existing session
     useEffect(() => {
@@ -112,7 +130,6 @@ export default function DocumentoAdmissaoScreen() {
             // Hydrate store
             setFormData(body.dadosPessoais as Partial<WizardDadosPessoais>);
             setDependentes(body.dependentes ?? []);
-            if (body.wizardCurrentStep != null) setStep(body.wizardCurrentStep);
             if (body.dependentes && body.dependentes.length > 0) setHasDependentes(true);
             hydratedRef.current = true;
 
@@ -176,6 +193,7 @@ export default function DocumentoAdmissaoScreen() {
             setSession(sess);
             reset();
             hydratedRef.current = false;
+            stepMigratedRef.current = false;
             setPhase("main");
         } catch { toast.error("Erro ao conectar."); }
         finally { setLogging(false); }
@@ -184,13 +202,16 @@ export default function DocumentoAdmissaoScreen() {
     async function handleWizardNext(): Promise<boolean> {
         if (!session || !data) return true;
 
-        switch (currentStep) {
-            case 0:
+        const stepInfo = wizardPlan.resolveStep(currentStep);
+
+        switch (stepInfo.kind) {
+            case "welcome":
                 return true;
 
-            case 1: {
-                const missingDocs = validateRequiredDocuments(
-                    data.documentosSolicitados,
+            case "document": {
+                if (!stepInfo.doc) return true;
+                const missingDocs = validateSingleDocument(
+                    stepInfo.doc,
                     uploadedDocs,
                     uploadedDocsVerso,
                     data.documentosEnviados,
@@ -202,7 +223,7 @@ export default function DocumentoAdmissaoScreen() {
                 return true;
             }
 
-            case 2: {
+            case "dados": {
                 const errors = validatePortalForm(formData as Record<string, unknown>);
                 if (errors.length > 0) {
                     toast.error(formatPortalValidationMessage(errors));
@@ -227,7 +248,7 @@ export default function DocumentoAdmissaoScreen() {
                 return true;
             }
 
-            case 3: {
+            case "dependentes": {
                 const depError = validateDependentsStep(hasDependentes, dependentes.length);
                 if (depError) {
                     toast.error(depError);
@@ -248,7 +269,7 @@ export default function DocumentoAdmissaoScreen() {
         const missing = validatePortalForm(formData as Record<string, unknown>);
         if (missing.length > 0) {
             toast.error(formatPortalValidationMessage(missing));
-            setStep(2);
+            setStep(wizardPlan.dadosStep);
             return;
         }
 
@@ -345,14 +366,21 @@ export default function DocumentoAdmissaoScreen() {
 
     /* MAIN — Wizard */
     const isSubmitted = data?.status === 2;
+    const stepInfo = wizardPlan.resolveStep(currentStep);
+    const isWelcome = stepInfo.kind === "welcome";
+    const isDocument = stepInfo.kind === "document";
+    const isReview = stepInfo.kind === "review";
+    const docCount = wizardPlan.documentSteps.length;
 
     return (
-        <div className="flex flex-col lg:flex-row flex-1 min-h-0">
+        <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
             {/* Sidebar (desktop only) */}
-            <WizardSidebar nome={session?.nome} isSubmitted={isSubmitted} />
+            {data && (
+                <WizardSidebar nome={session?.nome} isSubmitted={isSubmitted} plan={wizardPlan} />
+            )}
 
             {/* Content */}
-            <div className="flex-1 min-w-0 flex flex-col px-4 sm:px-8 py-5 pb-16">
+            <div className="flex-1 min-w-0 min-h-0 flex flex-col px-4 sm:px-8 py-4 pb-[4.5rem] overflow-hidden">
                 {/* Mobile top bar: candidato + logout */}
                 <div className="lg:hidden flex items-center justify-between mb-4">
                     <span className="text-sm font-semibold truncate">{session?.nome || "Candidato"}</span>
@@ -380,30 +408,35 @@ export default function DocumentoAdmissaoScreen() {
                     <div className="flex justify-center py-12"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>
                 ) : data ? (
                     <WizardLayout
-                        hideNext={currentStep === 4}
-                        hideBack={currentStep === 0}
-                        hideStepHeader={currentStep === 1}
-                        nextLabel={currentStep === 0 ? "Começar" : currentStep === 1 ? "Continuar" : undefined}
+                        plan={wizardPlan}
+                        hideNext={isReview}
+                        hideBack={isWelcome}
+                        hideStepHeader={isWelcome || isDocument}
+                        contentScrollable={stepInfo.kind === "dados" || stepInfo.kind === "dependentes" || isReview}
+                        nextLabel={isWelcome ? "Começar" : "Continuar"}
                         onNext={handleWizardNext}
                     >
-                        {currentStep === 0 && (
-                            <WelcomeStep nome={data.nome} documentosSolicitados={data.documentosSolicitados} />
+                        {isWelcome && (
+                            <WelcomeStep nome={data.nome} documentCount={docCount} />
                         )}
-                        {currentStep === 1 && session && (
+                        {isDocument && session && stepInfo.doc && (
                             <DocumentUploadStep
                                 session={session}
                                 documentosSolicitados={data.documentosSolicitados}
                                 onDataRefresh={loadData}
                                 disabled={isSubmitted}
+                                activeDocument={stepInfo.doc}
+                                docIndex={(stepInfo.docIndex ?? 0) + 1}
+                                totalDocs={docCount}
                             />
                         )}
-                        {currentStep === 2 && session && (
+                        {stepInfo.kind === "dados" && session && (
                             <ReviewDataStep session={session} disabled={isSubmitted} />
                         )}
-                        {currentStep === 3 && session && (
+                        {stepInfo.kind === "dependentes" && session && (
                             <DependentsStep session={session} disabled={isSubmitted} />
                         )}
-                        {currentStep === 4 && (
+                        {isReview && (
                             <ReviewStep onSubmit={handleSubmit} disabled={isSubmitted} />
                         )}
                     </WizardLayout>

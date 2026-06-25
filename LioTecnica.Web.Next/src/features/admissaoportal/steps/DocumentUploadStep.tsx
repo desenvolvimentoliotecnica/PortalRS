@@ -29,6 +29,10 @@ interface Props {
     documentosSolicitados: DocSolicitadoItem[];
     onDataRefresh: () => void;
     disabled?: boolean;
+    /** Modo wizard: um documento por etapa */
+    activeDocument?: DocSolicitadoItem;
+    docIndex?: number;
+    totalDocs?: number;
 }
 
 function countDocProgress(
@@ -46,7 +50,15 @@ function countDocProgress(
     return { done, total: obrigatorios.length };
 }
 
-export default function DocumentUploadStep({ session, documentosSolicitados, onDataRefresh, disabled }: Props) {
+export default function DocumentUploadStep({
+    session,
+    documentosSolicitados,
+    onDataRefresh,
+    disabled,
+    activeDocument,
+    docIndex = 1,
+    totalDocs = 1,
+}: Props) {
     const {
         uploadedDocs, uploadedDocsVerso,
         aiExtractions, aiExtractionsVerso,
@@ -222,6 +234,42 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
             toast.error("Erro ao remover documento.");
         }
     }, [removeUploaded]);
+
+    if (activeDocument) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full min-h-0 gap-4 px-1">
+                <div className="text-center space-y-1 shrink-0">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Documento {docIndex} de {totalDocs}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                        Envie o arquivo solicitado para continuar.
+                    </p>
+                </div>
+
+                <div className="w-full max-w-md shrink-0">
+                    <DocumentCard
+                        index={docIndex}
+                        tipo={activeDocument.tipo}
+                        labelOverride={activeDocument.label}
+                        obrigatorio={activeDocument.obrigatorio}
+                        uploadedDoc={uploadedDocs.get(activeDocument.tipo)}
+                        uploadedDocVerso={uploadedDocsVerso.get(activeDocument.tipo)}
+                        aiResult={aiExtractions.get(activeDocument.tipo)}
+                        aiResultVerso={aiExtractionsVerso.get(activeDocument.tipo)}
+                        onFileSelected={handleFileSelected}
+                        onRemove={handleRemove}
+                        disabled={disabled}
+                        session={session}
+                    />
+                </div>
+
+                <p className="text-[11px] text-muted-foreground text-center shrink-0">
+                    Formatos: PDF, JPG, PNG · máx. 10MB
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 -mt-1">
