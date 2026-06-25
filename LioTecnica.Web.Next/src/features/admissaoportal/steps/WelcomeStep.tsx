@@ -20,45 +20,45 @@ export default function WelcomeStep({ nome, documentCount }: Props) {
 
     return (
         <WizardStepPanel wide>
-            <div className="flex flex-col items-center text-center gap-8">
-                <div className="size-28 sm:size-32 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <FileText className="size-14 sm:size-16 text-primary" />
+            <div className="flex flex-col items-center text-center gap-12">
+                <div className="size-40 sm:size-44 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <FileText className="size-20 sm:size-24 text-primary" />
                 </div>
 
-                <div className="space-y-3 max-w-xl">
-                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+                <div className="space-y-4 max-w-2xl">
+                    <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
                         Olá, {firstName}!
                     </h1>
-                    <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
+                    <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed">
                         Bem-vindo(a) ao portal de admissão. Você enviará{" "}
                         <strong className="text-foreground">{documentCount} documentos</strong>,{" "}
                         preencherá seus dados e revisará tudo antes de enviar ao RH.
                     </p>
                 </div>
 
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-6 text-left">
                     {PROCESS_STEPS.map(({ icon: Icon, title, desc }) => (
                         <div
                             key={title}
-                            className="rounded-xl border border-border/50 bg-muted/20 p-5 space-y-2"
+                            className="rounded-xl border border-border/50 bg-muted/20 p-7 space-y-3"
                         >
-                            <div className="flex items-center gap-3">
-                                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                                    <Icon className="size-5 text-primary" />
+                            <div className="flex items-center gap-4">
+                                <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                                    <Icon className="size-7 text-primary" />
                                 </span>
-                                <span className="text-sm sm:text-base font-semibold leading-tight">{title}</span>
+                                <span className="text-base sm:text-lg font-semibold leading-tight">{title}</span>
                             </div>
-                            <p className="text-sm text-muted-foreground leading-snug pl-14">{desc}</p>
+                            <p className="text-base text-muted-foreground leading-snug pl-[4.5rem]">{desc}</p>
                         </div>
                     ))}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-base text-muted-foreground">
                     <span className="inline-flex items-center gap-2">
-                        <Clock className="size-4" /> ~15 min
+                        <Clock className="size-5" /> ~15 min
                     </span>
                     <span className="inline-flex items-center gap-2">
-                        <Shield className="size-4" /> Dados protegidos
+                        <Shield className="size-5" /> Dados protegidos
                     </span>
                     <span>PDF, JPG ou PNG · máx. 10MB</span>
                 </div>

@@ -1,40 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Send, Loader2, User, MapPin, Phone, CreditCard, Briefcase, Users } from "lucide-react";
+import React from "react";
+import { User, MapPin, Phone, CreditCard, Briefcase, Users } from "lucide-react";
 import WizardStepPanel from "../components/WizardStepPanel";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 
 const PARENTESCO_LABEL: Record<number, string> = { 0: "Conjuge", 1: "Filho(a)", 2: "Pai", 3: "Mae", 4: "Outro" };
 
 interface Props {
-    onSubmit: () => Promise<void>;
     disabled?: boolean;
 }
 
-export default function ReviewStep({ onSubmit, disabled }: Props) {
+export default function ReviewStep({ disabled }: Props) {
     const { formData, dependentes } = useAdmissaoWizardStore();
-    const [submitting, setSubmitting] = useState(false);
-
-    async function handleSubmit() {
-        setSubmitting(true);
-        try {
-            await onSubmit();
-        } finally {
-            setSubmitting(false);
-        }
-    }
 
     return (
         <WizardStepPanel wide>
-        <div className="space-y-4">
-            <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 dark:bg-blue-900/20 dark:border-blue-800">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+        <div className="space-y-6">
+            <div className="text-center space-y-3">
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Revisão e Envio</h2>
+                <p className="text-base text-muted-foreground max-w-2xl mx-auto">
                     Confira o que você preencheu antes de enviar. A analista de RH revisará seus dados e documentos
                     e entrará em contato caso precise de ajustes ou informações adicionais.
                 </p>
             </div>
+
+            <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 dark:bg-blue-900/20 dark:border-blue-800">
+                <p className="text-base text-blue-700 dark:text-blue-300">
+                    Você pode enviar mesmo com campos em branco. O RH analisará e solicitará complementos, se necessário.
+                </p>
+            </div>
+
+            {disabled && (
+                <div className="rounded-lg bg-muted/50 border border-border/40 px-5 py-4 text-base text-muted-foreground text-center">
+                    Seus dados já foram enviados e estão em revisão pelo RH.
+                </div>
+            )}
 
             {/* Dados Pessoais */}
             <ReviewSection icon={User} title="Dados Pessoais">
@@ -85,7 +86,7 @@ export default function ReviewStep({ onSubmit, disabled }: Props) {
             {dependentes.length > 0 && (
                 <ReviewSection icon={Users} title={`Dependentes (${dependentes.length})`}>
                     {dependentes.map((d) => (
-                        <div key={d.id} className="text-sm py-1 border-b border-border/20 last:border-b-0">
+                        <div key={d.id} className="text-base py-1.5 border-b border-border/20 last:border-b-0">
                             <span className="font-medium">{d.nomeCompleto}</span>
                             <span className="text-muted-foreground ml-2">
                                 ({PARENTESCO_LABEL[d.parentesco] || "Outro"})
@@ -95,28 +96,6 @@ export default function ReviewStep({ onSubmit, disabled }: Props) {
                     ))}
                 </ReviewSection>
             )}
-
-            {/* Submit */}
-            {!disabled && (
-                <div className="pt-2">
-                    <Button
-                        size="lg"
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className="w-full min-h-[56px] text-lg bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-                    >
-                        {submitting ? (
-                            <Loader2 className="size-5 animate-spin" />
-                        ) : (
-                            <Send className="size-5" />
-                        )}
-                        Enviar para o RH
-                    </Button>
-                    <p className="text-xs text-center text-muted-foreground mt-2">
-                        Você pode enviar mesmo com campos em branco. O RH analisará e solicitará complementos, se necessário.
-                    </p>
-                </div>
-            )}
         </div>
         </WizardStepPanel>
     );
@@ -124,12 +103,12 @@ export default function ReviewStep({ onSubmit, disabled }: Props) {
 
 function ReviewSection({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
     return (
-        <div className="rounded-xl border border-border/40 bg-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-                <Icon className="size-4 text-primary" />
-                <h3 className="text-sm font-semibold">{title}</h3>
+        <div className="rounded-xl border border-border/40 bg-muted/10 p-5">
+            <div className="flex items-center gap-3 mb-4">
+                <Icon className="size-6 text-primary" />
+                <h3 className="text-lg font-semibold">{title}</h3>
             </div>
-            <div className="space-y-1">{children}</div>
+            <div className="space-y-1.5">{children}</div>
         </div>
     );
 }
@@ -138,7 +117,7 @@ function ReviewRow({ label, value }: { label: string; value: unknown }) {
     const v = value != null ? String(value).trim() : "";
     if (!v) return null;
     return (
-        <div className="flex justify-between text-sm py-0.5">
+        <div className="flex justify-between text-base py-1">
             <span className="text-muted-foreground">{label}</span>
             <span className="font-medium text-right">{v}</span>
         </div>

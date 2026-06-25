@@ -239,12 +239,12 @@ export default function DocumentUploadStep({
     if (activeDocument) {
         return (
             <WizardStepPanel wide>
-                <div className="flex flex-col gap-6">
-                    <div className="text-center space-y-2">
-                        <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                <div className="flex flex-col gap-8">
+                    <div className="text-center space-y-3">
+                        <p className="text-base font-semibold text-muted-foreground uppercase tracking-wider">
                             Documento {docIndex} de {totalDocs}
                         </p>
-                        <p className="text-base sm:text-lg text-muted-foreground">
+                        <p className="text-lg sm:text-xl text-muted-foreground">
                             Envie o arquivo solicitado para continuar.
                         </p>
                     </div>

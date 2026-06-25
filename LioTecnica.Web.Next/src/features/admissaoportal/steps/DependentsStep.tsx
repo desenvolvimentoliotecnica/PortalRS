@@ -32,7 +32,17 @@ interface Props {
 }
 
 export default function DependentsStep({ session, disabled }: Props) {
-    const { dependentes, hasDependentes, setHasDependentes, addDependente, updateDependente, removeDependente } = useAdmissaoWizardStore();
+    const {
+        dependentes,
+        hasDependentes,
+        setHasDependentes,
+        addDependente,
+        updateDependente,
+        removeDependente,
+        currentStep,
+        markStepComplete,
+        setStep,
+    } = useAdmissaoWizardStore();
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -96,35 +106,36 @@ export default function DependentsStep({ session, disabled }: Props) {
         setShowForm(true);
     };
 
-    const selectCls = "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm";
+    const selectCls = "flex h-14 w-full rounded-md border border-input bg-transparent px-4 py-2 text-base";
+
+    function handleNoDependents() {
+        setHasDependentes(false);
+        markStepComplete(currentStep);
+        setStep(currentStep + 1);
+    }
 
     // Toggle: "Voce tem dependentes?"
     if (hasDependentes === null || hasDependentes === false) {
         return (
             <WizardStepPanel wide>
-            <div className="space-y-6">
-                <div className="text-center space-y-3">
-                    <div className="mx-auto size-16 rounded-full bg-muted flex items-center justify-center">
-                        <Users className="size-8 text-muted-foreground" />
+            <div className="space-y-8">
+                <div className="text-center space-y-4">
+                    <div className="mx-auto size-24 rounded-full bg-muted flex items-center justify-center">
+                        <Users className="size-12 text-muted-foreground" />
                     </div>
-                    <h3 className="text-lg font-semibold">Voce tem dependentes?</h3>
-                    <p className="text-sm text-muted-foreground">
+                    <h3 className="text-2xl font-semibold">Voce tem dependentes?</h3>
+                    <p className="text-base text-muted-foreground">
                         Dependentes sao conjuges, filhos ou outros familiares que dependem de voce.
                     </p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <Button size="lg" className="min-h-[48px] min-w-[140px]" onClick={() => { setHasDependentes(true); setShowForm(true); }}>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Button size="lg" className="min-h-[72px] min-w-[200px] text-base" onClick={() => { setHasDependentes(true); setShowForm(true); }}>
                         Sim, tenho dependentes
                     </Button>
-                    <Button size="lg" variant="outline" className="min-h-[48px] min-w-[140px]" onClick={() => setHasDependentes(false)}>
+                    <Button size="lg" variant="outline" className="min-h-[72px] min-w-[200px] text-base" onClick={handleNoDependents}>
                         Nao tenho dependentes
                     </Button>
                 </div>
-                {hasDependentes === false && (
-                    <p className="text-center text-sm text-muted-foreground">
-                        Tudo bem! Voce pode pular esta etapa.
-                    </p>
-                )}
             </div>
             </WizardStepPanel>
         );
