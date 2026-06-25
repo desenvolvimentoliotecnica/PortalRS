@@ -16,6 +16,8 @@ import type { AdmissaoPortalSession } from "../publicApi";
 /** Altura fixa das zonas de upload para alinhar cards simples e frente/verso. */
 const DROPZONE_HEIGHT = "h-[9.5rem]";
 const SIDE_LABEL_HEIGHT = "h-9";
+/** Miniatura compacta após envio — altura máx. 100px, largura proporcional. */
+const THUMBNAIL_MAX_HEIGHT = "max-h-[100px]";
 
 interface Props {
     index: number;
@@ -196,10 +198,10 @@ function UploadSlot({
         return (
             <div className="flex flex-col h-full gap-2">
                 {sideLabel ? <SideLabel>{sideLabel}</SideLabel> : <span className={SIDE_LABEL_HEIGHT} />}
-                <div className="relative flex-1 rounded-lg border border-emerald-200/80 bg-emerald-50/30 dark:bg-emerald-950/10 overflow-hidden min-h-[7.5rem]">
+                <div className="relative rounded-lg border border-emerald-200/80 bg-emerald-50/30 dark:bg-emerald-950/10 overflow-hidden py-2 px-2 flex items-center justify-center min-h-[4.5rem]">
                     {isProcessing && (
                         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/70 backdrop-blur-[1px]">
-                            <Loader2 className="size-6 text-primary animate-spin mb-1" />
+                            <Loader2 className="size-5 text-primary animate-spin mb-1" />
                             <p className="text-[10px] text-muted-foreground">Analisando...</p>
                         </div>
                     )}
@@ -211,34 +213,34 @@ function UploadSlot({
                             uploadedDoc.nomeArquivo,
                             isPdf ? "application/pdf" : undefined,
                         ))}
-                        className="group relative flex w-full h-full min-h-[7.5rem] items-center justify-center bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        className="group relative inline-flex max-w-full items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                         aria-label={`Visualizar ${uploadedDoc.nomeArquivo}`}
                     >
                         {isPdf ? (
-                            <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
-                                <FileText className="size-8 text-red-500/80" />
-                                <span className="text-[10px] font-medium uppercase">PDF</span>
+                            <div className={`flex flex-col items-center gap-0.5 text-muted-foreground ${THUMBNAIL_MAX_HEIGHT}`}>
+                                <FileText className="size-6 text-red-500/80" />
+                                <span className="text-[9px] font-medium uppercase">PDF</span>
                             </div>
                         ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={previewUrl}
                                 alt={uploadedDoc.nomeArquivo}
-                                className="h-full w-full object-cover"
+                                className={`${THUMBNAIL_MAX_HEIGHT} w-auto max-w-full object-contain`}
                             />
                         )}
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100">
-                            <Eye className="size-5 text-white drop-shadow" />
+                        <span className="absolute inset-0 flex items-center justify-center rounded bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100">
+                            <Eye className="size-4 text-white drop-shadow" />
                         </span>
                         {!isProcessing && (
-                            <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
-                                <CheckCircle2 className="size-3" />
+                            <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
+                                <CheckCircle2 className="size-2.5" />
                             </span>
                         )}
                     </button>
                     ) : (
-                        <div className="flex w-full h-full min-h-[7.5rem] flex-col items-center justify-center bg-muted/20 gap-1">
-                            <FileText className="size-8 text-muted-foreground" />
+                        <div className="flex flex-col items-center justify-center gap-1 py-2">
+                            <FileText className="size-6 text-muted-foreground" />
                             <p className="text-[10px] text-muted-foreground px-2 text-center truncate max-w-full">{uploadedDoc.nomeArquivo}</p>
                         </div>
                     )}
