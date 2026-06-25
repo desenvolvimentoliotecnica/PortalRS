@@ -23,7 +23,6 @@ function isBlank(v: unknown): boolean {
 
 const TEXT_FIELDS: [string, string, PortalSection][] = [
   ["nome",              "Nome Completo",                    "pessoal"],
-  ["nomeAbreviado",     "Nome Abreviado",                   "pessoal"],
   ["rg",                "RG",                               "pessoal"],
   ["rgOrgaoExpedidor",  "Órgão Expedidor RG",               "pessoal"],
   ["rgUfExpedidor",     "UF Expedidor RG",                  "pessoal"],

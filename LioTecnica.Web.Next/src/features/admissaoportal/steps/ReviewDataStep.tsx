@@ -188,17 +188,11 @@ export default function ReviewDataStep({ session, disabled, sectionId, sectionIn
                 <div className={gridCls}>
                     <Field label="Nome Completo" field="nome" form={formData} set={set} disabled={disabled} />
                     <Field label="Nome Social" field="nomeSocial" form={formData} set={set} disabled={disabled} placeholder="Opcional" />
-                    <Field label="Nome Abreviado" field="nomeAbreviado" form={formData} set={set} disabled={disabled} placeholder="Ex: JOAO" />
                     <Field label="CPF" field="cpf" form={formData} set={set} disabled className="bg-muted" />
                     <Field label="RG" field="rg" form={formData} set={set} disabled={disabled} />
                     <Field label="Orgao Expedidor" field="rgOrgaoExpedidor" form={formData} set={set} disabled={disabled} />
                     <AutocompleteField label="UF Expedidor RG" field="rgUfExpedidor" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
                     <Field label="Data Emissao RG" field="rgDataExpedicao" form={formData} set={set} disabled={disabled} type="date" />
-                    <Field label="RIC (Numero Reg. Identidade Civil)" field="regIdentidCivilNumero" form={formData} set={set} disabled={disabled} />
-                    <Field label="Orgao Emissor RIC" field="regIdentidCivilOrgEmiss" form={formData} set={set} disabled={disabled} placeholder="SSP" />
-                    <AutocompleteField label="UF RIC" field="regIdentidCivilUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
-                    <Field label="Cidade RIC" field="regIdentidCivilCidade" form={formData} set={set} disabled={disabled} />
-                    <Field label="Data Expedicao RIC" field="regIdentidCivilDataExped" form={formData} set={set} disabled={disabled} type="date" />
                     <Field label="Data de Nascimento" field="dataNascimento" form={formData} set={set} disabled={disabled} type="date" />
                     <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} />
                     <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} />
@@ -228,7 +222,6 @@ export default function ReviewDataStep({ session, disabled, sectionId, sectionIn
                     <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} />
                     <Field label="Nome do Pai" field="nomePai" form={formData} set={set} disabled={disabled} />
                     <SelectField label="Escolaridade" field="grauInstrucao" form={formData} set={set} disabled={disabled} options={GRAU_INSTRUCAO_OPTIONS} cls={selectCls} />
-                    <StringSelectField label="Doador de Orgaos" field="funcDoador" form={formData} set={set} disabled={disabled} options={[{value:"S",label:"Sim"},{value:"N",label:"Nao"}]} cls={selectCls} />
                     <SelectField label="Origem" field="origemFuncionario" form={formData} set={set} disabled={disabled} options={ORIGEM_FUNCIONARIO_OPTIONS} cls={selectCls} />
                 </div>
             )}
@@ -252,14 +245,12 @@ export default function ReviewDataStep({ session, disabled, sectionId, sectionIn
                     <AutocompleteField label="UF" field="uf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
                     <CityField label="Cidade" field="cidade" ufField="uf" form={formData} set={set} disabled={disabled} />
                     <Field label="Ponto de Referencia" field="pontoReferencia" form={formData} set={set} disabled={disabled} />
-                    <StringSelectField label="Reside no Exterior" field="resideExterior" form={formData} set={set} disabled={disabled} options={[{value:"N",label:"Nao"},{value:"S",label:"Sim"}]} cls={selectCls} />
                 </div>
             )}
 
             {sectionId === "contatos" && (
                 <div className={gridCls}>
                     <Field label="E-mail" field="email" form={formData} set={set} disabled={disabled} type="email" />
-                    <Field label="E-mail Alternativo" field="emailAlternativo" form={formData} set={set} disabled={disabled} type="email" />
                     <Field label="DDD Telefone" field="dddTelefone" form={formData} set={set} disabled={disabled} type="number" placeholder="11" />
                     <Field label="Telefone" field="telefone" form={formData} set={set} disabled={disabled} />
                     <Field label="Celular" field="celular" form={formData} set={set} disabled={disabled} />
