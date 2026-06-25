@@ -80,7 +80,7 @@ export interface AiExtractionResult {
     processing: boolean;
 }
 
-export const TOTAL_STEPS = 5;
+export const TOTAL_STEPS = 5; // legado — use buildWizardPlan().totalSteps em runtime
 
 export const STEP_LABELS = [
     "Boas-vindas",
@@ -93,6 +93,7 @@ export const STEP_LABELS = [
 interface AdmissaoWizardState {
     currentStep: number;
     completedSteps: Set<number>;
+    wizardTotalSteps: number;
     formData: DadosPessoais;
     dependentes: DependenteResponse[];
     uploadedDocs: Map<number, UploadedDoc>;
@@ -104,6 +105,7 @@ interface AdmissaoWizardState {
     hasDependentes: boolean | null;
 
     setStep: (step: number) => void;
+    setWizardTotalSteps: (n: number) => void;
     setFormField: (field: string, value: unknown) => void;
     setFormData: (data: Partial<DadosPessoais>) => void;
     mergeAiFields: (fields: Record<string, string | null>) => void;
@@ -132,6 +134,7 @@ interface AdmissaoWizardState {
 export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => ({
     currentStep: 0,
     completedSteps: new Set<number>(),
+    wizardTotalSteps: TOTAL_STEPS,
     formData: {},
     dependentes: [],
     uploadedDocs: new Map(),
@@ -143,6 +146,8 @@ export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => 
     hasDependentes: null,
 
     setStep: (step) => set({ currentStep: step }),
+
+    setWizardTotalSteps: (n) => set({ wizardTotalSteps: Math.max(1, n) }),
 
     setFormField: (field, value) =>
         set((s) => ({ formData: { ...s.formData, [field]: value } })),
@@ -254,13 +259,15 @@ export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => 
 
     computeCompletionPercent: () => {
         const s = get();
-        return Math.round((s.completedSteps.size / TOTAL_STEPS) * 100);
+        const total = s.wizardTotalSteps || TOTAL_STEPS;
+        return Math.round((s.completedSteps.size / total) * 100);
     },
 
     reset: () =>
         set({
             currentStep: 0,
             completedSteps: new Set(),
+            wizardTotalSteps: TOTAL_STEPS,
             formData: {},
             dependentes: [],
             uploadedDocs: new Map(),
