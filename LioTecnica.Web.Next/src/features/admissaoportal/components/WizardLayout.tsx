@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2, Cloud } from "lucide-react";
+import { cn } from "@/lib/utils";
 import WizardStepper from "./WizardStepper";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 import type { WizardPlan } from "../wizardSteps";
@@ -21,6 +22,8 @@ interface Props {
     hideStepHeader?: boolean;
     /** Etapas com formulário longo podem rolar só a área central. */
     contentScrollable?: boolean;
+    /** Classe extra no botão principal (ex.: verde no envio final). */
+    nextClassName?: string;
 }
 
 export default function WizardLayout({
@@ -35,6 +38,7 @@ export default function WizardLayout({
     hideBack,
     hideStepHeader,
     contentScrollable = false,
+    nextClassName,
 }: Props) {
     const { currentStep, completedSteps, isAutoSaving, lastSavedAt, setStep, markStepComplete } = useAdmissaoWizardStore();
     const [advancing, setAdvancing] = useState(false);
@@ -115,10 +119,10 @@ export default function WizardLayout({
                         size="lg"
                         onClick={handleNext}
                         disabled={nextDisabled || advancing}
-                        className="gap-1 min-w-[140px] ml-auto"
+                        className={cn("gap-1 min-w-[180px] ml-auto min-h-[52px] text-base", nextClassName)}
                     >
-                        {advancing ? <Loader2 className="size-4 animate-spin" /> : null}
-                        {nextLabel || "Continuar"} {!advancing && <ChevronRight className="size-4" />}
+                        {advancing ? <Loader2 className="size-5 animate-spin" /> : null}
+                        {nextLabel || "Continuar"} {!advancing && <ChevronRight className="size-5" />}
                     </Button>
                 )}
             </div>

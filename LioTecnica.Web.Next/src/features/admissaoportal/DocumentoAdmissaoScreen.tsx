@@ -244,6 +244,10 @@ export default function DocumentoAdmissaoScreen() {
             case "dependentes":
                 return true;
 
+            case "review":
+                await handleSubmit();
+                return false;
+
             default:
                 return true;
         }
@@ -387,11 +391,12 @@ export default function DocumentoAdmissaoScreen() {
                 ) : data ? (
                     <WizardLayout
                         plan={wizardPlan}
-                        hideNext={isReview}
+                        hideNext={isSubmitted}
                         hideBack={isWelcome}
                         hideStepHeader={isWelcome || isDocument || isDados}
                         contentScrollable={false}
-                        nextLabel={isWelcome ? "Começar" : "Continuar"}
+                        nextLabel={isReview ? "Enviar para o RH" : isWelcome ? "Começar" : "Continuar"}
+                        nextClassName={isReview ? "bg-emerald-600 hover:bg-emerald-700 text-white" : undefined}
                         onNext={handleWizardNext}
                     >
                         {isWelcome && (
@@ -421,7 +426,7 @@ export default function DocumentoAdmissaoScreen() {
                             <DependentsStep session={session} disabled={isSubmitted} />
                         )}
                         {isReview && (
-                            <ReviewStep onSubmit={handleSubmit} disabled={isSubmitted} />
+                            <ReviewStep disabled={isSubmitted} />
                         )}
                     </WizardLayout>
                 ) : null}

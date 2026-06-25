@@ -165,21 +165,21 @@ export default function ReviewDataStep({ session, disabled, sectionId, sectionIn
         }
     }, [set]);
 
-    const selectCls = "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm";
+    const selectCls = "flex h-14 w-full rounded-md border border-input bg-transparent px-4 py-2 text-base";
 
-    const gridCls = "grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3";
+    const gridCls = "grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4";
 
     return (
         <WizardStepPanel wide>
-            <div className="flex flex-col gap-5">
-                <div className="text-center space-y-2 shrink-0">
-                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="flex flex-col gap-7">
+                <div className="text-center space-y-3 shrink-0">
+                    <p className="text-base font-semibold text-muted-foreground uppercase tracking-wider">
                         Etapa {sectionIndex + 1} de {totalSections}
                     </p>
-                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
                         {getDadosSectionLabel(sectionId)}
                     </h2>
-                    <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+                    <p className="text-base text-muted-foreground max-w-2xl mx-auto">
                         Preencha o que souber. A analista de RH revisará e solicitará ajustes, se necessário.
                     </p>
                 </div>
@@ -210,7 +210,7 @@ export default function ReviewDataStep({ session, disabled, sectionId, sectionIn
                             placeholder="BRA"
                             maxLength={3}
                             disabled={disabled}
-                            className="h-11"
+                            className="h-14"
                         />
                     </FieldWrapper>
                     <CityField label="Cidade de Nascimento" field="naturalCidade" ufField="naturalUf" form={formData} set={set} disabled={disabled} />
@@ -222,7 +222,7 @@ export default function ReviewDataStep({ session, disabled, sectionId, sectionIn
                             placeholder="BRA"
                             maxLength={3}
                             disabled={disabled}
-                            className="h-11"
+                            className="h-14"
                         />
                     </FieldWrapper>
                     <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} />
@@ -242,7 +242,7 @@ export default function ReviewDataStep({ session, disabled, sectionId, sectionIn
                             disabled={disabled}
                             placeholder="00000-000"
                             maxLength={9}
-                            className="h-11"
+                            className="h-14"
                         />
                     </FieldWrapper>
                     <Field label="Logradouro" field="logradouro" form={formData} set={set} disabled={disabled} />
@@ -357,7 +357,7 @@ export default function ReviewDataStep({ session, disabled, sectionId, sectionIn
 function FieldWrapper({ label, field, form, children }: { label: string; field: string; form: DadosPessoais; children: React.ReactNode }) {
     return (
         <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
                 {label}
             </label>
             {children}
@@ -382,7 +382,7 @@ function Field({ label, field, form, set, disabled, type, placeholder, maxLength
                 disabled={disabled}
                 placeholder={placeholder}
                 maxLength={maxLength}
-                className={`h-11 ${className || ""}`}
+                className={`h-14 ${className || ""}`}
             />
         </FieldWrapper>
     );
@@ -396,7 +396,7 @@ function SelectField({ label, field, form, set, disabled, options, cls }: {
     return (
         <FieldWrapper label={label} field={field} form={form}>
             <select
-                className={`${cls} h-11`}
+                className={`${cls} h-14`}
                 value={form[field] as number ?? ""}
                 onChange={e => set(field, e.target.value ? Number(e.target.value) : null)}
                 disabled={disabled}
@@ -416,7 +416,7 @@ function StringSelectField({ label, field, form, set, disabled, options, cls }: 
     return (
         <FieldWrapper label={label} field={field} form={form}>
             <select
-                className={`${cls} h-11`}
+                className={`${cls} h-14`}
                 value={String(form[field] ?? "")}
                 onChange={e => set(field, e.target.value || null)}
                 disabled={disabled}
@@ -484,7 +484,7 @@ function AutocompleteField({ label, field, form, set, disabled, placeholder, opt
                     onFocus={() => setOpen(true)}
                     disabled={disabled}
                     placeholder={placeholder}
-                    className="h-11"
+                    className="h-14"
                     autoComplete="off"
                 />
                 {open && <DropdownList items={filtered} onSelect={v => { set(field, v); setOpen(false); }} />}
@@ -555,7 +555,7 @@ function CityField({ label, field, ufField, form, set, disabled }: {
                     onFocus={() => { if (ufValid) setOpen(true); }}
                     disabled={disabled || !ufValid}
                     placeholder={!ufValid ? "Preencha a UF primeiro" : loading ? "Carregando cidades..." : "Digite para buscar..."}
-                    className="h-11"
+                    className="h-14"
                     autoComplete="off"
                 />
                 {open && filtered.length > 0 && (
@@ -607,7 +607,7 @@ function BankField({ form, set, disabled }: {
                         onFocus={() => setOpen(true)}
                         disabled={disabled}
                         placeholder="Código ou nome..."
-                        className="h-11"
+                        className="h-14"
                         autoComplete="off"
                     />
                     {open && filtered.length > 0 && (
@@ -620,7 +620,7 @@ function BankField({ form, set, disabled }: {
                     value={nameVal}
                     onChange={e => set("bancoNome", e.target.value || null)}
                     disabled={disabled}
-                    className="h-11"
+                    className="h-14"
                     autoComplete="off"
                 />
             </FieldWrapper>
