@@ -14,10 +14,46 @@ import { usePortalDocumentPreview } from "../usePortalDocumentPreview";
 import type { AdmissaoPortalSession } from "../publicApi";
 
 /** Altura fixa das zonas de upload para alinhar cards simples e frente/verso. */
-const DROPZONE_HEIGHT = "h-[9.5rem]";
-const SIDE_LABEL_HEIGHT = "h-9";
-/** Miniatura compacta após envio — altura máx. 100px, largura proporcional. */
-const THUMBNAIL_MAX_HEIGHT = "max-h-[100px]";
+const SIZES = {
+    default: {
+        dropzone: "h-[9.5rem]",
+        sideLabel: "h-9",
+        thumb: "max-h-[100px]",
+        cardMinH: "min-h-[18.5rem]",
+        headerMinH: "min-h-[5.5rem]",
+        indexBadge: "size-7 text-xs",
+        title: "text-sm",
+        hint: "text-xs min-h-[2.5rem]",
+        footer: "text-[10px]",
+        sideLabelText: "text-[10px]",
+        slotBtn: "h-8 text-xs",
+        uploadIcon: "size-7",
+        uploadText: "text-[11px]",
+        selectBtn: "h-7 text-[11px]",
+        pdfIcon: "size-6",
+        processingText: "text-[10px]",
+        loader: "size-5",
+    },
+    wizard: {
+        dropzone: "h-[11rem]",
+        sideLabel: "h-11",
+        thumb: "max-h-[120px]",
+        cardMinH: "min-h-0",
+        headerMinH: "min-h-[6.5rem]",
+        indexBadge: "size-10 text-base",
+        title: "text-lg",
+        hint: "text-sm min-h-[3rem]",
+        footer: "text-xs",
+        sideLabelText: "text-xs",
+        slotBtn: "h-10 text-sm",
+        uploadIcon: "size-9",
+        uploadText: "text-sm",
+        selectBtn: "h-9 text-sm px-4",
+        pdfIcon: "size-8",
+        processingText: "text-xs",
+        loader: "size-6",
+    },
+} as const;
 
 interface Props {
     index: number;
@@ -32,6 +68,7 @@ interface Props {
     onRemove?: (tipo: number, side: "frente" | "verso", docId: string) => void;
     disabled?: boolean;
     session?: AdmissaoPortalSession;
+    size?: keyof typeof SIZES;
 }
 
 export default function DocumentCard({
@@ -39,7 +76,9 @@ export default function DocumentCard({
     uploadedDoc, uploadedDocVerso,
     aiResult, aiResultVerso,
     onFileSelected, onRemove, disabled, session,
+    size = "default",
 }: Props) {
+    const s = SIZES[size];
     const fileRefFrente = useRef<HTMLInputElement>(null);
     const fileRefVerso = useRef<HTMLInputElement>(null);
     const [preview, setPreview] = useState<PreviewItem | null>(null);
@@ -49,21 +88,21 @@ export default function DocumentCard({
 
     return (
         <>
-            <div className="flex flex-col rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden h-full min-h-[18.5rem]">
+            <div className={`flex flex-col rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden h-full ${s.cardMinH}`}>
                 {/* Header — altura estável do título + hint */}
-                <div className="px-4 pt-4 pb-3 min-h-[5.5rem]">
-                    <div className="flex items-start gap-2.5">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary mt-0.5">
+                <div className={`px-5 pt-5 pb-4 ${s.headerMinH}`}>
+                    <div className="flex items-start gap-3">
+                        <span className={`flex shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary mt-0.5 ${s.indexBadge}`}>
                             {index > 0 ? index : "·"}
                         </span>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-start gap-1 min-h-[1.25rem]">
-                                <h3 className="text-sm font-semibold leading-snug text-foreground line-clamp-2">{label}</h3>
+                                <h3 className={`${s.title} font-semibold leading-snug text-foreground line-clamp-2`}>{label}</h3>
                                 {obrigatorio && (
-                                    <span className="text-red-500 font-bold leading-none shrink-0" title="Obrigatório">*</span>
+                                    <span className="text-red-500 font-bold leading-none shrink-0 text-lg" title="Obrigatório">*</span>
                                 )}
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2 min-h-[2.5rem]">
+                            <p className={`${s.hint} text-muted-foreground mt-1.5 leading-relaxed line-clamp-3`}>
                                 {hint || "\u00A0"}
                             </p>
                         </div>
@@ -71,10 +110,11 @@ export default function DocumentCard({
                 </div>
 
                 {/* Body */}
-                <div className="px-4 pb-3 flex-1 flex flex-col">
+                <div className="px-5 pb-4 flex-1 flex flex-col">
                     {hasVerso ? (
-                        <div className="grid grid-cols-2 gap-2 items-stretch flex-1">
+                        <div className="grid grid-cols-2 gap-3 items-stretch flex-1">
                             <UploadSlot
+                                size={size}
                                 sideLabel={DOC_FRENTE_LABELS[tipo] || "Frente"}
                                 uploadedDoc={uploadedDoc}
                                 aiResult={aiResult}
@@ -88,6 +128,7 @@ export default function DocumentCard({
                                 onPreview={setPreview}
                             />
                             <UploadSlot
+                                size={size}
                                 sideLabel={DOC_VERSO_LABELS[tipo] || "Verso"}
                                 uploadedDoc={uploadedDocVerso}
                                 aiResult={aiResultVerso}
@@ -103,6 +144,7 @@ export default function DocumentCard({
                         </div>
                     ) : (
                         <UploadSlot
+                            size={size}
                             uploadedDoc={uploadedDoc}
                             aiResult={aiResult}
                             disabled={disabled}
@@ -118,8 +160,8 @@ export default function DocumentCard({
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2.5 border-t border-border/30 bg-muted/20 mt-auto">
-                    <p className="text-[10px] text-muted-foreground text-center leading-snug">
+                <div className="px-5 py-3 border-t border-border/30 bg-muted/20 mt-auto">
+                    <p className={`${s.footer} text-muted-foreground text-center leading-snug`}>
                         Formatos aceitos: PDF, JPG, PNG. Máx. 10MB
                     </p>
                 </div>
@@ -156,6 +198,7 @@ export default function DocumentCard({
 }
 
 interface SlotProps {
+    size?: keyof typeof SIZES;
     sideLabel?: string;
     uploadedDoc?: UploadedDoc;
     aiResult?: AiExtractionResult;
@@ -167,17 +210,19 @@ interface SlotProps {
     onPreview: (item: PreviewItem) => void;
 }
 
-function SideLabel({ children }: { children: React.ReactNode }) {
+function SideLabel({ children, size = "default" }: { children: React.ReactNode; size?: keyof typeof SIZES }) {
+    const s = SIZES[size];
     return (
-        <p className={`${SIDE_LABEL_HEIGHT} flex items-end text-[10px] font-semibold uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2 shrink-0`}>
+        <p className={`${s.sideLabel} ${s.sideLabelText} flex items-end font-semibold uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2 shrink-0`}>
             {children}
         </p>
     );
 }
 
 function UploadSlot({
-    sideLabel, uploadedDoc, aiResult, disabled, session, onSelect, onFileDropped, onRemove, onPreview,
+    size = "default", sideLabel, uploadedDoc, aiResult, disabled, session, onSelect, onFileDropped, onRemove, onPreview,
 }: SlotProps) {
+    const s = SIZES[size];
     const [dragOver, setDragOver] = useState(false);
     const isProcessing = aiResult?.processing;
     const previewUrl = usePortalDocumentPreview(session, uploadedDoc);
@@ -197,12 +242,12 @@ function UploadSlot({
     if (uploadedDoc) {
         return (
             <div className="flex flex-col h-full gap-2">
-                {sideLabel ? <SideLabel>{sideLabel}</SideLabel> : <span className={SIDE_LABEL_HEIGHT} />}
-                <div className="relative rounded-lg border border-emerald-200/80 bg-emerald-50/30 dark:bg-emerald-950/10 overflow-hidden py-2 px-2 flex items-center justify-center min-h-[4.5rem]">
+                {sideLabel ? <SideLabel size={size}>{sideLabel}</SideLabel> : <span className={s.sideLabel} />}
+                <div className="relative rounded-lg border border-emerald-200/80 bg-emerald-50/30 dark:bg-emerald-950/10 overflow-hidden py-3 px-3 flex items-center justify-center min-h-[5.5rem]">
                     {isProcessing && (
                         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/70 backdrop-blur-[1px]">
-                            <Loader2 className="size-5 text-primary animate-spin mb-1" />
-                            <p className="text-[10px] text-muted-foreground">Analisando...</p>
+                            <Loader2 className={`${s.loader} text-primary animate-spin mb-1`} />
+                            <p className={`${s.processingText} text-muted-foreground`}>Analisando...</p>
                         </div>
                     )}
                     {previewUrl ? (
@@ -217,16 +262,16 @@ function UploadSlot({
                         aria-label={`Visualizar ${uploadedDoc.nomeArquivo}`}
                     >
                         {isPdf ? (
-                            <div className={`flex flex-col items-center gap-0.5 text-muted-foreground ${THUMBNAIL_MAX_HEIGHT}`}>
-                                <FileText className="size-6 text-red-500/80" />
-                                <span className="text-[9px] font-medium uppercase">PDF</span>
+                            <div className={`flex flex-col items-center gap-1 text-muted-foreground ${s.thumb}`}>
+                                <FileText className={`${s.pdfIcon} text-red-500/80`} />
+                                <span className="text-[10px] font-medium uppercase">PDF</span>
                             </div>
                         ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={previewUrl}
                                 alt={uploadedDoc.nomeArquivo}
-                                className={`${THUMBNAIL_MAX_HEIGHT} w-auto max-w-full object-contain`}
+                                className={`${s.thumb} w-auto max-w-full object-contain`}
                             />
                         )}
                         <span className="absolute inset-0 flex items-center justify-center rounded bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100">
@@ -246,25 +291,25 @@ function UploadSlot({
                     )}
                 </div>
                 {!disabled && (
-                    <div className="flex gap-1.5 shrink-0">
+                    <div className="flex gap-2 shrink-0">
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="flex-1 h-8 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-950/30"
+                            className={`flex-1 gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-950/30 ${s.slotBtn}`}
                             onClick={onRemove}
                             disabled={!onRemove}
                         >
-                            <Trash2 className="size-3" /> Remover
+                            <Trash2 className="size-4" /> Remover
                         </Button>
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="flex-1 h-8 text-xs gap-1"
+                            className={`flex-1 gap-1.5 ${s.slotBtn}`}
                             onClick={onSelect}
                         >
-                            <RotateCcw className="size-3" /> Reenviar
+                            <RotateCcw className="size-4" /> Reenviar
                         </Button>
                     </div>
                 )}
@@ -274,12 +319,12 @@ function UploadSlot({
 
     return (
         <div className="flex flex-col h-full">
-            {sideLabel ? <SideLabel>{sideLabel}</SideLabel> : <span className={SIDE_LABEL_HEIGHT} aria-hidden />}
+            {sideLabel ? <SideLabel size={size}>{sideLabel}</SideLabel> : <span className={s.sideLabel} aria-hidden />}
             <div
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-2 py-4 transition-colors ${DROPZONE_HEIGHT} ${
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-3 py-5 transition-colors ${s.dropzone} ${
                     dragOver
                         ? "border-primary bg-primary/5"
                         : "border-primary/25 bg-primary/[0.02] hover:border-primary/40"
@@ -287,20 +332,20 @@ function UploadSlot({
             >
                 {isProcessing ? (
                     <>
-                        <Loader2 className="size-7 text-primary animate-spin mb-2 shrink-0" />
-                        <p className="text-[11px] text-muted-foreground text-center leading-snug px-1">Enviando...</p>
+                        <Loader2 className={`${s.uploadIcon} text-primary animate-spin mb-2 shrink-0`} />
+                        <p className={`${s.uploadText} text-muted-foreground text-center leading-snug px-1`}>Enviando...</p>
                     </>
                 ) : (
                     <>
-                        <CloudUpload className="size-7 text-primary/70 mb-2 shrink-0" />
-                        <p className="text-[11px] text-muted-foreground text-center mb-2 leading-snug px-1">
+                        <CloudUpload className={`${s.uploadIcon} text-primary/70 mb-2 shrink-0`} />
+                        <p className={`${s.uploadText} text-muted-foreground text-center mb-3 leading-snug px-1`}>
                             Arraste o arquivo aqui ou
                         </p>
                         {!disabled && (
                             <Button
                                 type="button"
                                 size="sm"
-                                className="h-7 text-[11px] px-3 shrink-0"
+                                className={`shrink-0 ${s.selectBtn}`}
                                 onClick={onSelect}
                             >
                                 Selecionar arquivo

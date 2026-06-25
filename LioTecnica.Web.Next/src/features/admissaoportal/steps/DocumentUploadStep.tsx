@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ExternalLink, Info, Lock } from "lucide-react";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import DocumentCard from "../components/DocumentCard";
+import WizardStepPanel from "../components/WizardStepPanel";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 import { TIPOS_COM_VERSO } from "../constants";
 import {
@@ -237,18 +238,19 @@ export default function DocumentUploadStep({
 
     if (activeDocument) {
         return (
-            <div className="flex flex-col items-center justify-center h-full min-h-0 gap-4 px-1">
-                <div className="text-center space-y-1 shrink-0">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Documento {docIndex} de {totalDocs}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                        Envie o arquivo solicitado para continuar.
-                    </p>
-                </div>
+            <WizardStepPanel wide>
+                <div className="flex flex-col gap-6">
+                    <div className="text-center space-y-2">
+                        <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                            Documento {docIndex} de {totalDocs}
+                        </p>
+                        <p className="text-base sm:text-lg text-muted-foreground">
+                            Envie o arquivo solicitado para continuar.
+                        </p>
+                    </div>
 
-                <div className="w-full max-w-md shrink-0">
                     <DocumentCard
+                        size="wizard"
                         index={docIndex}
                         tipo={activeDocument.tipo}
                         labelOverride={activeDocument.label}
@@ -263,11 +265,7 @@ export default function DocumentUploadStep({
                         session={session}
                     />
                 </div>
-
-                <p className="text-[11px] text-muted-foreground text-center shrink-0">
-                    Formatos: PDF, JPG, PNG · máx. 10MB
-                </p>
-            </div>
+            </WizardStepPanel>
         );
     }
 

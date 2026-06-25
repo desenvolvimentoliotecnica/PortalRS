@@ -92,8 +92,10 @@ export default function WizardLayout({
 
             {/* Content — sem scroll nas etapas de boas-vindas e documentos */}
             <div
-                className={`flex-1 min-h-0 ${
-                    contentScrollable ? "overflow-y-auto overscroll-contain pr-1 -mr-1" : "overflow-hidden"
+                className={`flex-1 min-h-0 flex ${
+                    contentScrollable
+                        ? "overflow-y-auto overscroll-contain pr-1 -mr-1"
+                        : "overflow-hidden"
                 }`}
             >
                 {children}

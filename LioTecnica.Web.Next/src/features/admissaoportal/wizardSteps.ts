@@ -1,4 +1,5 @@
 import { sortDocumentosSolicitados, type DocSolicitadoItem } from "./admissaoDocumentoCatalog";
+import { DADOS_FORM_SECTIONS, type DadosSectionId } from "./dadosFormSections";
 import { TIPOS_COM_VERSO } from "./constants";
 import type { UploadedDoc } from "./useAdmissaoWizardStore";
 
@@ -8,6 +9,8 @@ export interface WizardStepInfo {
     kind: WizardStepKind;
     doc?: DocSolicitadoItem;
     docIndex?: number;
+    dadosSectionId?: DadosSectionId;
+    dadosSectionIndex?: number;
 }
 
 export interface WizardSidebarItem {
@@ -15,12 +18,18 @@ export interface WizardSidebarItem {
     label: string;
     isDocumentGroup?: boolean;
     documentEndStep?: number;
+    isDadosGroup?: boolean;
+    dadosEndStep?: number;
 }
 
 export interface WizardPlan {
     documentSteps: DocSolicitadoItem[];
+    dadosSections: typeof DADOS_FORM_SECTIONS;
     totalSteps: number;
     docsStartStep: number;
+    dadosStartStep: number;
+    dadosEndStep: number;
+    /** @deprecated use dadosStartStep */
     dadosStep: number;
     dependentesStep: number;
     reviewStep: number;
@@ -35,18 +44,27 @@ export function buildWizardPlan(documentosSolicitados: DocSolicitadoItem[]): Wiz
         documentosSolicitados.filter((d) => d.obrigatorio),
     );
     const docsStartStep = 1;
-    const dadosStep = docsStartStep + documentSteps.length;
-    const dependentesStep = dadosStep + 1;
+    const dadosStartStep = docsStartStep + documentSteps.length;
+    const dadosEndStep = dadosStartStep + DADOS_FORM_SECTIONS.length - 1;
+    const dependentesStep = dadosEndStep + 1;
     const reviewStep = dependentesStep + 1;
     const totalSteps = reviewStep + 1;
 
     function resolveStep(step: number): WizardStepInfo {
         if (step <= 0) return { kind: "welcome" };
-        if (step < dadosStep) {
+        if (step < dadosStartStep) {
             const docIndex = step - docsStartStep;
             return { kind: "document", docIndex, doc: documentSteps[docIndex] };
         }
-        if (step === dadosStep) return { kind: "dados" };
+        if (step <= dadosEndStep) {
+            const dadosSectionIndex = step - dadosStartStep;
+            const section = DADOS_FORM_SECTIONS[dadosSectionIndex];
+            return {
+                kind: "dados",
+                dadosSectionId: section.id,
+                dadosSectionIndex,
+            };
+        }
         if (step === dependentesStep) return { kind: "dependentes" };
         return { kind: "review" };
     }
@@ -59,7 +77,7 @@ export function buildWizardPlan(documentosSolicitados: DocSolicitadoItem[]): Wiz
             case "document":
                 return info.doc?.label ?? `Documento ${(info.docIndex ?? 0) + 1}`;
             case "dados":
-                return "Seus Dados";
+                return DADOS_FORM_SECTIONS[info.dadosSectionIndex ?? 0]?.label ?? "Seus Dados";
             case "dependentes":
                 return "Dependentes";
             case "review":
@@ -73,9 +91,14 @@ export function buildWizardPlan(documentosSolicitados: DocSolicitadoItem[]): Wiz
             step: docsStartStep,
             label: `Documentos (${documentSteps.length})`,
             isDocumentGroup: true,
-            documentEndStep: dadosStep - 1,
+            documentEndStep: dadosStartStep - 1,
         },
-        { step: dadosStep, label: "Seus Dados" },
+        {
+            step: dadosStartStep,
+            label: `Seus Dados (${DADOS_FORM_SECTIONS.length})`,
+            isDadosGroup: true,
+            dadosEndStep,
+        },
         { step: dependentesStep, label: "Dependentes" },
         { step: reviewStep, label: "Revisão e Envio" },
     ];
@@ -86,18 +109,24 @@ export function buildWizardPlan(documentosSolicitados: DocSolicitadoItem[]): Wiz
         if (saved <= 4 && documentSteps.length > 0) {
             if (saved === 0) return 0;
             if (saved === 1) return docsStartStep;
-            if (saved === 2) return dadosStep;
+            if (saved === 2) return dadosStartStep;
             if (saved === 3) return dependentesStep;
             if (saved === 4) return reviewStep;
         }
+        // Wizard anterior: um único step "dados" em dadosStartStep
+        const oldDependentesStep = dadosStartStep + 1;
+        if (saved === oldDependentesStep) return dependentesStep;
         return Math.min(Math.max(0, saved), totalSteps - 1);
     }
 
     return {
         documentSteps,
+        dadosSections: DADOS_FORM_SECTIONS,
         totalSteps,
         docsStartStep,
-        dadosStep,
+        dadosStartStep,
+        dadosEndStep,
+        dadosStep: dadosStartStep,
         dependentesStep,
         reviewStep,
         resolveStep,

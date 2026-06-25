@@ -10,30 +10,45 @@ interface Props {
 }
 
 export default function WizardStepper({ currentStep, completedSteps, plan }: Props) {
-    const { sidebarItems, documentSteps, docsStartStep, dadosStep } = plan;
+    const { sidebarItems, documentSteps, dadosSections, docsStartStep, dadosStartStep, dadosEndStep } = plan;
 
     const docProgress =
-        currentStep >= docsStartStep && currentStep < dadosStep
+        currentStep >= docsStartStep && currentStep < dadosStartStep
             ? currentStep - docsStartStep + 1
             : completedSteps.size > docsStartStep
               ? documentSteps.length
+              : 0;
+
+    const dadosProgress =
+        currentStep >= dadosStartStep && currentStep <= dadosEndStep
+            ? currentStep - dadosStartStep + 1
+            : currentStep > dadosEndStep
+              ? dadosSections.length
               : 0;
 
     return (
         <div className="flex items-center justify-between gap-1 px-2 py-2 overflow-x-auto">
             {sidebarItems.map((item) => {
                 const isDocumentGroup = item.isDocumentGroup === true;
-                const endStep = item.documentEndStep ?? item.step;
-                const isActive = isDocumentGroup
+                const isDadosGroup = item.isDadosGroup === true;
+                const endStep = isDocumentGroup
+                    ? (item.documentEndStep ?? item.step)
+                    : isDadosGroup
+                      ? (item.dadosEndStep ?? item.step)
+                      : item.step;
+                const isActive = isDocumentGroup || isDadosGroup
                     ? currentStep >= item.step && currentStep <= endStep
                     : currentStep === item.step;
-                const isDone = isDocumentGroup
+                const isDone = isDocumentGroup || isDadosGroup
                     ? currentStep > endStep || completedSteps.has(endStep)
                     : completedSteps.has(item.step) || currentStep > item.step;
 
-                const label = isDocumentGroup && documentSteps.length > 0
-                    ? `Docs ${docProgress}/${documentSteps.length}`
-                    : item.label.split(" ")[0];
+                let label = item.label.split(" ")[0];
+                if (isDocumentGroup && documentSteps.length > 0) {
+                    label = `Docs ${docProgress}/${documentSteps.length}`;
+                } else if (isDadosGroup && dadosSections.length > 0) {
+                    label = `Dados ${dadosProgress}/${dadosSections.length}`;
+                }
 
                 return (
                     <div key={item.step} className="flex flex-col items-center gap-1 min-w-0 flex-1">

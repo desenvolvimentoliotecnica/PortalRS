@@ -42,7 +42,7 @@ export default function WizardSidebar({ nome, isSubmitted, plan }: Props) {
         const v = formData[f];
         return v != null && String(v).trim() !== "";
     }).length;
-    const formBonus = currentStep >= plan.dadosStep
+    const formBonus = currentStep >= plan.dadosStartStep
         ? (filledKeyFields / KEY_FIELDS.length) / total
         : 0;
 
@@ -54,16 +54,23 @@ export default function WizardSidebar({ nome, isSubmitted, plan }: Props) {
     const circ = 2 * Math.PI * radius;
 
     const docProgress =
-        currentStep >= plan.docsStartStep && currentStep < plan.dadosStep
+        currentStep >= plan.docsStartStep && currentStep < plan.dadosStartStep
             ? currentStep - plan.docsStartStep + 1
-            : currentStep >= plan.dadosStep
+            : currentStep >= plan.dadosStartStep
               ? plan.documentSteps.length
+              : 0;
+
+    const dadosProgress =
+        currentStep >= plan.dadosStartStep && currentStep <= plan.dadosEndStep
+            ? currentStep - plan.dadosStartStep + 1
+            : currentStep > plan.dadosEndStep
+              ? plan.dadosSections.length
               : 0;
 
     function groupIcon(item: (typeof plan.sidebarItems)[number]) {
         if (item.step === 0) return GROUP_ICONS.welcome;
         if (item.isDocumentGroup) return GROUP_ICONS.documents;
-        if (item.step === plan.dadosStep) return GROUP_ICONS.dados;
+        if (item.isDadosGroup) return GROUP_ICONS.dados;
         if (item.step === plan.dependentesStep) return GROUP_ICONS.dependentes;
         return GROUP_ICONS.review;
     }
@@ -72,6 +79,10 @@ export default function WizardSidebar({ nome, isSubmitted, plan }: Props) {
         if (isSubmitted) return true;
         if (item.isDocumentGroup) {
             const end = item.documentEndStep ?? item.step;
+            return currentStep > end || completedSteps.has(end);
+        }
+        if (item.isDadosGroup) {
+            const end = item.dadosEndStep ?? item.step;
             return currentStep > end || completedSteps.has(end);
         }
         return completedSteps.has(item.step) || currentStep > item.step;
@@ -83,12 +94,24 @@ export default function WizardSidebar({ nome, isSubmitted, plan }: Props) {
             const end = item.documentEndStep ?? item.step;
             return currentStep >= item.step && currentStep <= end;
         }
+        if (item.isDadosGroup) {
+            const end = item.dadosEndStep ?? item.step;
+            return currentStep >= item.step && currentStep <= end;
+        }
         return currentStep === item.step;
     }
 
     function resolveTargetStep(item: (typeof plan.sidebarItems)[number]): number {
         if (item.isDocumentGroup) {
             const end = item.documentEndStep ?? item.step;
+            if (currentStep >= item.step && currentStep <= end) return currentStep;
+            for (let s = item.step; s <= end; s++) {
+                if (!completedSteps.has(s)) return s;
+            }
+            return item.step;
+        }
+        if (item.isDadosGroup) {
+            const end = item.dadosEndStep ?? item.step;
             if (currentStep >= item.step && currentStep <= end) return currentStep;
             for (let s = item.step; s <= end; s++) {
                 if (!completedSteps.has(s)) return s;
@@ -152,9 +175,12 @@ export default function WizardSidebar({ nome, isSubmitted, plan }: Props) {
                     const isActive = isItemActive(item);
                     const clickable = canNavigateTo(item);
                     const Icon = groupIcon(item);
-                    const label = item.isDocumentGroup && plan.documentSteps.length > 0
-                        ? `${item.label} · ${docProgress}/${plan.documentSteps.length}`
-                        : item.label;
+                    let label = item.label;
+                    if (item.isDocumentGroup && plan.documentSteps.length > 0) {
+                        label = `${item.label} · ${docProgress}/${plan.documentSteps.length}`;
+                    } else if (item.isDadosGroup && plan.dadosSections.length > 0) {
+                        label = `${item.label} · ${dadosProgress}/${plan.dadosSections.length}`;
+                    }
 
                     return (
                         <button
