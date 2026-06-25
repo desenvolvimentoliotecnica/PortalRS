@@ -159,6 +159,22 @@ public sealed class AdmissaoPortalController : ControllerBase
             : NotFound(new { message = "Documento não encontrado ou acesso negado." });
     }
 
+    /// <summary>Download de documento enviado (autenticado por CPF).</summary>
+    [HttpGet("{preAdmissaoId:guid}/documentos/{docId:guid}/download")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadDocumento(Guid preAdmissaoId, Guid docId, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+
+        var result = await _service.GetDocumentoDownloadAsync(preAdmissaoId, cpf, docId, ct);
+        if (result is null) return NotFound(new { message = "Documento não encontrado." });
+
+        return File(result.Stream, result.ContentType, result.FileName);
+    }
+
     /// <summary>Candidato submete dados e documentos para revisão do RH.</summary>
     [HttpPost("{preAdmissaoId:guid}/submit")]
     [ProducesResponseType(StatusCodes.Status200OK)]

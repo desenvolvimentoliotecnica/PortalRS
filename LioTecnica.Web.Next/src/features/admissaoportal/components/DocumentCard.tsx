@@ -10,6 +10,8 @@ import { ACCEPTED_DOC_MIME, TIPOS_COM_VERSO } from "../constants";
 import { DOC_FRENTE_LABELS, DOC_HINTS, DOC_VERSO_LABELS } from "../admissaoDocumentoCatalog";
 import DocumentPreviewLightbox, { type PreviewItem, isPdfPreview } from "@/components/documents/DocumentPreviewLightbox";
 import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
+import { usePortalDocumentPreview } from "../usePortalDocumentPreview";
+import type { AdmissaoPortalSession } from "../publicApi";
 
 /** Altura fixa das zonas de upload para alinhar cards simples e frente/verso. */
 const DROPZONE_HEIGHT = "h-[9.5rem]";
@@ -27,13 +29,14 @@ interface Props {
     onFileSelected: (tipo: number, file: File, side: "frente" | "verso") => void;
     onRemove?: (tipo: number, side: "frente" | "verso", docId: string) => void;
     disabled?: boolean;
+    session?: AdmissaoPortalSession;
 }
 
 export default function DocumentCard({
     index, tipo, obrigatorio, labelOverride,
     uploadedDoc, uploadedDocVerso,
     aiResult, aiResultVerso,
-    onFileSelected, onRemove, disabled,
+    onFileSelected, onRemove, disabled, session,
 }: Props) {
     const fileRefFrente = useRef<HTMLInputElement>(null);
     const fileRefVerso = useRef<HTMLInputElement>(null);
@@ -74,6 +77,7 @@ export default function DocumentCard({
                                 uploadedDoc={uploadedDoc}
                                 aiResult={aiResult}
                                 disabled={disabled}
+                                session={session}
                                 onSelect={() => fileRefFrente.current?.click()}
                                 onFileDropped={(f) => onFileSelected(tipo, f, "frente")}
                                 onRemove={uploadedDoc?.id && onRemove
@@ -86,6 +90,7 @@ export default function DocumentCard({
                                 uploadedDoc={uploadedDocVerso}
                                 aiResult={aiResultVerso}
                                 disabled={disabled}
+                                session={session}
                                 onSelect={() => fileRefVerso.current?.click()}
                                 onFileDropped={(f) => onFileSelected(tipo, f, "verso")}
                                 onRemove={uploadedDocVerso?.id && onRemove
@@ -99,6 +104,7 @@ export default function DocumentCard({
                             uploadedDoc={uploadedDoc}
                             aiResult={aiResult}
                             disabled={disabled}
+                            session={session}
                             onSelect={() => fileRefFrente.current?.click()}
                             onFileDropped={(f) => onFileSelected(tipo, f, "frente")}
                             onRemove={uploadedDoc?.id && onRemove
@@ -152,6 +158,7 @@ interface SlotProps {
     uploadedDoc?: UploadedDoc;
     aiResult?: AiExtractionResult;
     disabled?: boolean;
+    session?: AdmissaoPortalSession;
     onSelect: () => void;
     onFileDropped: (file: File) => void;
     onRemove?: () => void;
@@ -167,11 +174,11 @@ function SideLabel({ children }: { children: React.ReactNode }) {
 }
 
 function UploadSlot({
-    sideLabel, uploadedDoc, aiResult, disabled, onSelect, onFileDropped, onRemove, onPreview,
+    sideLabel, uploadedDoc, aiResult, disabled, session, onSelect, onFileDropped, onRemove, onPreview,
 }: SlotProps) {
     const [dragOver, setDragOver] = useState(false);
     const isProcessing = aiResult?.processing;
-    const previewUrl = uploadedDoc?.presignedUrl || uploadedDoc?.thumbnail;
+    const previewUrl = usePortalDocumentPreview(session, uploadedDoc);
     const isPdf = uploadedDoc && isPdfPreview({
         url: previewUrl ?? "",
         nomeArquivo: uploadedDoc.nomeArquivo,
@@ -185,11 +192,18 @@ function UploadSlot({
         if (f) onFileDropped(f);
     }, [disabled, isProcessing, onFileDropped]);
 
-    if (uploadedDoc && previewUrl && !isProcessing) {
+    if (uploadedDoc) {
         return (
             <div className="flex flex-col h-full gap-2">
                 {sideLabel ? <SideLabel>{sideLabel}</SideLabel> : <span className={SIDE_LABEL_HEIGHT} />}
                 <div className="relative flex-1 rounded-lg border border-emerald-200/80 bg-emerald-50/30 dark:bg-emerald-950/10 overflow-hidden min-h-[7.5rem]">
+                    {isProcessing && (
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/70 backdrop-blur-[1px]">
+                            <Loader2 className="size-6 text-primary animate-spin mb-1" />
+                            <p className="text-[10px] text-muted-foreground">Analisando...</p>
+                        </div>
+                    )}
+                    {previewUrl ? (
                     <button
                         type="button"
                         onClick={() => onPreview(toPreviewItem(
@@ -216,10 +230,18 @@ function UploadSlot({
                         <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100">
                             <Eye className="size-5 text-white drop-shadow" />
                         </span>
-                        <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
-                            <CheckCircle2 className="size-3" />
-                        </span>
+                        {!isProcessing && (
+                            <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
+                                <CheckCircle2 className="size-3" />
+                            </span>
+                        )}
                     </button>
+                    ) : (
+                        <div className="flex w-full h-full min-h-[7.5rem] flex-col items-center justify-center bg-muted/20 gap-1">
+                            <FileText className="size-8 text-muted-foreground" />
+                            <p className="text-[10px] text-muted-foreground px-2 text-center truncate max-w-full">{uploadedDoc.nomeArquivo}</p>
+                        </div>
+                    )}
                 </div>
                 {!disabled && (
                     <div className="flex gap-1.5 shrink-0">

@@ -115,10 +115,9 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
             tamanhoBytes: file.size,
             status: 0,
             thumbnail: localPreview,
-            presignedUrl: uploaded?.presignedUrl ?? localPreview,
+            presignedUrl: (uploaded?.presignedUrl && uploaded.presignedUrl.trim()) ? uploaded.presignedUrl : localPreview,
             createdAtUtc: uploaded?.createdAtUtc,
         });
-        onDataRefresh();
 
         const documentLabel = docLabelByTipo.get(tipo) || TIPO_DOC_LABELS[tipo] || "Documento";
         const sideLabel = side === "verso"
@@ -200,8 +199,11 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
                 } catch {
                     toast.error("Erro ao remover documento.");
                 }
+                return;
             }
         }
+
+        onDataRefresh();
     }, [session, formData, uploadedDocs, uploadedDocsVerso, docLabelByTipo, setUploadedDoc, setUploadedDocVerso, removeUploadedDoc, removeUploadedDocVerso, removeUploaded, setAiExtraction, setAiExtractionVerso, mergeAiFields, overwriteAiFields, onDataRefresh]);
 
     const handleRemove = useCallback(async (tipo: number, side: "frente" | "verso", docId: string) => {
@@ -305,6 +307,7 @@ export default function DocumentUploadStep({ session, documentosSolicitados, onD
                                     onFileSelected={handleFileSelected}
                                     onRemove={handleRemove}
                                     disabled={disabled}
+                                    session={session}
                                 />
                             );
                         })}
@@ -393,6 +396,14 @@ async function uploadFile(session: AdmissaoPortalSession, tipo: number, file: Fi
         const body = await res.json().catch(() => ({})) as { message?: string };
         throw new Error(body.message || `Erro ao enviar documento (${res.status}).`);
     }
-    const body = await res.json() as { id?: string; presignedUrl?: string; createdAtUtc?: string };
-    return body;
+    const body = await res.json() as Record<string, unknown>;
+    return {
+        id: String(body.id ?? body.Id ?? ""),
+        presignedUrl: typeof (body.presignedUrl ?? body.PresignedUrl) === "string"
+            ? String(body.presignedUrl ?? body.PresignedUrl)
+            : undefined,
+        createdAtUtc: typeof (body.createdAtUtc ?? body.CreatedAtUtc) === "string"
+            ? String(body.createdAtUtc ?? body.CreatedAtUtc)
+            : undefined,
+    };
 }
