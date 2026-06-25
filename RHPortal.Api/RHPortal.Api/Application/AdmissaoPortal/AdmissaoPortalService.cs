@@ -14,6 +14,8 @@ using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.AdmissaoPortal;
 
+public sealed record PortalDocumentoDownloadResult(Stream Stream, string ContentType, string FileName);
+
 public interface IAdmissaoPortalService
 {
     Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct);
@@ -23,6 +25,7 @@ public interface IAdmissaoPortalService
     Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest request, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse?> UploadDocAsync(Guid preAdmissaoId, string cpf, TipoDocumento tipo, LadoDocumento lado, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct);
+    Task<PortalDocumentoDownloadResult?> GetDocumentoDownloadAsync(Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct);
     Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
     Task<DocumentValidationResponse?> ValidateDocumentAsync(Guid preAdmissaoId, string cpf, DocumentValidationRequest request, CancellationToken ct);
     Task<IReadOnlyList<PreAdmissaoDependenteResponse>> ListDependentesAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
@@ -330,6 +333,42 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "delete_doc", ct);
         return true;
+    }
+
+    public async Task<PortalDocumentoDownloadResult?> GetDocumentoDownloadAsync(
+        Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct)
+    {
+        var pa = await LoadAndValidate(preAdmissaoId, cpf, ct);
+        if (pa is null) return null;
+
+        var doc = pa.Documentos.FirstOrDefault(d => d.Id == docId);
+        if (doc is null) return null;
+
+        if (PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath))
+        {
+            var path = PreAdmissaoDocumentoStorage.TryResolveLocalPath(_hostEnvironment, doc.TenantId, doc.StoragePath);
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+
+            var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var contentType = string.IsNullOrWhiteSpace(doc.ContentType) ? "application/octet-stream" : doc.ContentType;
+            return new PortalDocumentoDownloadResult(stream, contentType, doc.NomeArquivo);
+        }
+
+        try
+        {
+            var url = _storage.GetPresignedUrl(doc.StoragePath);
+            using var http = _httpClientFactory.CreateClient();
+            var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var remoteStream = await response.Content.ReadAsStreamAsync(ct);
+            var remoteType = response.Content.Headers.ContentType?.MediaType ?? doc.ContentType ?? "application/octet-stream";
+            return new PortalDocumentoDownloadResult(remoteStream, remoteType, doc.NomeArquivo);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct)

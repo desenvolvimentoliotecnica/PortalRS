@@ -117,14 +117,23 @@ export default function DocumentoAdmissaoScreen() {
             hydratedRef.current = true;
 
             // Hydrate uploaded docs — roteia frente/verso para slots corretos
+            const storeSnapshot = useAdmissaoWizardStore.getState();
             for (const doc of body.documentosEnviados) {
+                const existingFrente = storeSnapshot.uploadedDocs.get(doc.tipo);
+                const existingVerso = storeSnapshot.uploadedDocsVerso.get(doc.tipo);
+                const isVerso = doc.lado === 2;
+                const existing = isVerso ? existingVerso : existingFrente;
+                const serverUrl = doc.presignedUrl?.trim() || "";
+                const previewUrl = serverUrl || existing?.thumbnail || existing?.presignedUrl;
+
                 const docData = {
                     id: doc.id,
                     tipo: doc.tipo,
                     nomeArquivo: doc.nomeArquivo,
                     tamanhoBytes: doc.tamanhoBytes,
                     status: doc.status,
-                    presignedUrl: doc.presignedUrl,
+                    presignedUrl: previewUrl,
+                    thumbnail: existing?.thumbnail,
                     createdAtUtc: doc.createdAtUtc,
                 };
                 if (doc.lado === 2) { // Verso = 2
