@@ -1,159 +1,151 @@
 import { sortDocumentosSolicitados, type DocSolicitadoItem } from "./admissaoDocumentoCatalog";
-import { DADOS_FORM_SECTIONS, type DadosSectionId } from "./dadosFormSections";
 import { TIPOS_COM_VERSO } from "./constants";
 import type { UploadedDoc } from "./useAdmissaoWizardStore";
 
-export type WizardStepKind = "welcome" | "document" | "dados" | "dependentes" | "review";
+export type WizardStepKind =
+    | "welcome"
+    | "dados-pessoais"
+    | "dados-gerais"
+    | "documentos"
+    | "bancario"
+    | "revisao"
+    | "conclusao";
+
+export interface MainWizardStep {
+    step: number;
+    kind: Exclude<WizardStepKind, "welcome">;
+    label: string;
+    subtitle: string;
+}
+
+/** 6 etapas principais (steps 1–6). Step 0 = boas-vindas. */
+export const MAIN_WIZARD_STEPS: MainWizardStep[] = [
+    { step: 1, kind: "dados-pessoais", label: "Dados Pessoais", subtitle: "Informações básicas" },
+    { step: 2, kind: "dados-gerais", label: "Dados Gerais", subtitle: "Endereço e contato" },
+    { step: 3, kind: "documentos", label: "Documentos", subtitle: "Envio de documentos" },
+    { step: 4, kind: "bancario", label: "Informações Bancárias", subtitle: "Dados da conta" },
+    { step: 5, kind: "revisao", label: "Revisão", subtitle: "Confira seus dados" },
+    { step: 6, kind: "conclusao", label: "Conclusão", subtitle: "Finalizar processo" },
+];
 
 export interface WizardStepInfo {
     kind: WizardStepKind;
-    doc?: DocSolicitadoItem;
-    docIndex?: number;
-    dadosSectionId?: DadosSectionId;
-    dadosSectionIndex?: number;
-}
-
-export interface WizardSidebarItem {
-    step: number;
-    label: string;
-    isDocumentGroup?: boolean;
-    documentEndStep?: number;
-    isDadosGroup?: boolean;
-    dadosEndStep?: number;
+    mainStep?: MainWizardStep;
 }
 
 export interface WizardPlan {
     documentSteps: DocSolicitadoItem[];
-    dadosSections: typeof DADOS_FORM_SECTIONS;
     totalSteps: number;
-    docsStartStep: number;
-    dadosStartStep: number;
-    dadosEndStep: number;
-    /** @deprecated use dadosStartStep */
-    dadosStep: number;
-    dependentesStep: number;
-    reviewStep: number;
+    mainSteps: MainWizardStep[];
     resolveStep: (step: number) => WizardStepInfo;
     stepLabel: (step: number) => string;
-    sidebarItems: WizardSidebarItem[];
-    migrateLegacyStep: (saved: number) => number;
+    mainStepIndex: (step: number) => number;
+    migrateLegacyStep: (saved: number, isSubmitted?: boolean) => number;
 }
+
+const STEP_KIND_BY_NUMBER: Record<number, WizardStepKind> = {
+    0: "welcome",
+    1: "dados-pessoais",
+    2: "dados-gerais",
+    3: "documentos",
+    4: "bancario",
+    5: "revisao",
+    6: "conclusao",
+};
 
 export function buildWizardPlan(documentosSolicitados: DocSolicitadoItem[]): WizardPlan {
     const documentSteps = sortDocumentosSolicitados(
         documentosSolicitados.filter((d) => d.obrigatorio),
     );
-    const docsStartStep = 1;
-    const dadosStartStep = docsStartStep + documentSteps.length;
-    const dadosEndStep = dadosStartStep + DADOS_FORM_SECTIONS.length - 1;
-    const dependentesStep = dadosEndStep + 1;
-    const reviewStep = dependentesStep + 1;
-    const totalSteps = reviewStep + 1;
+    const totalSteps = 7; // 0 welcome + 6 main
 
     function resolveStep(step: number): WizardStepInfo {
-        if (step <= 0) return { kind: "welcome" };
-        if (step < dadosStartStep) {
-            const docIndex = step - docsStartStep;
-            return { kind: "document", docIndex, doc: documentSteps[docIndex] };
-        }
-        if (step <= dadosEndStep) {
-            const dadosSectionIndex = step - dadosStartStep;
-            const section = DADOS_FORM_SECTIONS[dadosSectionIndex];
-            return {
-                kind: "dados",
-                dadosSectionId: section.id,
-                dadosSectionIndex,
-            };
-        }
-        if (step === dependentesStep) return { kind: "dependentes" };
-        return { kind: "review" };
+        const clamped = Math.min(Math.max(0, step), totalSteps - 1);
+        const kind = STEP_KIND_BY_NUMBER[clamped] ?? "welcome";
+        const mainStep = MAIN_WIZARD_STEPS.find((s) => s.step === clamped);
+        return { kind, mainStep };
     }
 
     function stepLabel(step: number): string {
         const info = resolveStep(step);
-        switch (info.kind) {
-            case "welcome":
-                return "Boas-vindas";
-            case "document":
-                return info.doc?.label ?? `Documento ${(info.docIndex ?? 0) + 1}`;
-            case "dados":
-                return DADOS_FORM_SECTIONS[info.dadosSectionIndex ?? 0]?.label ?? "Seus Dados";
-            case "dependentes":
-                return "Dependentes";
-            case "review":
-                return "Revisão e Envio";
-        }
+        if (info.kind === "welcome") return "Boas-vindas";
+        return info.mainStep?.label ?? "Portal de Admissão";
     }
 
-    const sidebarItems: WizardSidebarItem[] = [
-        { step: 0, label: "Boas-vindas" },
-        {
-            step: docsStartStep,
-            label: `Documentos (${documentSteps.length})`,
-            isDocumentGroup: true,
-            documentEndStep: dadosStartStep - 1,
-        },
-        {
-            step: dadosStartStep,
-            label: `Seus Dados (${DADOS_FORM_SECTIONS.length})`,
-            isDadosGroup: true,
-            dadosEndStep,
-        },
-        { step: dependentesStep, label: "Dependentes" },
-        { step: reviewStep, label: "Revisão e Envio" },
-    ];
+    function mainStepIndex(step: number): number {
+        if (step <= 0) return -1;
+        return Math.min(step - 1, MAIN_WIZARD_STEPS.length - 1);
+    }
 
-    function migrateLegacyStep(saved: number): number {
+    function migrateLegacyStep(saved: number, isSubmitted = false): number {
+        if (isSubmitted) return 6;
         if (saved <= 0) return 0;
-        // Formato antigo: 0 welcome, 1 todos docs, 2 dados, 3 dep, 4 review
-        if (saved <= 4 && documentSteps.length > 0) {
-            if (saved === 0) return 0;
-            if (saved === 1) return docsStartStep;
-            if (saved === 2) return dadosStartStep;
-            if (saved === 3) return dependentesStep;
-            if (saved === 4) return reviewStep;
+
+        // Novo formato (0–6)
+        if (saved <= 6) return saved;
+
+        // Formato anterior: welcome + N docs + 10 dados + dependentes + review
+        const oldDocsStart = 1;
+        const oldDadosStart = oldDocsStart + Math.max(documentSteps.length, 1);
+        const oldDadosEnd = oldDadosStart + 9;
+        const oldDependentes = oldDadosEnd + 1;
+        const oldReview = oldDependentes + 1;
+
+        if (saved < oldDadosStart) return 3;
+        if (saved <= oldDadosEnd) {
+            const sectionIndex = saved - oldDadosStart;
+            if (sectionIndex === 0) return 1;
+            if (sectionIndex <= 2) return 2;
+            if (sectionIndex === 3) return 4;
+            return 2;
         }
-        // Wizard anterior: um único step "dados" em dadosStartStep
-        const oldDependentesStep = dadosStartStep + 1;
-        if (saved === oldDependentesStep) return dependentesStep;
-        return Math.min(Math.max(0, saved), totalSteps - 1);
+        if (saved === oldDependentes) return 2;
+        if (saved >= oldReview) return 5;
+
+        return Math.min(saved, 6);
     }
 
     return {
         documentSteps,
-        dadosSections: DADOS_FORM_SECTIONS,
         totalSteps,
-        docsStartStep,
-        dadosStartStep,
-        dadosEndStep,
-        dadosStep: dadosStartStep,
-        dependentesStep,
-        reviewStep,
+        mainSteps: MAIN_WIZARD_STEPS,
         resolveStep,
         stepLabel,
-        sidebarItems,
+        mainStepIndex,
         migrateLegacyStep,
     };
 }
 
-/** Valida um único documento obrigatório (frente + verso quando aplicável). */
+/** Valida todos os documentos obrigatórios (etapa Documentos única). */
+export function validateAllDocuments(
+    docs: DocSolicitadoItem[],
+    uploadedDocs: Map<number, UploadedDoc>,
+    uploadedDocsVerso: Map<number, UploadedDoc>,
+    enviados: { tipo: number; lado: number }[] = [],
+): string[] {
+    const missing: string[] = [];
+    for (const doc of docs.filter((d) => d.obrigatorio)) {
+        const hasFrente = uploadedDocs.has(doc.tipo)
+            || enviados.some((d) => d.tipo === doc.tipo && d.lado !== 2);
+        if (!hasFrente) {
+            missing.push(doc.label);
+            continue;
+        }
+        if (TIPOS_COM_VERSO.has(doc.tipo)) {
+            const hasVerso = uploadedDocsVerso.has(doc.tipo)
+                || enviados.some((d) => d.tipo === doc.tipo && d.lado === 2);
+            if (!hasVerso) missing.push(`${doc.label} (verso)`);
+        }
+    }
+    return missing;
+}
+
+/** @deprecated use validateAllDocuments */
 export function validateSingleDocument(
     doc: DocSolicitadoItem,
     uploadedDocs: Map<number, UploadedDoc>,
     uploadedDocsVerso: Map<number, UploadedDoc>,
     enviados: { tipo: number; lado: number }[] = [],
 ): string[] {
-    const missing: string[] = [];
-    const hasFrente = uploadedDocs.has(doc.tipo)
-        || enviados.some((d) => d.tipo === doc.tipo && d.lado !== 2);
-    if (!hasFrente) {
-        missing.push(doc.label);
-        return missing;
-    }
-    if (TIPOS_COM_VERSO.has(doc.tipo)) {
-        const hasVerso = uploadedDocsVerso.has(doc.tipo)
-            || enviados.some((d) => d.tipo === doc.tipo && d.lado === 2);
-        if (!hasVerso) missing.push(`${doc.label} (verso)`);
-    }
-    return missing;
+    return validateAllDocuments([doc], uploadedDocs, uploadedDocsVerso, enviados);
 }
