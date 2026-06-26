@@ -1,124 +1,154 @@
 "use client";
 
-import React from "react";
-import { User, MapPin, Phone, CreditCard, Briefcase, Users } from "lucide-react";
-import WizardStepPanel from "../components/WizardStepPanel";
+import {
+    Building2,
+    ClipboardList,
+    Info,
+    Pencil,
+    User,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import WizardStepCard from "../components/WizardStepCard";
+import { PortalInfoBox } from "../components/PortalField";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
-
-const PARENTESCO_LABEL: Record<number, string> = { 0: "Conjuge", 1: "Filho(a)", 2: "Pai", 3: "Mae", 4: "Outro" };
+import { TIPO_DOC_LABELS } from "../constants";
 
 interface Props {
     disabled?: boolean;
+    documentosEnviados?: { tipo: number; nomeArquivo: string }[];
+    onEditStep?: (step: number) => void;
 }
 
-export default function ReviewStep({ disabled }: Props) {
-    const { formData, dependentes } = useAdmissaoWizardStore();
+export default function ReviewStep({ disabled, documentosEnviados = [], onEditStep }: Props) {
+    const { formData, uploadedDocs } = useAdmissaoWizardStore();
+
+    const docsList = documentosEnviados.length > 0
+        ? documentosEnviados
+        : Array.from(uploadedDocs.values()).map((d) => ({
+            tipo: d.tipo,
+            nomeArquivo: d.nomeArquivo,
+        }));
 
     return (
-        <WizardStepPanel wide>
-        <div className="space-y-6">
-            <div className="text-center space-y-3">
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Revisão e Envio</h2>
-                <p className="text-base text-muted-foreground max-w-2xl mx-auto">
-                    Confira o que você preencheu antes de enviar. A analista de RH revisará seus dados e documentos
-                    e entrará em contato caso precise de ajustes ou informações adicionais.
-                </p>
+        <WizardStepCard
+            icon={ClipboardList}
+            title="Revisão"
+            subtitle="Confira todas as informações antes de finalizar seu processo de admissão."
+        >
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ReviewCard
+                    icon={User}
+                    title="Dados Pessoais"
+                    onEdit={onEditStep ? () => onEditStep(1) : undefined}
+                    disabled={disabled}
+                >
+                    <ReviewRow label="Nome completo" value={formData.nome} />
+                    <ReviewRow label="CPF" value={formData.cpf} />
+                    <ReviewRow label="Data de nascimento" value={formData.dataNascimento} />
+                    <ReviewRow label="RG" value={formData.rg} />
+                    <ReviewRow label="Estado civil" value={formData.estadoCivil} />
+                    <ReviewRow label="Órgão expedidor" value={formData.rgOrgaoExpedidor} />
+                </ReviewCard>
+
+                <ReviewCard
+                    icon={User}
+                    title="Dados Gerais"
+                    onEdit={onEditStep ? () => onEditStep(2) : undefined}
+                    disabled={disabled}
+                >
+                    <ReviewRow label="CEP" value={formData.cep} />
+                    <ReviewRow label="Cidade/Estado" value={[formData.cidade, formData.uf].filter(Boolean).join(" - ")} />
+                    <ReviewRow label="Endereço" value={[formData.logradouro, formData.numero].filter(Boolean).join(", ")} />
+                    <ReviewRow label="País" value={formData.paisNacionalidade} />
+                    <ReviewRow label="Bairro" value={formData.bairro} />
+                    <ReviewRow label="E-mail" value={formData.email} />
+                </ReviewCard>
+
+                <ReviewCard
+                    icon={ClipboardList}
+                    title="Documentos"
+                    onEdit={onEditStep ? () => onEditStep(3) : undefined}
+                    disabled={disabled}
+                >
+                    {docsList.length === 0 ? (
+                        <p className="text-sm text-slate-500">Nenhum documento enviado ainda.</p>
+                    ) : (
+                        docsList.map((doc, i) => (
+                            <div key={`${doc.tipo}-${i}`} className="flex items-center justify-between gap-2 text-sm">
+                                <span className="text-slate-700">
+                                    {TIPO_DOC_LABELS[doc.tipo] || `Documento ${doc.tipo}`}
+                                </span>
+                                <span className="truncate text-xs text-emerald-600">Enviado</span>
+                            </div>
+                        ))
+                    )}
+                </ReviewCard>
+
+                <ReviewCard
+                    icon={Building2}
+                    title="Informações Bancárias"
+                    onEdit={onEditStep ? () => onEditStep(4) : undefined}
+                    disabled={disabled}
+                >
+                    <ReviewRow label="Banco" value={[formData.bancoCodigo, formData.bancoNome].filter(Boolean).join(" - ")} />
+                    <ReviewRow label="Conta" value={formData.conta} />
+                    <ReviewRow label="Tipo de conta" value={formData.tipoConta} />
+                    <ReviewRow label="Dígito" value={formData.contaDigito} />
+                    <ReviewRow label="Agência" value={formData.agencia} />
+                    <ReviewRow label="Favorecido" value={formData.nome} />
+                </ReviewCard>
             </div>
 
-            <div className="rounded-xl bg-blue-50 border border-blue-200 px-5 py-4 dark:bg-blue-900/20 dark:border-blue-800">
-                <p className="text-base text-blue-700 dark:text-blue-300">
-                    Você pode enviar mesmo com campos em branco. O RH analisará e solicitará complementos, se necessário.
-                </p>
+            <div className="mt-6">
+                <PortalInfoBox>
+                    <Info className="mt-0.5 size-5 shrink-0" />
+                    <p>
+                        Após confirmar, seus dados serão enviados para análise do RH. Você não poderá alterá-los
+                        diretamente após a confirmação.
+                    </p>
+                </PortalInfoBox>
             </div>
-
-            {disabled && (
-                <div className="rounded-lg bg-muted/50 border border-border/40 px-5 py-4 text-base text-muted-foreground text-center">
-                    Seus dados já foram enviados e estão em revisão pelo RH.
-                </div>
-            )}
-
-            {/* Dados Pessoais */}
-            <ReviewSection icon={User} title="Dados Pessoais">
-                <ReviewRow label="Nome" value={formData.nome} />
-                <ReviewRow label="CPF" value={formData.cpf} />
-                <ReviewRow label="RG" value={[formData.rg, formData.rgOrgaoExpedidor, formData.rgUfExpedidor].filter(Boolean).join(" - ")} />
-                <ReviewRow label="Nascimento" value={formData.dataNascimento} />
-                <ReviewRow label="Natural de" value={[formData.naturalCidade, formData.naturalUf].filter(Boolean).join(" - ")} />
-                <ReviewRow label="Mae" value={formData.nomeMae} />
-                <ReviewRow label="Pai" value={formData.nomePai} />
-                <ReviewRow label="Escolaridade" value={formData.grauInstrucao} />
-            </ReviewSection>
-
-            {/* Endereco */}
-            <ReviewSection icon={MapPin} title="Endereco">
-                <ReviewRow label="CEP" value={formData.cep} />
-                <ReviewRow label="Endereco" value={[formData.logradouro, formData.numero].filter(Boolean).join(", ")} />
-                <ReviewRow label="Bairro" value={formData.bairro} />
-                <ReviewRow label="Cidade/UF" value={[formData.cidade, formData.uf].filter(Boolean).join(" - ")} />
-            </ReviewSection>
-
-            {/* Contato */}
-            <ReviewSection icon={Phone} title="Contato">
-                <ReviewRow label="E-mail" value={formData.email} />
-                <ReviewRow label="Celular" value={formData.celular} />
-                <ReviewRow label="Telefone" value={formData.telefone} />
-                <ReviewRow label="Emergencia" value={[formData.contatoEmergenciaNome, formData.contatoEmergenciaFone].filter(Boolean).join(" - ")} />
-            </ReviewSection>
-
-            {/* Banco */}
-            <ReviewSection icon={CreditCard} title="Dados Bancarios">
-                <ReviewRow label="Banco" value={[formData.bancoCodigo, formData.bancoNome].filter(Boolean).join(" - ")} />
-                <ReviewRow label="Agencia" value={[formData.agencia, formData.agenciaDigito].filter(Boolean).join("-")} />
-                <ReviewRow label="Conta" value={[formData.conta, formData.contaDigito].filter(Boolean).join("-")} />
-            </ReviewSection>
-
-            {/* Trabalhista */}
-            <ReviewSection icon={Briefcase} title="Dados Trabalhistas">
-                <ReviewRow label="PIS/PASEP" value={formData.pisPasep} />
-                <ReviewRow label="CTPS" value={[formData.ctps, formData.ctpsSerie, formData.ctpsUf].filter(Boolean).join(" / ")} />
-                <ReviewRow label="Titulo Eleitor" value={formData.tituloEleitorNumero} />
-                <ReviewRow label="CNH" value={[formData.cnhNumero, formData.categoriaCnh].filter(Boolean).join(" - Cat. ")} />
-                <ReviewRow label="Reservista" value={formData.reservistaNumero} />
-            </ReviewSection>
-
-            {/* Dependentes */}
-            {dependentes.length > 0 && (
-                <ReviewSection icon={Users} title={`Dependentes (${dependentes.length})`}>
-                    {dependentes.map((d) => (
-                        <div key={d.id} className="text-base py-1.5 border-b border-border/20 last:border-b-0">
-                            <span className="font-medium">{d.nomeCompleto}</span>
-                            <span className="text-muted-foreground ml-2">
-                                ({PARENTESCO_LABEL[d.parentesco] || "Outro"})
-                                {d.isPcd && " - PCD"}
-                            </span>
-                        </div>
-                    ))}
-                </ReviewSection>
-            )}
-        </div>
-        </WizardStepPanel>
+        </WizardStepCard>
     );
 }
 
-function ReviewSection({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
+function ReviewCard({
+    icon: Icon,
+    title,
+    children,
+    onEdit,
+    disabled,
+}: {
+    icon: React.ElementType;
+    title: string;
+    children: React.ReactNode;
+    onEdit?: () => void;
+    disabled?: boolean;
+}) {
     return (
-        <div className="rounded-xl border border-border/40 bg-muted/10 p-5">
-            <div className="flex items-center gap-3 mb-4">
-                <Icon className="size-6 text-primary" />
-                <h3 className="text-lg font-semibold">{title}</h3>
+        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Icon className="size-4 text-[#0047BB]" />
+                    <h3 className="font-semibold text-slate-900">{title}</h3>
+                </div>
+                {onEdit && !disabled && (
+                    <Button variant="ghost" size="sm" onClick={onEdit} className="h-8 gap-1 text-[#0047BB]">
+                        <Pencil className="size-3.5" /> Editar
+                    </Button>
+                )}
             </div>
             <div className="space-y-1.5">{children}</div>
         </div>
     );
 }
 
-function ReviewRow({ label, value }: { label: string; value: unknown }) {
-    const v = value != null ? String(value).trim() : "";
-    if (!v) return null;
+function ReviewRow({ label, value }: { label: string; value?: unknown }) {
+    const display = value == null || String(value).trim() === "" ? "—" : String(value);
     return (
-        <div className="flex justify-between text-base py-1">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium text-right">{v}</span>
+        <div className="flex justify-between gap-3 text-sm">
+            <span className="text-slate-500">{label}</span>
+            <span className="max-w-[55%] truncate text-right font-medium text-slate-800">{display}</span>
         </div>
     );
 }

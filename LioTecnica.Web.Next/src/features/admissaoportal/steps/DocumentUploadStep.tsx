@@ -270,12 +270,14 @@ export default function DocumentUploadStep({
     }
 
     return (
-        <div className="space-y-6 -mt-1">
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#f4f7fb]">
+            <div className="flex flex-1 min-h-0 flex-col overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+                <div className="mx-auto w-full max-w-5xl space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_2px_16px_rgba(15,23,42,0.06)] sm:p-8">
             {/* Page header */}
             <div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Envio de Documentos</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Envie os documentos solicitados para continuidade do seu processo de admissão.
+                <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Documentos</h1>
+                <p className="mt-1 text-sm text-slate-500">
+                    Envie os documentos solicitados em formato digital (PDF, JPG ou PNG).
                 </p>
             </div>
 
@@ -368,6 +370,8 @@ export default function DocumentUploadStep({
                     Seus documentos estão seguros. Todas as informações são protegidas e utilizadas
                     apenas para o processo de admissão.
                 </p>
+            </div>
+                </div>
             </div>
         </div>
     );

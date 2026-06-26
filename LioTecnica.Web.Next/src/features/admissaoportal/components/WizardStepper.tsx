@@ -1,75 +1,51 @@
 "use client";
 
 import { Check } from "lucide-react";
-import type { WizardPlan } from "../wizardSteps";
+import { MAIN_WIZARD_STEPS } from "../wizardSteps";
 
 interface Props {
     currentStep: number;
     completedSteps: Set<number>;
-    plan: WizardPlan;
+    isSubmitted?: boolean;
 }
 
-export default function WizardStepper({ currentStep, completedSteps, plan }: Props) {
-    const { sidebarItems, documentSteps, dadosSections, docsStartStep, dadosStartStep, dadosEndStep } = plan;
-
-    const docProgress =
-        currentStep >= docsStartStep && currentStep < dadosStartStep
-            ? currentStep - docsStartStep + 1
-            : completedSteps.size > docsStartStep
-              ? documentSteps.length
-              : 0;
-
-    const dadosProgress =
-        currentStep >= dadosStartStep && currentStep <= dadosEndStep
-            ? currentStep - dadosStartStep + 1
-            : currentStep > dadosEndStep
-              ? dadosSections.length
-              : 0;
-
+export default function WizardStepper({ currentStep, completedSteps, isSubmitted }: Props) {
     return (
-        <div className="flex items-center justify-between gap-1 px-2 py-2 overflow-x-auto">
-            {sidebarItems.map((item) => {
-                const isDocumentGroup = item.isDocumentGroup === true;
-                const isDadosGroup = item.isDadosGroup === true;
-                const endStep = isDocumentGroup
-                    ? (item.documentEndStep ?? item.step)
-                    : isDadosGroup
-                      ? (item.dadosEndStep ?? item.step)
-                      : item.step;
-                const isActive = isDocumentGroup || isDadosGroup
-                    ? currentStep >= item.step && currentStep <= endStep
-                    : currentStep === item.step;
-                const isDone = isDocumentGroup || isDadosGroup
-                    ? currentStep > endStep || completedSteps.has(endStep)
-                    : completedSteps.has(item.step) || currentStep > item.step;
-
-                let label = item.label.split(" ")[0];
-                if (isDocumentGroup && documentSteps.length > 0) {
-                    label = `Docs ${docProgress}/${documentSteps.length}`;
-                } else if (isDadosGroup && dadosSections.length > 0) {
-                    label = `Dados ${dadosProgress}/${dadosSections.length}`;
-                }
+        <div className="flex items-center justify-between gap-1 px-2 py-4 overflow-x-auto">
+            {MAIN_WIZARD_STEPS.map((item, index) => {
+                const done = isSubmitted || completedSteps.has(item.step) || currentStep > item.step;
+                const active = !isSubmitted && currentStep === item.step;
+                const isLast = index === MAIN_WIZARD_STEPS.length - 1;
 
                 return (
-                    <div key={item.step} className="flex flex-col items-center gap-1 min-w-0 flex-1">
-                        <div
-                            className={`flex items-center justify-center size-7 rounded-full text-[10px] font-bold transition-all ${
-                                isDone
-                                    ? "bg-emerald-500 text-white"
-                                    : isActive
-                                      ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
-                                      : "bg-muted text-muted-foreground"
-                            }`}
-                        >
-                            {isDone ? <Check className="size-3.5" /> : item.step + 1}
+                    <div key={item.step} className="flex min-w-0 flex-1 items-center">
+                        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                            <div
+                                className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                                    done
+                                        ? "bg-emerald-500 text-white"
+                                        : active
+                                          ? "bg-[#0047BB] text-white ring-4 ring-[#0047BB]/20"
+                                          : "bg-slate-200 text-slate-500"
+                                }`}
+                            >
+                                {done && !active ? <Check className="size-4" /> : item.step}
+                            </div>
+                            <span
+                                className={`max-w-[72px] truncate text-center text-[10px] leading-tight sm:text-xs ${
+                                    active ? "font-semibold text-[#0047BB]" : done ? "text-emerald-600" : "text-slate-500"
+                                }`}
+                            >
+                                {item.label}
+                            </span>
                         </div>
-                        <span
-                            className={`text-[9px] text-center leading-tight truncate max-w-[56px] ${
-                                isActive ? "text-primary font-semibold" : "text-muted-foreground"
-                            }`}
-                        >
-                            {label}
-                        </span>
+                        {!isLast && (
+                            <div
+                                className={`mx-1 mb-5 h-0.5 min-w-[12px] flex-1 ${
+                                    done ? "bg-emerald-400" : "bg-slate-200"
+                                }`}
+                            />
+                        )}
                     </div>
                 );
             })}

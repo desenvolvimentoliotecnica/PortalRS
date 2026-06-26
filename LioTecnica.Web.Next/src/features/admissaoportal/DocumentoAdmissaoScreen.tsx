@@ -18,16 +18,19 @@ import WizardSidebar from "./components/WizardSidebar";
 import AdmissaoPortalHeader from "./components/AdmissaoPortalHeader";
 import WelcomeStep from "./steps/WelcomeStep";
 import DocumentUploadStep from "./steps/DocumentUploadStep";
-import ReviewDataStep from "./steps/ReviewDataStep";
-import DependentsStep from "./steps/DependentsStep";
+import DadosPessoaisStep from "./steps/DadosPessoaisStep";
+import DadosGeraisStep from "./steps/DadosGeraisStep";
+import DadosBancariosStep from "./steps/DadosBancariosStep";
 import ReviewStep from "./steps/ReviewStep";
+import ConclusaoStep from "./steps/ConclusaoStep";
+import { savePortalFormNow } from "./hooks/usePortalFormAutoSave";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-    FileText, CheckCircle2, Loader2, AlertCircle, LogOut,
+    FileText, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
 import { formatMissingDocumentsMessage } from "./portalValidation";
-import { buildWizardPlan, validateSingleDocument } from "./wizardSteps";
+import { buildWizardPlan, validateAllDocuments } from "./wizardSteps";
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
@@ -71,6 +74,7 @@ export default function DocumentoAdmissaoScreen() {
     const [logging, setLogging] = useState(false);
     const [data, setData] = useState<PortalData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
     // Prevents saveWizardProgress from overwriting the server step before loadData has restored it
     const hydratedRef = useRef(false);
     const stepMigratedRef = useRef(false);
@@ -102,9 +106,16 @@ export default function DocumentoAdmissaoScreen() {
     useEffect(() => {
         if (!data) return;
         setWizardTotalSteps(wizardPlan.totalSteps);
-        if (!stepMigratedRef.current && data.wizardCurrentStep != null) {
-            stepMigratedRef.current = true;
-            setStep(wizardPlan.migrateLegacyStep(data.wizardCurrentStep));
+        if (stepMigratedRef.current) return;
+        stepMigratedRef.current = true;
+        const isSubmittedStatus = data.status === 2;
+        if (isSubmittedStatus) {
+            setSubmittedAt(new Date());
+            setStep(6);
+            return;
+        }
+        if (data.wizardCurrentStep != null) {
+            setStep(wizardPlan.migrateLegacyStep(data.wizardCurrentStep, false));
         }
     }, [data, wizardPlan, setWizardTotalSteps, setStep]);
 
@@ -222,10 +233,22 @@ export default function DocumentoAdmissaoScreen() {
             case "welcome":
                 return true;
 
-            case "document": {
-                if (!stepInfo.doc) return true;
-                const missingDocs = validateSingleDocument(
-                    stepInfo.doc,
+            case "dados-pessoais":
+            case "dados-gerais":
+            case "bancario": {
+                try {
+                    await savePortalFormNow(session, formData);
+                    setLastSavedAt(new Date());
+                } catch {
+                    toast.error("Erro ao salvar seus dados. Tente novamente.");
+                    return false;
+                }
+                return true;
+            }
+
+            case "documentos": {
+                const missingDocs = validateAllDocuments(
+                    wizardPlan.documentSteps,
                     uploadedDocs,
                     uploadedDocsVerso,
                     data.documentosEnviados,
@@ -237,35 +260,28 @@ export default function DocumentoAdmissaoScreen() {
                 return true;
             }
 
-            case "dados": {
-                try {
-                    await admissaoPortalFetch(
-                        session.tenantId,
-                        `/api/public/admissao-portal/${session.preAdmissaoId}/dados`,
-                        session.cpf,
-                        {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(formData),
-                        },
-                    );
-                    setLastSavedAt(new Date());
-                } catch {
-                    toast.error("Erro ao salvar seus dados. Tente novamente.");
-                    return false;
-                }
-                return true;
-            }
-
-            case "dependentes":
-                return true;
-
-            case "review":
+            case "revisao":
                 await handleSubmit();
+                return false;
+
+            case "conclusao":
                 return false;
 
             default:
                 return true;
+        }
+    }
+
+    async function handleSaveAndExit() {
+        if (!session) return;
+        try {
+            await savePortalFormNow(session, formData);
+            setLastSavedAt(new Date());
+            const percent = computeCompletionPercent();
+            await saveWizardProgress(session, currentStep, percent);
+            toast.success("Progresso salvo. Você pode continuar depois pelo mesmo link.");
+        } catch {
+            toast.error("Erro ao salvar progresso.");
         }
     }
 
@@ -283,7 +299,10 @@ export default function DocumentoAdmissaoScreen() {
             toast.error(b.message || "Erro ao enviar.");
             return;
         }
-        setPhase("submitted");
+        setSubmittedAt(new Date());
+        markStepComplete(5);
+        setStep(6);
+        await loadData();
     }
 
     function handleWelcomeStart() {
@@ -348,35 +367,14 @@ export default function DocumentoAdmissaoScreen() {
         );
     }
 
-    /* SUBMITTED */
-    if (phase === "submitted") {
-        return (
-            <div className="flex-1 flex items-start justify-center px-4 py-10">
-            <div className="w-full max-w-md">
-                <div className="rounded-xl border border-border/40 bg-card p-5 sm:p-8 shadow-sm text-center space-y-4">
-                    <div className="mx-auto size-20 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                        <CheckCircle2 className="size-10 text-emerald-500" />
-                    </div>
-                    <h1 className="text-2xl font-bold">Dados Enviados!</h1>
-                    <p className="text-muted-foreground">Seus documentos e dados foram enviados com sucesso. O RH entrara em contato em breve.</p>
-                    <Button variant="outline" size="lg" onClick={handleLogout}>Voltar ao inicio</Button>
-                </div>
-            </div>
-            </div>
-        );
-    }
-
     /* MAIN — Wizard */
-    const isSubmitted = data?.status === 2;
+    const isSubmitted = data?.status === 2 || currentStep === 6;
     const stepInfo = wizardPlan.resolveStep(currentStep);
     const isWelcome = stepInfo.kind === "welcome";
-    const isDocument = stepInfo.kind === "document";
-    const isDados = stepInfo.kind === "dados";
-    const isReview = stepInfo.kind === "review";
-    const docCount = wizardPlan.documentSteps.length;
+    const isConclusao = stepInfo.kind === "conclusao";
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white">
             <AdmissaoPortalHeader
                 nomeEmpresa={data?.welcome?.nomeEmpresa}
                 logoUrl={data?.welcome?.logoUrl}
@@ -385,30 +383,17 @@ export default function DocumentoAdmissaoScreen() {
             />
 
             <div className="flex flex-1 min-h-0 overflow-hidden">
-            {/* Sidebar (desktop only) — oculta na boas-vindas */}
             {data && !isWelcome && (
                 <WizardSidebar nome={session?.nome} isSubmitted={isSubmitted} plan={wizardPlan} />
             )}
 
-            {/* Content */}
-            <div className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden ${isWelcome ? "" : "px-4 sm:px-8 py-4 pb-[4.5rem]"}`}>
+            <div className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden ${isWelcome ? "" : ""}`}>
                 {!isWelcome && (
-                    <>
-                        {/* Mobile top bar: candidato + logout */}
-                        <div className="lg:hidden flex items-center justify-between mb-4">
-                            <span className="text-sm font-semibold truncate">{session?.nome || "Candidato"}</span>
-                            <Button variant="ghost" size="sm" onClick={handleLogout}>
-                                <LogOut className="size-4" />
-                            </Button>
-                        </div>
-                    </>
-                )}
-
-                {isSubmitted && !isWelcome && (
-                    <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 mb-4 dark:bg-blue-900/20 dark:border-blue-800">
-                        <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                            Seus dados ja foram enviados e estao em revisao pelo RH.
-                        </p>
+                    <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                        <span className="text-sm font-semibold truncate">{session?.nome || "Candidato"}</span>
+                        <Button variant="ghost" size="sm" onClick={handleLogout}>
+                            <LogOut className="size-4" />
+                        </Button>
                     </div>
                 )}
 
@@ -417,13 +402,16 @@ export default function DocumentoAdmissaoScreen() {
                 ) : data ? (
                     <WizardLayout
                         plan={wizardPlan}
-                        hideNext={isWelcome || isSubmitted}
-                        hideBack={isWelcome}
-                        hideStepHeader={isWelcome || isDocument || isDados}
-                        contentScrollable={false}
-                        nextLabel={isReview ? "Enviar para o RH" : "Continuar"}
-                        nextClassName={isReview ? "bg-emerald-600 hover:bg-emerald-700 text-white" : undefined}
+                        hideNext={isWelcome || isConclusao}
+                        hideBack={isWelcome || isConclusao}
+                        hideFooter={isWelcome}
+                        showStepper={!isWelcome}
+                        isSubmitted={isSubmitted}
+                        contentScrollable
+                        nextLabel={stepInfo.kind === "revisao" ? "Confirmar e finalizar" : "Continuar"}
+                        nextClassName={stepInfo.kind === "revisao" ? "bg-[#0047BB] hover:bg-[#003a99]" : undefined}
                         onNext={handleWizardNext}
+                        onSaveAndExit={isWelcome || isConclusao || isSubmitted ? undefined : handleSaveAndExit}
                     >
                         {isWelcome && (
                             <WelcomeStep
@@ -432,31 +420,37 @@ export default function DocumentoAdmissaoScreen() {
                                 disabled={isSubmitted}
                             />
                         )}
-                        {isDocument && session && stepInfo.doc && (
+                        {stepInfo.kind === "dados-pessoais" && session && (
+                            <DadosPessoaisStep session={session} disabled={isSubmitted} />
+                        )}
+                        {stepInfo.kind === "dados-gerais" && session && (
+                            <DadosGeraisStep session={session} disabled={isSubmitted} />
+                        )}
+                        {stepInfo.kind === "documentos" && session && (
                             <DocumentUploadStep
                                 session={session}
                                 documentosSolicitados={data.documentosSolicitados}
                                 onDataRefresh={loadData}
                                 disabled={isSubmitted}
-                                activeDocument={stepInfo.doc}
-                                docIndex={(stepInfo.docIndex ?? 0) + 1}
-                                totalDocs={docCount}
                             />
                         )}
-                        {isDados && session && stepInfo.dadosSectionId != null && (
-                            <ReviewDataStep
-                                session={session}
+                        {stepInfo.kind === "bancario" && session && (
+                            <DadosBancariosStep session={session} disabled={isSubmitted} />
+                        )}
+                        {stepInfo.kind === "revisao" && (
+                            <ReviewStep
                                 disabled={isSubmitted}
-                                sectionId={stepInfo.dadosSectionId}
-                                sectionIndex={stepInfo.dadosSectionIndex ?? 0}
-                                totalSections={wizardPlan.dadosSections.length}
+                                documentosEnviados={data.documentosEnviados}
+                                onEditStep={setStep}
                             />
                         )}
-                        {stepInfo.kind === "dependentes" && session && (
-                            <DependentsStep session={session} disabled={isSubmitted} />
-                        )}
-                        {isReview && (
-                            <ReviewStep disabled={isSubmitted} />
+                        {isConclusao && (
+                            <ConclusaoStep
+                                userName={session?.nome ?? data.nome}
+                                userEmail={String(formData.email ?? "")}
+                                submittedAt={submittedAt}
+                                documentCount={data.documentosEnviados?.length ?? 0}
+                            />
                         )}
                     </WizardLayout>
                 ) : null}

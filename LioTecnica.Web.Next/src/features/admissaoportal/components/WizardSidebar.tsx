@@ -1,32 +1,28 @@
 "use client";
 
-import React from "react";
-import { Check, Upload, ClipboardList, Users, Send, PartyPopper } from "lucide-react";
+import {
+    Building2,
+    Check,
+    CheckCircle2,
+    ClipboardList,
+    ExternalLink,
+    FileText,
+    Headphones,
+    Home,
+    Search,
+    User,
+} from "lucide-react";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
-import type { WizardPlan } from "../wizardSteps";
+import { MAIN_WIZARD_STEPS, type WizardPlan } from "../wizardSteps";
 
-const KEY_FIELDS = [
-    "nome", "cpf", "dataNascimento", "sexo", "email", "telefone",
-    "cep", "logradouro", "numero", "cidade", "uf",
-    "bancoCodigo", "agencia", "conta",
-] as const;
-
-const GROUP_ICONS = {
-    welcome: PartyPopper,
-    documents: Upload,
-    dados: ClipboardList,
-    dependentes: Users,
-    review: Send,
+const STEP_ICONS = {
+    "dados-pessoais": User,
+    "dados-gerais": Home,
+    documentos: FileText,
+    bancario: Building2,
+    revisao: Search,
+    conclusao: CheckCircle2,
 } as const;
-
-function motivationalMessage(pct: number): string {
-    if (pct === 0) return "Vamos começar!";
-    if (pct < 25) return "Boa sorte, você está indo bem!";
-    if (pct < 50) return "Continue assim!";
-    if (pct < 75) return "Mais da metade concluída!";
-    if (pct < 100) return "Quase lá, falta pouco!";
-    return "Processo concluído!";
-}
 
 interface Props {
     nome: string | undefined;
@@ -35,186 +31,127 @@ interface Props {
 }
 
 export default function WizardSidebar({ nome, isSubmitted, plan }: Props) {
-    const { currentStep, completedSteps, formData, wizardTotalSteps, setStep } = useAdmissaoWizardStore();
-    const total = wizardTotalSteps || plan.totalSteps;
+    const { currentStep, completedSteps, setStep } = useAdmissaoWizardStore();
+    const firstName = nome?.trim().split(/\s+/)[0] || "Candidato";
 
-    const filledKeyFields = KEY_FIELDS.filter((f) => {
-        const v = formData[f];
-        return v != null && String(v).trim() !== "";
-    }).length;
-    const formBonus = currentStep >= plan.dadosStartStep
-        ? (filledKeyFields / KEY_FIELDS.length) / total
-        : 0;
+    const completedCount = MAIN_WIZARD_STEPS.filter((s) =>
+        isSubmitted || completedSteps.has(s.step) || currentStep > s.step,
+    ).length;
+    const pct = isSubmitted ? 100 : Math.round((completedCount / MAIN_WIZARD_STEPS.length) * 100);
 
-    const pct = isSubmitted
-        ? 100
-        : Math.min(99, Math.round((Math.max(completedSteps.size, currentStep) / total + formBonus) * 100));
-
-    const radius = 40;
-    const circ = 2 * Math.PI * radius;
-
-    const docProgress =
-        currentStep >= plan.docsStartStep && currentStep < plan.dadosStartStep
-            ? currentStep - plan.docsStartStep + 1
-            : currentStep >= plan.dadosStartStep
-              ? plan.documentSteps.length
-              : 0;
-
-    const dadosProgress =
-        currentStep >= plan.dadosStartStep && currentStep <= plan.dadosEndStep
-            ? currentStep - plan.dadosStartStep + 1
-            : currentStep > plan.dadosEndStep
-              ? plan.dadosSections.length
-              : 0;
-
-    function groupIcon(item: (typeof plan.sidebarItems)[number]) {
-        if (item.step === 0) return GROUP_ICONS.welcome;
-        if (item.isDocumentGroup) return GROUP_ICONS.documents;
-        if (item.isDadosGroup) return GROUP_ICONS.dados;
-        if (item.step === plan.dependentesStep) return GROUP_ICONS.dependentes;
-        return GROUP_ICONS.review;
+    function isStepDone(step: number): boolean {
+        return isSubmitted || completedSteps.has(step) || currentStep > step;
     }
 
-    function isItemDone(item: (typeof plan.sidebarItems)[number]): boolean {
-        if (isSubmitted) return true;
-        if (item.isDocumentGroup) {
-            const end = item.documentEndStep ?? item.step;
-            return currentStep > end || completedSteps.has(end);
-        }
-        if (item.isDadosGroup) {
-            const end = item.dadosEndStep ?? item.step;
-            return currentStep > end || completedSteps.has(end);
-        }
-        return completedSteps.has(item.step) || currentStep > item.step;
+    function isStepActive(step: number): boolean {
+        if (isSubmitted && step === 6) return true;
+        return currentStep === step;
     }
 
-    function isItemActive(item: (typeof plan.sidebarItems)[number]): boolean {
-        if (isSubmitted) return false;
-        if (item.isDocumentGroup) {
-            const end = item.documentEndStep ?? item.step;
-            return currentStep >= item.step && currentStep <= end;
+    function canNavigateTo(step: number): boolean {
+        if (isSubmitted) return step === 6;
+        if (step === 6) return false;
+        if (step <= currentStep) return step !== currentStep;
+        for (let i = 1; i < step; i++) {
+            if (!completedSteps.has(i) && currentStep < i) return false;
         }
-        if (item.isDadosGroup) {
-            const end = item.dadosEndStep ?? item.step;
-            return currentStep >= item.step && currentStep <= end;
-        }
-        return currentStep === item.step;
+        return step <= currentStep + 1 || completedSteps.has(step - 1);
     }
 
-    function resolveTargetStep(item: (typeof plan.sidebarItems)[number]): number {
-        if (item.isDocumentGroup) {
-            const end = item.documentEndStep ?? item.step;
-            if (currentStep >= item.step && currentStep <= end) return currentStep;
-            for (let s = item.step; s <= end; s++) {
-                if (!completedSteps.has(s)) return s;
-            }
-            return item.step;
-        }
-        if (item.isDadosGroup) {
-            const end = item.dadosEndStep ?? item.step;
-            if (currentStep >= item.step && currentStep <= end) return currentStep;
-            for (let s = item.step; s <= end; s++) {
-                if (!completedSteps.has(s)) return s;
-            }
-            return item.step;
-        }
-        return item.step;
-    }
-
-    function canNavigateTo(item: (typeof plan.sidebarItems)[number]): boolean {
-        if (isSubmitted) return false;
-        const target = resolveTargetStep(item);
-        if (target === currentStep) return false;
-        if (target < currentStep) return true;
-        for (let i = 0; i < target; i++) {
-            if (!completedSteps.has(i)) return false;
-        }
-        return true;
-    }
-
-    function handleItemClick(item: (typeof plan.sidebarItems)[number]) {
-        if (!canNavigateTo(item)) return;
-        setStep(resolveTargetStep(item));
+    function handleClick(step: number) {
+        if (!canNavigateTo(step)) return;
+        setStep(step);
     }
 
     return (
-        <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-sidebar text-sidebar-foreground p-6 gap-6 min-h-full">
-            {nome && (
-                <div>
-                    <div className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest mb-0.5">Candidato</div>
-                    <div className="font-semibold text-sm truncate">{nome}</div>
-                </div>
-            )}
-
-            <div className="flex flex-col items-center gap-2">
-                <div className="relative size-24">
-                    <svg className="size-24 -rotate-90" viewBox="0 0 96 96">
-                        <circle cx="48" cy="48" r={radius} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
-                        <circle
-                            cx="48" cy="48" r={radius} fill="none"
-                            stroke="rgba(255,255,255,0.9)" strokeWidth="8"
-                            strokeLinecap="round"
-                            strokeDasharray={circ}
-                            strokeDashoffset={circ * (1 - pct / 100)}
-                            className="transition-all duration-700"
-                        />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-2xl font-black leading-none text-white">{pct}%</span>
-                        <span className="text-[9px] text-sidebar-foreground/50 uppercase tracking-wider mt-0.5">completo</span>
-                    </div>
-                </div>
-                <p className="text-xs text-center text-sidebar-foreground/60 italic px-2">{motivationalMessage(pct)}</p>
+        <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-slate-200 bg-[#f8fafc] p-6">
+            <div className="mb-6">
+                <p className="text-lg font-bold text-slate-900">
+                    Olá, {firstName}! <span aria-hidden>👋</span>
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                    {isSubmitted
+                        ? "Você concluiu todas as etapas do processo de admissão."
+                        : "Estamos felizes em ter você no time! Complete todas as etapas para finalizar seu processo de admissão."}
+                </p>
             </div>
 
-            <div className="h-px bg-sidebar-border" />
+            <div className="mb-6">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-700">Seu progresso</span>
+                    <span className="font-bold text-[#0047BB]">{pct}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                        className="h-full rounded-full bg-[#0047BB] transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                    />
+                </div>
+            </div>
 
-            <nav className="space-y-0.5 flex-1">
-                {plan.sidebarItems.map((item) => {
-                    const isDone = isItemDone(item);
-                    const isActive = isItemActive(item);
-                    const clickable = canNavigateTo(item);
-                    const Icon = groupIcon(item);
-                    let label = item.label;
-                    if (item.isDocumentGroup && plan.documentSteps.length > 0) {
-                        label = `${item.label} · ${docProgress}/${plan.documentSteps.length}`;
-                    } else if (item.isDadosGroup && plan.dadosSections.length > 0) {
-                        label = `${item.label} · ${dadosProgress}/${plan.dadosSections.length}`;
-                    }
+            <nav className="flex-1 space-y-1">
+                {MAIN_WIZARD_STEPS.map((item) => {
+                    const done = isStepDone(item.step);
+                    const active = isStepActive(item.step);
+                    const clickable = canNavigateTo(item.step);
+                    const Icon = STEP_ICONS[item.kind];
 
                     return (
                         <button
                             key={item.step}
                             type="button"
-                            onClick={() => handleItemClick(item)}
+                            onClick={() => handleClick(item.step)}
                             disabled={!clickable}
-                            aria-current={isActive ? "step" : undefined}
-                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-left transition-colors ${
-                                isActive
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-                                    : isDone
-                                      ? "text-emerald-300"
-                                      : "text-sidebar-foreground/50"
-                            } ${
-                                clickable
-                                    ? "cursor-pointer hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-                                    : "cursor-default"
-                            }`}
+                            aria-current={active ? "step" : undefined}
+                            className={`relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
+                                active
+                                    ? "border border-[#bfdbfe] bg-[#eff6ff]"
+                                    : "border border-transparent hover:bg-white"
+                            } ${clickable ? "cursor-pointer" : "cursor-default opacity-60"}`}
                         >
+                            {active && (
+                                <span className="absolute bottom-2 left-0 top-2 w-1 rounded-r-full bg-[#0047BB]" />
+                            )}
                             <div
-                                className={`flex size-7 shrink-0 items-center justify-center rounded-full transition-colors ${
-                                    isActive ? "bg-white/20 text-white"
-                                    : isDone ? "bg-emerald-500 text-white"
-                                    : "bg-white/10 text-sidebar-foreground/40"
+                                className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                                    done
+                                        ? "bg-emerald-500 text-white"
+                                        : active
+                                          ? "bg-[#0047BB] text-white"
+                                          : "bg-slate-200 text-slate-500"
                                 }`}
                             >
-                                {isDone ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
+                                {done && !active ? <Check className="size-4" /> : item.step}
                             </div>
-                            <span className="truncate text-xs leading-snug">{label}</span>
+                            <div className="min-w-0 pt-0.5">
+                                <div className="flex items-center gap-1.5">
+                                    <Icon className="size-3.5 text-slate-400" />
+                                    <p className={`text-sm font-semibold ${active ? "text-[#0047BB]" : "text-slate-800"}`}>
+                                        {item.label}
+                                    </p>
+                                </div>
+                                <p className="text-xs text-slate-500">{item.subtitle}</p>
+                            </div>
                         </button>
                     );
                 })}
             </nav>
+
+            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#eff6ff]">
+                        <Headphones className="size-5 text-[#0047BB]" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-slate-900">Dúvidas?</p>
+                        <p className="text-xs text-slate-500">Fale com nosso time de RH</p>
+                        <button type="button" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0047BB] hover:underline">
+                            Abrir atendimento
+                            <ExternalLink className="size-3" />
+                        </button>
+                    </div>
+                </div>
+            </div>
         </aside>
     );
 }
