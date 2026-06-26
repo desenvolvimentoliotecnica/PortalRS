@@ -18,45 +18,6 @@ public sealed class AdmissaoPortalRhNotificacaoServiceTests
 {
     private const string TenantId = "tenant-admissao-notif";
 
-    private static (AppDbContext Db, AdmissaoPortalRhNotificacaoService Svc, Mock<IEmailQueueService> EmailMock) CreateServices(
-        IMemoryCache? cache = null)
-    {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        var tenantMock = new Mock<ITenantContext>();
-        tenantMock.Setup(x => x.TenantId).Returns(TenantId);
-
-        var emailMock = new Mock<IEmailQueueService>();
-        emailMock
-            .Setup(x => x.EnqueueRawAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string?>(),
-                It.IsAny<bool>(),
-                It.IsAny<string?>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new EmailMessage { Id = Guid.NewGuid(), TenantId = TenantId });
-
-        var frontendMock = new Mock<IFrontendPublicUrlBuilder>();
-        frontendMock
-            .Setup(x => x.BuildAbsoluteUrl(It.IsAny<string>()))
-            .Returns<string>(path => $"https://app.test{path}");
-
-        var db = new AppDbContext(options, tenantMock.Object);
-        var svc = new AdmissaoPortalRhNotificacaoService(
-            db,
-            tenantMock.Object,
-            emailMock.Object,
-            frontendMock.Object,
-            cache ?? new MemoryCache(new MemoryCacheOptions()),
-            NullLogger<AdmissaoPortalRhNotificacaoService>.Instance);
-
-        return (db, svc, emailMock);
-    }
-
     [Fact]
     public async Task NotifyAtualizacaoAsync_EnfileiraEmailParaRecrutadorDaVaga()
     {
@@ -212,5 +173,94 @@ public sealed class AdmissaoPortalRhNotificacaoServiceTests
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()),
             Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task NotifyAtualizacaoAsync_SemAnalistaUsaEmailDeTesteQuandoModoRedirectAtivo()
+    {
+        const string testEmail = "qa.redirect@test.local";
+        var emailConfigMock = new Mock<IEmailConfigService>();
+        emailConfigMock
+            .Setup(x => x.GetDecryptedAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailConfigDto
+            {
+                SmtpUseTestRedirect = true,
+                SmtpTestRedirectAddress = testEmail,
+            });
+
+        var (db, svc, emailMock) = CreateServices(emailConfig: emailConfigMock);
+        var preAdmissaoId = Guid.NewGuid();
+
+        db.Set<Domain.Entities.PreAdmissao>().Add(new Domain.Entities.PreAdmissao
+        {
+            Id = preAdmissaoId,
+            TenantId = TenantId,
+            Nome = "Carlos UAT",
+            Status = PreAdmissaoStatus.Preenchido,
+        });
+
+        await db.SaveChangesAsync();
+
+        await svc.NotifyAtualizacaoAsync(preAdmissaoId, "submit", CancellationToken.None);
+
+        emailMock.Verify(
+            x => x.EnqueueRawAsync(
+                testEmail,
+                It.Is<string>(s => s.Contains("[Sem analista RH]") && s.Contains("Carlos UAT")),
+                It.IsAny<string>(),
+                null,
+                true,
+                "admissao-portal-atualizacao",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private static (AppDbContext Db, AdmissaoPortalRhNotificacaoService Svc, Mock<IEmailQueueService> EmailMock) CreateServices(
+        IMemoryCache? cache = null,
+        Mock<IEmailConfigService>? emailConfig = null)
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var tenantMock = new Mock<ITenantContext>();
+        tenantMock.Setup(x => x.TenantId).Returns(TenantId);
+
+        var emailMock = new Mock<IEmailQueueService>();
+        emailMock
+            .Setup(x => x.EnqueueRawAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new EmailMessage { Id = Guid.NewGuid(), TenantId = TenantId });
+
+        var emailConfigMock = emailConfig ?? new Mock<IEmailConfigService>();
+        if (emailConfig is null)
+        {
+            emailConfigMock
+                .Setup(x => x.GetDecryptedAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync((EmailConfigDto?)null);
+        }
+
+        var frontendMock = new Mock<IFrontendPublicUrlBuilder>();
+        frontendMock
+            .Setup(x => x.BuildAbsoluteUrl(It.IsAny<string>()))
+            .Returns<string>(path => $"https://app.test{path}");
+
+        var db = new AppDbContext(options, tenantMock.Object);
+        var svc = new AdmissaoPortalRhNotificacaoService(
+            db,
+            tenantMock.Object,
+            emailMock.Object,
+            emailConfigMock.Object,
+            frontendMock.Object,
+            cache ?? new MemoryCache(new MemoryCacheOptions()),
+            NullLogger<AdmissaoPortalRhNotificacaoService>.Instance);
+
+        return (db, svc, emailMock);
     }
 }
