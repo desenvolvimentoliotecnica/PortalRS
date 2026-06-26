@@ -38,6 +38,7 @@ public sealed class AdmissaoPortalRhNotificacaoService : IAdmissaoPortalRhNotifi
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IEmailQueueService _emailQueue;
+    private readonly IEmailConfigService _emailConfig;
     private readonly IFrontendPublicUrlBuilder _frontendUrls;
     private readonly IMemoryCache _cache;
     private readonly ILogger<AdmissaoPortalRhNotificacaoService> _logger;
@@ -46,6 +47,7 @@ public sealed class AdmissaoPortalRhNotificacaoService : IAdmissaoPortalRhNotifi
         AppDbContext db,
         ITenantContext tenantContext,
         IEmailQueueService emailQueue,
+        IEmailConfigService emailConfig,
         IFrontendPublicUrlBuilder frontendUrls,
         IMemoryCache cache,
         ILogger<AdmissaoPortalRhNotificacaoService> logger)
@@ -53,6 +55,7 @@ public sealed class AdmissaoPortalRhNotificacaoService : IAdmissaoPortalRhNotifi
         _db = db;
         _tenantContext = tenantContext;
         _emailQueue = emailQueue;
+        _emailConfig = emailConfig;
         _frontendUrls = frontendUrls;
         _cache = cache;
         _logger = logger;
@@ -69,21 +72,20 @@ public sealed class AdmissaoPortalRhNotificacaoService : IAdmissaoPortalRhNotifi
             if (pa is null) return;
 
             var analista = await AdmissaoPortalAnalistaResolver.ResolveAsync(_db, pa.VagaId, pa.CandidatoId, ct);
-            if (string.IsNullOrWhiteSpace(analista.Email))
-            {
-                _logger.LogWarning(
-                    "Notificação portal admissão ignorada: analista RH não encontrada para PreAdmissao {PreAdmissaoId}",
-                    preAdmissaoId);
+            var recipient = await ResolveRecipientAsync(analista.Email, preAdmissaoId, ct);
+            if (recipient is null)
                 return;
-            }
+
+            var (toEmail, usedTestFallback) = recipient.Value;
 
             var vagaTitulo = pa.Vaga?.Titulo ?? pa.JobPosition?.Name ?? "Admissão";
             var actionLabel = DescribeAction(triggerAction);
-            var subject = $"[Portal Admissão] {pa.Nome} — {actionLabel}";
+            var subjectPrefix = usedTestFallback ? "[Sem analista RH] " : string.Empty;
+            var subject = $"{subjectPrefix}[Portal Admissão] {pa.Nome} — {actionLabel}";
             var bodyHtml = AdmissaoPortalChecklistEmailBuilder.Build(pa, vagaTitulo, actionLabel, triggerAction, _frontendUrls);
 
             await _emailQueue.EnqueueRawAsync(
-                analista.Email,
+                toEmail,
                 subject,
                 bodyHtml,
                 null,
@@ -114,20 +116,19 @@ public sealed class AdmissaoPortalRhNotificacaoService : IAdmissaoPortalRhNotifi
             if (pa is null) return false;
 
             var analista = await AdmissaoPortalAnalistaResolver.ResolveAsync(_db, pa.VagaId, pa.CandidatoId, ct);
-            if (string.IsNullOrWhiteSpace(analista.Email))
-            {
-                _logger.LogWarning(
-                    "Atendimento portal admissão ignorado: analista RH não encontrada para PreAdmissao {PreAdmissaoId}",
-                    preAdmissaoId);
+            var recipient = await ResolveRecipientAsync(analista.Email, preAdmissaoId, ct);
+            if (recipient is null)
                 return false;
-            }
+
+            var (toEmail, usedTestFallback) = recipient.Value;
 
             var vagaTitulo = pa.Vaga?.Titulo ?? pa.JobPosition?.Name ?? "Admissão";
             var painelUrl = _frontendUrls.BuildAbsoluteUrl($"/app/admissao/nova?id={pa.Id}");
-            var subject = $"[Portal Admissão] Atendimento — {assunto.Trim()}";
+            var subjectPrefix = usedTestFallback ? "[Sem analista RH] " : string.Empty;
+            var subject = $"{subjectPrefix}[Portal Admissão] Atendimento — {assunto.Trim()}";
             var bodyHtml = $"""
                 <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1f2937;max-width:640px;">
-                  <p>Olá{(!string.IsNullOrWhiteSpace(analista.Nome) ? $" <b>{WebUtility.HtmlEncode(analista.Nome)}</b>" : "")},</p>
+                  <p>Olá{(!usedTestFallback && !string.IsNullOrWhiteSpace(analista.Nome) ? $" <b>{WebUtility.HtmlEncode(analista.Nome)}</b>" : "")},</p>
                   <p>O candidato <b>{WebUtility.HtmlEncode(pa.Nome)}</b> solicitou atendimento pelo portal de admissão.</p>
                   <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;">
                     <tr><td style="padding:12px 16px;"><strong>Vaga:</strong> {WebUtility.HtmlEncode(vagaTitulo)}</td></tr>
@@ -146,7 +147,7 @@ public sealed class AdmissaoPortalRhNotificacaoService : IAdmissaoPortalRhNotifi
                 """;
 
             await _emailQueue.EnqueueRawAsync(
-                analista.Email,
+                toEmail,
                 subject,
                 bodyHtml,
                 mensagem.Trim(),
@@ -179,6 +180,34 @@ public sealed class AdmissaoPortalRhNotificacaoService : IAdmissaoPortalRhNotifi
 
     private string CacheKey(Guid preAdmissaoId)
         => $"admissao-portal-rh-email:{_tenantContext.TenantId}:{preAdmissaoId}";
+
+    /// <summary>
+    /// Resolve o destinatário da notificação. Quando não há analista RH, usa o e-mail de teste SMTP
+    /// (modo homologação) para que o redirecionamento global continue funcionando em UAT.
+    /// </summary>
+    private async Task<(string Email, bool UsedTestFallback)?> ResolveRecipientAsync(
+        string? analistaEmail,
+        Guid preAdmissaoId,
+        CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(analistaEmail))
+            return (analistaEmail.Trim(), false);
+
+        var cfg = await _emailConfig.GetDecryptedAsync(ct);
+        if (cfg?.SmtpUseTestRedirect == true && !string.IsNullOrWhiteSpace(cfg.SmtpTestRedirectAddress))
+        {
+            _logger.LogWarning(
+                "Analista RH não encontrada para PreAdmissao {PreAdmissaoId}; enviando para e-mail de teste SMTP {TestEmail}",
+                preAdmissaoId,
+                cfg.SmtpTestRedirectAddress.Trim());
+            return (cfg.SmtpTestRedirectAddress.Trim(), true);
+        }
+
+        _logger.LogWarning(
+            "Notificação portal admissão ignorada: analista RH não encontrada para PreAdmissao {PreAdmissaoId}",
+            preAdmissaoId);
+        return null;
+    }
 
     private async Task<Domain.Entities.PreAdmissao?> LoadPreAdmissaoAsync(Guid preAdmissaoId, CancellationToken ct)
         => await _db.Set<Domain.Entities.PreAdmissao>()
