@@ -15,6 +15,7 @@ import {
 import { type DadosPessoais as WizardDadosPessoais, useAdmissaoWizardStore } from "./useAdmissaoWizardStore";
 import WizardLayout from "./components/WizardLayout";
 import WizardSidebar from "./components/WizardSidebar";
+import AdmissaoPortalHeader from "./components/AdmissaoPortalHeader";
 import WelcomeStep from "./steps/WelcomeStep";
 import DocumentUploadStep from "./steps/DocumentUploadStep";
 import ReviewDataStep from "./steps/ReviewDataStep";
@@ -33,6 +34,19 @@ interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaE
 interface DocEnviado { id: string; tipo: number; lado: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; createdAtUtc?: string; }
 interface DadosPessoais { [key: string]: unknown; }
 interface DependenteData { id: string; nomeCompleto: string; parentesco: number; cpf: string | null; dataNascimento: string; isPcd: boolean; }
+interface PortalInformacoesVaga {
+    cargo?: string | null;
+    area?: string | null;
+    localTrabalho?: string | null;
+    tipoContratacao?: string | null;
+    salario?: string | null;
+    dataInicioPrevista?: string | null;
+}
+interface PortalWelcomeContext {
+    nomeEmpresa?: string | null;
+    logoUrl?: string | null;
+    vaga?: PortalInformacoesVaga | null;
+}
 interface PortalData {
     preAdmissaoId: string; nome: string; status: number;
     documentosSolicitados: DocSolicitado[];
@@ -41,6 +55,7 @@ interface PortalData {
     dependentes: DependenteData[];
     wizardCurrentStep: number | null;
     wizardCompletionPercent: number | null;
+    welcome?: PortalWelcomeContext | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +90,7 @@ export default function DocumentoAdmissaoScreen() {
         uploadedDocs,
         uploadedDocsVerso,
         setLastSavedAt,
+        markStepComplete,
     } = useAdmissaoWizardStore();
 
     const wizardPlan = useMemo(
@@ -270,6 +286,11 @@ export default function DocumentoAdmissaoScreen() {
         setPhase("submitted");
     }
 
+    function handleWelcomeStart() {
+        markStepComplete(0);
+        setStep(1);
+    }
+
     function handleLogout() {
         if (tenantId) clearAdmissaoPortalSession(tenantId);
         setSession(null);
@@ -355,30 +376,35 @@ export default function DocumentoAdmissaoScreen() {
     const docCount = wizardPlan.documentSteps.length;
 
     return (
-        <div className="flex flex-col lg:flex-row flex-1 min-h-0 overflow-hidden">
-            {/* Sidebar (desktop only) */}
-            {data && (
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <AdmissaoPortalHeader
+                nomeEmpresa={data?.welcome?.nomeEmpresa}
+                logoUrl={data?.welcome?.logoUrl}
+                userName={session?.nome ?? data?.nome}
+                onLogout={handleLogout}
+            />
+
+            <div className="flex flex-1 min-h-0 overflow-hidden">
+            {/* Sidebar (desktop only) — oculta na boas-vindas */}
+            {data && !isWelcome && (
                 <WizardSidebar nome={session?.nome} isSubmitted={isSubmitted} plan={wizardPlan} />
             )}
 
             {/* Content */}
-            <div className="flex-1 min-w-0 min-h-0 flex flex-col px-4 sm:px-8 py-4 pb-[4.5rem] overflow-hidden">
-                {/* Mobile top bar: candidato + logout */}
-                <div className="lg:hidden flex items-center justify-between mb-4">
-                    <span className="text-sm font-semibold truncate">{session?.nome || "Candidato"}</span>
-                    <Button variant="ghost" size="sm" onClick={handleLogout}>
-                        <LogOut className="size-4" />
-                    </Button>
-                </div>
-                {/* Desktop top bar: logout only */}
-                <div className="hidden lg:flex justify-end mb-2">
-                    <Button variant="ghost" size="sm" onClick={handleLogout}>
-                        <LogOut className="size-4 mr-1" />
-                        <span className="text-xs">Sair</span>
-                    </Button>
-                </div>
+            <div className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden ${isWelcome ? "" : "px-4 sm:px-8 py-4 pb-[4.5rem]"}`}>
+                {!isWelcome && (
+                    <>
+                        {/* Mobile top bar: candidato + logout */}
+                        <div className="lg:hidden flex items-center justify-between mb-4">
+                            <span className="text-sm font-semibold truncate">{session?.nome || "Candidato"}</span>
+                            <Button variant="ghost" size="sm" onClick={handleLogout}>
+                                <LogOut className="size-4" />
+                            </Button>
+                        </div>
+                    </>
+                )}
 
-                {isSubmitted && (
+                {isSubmitted && !isWelcome && (
                     <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 mb-4 dark:bg-blue-900/20 dark:border-blue-800">
                         <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
                             Seus dados ja foram enviados e estao em revisao pelo RH.
@@ -391,16 +417,20 @@ export default function DocumentoAdmissaoScreen() {
                 ) : data ? (
                     <WizardLayout
                         plan={wizardPlan}
-                        hideNext={isSubmitted}
+                        hideNext={isWelcome || isSubmitted}
                         hideBack={isWelcome}
                         hideStepHeader={isWelcome || isDocument || isDados}
                         contentScrollable={false}
-                        nextLabel={isReview ? "Enviar para o RH" : isWelcome ? "Começar" : "Continuar"}
+                        nextLabel={isReview ? "Enviar para o RH" : "Continuar"}
                         nextClassName={isReview ? "bg-emerald-600 hover:bg-emerald-700 text-white" : undefined}
                         onNext={handleWizardNext}
                     >
                         {isWelcome && (
-                            <WelcomeStep nome={data.nome} documentCount={docCount} />
+                            <WelcomeStep
+                                vaga={data.welcome?.vaga}
+                                onStart={handleWelcomeStart}
+                                disabled={isSubmitted}
+                            />
                         )}
                         {isDocument && session && stepInfo.doc && (
                             <DocumentUploadStep
@@ -430,6 +460,7 @@ export default function DocumentoAdmissaoScreen() {
                         )}
                     </WizardLayout>
                 ) : null}
+            </div>
             </div>
         </div>
     );

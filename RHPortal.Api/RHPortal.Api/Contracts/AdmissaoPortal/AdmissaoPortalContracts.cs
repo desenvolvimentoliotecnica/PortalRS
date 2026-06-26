@@ -8,6 +8,21 @@ public sealed record AdmissaoPortalLoginRequest(Guid PreAdmissaoId, string Cpf);
 
 public sealed record AdmissaoPortalLoginResponse(Guid PreAdmissaoId, string Nome, string TenantId);
 
+public sealed record PortalInformacoesVaga(
+    string? Cargo,
+    string? Area,
+    string? LocalTrabalho,
+    string? TipoContratacao,
+    string? Salario,
+    string? DataInicioPrevista
+);
+
+public sealed record PortalWelcomeContext(
+    string? NomeEmpresa,
+    string? LogoUrl,
+    PortalInformacoesVaga? Vaga
+);
+
 // ── Dados do portal ──
 
 public sealed record AdmissaoPortalDataResponse(
@@ -19,7 +34,8 @@ public sealed record AdmissaoPortalDataResponse(
     PortalDadosPessoais DadosPessoais,
     List<PreAdmissaoDependenteResponse> Dependentes,
     int? WizardCurrentStep,
-    int? WizardCompletionPercent
+    int? WizardCompletionPercent,
+    PortalWelcomeContext Welcome
 );
 
 public sealed record PortalDocumentoSolicitadoItem(

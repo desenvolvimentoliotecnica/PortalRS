@@ -64,6 +64,10 @@ export default function WizardLayout({
         if (currentStep > 0) setStep(currentStep - 1);
     }
 
+    const showBack = !hideBack && currentStep > 0;
+    const showNext = !hideNext;
+    const showFooter = showBack || showNext;
+
     return (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             {/* Mobile-only stepper (hidden on lg+, sidebar takes over) */}
@@ -106,15 +110,16 @@ export default function WizardLayout({
             </div>
 
             {/* Rodapé fixo — Voltar / Continuar */}
+            {showFooter && (
             <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between gap-3 px-4 py-3 bg-background/95 backdrop-blur-sm border-t border-border/40 lg:left-64">
-                {!hideBack && currentStep > 0 ? (
+                {showBack ? (
                     <Button variant="ghost" size="lg" onClick={handleBack} className="gap-1">
                         <ChevronLeft className="size-4" /> {backLabel}
                     </Button>
                 ) : (
                     <div />
                 )}
-                {!hideNext && (
+                {showNext && (
                     <Button
                         size="lg"
                         onClick={handleNext}
@@ -126,6 +131,7 @@ export default function WizardLayout({
                     </Button>
                 )}
             </div>
+            )}
         </div>
     );
 }

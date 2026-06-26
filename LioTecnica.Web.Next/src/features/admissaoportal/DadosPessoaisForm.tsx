@@ -7,10 +7,6 @@ import { Loader2, Save, User, MapPin, Phone, CreditCard, Briefcase, HeartPulse }
 
 interface DadosPessoais {
     nome?: string | null; cpf?: string | null; rg?: string | null; rgOrgaoExpedidor?: string | null;
-    // RIC — Registro Identidade Civil
-    regIdentidCivilNumero?: string | null; regIdentidCivilUf?: string | null;
-    regIdentidCivilCidade?: string | null; regIdentidCivilOrgEmiss?: string | null;
-    regIdentidCivilDataExped?: string | null;
     dataNascimento?: string | null; sexo?: number | null; estadoCivil?: number | null;
     nacionalidade?: string | null; nomeMae?: string | null; nomePai?: string | null;
     cep?: string | null; logradouro?: string | null; numero?: string | null;
@@ -119,12 +115,6 @@ export default function DadosPessoaisForm({ dados, onSave, disabled }: Props) {
                     <Field label="CPF"><Input value={form.cpf ?? ""} disabled className="bg-muted" /></Field>
                     <Field label="RG"><Input value={form.rg ?? ""} onChange={e => set("rg", e.target.value)} disabled={disabled} /></Field>
                     <Field label="Órgão Expedidor"><Input value={form.rgOrgaoExpedidor ?? ""} onChange={e => set("rgOrgaoExpedidor", e.target.value)} disabled={disabled} /></Field>
-                    {/* RIC — Registro Identidade Civil (obrigatório TOTVS) */}
-                    <Field label="RIC (Reg. Identidade Civil) *"><Input value={form.regIdentidCivilNumero ?? ""} onChange={e => set("regIdentidCivilNumero", e.target.value)} disabled={disabled} /></Field>
-                    <Field label="Órgão Emissor RIC *"><Input value={form.regIdentidCivilOrgEmiss ?? ""} onChange={e => set("regIdentidCivilOrgEmiss", e.target.value)} disabled={disabled} placeholder="SSP" /></Field>
-                    <Field label="UF RIC *"><Input value={form.regIdentidCivilUf ?? ""} onChange={e => set("regIdentidCivilUf", e.target.value.toUpperCase().slice(0, 2))} disabled={disabled} maxLength={2} placeholder="SP" /></Field>
-                    <Field label="Cidade RIC *"><Input value={form.regIdentidCivilCidade ?? ""} onChange={e => set("regIdentidCivilCidade", e.target.value)} disabled={disabled} /></Field>
-                    <Field label="Data Expedição RIC"><Input type="date" value={form.regIdentidCivilDataExped ?? ""} onChange={e => set("regIdentidCivilDataExped", e.target.value)} disabled={disabled} /></Field>
                     <Field label="Data de Nascimento"><Input type="date" value={form.dataNascimento ?? ""} onChange={e => set("dataNascimento", e.target.value)} disabled={disabled} /></Field>
                     <Field label="Sexo">
                         <select className={selectCls} value={form.sexo ?? 0} onChange={e => set("sexo", Number(e.target.value))} disabled={disabled}>

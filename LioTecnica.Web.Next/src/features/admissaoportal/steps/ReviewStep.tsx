@@ -60,7 +60,6 @@ export default function ReviewStep({ disabled }: Props) {
             {/* Contato */}
             <ReviewSection icon={Phone} title="Contato">
                 <ReviewRow label="E-mail" value={formData.email} />
-                <ReviewRow label="E-mail Alt." value={formData.emailAlternativo} />
                 <ReviewRow label="Celular" value={formData.celular} />
                 <ReviewRow label="Telefone" value={formData.telefone} />
                 <ReviewRow label="Emergencia" value={[formData.contatoEmergenciaNome, formData.contatoEmergenciaFone].filter(Boolean).join(" - ")} />
