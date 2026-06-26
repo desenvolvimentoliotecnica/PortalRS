@@ -7,6 +7,7 @@ using RhPortal.Api.Contracts.AdmissaoPortal;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Storage;
@@ -38,6 +39,7 @@ public interface IAdmissaoPortalService
 public sealed class AdmissaoPortalService : IAdmissaoPortalService
 {
     private readonly AppDbContext _db;
+    private readonly MasterDbContext _masterDb;
     private readonly ITenantContext _tenantContext;
     private readonly IS3StorageService _storage;
     private readonly DocumentAiExtractor _aiExtractor;
@@ -48,6 +50,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
     public AdmissaoPortalService(
         AppDbContext db,
+        MasterDbContext masterDb,
         ITenantContext tenantContext,
         IS3StorageService storage,
         DocumentAiExtractor aiExtractor,
@@ -57,6 +60,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         IHostEnvironment hostEnvironment)
     {
         _db = db;
+        _masterDb = masterDb;
         _tenantContext = tenantContext;
         _storage = storage;
         _aiExtractor = aiExtractor;
@@ -169,8 +173,10 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             d.Id, d.NomeCompleto, (int)d.Parentesco, d.Cpf,
             d.DataNascimento.ToString("yyyy-MM-dd"), d.IsPcd)).ToList();
 
+        var welcome = await BuildWelcomeContextAsync(pa, ct);
+
         return new AdmissaoPortalDataResponse(pa.Id, pa.Nome, (int)pa.Status, solicitados, enviados, dados,
-            dependentes, pa.WizardCurrentStep, pa.WizardCompletionPercent);
+            dependentes, pa.WizardCurrentStep, pa.WizardCompletionPercent, welcome);
     }
 
     public async Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest r, CancellationToken ct)
@@ -639,6 +645,10 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             .Include(x => x.Documentos)
             .Include(x => x.DocumentosSolicitados)
             .Include(x => x.Dependentes)
+            .Include(x => x.JobPosition)
+            .Include(x => x.CentroCusto)
+            .Include(x => x.Vaga)
+            .Include(x => x.Unit)
             .FirstOrDefaultAsync(x => x.Id == id && x.AccessToken != null, ct);
         if (pa is null || NormalizeCpf(pa.Cpf ?? "") != cpfNorm) return null;
         var allowedStatuses = new[] { PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado, PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido };
@@ -793,6 +803,90 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         }
         catch { /* SignalR failure should not block the main operation */ }
     }
+
+    private async Task<PortalWelcomeContext> BuildWelcomeContextAsync(Domain.Entities.PreAdmissao pa, CancellationToken ct)
+    {
+        var branding = await _db.Set<Domain.Entities.TenantBranding>().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+        var tenant = await _masterDb.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+
+        var nomeEmpresa = branding?.NomePortal?.Trim()
+            ?? tenant?.Name?.Trim()
+            ?? "Portal de RH";
+
+        var cargo = pa.JobPosition?.Name?.Trim()
+            ?? pa.Vaga?.Titulo?.Trim();
+        var area = pa.CentroCusto?.Description?.Trim()
+            ?? FormatVagaAreaTime(pa.Vaga?.AreaTime);
+        var local = FormatLocalTrabalho(pa);
+        var tipoContratacao = FormatTipoContratacao(pa.TipoContratacao ?? MapVagaTipoContratacao(pa.Vaga?.TipoContratacao));
+        var salario = pa.Salario is > 0
+            ? pa.Salario.Value.ToString("C", new System.Globalization.CultureInfo("pt-BR"))
+            : "A combinar";
+        var dataInicio = pa.DataAdmissao?.ToString("dd/MM/yyyy");
+
+        var vaga = new PortalInformacoesVaga(cargo, area, local, tipoContratacao, salario, dataInicio);
+        return new PortalWelcomeContext(nomeEmpresa, branding?.LogoUrl, vaga);
+    }
+
+    private static string? FormatLocalTrabalho(Domain.Entities.PreAdmissao pa)
+    {
+        var cidade = pa.Unit?.City?.Trim() ?? pa.Cidade?.Trim();
+        var uf = pa.Unit?.Uf?.Trim() ?? pa.Uf?.Trim();
+        var modalidade = FormatVagaModalidade(pa.Vaga?.Modalidade);
+
+        if (string.IsNullOrWhiteSpace(cidade) && string.IsNullOrWhiteSpace(uf))
+            return modalidade;
+
+        var local = !string.IsNullOrWhiteSpace(cidade) && !string.IsNullOrWhiteSpace(uf)
+            ? $"{cidade} - {uf}"
+            : cidade ?? uf;
+
+        return modalidade is not null ? $"{local} ({modalidade})" : local;
+    }
+
+    private static TipoContratacaoAdmissao? MapVagaTipoContratacao(VagaTipoContratacao? tipo) => tipo switch
+    {
+        VagaTipoContratacao.CLT => TipoContratacaoAdmissao.CLT,
+        VagaTipoContratacao.PJ => TipoContratacaoAdmissao.PJ,
+        VagaTipoContratacao.Estagio => TipoContratacaoAdmissao.Estagio,
+        VagaTipoContratacao.Temporario => TipoContratacaoAdmissao.Temporario,
+        VagaTipoContratacao.Aprendiz => TipoContratacaoAdmissao.Aprendiz,
+        _ => null,
+    };
+
+    private static string? FormatTipoContratacao(TipoContratacaoAdmissao? tipo) => tipo switch
+    {
+        TipoContratacaoAdmissao.CLT => "CLT",
+        TipoContratacaoAdmissao.PJ => "PJ",
+        TipoContratacaoAdmissao.Estagio => "Estágio",
+        TipoContratacaoAdmissao.Temporario => "Temporário",
+        TipoContratacaoAdmissao.Aprendiz => "Aprendiz",
+        TipoContratacaoAdmissao.Terceirizado => "Terceirizado",
+        _ => null,
+    };
+
+    private static string? FormatVagaModalidade(VagaModalidade? modalidade) => modalidade switch
+    {
+        VagaModalidade.Presencial => "Presencial",
+        VagaModalidade.Hibrido => "Híbrido",
+        VagaModalidade.Remoto => "Remoto",
+        _ => null,
+    };
+
+    private static string? FormatVagaAreaTime(VagaAreaTime? area) => area switch
+    {
+        VagaAreaTime.Backoffice => "Backoffice",
+        VagaAreaTime.Field => "Field",
+        VagaAreaTime.Growth => "Growth",
+        VagaAreaTime.Dados => "Dados",
+        VagaAreaTime.Engenharia => "Engenharia",
+        VagaAreaTime.ProdutoUx => "Produto / UX",
+        VagaAreaTime.Suporte => "Suporte",
+        VagaAreaTime.OperacaoChaoDeFabrica => "Operação / Chão de fábrica",
+        _ => null,
+    };
 
     private static string NormalizeCpf(string cpf) => cpf.Replace(".", "").Replace("-", "").Replace(" ", "").Trim();
 }
