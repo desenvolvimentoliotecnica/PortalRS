@@ -22,7 +22,8 @@ import { Button } from "@/components/ui/button";
 
 const BRAND_BLUE = "#0047BB";
 const ACCENT_YELLOW = "#fbbf24";
-const WELCOME_BG = "/admissao/welcome-bg.png";
+const APP_BASE = "/app";
+const WELCOME_BG = `${APP_BASE}/admissao/welcome-bg.png`;
 
 export interface PortalInformacoesVaga {
     cargo?: string | null;
@@ -153,13 +154,13 @@ export default function WelcomeStep({ vaga, onStart, disabled }: Props) {
                             </div>
                         </div>
 
-                        <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_16px_rgba(15,23,42,0.06)]">
+                        <div className="w-full max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_16px_rgba(15,23,42,0.06)] md:w-[60%]">
                             <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
                                 <Briefcase className="size-5 text-[#0047BB]" />
                                 <h2 className="text-lg font-bold text-slate-900">Informações da vaga</h2>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-x-8 gap-y-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="grid grid-cols-1 gap-x-6 gap-y-4 p-5 sm:grid-cols-2">
                                 <JobField icon={Briefcase} label="Cargo" value={vaga?.cargo} />
                                 <JobField icon={User} label="Área" value={vaga?.area} />
                                 <JobField icon={MapPin} label="Local de trabalho" value={vaga?.localTrabalho} />
