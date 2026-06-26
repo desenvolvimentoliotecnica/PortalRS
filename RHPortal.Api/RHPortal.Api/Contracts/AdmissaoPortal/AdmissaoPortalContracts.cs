@@ -206,6 +206,30 @@ public sealed record DependenteUpdateRequest(
 
 public sealed record WizardProgressRequest(int CurrentStep, int CompletionPercent);
 
+// ── Atendimento / ajuda ──
+
+public static class PortalAtendimentoAssuntos
+{
+    public static readonly IReadOnlyList<string> Opcoes =
+    [
+        "Dúvida sobre documentos",
+        "Problema ao enviar arquivo",
+        "Dúvida sobre dados pessoais",
+        "Dúvida sobre informações bancárias",
+        "Dificuldade de acesso ao portal",
+        "Outro assunto",
+    ];
+}
+
+public sealed record PortalAtendimentoRequest(
+    [property: System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(120)]
+    string Assunto,
+    [property: System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(4000)]
+    string Mensagem
+);
+
+public sealed record PortalAtendimentoResponse(bool Ok, string? Message = null);
+
 // ── Blip: consulta por CPF ou Telefone ──
 
 public sealed record BlipDocumentosResponse(

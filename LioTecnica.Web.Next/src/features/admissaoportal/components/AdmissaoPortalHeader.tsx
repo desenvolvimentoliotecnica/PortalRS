@@ -15,9 +15,10 @@ interface Props {
     logoUrl?: string | null;
     userName?: string | null;
     onLogout?: () => void;
+    onOpenHelp?: () => void;
 }
 
-export default function AdmissaoPortalHeader({ nomeEmpresa, logoUrl, userName, onLogout }: Props) {
+export default function AdmissaoPortalHeader({ nomeEmpresa, logoUrl, userName, onLogout, onOpenHelp }: Props) {
     const empresa = nomeEmpresa?.trim() || "Portal de RH";
     const nome = userName?.trim() || "Candidato";
 
@@ -41,10 +42,11 @@ export default function AdmissaoPortalHeader({ nomeEmpresa, logoUrl, userName, o
                 <div className="flex items-center gap-3 sm:gap-5">
                     <button
                         type="button"
-                        className="hidden sm:inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-[#0047BB] transition-colors"
+                        onClick={onOpenHelp}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-[#0047BB] transition-colors"
                     >
                         <HelpCircle className="size-4" />
-                        Precisa de ajuda?
+                        <span className="hidden sm:inline">Precisa de ajuda?</span>
                     </button>
 
                     <DropdownMenu>

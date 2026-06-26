@@ -11,6 +11,7 @@ using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Storage;
+using RhPortal.Api.Infrastructure.Pdf;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.AdmissaoPortal;
@@ -34,6 +35,8 @@ public interface IAdmissaoPortalService
     Task<PreAdmissaoDependenteResponse?> UpdateDependenteAsync(Guid preAdmissaoId, string cpf, Guid dependenteId, DependenteUpdateRequest request, CancellationToken ct);
     Task<bool> RemoveDependenteAsync(Guid preAdmissaoId, string cpf, Guid dependenteId, CancellationToken ct);
     Task<bool> SaveWizardProgressAsync(Guid preAdmissaoId, string cpf, int currentStep, int completionPercent, CancellationToken ct);
+    Task<bool> SendAtendimentoAsync(Guid preAdmissaoId, string cpf, PortalAtendimentoRequest request, CancellationToken ct);
+    Task<PortalDocumentoDownloadResult?> GetComprovanteEnvioPdfAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
 }
 
 public sealed class AdmissaoPortalService : IAdmissaoPortalService
@@ -47,6 +50,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly BlipDocumentoValidator _blipValidator;
     private readonly IHostEnvironment _hostEnvironment;
+    private readonly IAdmissaoPortalRhNotificacaoService _rhNotificacao;
 
     public AdmissaoPortalService(
         AppDbContext db,
@@ -57,7 +61,8 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         IHubContext<NotificationsHub> hub,
         IHttpClientFactory httpClientFactory,
         BlipDocumentoValidator blipValidator,
-        IHostEnvironment hostEnvironment)
+        IHostEnvironment hostEnvironment,
+        IAdmissaoPortalRhNotificacaoService rhNotificacao)
     {
         _db = db;
         _masterDb = masterDb;
@@ -68,6 +73,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         _httpClientFactory = httpClientFactory;
         _blipValidator = blipValidator;
         _hostEnvironment = hostEnvironment;
+        _rhNotificacao = rhNotificacao;
     }
 
     public async Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct)
@@ -280,6 +286,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "save_dados", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "save_dados", ct);
         return true;
     }
 
@@ -317,6 +324,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "upload_doc", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "upload_doc", ct);
 
         return new PreAdmissaoDocumentoResponse(
             doc.Id, doc.Tipo, doc.Lado, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes,
@@ -338,6 +346,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "delete_doc", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "delete_doc", ct);
         return true;
     }
 
@@ -391,6 +400,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.LastActivityUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "submit", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "submit", ct);
         return true;
     }
 
@@ -719,6 +729,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "add_dependente", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "add_dependente", ct);
 
         return new PreAdmissaoDependenteResponse(
             dep.Id, dep.NomeCompleto, (int)dep.Parentesco, dep.Cpf,
@@ -745,6 +756,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.LastActivityUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "update_dependente", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "update_dependente", ct);
 
         return new PreAdmissaoDependenteResponse(
             dep.Id, dep.NomeCompleto, (int)dep.Parentesco, dep.Cpf,
@@ -764,6 +776,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.LastActivityUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "remove_dependente", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "remove_dependente", ct);
         return true;
     }
 
@@ -781,6 +794,49 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "wizard_progress", ct);
         return true;
+    }
+
+    public async Task<bool> SendAtendimentoAsync(
+        Guid preAdmissaoId, string cpf, PortalAtendimentoRequest request, CancellationToken ct)
+    {
+        var pa = await LoadAndValidate(preAdmissaoId, cpf, ct);
+        if (pa is null) return false;
+
+        var assunto = request.Assunto?.Trim() ?? "";
+        var mensagem = request.Mensagem?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(assunto) || string.IsNullOrWhiteSpace(mensagem))
+            return false;
+
+        if (!PortalAtendimentoAssuntos.Opcoes.Contains(assunto, StringComparer.OrdinalIgnoreCase))
+            return false;
+
+        return await _rhNotificacao.SendAtendimentoAsync(preAdmissaoId, assunto, mensagem, ct);
+    }
+
+    public async Task<PortalDocumentoDownloadResult?> GetComprovanteEnvioPdfAsync(
+        Guid preAdmissaoId, string cpf, CancellationToken ct)
+    {
+        var pa = await LoadAndValidate(preAdmissaoId, cpf, ct);
+        if (pa is null) return null;
+
+        var submitted = pa.Status == PreAdmissaoStatus.Preenchido
+            || pa.SubmittedAtUtc.HasValue;
+        if (!submitted) return null;
+
+        var branding = await _db.Set<Domain.Entities.TenantBranding>().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+        var tenant = await _masterDb.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+        var nomeEmpresa = branding?.NomePortal?.Trim()
+            ?? tenant?.Name?.Trim()
+            ?? _tenantContext.TenantId;
+        var vagaTitulo = pa.Vaga?.Titulo ?? pa.JobPosition?.Name;
+
+        var lines = AdmissaoPortalComprovanteBuilder.BuildLines(pa, vagaTitulo, nomeEmpresa);
+        var pdfBytes = SimplePdfBuilder.BuildFromLines(lines);
+        var stream = new MemoryStream(pdfBytes);
+        var fileName = $"comprovante-admissao-{pa.Id:N}.pdf";
+        return new PortalDocumentoDownloadResult(stream, "application/pdf", fileName);
     }
 
     // ── SignalR broadcast ──

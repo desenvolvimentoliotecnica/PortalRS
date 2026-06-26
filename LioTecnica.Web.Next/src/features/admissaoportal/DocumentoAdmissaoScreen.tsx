@@ -23,6 +23,7 @@ import DadosGeraisStep from "./steps/DadosGeraisStep";
 import DadosBancariosStep from "./steps/DadosBancariosStep";
 import ReviewStep from "./steps/ReviewStep";
 import ConclusaoStep from "./steps/ConclusaoStep";
+import AdmissaoHelpModal from "./components/AdmissaoHelpModal";
 import { savePortalFormNow } from "./hooks/usePortalFormAutoSave";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +76,7 @@ export default function DocumentoAdmissaoScreen() {
     const [data, setData] = useState<PortalData | null>(null);
     const [loading, setLoading] = useState(false);
     const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
+    const [helpOpen, setHelpOpen] = useState(false);
     // Prevents saveWizardProgress from overwriting the server step before loadData has restored it
     const hydratedRef = useRef(false);
     const stepMigratedRef = useRef(false);
@@ -380,11 +382,19 @@ export default function DocumentoAdmissaoScreen() {
                 logoUrl={data?.welcome?.logoUrl}
                 userName={session?.nome ?? data?.nome}
                 onLogout={handleLogout}
+                onOpenHelp={() => setHelpOpen(true)}
             />
+
+            <AdmissaoHelpModal open={helpOpen} onOpenChange={setHelpOpen} session={session} />
 
             <div className="flex flex-1 min-h-0 overflow-hidden">
             {data && !isWelcome && (
-                <WizardSidebar nome={session?.nome} isSubmitted={isSubmitted} plan={wizardPlan} />
+                <WizardSidebar
+                    nome={session?.nome}
+                    isSubmitted={isSubmitted}
+                    plan={wizardPlan}
+                    onOpenHelp={() => setHelpOpen(true)}
+                />
             )}
 
             <div className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden ${isWelcome ? "" : ""}`}>
@@ -444,8 +454,9 @@ export default function DocumentoAdmissaoScreen() {
                                 onEditStep={setStep}
                             />
                         )}
-                        {isConclusao && (
+                        {isConclusao && session && (
                             <ConclusaoStep
+                                session={session}
                                 userName={session?.nome ?? data.nome}
                                 userEmail={String(formData.email ?? "")}
                                 submittedAt={submittedAt}

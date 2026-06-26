@@ -28,9 +28,10 @@ interface Props {
     nome: string | undefined;
     isSubmitted: boolean;
     plan: WizardPlan;
+    onOpenHelp?: () => void;
 }
 
-export default function WizardSidebar({ nome, isSubmitted, plan }: Props) {
+export default function WizardSidebar({ nome, isSubmitted, plan, onOpenHelp }: Props) {
     const { currentStep, completedSteps, setStep } = useAdmissaoWizardStore();
     const firstName = nome?.trim().split(/\s+/)[0] || "Candidato";
 
@@ -145,7 +146,11 @@ export default function WizardSidebar({ nome, isSubmitted, plan }: Props) {
                     <div>
                         <p className="text-sm font-semibold text-slate-900">Dúvidas?</p>
                         <p className="text-xs text-slate-500">Fale com nosso time de RH</p>
-                        <button type="button" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0047BB] hover:underline">
+                        <button
+                            type="button"
+                            onClick={onOpenHelp}
+                            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0047BB] hover:underline"
+                        >
                             Abrir atendimento
                             <ExternalLink className="size-3" />
                         </button>
