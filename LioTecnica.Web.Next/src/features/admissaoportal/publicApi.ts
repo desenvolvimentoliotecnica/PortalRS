@@ -125,6 +125,34 @@ export async function removeDocument(session: AdmissaoPortalSession, docId: stri
     if (!res.ok) throw new Error("Falha ao remover documento.");
 }
 
+export async function sendAtendimento(session: AdmissaoPortalSession, assunto: string, mensagem: string) {
+    const res = await admissaoPortalFetch(session.tenantId, `${basePath(session)}/atendimento`, session.cpf, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assunto, mensagem }),
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => null) as { message?: string } | null;
+        throw new Error(body?.message ?? "Falha ao enviar mensagem.");
+    }
+    return res.json() as Promise<{ ok: boolean; message?: string }>;
+}
+
+export async function downloadComprovanteEnvio(session: AdmissaoPortalSession): Promise<void> {
+    const res = await admissaoPortalFetch(session.tenantId, `${basePath(session)}/comprovante`, session.cpf);
+    if (!res.ok) throw new Error("Comprovante não disponível.");
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `comprovante-admissao-${session.preAdmissaoId}.pdf`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+}
+
 // ── Types ──
 
 export interface DocumentValidationResponse {

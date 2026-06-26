@@ -533,6 +533,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.IntegracaoTotvs.IRmSyncRunSe
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.DocumentAiExtractor>();
 builder.Services.AddScoped<RhPortal.Api.Application.Blip.BlipDocumentoValidator>();
 builder.Services.AddScoped<RhPortal.Api.Application.Blip.BlipMessagingService>();
+builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.IAdmissaoPortalRhNotificacaoService, RhPortal.Api.Application.AdmissaoPortal.AdmissaoPortalRhNotificacaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.AdmissaoPortal.IAdmissaoPortalService, RhPortal.Api.Application.AdmissaoPortal.AdmissaoPortalService>();
 builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService>(client =>
 {

@@ -267,4 +267,49 @@ public sealed class AdmissaoPortalController : ControllerBase
             ? Ok(new { ok = true })
             : Unauthorized(new { message = "Acesso negado." });
     }
+
+    /// <summary>Assuntos padrão disponíveis para o formulário de atendimento.</summary>
+    [HttpGet("atendimento/assuntos")]
+    [ProducesResponseType(typeof(IReadOnlyList<string>), StatusCodes.Status200OK)]
+    public IActionResult ListAtendimentoAssuntos()
+        => Ok(PortalAtendimentoAssuntos.Opcoes);
+
+    /// <summary>Candidato envia mensagem de atendimento para a analista de RH responsável.</summary>
+    [HttpPost("{preAdmissaoId:guid}/atendimento")]
+    [ProducesResponseType(typeof(PortalAtendimentoResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SendAtendimento(
+        Guid preAdmissaoId, [FromBody] PortalAtendimentoRequest request, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+
+        if (string.IsNullOrWhiteSpace(request.Assunto) || string.IsNullOrWhiteSpace(request.Mensagem))
+            return BadRequest(new PortalAtendimentoResponse(false, "Assunto e mensagem são obrigatórios."));
+
+        if (!PortalAtendimentoAssuntos.Opcoes.Contains(request.Assunto.Trim(), StringComparer.OrdinalIgnoreCase))
+            return BadRequest(new PortalAtendimentoResponse(false, "Assunto inválido."));
+
+        var ok = await _service.SendAtendimentoAsync(preAdmissaoId, cpf, request, ct);
+        return ok
+            ? Ok(new PortalAtendimentoResponse(true, "Mensagem enviada. Nossa equipe de RH entrará em contato em breve."))
+            : BadRequest(new PortalAtendimentoResponse(false, "Não foi possível enviar a mensagem. Tente novamente ou entre em contato por outro canal."));
+    }
+
+    /// <summary>Download do comprovante de envio (PDF) após submissão do formulário.</summary>
+    [HttpGet("{preAdmissaoId:guid}/comprovante")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadComprovante(Guid preAdmissaoId, CancellationToken ct)
+    {
+        var cpf = GetCpf();
+        if (string.IsNullOrWhiteSpace(cpf)) return Unauthorized(new { message = "Header X-Cpf obrigatório." });
+
+        var result = await _service.GetComprovanteEnvioPdfAsync(preAdmissaoId, cpf, ct);
+        if (result is null) return NotFound(new { message = "Comprovante não disponível. Finalize o envio do formulário primeiro." });
+
+        return File(result.Stream, result.ContentType, result.FileName);
+    }
 }

@@ -1,18 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import {
     Banknote,
     Calendar,
     CheckCircle2,
     Download,
     FileText,
+    Loader2,
     User,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import WizardStepCard from "../components/WizardStepCard";
+import { downloadComprovanteEnvio, type AdmissaoPortalSession } from "../publicApi";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 
 interface Props {
+    session: AdmissaoPortalSession;
     userName?: string | null;
     userEmail?: string | null;
     submittedAt?: Date | null;
@@ -20,17 +25,31 @@ interface Props {
 }
 
 export default function ConclusaoStep({
+    session,
     userName,
     userEmail,
     submittedAt,
     documentCount = 0,
 }: Props) {
     const { formData } = useAdmissaoWizardStore();
+    const [downloading, setDownloading] = useState(false);
     const firstName = userName?.trim().split(/\s+/)[0] || "Candidato";
     const email = userEmail || String(formData.email ?? "");
     const dateStr = submittedAt
         ? submittedAt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
         : new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            await downloadComprovanteEnvio(session);
+            toast.success("Comprovante baixado com sucesso.");
+        } catch {
+            toast.error("Não foi possível baixar o comprovante.");
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     return (
         <WizardStepCard
@@ -65,8 +84,13 @@ export default function ConclusaoStep({
                     </div>
                 </div>
 
-                <Button variant="outline" className="mt-8 gap-2 rounded-xl" disabled>
-                    <Download className="size-4" />
+                <Button
+                    variant="outline"
+                    className="mt-8 gap-2 rounded-xl"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                >
+                    {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
                     Baixar comprovante de envio (PDF)
                 </Button>
 
