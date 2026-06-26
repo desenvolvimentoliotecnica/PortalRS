@@ -23,7 +23,7 @@ export default function AdmissaoPortalHeader({ nomeEmpresa, logoUrl, userName, o
 
     return (
         <header className="shrink-0 border-b border-slate-200/80 bg-white">
-            <div className="mx-auto flex h-[72px] max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+            <div className="flex h-[72px] w-full items-center justify-between gap-4 px-5 sm:px-8 lg:px-12 2xl:px-16">
                 <div className="flex min-w-0 items-center gap-3">
                     <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm" style={{ backgroundColor: "#0047BB" }}>
                         {logoUrl ? (
