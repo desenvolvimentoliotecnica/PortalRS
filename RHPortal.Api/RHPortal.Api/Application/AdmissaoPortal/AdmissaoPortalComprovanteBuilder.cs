@@ -1,57 +1,70 @@
 using RhPortal.Api.Application.PreAdmissao;
-using RhPortal.Api.Domain.Enums;
+using RhPortal.Api.Infrastructure.Pdf;
 
 namespace RhPortal.Api.Application.AdmissaoPortal;
 
 internal static class AdmissaoPortalComprovanteBuilder
 {
-    public static IReadOnlyList<string> BuildLines(Domain.Entities.PreAdmissao pa, string? vagaTitulo, string? nomeEmpresa)
+    public static byte[] BuildPdf(Domain.Entities.PreAdmissao pa, string? vagaTitulo, string? nomeEmpresa)
     {
         var enviadoEm = pa.SubmittedAtUtc ?? pa.UpdatedAtUtc;
         var enviadoLocal = enviadoEm.ToOffset(TimeSpan.FromHours(-3)).ToString("dd/MM/yyyy HH:mm");
+        var protocolo = pa.Id.ToString("N").ToUpperInvariant();
 
-        var lines = new List<string>
+        return SimplePdfBuilder.BuildForm(canvas =>
         {
-            "COMPROVANTE DE ENVIO — PORTAL DE ADMISSAO",
-            "==========================================",
-            "",
-            $"Empresa: {nomeEmpresa ?? pa.TenantId}",
-            $"Candidato: {pa.Nome}",
-            $"CPF: {FormatCpf(pa.Cpf)}",
-            $"Vaga: {vagaTitulo ?? "—"}",
-            $"Data do envio: {enviadoLocal} (Brasilia)",
-            $"Protocolo: {pa.Id:N}".ToUpperInvariant(),
-            "",
-            "RESUMO DO ENVIO",
-            "---------------",
-            $"Progresso: {pa.WizardCompletionPercent ?? 0}%",
-            $"Documentos enviados: {pa.Documentos.Count}",
-            $"Dependentes cadastrados: {pa.Dependentes.Count}",
-            "",
-            "DOCUMENTOS",
-            "----------",
-        };
+            canvas.DrawHeader(
+                "Comprovante de Envio",
+                "Portal de Admissão — formulário digital");
 
-        if (pa.DocumentosSolicitados.Count == 0)
-        {
-            lines.Add("Nenhum documento solicitado configurado.");
-        }
-        else
-        {
-            foreach (var ds in pa.DocumentosSolicitados.OrderBy(d => d.TipoDocumento))
+            // --- Identificação ---
+            canvas.BeginSection("Identificação");
+            var y = canvas.CursorY + 8f;
+            y = canvas.AddField("Empresa", nomeEmpresa ?? pa.TenantId, y);
+            y = canvas.AddDivider(y);
+            y = canvas.AddField("Candidato(a)", pa.Nome, y);
+            y = canvas.AddField("CPF", FormatCpf(pa.Cpf), y);
+            y = canvas.AddDivider(y);
+            y = canvas.AddField("Vaga", vagaTitulo ?? "—", y);
+            y = canvas.AddField("Data do envio", $"{enviadoLocal} (Brasília)", y);
+            y = canvas.AddField("Protocolo", protocolo, y);
+            canvas.EndSection();
+
+            // --- Resumo ---
+            canvas.BeginSection("Resumo do envio");
+            y = canvas.CursorY + 8f;
+            y = canvas.AddField("Progresso do formulário", $"{pa.WizardCompletionPercent ?? 0}%", y);
+            y = canvas.AddField("Documentos enviados", pa.Documentos.Count.ToString(), y);
+            y = canvas.AddField("Dependentes cadastrados", pa.Dependentes.Count.ToString(), y);
+            if (!string.IsNullOrWhiteSpace(pa.Email))
+                y = canvas.AddField("E-mail informado", pa.Email, y);
+            canvas.EndSection();
+
+            // --- Documentos ---
+            canvas.BeginSection("Documentos");
+            y = canvas.CursorY + 8f;
+            if (pa.DocumentosSolicitados.Count == 0)
             {
-                var label = PreAdmissaoService.TipoDocumentoLabel(ds.TipoDocumento);
-                var enviado = pa.Documentos.Any(d => d.Tipo == ds.TipoDocumento);
-                lines.Add($"- {(enviado ? "[OK]" : "[  ]")} {label}");
+                y = canvas.AddField("Situação", "Nenhum documento solicitado configurado.", y);
             }
-        }
+            else
+            {
+                foreach (var ds in pa.DocumentosSolicitados.OrderBy(d => d.TipoDocumento))
+                {
+                    var label = PreAdmissaoService.TipoDocumentoLabel(ds.TipoDocumento);
+                    if (ds.Obrigatorio)
+                        label += " (obrigatório)";
+                    var enviado = pa.Documentos.Any(d => d.Tipo == ds.TipoDocumento);
+                    y = canvas.AddDocumentRow(y, enviado, label);
+                }
+            }
 
-        lines.Add("");
-        lines.Add("Este comprovante confirma o recebimento das informacoes");
-        lines.Add("enviadas pelo candidato via Portal de Admissao.");
-        lines.Add("O time de RH entrara em contato em breve.");
+            canvas.EndSection();
 
-        return lines;
+            canvas.AddFooter(
+                "Este comprovante confirma o recebimento das informações enviadas pelo candidato via Portal de Admissão.",
+                "Guarde este documento. O time de RH entrará em contato em breve.");
+        });
     }
 
     private static string FormatCpf(string? cpf)

@@ -832,8 +832,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             ?? _tenantContext.TenantId;
         var vagaTitulo = pa.Vaga?.Titulo ?? pa.JobPosition?.Name;
 
-        var lines = AdmissaoPortalComprovanteBuilder.BuildLines(pa, vagaTitulo, nomeEmpresa);
-        var pdfBytes = SimplePdfBuilder.BuildFromLines(lines);
+        var pdfBytes = AdmissaoPortalComprovanteBuilder.BuildPdf(pa, vagaTitulo, nomeEmpresa);
         var stream = new MemoryStream(pdfBytes);
         var fileName = $"comprovante-admissao-{pa.Id:N}.pdf";
         return new PortalDocumentoDownloadResult(stream, "application/pdf", fileName);
