@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Export Planner — Portal RH</title>
+  <link rel="icon" href="data:," />
   <style>
     :root {
       --bg: #f4f6f9;
@@ -364,7 +365,7 @@
       .catch(err => {
         document.getElementById('tbody').innerHTML =
           `<tr><td colspan="7" class="error">Erro ao carregar tasks.json: ${err.message}<br>
-          Execute: <code>python -m http.server 8765</code> em tools/planner-tasks/</td></tr>`;
+          Execute: <code>python serve.py 8877</code> em tools/planner-tasks/</td></tr>`;
       });
   </script>
 </body>

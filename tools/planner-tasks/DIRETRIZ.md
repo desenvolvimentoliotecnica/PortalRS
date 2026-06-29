@@ -146,10 +146,12 @@ O `index.html` **recalcula na exibição** — não confiar cegamente no JSON. O
 
 ```powershell
 cd tools/planner-tasks
-python -m http.server 8765
+python serve.py 8877
 ```
 
-Abrir: http://localhost:8765/index.html
+Abrir: http://localhost:8877/index.html
+
+> Use `serve.py` em vez de `python -m http.server`: o servidor padrão do Python entrega `.mjs` como `text/plain` e o navegador bloqueia o módulo ES.
 
 - Carrega `./tasks.json` automaticamente via fetch
 - **Sem** botões “Recarregar” ou “Carregar JSON do disco”
