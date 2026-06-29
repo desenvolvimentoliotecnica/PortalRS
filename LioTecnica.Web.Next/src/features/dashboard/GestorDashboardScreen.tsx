@@ -114,7 +114,7 @@ function responseLabel(value?: string | null) {
 
 function todayGreeting(displayName?: string | null) {
   const firstName = displayName?.trim().split(/\s+/)[0];
-  return firstName ? `Bom dia, ${firstName} 👋` : "Bom dia, gestor 👋";
+  return firstName ? `Bom dia, ${firstName}` : "Bom dia, gestor";
 }
 
 export default function GestorDashboardScreen({ displayName }: { displayName?: string | null }) {

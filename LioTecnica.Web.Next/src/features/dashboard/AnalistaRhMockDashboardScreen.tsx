@@ -381,7 +381,7 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
   return (
     <section className="mx-auto max-w-[1440px] space-y-4 text-slate-800">
       <header>
-        <h1 className="text-[28px] font-bold tracking-tight text-slate-900">Bom dia, {firstName} 👋</h1>
+        <h1 className="text-[28px] font-bold tracking-tight text-slate-900">Bom dia, {firstName}</h1>
         <p className="mt-1 text-sm font-medium text-slate-500">
           Aqui está um resumo do seu dia com dados reais do portal.
           {loading ? " Carregando indicadores..." : null}
