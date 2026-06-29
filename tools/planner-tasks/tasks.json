@@ -3595,7 +3595,7 @@
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Alterar texto do resumo do dia no dashboard para 'Aqui está um resumo do seu dia!' e promover para HML",
-      "entregavel": "Subtitulo do dashboard analista RH simplificado, sem mencao a dados reais do portal.",
+      "entregavel": "Subtitulo do dashboard analista RH simplificado — disponivel em HML apos Merge PR #286.",
       "ambiente": "HML",
       "referencias": {
         "commits": [
