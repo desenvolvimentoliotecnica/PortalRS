@@ -14,6 +14,8 @@ public sealed class AdmissaoPortalComprovanteBuilderTests
             Id = Guid.Parse("3be96c7b-ec54-4771-b474-5b4bf6ba07ac"),
             TenantId = "liotecnica",
             Nome = "Leonardo Mendes UAT — teste acentuação",
+            Sexo = Sexo.Masculino,
+            EstadoCivil = EstadoCivil.Solteiro,
             Cpf = "32593118822",
             Email = "leonardomendes201704@gmail.com",
             Status = PreAdmissaoStatus.Preenchido,
