@@ -3670,7 +3670,7 @@
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Trocar texto Inscritos do KPI Pipeline de Recrutamento por Candidatos",
-      "entregavel": "Rotulo Candidatos na primeira etapa do pipeline do dashboard analista RH.",
+      "entregavel": "Rotulo Candidatos na primeira etapa do pipeline — disponivel em HML apos Merge PR #289.",
       "ambiente": "HML",
       "referencias": {
         "commits": [
