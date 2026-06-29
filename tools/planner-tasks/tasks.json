@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-29",
-    "totalTarefas": 137
+    "totalTarefas": 138
   },
   "tarefas": [
     {
@@ -3554,6 +3554,32 @@
         "prHml": "Merge PR #284"
       },
       "observacoes": "Backfill: 3 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-137",
+      "nome": "[Portal RH] Reforcar diretrizes Planner e corrigir registro de promocoes HML",
+      "descricaoAmigavel": "Torna obrigatorio registrar inicio e termino de toda solicitacao no Export Planner, corrige backfill para usar origin/portalRH-HML e registra a promocao PR #284 no tasks.json.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "13:03",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "13:05",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Reforcar diretrizes para registro obrigatorio no Planner; corrigir falta de registro na promocao PR #284; promover para HML",
+      "entregavel": "Regra always-apply do Cursor, DIRETRIZ.md reforcada, backfill corrigido e tasks.json alinhado — disponivel em HML apos merge DEV.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "0a029b6a",
+          "208dd5fc"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #285"
+      },
+      "observacoes": "HorarioConclusao sera ajustado com horario real do merge HML se necessario."
     }
   ]
 }
