@@ -813,7 +813,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         return await _rhNotificacao.SendAtendimentoAsync(preAdmissaoId, assunto, mensagem, ct);
     }
 
-    public async Task<PortalDocumentoDownloadResult?> GetComprovanteEnvioPdfAsync(
+        public async Task<PortalDocumentoDownloadResult?> GetComprovanteEnvioPdfAsync(
         Guid preAdmissaoId, string cpf, CancellationToken ct)
     {
         var pa = await LoadAndValidate(preAdmissaoId, cpf, ct);
@@ -825,10 +825,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         var branding = await _db.Set<Domain.Entities.TenantBranding>().AsNoTracking()
             .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
-        var tenant = await _masterDb.Tenants.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
         var nomeEmpresa = branding?.NomePortal?.Trim()
-            ?? tenant?.Name?.Trim()
             ?? _tenantContext.TenantId;
         var vagaTitulo = pa.Vaga?.Titulo ?? pa.JobPosition?.Name;
 
