@@ -3623,7 +3623,9 @@
       "entregavel": "Deep link ?view=id no dashboard analista RH abre automaticamente o modal Visualizar Requisição de Pessoal em Solicitações.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "6926d877"
+        ],
         "branch": "portalRH-HML",
         "prHml": "Merge PR #287"
       },
