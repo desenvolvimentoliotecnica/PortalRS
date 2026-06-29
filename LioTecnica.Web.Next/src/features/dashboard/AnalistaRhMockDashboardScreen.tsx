@@ -383,7 +383,7 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
       <header>
         <h1 className="text-[28px] font-bold tracking-tight text-slate-900">Bom dia, {firstName}</h1>
         <p className="mt-1 text-sm font-medium text-slate-500">
-          Aqui está um resumo do seu dia com dados reais do portal.
+          Aqui está um resumo do seu dia!
           {loading ? " Carregando indicadores..." : null}
         </p>
         {partialError ? (

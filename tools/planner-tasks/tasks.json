@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-29",
-    "totalTarefas": 138
+    "totalTarefas": 139
   },
   "tarefas": [
     {
@@ -3578,6 +3578,29 @@
         ],
         "branch": "portalRH-HML",
         "prHml": "Merge PR #285"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-138",
+      "nome": "[Portal RH] Simplificar subtitulo de boas-vindas do dashboard analista",
+      "descricaoAmigavel": "Ajuste de texto no dashboard do analista RH para exibir apenas 'Aqui está um resumo do seu dia!' no subtítulo.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "13:09",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": 0,
+      "bucket": "Em andamento",
+      "percentualConcluido": 70,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Alterar texto do resumo do dia no dashboard para 'Aqui está um resumo do seu dia!' e promover para HML",
+      "entregavel": "Subtitulo do dashboard analista RH simplificado, sem mencao a dados reais do portal.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [],
+        "branch": "portalRH-HML",
+        "prHml": ""
       },
       "observacoes": ""
     }
