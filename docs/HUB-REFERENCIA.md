@@ -3,7 +3,7 @@
 O **Liotecnica Hub** foi extraído deste monorepo e passou a viver em repositório próprio:
 
 - **GitHub:** [desenvolvimentoliotecnica/LiotecnicaHub](https://github.com/desenvolvimentoliotecnica/LiotecnicaHub)
-- **Clone local sugerido:** `D:\Projetos\PortalRH\LiotecnicaHub`
+- **Clone local sugerido:** `D:\Projetos\LiotecnicaHub`
 - **Branches:** `DEV`, `HML`, `PRD`
 
 Documentação de deploy, SSO e operação do Hub está no repositório acima (`docs/HUB-*.md`).
