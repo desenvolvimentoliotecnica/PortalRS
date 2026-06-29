@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Export Planner — Portal RH</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card: #fff;
+      --border: #d8dee9;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --gray: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      padding: 16px 24px 48px;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 16px; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;
+    }
+    .toolbar label { font-size: 0.85rem; color: var(--muted); margin-right: 4px; }
+    .filter-btn {
+      padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px;
+      background: #fff; cursor: pointer; font-size: 0.85rem;
+    }
+    .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-copy {
+      margin-left: auto; padding: 8px 16px; background: var(--accent); color: #fff;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+    }
+    .btn-copy:hover { filter: brightness(1.08); }
+    .stats {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px; margin-bottom: 16px;
+    }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .stat-card .label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .stat-card .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+    .table-wrap {
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      overflow-x: auto; width: 100%;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th {
+      text-align: left; padding: 10px 12px; background: #eef2f7;
+      border-bottom: 2px solid var(--border); font-weight: 600; white-space: nowrap;
+    }
+    td {
+      padding: 10px 12px; border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr.day-header td {
+      background: #e8edf5; font-weight: 700; font-size: 0.95rem;
+      padding: 12px; border-bottom: 2px solid var(--border);
+    }
+    tr.day-subtotal td {
+      background: #f8fafc; font-weight: 600; font-style: italic;
+      color: var(--muted); border-bottom: 3px solid var(--border);
+    }
+    tr.day-gap td { height: 12px; background: var(--bg); border: none; padding: 0; }
+    .task-name { cursor: pointer; color: var(--accent); }
+    .task-name:hover { text-decoration: underline; }
+    .day-part { color: var(--muted); font-size: 0.8rem; }
+    .chip {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 0.78rem; font-weight: 600; text-align: center;
+    }
+    .chip-center { display: flex; justify-content: center; }
+    .bucket-Concluído { background: #dcfce7; color: #166534; }
+    .bucket-Em\ andamento { background: #fef3c7; color: #92400e; }
+    .bucket-A\ fazer { background: #e2e8f0; color: #475569; }
+    .bucket-Bloqueado { background: #fee2e2; color: #991b1b; }
+    .prio-Urgente { background: #fee2e2; color: #991b1b; }
+    .prio-Alta { background: #ffedd5; color: #9a3412; }
+    .prio-Média { background: #e0f2fe; color: #075985; }
+    .prio-Baixa { background: #f1f5f9; color: #64748b; }
+    .notes-block { font-size: 0.82rem; }
+    .notes-block .entregavel { color: var(--green); margin-top: 4px; }
+    .notes-block .pedido { color: var(--muted); margin-top: 4px; font-style: italic; }
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; background: #1e293b; color: #fff;
+      padding: 10px 18px; border-radius: 8px; font-size: 0.85rem; opacity: 0;
+      transition: opacity 0.3s; pointer-events: none; z-index: 99;
+    }
+    .toast.show { opacity: 1; }
+    .error { color: var(--red); padding: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Export Planner — Portal RH</h1>
+  <p class="subtitle">Copie a tabela filtrada para colar no Microsoft Planner do gestor</p>
+
+  <div class="toolbar">
+    <span><label>Filtro:</label></span>
+    <button class="filter-btn" data-filter="semana">Esta Semana</button>
+    <button class="filter-btn" data-filter="mes">Mês Atual</button>
+    <button class="filter-btn active" data-filter="todos">Todos</button>
+    <button class="btn-copy" id="btnCopy">Copiar tabela (TSV)</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome da tarefa</th>
+          <th>Início</th>
+          <th>Concluir</th>
+          <th>Duração</th>
+          <th style="text-align:center">Bucket</th>
+          <th style="text-align:center">Prioridade</th>
+          <th>Descrição / notas</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="toast" id="toast">Copiado!</div>
+
+  <script type="module">
+    import {
+      calcularTotalHoras, horasNoDiaTarefa, formatDuracao,
+      expandirDiasTarefa, parseDate, formatDateISO
+    } from './calc-horas.mjs';
+
+    const DIAS_SEMANA = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+
+    let data = null;
+    let filtroAtivo = 'todos';
+
+    function fmtDataBR(iso) {
+      if (!iso) return '—';
+      const [y,m,d] = iso.split('-');
+      return `${d}/${m}/${y}`;
+    }
+
+    function inicioSemana(ref) {
+      const d = new Date(ref);
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      d.setHours(0,0,0,0);
+      return d;
+    }
+
+    function fimSemana(ref) {
+      const s = inicioSemana(ref);
+      const e = new Date(s);
+      e.setDate(e.getDate() + 6);
+      e.setHours(23,59,59,999);
+      return e;
+    }
+
+    function inicioMes(ref) {
+      return new Date(ref.getFullYear(), ref.getMonth(), 1);
+    }
+
+    function fimMes(ref) {
+      return new Date(ref.getFullYear(), ref.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
+    function diaNoPeriodo(iso, filtro) {
+      const d = parseDate(iso);
+      const hoje = new Date();
+      if (filtro === 'semana') {
+        return d >= inicioSemana(hoje) && d <= fimSemana(hoje);
+      }
+      if (filtro === 'mes') {
+        return d >= inicioMes(hoje) && d <= fimMes(hoje);
+      }
+      return true;
+    }
+
+    function cabecalhoDia(iso) {
+      const d = parseDate(iso);
+      return `${DIAS_SEMANA[d.getDay()]}, ${fmtDataBR(iso)}`;
+    }
+
+    function buildRows(tarefas, filtro) {
+      const rows = [];
+      const dayMap = new Map();
+
+      for (const t of tarefas) {
+        const totalRecalc = calcularTotalHoras(t);
+        const dias = expandirDiasTarefa(t);
+        for (const dia of dias) {
+          if (!diaNoPeriodo(dia.data, filtro)) continue;
+          if (!dayMap.has(dia.data)) dayMap.set(dia.data, []);
+          dayMap.get(dia.data).push({ tarefa: t, ...dia, totalRecalc });
+        }
+      }
+
+      const sortedDays = [...dayMap.keys()].sort((a,b) => b.localeCompare(a));
+
+      for (const dataISO of sortedDays) {
+        const items = dayMap.get(dataISO);
+        items.sort((a,b) => {
+          const ta = a.tarefa.horarioConclusao || a.tarefa.horarioInicio || '00:00';
+          const tb = b.tarefa.horarioConclusao || b.tarefa.horarioInicio || '00:00';
+          return tb.localeCompare(ta);
+        });
+
+        rows.push({ type: 'header', data: dataISO });
+        let subtotal = 0;
+
+        for (const item of items) {
+          const { tarefa, horas, diaIndex, totalDias } = item;
+          subtotal += horas;
+          const suffix = totalDias > 1 ? ` (dia ${diaIndex}/${totalDias})` : '';
+          rows.push({
+            type: 'task',
+            data: dataISO,
+            nome: tarefa.nome + suffix,
+            nomeOriginal: tarefa.nome,
+            inicio: tarefa.inicio,
+            conclusao: tarefa.conclusao,
+            duracao: formatDuracao(horas),
+            duracaoHoras: horas,
+            bucket: tarefa.bucket,
+            prioridade: tarefa.prioridade,
+            descricao: tarefa.descricaoAmigavel,
+            entregavel: tarefa.entregavel,
+            pedido: tarefa.pedidoOriginal,
+          });
+        }
+
+        rows.push({ type: 'subtotal', data: dataISO, horas: subtotal });
+        rows.push({ type: 'gap' });
+      }
+
+      return rows;
+    }
+
+    function renderStats(tarefas, filtro) {
+      const rows = buildRows(tarefas, filtro);
+      const taskRows = rows.filter(r => r.type === 'task');
+      const uniqueTasks = new Set(taskRows.map(r => r.nomeOriginal));
+      const concluidas = tarefas.filter(t => t.bucket === 'Concluído' && taskRows.some(r => r.nomeOriginal === t.nome)).length;
+      const abertas = uniqueTasks.size - concluidas;
+      const tempoPeriodo = taskRows.reduce((s,r) => s + r.duracaoHoras, 0);
+
+      document.getElementById('stats').innerHTML = `
+        <div class="stat-card"><div class="label">Tarefas no período</div><div class="value">${uniqueTasks.size}</div></div>
+        <div class="stat-card"><div class="label">Concluídas</div><div class="value">${concluidas}</div></div>
+        <div class="stat-card"><div class="label">Em aberto</div><div class="value">${Math.max(0, abertas)}</div></div>
+        <div class="stat-card"><div class="label">Tempo no período</div><div class="value">${formatDuracao(tempoPeriodo)}</div></div>
+        <div class="stat-card"><div class="label">JSON atualizado</div><div class="value" style="font-size:1rem">${data?.meta?.atualizadoEm || '—'}</div></div>
+      `;
+    }
+
+    function render() {
+      if (!data) return;
+      const tarefas = data.tarefas.map(t => ({
+        ...t,
+        totalHoras: calcularTotalHoras(t),
+      }));
+      const rows = buildRows(tarefas, filtroAtivo);
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+        if (row.type === 'header') {
+          tr.className = 'day-header';
+          tr.innerHTML = `<td colspan="7">${cabecalhoDia(row.data)}</td>`;
+        } else if (row.type === 'subtotal') {
+          tr.className = 'day-subtotal';
+          tr.innerHTML = `<td colspan="4"></td><td colspan="3" style="text-align:right">Subtotal do dia: ${formatDuracao(row.horas)}</td>`;
+        } else if (row.type === 'gap') {
+          tr.className = 'day-gap';
+          tr.innerHTML = '<td colspan="7"></td>';
+        } else {
+          const bucketClass = 'bucket-' + row.bucket.replace(/ /g, '\\ ');
+          const prioClass = 'prio-' + row.prioridade;
+          tr.innerHTML = `
+            <td><span class="task-name" data-copy="${esc(row.nomeOriginal)}">${esc(row.nome)}</span></td>
+            <td>${fmtDataBR(row.inicio)}</td>
+            <td>${fmtDataBR(row.conclusao)}</td>
+            <td>${row.duracao}</td>
+            <td><div class="chip-center"><span class="chip ${bucketClass}">${esc(row.bucket)}</span></div></td>
+            <td><div class="chip-center"><span class="chip ${prioClass}">${esc(row.prioridade)}</span></div></td>
+            <td class="notes-block">
+              <div>${esc(row.descricao)}</div>
+              ${row.entregavel ? `<div class="entregavel">${esc(row.entregavel)}</div>` : ''}
+              ${row.pedido ? `<div class="pedido">${esc(row.pedido)}</div>` : ''}
+            </td>
+          `;
+        }
+        tbody.appendChild(tr);
+      }
+
+      renderStats(tarefas, filtroAtivo);
+
+      tbody.querySelectorAll('.task-name').forEach(el => {
+        el.addEventListener('click', () => {
+          navigator.clipboard.writeText(el.dataset.copy);
+          showToast('Nome copiado!');
+        });
+      });
+    }
+
+    function esc(s) {
+      if (!s) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    function copyTSV() {
+      const tarefas = data.tarefas;
+      const rows = buildRows(tarefas, filtroAtivo);
+      const lines = ['Nome\tInício\tConcluir\tDuração\tBucket\tPrioridade\tDescrição'];
+      for (const row of rows) {
+        if (row.type === 'task') {
+          lines.push([
+            row.nome, fmtDataBR(row.inicio), fmtDataBR(row.conclusao),
+            row.duracao, row.bucket, row.prioridade,
+            [row.descricao, row.entregavel, row.pedido].filter(Boolean).join(' | ')
+          ].join('\t'));
+        }
+      }
+      navigator.clipboard.writeText(lines.join('\n'));
+      showToast('Tabela TSV copiada!');
+    }
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filtroAtivo = btn.dataset.filter;
+        render();
+      });
+    });
+
+    document.getElementById('btnCopy').addEventListener('click', copyTSV);
+
+    fetch('./tasks.json')
+      .then(r => { if (!r.ok) throw new Error('tasks.json não encontrado'); return r.json(); })
+      .then(json => { data = json; render(); })
+      .catch(err => {
+        document.getElementById('tbody').innerHTML =
+          `<tr><td colspan="7" class="error">Erro ao carregar tasks.json: ${err.message}<br>
+          Execute: <code>python -m http.server 8765</code> em tools/planner-tasks/</td></tr>`;
+      });
+  </script>
+</body>
+</html>
