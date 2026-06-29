@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-29",
-    "totalTarefas": 140
+    "totalTarefas": 141
   },
   "tarefas": [
     {
@@ -3628,6 +3628,29 @@
         ],
         "branch": "portalRH-HML",
         "prHml": "Merge PR #287"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-140",
+      "nome": "[Portal RH] Remover link Ver pipeline completo do dashboard",
+      "descricaoAmigavel": "Remove o link Ver pipeline completo da secao Pipeline de Recrutamento no dashboard analista RH.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "16:25",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "16:26",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Remover o link Ver pipeline completo do dashboard",
+      "entregavel": "Secao Pipeline de Recrutamento sem link Ver pipeline completo no dashboard analista RH.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #288"
       },
       "observacoes": ""
     }
