@@ -3673,7 +3673,9 @@
       "entregavel": "Rotulo Candidatos na primeira etapa do pipeline do dashboard analista RH.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "f0070d5c"
+        ],
         "branch": "portalRH-HML",
         "prHml": "Merge PR #289"
       },
