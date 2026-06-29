@@ -3648,7 +3648,9 @@
       "entregavel": "Secao Pipeline de Recrutamento sem link Ver pipeline completo no dashboard analista RH.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "fffa9901"
+        ],
         "branch": "portalRH-HML",
         "prHml": "Merge PR #288"
       },
