@@ -3562,14 +3562,14 @@
       "inicio": "2026-06-29",
       "horarioInicio": "13:03",
       "conclusao": "2026-06-29",
-      "horarioConclusao": "13:05",
+      "horarioConclusao": "13:08",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Reforcar diretrizes para registro obrigatorio no Planner; corrigir falta de registro na promocao PR #284; promover para HML",
-      "entregavel": "Regra always-apply do Cursor, DIRETRIZ.md reforcada, backfill corrigido e tasks.json alinhado — disponivel em HML apos merge DEV.",
+      "entregavel": "Regra always-apply do Cursor, DIRETRIZ.md reforcada, backfill corrigido e tasks.json alinhado — disponivel em HML apos Merge PR #285.",
       "ambiente": "HML",
       "referencias": {
         "commits": [
@@ -3579,7 +3579,7 @@
         "branch": "portalRH-HML",
         "prHml": "Merge PR #285"
       },
-      "observacoes": "HorarioConclusao sera ajustado com horario real do merge HML se necessario."
+      "observacoes": ""
     }
   ]
 }
