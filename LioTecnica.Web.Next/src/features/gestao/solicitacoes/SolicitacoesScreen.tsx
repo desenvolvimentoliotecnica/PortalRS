@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoFormPreferred";
 import { useAuth, useHasPermission, useIsAdminOrOwner } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -134,6 +134,30 @@ function isStatusDistribuivelParaAnalistaRh(status: number | string): boolean {
         || s === "AguardandoReprocessamentoRm"
         || s === "16"
     );
+}
+
+function detailToGridRow(d: SolicitacaoDetail): SolicitacaoGridRow {
+    return {
+        id: d.id,
+        titulo: d.titulo,
+        urgencia: d.urgencia,
+        status: d.status,
+        solicitanteId: d.solicitanteId,
+        solicitanteNome: d.solicitanteNome,
+        aprovadorId: d.aprovadorId,
+        aprovadorNome: d.aprovadorNome,
+        analistaRhResponsavelUserId: d.analistaRhResponsavelUserId ?? null,
+        analistaRhResponsavelNome: d.analistaRhResponsavelNome ?? null,
+        centroCustoNome: d.centroCustoNome,
+        qtdPosicoes: d.qtdPosicoes,
+        tipoSolicitacao: d.tipoSolicitacao,
+        isConfidencial: d.isConfidencial,
+        substituidoNome: d.substituidoNome,
+        createdAtUtc: d.createdAtUtc,
+        etapaPendenteLabel: null,
+        etapaPendenteCom: null,
+        rmRequisicaoCodigo: d.rmRequisicaoCodigo ?? null,
+    };
 }
 
 function dedupeSolicitacoesPorId(items: SolicitacaoGridRow[]): SolicitacaoGridRow[] {
@@ -302,6 +326,8 @@ export default function SolicitacoesScreen() {
 function SolicitacoesVagaContent() {
     const { me } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const viewFromUrlHandled = useRef(false);
     const prefersMobileForm = useMobileSolicitacaoFormPreferred();
     const canViewRhContratacoes = useHasPermission("rh.contratacoes.view");
     const canTriagemRhContratacoes = useHasPermission("rh.contratacoes.triagem");
@@ -614,6 +640,29 @@ function SolicitacoesVagaContent() {
         bumpFormNonce();
         setFormOpen(true);
     }
+
+    useEffect(() => {
+        if (loading || viewFromUrlHandled.current) return;
+        const viewIdParam = searchParams.get("view")?.trim();
+        if (!viewIdParam) return;
+
+        viewFromUrlHandled.current = true;
+
+        void (async () => {
+            const existing = rows.find((r) => r.id === viewIdParam);
+            if (existing) {
+                openView(existing);
+            } else {
+                try {
+                    const detail = await fetchJson<SolicitacaoDetail>(`${API}/${encodeURIComponent(viewIdParam)}`);
+                    openView(detailToGridRow(detail));
+                } catch {
+                    toast.error("Requisição não encontrada.");
+                }
+            }
+            router.replace("/app/gestao/solicitacoes", { scroll: false });
+        })();
+    }, [loading, rows, searchParams, router]);
 
     function openCopyFromRow(row: SolicitacaoGridRow) {
         setCopySourceId(row.id);
