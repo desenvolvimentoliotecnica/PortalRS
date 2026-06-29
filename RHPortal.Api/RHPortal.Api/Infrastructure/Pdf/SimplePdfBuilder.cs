@@ -17,7 +17,10 @@ public static class SimplePdfBuilder
     static SimplePdfBuilder()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        WinAnsi = Encoding.GetEncoding(1252);
+        WinAnsi = Encoding.GetEncoding(
+            1252,
+            new EncoderReplacementFallback("?"),
+            new DecoderReplacementFallback("?"));
     }
 
     public static byte[] BuildForm(Action<FormPdfCanvas> draw)
@@ -53,6 +56,7 @@ public static class SimplePdfBuilder
         {
             EnsureSpace(28f);
             _sectionStartY = _cursorY;
+            _sectionPageIndex = _pageIndex;
             FillRect(MarginLeft, _cursorY, 4f, 24f, 0.15f, 0.39f, 0.92f);
             FillRect(MarginLeft + 4f, _cursorY, ContentWidth - 4f, 24f, 0.91f, 0.94f, 0.98f);
             Text(MarginLeft + 14f, _cursorY + 7f, title, 11, bold: true, color: (0.12f, 0.20f, 0.38f));
@@ -63,8 +67,12 @@ public static class SimplePdfBuilder
         public void EndSection()
         {
             var bodyHeight = Math.Max(6f, _cursorY - _bodyStartY + 6f);
-            StrokeRect(MarginLeft, _sectionStartY, ContentWidth, 24f + bodyHeight, 0.82f, 0.86f, 0.91f, 0.5f);
-            _cursorY = _sectionStartY + 24f + bodyHeight + 10f;
+            if (_pageIndex == _sectionPageIndex)
+            {
+                StrokeRect(MarginLeft, _sectionStartY, ContentWidth, 24f + bodyHeight, 0.82f, 0.86f, 0.91f, 0.5f);
+            }
+
+            _cursorY = Math.Max(_cursorY, _sectionStartY + 24f + bodyHeight + 10f);
         }
 
         public void AddFields(params (string Label, string? Value)[] fields)
@@ -79,11 +87,7 @@ public static class SimplePdfBuilder
         {
             var y = _cursorY + 6f;
             foreach (var (enviado, label) in rows)
-            {
-                EnsureSpaceFromY(y, 20f);
                 y = AddDocumentRow(y, enviado, label);
-            }
-
             _cursorY = y + 4f;
         }
 
@@ -104,13 +108,12 @@ public static class SimplePdfBuilder
 
         public byte[] ToPdfBytes()
         {
-            var pageObjects = new List<string>();
-            var contentObjects = new List<string>();
-            var pageRefs = new List<string>();
+            var bodyObjects = new List<string>();
+            var pageObjectIds = new List<int>();
+            var nextId = 5;
 
             for (var i = 0; i < _pages.Count; i++)
             {
-                var pageNum = i + 1;
                 var ops = _pages[i];
                 if (_pages.Count > 1)
                 {
@@ -118,51 +121,56 @@ public static class SimplePdfBuilder
                     ops.Add("0.55 0.58 0.62 rg");
                     ops.Add("/F1 8 Tf");
                     ops.Add($"1 0 0 1 {N(MarginLeft)} {N(PageHeight - MarginBottom + 18f)} Tm");
-                    ops.Add(EscapePdfString($"Página {pageNum} de {_pages.Count}"));
+                    ops.Add(EscapePdfString($"Pagina {i + 1} de {_pages.Count}"));
                     ops.Add("ET");
                 }
 
                 var content = string.Join("\n", ops) + "\n";
                 var streamBytes = WinAnsi.GetBytes(content);
-                var contentId = 5 + i * 2;
-                var pageId = 6 + i * 2;
-                contentObjects.Add($"{contentId} 0 obj\n<< /Length {streamBytes.Length} >>\nstream\n{content}\nendstream\n");
-                pageRefs.Add($"{pageId} 0 R");
-                pageObjects.Add(
+                var contentId = nextId++;
+                var pageId = nextId++;
+                pageObjectIds.Add(pageId);
+
+                bodyObjects.Add($"{contentId} 0 obj\n<< /Length {streamBytes.Length} >>\nstream\n{content}\nendstream\n");
+                bodyObjects.Add(
                     $"{pageId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {N(PageWidth)} {N(PageHeight)}] " +
-                    $"/Resources << /Font << /F1 4 0 R /F2 {4 + _pages.Count * 2 + 1} 0 R >> >> /Contents {contentId} 0 R >>\nendobj\n");
+                    $"/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents {contentId} 0 R >>\nendobj\n");
             }
 
+            var kids = string.Join(" ", pageObjectIds.Select(id => $"{id} 0 R"));
             var objects = new List<string>
             {
                 "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
-                $"2 0 obj\n<< /Type /Pages /Kids [{string.Join(" ", pageRefs)}] /Count {_pages.Count} >>\nendobj\n",
-                "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n",
+                $"2 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {_pages.Count} >>\nendobj\n",
+                "3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n",
+                "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n",
             };
-            objects.AddRange(contentObjects);
-            objects.AddRange(pageObjects);
-            objects.Add($"{4 + _pages.Count * 2 + 1} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n");
+            objects.AddRange(bodyObjects);
+
+            var maxObjectId = nextId - 1;
 
             using var ms = new MemoryStream();
             using var writer = new StreamWriter(ms, WinAnsi, leaveOpen: true);
             writer.Write("%PDF-1.4\n");
-            var offsets = new List<long> { 0 };
-            foreach (var obj in objects)
+            var offsets = new List<long>(maxObjectId + 1);
+            offsets.Add(0);
+
+            for (var objNum = 1; objNum <= maxObjectId; objNum++)
             {
                 writer.Flush();
                 offsets.Add(ms.Position);
-                writer.Write(obj);
+                writer.Write(objects[objNum - 1]);
             }
 
             writer.Flush();
             var xref = ms.Position;
             writer.WriteLine("xref");
-            writer.WriteLine($"0 {objects.Count + 1}");
+            writer.WriteLine($"0 {maxObjectId + 1}");
             writer.WriteLine("0000000000 65535 f ");
-            foreach (var offset in offsets.Skip(1))
-                writer.WriteLine($"{offset:0000000000} 00000 n ");
+            for (var i = 1; i <= maxObjectId; i++)
+                writer.WriteLine($"{offsets[i]:0000000000} 00000 n ");
             writer.WriteLine("trailer");
-            writer.WriteLine($"<< /Size {objects.Count + 1} /Root 1 0 R >>");
+            writer.WriteLine($"<< /Size {maxObjectId + 1} /Root 1 0 R >>");
             writer.WriteLine("startxref");
             writer.WriteLine(xref.ToString(CultureInfo.InvariantCulture));
             writer.WriteLine("%%EOF");
@@ -172,6 +180,7 @@ public static class SimplePdfBuilder
 
         private float _sectionStartY;
         private float _bodyStartY;
+        private int _sectionPageIndex;
         private List<string> Ops => _pages[_pageIndex];
 
         private static float ContentWidth => PageWidth - MarginLeft - MarginRight;
@@ -188,27 +197,42 @@ public static class SimplePdfBuilder
             _cursorY = MarginTop;
         }
 
+        private void SyncYAfterPageBreak(int pageBefore, ref float y)
+        {
+            if (_pageIndex != pageBefore)
+                y = _cursorY + 6f;
+        }
+
         private float AddFieldRow(string label, string? value, float y)
         {
+            var pageBefore = _pageIndex;
             EnsureSpaceFromY(y, 16f);
-            var display = string.IsNullOrWhiteSpace(value) ? "Não informado" : value.Trim();
+            SyncYAfterPageBreak(pageBefore, ref y);
+
+            var display = string.IsNullOrWhiteSpace(value) ? "Não informado" : Sanitize(value.Trim());
             var valueColor = string.IsNullOrWhiteSpace(value)
                 ? (0.55f, 0.58f, 0.62f)
                 : (0.10f, 0.12f, 0.15f);
 
-            Text(MarginLeft + 12f, y, label, 8, bold: true, color: (0.35f, 0.38f, 0.44f));
+            Text(MarginLeft + 12f, y, Sanitize(label), 8, bold: true, color: (0.35f, 0.38f, 0.44f));
             Text(MarginLeft + 168f, y, Truncate(display, 62), 9, color: valueColor);
+            _cursorY = Math.Max(_cursorY, y + 15f);
             return y + 15f;
         }
 
         private float AddDocumentRow(float y, bool enviado, string label)
         {
-            var tag = enviado ? "OK" : "—";
+            var pageBefore = _pageIndex;
+            EnsureSpaceFromY(y, 20f);
+            SyncYAfterPageBreak(pageBefore, ref y);
+
+            var tag = enviado ? "OK" : "--";
             var bg = enviado ? (0.06f, 0.64f, 0.38f) : (0.90f, 0.91f, 0.93f);
             var fg = enviado ? (1f, 1f, 1f) : (0.50f, 0.52f, 0.56f);
             FillRect(MarginLeft + 12f, y, 22f, 13f, bg.Item1, bg.Item2, bg.Item3);
             Text(MarginLeft + 15f, y + 2f, tag, 7, bold: true, color: fg);
-            Text(MarginLeft + 40f, y + 2f, Truncate(label, 70), 9, color: (0.12f, 0.14f, 0.17f));
+            Text(MarginLeft + 40f, y + 2f, Truncate(Sanitize(label), 70), 9, color: (0.12f, 0.14f, 0.17f));
+            _cursorY = Math.Max(_cursorY, y + 16f);
             return y + 16f;
         }
 
@@ -232,7 +256,7 @@ public static class SimplePdfBuilder
             Ops.Add($"{N(r)} {N(g)} {N(b)} rg");
             Ops.Add($"/F{(bold ? 2 : 1)} {size} Tf");
             Ops.Add($"1 0 0 1 {N(x)} {N(ToPdfY(yTop + size * 0.85f))} Tm");
-            Ops.Add($"{EscapePdfString(text)} Tj");
+            Ops.Add($"{EscapePdfString(Sanitize(text))} Tj");
             Ops.Add("ET");
         }
 
@@ -240,8 +264,21 @@ public static class SimplePdfBuilder
 
         private static string N(float value) => value.ToString("0.###", CultureInfo.InvariantCulture);
 
+        private static string Sanitize(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            return text
+                .Replace('\u2014', '-')
+                .Replace('\u2013', '-')
+                .Replace('\u2026', '.')
+                .Replace('\u2018', '\'')
+                .Replace('\u2019', '\'')
+                .Replace('\u201C', '"')
+                .Replace('\u201D', '"');
+        }
+
         private static string Truncate(string text, int maxChars)
-            => text.Length <= maxChars ? text : text[..(maxChars - 1)] + "…";
+            => text.Length <= maxChars ? text : text[..(maxChars - 3)] + "...";
 
         private static string EscapePdfString(string text)
         {
