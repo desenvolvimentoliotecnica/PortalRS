@@ -24,7 +24,7 @@ const META = {
 };
 
 const BRANCH_DEV = 'portalRH-DEV';
-const BRANCH_HML = 'portalRH-HML';
+const BRANCH_HML = 'origin/portalRH-HML';
 const DATA_INICIO_AO_VIVO = '2026-05-23';
 
 /** Grupos históricos (backfill) — agrupados por entrega de negócio, não 1 commit = 1 tarefa */
@@ -204,7 +204,7 @@ function discoverHmlMerges() {
 
     let commits = [];
     try {
-      const range = git(['log', `${hash}^1..${hash}^2`, '--no-merges', '--format=%H']);
+      const range = git(['log', `${hash}^1..${hash}^2`, '--no-merges', '--reverse', '--format=%H']);
       commits = range ? range.split('\n').filter(Boolean) : [];
     } catch {
       commits = [];
@@ -250,7 +250,7 @@ function discoverHmlMerges() {
       ambiente: 'HML',
       referencias: {
         commits: commits.map(c => c.slice(0, 7)),
-        branch: BRANCH_HML,
+        branch: 'portalRH-HML',
         prHml,
       },
       observacoes: commits.length > 1 ? `Backfill: ${commits.length} commits no grupo.` : '',

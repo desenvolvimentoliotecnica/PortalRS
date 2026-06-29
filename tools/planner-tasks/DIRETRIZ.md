@@ -11,7 +11,26 @@ Manter rastreabilidade de entregas do **Portal RH (RenderRH)** com:
 - Cálculo de horas com jornada comercial (08:00–18:00, máx. 8h/dia)
 - Agrupamento por dia na visualização
 - Backfill histórico reprodutível via git
-- **Regra obrigatória:** toda promoção DEV→HML exige atualização do JSON na mesma sessão
+- **Regra obrigatória:** toda solicitação executável registra **início** no JSON; toda promoção DEV→HML registra **término** no JSON — **na mesma sessão, sem exceção**
+
+## ⚠️ Registro obrigatório — zero exceções
+
+O Export Planner **não sincroniza sozinho** com git, CI ou Microsoft Planner. A fonte de verdade é `tasks.json`, mantida pelo assistente **em tempo real**.
+
+| Evento | O que fazer | Quando |
+|--------|-------------|--------|
+| **Início** | Criar tarefa `Em andamento` com `inicio`, `horarioInicio`, `pedidoOriginal` | Ao receber **qualquer** pedido executável no chat |
+| **Durante DEV** | Atualizar `percentualConcluido`, `referencias.commits`, `entregavel` | A cada commit relevante |
+| **Término** | Fechar tarefa: `conclusao`, `horarioConclusao`, `bucket: Concluído`, `prHml`, `totalHoras` | **Antes** de confirmar merge do PR DEV→HML |
+| **Pós-merge** | Ajustar `horarioConclusao` com horário real do merge se diferir | Imediatamente após merge confirmado |
+
+### O que NÃO pode acontecer (incidente real: PR #284)
+
+- Mergear PR HML **sem** entrada correspondente no JSON
+- Confiar que `backfill-git.mjs` preencherá depois — backfill é **histórico**, não fluxo ao vivo
+- Usar branch local desatualizada — merges HML vêm de `origin/portalRH-HML` (remoto)
+
+**Proibido** dizer ao usuário: “promovido com sucesso”, “PR confirmado” ou “mergeado em HML” se `tasks.json` não estiver atualizado e commitado em DEV.
 
 ## Contexto do projeto
 
@@ -105,11 +124,18 @@ O `index.html` **recalcula na exibição** — não confiar cegamente no JSON. O
 
 ## Ciclo de vida
 
-| Momento | Regra |
-|---------|-------|
-| **Início** | Pedido executável no chat → registrar data/hora |
-| **Em andamento** | DEV validado, ainda não em HML |
-| **Fim** | Promoção concluída em `portalRH-HML` → data/hora do deploy |
+| Momento | Regra | Campos obrigatórios |
+|---------|-------|---------------------|
+| **Início** | Pedido executável no chat → registrar **imediatamente** | `inicio`, `horarioInicio`, `bucket: Em andamento`, `horarioConclusao: null` |
+| **Em andamento** | Trabalho em DEV, ainda não em HML | `percentualConcluido` 50–90, `referencias.commits` parciais |
+| **Término** | PR DEV→HML mergeado/confirmado | `conclusao`, `horarioConclusao`, `bucket: Concluído`, `percentualConcluido: 100`, `prHml`, `totalHoras` |
+
+### REGRA OBRIGATÓRIA — INÍCIO E TÉRMINO
+
+1. **Toda solicitação** gera registro de **início** (data/hora do pedido no chat).
+2. **Toda promoção HML** gera registro de **término** (data/hora do merge em `portalRH-HML`).
+3. Ambos na **mesma sessão** do assistente — sem exceção.
+4. Regra também aplicada via `.cursor/rules/planner-obrigatorio.mdc` (always apply).
 
 ### REGRA OBRIGATÓRIA HML
 
@@ -117,30 +143,36 @@ O `index.html` **recalcula na exibição** — não confiar cegamente no JSON. O
 
 #### Ordem ao promover
 
-1. Commit em DEV
-2. **Atualizar `tasks.json`** (abrir/fechar/criar tarefas, `totalHoras`, commits, `prHml`)
-3. Commit do Planner junto ou imediatamente antes do push HML
-4. Push DEV → merge/push HML → acompanhar CI/CD
-5. Ajustar `horarioConclusao` com horário real do pipeline se necessário
-6. Re-promover JSON se horários mudaram
+1. Registrar **início** da tarefa (se ainda não existir)
+2. Commit em DEV
+3. **Fechar tarefa no JSON** (`conclusao`, `horarioConclusao`, `totalHoras`, `commits`, `prHml`)
+4. **Commit do Planner** em DEV (junto ou imediatamente antes do PR)
+5. Push DEV → abrir/mergear PR DEV→HML → acompanhar CI/CD
+6. Se `horarioConclusao` real do merge diferir → ajustar JSON e recommitar
+7. **Só então** confirmar promocao ao usuario
 
 **Proibido** dizer “promovido com sucesso” só com git/CI.
 
 ## Checklist antes de encerrar promoção HML
 
+- [ ] **Início** registrado (`inicio` + `horarioInicio`) para cada pedido da conversa
+- [ ] **Término** registrado (`conclusao` + `horarioConclusao`) com horário real do merge HML
 - [ ] Toda entrega da conversa tem entrada no JSON
 - [ ] Horários e `totalHoras` coerentes
 - [ ] `referencias.commits` + `prHml` (PR ou pipeline)
 - [ ] `meta.atualizadoEm` e `meta.totalTarefas` atualizados
-- [ ] JSON commitado e em HML
+- [ ] JSON commitado em DEV **antes** de confirmar merge/promoção ao usuário
 
 ## Checklist do assistente (sessão de trabalho)
 
-1. Ao receber pedido → criar tarefa **Em andamento** com `horarioInicio` agora
-2. Durante DEV → atualizar progresso (50–90%), commits
-3. **Antes de HML** → fechar tarefa (`bucket: Concluído`, `percentualConcluido: 100`, `conclusao`/`horarioConclusao`)
-4. Promover HML
-5. Usuário copia do HTML para o Planner
+1. **Ao receber pedido** → criar tarefa **Em andamento** com `inicio` + `horarioInicio` **agora** (America/Sao_Paulo)
+2. Durante DEV → atualizar progresso (50–90%), commits em `referencias`
+3. **Antes de abrir/mergear PR HML** → fechar tarefa no JSON (`bucket: Concluído`, `percentualConcluido: 100`, `conclusao`/`horarioConclusao`, `totalHoras`, `prHml`)
+4. Commitar `tasks.json` em DEV
+5. Mergear PR DEV→HML
+6. Ajustar `horarioConclusao` se horário real do merge diferir
+7. Confirmar promocao ao usuario
+8. Usuário copia do HTML para o Microsoft Planner do gestor
 
 ## Como abrir o HTML
 
@@ -210,7 +242,7 @@ node backfill-git.mjs --validate-only
 O script:
 
 1. Lê grupos históricos em `BACKFILL_GROUPS`
-2. Descobre merges HML desde 2026-05-23
+2. Descobre merges HML desde 2026-05-23 em **`origin/portalRH-HML`** (remoto — nunca branch local desatualizada)
 3. Obtém horários via git
 4. Calcula `totalHoras`
 5. Valida soma JSON = soma recalculada e subtotais diários
@@ -235,14 +267,16 @@ Casos edge verificados pelo script:
 
 ## Fluxo contínuo (após backfill)
 
-1. Usuário pede → criar tarefa **Em andamento**
-2. DEV → atualizar progresso e commits
-3. Antes de HML → fechar tarefa no JSON
-4. Promover HML
-5. Usuário copia do HTML para o Planner
+1. Usuário pede → **registrar início imediatamente** (tarefa **Em andamento**)
+2. DEV → atualizar progresso, commits e `entregavel`
+3. Antes de PR HML → **fechar tarefa** no JSON (término + `totalHoras` + `prHml`)
+4. Commitar Planner em DEV → mergear PR DEV→HML
+5. Confirmar promocao → usuário copia do HTML para o Planner
 
 ## Observações
 
 - Se algo no repositório não tiver commit (só doc local), registrar em `observacoes` e **não inventar hash**
-- Não promover para HML sem atualizar o JSON
+- **Backfill não substitui registro ao vivo** — use `backfill-git.mjs` só para histórico ou reconciliação
+- Não promover para HML sem atualizar o JSON na mesma sessão
 - Manter `calc-horas.mjs` sincronizado entre HTML e backfill
+- Regra persistente do Cursor: `.cursor/rules/planner-obrigatorio.mdc`
