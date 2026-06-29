@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-29",
-    "totalTarefas": 138
+    "totalTarefas": 139
   },
   "tarefas": [
     {
@@ -3562,14 +3562,14 @@
       "inicio": "2026-06-29",
       "horarioInicio": "13:03",
       "conclusao": "2026-06-29",
-      "horarioConclusao": "13:05",
+      "horarioConclusao": "13:08",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Reforcar diretrizes para registro obrigatorio no Planner; corrigir falta de registro na promocao PR #284; promover para HML",
-      "entregavel": "Regra always-apply do Cursor, DIRETRIZ.md reforcada, backfill corrigido e tasks.json alinhado — disponivel em HML apos merge DEV.",
+      "entregavel": "Regra always-apply do Cursor, DIRETRIZ.md reforcada, backfill corrigido e tasks.json alinhado — disponivel em HML apos Merge PR #285.",
       "ambiente": "HML",
       "referencias": {
         "commits": [
@@ -3579,7 +3579,32 @@
         "branch": "portalRH-HML",
         "prHml": "Merge PR #285"
       },
-      "observacoes": "HorarioConclusao sera ajustado com horario real do merge HML se necessario."
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-138",
+      "nome": "[Portal RH] Simplificar subtitulo de boas-vindas do dashboard analista",
+      "descricaoAmigavel": "Ajuste de texto no dashboard do analista RH para exibir apenas 'Aqui está um resumo do seu dia!' no subtítulo.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "13:09",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "13:10",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Alterar texto do resumo do dia no dashboard para 'Aqui está um resumo do seu dia!' e promover para HML",
+      "entregavel": "Subtitulo do dashboard analista RH simplificado, sem mencao a dados reais do portal.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "7de2b68a"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #286"
+      },
+      "observacoes": ""
     }
   ]
 }
