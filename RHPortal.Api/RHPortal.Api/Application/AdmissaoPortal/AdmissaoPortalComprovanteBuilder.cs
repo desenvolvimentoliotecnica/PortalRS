@@ -39,8 +39,8 @@ internal static class AdmissaoPortalComprovanteBuilder
                 ("Órgão expedidor / UF", Join(pa.RgOrgaoExpedidor, pa.RgUfExpedidor, " / ")),
                 ("Data expedição RG", FormatDate(pa.RgDataExpedicao)),
                 ("Data de nascimento", FormatDate(pa.DataNascimento)),
-                ("Sexo", EnumLabel<Sexo>((int)pa.Sexo)),
-                ("Estado civil", EnumLabel<EstadoCivil>((int)pa.EstadoCivil)),
+                ("Sexo", EnumLabel(pa.Sexo)),
+                ("Estado civil", EnumLabel(pa.EstadoCivil)),
                 ("Nacionalidade", pa.Nacionalidade),
                 ("Nome da mãe", pa.NomeMae),
                 ("Nome do pai", pa.NomePai),
@@ -66,7 +66,7 @@ internal static class AdmissaoPortalComprovanteBuilder
                 ("Banco", Join(pa.BancoCodigo, pa.BancoNome, " — ")),
                 ("Agência", Join(pa.Agencia, pa.AgenciaDigito, "-")),
                 ("Conta", Join(pa.Conta, pa.ContaDigito, "-")),
-                ("Tipo de conta", pa.TipoConta.HasValue ? EnumLabel<TipoContaBancaria>((int)pa.TipoConta.Value) : null));
+                ("Tipo de conta", pa.TipoConta.HasValue ? EnumLabel(pa.TipoConta.Value) : null));
             canvas.EndSection();
 
             canvas.BeginSection("Dependentes");
@@ -82,7 +82,7 @@ internal static class AdmissaoPortalComprovanteBuilder
                     var pcd = dep.IsPcd ? " — PCD" : "";
                     canvas.AddFields(
                         ($"Dependente {idx}", dep.NomeCompleto),
-                        ("Parentesco", EnumLabel<Parentesco>((int)dep.Parentesco)),
+                        ("Parentesco", EnumLabel(dep.Parentesco)),
                         ("CPF", FormatCpf(dep.Cpf)),
                         ("Data nascimento", FormatDate(dep.DataNascimento)),
                         ("Observação", dep.IsPcd ? "Pessoa com deficiência" : null));
@@ -140,7 +140,7 @@ internal static class AdmissaoPortalComprovanteBuilder
         return ddd.HasValue ? $"({ddd}) {number}" : number;
     }
 
-    private static string EnumLabel<TEnum>(int value) where TEnum : struct, Enum
+    private static string EnumLabel<TEnum>(TEnum value) where TEnum : struct, Enum
     {
         if (!Enum.IsDefined(typeof(TEnum), value)) return string.Empty;
         var name = Enum.GetName(typeof(TEnum), value) ?? string.Empty;
