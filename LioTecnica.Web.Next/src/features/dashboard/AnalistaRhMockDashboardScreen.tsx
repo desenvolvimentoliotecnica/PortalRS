@@ -418,9 +418,6 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
                 </div>
               ))}
             </div>
-            <a href="/app/candidaturas" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-blue-600">
-              Ver pipeline completo <ChevronRight className="size-4" />
-            </a>
           </Panel>
         </div>
 
