@@ -9,7 +9,16 @@ export type ReqDetailDraft = { nome: string; peso: string; obrigatorio: boolean;
 export type StageDraft = { nome: string; responsavel: string; modo: string; slaDias: string; descricao: string };
 export type QuestionDraft = { pergunta: string; tipo: string; peso: string; obrigatoria: boolean; knockout: boolean; opcoes: string };
 
-export type VagaTab = "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "candidatos";
+export type VagaTab = "dados" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "candidatos";
+
+const VAGA_DIVERSIDADE_PAYLOAD = {
+    aceitaPcd: false,
+    generoPreferencia: null,
+    vagaAfirmativa: false,
+    linguagemInclusiva: false,
+    publicoAfirmativo: null,
+    observacoesPcd: null,
+} as const;
 
 export interface VagaDraftFull {
     id?: string;
@@ -24,10 +33,7 @@ export interface VagaDraftFull {
     recrutadorResponsavelUserId: string | null;
     prioridade: string;
     resumoPitch: string; tagsResponsabilidades: string; tagsKeywords: string;
-    confidencial: boolean; aceitaPcd: boolean; urgente: boolean;
-    // Diversidade
-    generoPreferencia: string; vagaAfirmativa: boolean; linguagemInclusiva: boolean;
-    publicoAfirmativo: string; pcdObs: string;
+    confidencial: boolean; urgente: boolean;
     // Projeto
     projetoNome: string; projetoCliente: string; projetoPrazo: string; projetoDescricao: string;
     // Local e jornada
@@ -64,8 +70,7 @@ export const EMPTY_DRAFT: VagaDraftFull = {
     titulo: "", codigo: "", centroCustoId: "", areaTime: "", modalidade: "presencial", status: "aberta", senioridade: "",
     quantidadeVagas: 1, tipoContratacao: "", threshold: 70, descricao: "", codigoInterno: "", cbo: "",
     motivoAbertura: "", orcamentoAprovado: "", gestorRequisitante: "", recrutadorResponsavel: "", recrutadorResponsavelUserId: null, prioridade: "",
-    resumoPitch: "", tagsResponsabilidades: "", tagsKeywords: "", confidencial: false, aceitaPcd: false, urgente: false,
-    generoPreferencia: "", vagaAfirmativa: false, linguagemInclusiva: false, publicoAfirmativo: "", pcdObs: "",
+    resumoPitch: "", tagsResponsabilidades: "", tagsKeywords: "", confidencial: false, urgente: false,
     projetoNome: "", projetoCliente: "", projetoPrazo: "", projetoDescricao: "",
     regime: "", cargaSemanal: "", escala: "", horaEntrada: "", horaSaida: "", intervalo: "",
     cep: "", logradouro: "", numero: "", bairro: "", cidade: "", uf: "", politicaTrabalho: "", deslocamentoObs: "",
@@ -170,11 +175,9 @@ export function buildSavePayload(d: VagaDraftFull, enumText: (key: string, code:
         resumoPitch: emptyToNull(d.resumoPitch),
         tagsResponsabilidadesRaw: emptyToNull(joinTagsRaw(splitTags(d.tagsResponsabilidades))),
         tagsKeywordsRaw: emptyToNull(joinTagsRaw(splitTags(d.tagsKeywords))),
-        confidencial: d.confidencial, aceitaPcd: d.aceitaPcd, urgente: d.urgente,
-        generoPreferencia: emptyToNull(d.generoPreferencia),
-        vagaAfirmativa: d.vagaAfirmativa, linguagemInclusiva: d.linguagemInclusiva,
-        publicoAfirmativo: emptyToNull(d.publicoAfirmativo),
-        observacoesPcd: emptyToNull(d.pcdObs),
+        confidencial: d.confidencial,
+        urgente: d.urgente,
+        ...VAGA_DIVERSIDADE_PAYLOAD,
         projetoNome: emptyToNull(d.projetoNome),
         projetoClienteAreaImpactada: emptyToNull(d.projetoCliente),
         projetoPrazoPrevisto: emptyToNull(d.projetoPrazo),
@@ -248,9 +251,7 @@ export function mapApiToFormDraft(r: Record<string, unknown>): VagaDraftFull {
         resumoPitch: ps("resumoPitch"),
         tagsResponsabilidades: splitT("tagsResponsabilidadesRaw"),
         tagsKeywords: splitT("tagsKeywordsRaw"),
-        confidencial: pb("confidencial"), aceitaPcd: pb("aceitaPcd"), urgente: pb("urgente"),
-        generoPreferencia: ps("generoPreferencia"), vagaAfirmativa: pb("vagaAfirmativa"),
-        linguagemInclusiva: pb("linguagemInclusiva"), publicoAfirmativo: ps("publicoAfirmativo"), pcdObs: ps("observacoesPcd"),
+        confidencial: pb("confidencial"), urgente: pb("urgente"),
         projetoNome: ps("projetoNome"), projetoCliente: ps("projetoClienteAreaImpactada"),
         projetoPrazo: ps("projetoPrazoPrevisto"), projetoDescricao: ps("projetoDescricao"),
         regime: ps("regime"), cargaSemanal: r.cargaSemanalHoras != null ? String(r.cargaSemanalHoras) : "",

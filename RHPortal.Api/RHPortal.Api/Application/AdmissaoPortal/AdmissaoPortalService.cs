@@ -7,12 +7,16 @@ using RhPortal.Api.Contracts.AdmissaoPortal;
 using RhPortal.Api.Contracts.PreAdmissao;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Notifications;
 using RhPortal.Api.Infrastructure.Storage;
+using RhPortal.Api.Infrastructure.Pdf;
 using RhPortal.Api.Infrastructure.Tenancy;
 
 namespace RhPortal.Api.Application.AdmissaoPortal;
+
+public sealed record PortalDocumentoDownloadResult(Stream Stream, string ContentType, string FileName);
 
 public interface IAdmissaoPortalService
 {
@@ -22,6 +26,8 @@ public interface IAdmissaoPortalService
     Task<(int HttpStatus, string Mensagem)> EnviarDocumentoBlipAsync(BlipEnviarDocumentoRequest request, CancellationToken ct);
     Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest request, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse?> UploadDocAsync(Guid preAdmissaoId, string cpf, TipoDocumento tipo, LadoDocumento lado, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
+    Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct);
+    Task<PortalDocumentoDownloadResult?> GetDocumentoDownloadAsync(Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct);
     Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
     Task<DocumentValidationResponse?> ValidateDocumentAsync(Guid preAdmissaoId, string cpf, DocumentValidationRequest request, CancellationToken ct);
     Task<IReadOnlyList<PreAdmissaoDependenteResponse>> ListDependentesAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
@@ -29,11 +35,14 @@ public interface IAdmissaoPortalService
     Task<PreAdmissaoDependenteResponse?> UpdateDependenteAsync(Guid preAdmissaoId, string cpf, Guid dependenteId, DependenteUpdateRequest request, CancellationToken ct);
     Task<bool> RemoveDependenteAsync(Guid preAdmissaoId, string cpf, Guid dependenteId, CancellationToken ct);
     Task<bool> SaveWizardProgressAsync(Guid preAdmissaoId, string cpf, int currentStep, int completionPercent, CancellationToken ct);
+    Task<bool> SendAtendimentoAsync(Guid preAdmissaoId, string cpf, PortalAtendimentoRequest request, CancellationToken ct);
+    Task<PortalDocumentoDownloadResult?> GetComprovanteEnvioPdfAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
 }
 
 public sealed class AdmissaoPortalService : IAdmissaoPortalService
 {
     private readonly AppDbContext _db;
+    private readonly MasterDbContext _masterDb;
     private readonly ITenantContext _tenantContext;
     private readonly IS3StorageService _storage;
     private readonly DocumentAiExtractor _aiExtractor;
@@ -41,18 +50,22 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly BlipDocumentoValidator _blipValidator;
     private readonly IHostEnvironment _hostEnvironment;
+    private readonly IAdmissaoPortalRhNotificacaoService _rhNotificacao;
 
     public AdmissaoPortalService(
         AppDbContext db,
+        MasterDbContext masterDb,
         ITenantContext tenantContext,
         IS3StorageService storage,
         DocumentAiExtractor aiExtractor,
         IHubContext<NotificationsHub> hub,
         IHttpClientFactory httpClientFactory,
         BlipDocumentoValidator blipValidator,
-        IHostEnvironment hostEnvironment)
+        IHostEnvironment hostEnvironment,
+        IAdmissaoPortalRhNotificacaoService rhNotificacao)
     {
         _db = db;
+        _masterDb = masterDb;
         _tenantContext = tenantContext;
         _storage = storage;
         _aiExtractor = aiExtractor;
@@ -60,6 +73,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         _httpClientFactory = httpClientFactory;
         _blipValidator = blipValidator;
         _hostEnvironment = hostEnvironment;
+        _rhNotificacao = rhNotificacao;
     }
 
     public async Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct)
@@ -165,8 +179,10 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             d.Id, d.NomeCompleto, (int)d.Parentesco, d.Cpf,
             d.DataNascimento.ToString("yyyy-MM-dd"), d.IsPcd)).ToList();
 
+        var welcome = await BuildWelcomeContextAsync(pa, ct);
+
         return new AdmissaoPortalDataResponse(pa.Id, pa.Nome, (int)pa.Status, solicitados, enviados, dados,
-            dependentes, pa.WizardCurrentStep, pa.WizardCompletionPercent);
+            dependentes, pa.WizardCurrentStep, pa.WizardCompletionPercent, welcome);
     }
 
     public async Task<bool> SaveDadosAsync(Guid preAdmissaoId, string cpf, PortalSalvarDadosRequest r, CancellationToken ct)
@@ -270,6 +286,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "save_dados", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "save_dados", ct);
         return true;
     }
 
@@ -307,10 +324,66 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "upload_doc", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "upload_doc", ct);
 
         return new PreAdmissaoDocumentoResponse(
             doc.Id, doc.Tipo, doc.Lado, doc.NomeArquivo, doc.ContentType, doc.TamanhoBytes,
             doc.Status, null, doc.CreatedAtUtc, ResolveDocumentUrl(doc));
+    }
+
+    public async Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct)
+    {
+        var pa = await LoadAndValidateTracked(preAdmissaoId, cpf, ct);
+        if (pa is null) return false;
+
+        var doc = await _db.Set<PreAdmissaoDocumento>()
+            .FirstOrDefaultAsync(d => d.Id == docId && d.PreAdmissaoId == preAdmissaoId, ct);
+        if (doc is null) return false;
+
+        await DeleteStoredDocumentAsync(doc, ct);
+        _db.Set<PreAdmissaoDocumento>().Remove(doc);
+        pa.LastActivityUtc = DateTimeOffset.UtcNow;
+        pa.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        await BroadcastProgressAsync(pa, "delete_doc", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "delete_doc", ct);
+        return true;
+    }
+
+    public async Task<PortalDocumentoDownloadResult?> GetDocumentoDownloadAsync(
+        Guid preAdmissaoId, string cpf, Guid docId, CancellationToken ct)
+    {
+        var pa = await LoadAndValidate(preAdmissaoId, cpf, ct);
+        if (pa is null) return null;
+
+        var doc = pa.Documentos.FirstOrDefault(d => d.Id == docId);
+        if (doc is null) return null;
+
+        if (PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath))
+        {
+            var path = PreAdmissaoDocumentoStorage.TryResolveLocalPath(_hostEnvironment, doc.TenantId, doc.StoragePath);
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+
+            var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var contentType = string.IsNullOrWhiteSpace(doc.ContentType) ? "application/octet-stream" : doc.ContentType;
+            return new PortalDocumentoDownloadResult(stream, contentType, doc.NomeArquivo);
+        }
+
+        try
+        {
+            var url = _storage.GetPresignedUrl(doc.StoragePath);
+            using var http = _httpClientFactory.CreateClient();
+            var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var remoteStream = await response.Content.ReadAsStreamAsync(ct);
+            var remoteType = response.Content.Headers.ContentType?.MediaType ?? doc.ContentType ?? "application/octet-stream";
+            return new PortalDocumentoDownloadResult(remoteStream, remoteType, doc.NomeArquivo);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<bool> SubmitAsync(Guid preAdmissaoId, string cpf, CancellationToken ct)
@@ -327,6 +400,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.LastActivityUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "submit", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "submit", ct);
         return true;
     }
 
@@ -544,6 +618,19 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         }
     }
 
+    private async Task DeleteStoredDocumentAsync(PreAdmissaoDocumento doc, CancellationToken ct)
+    {
+        if (PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath))
+        {
+            var path = PreAdmissaoDocumentoStorage.TryResolveLocalPath(_hostEnvironment, doc.TenantId, doc.StoragePath);
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                File.Delete(path);
+            return;
+        }
+
+        await _storage.DeleteAsync(doc.StoragePath, ct);
+    }
+
     private string ResolveDocumentUrl(PreAdmissaoDocumento doc)
         => PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath)
             ? string.Empty
@@ -568,6 +655,10 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
             .Include(x => x.Documentos)
             .Include(x => x.DocumentosSolicitados)
             .Include(x => x.Dependentes)
+            .Include(x => x.JobPosition)
+            .Include(x => x.CentroCusto)
+            .Include(x => x.Vaga)
+            .Include(x => x.Unit)
             .FirstOrDefaultAsync(x => x.Id == id && x.AccessToken != null, ct);
         if (pa is null || NormalizeCpf(pa.Cpf ?? "") != cpfNorm) return null;
         var allowedStatuses = new[] { PreAdmissaoStatus.Enviado, PreAdmissaoStatus.Acessado, PreAdmissaoStatus.PreenchidoParcial, PreAdmissaoStatus.Preenchido };
@@ -638,6 +729,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "add_dependente", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "add_dependente", ct);
 
         return new PreAdmissaoDependenteResponse(
             dep.Id, dep.NomeCompleto, (int)dep.Parentesco, dep.Cpf,
@@ -664,6 +756,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.LastActivityUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "update_dependente", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "update_dependente", ct);
 
         return new PreAdmissaoDependenteResponse(
             dep.Id, dep.NomeCompleto, (int)dep.Parentesco, dep.Cpf,
@@ -683,6 +776,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         pa.LastActivityUtc = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "remove_dependente", ct);
+        await _rhNotificacao.NotifyAtualizacaoAsync(preAdmissaoId, "remove_dependente", ct);
         return true;
     }
 
@@ -700,6 +794,45 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         await _db.SaveChangesAsync(ct);
         await BroadcastProgressAsync(pa, "wizard_progress", ct);
         return true;
+    }
+
+    public async Task<bool> SendAtendimentoAsync(
+        Guid preAdmissaoId, string cpf, PortalAtendimentoRequest request, CancellationToken ct)
+    {
+        var pa = await LoadAndValidate(preAdmissaoId, cpf, ct);
+        if (pa is null) return false;
+
+        var assunto = request.Assunto?.Trim() ?? "";
+        var mensagem = request.Mensagem?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(assunto) || string.IsNullOrWhiteSpace(mensagem))
+            return false;
+
+        if (!PortalAtendimentoAssuntos.Opcoes.Contains(assunto, StringComparer.OrdinalIgnoreCase))
+            return false;
+
+        return await _rhNotificacao.SendAtendimentoAsync(preAdmissaoId, assunto, mensagem, ct);
+    }
+
+        public async Task<PortalDocumentoDownloadResult?> GetComprovanteEnvioPdfAsync(
+        Guid preAdmissaoId, string cpf, CancellationToken ct)
+    {
+        var pa = await LoadAndValidate(preAdmissaoId, cpf, ct);
+        if (pa is null) return null;
+
+        var submitted = pa.Status == PreAdmissaoStatus.Preenchido
+            || pa.SubmittedAtUtc.HasValue;
+        if (!submitted) return null;
+
+        var branding = await _db.Set<Domain.Entities.TenantBranding>().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+        var nomeEmpresa = branding?.NomePortal?.Trim()
+            ?? _tenantContext.TenantId;
+        var vagaTitulo = pa.Vaga?.Titulo ?? pa.JobPosition?.Name;
+
+        var pdfBytes = AdmissaoPortalComprovanteBuilder.BuildPdf(pa, vagaTitulo, nomeEmpresa);
+        var stream = new MemoryStream(pdfBytes);
+        var fileName = $"comprovante-admissao-{pa.Id:N}.pdf";
+        return new PortalDocumentoDownloadResult(stream, "application/pdf", fileName);
     }
 
     // ── SignalR broadcast ──
@@ -722,6 +855,90 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         }
         catch { /* SignalR failure should not block the main operation */ }
     }
+
+    private async Task<PortalWelcomeContext> BuildWelcomeContextAsync(Domain.Entities.PreAdmissao pa, CancellationToken ct)
+    {
+        var branding = await _db.Set<Domain.Entities.TenantBranding>().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+        var tenant = await _masterDb.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TenantId == _tenantContext.TenantId, ct);
+
+        var nomeEmpresa = branding?.NomePortal?.Trim()
+            ?? tenant?.Name?.Trim()
+            ?? "Portal de RH";
+
+        var cargo = pa.JobPosition?.Name?.Trim()
+            ?? pa.Vaga?.Titulo?.Trim();
+        var area = pa.CentroCusto?.Description?.Trim()
+            ?? FormatVagaAreaTime(pa.Vaga?.AreaTime);
+        var local = FormatLocalTrabalho(pa);
+        var tipoContratacao = FormatTipoContratacao(pa.TipoContratacao ?? MapVagaTipoContratacao(pa.Vaga?.TipoContratacao));
+        var salario = pa.Salario is > 0
+            ? pa.Salario.Value.ToString("C", new System.Globalization.CultureInfo("pt-BR"))
+            : "A combinar";
+        var dataInicio = pa.DataAdmissao?.ToString("dd/MM/yyyy");
+
+        var vaga = new PortalInformacoesVaga(cargo, area, local, tipoContratacao, salario, dataInicio);
+        return new PortalWelcomeContext(nomeEmpresa, branding?.LogoUrl, vaga);
+    }
+
+    private static string? FormatLocalTrabalho(Domain.Entities.PreAdmissao pa)
+    {
+        var cidade = pa.Unit?.City?.Trim() ?? pa.Cidade?.Trim();
+        var uf = pa.Unit?.Uf?.Trim() ?? pa.Uf?.Trim();
+        var modalidade = FormatVagaModalidade(pa.Vaga?.Modalidade);
+
+        if (string.IsNullOrWhiteSpace(cidade) && string.IsNullOrWhiteSpace(uf))
+            return modalidade;
+
+        var local = !string.IsNullOrWhiteSpace(cidade) && !string.IsNullOrWhiteSpace(uf)
+            ? $"{cidade} - {uf}"
+            : cidade ?? uf;
+
+        return modalidade is not null ? $"{local} ({modalidade})" : local;
+    }
+
+    private static TipoContratacaoAdmissao? MapVagaTipoContratacao(VagaTipoContratacao? tipo) => tipo switch
+    {
+        VagaTipoContratacao.CLT => TipoContratacaoAdmissao.CLT,
+        VagaTipoContratacao.PJ => TipoContratacaoAdmissao.PJ,
+        VagaTipoContratacao.Estagio => TipoContratacaoAdmissao.Estagio,
+        VagaTipoContratacao.Temporario => TipoContratacaoAdmissao.Temporario,
+        VagaTipoContratacao.Aprendiz => TipoContratacaoAdmissao.Aprendiz,
+        _ => null,
+    };
+
+    private static string? FormatTipoContratacao(TipoContratacaoAdmissao? tipo) => tipo switch
+    {
+        TipoContratacaoAdmissao.CLT => "CLT",
+        TipoContratacaoAdmissao.PJ => "PJ",
+        TipoContratacaoAdmissao.Estagio => "Estágio",
+        TipoContratacaoAdmissao.Temporario => "Temporário",
+        TipoContratacaoAdmissao.Aprendiz => "Aprendiz",
+        TipoContratacaoAdmissao.Terceirizado => "Terceirizado",
+        _ => null,
+    };
+
+    private static string? FormatVagaModalidade(VagaModalidade? modalidade) => modalidade switch
+    {
+        VagaModalidade.Presencial => "Presencial",
+        VagaModalidade.Hibrido => "Híbrido",
+        VagaModalidade.Remoto => "Remoto",
+        _ => null,
+    };
+
+    private static string? FormatVagaAreaTime(VagaAreaTime? area) => area switch
+    {
+        VagaAreaTime.Backoffice => "Backoffice",
+        VagaAreaTime.Field => "Field",
+        VagaAreaTime.Growth => "Growth",
+        VagaAreaTime.Dados => "Dados",
+        VagaAreaTime.Engenharia => "Engenharia",
+        VagaAreaTime.ProdutoUx => "Produto / UX",
+        VagaAreaTime.Suporte => "Suporte",
+        VagaAreaTime.OperacaoChaoDeFabrica => "Operação / Chão de fábrica",
+        _ => null,
+    };
 
     private static string NormalizeCpf(string cpf) => cpf.Replace(".", "").Replace("-", "").Replace(" ", "").Trim();
 }

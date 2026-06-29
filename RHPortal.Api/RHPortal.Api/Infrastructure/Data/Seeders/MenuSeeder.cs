@@ -176,6 +176,8 @@ public static class MenuSeeder
 
         // ── Recrutamento: fluxo linear (ordem = passo no processo) ──
         ("/Gestao/Solicitacoes", "clipboardlist", 2, "solicitacoes-vaga.view", true, "Seed.Menu.SolicitacoesVaga", null),
+        ("/Gestao/Desligamentos", "user-minus", 25, "folha.desligamentos.view", false, "Seed.Menu.Desligamentos", null),
+        ("/Gestao/Desligamentos/Entrevista-Template", "clipboard-list", 26, "folha.entrevista-saida.manage", false, "Seed.Menu.EntrevistaSaidaTemplate", null),
         ("/Vagas", "bi-briefcase", 3, "vagas.view", false, "Seed.Menu.Vagas", null),
         ("/Candidatos", "bi-people", 4, "candidatos.view", false, "Seed.Menu.Candidatos", null),
         ("/Matching", "bi-stars", 5, "matching.view", true, "Seed.Menu.Matching", null),

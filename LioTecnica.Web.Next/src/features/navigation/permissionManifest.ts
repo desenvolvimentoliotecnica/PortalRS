@@ -8,6 +8,11 @@ import type { BffNavItem } from "@/lib/schemas/bff";
  *
  * To add a new screen: add one entry here — no DB seeding, no per-tenant config.
  */
+const OWNER_ONLY_NAV_IDS = new Set([
+    "nav-gestao-aprovacoes-vaga",
+    "nav-rh-contrat-aprovacoes",
+]);
+
 const NAV_MANIFEST: ReadonlyArray<{
     id: string;
     label: string;
@@ -17,8 +22,8 @@ const NAV_MANIFEST: ReadonlyArray<{
 }> = [
     // ── Top-level (outside any group) ──────────────────────────────────
     { id: "nav-dashboard",                 label: "Dashboard",                  href: "/dashboard",                      icon: "layoutdashboard",  permission: "dashboard.view" },
-    { id: "nav-painel-solicitacoes",       label: "Painel de Solicitações",      href: "/gestao/painel-solicitacoes",     icon: "gitbranch",        permission: "gestao.dashboard" },
-    { id: "nav-gestao-solicitacoes-vaga",  label: "Solicitações de Vaga",        href: "/gestao/solicitacoes",          icon: "clipboardlist",     permission: "solicitacoes-vaga.view" },
+    { id: "nav-gestao-solicitacoes-vaga",  label: "Solicitações",                href: "/gestao/solicitacoes",          icon: "clipboardlist",     permission: "solicitacoes-vaga.view" },
+    { id: "nav-desligamentos",             label: "Desligamentos",               href: "/gestao/desligamentos",           icon: "user-minus",       permission: "folha.desligamentos.view" },
     { id: "nav-gestao-aprovacoes-vaga",    label: "Aprovações",                   href: "/gestao/aprovacoes",            icon: "listchecks",        permission: "aprovacoes-vaga.view" },
     { id: "nav-agendas",                   label: "Agenda",                     href: "/agendas",                        icon: "calendar",         permission: "agenda.view" },
 
@@ -52,7 +57,6 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-meu-time",                  label: "Meu Time",                    href: "/gestao/meu-time",                icon: "users",            permission: "gestao.dashboard" },
     { id: "nav-batidaponto",               label: "Batida de Ponto",             href: "/gestao/batida-ponto",            icon: "bi-clock-history", permission: "agenda.view" }, // Reusing general view
     { id: "nav-comissoes",                 label: "Pagamento extra",             href: "/gestao/comissoes",               icon: "bi-bar-chart",     permission: "gestao.dashboard" },
-    { id: "nav-desligamentos",             label: "Desligamentos",               href: "/gestao/desligamentos",           icon: "user-minus",       permission: "gestao.resumo" },
     { id: "nav-planos-desenvolvimento",    label: "PDI",                         href: "/gestao/planosdesenvolvimento",   icon: "target",           permission: "feedback.desenvolvimento" },
     { id: "nav-humor",                     label: "Humor",                       href: "/gestao/humor",                   icon: "smile",            permission: "gestao.humor" },
     { id: "nav-resumo-atividades",         label: "Resumo Atividades",           href: "/gestao/resumoatividades",        icon: "activity",         permission: "gestao.resumo" },
@@ -110,7 +114,9 @@ export function hasPermission(permissions: readonly string[], key: string): bool
  * Pass `me.permissions` from the BffMe object.
  */
 export function buildNavItemsForPermissions(permissions: string[]): BffNavItem[] {
+    const isOwner = permissions.includes("*");
     return NAV_MANIFEST
+        .filter((item) => isOwner || !OWNER_ONLY_NAV_IDS.has(item.id))
         .filter((item) => hasPermission(permissions, item.permission))
         .map((item) => ({
             id: item.id,

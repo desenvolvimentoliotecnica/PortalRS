@@ -7,6 +7,7 @@ import {
     AlertTriangle,
     Bot,
     Brain,
+    ClipboardList,
     Download,
     Eye,
     Loader2,
@@ -85,7 +86,9 @@ const ETAPA_MACRO_LABELS: Record<string, string> = {
     EntrevistaTecnica: "Entrevista técnica",
     Teste: "Teste",
     Proposta: "Proposta",
-    Contratado: "Contratado",
+    Contratado: "Em processo de admissão",
+    ReprovadoRh: "Reprovado RH",
+    ReprovadoGestor: "Reprovado Gestor",
     Recusado: "Recusado",
     Desistiu: "Desistiu",
 };
@@ -824,7 +827,7 @@ function missingCandidateFields(candidato: HubCandidateRow): string[] {
 
 function normalizeEtapaMacro(value: string | number | null | undefined): string {
     if (typeof value === "number") {
-        return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu"][value] ?? "Aplicada";
+        return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu", "EntrevistaTecnica", "ReprovadoRh", "ReprovadoGestor"][value] ?? "Aplicada";
     }
     return value ?? "Aplicada";
 }
@@ -837,6 +840,11 @@ function candidateStageLabel(candidato: HubCandidateRow): string {
 
 function canApproveCandidate(candidato: HubCandidateRow): boolean {
     return normalizeEtapaMacro(candidato.etapaMacro) === "Proposta";
+}
+
+function canAcompanharAdmissao(candidato: HubCandidateRow): boolean {
+    const etapa = normalizeEtapaMacro(candidato.etapaMacro);
+    return etapa === "Contratado" || candidato.status === "Aprovado";
 }
 
 function MatchScoreCell({ m, onCalcular }: { m?: MatchRow; onCalcular: () => void }) {
@@ -1045,14 +1053,19 @@ function RowActions({
                             {candidato.status === "Aprovado" ? "Reenviar aprovação" : "Aprovar candidato"}
                         </DropdownMenuItem>
                     )}
-                    {!isReadOnly && !approvalAvailable && (
-                        <DropdownMenuItem disabled title="Avance a candidatura até Proposta antes de aprovar.">
+                    {!isReadOnly && !approvalAvailable && !canAcompanharAdmissao(candidato) && (
+                        <DropdownMenuItem disabled title={normalizeEtapaMacro(candidato.etapaMacro) === "Contratado"
+                            ? "Use Acompanhar admissão após o aceite da proposta."
+                            : "Avance a candidatura até Proposta antes de aprovar."}>
                             <Mail className="size-4 mr-2" />
                             Aprovar candidato indisponível
                         </DropdownMenuItem>
                     )}
-                    {candidato.status === "Aprovado" && (
-                        <DropdownMenuItem onClick={onAcompanhar}>Acompanhar admissão</DropdownMenuItem>
+                    {!isReadOnly && canAcompanharAdmissao(candidato) && (
+                        <DropdownMenuItem onClick={onAcompanhar}>
+                            <ClipboardList className="size-4 mr-2" />
+                            Acompanhar admissão
+                        </DropdownMenuItem>
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>

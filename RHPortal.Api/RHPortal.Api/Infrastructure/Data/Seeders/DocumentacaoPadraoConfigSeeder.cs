@@ -11,29 +11,39 @@ namespace RhPortal.Api.Infrastructure.Data.Seeders;
 public static class DocumentacaoPadraoConfigSeeder
 {
     private const short Obrigatorio = 0;
+    private const short Opcional = 1;
     private const short NaoSeraPedido = 2;
 
+    /// <summary>Relação CLT padrão — alinhada ao e-mail manual enviado pelo RH.</summary>
     private static readonly (TipoDocumento TipoDocumento, short Configuracao)[] Defaults =
     [
+        (TipoDocumento.CarteiraTrabalhoCTPS, Obrigatorio),
+        (TipoDocumento.TituloEleitor, Obrigatorio),
         (TipoDocumento.RG, Obrigatorio),
         (TipoDocumento.CPF, Obrigatorio),
-        (TipoDocumento.CNH, NaoSeraPedido),
-        (TipoDocumento.TituloEleitor, Obrigatorio),
-        (TipoDocumento.Reservista, NaoSeraPedido),
-        (TipoDocumento.ComprovanteResidencia, Obrigatorio),
-        (TipoDocumento.CertidaoNascimentoCasamento, NaoSeraPedido),
         (TipoDocumento.PisPasep, Obrigatorio),
-        (TipoDocumento.CarteiraTrabalhoCTPS, Obrigatorio),
-        (TipoDocumento.DeclaracaoUniaoEstavel, NaoSeraPedido),
-        (TipoDocumento.RGFilho, NaoSeraPedido),
-        (TipoDocumento.CertidaoNascimentoFilho, NaoSeraPedido),
-        (TipoDocumento.CarteiraVacinacaoFilho, NaoSeraPedido),
-        (TipoDocumento.ComprovanteBancario, NaoSeraPedido),
         (TipoDocumento.Foto3x4, Obrigatorio),
+        (TipoDocumento.Reservista, Obrigatorio),
+        (TipoDocumento.CertidaoNascimentoCasamento, Obrigatorio),
+        (TipoDocumento.ComprovanteResidencia, Obrigatorio),
         (TipoDocumento.Escolaridade, Obrigatorio),
+        (TipoDocumento.CNH, Obrigatorio),
+        (TipoDocumento.ComprovanteBancario, Obrigatorio),
+        (TipoDocumento.ExameMedico, Obrigatorio),
+        (TipoDocumento.ComprovanteVacinaCovid, Obrigatorio),
+        (TipoDocumento.CartaBoasVindas, Obrigatorio),
+        (TipoDocumento.PrintValidacaoCep, NaoSeraPedido),
+        (TipoDocumento.PrintConsultaCpfReceita, NaoSeraPedido),
+        (TipoDocumento.CertidaoNascimentoFilho, Opcional),
+        (TipoDocumento.RGFilho, Opcional),
+        (TipoDocumento.CpfFilho, Opcional),
+        (TipoDocumento.CarteiraVacinacaoFilho, Opcional),
+        (TipoDocumento.FrequenciaEscolarFilho, Opcional),
+        (TipoDocumento.RgCpfConjuge, Opcional),
+        (TipoDocumento.DeclaracaoUniaoEstavel, NaoSeraPedido),
         (TipoDocumento.CNPJ, NaoSeraPedido),
         (TipoDocumento.ContratoSocialMEI, NaoSeraPedido),
-        (TipoDocumento.ContaBancariaPJ, Obrigatorio),
+        (TipoDocumento.ContaBancariaPJ, NaoSeraPedido),
         (TipoDocumento.CertidoesNegativas, NaoSeraPedido),
     ];
 

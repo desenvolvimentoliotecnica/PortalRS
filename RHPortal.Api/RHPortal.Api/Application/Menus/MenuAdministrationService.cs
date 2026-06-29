@@ -54,6 +54,8 @@ public sealed class MenuAdministrationService
             ["gestao.planos"] = "Seed.Menu.GestaoPlanos",
             ["gestao.humor"] = "Seed.Menu.GestaoHumor",
             ["gestao.resumo"] = "Seed.Menu.GestaoResumo",
+            ["folha.desligamentos.view"] = "Seed.Menu.Desligamentos",
+            ["folha.entrevista-saida.manage"] = "Seed.Menu.EntrevistaSaidaTemplate",
             ["departments.view"] = "Seed.Menu.Departamentos",
             ["areas.view"] = "Seed.Menu.Areas",
             ["categories.view"] = "Seed.Menu.Funcoes",
@@ -103,7 +105,8 @@ public sealed class MenuAdministrationService
     /// <summary>Permission keys visíveis apenas para o Owner — excluídos do sidebar de qualquer tenant.</summary>
     private static readonly HashSet<string> OwnerOnlyPermissionKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        "aws-settings.manage"
+        "aws-settings.manage",
+        "aprovacoes-vaga.view",
     };
 
     private static IReadOnlyList<MenuForCurrentUserResponse> ExcludeConfigOnlyMenus(IReadOnlyList<MenuForCurrentUserResponse> menus) =>

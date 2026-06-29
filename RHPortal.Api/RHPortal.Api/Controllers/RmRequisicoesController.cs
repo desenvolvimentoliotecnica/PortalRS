@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Contracts.Rm;
 using RhPortal.Api.Domain.Enums;
@@ -25,8 +26,10 @@ public sealed class RmRequisicoesController : ControllerBase
     }
 
     [HttpGet]
+    [RequestTimeout("RmConsulta")]
     [ProducesResponseType(typeof(RmRequisicaoListResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType(StatusCodes.Status504GatewayTimeout)]
     public async Task<ActionResult<RmRequisicaoListResponse>> List(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -41,6 +44,12 @@ public sealed class RmRequisicoesController : ControllerBase
     {
         try
         {
+            if (!string.IsNullOrWhiteSpace(tipoRequisicao)
+                && !RmRequisicaoTipos.IsVisivelConsulta(tipoRequisicao))
+            {
+                return Ok(new RmRequisicaoListResponse { Items = [], TotalCount = 0 });
+            }
+
             var result = await _read.ListAsync(new RmRequisicaoListQuery
             {
                 Page = page,
@@ -71,6 +80,24 @@ public sealed class RmRequisicoesController : ControllerBase
                 Title = "Erro ao consultar o banco RM",
                 Detail = ex.Message,
                 Status = StatusCodes.Status503ServiceUnavailable
+            });
+        }
+        catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new ProblemDetails
+            {
+                Title = "Consulta ao RM excedeu o tempo limite",
+                Detail = "Reduza o período de abertura ou aplique filtros (tipo/status) e tente novamente.",
+                Status = StatusCodes.Status504GatewayTimeout
+            });
+        }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(StatusCodes.Status504GatewayTimeout, new ProblemDetails
+            {
+                Title = "Consulta ao RM excedeu o tempo limite",
+                Detail = "O endpoint REST do RM demorou mais que o permitido. Reduza o período ou verifique a integração RM.",
+                Status = StatusCodes.Status504GatewayTimeout
             });
         }
     }

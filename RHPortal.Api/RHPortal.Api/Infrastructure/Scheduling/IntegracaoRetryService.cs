@@ -188,19 +188,7 @@ public sealed class IntegracaoRetryService : BackgroundService
                 () => { x.IntegracaoResultado = IntegracaoResultado.FalhaDefinitiva; x.UltimaTentativaUtc = now; }));
         }
 
-        // Desligamento
-        foreach (var x in await db.SolicitacoesDesligamento
-            .Include(e => e.Funcionario)
-            .Where(e => e.IntegracaoResultado == IntegracaoResultado.Falha && e.TentativasIntegracao < MaxTentativas)
-            .ToListAsync(ct))
-        {
-            if (!DeveTentar(x.TentativasIntegracao, x.UltimaTentativaUtc, now)) continue;
-            result.Add(new IntegracaoFalhaItem(
-                x.Id, TipoIntegracao.Desligamento, "Desligamento", x.Funcionario?.Name ?? "—",
-                x.TentativasIntegracao, x.SolicitanteId,
-                () => { x.TentativasIntegracao++; x.UltimaTentativaUtc = now; },
-                () => { x.IntegracaoResultado = IntegracaoResultado.FalhaDefinitiva; x.UltimaTentativaUtc = now; }));
-        }
+        // Desligamento — integração descontinuada (fluxo 100% Portal)
 
         // Promoção
         foreach (var x in await db.SolicitacoesPromocao

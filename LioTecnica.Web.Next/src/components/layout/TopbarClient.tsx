@@ -6,10 +6,10 @@ import {
   Bell,
   Building2,
   ChevronDown,
+  FileUp,
   Globe,
   LogOut,
   Menu,
-  Search,
   Shield,
   TriangleAlert,
   User,
@@ -20,7 +20,6 @@ import { toast } from "sonner";
 import { confirmDialog } from "@/lib/confirm-dialog";
 
 import Sidebar from "@/components/layout/Sidebar";
-import GlobalSearchDialog from "@/components/layout/GlobalSearchDialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -59,7 +58,6 @@ export default function TopbarClient({
   const [busy, setBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [locale, setLocale] = useState("pt-BR");
-  const [searchOpen, setSearchOpen] = useState(false);
 
   /* Centro de Notificações in-app — Entrega 1.9 */
   type NotificationListItem = {
@@ -205,22 +203,8 @@ export default function TopbarClient({
     }
   }, []);
 
-  /* ─── Ctrl+K hotkey opens global search dialog ─── */
-  useEffect(() => {
-    function onHotkey(ev: KeyboardEvent) {
-      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
-        ev.preventDefault();
-        setSearchOpen(true);
-      }
-    }
-    window.addEventListener("keydown", onHotkey);
-    return () => window.removeEventListener("keydown", onHotkey);
-  }, []);
-
   return (
     <>
-      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
-
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 lg:px-6">
         {/* ─── Left side: hamburger + brand title ─── */}
         <div className="flex items-center gap-3 min-w-0">
@@ -257,21 +241,6 @@ export default function TopbarClient({
           <span className="text-sm font-semibold text-lt-primary tracking-[0.18em] uppercase whitespace-nowrap hidden sm:inline">
             Portal de RH
           </span>
-        </div>
-
-        {/* ─── Center: global search trigger ─── */}
-        <div className="min-w-0 flex-1 max-w-xl">
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            className="relative flex items-center w-full h-9 rounded-md border border-lt-primary/20 bg-white/85 pl-9 pr-16 text-sm text-muted-foreground/60 outline-none transition-[color,box-shadow] hover:border-lt-primary/35 hover:bg-white/95 focus-visible:border-lt-primary/45 focus-visible:ring-2 focus-visible:ring-lt-primary/20 cursor-pointer"
-          >
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-lt-primary/60" />
-            Buscar vagas, pessoas, candidatos...
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-lt-primary/25 px-1.5 py-0.5 text-[11px] leading-none text-lt-primary/70">
-              Ctrl + K
-            </span>
-          </button>
         </div>
 
         {/* ─── Right side: notifications + user dropdown ─── */}
@@ -450,6 +419,20 @@ export default function TopbarClient({
                       Portal de Vagas
                     </Link>
                   </DropdownMenuItem>
+
+                  {/* Portal de Admissão (exemplo — Owner / preview do formulário público) */}
+                  {isInTenantContext && getTenantId() && (
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={`/DocumentoAdmissao?tenantId=${encodeURIComponent(getTenantId()!)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <FileUp className="size-4 mr-2" />
+                        Portal de Admissão (exemplo)
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
 
                   {/* Integração TOTVS */}
                   <DropdownMenuItem asChild>

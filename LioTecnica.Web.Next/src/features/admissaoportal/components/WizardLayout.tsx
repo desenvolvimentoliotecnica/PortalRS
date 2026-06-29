@@ -1,28 +1,65 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Loader2, Cloud } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
+import { cn } from "@/lib/utils";
 import WizardStepper from "./WizardStepper";
-import { useAdmissaoWizardStore, TOTAL_STEPS, STEP_LABELS } from "../useAdmissaoWizardStore";
+import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
+import type { WizardPlan } from "../wizardSteps";
 
 interface Props {
     children: React.ReactNode;
-    onNext?: () => void | Promise<void>;
+    plan: WizardPlan;
+    onNext?: () => boolean | void | Promise<boolean | void>;
     onBack?: () => void;
+    onSaveAndExit?: () => void | Promise<void>;
     nextLabel?: string;
+    backLabel?: string;
     nextDisabled?: boolean;
     hideNext?: boolean;
     hideBack?: boolean;
+    hideFooter?: boolean;
+    showStepper?: boolean;
+    isSubmitted?: boolean;
+    nextClassName?: string;
+    contentScrollable?: boolean;
 }
 
-export default function WizardLayout({ children, onNext, onBack, nextLabel, nextDisabled, hideNext, hideBack }: Props) {
-    const { currentStep, completedSteps, isAutoSaving, lastSavedAt, setStep, markStepComplete } = useAdmissaoWizardStore();
+export default function WizardLayout({
+    children,
+    plan,
+    onNext,
+    onBack,
+    onSaveAndExit,
+    nextLabel,
+    backLabel = "Voltar",
+    nextDisabled,
+    hideNext,
+    hideBack,
+    hideFooter,
+    showStepper = true,
+    isSubmitted,
+    nextClassName,
+    contentScrollable = true,
+}: Props) {
+    const { currentStep, completedSteps, markStepComplete, setStep } = useAdmissaoWizardStore();
+    const [advancing, setAdvancing] = useState(false);
+    const [savingExit, setSavingExit] = useState(false);
 
     async function handleNext() {
-        if (onNext) await onNext();
-        markStepComplete(currentStep);
-        if (currentStep < TOTAL_STEPS - 1) setStep(currentStep + 1);
+        if (advancing) return;
+        setAdvancing(true);
+        try {
+            if (onNext) {
+                const canAdvance = await onNext();
+                if (canAdvance === false) return;
+            }
+            markStepComplete(currentStep);
+            if (currentStep < plan.totalSteps - 1) setStep(currentStep + 1);
+        } finally {
+            setAdvancing(false);
+        }
     }
 
     function handleBack() {
@@ -30,48 +67,85 @@ export default function WizardLayout({ children, onNext, onBack, nextLabel, next
         if (currentStep > 0) setStep(currentStep - 1);
     }
 
+    async function handleSaveAndExit() {
+        if (!onSaveAndExit || savingExit) return;
+        setSavingExit(true);
+        try {
+            await onSaveAndExit();
+        } finally {
+            setSavingExit(false);
+        }
+    }
+
+    const showBack = !hideBack && currentStep > 1;
+    const showNext = !hideNext;
+    const showSaveExit = !!onSaveAndExit && currentStep >= 1 && currentStep <= 5;
+    const showFooter = !hideFooter && (showBack || showNext || showSaveExit);
+
     return (
-        <div className="space-y-4">
-            {/* Mobile-only stepper (hidden on lg+, sidebar takes over) */}
-            <div className="lg:hidden">
-                <WizardStepper currentStep={currentStep} completedSteps={completedSteps} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {showStepper && (
+                <div className="shrink-0 border-b border-slate-100 bg-white px-4">
+                    <WizardStepper
+                        currentStep={currentStep}
+                        completedSteps={completedSteps}
+                        isSubmitted={isSubmitted}
+                    />
+                </div>
+            )}
+
+            <div
+                className={`min-h-0 flex-1 ${contentScrollable ? "overflow-y-auto overscroll-contain" : "overflow-hidden flex flex-col"}`}
+            >
+                {children}
             </div>
 
-            {/* Step label + auto-save indicator */}
-            <div className="flex items-center justify-between px-1">
-                <h2 className="text-base sm:text-lg font-semibold">
-                    {STEP_LABELS[currentStep]}
-                </h2>
-                {isAutoSaving && (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Loader2 className="size-3 animate-spin" /> Salvando...
-                    </span>
-                )}
-                {!isAutoSaving && lastSavedAt && (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Cloud className="size-3" /> Salvo
-                    </span>
-                )}
-            </div>
-
-            {/* Content */}
-            <div className="min-h-[300px]">{children}</div>
-
-            {/* Navigation */}
-            <div className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm border-t border-border/40 lg:static lg:bg-transparent lg:backdrop-blur-none lg:pt-4 lg:px-0 lg:py-0 lg:border-t">
-                {!hideBack && currentStep > 0 ? (
-                    <Button variant="ghost" size="lg" onClick={handleBack} className="gap-1">
-                        <ChevronLeft className="size-4" /> Voltar
-                    </Button>
-                ) : (
-                    <div />
-                )}
-                {!hideNext && (
-                    <Button size="lg" onClick={handleNext} disabled={nextDisabled} className="gap-1 min-w-[140px]">
-                        {nextLabel || "Próximo"} <ChevronRight className="size-4" />
-                    </Button>
-                )}
-            </div>
+            {showFooter && (
+                <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 sm:px-8">
+                    <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+                        {showBack ? (
+                            <Button variant="outline" size="lg" onClick={handleBack} className="gap-1 rounded-xl">
+                                <ChevronLeft className="size-4" /> {backLabel}
+                            </Button>
+                        ) : (
+                            <div />
+                        )}
+                        <div className="flex items-center gap-3">
+                            {showSaveExit && (
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    onClick={handleSaveAndExit}
+                                    disabled={savingExit}
+                                    className="rounded-xl"
+                                >
+                                    {savingExit ? <Loader2 className="size-4 animate-spin" /> : null}
+                                    Salvar e sair
+                                </Button>
+                            )}
+                            {showNext && (
+                                <Button
+                                    size="lg"
+                                    onClick={handleNext}
+                                    disabled={nextDisabled || advancing}
+                                    className={cn(
+                                        "min-w-[160px] gap-1 rounded-xl bg-[#0047BB] hover:bg-[#003a99]",
+                                        nextClassName,
+                                    )}
+                                >
+                                    {advancing ? <Loader2 className="size-5 animate-spin" /> : null}
+                                    {nextLabel || "Continuar"}
+                                    {!advancing && <ChevronRight className="size-5" />}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                    <p className="mx-auto mt-4 flex max-w-5xl items-center justify-center gap-2 text-center text-xs text-slate-400">
+                        <Lock className="size-3.5 shrink-0" />
+                        Seus dados estão seguros conosco. Utilizamos criptografia para proteger suas informações.
+                    </p>
+                </div>
+            )}
         </div>
     );
 }

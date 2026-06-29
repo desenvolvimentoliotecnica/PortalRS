@@ -1,5 +1,6 @@
 using RhPortal.Api.Domain;
 using RhPortal.Api.Domain.Enums;
+using Xunit;
 
 namespace RHPortal.Api.Tests.SolicitacoesVaga;
 

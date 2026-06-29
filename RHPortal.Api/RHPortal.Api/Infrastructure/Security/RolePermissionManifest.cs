@@ -21,7 +21,6 @@ public static class RolePermissionManifest
         "rh.contratacoes.view",
         "rh.contratacoes.triagem",
         "rh.contratacoes.selecao",
-        "aprovacoes-vaga.view",
         "projetos.view",
         "processo-seletivo.view",
         "admissao.view",
@@ -84,6 +83,7 @@ public static class RolePermissionManifest
         "folha.batida-ponto.view",
         "folha.pagamento-extra.view",
         "folha.desligamentos.view",
+        "folha.entrevista-saida.manage",
     ];
 
     /// <summary>Permissions for Colaborador role.</summary>
@@ -106,7 +106,6 @@ public static class RolePermissionManifest
     private static readonly IReadOnlyList<string> GestorCompliancePermissions =
     [
         "dashboard.view",
-        "aprovacoes-vaga.view",
         "solicitacoes-vaga.view",
         "gestao.dashboard",
         "agenda.view",

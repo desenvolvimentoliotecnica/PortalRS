@@ -167,7 +167,7 @@ public sealed class SolicitacoesFeriasController : ControllerBase
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
     }
 
-    /// <summary>Gera carta de autorização de férias em DOCX e retorna URL presigned S3 (24h).</summary>
+    /// <summary>Gera carta de autorização de férias em DOCX (S3 presigned ou download direto).</summary>
     [HttpPost("{id:guid}/carta")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -175,8 +175,8 @@ public sealed class SolicitacoesFeriasController : ControllerBase
     {
         try
         {
-            var url = await _cartaService.GerarCartaFeriasAsync(id, ct);
-            return Ok(new { url });
+            var result = await _cartaService.GerarCartaFeriasAsync(id, ct);
+            return result.ToActionResult();
         }
         catch (InvalidOperationException ex)
         {

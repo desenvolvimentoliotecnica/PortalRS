@@ -15,6 +15,7 @@ using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Data.Seeders;
 using RhPortal.Api.Infrastructure.Notifications;
+using RhPortal.Api.Infrastructure.Rm;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 using RHPortal.Api.Domain.Entities;
@@ -293,7 +294,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         if (!string.IsNullOrWhiteSpace(query.Q))
         {
             var term = query.Q.Trim().ToLower();
-            q = q.Where(s => s.Titulo.ToLower().Contains(term));
+            q = q.Where(s =>
+                s.Titulo.ToLower().Contains(term)
+                || (s.RmRequisicaoCodigo != null && s.RmRequisicaoCodigo.ToLower().Contains(term))
+                || (s.RmIdReq != null && s.RmIdReq.ToString().Contains(term)));
         }
 
         q = q.OrderByDescending(s => s.CreatedAtUtc);
@@ -317,7 +321,7 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                     : null,
                 CentroCustoNome = s.CentroCusto != null ? s.CentroCusto.Description : (string?)null,
                 s.QtdPosicoes, s.TipoSolicitacao, s.IsConfidencial, s.SubstituidoNome, s.CreatedAtUtc,
-                s.RmCriacaoSolicitadaEmUtc, s.RmCodColRequisicao, s.RmIdReq,
+                s.RmCriacaoSolicitadaEmUtc, s.RmCodColRequisicao, s.RmIdReq, s.RmRequisicaoCodigo,
                 s.TentativasIntegracao, s.UltimaTentativaUtc,
                 s.RmCodStatus, s.RmUltimaStatusDescricaoRm, s.RmStatusSyncUltimaMensagem,
                 s.RmUltimaSincronizacaoUtc,
@@ -347,9 +351,10 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
                 r.AprovadorId, r.AprovadorNome, r.AnalistaRhResponsavelUserId, r.AnalistaRhResponsavelNome,
                 r.CentroCustoNome, r.QtdPosicoes,
                 r.TipoSolicitacao, r.IsConfidencial, r.SubstituidoNome, r.CreatedAtUtc,
-                r.RmCriacaoSolicitadaEmUtc, r.RmCodColRequisicao, r.RmIdReq, r.TentativasIntegracao, r.UltimaTentativaUtc,
+                r.RmCriacaoSolicitadaEmUtc, r.RmCodColRequisicao, r.RmIdReq, r.RmRequisicaoCodigo, r.TentativasIntegracao, r.UltimaTentativaUtc,
                 r.RmCodStatus, r.RmUltimaStatusDescricaoRm, r.RmStatusSyncUltimaMensagem,
                 r.RmUltimaSincronizacaoUtc,
+                RmRequisicaoTipos.TryParseTipoFromVinculo(r.RmRequisicaoCodigo),
                 ep?.Label, ep?.PendenteCom, ep?.IsQueue ?? false, ep?.AprovadorId, ep?.AssumedByUserId,
                 ep?.CanAssume ?? false, r.VagaId);
         }).ToList();
@@ -399,12 +404,12 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
         {
             var currentUserEhAnalistaRh = await CurrentUserEhAnalistaRhAsync(ct);
             var listaAmplaRh =
-                (!currentUserEhAnalistaRh
-                 && (_currentUser.IsRH
+                (currentUserEhAnalistaRh
+                 || _currentUser.IsRH
                  || _currentUser.HasPermission("*")
                  || _currentUser.HasPermission("rh.contratacoes.view")
                  || _currentUser.HasPermission("rh.contratacoes.triagem")
-                 || _currentUser.HasPermission("rh.contratacoes.selecao")))
+                 || _currentUser.HasPermission("rh.contratacoes.selecao"))
                 && apenasMeus != true;
 
             if (!listaAmplaRh)
@@ -2754,14 +2759,13 @@ public sealed class SolicitacaoVagaService : ISolicitacaoVagaService
     {
         if (_currentUser.IsAdmin) return true;
         var currentUserEhAnalistaRh = await CurrentUserEhAnalistaRhAsync(ct);
-        // Deve espelhar a regra de "lista ampla" em ListAsync: perfil RH (IsRH) sem ser Analista RH vê todas,
-        // senão GET devolve 404 para itens que a grid lista normalmente.
-        if (!currentUserEhAnalistaRh
-            && (_currentUser.IsRH
+        // Analista de RH enxerga todas as requisições (mesma regra de lista ampla do perfil RH).
+        if (currentUserEhAnalistaRh
+            || _currentUser.IsRH
                 || _currentUser.HasPermission("*")
                 || _currentUser.HasPermission("rh.contratacoes.view")
                 || _currentUser.HasPermission("rh.contratacoes.triagem")
-                || _currentUser.HasPermission("rh.contratacoes.selecao")))
+                || _currentUser.HasPermission("rh.contratacoes.selecao"))
             return true;
 
         var currentFuncionarioId = _currentUser.FuncionarioId;

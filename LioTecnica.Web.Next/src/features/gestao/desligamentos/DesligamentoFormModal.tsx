@@ -96,6 +96,7 @@ function AutocompleteSelect({
     placeholder,
     required,
     disabled,
+    displayLabel,
 }: {
     items?: LookupItem[];
     entries?: SubordinadoEntry[];
@@ -104,15 +105,17 @@ function AutocompleteSelect({
     placeholder: string;
     required?: boolean;
     disabled?: boolean;
+    displayLabel?: string;
 }) {
     const [query, setQuery] = useState("");
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Resolve display text from whichever source is active
-    const selectedName = entries
-        ? (entries.find((e) => e.id === value)?.name ?? "")
-        : (() => { const s = items?.find((i) => i.id === value); return s ? (s.code ? `${s.code} – ${s.name}` : s.name) : ""; })();
+    const selectedName = displayLabel?.trim()
+        || (entries
+            ? (entries.find((e) => e.id === value)?.name ?? "")
+            : (() => { const s = items?.find((i) => i.id === value); return s ? (s.code ? `${s.code} – ${s.name}` : s.name) : ""; })());
 
     const displayText = selectedName;
 
@@ -256,6 +259,7 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
 
     /* ── dados atuais do funcionário (auto-preenchidos) ── */
     const [atualCargo, setAtualCargo] = useState("");
+    const [funcionarioNome, setFuncionarioNome] = useState("");
 
     /* ── campos bloqueados auto-preenchidos do funcionário ── */
     const [atualCodColaborador, setAtualCodColaborador] = useState("");
@@ -303,6 +307,7 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
         if (!draft.funcionarioId) {
             setAtualCodColaborador("");
             setAtualCargo("");
+            setFuncionarioNome("");
             setAtualEmpresaCodigo(""); setAtualEmpresaNome("");
             setAtualEstabelecimentoCodigo(""); setAtualEstabelecimentoNome("");
             setDraft((d) => ({ ...d, empresaId: null, unitId: null }));
@@ -363,6 +368,8 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
                     const parseTipoAviso = (v: unknown) =>
                         typeof v === "number" ? v : (TIPO_AVISO_MAP[String(v ?? "")] ?? 0);
 
+                    setFuncionarioNome(String(d?.funcionarioNome ?? "").trim());
+
                     setDraft({
                         funcionarioId: d?.funcionarioId ? String(d.funcionarioId) : null,
                         empresaId: d?.empresaId ? String(d.empresaId) : null,
@@ -383,6 +390,7 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
                 .catch(() => toast.error("Falha ao carregar solicitação."))
                 .finally(() => setLoadingEdit(false));
         } else {
+            setFuncionarioNome("");
             setDraft({ ...emptyDraft, funcionarioId: initialFuncionarioId ?? null });
         }
     }, [open, editId, loadLookups, initialFuncionarioId]);
@@ -500,10 +508,11 @@ export default function DesligamentoFormModal({ open, editId, onClose, onSaved, 
                                                 placeholder="funcionário"
                                                 required
                                                 disabled={viewOnly}
+                                                displayLabel={funcionarioNome}
                                             />
                                         );
                                     })()}
-                                    {myFuncId && (
+                                    {myFuncId && !viewOnly && (
                                         <p className="mt-1 text-xs text-muted-foreground">
                                             Exibindo subordinados diretos e indiretos da sua hierarquia.
                                         </p>

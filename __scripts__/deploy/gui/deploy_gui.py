@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import queue
 import re
 import shlex
@@ -28,16 +29,13 @@ from tkinter.scrolledtext import ScrolledText
 
 
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+_DEPLOY_SCRIPTS_DIR = APP_DIR.parent if APP_DIR.name == "gui" else APP_DIR
+if str(_DEPLOY_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOY_SCRIPTS_DIR))
+from deploy_env import ENVIRONMENTS, IMAGE_PREFIX, DeployEnvironment
+
 CONFIG_PATH = APP_DIR / "deploy_gui_config.json"
 LOG_DIR = APP_DIR / "logs"
-BRANCH = "main"
-IMAGE_PREFIX = "ghcr.io/munizlmachado-jpg/rh"
-CONTAINERS = [
-    "rhportal-api",
-    "rhportal-web-next",
-    "rhportal-portal-vagas",
-    "rhportal-ai",
-]
 SERVICE_TO_CONTAINER = {
     "api": "rhportal-api",
     "web-next": "rhportal-web-next",
@@ -74,21 +72,30 @@ def _parse_disk_marker(text: str, marker: str) -> int | None:
 
 
 DEFAULT_CONFIG = {
-    "host": "10.0.0.80",
+    "environment_id": "dev",
+    "host": "10.0.0.79",
     "user": "administrator",
     "repo_path": str(Path.cwd()),
-    "remote_deploy_dir": "/home/administrator/rh-deploys",
-    "api_url": "http://10.0.0.80:5000",
-    "admin_url": "http://10.0.0.80:3000",
+    "remote_deploy_dir": "/home/administrator/rh-deploys-dev",
+    "api_url": "http://10.0.0.79:5000",
+    "admin_url": "http://10.0.0.79:3000",
+    "portal_vagas_url": "http://10.0.0.79:3050",
     "tenant": "liotecnica",
 }
 
 
 class DeployError(RuntimeError):
-    def __init__(self, message: str, suggestion: str | None = None, exit_code: int | None = None):
+    def __init__(
+        self,
+        message: str,
+        suggestion: str | None = None,
+        exit_code: int | None = None,
+        output: str | None = None,
+    ):
         super().__init__(message)
         self.suggestion = suggestion
         self.exit_code = exit_code
+        self.output = output or ""
 
 
 @dataclass
@@ -100,7 +107,19 @@ class DeployConfig:
     remote_deploy_dir: str
     api_url: str
     admin_url: str
+    portal_vagas_url: str
     tenant: str
+    environment_id: str = "dev"
+
+    @property
+    def environment(self) -> DeployEnvironment:
+        env = ENVIRONMENTS.get(self.environment_id)
+        if env is None:
+            raise DeployError(
+                f"Ambiente desconhecido: {self.environment_id}",
+                f"Use um de: {', '.join(ENVIRONMENTS)}",
+            )
+        return env
 
     @property
     def api_base(self) -> str:
@@ -162,6 +181,10 @@ class SshSession:
                 "Confira host, usuario, senha, rede/VPN e se o SSH esta ativo no servidor.",
             ) from exc
         self.client = client
+        transport = client.get_transport()
+        if transport is not None:
+            # Evita queda de SSH/firewall durante builds longos (dotnet publish, npm build).
+            transport.set_keepalive(30)
         self.sftp = client.open_sftp()
         self.log.ok("SSH conectado.")
         return self
@@ -193,10 +216,18 @@ class SshSession:
         exit_code = channel.recv_exit_status()
         text = "".join(output)
         if check and exit_code != 0:
+            suggestion = "Leia as ultimas linhas do log acima; corrija o erro no servidor e tente novamente."
+            if self._looks_like_buildx_transport_failure(text):
+                suggestion = (
+                    "Falha de conexao do Docker BuildKit durante build longo. "
+                    "Tente o deploy novamente; se repetir, reinicie o builder no servidor "
+                    "(docker buildx ls; docker buildx rm <builder>) ou use modo Completo."
+                )
             raise DeployError(
                 f"Comando remoto falhou na etapa '{label}'.",
-                "Leia as ultimas linhas do log acima; corrija o erro no servidor e tente novamente.",
+                suggestion,
                 exit_code=exit_code,
+                output=text,
             )
         if exit_code == 0:
             self.log.ok(f"Etapa remota concluida: {label}")
@@ -213,6 +244,18 @@ class SshSession:
             output.append(chunk)
             for line in chunk.splitlines():
                 self.log.info(line)
+
+    @staticmethod
+    def _looks_like_buildx_transport_failure(text: str) -> bool:
+        lowered = text.lower()
+        markers = (
+            "rpc error",
+            "graceful_stop",
+            "error reading from server: eof",
+            "closing transport due to",
+            "failed to receive status",
+        )
+        return any(marker in lowered for marker in markers)
 
     def mkdir_p(self, remote_path: str) -> None:
         parts = [p for p in remote_path.split("/") if p]
@@ -255,6 +298,7 @@ class DeployRunner:
         self.set_progress = set_progress
         self.ask_yes_no = ask_yes_no
         self.deploy_mode = deploy_mode
+        self.env = cfg.environment
         self.sha = ""
         self.archive_path: Path | None = None
         self.changed_files: list[str] = []
@@ -362,28 +406,29 @@ class DeployRunner:
         if shutil.which("git") is None:
             raise DeployError("Git nao encontrado no PATH.", "Instale Git for Windows ou ajuste o PATH.")
         self._run_local(["git", "remote", "get-url", "origin"], repo, "validar remote")
+        branch = self.env.branch
         self._run_local(
-            ["git", "fetch", "origin", f"refs/heads/{BRANCH}:refs/remotes/origin/{BRANCH}"],
+            ["git", "fetch", "origin", f"refs/heads/{branch}:refs/remotes/origin/{branch}"],
             repo,
-            "fetch main",
+            f"fetch {branch}",
         )
-        _, sha = self._run_local(["git", "rev-parse", f"origin/{BRANCH}"], repo, "obter SHA")
+        _, sha = self._run_local(["git", "rev-parse", f"origin/{branch}"], repo, "obter SHA")
         self.sha = sha.strip()
         _, commit = self._run_local(
-            ["git", "show", "-s", "--format=%h %ci %s", f"origin/{BRANCH}"],
+            ["git", "show", "-s", "--format=%h %ci %s", f"origin/{branch}"],
             repo,
             "dados do commit",
         )
-        self.log.ok(f"Main atual: {commit.strip()}")
+        self.log.ok(f"{branch} atual: {commit.strip()}")
 
     def _create_archive(self) -> None:
         if not self.sha:
-            raise DeployError("SHA da main nao foi calculado.")
-        target = Path(tempfile.gettempdir()) / f"rh-main-{self.sha[:12]}.tar.gz"
+            raise DeployError(f"SHA da branch {self.env.branch} nao foi calculado.")
+        target = Path(tempfile.gettempdir()) / f"rh-{self.env.id}-{self.sha[:12]}.tar.gz"
         if target.exists():
             target.unlink()
         self._run_local(
-            ["git", "archive", "--format=tar.gz", "-o", str(target), f"origin/{BRANCH}"],
+            ["git", "archive", "--format=tar.gz", "-o", str(target), f"origin/{self.env.branch}"],
             self.cfg.repo_path,
             "gerar snapshot",
         )
@@ -429,6 +474,8 @@ if command -v docker >/dev/null 2>&1; then
   docker builder prune -af || echo "WARN: docker builder prune retornou erro (continuando)"
   echo ">>> docker image prune -f (imagens pendentes / dangling)"
   docker image prune -f || true
+  echo ">>> docker image prune -af (imagens sem container — libera espaco para build)"
+  docker image prune -af || true
 else
   echo "WARN: docker nao encontrado; pulando prune de builder"
 fi
@@ -453,10 +500,12 @@ df -h / || true
             self.log.warn("Nao foi possivel ler espaco livre apos limpeza; veja df -h no log acima.")
 
     def _remote_preflight(self, ssh: SshSession) -> None:
-        script = r"""
+        env = self.env
+        script = f"""
 set -euo pipefail
 echo "Host: $(hostname)"
 echo "Usuario: $(whoami)"
+echo "Ambiente: {env.label}"
 command -v docker
 docker --version
 docker compose version
@@ -469,23 +518,24 @@ fi
 command -v tar
 command -v python3
 df -h /home /var/lib/docker 2>/dev/null || df -h /
-if docker network inspect rhportal-net >/dev/null 2>&1; then
-  echo "OK: rede rhportal-net existe"
+if docker network inspect {shlex.quote(env.docker_network)} >/dev/null 2>&1; then
+  echo "OK: rede {env.docker_network} existe"
 else
-  echo "WARN: rede rhportal-net nao existe; sera criada no deploy"
+  echo "WARN: rede {env.docker_network} nao existe; sera criada no deploy"
 fi
-if [[ -f "$HOME/.env.hmg" ]]; then
-  echo "OK: $HOME/.env.hmg encontrado"
+ENV_FILE={env.env_file}
+if [[ -f "$ENV_FILE" ]]; then
+  echo "OK: $ENV_FILE encontrado"
 else
-  echo "ERROR: $HOME/.env.hmg nao encontrado"
+  echo "ERROR: $ENV_FILE nao encontrado"
   exit 12
 fi
 missing_ai=0
 for key in DATABASE_URL OPENAI_API_KEY; do
-  if grep -qE "^${key}=" "$HOME/.env.hmg"; then
-    echo "OK: ${key}=<set>"
+  if grep -qE "^${{key}}=" "$ENV_FILE"; then
+    echo "OK: ${{key}}=<set>"
   else
-    echo "WARN: ${key} ausente no .env.hmg"
+    echo "WARN: ${{key}} ausente no env file"
     missing_ai=1
   fi
 done
@@ -520,6 +570,7 @@ fi
                 build.add("ai")
             elif p in {
                 "docker-compose.hmg.yml",
+                "docker-compose.portalrh-dev.yml",
                 ".dockerignore",
                 "global.json",
                 "LioTecnica.sln",
@@ -568,7 +619,7 @@ fi
         if previous_sha:
             self.log.info(f"Ultimo SHA registrado no servidor: {previous_sha}")
             code, diff_output = self._run_local(
-                ["git", "diff", "--name-only", f"{previous_sha}..origin/{BRANCH}"],
+                ["git", "diff", "--name-only", f"{previous_sha}..origin/{self.env.branch}"],
                 self.cfg.repo_path,
                 "diff desde ultimo deploy",
                 check=False,
@@ -600,41 +651,39 @@ fi
     def _upload_and_extract(self, ssh: SshSession) -> None:
         if not self.archive_path:
             raise DeployError("Snapshot local nao encontrado.")
+        compose_file = self.env.compose_file
         remote_dir = f"{self.cfg.remote_deploy_dir.rstrip('/')}/{self.sha}"
         remote_archive = f"{remote_dir}/source.tar.gz"
         current_src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
+        compose_dest = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-compose/{compose_file}"
+        compose_dest_dir = posixpath.dirname(compose_dest)
         ssh.upload(self.archive_path, remote_archive, lambda sent, total: self.set_progress(35, "Upload do snapshot"))
         script = f"""
 set -euo pipefail
 REMOTE_DIR={shlex.quote(remote_dir)}
 CURRENT_SRC={shlex.quote(current_src)}
+COMPOSE_FILE={shlex.quote(compose_file)}
+COMPOSE_DEST={shlex.quote(compose_dest)}
+COMPOSE_DEST_DIR={shlex.quote(compose_dest_dir)}
 rm -rf "$REMOTE_DIR/src"
 mkdir -p "$REMOTE_DIR/src"
 tar -xzf "$REMOTE_DIR/source.tar.gz" -C "$REMOTE_DIR/src"
-test -f "$REMOTE_DIR/src/docker-compose.hmg.yml"
+test -f "$REMOTE_DIR/src/$COMPOSE_FILE"
 rm -rf "$CURRENT_SRC"
 mkdir -p "$CURRENT_SRC"
 tar -xzf "$REMOTE_DIR/source.tar.gz" -C "$CURRENT_SRC"
-test -f "$CURRENT_SRC/docker-compose.hmg.yml"
-mkdir -p {shlex.quote(self.cfg.remote_deploy_dir.rstrip('/') + '/current-compose')}
-cp "$CURRENT_SRC/docker-compose.hmg.yml" {shlex.quote(self.cfg.remote_deploy_dir.rstrip('/') + '/current-compose/docker-compose.hmg.yml')}
+test -f "$CURRENT_SRC/$COMPOSE_FILE"
+mkdir -p "$COMPOSE_DEST_DIR"
+cp "$CURRENT_SRC/$COMPOSE_FILE" "$COMPOSE_DEST"
 echo "Snapshot extraido em $CURRENT_SRC"
 """
         ssh.run(script, "extrair snapshot")
 
-    def _remote_build(self, ssh: SshSession) -> None:
-        src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
-        services = " ".join(self.services_to_build)
-        script = f"""
-set -euo pipefail
-cd {shlex.quote(src)}
-TAG={shlex.quote(self.sha)}
-PREFIX={shlex.quote(IMAGE_PREFIX)}
-DEPLOY_ROOT={shlex.quote(self.cfg.remote_deploy_dir.rstrip('/'))}
-SERVICES={shlex.quote(services)}
-export DOCKER_BUILDKIT=1
-mkdir -p "$DEPLOY_ROOT/build-cache"
-build_cached() {{
+    def _remote_build_shell_preamble(self, src: str, *, use_buildx_cache: bool) -> str:
+        deploy_root = self.cfg.remote_deploy_dir.rstrip("/")
+        if use_buildx_cache:
+            build_fn = """
+build_cached() {
   svc="$1"
   shift
   cache_dir="$DEPLOY_ROOT/build-cache/$svc"
@@ -642,57 +691,115 @@ build_cached() {{
   if docker buildx version >/dev/null 2>&1; then
     echo "Cache BuildKit: $cache_dir"
     rm -rf "$cache_dir.new"
-    docker buildx build \\
+    if docker buildx build \\
       --progress=plain \\
       --load \\
       --cache-from "type=local,src=$cache_dir" \\
       --cache-to "type=local,dest=$cache_dir.new,mode=min" \\
-      "$@"
-    rm -rf "$cache_dir.old"
-    if [[ -d "$cache_dir.new" ]]; then
-      mv "$cache_dir" "$cache_dir.old" 2>/dev/null || true
-      mv "$cache_dir.new" "$cache_dir"
+      "$@"; then
       rm -rf "$cache_dir.old"
+      if [[ -d "$cache_dir.new" ]]; then
+        mv "$cache_dir" "$cache_dir.old" 2>/dev/null || true
+        mv "$cache_dir.new" "$cache_dir"
+        rm -rf "$cache_dir.old"
+      fi
+      return 0
     fi
-  else
-    echo "Build sem buildx/cache persistente para $svc"
-    docker build "$@"
+    echo "WARN: buildx falhou; tentando docker build classico"
   fi
-}}
-echo "Servicos selecionados para build: ${{SERVICES:-nenhum}}"
-for svc in $SERVICES; do
-  case "$svc" in
-    api)
-      echo "==> Build API $TAG"
-      build_cached api -f RHPortal.Api/Dockerfile -t "$PREFIX/rhportal-api:$TAG" .
-      ;;
-    web-next)
-      echo "==> Build Web Next $TAG"
-      build_cached web-next -f LioTecnica.Web.Next/Dockerfile \\
-        --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.cfg.api_base)} \\
-        --build-arg NEXT_PUBLIC_PORTAL_ORIGIN={shlex.quote(self.cfg.admin_base)} \\
-        -t "$PREFIX/rhportal-web-next:$TAG" .
-      ;;
-    portal-vagas)
-      echo "==> Build Portal Vagas $TAG"
-      build_cached portal-vagas -f LioTecnica.PortalVagas.React/Dockerfile \\
-        --build-arg VITE_API_BASE_URL={shlex.quote(self.cfg.api_base)} \\
-        --build-arg VITE_DEFAULT_TENANT={shlex.quote(self.cfg.tenant)} \\
-        -t "$PREFIX/rhportal-portal-vagas:$TAG" LioTecnica.PortalVagas.React
-      ;;
-    ai)
-      echo "==> Build AI $TAG"
-      build_cached ai -f RHPortal.Ai/Dockerfile -t "$PREFIX/rhportal-ai:$TAG" .
-      ;;
-    *)
-      echo "Servico desconhecido: $svc" >&2
-      exit 44
-      ;;
-  esac
-done
+  docker build "$@"
+}
+"""
+        else:
+            build_fn = """
+build_cached() {
+  shift
+  docker build "$@"
+}
+"""
+        return f"""
+set -euo pipefail
+cd {shlex.quote(src)}
+TAG={shlex.quote(self.sha)}
+PREFIX={shlex.quote(IMAGE_PREFIX)}
+DEPLOY_ROOT={shlex.quote(deploy_root)}
+export DOCKER_BUILDKIT=1
+mkdir -p "$DEPLOY_ROOT/build-cache"
+{build_fn}
+"""
+
+    def _remote_build_service_command(self, svc: str) -> str:
+        if svc == "api":
+            return """
+echo "==> Build API $TAG"
+build_cached api -f RHPortal.Api/Dockerfile -t "$PREFIX/rhportal-api:$TAG" .
+"""
+        if svc == "web-next":
+            return f"""
+echo "==> Build Web Next $TAG"
+build_cached web-next -f LioTecnica.Web.Next/Dockerfile \\
+  --build-arg NEXT_PUBLIC_API_BASE={shlex.quote(self.env.next_public_api_base)} \\
+  --build-arg NEXT_PUBLIC_PORTAL_ORIGIN={shlex.quote(self.cfg.admin_base)} \\
+  --build-arg NEXT_PUBLIC_PORTAL_VAGAS_URL={shlex.quote(self.cfg.portal_vagas_url)} \\
+  --build-arg NEXT_PUBLIC_APP_ENVIRONMENT={shlex.quote(self.env.app_environment)} \\
+  --build-arg NEXT_PUBLIC_APP_VERSION={shlex.quote(self.sha[:12])} \\
+  -t "$PREFIX/rhportal-web-next:$TAG" .
+"""
+        if svc == "portal-vagas":
+            return f"""
+echo "==> Build Portal Vagas $TAG"
+build_cached portal-vagas -f LioTecnica.PortalVagas.React/Dockerfile \\
+  --build-arg VITE_API_BASE_URL= \\
+  --build-arg VITE_DEFAULT_TENANT={shlex.quote(self.cfg.tenant)} \\
+  -t "$PREFIX/rhportal-portal-vagas:$TAG" LioTecnica.PortalVagas.React
+"""
+        if svc == "ai":
+            return """
+echo "==> Build AI $TAG"
+build_cached ai -f RHPortal.Ai/Dockerfile -t "$PREFIX/rhportal-ai:$TAG" .
+"""
+        raise DeployError(f"Servico de build desconhecido: {svc}")
+
+    def _remote_build(self, ssh: SshSession) -> None:
+        src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
+        if self.services_to_build:
+            self.log.info(f"Servicos selecionados para build: {' '.join(self.services_to_build)}")
+        for svc in self.services_to_build:
+            label = SERVICE_LABELS.get(svc, svc)
+            # API demora varios minutos no dotnet publish; docker build classico e mais estavel que buildx cache.
+            use_buildx_cache = svc != "api"
+            script = (
+                self._remote_build_shell_preamble(src, use_buildx_cache=use_buildx_cache)
+                + self._remote_build_service_command(svc)
+            )
+            try:
+                ssh.run(script, f"build Docker: {label}")
+            except DeployError as exc:
+                if use_buildx_cache and SshSession._looks_like_buildx_transport_failure(exc.output):
+                    self.log.warn(
+                        f"Buildx instavel em {label}; retentando com docker build classico (sem cache local)."
+                    )
+                    fallback = (
+                        self._remote_build_shell_preamble(src, use_buildx_cache=False)
+                        + self._remote_build_service_command(svc)
+                    )
+                    ssh.run(fallback, f"build Docker (fallback): {label}")
+                else:
+                    raise
+
+        image_pairs = " ".join(
+            f"{repo}:{self.env.container_for_image(repo)}" for repo in self.env.image_repos
+        )
+        retag_script = f"""
+set -euo pipefail
+TAG={shlex.quote(self.sha)}
+PREFIX={shlex.quote(IMAGE_PREFIX)}
+IMAGE_PAIRS={shlex.quote(image_pairs)}
 echo "==> Garantindo tag $TAG para servicos reaproveitados"
-for cname in {' '.join(CONTAINERS)}; do
-  target="$PREFIX/$cname:$TAG"
+for pair in $IMAGE_PAIRS; do
+  img_repo="${{pair%%:*}}"
+  cname="${{pair##*:}}"
+  target="$PREFIX/$img_repo:$TAG"
   if docker image inspect "$target" >/dev/null 2>&1; then
     echo "OK: $target existe"
     continue
@@ -707,13 +814,16 @@ for cname in {' '.join(CONTAINERS)}; do
   fi
 done
 echo "==> Imagens criadas"
-docker images "$PREFIX/*" --format 'table {{{{.Repository}}}}\\t{{{{.Tag}}}}\\t{{{{.CreatedSince}}}}\\t{{{{.Size}}}}' | grep "$TAG" || true
+docker images "$PREFIX/" --format 'table {{{{.Repository}}}}\\t{{{{.Tag}}}}\\t{{{{.CreatedSince}}}}\\t{{{{.Size}}}}' | grep "$TAG" || true
 """
-        ssh.run(script, "build das imagens Docker")
+        ssh.run(retag_script, "retag de imagens Docker")
 
     def _remote_up(self, ssh: SshSession) -> None:
+        env = self.env
         src = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-src"
         state_path = f"{self.cfg.remote_deploy_dir.rstrip('/')}/deploy-state.json"
+        compose_dest = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-compose/{env.compose_file}"
+        containers_json = json.dumps(list(env.containers))
         script = f"""
 set -euo pipefail
 TAG={shlex.quote(self.sha)}
@@ -721,11 +831,15 @@ PREFIX={shlex.quote(IMAGE_PREFIX)}
 DEPLOY_ROOT={shlex.quote(self.cfg.remote_deploy_dir.rstrip('/'))}
 STATE_PATH={shlex.quote(state_path)}
 SRC={shlex.quote(src)}
-export TAG PREFIX DEPLOY_ROOT STATE_PATH SRC
+COMPOSE_FILE={shlex.quote(env.compose_file)}
+COMPOSE_DEST={shlex.quote(compose_dest)}
+DOCKER_NETWORK_NAME={shlex.quote(env.docker_network)}
+DOCKER_NETWORK_SUBNET={shlex.quote(env.docker_network_subnet)}
+export TAG PREFIX DEPLOY_ROOT STATE_PATH SRC COMPOSE_FILE COMPOSE_DEST DOCKER_NETWORK_NAME DOCKER_NETWORK_SUBNET
 mkdir -p "$DEPLOY_ROOT"
 python3 - <<'PY'
 import json, os, subprocess, time
-containers = {json.dumps(CONTAINERS)}
+containers = {containers_json}
 state_path = os.environ["STATE_PATH"]
 current = {{}}
 for name in containers:
@@ -737,62 +851,94 @@ for name in containers:
 data = {{
     "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     "target_sha": os.environ["TAG"],
+    "environment": {json.dumps(env.id)},
     "previous_images": current,
-    "compose_path": os.path.join(os.environ["DEPLOY_ROOT"], "current-compose", "docker-compose.hmg.yml"),
+    "compose_path": os.environ["COMPOSE_DEST"],
 }}
 with open(state_path, "w", encoding="utf-8") as fh:
     json.dump(data, fh, indent=2)
 print(f"Estado anterior salvo em {{state_path}}")
 PY
-docker network inspect rhportal-net >/dev/null 2>&1 || docker network create rhportal-net
+PURGE_SCRIPT="$SRC/__scripts__/deploy/docker-deploy-purge.sh"
+if [[ -x "$PURGE_SCRIPT" ]]; then
+  DEPLOY_PURGE_REGISTRY_PREFIX="$PREFIX" DEPLOY_PURGE_KEEP_TAG="$TAG" DEPLOY_PURGE_PHASE=pre-up bash "$PURGE_SCRIPT"
+fi
+current_subnet="$(docker network inspect "$DOCKER_NETWORK_NAME" --format '{{{{range .IPAM.Config}}}}{{{{.Subnet}}}}{{{{end}}}}' 2>/dev/null || true)"
+if [[ -n "$current_subnet" && "$current_subnet" != "$DOCKER_NETWORK_SUBNET" ]]; then
+  echo "Recriando rede $DOCKER_NETWORK_NAME: subnet atual $current_subnet, desejada $DOCKER_NETWORK_SUBNET"
+  docker network rm "$DOCKER_NETWORK_NAME" 2>/dev/null || true
+  current_subnet=""
+fi
+if [[ -z "$current_subnet" ]]; then
+  docker network create --subnet "$DOCKER_NETWORK_SUBNET" "$DOCKER_NETWORK_NAME"
+fi
 cd "$SRC"
-export HMG_REGISTRY_PREFIX="$PREFIX"
-export HMG_IMAGE_TAG="$TAG"
-export HMG_ENV_FILE="$HOME/.env.hmg"
-docker compose -f docker-compose.hmg.yml down --remove-orphans 2>/dev/null || true
-for cname in {' '.join(CONTAINERS)}; do
+export {env.registry_prefix_var}="$PREFIX"
+export {env.image_tag_var}="$TAG"
+export {env.portal_vagas_url_var}={shlex.quote(self.cfg.portal_vagas_url)}
+export {env.compose_env_file_var}={env.env_file}
+docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
+for cname in {' '.join(env.containers)}; do
   docker rm -f "$cname" >/dev/null 2>&1 || true
 done
-docker compose -f docker-compose.hmg.yml up -d --remove-orphans
-docker compose -f docker-compose.hmg.yml ps
+docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
+docker compose -f "$COMPOSE_FILE" ps
+if [[ -x "$PURGE_SCRIPT" ]]; then
+  DEPLOY_PURGE_REGISTRY_PREFIX="$PREFIX" DEPLOY_PURGE_KEEP_TAG="$TAG" DEPLOY_PURGE_PHASE=post-up bash "$PURGE_SCRIPT"
+fi
 """
-        ssh.run(script, "subir stack HMG")
+        ssh.run(script, f"subir stack {env.label}")
 
     def _remote_validate(self, ssh: SshSession) -> None:
-        script = r"""
+        env = self.env
+        container_loop = "\n".join(
+            f'  printf "%s " "{c}"\n  docker inspect "{c}" --format \'{{{{.Config.Image}}}}\''
+            for c in env.containers
+        )
+        port = env.health_api_port
+        api_health_url = env.health_api_check_url
+        script = f"""
 set -euo pipefail
 echo "==> Containers"
-docker ps --filter name=rhportal --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+docker ps --filter name=rhportal --format 'table {{{{.Names}}}}\\t{{{{.Image}}}}\\t{{{{.Status}}}}\\t{{{{.Ports}}}}'
 echo "==> Imagens efetivas"
-for c in rhportal-api rhportal-web-next rhportal-portal-vagas rhportal-ai; do
+for c in {' '.join(env.containers)}; do
   printf "%s " "$c"
-  docker inspect "$c" --format '{{.Config.Image}}'
+  docker inspect "$c" --format '{{{{.Config.Image}}}}'
+  echo
 done
-retry_url() {
+retry_url() {{
   name="$1"
   url="$2"
   for attempt in $(seq 1 30); do
-    code=$(curl -fsS -o /dev/null -w '%{http_code}' "$url" 2>/tmp/rhportal-curl-error || true)
+    code=$(curl -sS -o /dev/null -w '%{{http_code}}' "$url" 2>/tmp/rhportal-curl-error || true)
     if [[ "$code" == "200" ]]; then
-      echo "${name}:200"
+      echo "${{name}}:200"
       return 0
     fi
-    echo "${name}:aguardando (${attempt}/30, code=${code:-FAIL})"
+    echo "${{name}}:aguardando (${{attempt}}/30, code=${{code:-FAIL}})"
     sleep 5
   done
-  echo "${name}:FAIL"
+  echo "${{name}}:FAIL"
   cat /tmp/rhportal-curl-error 2>/dev/null || true
   return 1
-}
+}}
 echo "==> Endpoints obrigatorios"
-retry_url api-swagger http://127.0.0.1:5000/swagger/index.html
+retry_url api-health {shlex.quote(api_health_url)}
+swagger_code=$(curl -sS -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{port}/swagger/index.html 2>/dev/null || true)
+echo "api-swagger:${{swagger_code:-FAIL}}"
+if [[ "$swagger_code" == "401" ]]; then
+  echo "WARN: Swagger retornou 401 (protegido); isso e esperado em Production/DEV com auth."
+elif [[ "$swagger_code" != "200" && "$swagger_code" != "401" ]]; then
+  echo "WARN: Swagger inesperado (code=${{swagger_code:-FAIL}}); verifique manualmente se necessario."
+fi
 retry_url web-health http://127.0.0.1:3000/health
 retry_url web-app http://127.0.0.1:3000/app/login
 retry_url portal-vagas http://127.0.0.1:3050/
 echo "==> Health agregado da API"
 health_body=$(mktemp)
-health_code=$(curl -sS -o "$health_body" -w '%{http_code}' http://127.0.0.1:5000/health || true)
-echo "api-health:${health_code}"
+health_code=$(curl -sS -o "$health_body" -w '%{{http_code}}' {shlex.quote(api_health_url)} || true)
+echo "api-health:${{health_code}}"
 cat "$health_body"
 echo
 if [[ "$health_code" == "503" ]] && grep -qi "rhportal_ai" "$health_body"; then
@@ -804,17 +950,22 @@ fi
         ssh.run(script, "validacao pos-deploy")
 
     def _remote_rollback(self, ssh: SshSession) -> None:
+        env = self.env
         state_path = f"{self.cfg.remote_deploy_dir.rstrip('/')}/deploy-state.json"
+        container_to_image = {env.container_for_image(r): r for r in env.image_repos}
+        compose_dest = f"{self.cfg.remote_deploy_dir.rstrip('/')}/current-compose/{env.compose_file}"
         script = f"""
 set -euo pipefail
 STATE_PATH={shlex.quote(state_path)}
 PREFIX={shlex.quote(IMAGE_PREFIX)}
-export STATE_PATH PREFIX
+COMPOSE_FILE={shlex.quote(compose_dest)}
+export STATE_PATH PREFIX COMPOSE_FILE
 python3 - <<'PY'
-import json, os, re, subprocess, sys
+import json, os, subprocess, sys
 state_path = os.environ["STATE_PATH"]
 prefix = os.environ["PREFIX"]
-containers = {json.dumps(CONTAINERS)}
+containers = {json.dumps(list(env.containers))}
+container_to_image = {json.dumps(container_to_image)}
 with open(state_path, "r", encoding="utf-8") as fh:
     state = json.load(fh)
 images = state.get("previous_images") or {{}}
@@ -824,28 +975,32 @@ for container in containers:
     if not image:
         print(f"Imagem anterior ausente para {{container}}", file=sys.stderr)
         sys.exit(11)
-    expected = f"{prefix}/" + container + ":"
+    image_repo = container_to_image.get(container)
+    if not image_repo:
+        print(f"Mapeamento de imagem ausente para {{container}}", file=sys.stderr)
+        sys.exit(12)
+    expected = f"{{prefix}}/{{image_repo}}:"
     if not image.startswith(expected):
         print(f"Imagem anterior inesperada para {{container}}: {{image}}", file=sys.stderr)
-        sys.exit(12)
+        sys.exit(13)
     tags.add(image.rsplit(":", 1)[1])
     subprocess.check_call(["docker", "image", "inspect", image], stdout=subprocess.DEVNULL)
 if len(tags) != 1:
     print(f"Rollback exige todos os servicos no mesmo SHA/tag. Tags encontradas: {{sorted(tags)}}", file=sys.stderr)
-    sys.exit(13)
+    sys.exit(14)
 tag = tags.pop()
 with open(os.path.join(os.path.dirname(state_path), "rollback-tag.txt"), "w", encoding="utf-8") as fh:
     fh.write(tag)
 print(tag)
 PY
 ROLLBACK_TAG=$(cat {shlex.quote(self.cfg.remote_deploy_dir.rstrip('/') + '/rollback-tag.txt')})
-COMPOSE_FILE={shlex.quote(self.cfg.remote_deploy_dir.rstrip('/') + '/current-compose/docker-compose.hmg.yml')}
 test -f "$COMPOSE_FILE"
-export HMG_REGISTRY_PREFIX="$PREFIX"
-export HMG_IMAGE_TAG="$ROLLBACK_TAG"
-export HMG_ENV_FILE="$HOME/.env.hmg"
+export {env.registry_prefix_var}="$PREFIX"
+export {env.image_tag_var}="$ROLLBACK_TAG"
+export {env.portal_vagas_url_var}={shlex.quote(self.cfg.portal_vagas_url)}
+export {env.compose_env_file_var}={env.env_file}
 docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
-for cname in {' '.join(CONTAINERS)}; do
+for cname in {' '.join(env.containers)}; do
   docker rm -f "$cname" >/dev/null 2>&1 || true
 done
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
@@ -858,7 +1013,7 @@ echo "Rollback aplicado para tag $ROLLBACK_TAG"
 class DeployGui(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("RHPortal HMG Deploy")
+        self.title("RHPortal Deploy via SSH")
         self.geometry("1180x780")
         self.minsize(980, 640)
         self.queue: queue.Queue[tuple[Any, ...]] = queue.Queue()
@@ -867,7 +1022,20 @@ class DeployGui(tk.Tk):
         self.mode_var = tk.StringVar(value="smart")
         self.config_data = self._load_config()
         self._build_ui()
+        self.protocol("WM_DELETE_WINDOW", self._on_close_request)
         self.after(100, self._process_queue)
+
+    def _apply_environment_defaults(self, env_id: str) -> None:
+        env = ENVIRONMENTS.get(env_id)
+        if env is None:
+            return
+        self.host_var.set(env.default_host)
+        self.remote_dir_var.set(env.default_remote_dir)
+        self.api_var.set(env.default_api_url)
+        self.admin_var.set(env.default_admin_url)
+        self.portal_vagas_var.set(env.default_portal_vagas_url)
+        self.tenant_var.set(env.default_tenant)
+        self.branch_label_var.set(f"Branch: {env.branch}")
 
     def _load_config(self) -> dict[str, str]:
         data = dict(DEFAULT_CONFIG)
@@ -881,12 +1049,14 @@ class DeployGui(tk.Tk):
 
     def _save_config(self) -> None:
         data = {
+            "environment_id": self.environment_var.get().split("—", 1)[0].strip(),
             "host": self.host_var.get().strip(),
             "user": self.user_var.get().strip(),
             "repo_path": self.repo_var.get().strip(),
             "remote_deploy_dir": self.remote_dir_var.get().strip(),
             "api_url": self.api_var.get().strip(),
             "admin_url": self.admin_var.get().strip(),
+            "portal_vagas_url": self.portal_vagas_var.get().strip(),
             "tenant": self.tenant_var.get().strip(),
         }
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -903,32 +1073,53 @@ class DeployGui(tk.Tk):
         for i in range(8):
             form.columnconfigure(i, weight=1 if i in (1, 3, 5, 7) else 0)
 
-        self.host_var = tk.StringVar(value=self.config_data["host"])
-        self.user_var = tk.StringVar(value=self.config_data["user"])
+        self.host_var = tk.StringVar(value=self.config_data.get("host", DEFAULT_CONFIG["host"]))
+        self.user_var = tk.StringVar(value=self.config_data.get("user", DEFAULT_CONFIG["user"]))
         self.password_var = tk.StringVar()
-        self.repo_var = tk.StringVar(value=self.config_data["repo_path"])
-        self.remote_dir_var = tk.StringVar(value=self.config_data["remote_deploy_dir"])
-        self.api_var = tk.StringVar(value=self.config_data["api_url"])
-        self.admin_var = tk.StringVar(value=self.config_data["admin_url"])
-        self.tenant_var = tk.StringVar(value=self.config_data["tenant"])
+        self.repo_var = tk.StringVar(value=self.config_data.get("repo_path", DEFAULT_CONFIG["repo_path"]))
+        self.remote_dir_var = tk.StringVar(value=self.config_data.get("remote_deploy_dir", DEFAULT_CONFIG["remote_deploy_dir"]))
+        self.api_var = tk.StringVar(value=self.config_data.get("api_url", DEFAULT_CONFIG["api_url"]))
+        self.admin_var = tk.StringVar(value=self.config_data.get("admin_url", DEFAULT_CONFIG["admin_url"]))
+        self.portal_vagas_var = tk.StringVar(value=self.config_data.get("portal_vagas_url", DEFAULT_CONFIG["portal_vagas_url"]))
+        self.tenant_var = tk.StringVar(value=self.config_data.get("tenant", DEFAULT_CONFIG["tenant"]))
+        initial_env = self.config_data.get("environment_id", DEFAULT_CONFIG["environment_id"])
+        if initial_env not in ENVIRONMENTS:
+            initial_env = "dev"
+        self.environment_var = tk.StringVar(value=f"{initial_env} — {ENVIRONMENTS[initial_env].label}")
+        self.branch_label_var = tk.StringVar(value=f"Branch: {ENVIRONMENTS[initial_env].branch}")
 
-        self._entry(form, "Host", self.host_var, 0, 0)
-        self._entry(form, "Usuario", self.user_var, 0, 2)
-        self._entry(form, "Senha", self.password_var, 0, 4, show="*")
-        ttk.Button(form, text="Salvar config", command=self._save_config).grid(row=0, column=6, padx=6, pady=4, sticky="ew")
+        env_row = ttk.Frame(form)
+        env_row.grid(row=0, column=0, columnspan=8, sticky="ew", padx=6, pady=(4, 8))
+        ttk.Label(env_row, text="Ambiente").pack(side=tk.LEFT)
+        env_combo = ttk.Combobox(
+            env_row,
+            textvariable=self.environment_var,
+            values=[f"{e.id} — {e.label}" for e in ENVIRONMENTS.values()],
+            state="readonly",
+            width=28,
+        )
+        env_combo.pack(side=tk.LEFT, padx=(8, 12))
+        env_combo.bind("<<ComboboxSelected>>", self._on_environment_changed)
+        ttk.Label(env_row, textvariable=self.branch_label_var).pack(side=tk.LEFT)
+        ttk.Label(env_row, text="(sem GitHub Actions / GHCR)").pack(side=tk.LEFT, padx=(12, 0))
 
-        self._entry(form, "Repo local", self.repo_var, 1, 0, colspan=5)
-        ttk.Button(form, text="Procurar", command=self._browse_repo).grid(row=1, column=6, padx=6, pady=4, sticky="ew")
-        ttk.Label(form, text="Branch: main").grid(row=1, column=7, padx=6, pady=4, sticky="w")
+        self._entry(form, "Host", self.host_var, 1, 0)
+        self._entry(form, "Usuario", self.user_var, 1, 2)
+        self._entry(form, "Senha", self.password_var, 1, 4, show="*")
+        ttk.Button(form, text="Salvar config", command=self._save_config).grid(row=1, column=6, padx=6, pady=4, sticky="ew")
 
-        self._entry(form, "Dir remoto", self.remote_dir_var, 2, 0, colspan=3)
-        self._entry(form, "API URL", self.api_var, 2, 4, colspan=1)
-        self._entry(form, "Admin URL", self.admin_var, 3, 0, colspan=3)
-        self._entry(form, "Tenant", self.tenant_var, 3, 4, colspan=1)
+        self._entry(form, "Repo local", self.repo_var, 2, 0, colspan=5)
+        ttk.Button(form, text="Procurar", command=self._browse_repo).grid(row=2, column=6, padx=6, pady=4, sticky="ew")
+
+        self._entry(form, "Dir remoto", self.remote_dir_var, 3, 0, colspan=3)
+        self._entry(form, "API URL (pública)", self.api_var, 3, 4, colspan=1)
+        self._entry(form, "Admin URL", self.admin_var, 4, 0, colspan=3)
+        self._entry(form, "Portal Vagas URL", self.portal_vagas_var, 4, 4, colspan=1)
+        self._entry(form, "Tenant", self.tenant_var, 5, 0, colspan=1)
 
         actions = ttk.Frame(root)
         actions.pack(fill=tk.X, pady=(10, 6))
-        self.deploy_btn = ttk.Button(actions, text="Deploy main", command=self._start_deploy)
+        self.deploy_btn = ttk.Button(actions, text="Deploy", command=self._start_deploy)
         self.deploy_btn.pack(side=tk.LEFT, padx=(0, 6))
         ttk.Radiobutton(actions, text="Inteligente", variable=self.mode_var, value="smart").pack(side=tk.LEFT, padx=6)
         ttk.Radiobutton(actions, text="Completo", variable=self.mode_var, value="full").pack(side=tk.LEFT, padx=6)
@@ -951,7 +1142,12 @@ class DeployGui(tk.Tk):
         self.log_text.tag_configure("OK", foreground="#7ddc83")
         self.log_text.tag_configure("WARN", foreground="#ffd166")
         self.log_text.tag_configure("ERROR", foreground="#ff6b6b")
-        self._log("INFO", "Ferramenta pronta. Informe a senha do servidor e clique em Deploy main.")
+        self._log("INFO", "Ferramenta pronta. Escolha DEV ou HMG, informe a senha SSH e clique em Deploy.")
+
+    def _on_environment_changed(self, _event: object | None = None) -> None:
+        raw = self.environment_var.get().split("—", 1)[0].strip()
+        self._apply_environment_defaults(raw)
+        self.environment_var.set(f"{raw} — {ENVIRONMENTS[raw].label}")
 
     def _entry(
         self,
@@ -982,6 +1178,7 @@ class DeployGui(tk.Tk):
         password = self.password_var.get()
         if not password:
             raise DeployError("Senha nao informada.", "Digite a senha SSH do servidor na GUI.")
+        env_id = self.environment_var.get().split("—", 1)[0].strip()
         return DeployConfig(
             host=self.host_var.get().strip(),
             user=self.user_var.get().strip(),
@@ -990,7 +1187,9 @@ class DeployGui(tk.Tk):
             remote_deploy_dir=self.remote_dir_var.get().strip().rstrip("/"),
             api_url=self.api_var.get().strip(),
             admin_url=self.admin_var.get().strip(),
+            portal_vagas_url=self.portal_vagas_var.get().strip(),
             tenant=self.tenant_var.get().strip(),
+            environment_id=env_id,
         )
 
     def _start_deploy(self) -> None:
@@ -1000,6 +1199,23 @@ class DeployGui(tk.Tk):
         if not messagebox.askyesno("Confirmar rollback", "Deseja voltar para o ultimo SHA anterior salvo no servidor?"):
             return
         self._start_worker("rollback")
+
+    def _is_worker_running(self) -> bool:
+        return self.worker is not None and self.worker.is_alive()
+
+    def _on_close_request(self) -> None:
+        if self._is_worker_running():
+            if not messagebox.askyesno(
+                "Deploy em andamento",
+                "Ha um deploy ou rollback em execucao.\n\n"
+                "Se fechar agora, a operacao sera interrompida no meio. "
+                "O servidor pode ficar com build parcial ou stack inconsistente, "
+                "mas em geral e seguro rodar o deploy novamente.\n\n"
+                "Deseja fechar mesmo assim?",
+                icon="warning",
+            ):
+                return
+        self.destroy()
 
     def _start_worker(self, action: str) -> None:
         if self.worker and self.worker.is_alive():

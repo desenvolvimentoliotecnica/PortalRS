@@ -17,9 +17,13 @@ import {
 import {
   avancarEtapa,
   bulkAvancarEtapa,
+  ETAPA_KANBAN_LABELS,
   ETAPAS_KANBAN,
   getKanban,
   getKanbanVagas,
+  isEtapaDeclinado,
+  KANBAN_COLUNA_DECLINADO,
+  labelEtapaKanban,
   resolveEtapa,
   type AgendarEntrevistaCandidaturaRequest,
   type EtapaMacroCandidatura,
@@ -30,17 +34,7 @@ import {
 import CandidateKanbanDetailDialog from "./CandidateKanbanDetailDialog";
 import MatchingBreakdownDialog, { useMatchingBreakdownDialog } from "@/features/recrutamento/matching/MatchingBreakdownDialog";
 
-const ETAPA_LABELS: Record<EtapaMacroCandidatura, string> = {
-  Aplicada: "Aplicada",
-  EmTriagem: "Em triagem",
-  Entrevista: "Entrevista",
-  EntrevistaTecnica: "Entrevista técnica",
-  Teste: "Teste",
-  Proposta: "Proposta",
-  Contratado: "Contratado",
-  Recusado: "Recusado",
-  Desistiu: "Desistiu",
-};
+const ETAPA_LABELS = ETAPA_KANBAN_LABELS;
 
 const ETAPA_STYLES: Record<EtapaMacroCandidatura, { header: string; accent: string }> = {
   Aplicada:   { header: "bg-sky-50 text-sky-900",         accent: "border-sky-200" },
@@ -50,7 +44,9 @@ const ETAPA_STYLES: Record<EtapaMacroCandidatura, { header: string; accent: stri
   Teste:      { header: "bg-fuchsia-50 text-fuchsia-900", accent: "border-fuchsia-200" },
   Proposta:   { header: "bg-amber-50 text-amber-900",     accent: "border-amber-200" },
   Contratado: { header: "bg-emerald-50 text-emerald-900", accent: "border-emerald-200" },
-  Recusado:   { header: "bg-rose-50 text-rose-900",       accent: "border-rose-200" },
+  ReprovadoRh: { header: "bg-orange-50 text-orange-900", accent: "border-orange-200" },
+  ReprovadoGestor: { header: "bg-rose-50 text-rose-900", accent: "border-rose-200" },
+  Recusado:   { header: "bg-red-50 text-red-900",       accent: "border-red-200" },
   Desistiu:   { header: "bg-neutral-100 text-neutral-700", accent: "border-neutral-200" },
 };
 
@@ -232,7 +228,10 @@ export default function CandidaturasKanbanScreen() {
     if (data) {
       for (const col of data.colunas) {
         const etapa = resolveEtapa(col.etapa);
-        map.set(etapa, col.itens.map((it) => ({ ...it, etapaMacro: resolveEtapa(it.etapaMacro) })));
+        const destino = isEtapaDeclinado(etapa) ? KANBAN_COLUNA_DECLINADO : etapa;
+        const bucket = map.get(destino) ?? [];
+        bucket.push(...col.itens.map((it) => ({ ...it, etapaMacro: resolveEtapa(it.etapaMacro) })));
+        map.set(destino, bucket);
       }
     }
     return map;
@@ -375,7 +374,7 @@ export default function CandidaturasKanbanScreen() {
             <option value="">Mover para...</option>
             {ETAPAS_KANBAN
               .filter((e) => !shouldScheduleInterview(e))
-              .map((e) => <option key={e} value={e}>{ETAPA_LABELS[e]}</option>)}
+              .map((e) => <option key={e} value={e}>{labelEtapaKanban(e)}</option>)}
           </select>
           <Button
             size="sm"
@@ -410,7 +409,7 @@ export default function CandidaturasKanbanScreen() {
               >
                 <div className={`rounded-t-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide ${style.header}`}>
                   <div className="flex items-center justify-between">
-                    <span>{ETAPA_LABELS[etapa]}</span>
+                    <span>{labelEtapaKanban(etapa)}</span>
                     <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] text-neutral-700">
                       {totals[etapa] ?? 0}
                     </span>
@@ -846,7 +845,7 @@ export default function CandidaturasKanbanScreen() {
           <DialogHeader>
             <DialogTitle>Criar proposta para o candidato?</DialogTitle>
             <DialogDescription>
-              A candidatura foi movida para Proposta. Deseja abrir a criação da proposta agora para enviar ao candidato?
+              A candidatura foi movida para Envio da Proposta. Deseja abrir a criação da proposta agora para enviar ao candidato?
             </DialogDescription>
           </DialogHeader>
 

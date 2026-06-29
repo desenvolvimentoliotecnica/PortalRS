@@ -9,7 +9,6 @@ import { env } from "@/lib/env";
 import { getTenantId } from "@/lib/session";
 import { lookupCep } from "@/lib/cepLookup";
 import { confirmDialog } from "@/lib/confirm-dialog";
-import { CargoAutocomplete, type CargoLookup } from "@/components/autocomplete/CargoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
 import { SugerirSalarioButton } from "@/features/assistente-ia/SugerirSalarioButton";
 import { HorarioEditor } from "@/components/gestao/HorarioEditor";
@@ -114,9 +113,7 @@ type VagaDraft = {
   recrutadorResponsavelUserId: string | null;
   prioridade: string; resumoPitch: string;
   tagsResponsabilidades: string; tagsKeywords: string;
-  confidencial: boolean; aceitaPcd: boolean; urgente: boolean;
-  generoPreferencia: string; vagaAfirmativa: boolean; linguagemInclusiva: boolean;
-  publicoAfirmativo: string; observacoesPcd: string;
+  confidencial: boolean; urgente: boolean;
   projetoNome: string; projetoCliente: string; projetoPrazo: string; projetoDescricao: string;
   regime: string; cargaSemanalHoras: string; escala: string; escalaTrabalhoRaw: string;
   horaEntrada: string; horaSaida: string; intervalo: string;
@@ -166,9 +163,7 @@ function emptyDraft(): VagaDraft {
     motivoAbertura: "", orcamentoAprovado: "", gestorRequisitante: "",
     recrutadorResponsavel: "", recrutadorResponsavelUserId: null, prioridade: "", resumoPitch: "",
     tagsResponsabilidades: "", tagsKeywords: "",
-    confidencial: false, aceitaPcd: false, urgente: false,
-    generoPreferencia: "", vagaAfirmativa: false, linguagemInclusiva: false,
-    publicoAfirmativo: "", observacoesPcd: "",
+    confidencial: false, urgente: false,
     projetoNome: "", projetoCliente: "", projetoPrazo: "", projetoDescricao: "",
     regime: "", cargaSemanalHoras: "", escala: "", escalaTrabalhoRaw: "",
     horaEntrada: "", horaSaida: "", intervalo: "",
@@ -532,6 +527,15 @@ function parseMatchingFiltrosRaw(raw: string, enums: EnumData) {
   return out;
 }
 
+const VAGA_DIVERSIDADE_PAYLOAD = {
+  aceitaPcd: false,
+  generoPreferencia: null,
+  vagaAfirmativa: false,
+  linguagemInclusiva: false,
+  publicoAfirmativo: null,
+  observacoesPcd: null,
+} as const;
+
 function buildPayload(d: VagaDraft, enums: EnumData) {
   const tagsRaw = (s: string) => s.split(";").map((x) => x.trim()).filter(Boolean).join(";") || null;
   const matchingFiltrosRaw = buildMatchingFiltrosRaw(d, enums);
@@ -575,13 +579,8 @@ function buildPayload(d: VagaDraft, enums: EnumData) {
     tagsResponsabilidadesRaw: tagsRaw(d.tagsResponsabilidades),
     tagsKeywordsRaw: tagsRaw(d.tagsKeywords),
     confidencial: d.confidencial,
-    aceitaPcd: d.aceitaPcd,
     urgente: d.urgente,
-    generoPreferencia: emptyToNull(d.generoPreferencia),
-    vagaAfirmativa: d.vagaAfirmativa,
-    linguagemInclusiva: d.linguagemInclusiva,
-    publicoAfirmativo: emptyToNull(d.publicoAfirmativo),
-    observacoesPcd: emptyToNull(d.observacoesPcd),
+    ...VAGA_DIVERSIDADE_PAYLOAD,
     projetoNome: emptyToNull(d.projetoNome),
     projetoClienteAreaImpactada: emptyToNull(d.projetoCliente),
     projetoPrazoPrevisto: emptyToNull(d.projetoPrazo),
@@ -704,18 +703,17 @@ function EnumSelect({ value, onChange, options, placeholder }: {
 
 /* ── Tab definitions ─────────────────────────────────────────────────── */
 
-type TabKey = "identificacao" | "horario" | "dados" | "diversidade" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos" | "posicao";
-const REMOVED_EDIT_TABS = new Set<TabKey>(["publicacao", "campos", "posicao"]);
+type TabKey = "identificacao" | "horario" | "dados" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos" | "posicao";
+const REMOVED_EDIT_TAB_KEYS = new Set<string>(["publicacao", "campos", "posicao", "diversidade"]);
 
 function normalizeEditTab(tab?: TabKey): TabKey {
-  return tab && !REMOVED_EDIT_TABS.has(tab) ? tab : "identificacao";
+  return tab && !REMOVED_EDIT_TAB_KEYS.has(tab) ? tab : "identificacao";
 }
 
 const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "identificacao", icon: "🪪", label: "Identificação" },
   { key: "horario", icon: "🕐", label: "Horário" },
   { key: "dados", icon: "📋", label: "Dados básicos" },
-  { key: "diversidade", icon: "💜", label: "Diversidade" },
   { key: "projeto", icon: "📁", label: "Projeto" },
   { key: "local", icon: "📍", label: "Localização" },
   { key: "remuneracao", icon: "💰", label: "Remuneração" },
@@ -1132,10 +1130,7 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
         resumoPitch: pick(v.resumoPitch),
         tagsResponsabilidades: pick(v.tagsResponsabilidadesRaw).replace(/;/g, "; "),
         tagsKeywords: pick(v.tagsKeywordsRaw).replace(/;/g, "; "),
-        confidencial: pickBool(v.confidencial), aceitaPcd: pickBool(v.aceitaPcd), urgente: pickBool(v.urgente),
-        generoPreferencia: pickEnum(v.generoPreferencia), vagaAfirmativa: pickBool(v.vagaAfirmativa),
-        linguagemInclusiva: pickBool(v.linguagemInclusiva), publicoAfirmativo: pick(v.publicoAfirmativo),
-        observacoesPcd: pick(v.observacoesPcd),
+        confidencial: pickBool(v.confidencial), urgente: pickBool(v.urgente),
         projetoNome: pick(v.projetoNome), projetoCliente: pick(v.projetoClienteAreaImpactada),
         projetoPrazo: pick(v.projetoPrazoPrevisto), projetoDescricao: pick(v.projetoDescricao),
         regime: pickEnum(v.regime), cargaSemanalHoras: v.cargaSemanalHoras != null ? String(v.cargaSemanalHoras) : "",
@@ -1239,7 +1234,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   async function handleSave() {
     if (!draft.titulo.trim()) { toast.error("Informe o título da vaga."); setTab("identificacao"); return; }
     if (!draft.status) { toast.error("Selecione o status."); setTab("dados"); return; }
-    if (!draft.cargoId) { toast.error("Selecione o cargo."); setTab("identificacao"); return; }
 
     // Ao publicar, exige campos essenciais preenchidos
     if (draft.status.toLowerCase() === "aberta") {
@@ -1408,29 +1402,10 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
             <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
               <SectionHeader title="Identificação da vaga" />
 
-              <Field label="Título da vaga" required span="col-span-12 md:col-span-8">
+              <Field label="Título da vaga" required span="col-span-12">
                 <input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: Analista de Marketing Jr" value={draft.titulo} onChange={(e) => set("titulo", e.target.value)} />
               </Field>
 
-              <Field label="Cargo" required span="col-span-12 md:col-span-4">
-                <CargoAutocomplete
-                  value={draft.cargoCode || draft.cargoId}
-                  defaultCargoLabel={draft.cargoCode ? { code: draft.cargoCode, name: draft.cargoName } : undefined}
-                  onChange={(code) => set("cargoCode", code)}
-                  onSelectId={(id) => set("cargoId", id)}
-                  onSelect={(item: CargoLookup) => {
-                    setDraft(d => ({
-                      ...d,
-                      cargoId: item.id,
-                      cargoCode: item.code,
-                      cargoName: item.name,
-                      centroCustoId: d.centroCustoId || item.centroCustoId || d.centroCustoId,
-                      senioridade: d.senioridade || (item.seniority ? item.seniority.toLowerCase() : ""),
-                    }));
-                  }}
-                  placeholder="Digite código ou nome do cargo..."
-                />
-              </Field>
               <Field label="Função" span="col-span-12 md:col-span-6">
                 <input
                   readOnly
@@ -1517,23 +1492,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
               <Field label="Responsabilidades (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Ex.: triagem de currículos; entrevistas; alinhamento com gestores" value={draft.tagsResponsabilidades} onChange={(e) => set("tagsResponsabilidades", e.target.value)} /></Field>
               <Field label="Palavras-chave (separe por ;)" span="col-span-12 md:col-span-6"><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" rows={3} placeholder="Ex.: recrutamento; ATS; entrevistas por competência" value={draft.tagsKeywords} onChange={(e) => set("tagsKeywords", e.target.value)} /></Field>
 
-            </div>
-          )}
-
-          {/* ── Diversidade ──────────────────────────────────────── */}
-          {tab === "diversidade" && (
-            <div className="grid grid-cols-12 gap-x-4 gap-y-3 mt-3">
-              <SectionHeader title="Inclusão e diversidade" description="Configure preferências de gênero, ação afirmativa e acessibilidade." />
-              <Field label="Preferência de gênero" span="col-span-12 md:col-span-4"><EnumSelect value={draft.generoPreferencia} onChange={(v) => set("generoPreferencia", v)} options={enumOpts(enums, "vagaGeneroPreferencia", "Sem preferência")} /></Field>
-              <Field label="Público afirmativo" span="col-span-12 md:col-span-8"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: PCD; Mulheres; Pessoas Negras" maxLength={120} value={draft.publicoAfirmativo} onChange={(e) => set("publicoAfirmativo", e.target.value)} /></Field>
-              <Field label="Observações PCD" span="col-span-12"><input className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" placeholder="Ex.: acomodações necessárias, adaptações de ambiente ou processo" value={draft.observacoesPcd} onChange={(e) => set("observacoesPcd", e.target.value)} /></Field>
-              <div className="col-span-12 rounded-lg border border-border bg-muted/20 p-4">
-                <p className="text-xs font-medium text-muted-foreground mb-3">Opções de inclusão</p>
-                <div className="flex flex-wrap gap-6">
-                  <Toggle label="Vaga afirmativa" checked={draft.vagaAfirmativa} onChange={(v) => set("vagaAfirmativa", v)} />
-                  <Toggle label="Usar linguagem inclusiva na descrição" checked={draft.linguagemInclusiva} onChange={(v) => set("linguagemInclusiva", v)} />
-                </div>
-              </div>
             </div>
           )}
 

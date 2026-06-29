@@ -1,0 +1,3685 @@
+{
+  "meta": {
+    "projeto": "Portal RH (RenderRH)",
+    "responsavelPadrao": "Lucas Muniz Machado",
+    "instrucao": "totalHoras = tempo real entre horarios no mesmo dia; multi-dia = parcial + 8h/dia.",
+    "horasUteisPorDia": 8,
+    "minutosMinimos": 30,
+    "jornadaComercial": "08:00-18:00",
+    "atualizadoEm": "2026-06-29",
+    "totalTarefas": 142
+  },
+  "tarefas": [
+    {
+      "id": "TASK-2025-001",
+      "nome": "[Portal RH] Estrutura inicial do portal e layout MVC",
+      "descricaoAmigavel": "Primeira versão do portal de RH com projeto MVC, layout compartilhado e telas base de candidatos.",
+      "inicio": "2025-12-29",
+      "horarioInicio": "13:48",
+      "conclusao": "2025-12-30",
+      "horarioConclusao": "16:40",
+      "totalHoras": 12.2,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar base do portal RH com layout e navegação inicial.",
+      "entregavel": "Portal MVC funcional com layout, modais de candidatos e estilos consolidados.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "5aced09c",
+          "75884c24"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Backfill histórico (pré-registro ao vivo)"
+      },
+      "observacoes": "Backfill a partir de commits git (dez/2025)."
+    },
+    {
+      "id": "TASK-2026-001",
+      "nome": "[Portal RH] Evolução do módulo de recrutamento e vagas",
+      "descricaoAmigavel": "Melhorias no cadastro de vagas, funil de candidatos, kanban e integração com matching por IA.",
+      "inicio": "2026-01-03",
+      "horarioInicio": "15:53",
+      "conclusao": "2026-01-30",
+      "horarioConclusao": "19:21",
+      "totalHoras": 210.12,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Evoluir recrutamento com kanban, match IA e gestão de vagas.",
+      "entregavel": "Kanban de candidaturas, aba Match IA, embeddings Gemini e fluxo de vagas unificado.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ccde5c0f",
+          "a7879aa3"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Backfill histórico (pré-registro ao vivo)"
+      },
+      "observacoes": "Backfill a partir de commits git (jan/2026)."
+    },
+    {
+      "id": "TASK-2026-002",
+      "nome": "[Portal RH] Portal de vagas e experiência do candidato",
+      "descricaoAmigavel": "Aprimoramentos no portal público de vagas: perfil, documentos, mensagens do RH e geocodificação.",
+      "inicio": "2026-02-04",
+      "horarioInicio": "01:22",
+      "conclusao": "2026-02-27",
+      "horarioConclusao": "22:17",
+      "totalHoras": 176,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Melhorar portal de vagas para candidatos externos.",
+      "entregavel": "Upload de documentos, perfil do candidato, avisos por e-mail e localização de vagas.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "593e932d",
+          "e5bb3201"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Backfill histórico (pré-registro ao vivo)"
+      },
+      "observacoes": "Backfill a partir de commits git (fev/2026)."
+    },
+    {
+      "id": "TASK-2026-003",
+      "nome": "[Portal RH] Integração RM e gestão de requisições",
+      "descricaoAmigavel": "Conexão com TOTVS RM, importação de requisições, desligamentos e telas administrativas.",
+      "inicio": "2026-03-02",
+      "horarioInicio": "09:24",
+      "conclusao": "2026-03-31",
+      "horarioConclusao": "13:40",
+      "totalHoras": 237.67,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Integrar portal com RM para requisições e desligamentos.",
+      "entregavel": "Consulta RM, importação de requisições, sync de status e telas Owner/Integração.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ad4ed504",
+          "9d698756"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Backfill histórico (pré-registro ao vivo)"
+      },
+      "observacoes": "Backfill a partir de commits git (mar/2026)."
+    },
+    {
+      "id": "TASK-2026-004",
+      "nome": "[Portal RH] Deploy, ambientes e estabilização HMG",
+      "descricaoAmigavel": "Pipelines de deploy DEV/HMG, correções de infraestrutura e estabilização da API em homologação.",
+      "inicio": "2026-04-02",
+      "horarioInicio": "17:36",
+      "conclusao": "2026-05-01",
+      "horarioConclusao": "11:26",
+      "totalHoras": 227.83,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Configurar deploy automatizado e estabilizar ambiente HMG.",
+      "entregavel": "Workflows GitHub Actions, compose HMG, health checks e correções de timeout.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "f56f78d0",
+          "ae5035c5"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Backfill histórico (pré-registro ao vivo)"
+      },
+      "observacoes": "Backfill a partir de commits git (abr/2026)."
+    },
+    {
+      "id": "TASK-2026-005",
+      "nome": "[Portal RH] Fluxo pós-match, propostas e UAT de recrutamento",
+      "descricaoAmigavel": "Material de UAT pós-match, integração de propostas ao kanban e liberação de acesso para analista RH.",
+      "inicio": "2026-05-01",
+      "horarioInicio": "21:04",
+      "conclusao": "2026-05-22",
+      "horarioConclusao": "16:16",
+      "totalHoras": 168,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Conduzir candidato do match até proposta com governança de aprovação.",
+      "entregavel": "Kanban com propostas, controle de aprovação, UAT documentado e acesso analista RH.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "316b7be1",
+          "53c9cfe4"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #148"
+      },
+      "observacoes": "Backfill a partir de commits git (mai/2026 até 22/05). Incluído no Merge PR #148 (22/05)."
+    },
+    {
+      "id": "TASK-2026-006",
+      "nome": "[Portal RH] Renderizar email de proposta",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(recrutamento): renderizar email de proposta",
+      "inicio": "2026-05-25",
+      "horarioInicio": "08:22",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "08:23",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(recrutamento): renderizar email de proposta",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #149.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "0c7f467"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #149"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-007",
+      "nome": "[Portal RH] Permitir reenvio de proposta",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(recrutamento): permitir reenvio de proposta",
+      "inicio": "2026-05-25",
+      "horarioInicio": "09:00",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "09:08",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(recrutamento): permitir reenvio de proposta",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #150.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "512c17b"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #150"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-008",
+      "nome": "[Portal RH] Corrigir link publico de proposta",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(recrutamento): corrigir link publico de proposta",
+      "inicio": "2026-05-25",
+      "horarioInicio": "09:47",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "09:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(recrutamento): corrigir link publico de proposta",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #151.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "f1d5599"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #151"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-009",
+      "nome": "[Portal RH] Enviar proposta ao criar",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(recrutamento): enviar proposta ao criar",
+      "inicio": "2026-05-25",
+      "horarioInicio": "10:22",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "10:26",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(recrutamento): enviar proposta ao criar",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #152.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "7c9a565"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #152"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-010",
+      "nome": "[Portal RH] Permitir editar e reenviar proposta",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(recrutamento): permitir editar e reenviar proposta",
+      "inicio": "2026-05-25",
+      "horarioInicio": "10:46",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "10:55",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(recrutamento): permitir editar e reenviar proposta",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #153.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "28878ba"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #153"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-011",
+      "nome": "[Portal RH] Melhorar visual da proposta publica",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(recrutamento): melhorar visual da proposta publica",
+      "inicio": "2026-05-25",
+      "horarioInicio": "11:12",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "11:15",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(recrutamento): melhorar visual da proposta publica",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #154.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "cb82696"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #154"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-012",
+      "nome": "[Portal RH] Usar swal nas acoes de proposta",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(recrutamento): usar swal nas acoes de proposta",
+      "inicio": "2026-05-25",
+      "horarioInicio": "11:30",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "11:33",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(recrutamento): usar swal nas acoes de proposta",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #155.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c6d1de8",
+          "2f1fad8"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #155"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-013",
+      "nome": "[Portal RH] Corrigir copia do link da proposta",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(recrutamento): corrigir copia do link da proposta",
+      "inicio": "2026-05-25",
+      "horarioInicio": "12:07",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "12:09",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(recrutamento): corrigir copia do link da proposta",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #156.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "094ca37"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #156"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-014",
+      "nome": "[Portal RH] Incluir tenant no link copiado",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(recrutamento): incluir tenant no link copiado",
+      "inicio": "2026-05-25",
+      "horarioInicio": "13:20",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "13:25",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(recrutamento): incluir tenant no link copiado",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #157.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ed50499"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #157"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-015",
+      "nome": "[Portal RH] Automatizar aceite de proposta",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(recrutamento): automatizar aceite de proposta",
+      "inicio": "2026-05-25",
+      "horarioInicio": "14:19",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "14:20",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(recrutamento): automatizar aceite de proposta",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #158.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "41810b2"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #158"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-016",
+      "nome": "[Portal] Integrar pre-admissao ao status contratado",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(recrutamento): integrar pre-admissao ao status contratado",
+      "inicio": "2026-05-25",
+      "horarioInicio": "15:33",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "15:35",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(recrutamento): integrar pre-admissao ao status contratado",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #159.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2e710bc"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #159"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-017",
+      "nome": "[Portal RH] Ampliar modal de aprovacao",
+      "descricaoAmigavel": "Entrega promovida para homologação: style(recrutamento): ampliar modal de aprovacao",
+      "inicio": "2026-05-25",
+      "horarioInicio": "16:01",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "16:03",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "style(recrutamento): ampliar modal de aprovacao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #160.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ad96151"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #160"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-018",
+      "nome": "[Portal] Limpar sessao invalida no portal publico",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao): limpar sessao invalida no portal publico",
+      "inicio": "2026-05-25",
+      "horarioInicio": "16:47",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "16:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao): limpar sessao invalida no portal publico",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #161.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "a78bec8"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #161"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-019",
+      "nome": "[Portal RH] Refinar modal de aprovacao",
+      "descricaoAmigavel": "Entrega promovida para homologação: style(recrutamento): refinar modal de aprovacao",
+      "inicio": "2026-05-25",
+      "horarioInicio": "17:15",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "17:16",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "style(recrutamento): refinar modal de aprovacao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #162.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "73a4df5",
+          "4d11b7e"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #162"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-020",
+      "nome": "[Portal RH] Ampliar grid de documentos no modal",
+      "descricaoAmigavel": "Entrega promovida para homologação: style(recrutamento): ampliar grid de documentos no modal",
+      "inicio": "2026-05-25",
+      "horarioInicio": "17:38",
+      "conclusao": "2026-05-25",
+      "horarioConclusao": "17:39",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "style(recrutamento): ampliar grid de documentos no modal",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #163.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c7f8763"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #163"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-021",
+      "nome": "[Portal RH] Adicionar dashboard de integracao RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(relatorios): adicionar dashboard de integracao RM",
+      "inicio": "2026-05-26",
+      "horarioInicio": "13:57",
+      "conclusao": "2026-05-26",
+      "horarioConclusao": "15:09",
+      "totalHoras": 1.2,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(relatorios): adicionar dashboard de integracao RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #164.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "24c9cd9"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #164"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-022",
+      "nome": "[Portal RH] Enfileirar vaga nova na integracao",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(rm): enfileirar vaga nova na integracao",
+      "inicio": "2026-05-26",
+      "horarioInicio": "17:00",
+      "conclusao": "2026-05-26",
+      "horarioConclusao": "17:00",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(rm): enfileirar vaga nova na integracao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #165.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "725e0f5"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #165"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-023",
+      "nome": "[Portal RH] Enviar content-type ao salvar configuracao",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(rm): enviar content-type ao salvar configuracao",
+      "inicio": "2026-05-26",
+      "horarioInicio": "17:46",
+      "conclusao": "2026-05-26",
+      "horarioConclusao": "17:46",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(rm): enviar content-type ao salvar configuracao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #166.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "4fa2c61"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #166"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-024",
+      "nome": "[Portal RH] Exibir integracao totvs no menu",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(rm): exibir integracao totvs no menu",
+      "inicio": "2026-05-26",
+      "horarioInicio": "18:07",
+      "conclusao": "2026-05-26",
+      "horarioConclusao": "18:18",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(rm): exibir integracao totvs no menu",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #167.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "38bce69"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #167"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-025",
+      "nome": "[Portal RH] Registrar integracao totvs nos acessos",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(rm): registrar integracao totvs nos acessos",
+      "inicio": "2026-05-27",
+      "horarioInicio": "08:34",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "08:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(rm): registrar integracao totvs nos acessos",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #168.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "863c763"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #168"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-026",
+      "nome": "[Portal RH] Restringir acoes e atualizar UAT RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(aprovacoes): restringir acoes e atualizar UAT RM",
+      "inicio": "2026-05-27",
+      "horarioInicio": "09:27",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "09:28",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(aprovacoes): restringir acoes e atualizar UAT RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #169.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c1b84e2"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #169"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-027",
+      "nome": "[Portal RH] Configurar endpoint get de requisicoes",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(rm): configurar endpoint get de requisicoes",
+      "inicio": "2026-05-27",
+      "horarioInicio": "09:45",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "09:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(rm): configurar endpoint get de requisicoes",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #170.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e962a18"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #170"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-028",
+      "nome": "[Portal RH] Exibir autor e urgencia",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(aprovacoes): exibir autor e urgencia",
+      "inicio": "2026-05-27",
+      "horarioInicio": "10:16",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "10:24",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(aprovacoes): exibir autor e urgencia",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #171.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2c510e0"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #171"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-029",
+      "nome": "[Portal RH] Feat: ampliar UAT e fluxo de recrutamento",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: ampliar UAT e fluxo de recrutamento",
+      "inicio": "2026-05-27",
+      "horarioInicio": "14:30",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "14:32",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: ampliar UAT e fluxo de recrutamento",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #172.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "5405ec8"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #172"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-030",
+      "nome": "[Portal RH] Feat: gerar versao do front por commit",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: gerar versao do front por commit",
+      "inicio": "2026-05-27",
+      "horarioInicio": "14:54",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "14:56",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: gerar versao do front por commit",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #173.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "4a4c414",
+          "924f320"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #173"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-031",
+      "nome": "[Portal RH] Test: ampliar UAT de recrutamento",
+      "descricaoAmigavel": "Entrega promovida para homologação: test: ampliar UAT de recrutamento",
+      "inicio": "2026-05-27",
+      "horarioInicio": "15:31",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "15:32",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "test: ampliar UAT de recrutamento",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #174.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "fe9278d"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #174"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-032",
+      "nome": "[Portal RH] Fix: servir confirmacao publica de entrevista",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: servir confirmacao publica de entrevista",
+      "inicio": "2026-05-27",
+      "horarioInicio": "16:13",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "16:15",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: servir confirmacao publica de entrevista",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #175.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "19ccd3f",
+          "25200e9"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #175"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-033",
+      "nome": "[Portal RH] Fix: aprovar aumento de quadro pelo gestor",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: aprovar aumento de quadro pelo gestor",
+      "inicio": "2026-05-27",
+      "horarioInicio": "17:16",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "17:17",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: aprovar aumento de quadro pelo gestor",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #176.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "eb3c715"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #176"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-034",
+      "nome": "[Portal RH] Fix: concluir aumento de quadro apos aprovacao",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: concluir aumento de quadro apos aprovacao",
+      "inicio": "2026-05-27",
+      "horarioInicio": "17:44",
+      "conclusao": "2026-05-27",
+      "horarioConclusao": "17:45",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: concluir aumento de quadro apos aprovacao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #177.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "4600bd9"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #177"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-035",
+      "nome": "[Portal RH] Chore: adicionar script de limpeza para apresentacao",
+      "descricaoAmigavel": "Entrega promovida para homologação: chore: adicionar script de limpeza para apresentacao",
+      "inicio": "2026-05-29",
+      "horarioInicio": "08:29",
+      "conclusao": "2026-05-29",
+      "horarioConclusao": "08:31",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "chore: adicionar script de limpeza para apresentacao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #178.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2a14109"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #178"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-036",
+      "nome": "[Portal] Fix: vincular pre-admissao a vaga da candidatura",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: vincular pre-admissao a vaga da candidatura",
+      "inicio": "2026-05-29",
+      "horarioInicio": "12:11",
+      "conclusao": "2026-05-29",
+      "horarioConclusao": "12:12",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: vincular pre-admissao a vaga da candidatura",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #179.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "5652f9b"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #179"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-037",
+      "nome": "[Portal RH] Test: estabilizar UAT de recrutamento completo",
+      "descricaoAmigavel": "Entrega promovida para homologação: test: estabilizar UAT de recrutamento completo",
+      "inicio": "2026-05-29",
+      "horarioInicio": "14:48",
+      "conclusao": "2026-05-29",
+      "horarioConclusao": "14:55",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "test: estabilizar UAT de recrutamento completo",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #180.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "016673b",
+          "1bbf5f5",
+          "0198b80",
+          "0aac654",
+          "098b1db"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #180"
+      },
+      "observacoes": "Backfill: 5 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-038",
+      "nome": "[Portal RH] Feat: ajustar importacao manual de requisicoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: ajustar importacao manual de requisicoes RM",
+      "inicio": "2026-05-29",
+      "horarioInicio": "15:37",
+      "conclusao": "2026-05-29",
+      "horarioConclusao": "15:40",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: ajustar importacao manual de requisicoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #181.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ac813f5"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #181"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-039",
+      "nome": "[Portal RH] Fix: detalhar erro ao carregar requisicoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: detalhar erro ao carregar requisicoes RM",
+      "inicio": "2026-05-29",
+      "horarioInicio": "16:17",
+      "conclusao": "2026-05-29",
+      "horarioConclusao": "16:18",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: detalhar erro ao carregar requisicoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #182.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "1a9c8ba"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #182"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-040",
+      "nome": "[Portal RH] Fix: enriquecer listagem de requisicoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: enriquecer listagem de requisicoes RM",
+      "inicio": "2026-06-01",
+      "horarioInicio": "09:15",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "09:17",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: enriquecer listagem de requisicoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #183.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "bf1e76e"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #183"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-041",
+      "nome": "[Portal RH] Feat: aprimorar grid de requisicoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: aprimorar grid de requisicoes RM",
+      "inicio": "2026-06-01",
+      "horarioInicio": "10:53",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "10:54",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: aprimorar grid de requisicoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #184.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "776aa39"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #184"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-042",
+      "nome": "[Portal RH] Fix: incluir status suspensa no mapa RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: incluir status suspensa no mapa RM",
+      "inicio": "2026-06-01",
+      "horarioInicio": "11:54",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "11:58",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: incluir status suspensa no mapa RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #185.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "85d8078",
+          "f46de77"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #185"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-043",
+      "nome": "[Portal RH] Fix: adicionar status em andamento para requisicoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: adicionar status em andamento para requisicoes RM",
+      "inicio": "2026-06-01",
+      "horarioInicio": "13:26",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "13:37",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: adicionar status em andamento para requisicoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #186.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e6d6769"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #186"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-044",
+      "nome": "[Portal RH] Fix: aprimorar exibicao de requisicoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: aprimorar exibicao de requisicoes RM",
+      "inicio": "2026-06-01",
+      "horarioInicio": "14:13",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "14:15",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: aprimorar exibicao de requisicoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #187.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "bf071c5",
+          "36b38bd"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #187"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-045",
+      "nome": "[Portal RH] Fix: corrigir build da tela de requisicoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: corrigir build da tela de requisicoes RM",
+      "inicio": "2026-06-01",
+      "horarioInicio": "14:38",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "14:39",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: corrigir build da tela de requisicoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #188.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "475e2f7"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #188"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-046",
+      "nome": "[Portal RH] Feat: configurar importacao automatica RM por tenant",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: configurar importacao automatica RM por tenant",
+      "inicio": "2026-06-01",
+      "horarioInicio": "15:27",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "15:30",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: configurar importacao automatica RM por tenant",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #189.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "a5b9d99"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #189"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-047",
+      "nome": "[Portal RH] Feat: registrar logs da importacao automatica RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: registrar logs da importacao automatica RM",
+      "inicio": "2026-06-01",
+      "horarioInicio": "16:18",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "16:32",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: registrar logs da importacao automatica RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #190.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "57adfb2"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #190"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-048",
+      "nome": "[Portal RH] Fix: limitar titulo na listagem de vagas",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: limitar titulo na listagem de vagas",
+      "inicio": "2026-06-01",
+      "horarioInicio": "17:11",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "17:14",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: limitar titulo na listagem de vagas",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #191.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2d2027b"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #191"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-049",
+      "nome": "[Portal RH] Feat: melhorar grid de solicitacoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: melhorar grid de solicitacoes RM",
+      "inicio": "2026-06-01",
+      "horarioInicio": "17:56",
+      "conclusao": "2026-06-01",
+      "horarioConclusao": "17:59",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: melhorar grid de solicitacoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #192.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "eebac7a"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #192"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-050",
+      "nome": "[Portal RH] Fix: ajustar detalhes de requisicoes RM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: ajustar detalhes de requisicoes RM",
+      "inicio": "2026-06-02",
+      "horarioInicio": "10:02",
+      "conclusao": "2026-06-02",
+      "horarioConclusao": "10:07",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: ajustar detalhes de requisicoes RM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #193.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ad2e59a"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #193"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-051",
+      "nome": "[Portal RH] Feat: consolidar fluxo RM de vagas",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: consolidar fluxo RM de vagas",
+      "inicio": "2026-06-03",
+      "horarioInicio": "09:15",
+      "conclusao": "2026-06-03",
+      "horarioConclusao": "09:16",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: consolidar fluxo RM de vagas",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #194.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "3112aec"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #194"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-052",
+      "nome": "[Portal RH] Feat: aprimorar vagas RM e hub de vagas",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: aprimorar vagas RM e hub de vagas",
+      "inicio": "2026-06-03",
+      "horarioInicio": "10:32",
+      "conclusao": "2026-06-03",
+      "horarioConclusao": "10:35",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: aprimorar vagas RM e hub de vagas",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #195.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "d0bccb7"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #195"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-053",
+      "nome": "[Infra] Chore: configurar fluxo de deploy hml via pr",
+      "descricaoAmigavel": "Entrega promovida para homologação: chore: configurar fluxo de deploy hml via pr",
+      "inicio": "2026-06-03",
+      "horarioInicio": "16:17",
+      "conclusao": "2026-06-03",
+      "horarioConclusao": "16:32",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "chore: configurar fluxo de deploy hml via pr",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #196.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "762d81d"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #196"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-054",
+      "nome": "[Portal RH] Fix: usar github token no pull ghcr hml",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: usar github token no pull ghcr hml",
+      "inicio": "2026-06-03",
+      "horarioInicio": "16:59",
+      "conclusao": "2026-06-03",
+      "horarioConclusao": "17:11",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: usar github token no pull ghcr hml",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #197.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "3bc3dbf"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #197"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-055",
+      "nome": "[Portal RH] Fix: usar ipv4 no healthcheck web-next",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: usar ipv4 no healthcheck web-next",
+      "inicio": "2026-06-05",
+      "horarioInicio": "11:25",
+      "conclusao": "2026-06-05",
+      "horarioConclusao": "11:44",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: usar ipv4 no healthcheck web-next",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #198.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "34a20c7",
+          "2b6d9b0"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #198"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-056",
+      "nome": "[Portal RH] Fix: normalizar watermarks rm para utc",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: normalizar watermarks rm para utc",
+      "inicio": "2026-06-05",
+      "horarioInicio": "13:00",
+      "conclusao": "2026-06-05",
+      "horarioConclusao": "18:12",
+      "totalHoras": 5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: normalizar watermarks rm para utc",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #200.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e808214",
+          "3850669",
+          "12ddcfa"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #200"
+      },
+      "observacoes": "Backfill: 3 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-057",
+      "nome": "[Portal RH] Fix: dinamizar ambiente e entrada do portal",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: dinamizar ambiente e entrada do portal",
+      "inicio": "2026-06-07",
+      "horarioInicio": "10:29",
+      "conclusao": "2026-06-07",
+      "horarioConclusao": "10:47",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: dinamizar ambiente e entrada do portal",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #202.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "937dc6e"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #202"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-058",
+      "nome": "[Portal RH] Fix: preservar porta no redirect do portal",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: preservar porta no redirect do portal",
+      "inicio": "2026-06-07",
+      "horarioInicio": "11:46",
+      "conclusao": "2026-06-07",
+      "horarioConclusao": "12:01",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: preservar porta no redirect do portal",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #204.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "4b9582e"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #204"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-059",
+      "nome": "[Portal RH] Feat: adicionar feedback na importacao rm",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: adicionar feedback na importacao rm",
+      "inicio": "2026-06-10",
+      "horarioInicio": "15:45",
+      "conclusao": "2026-06-10",
+      "horarioConclusao": "16:20",
+      "totalHoras": 0.58,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: adicionar feedback na importacao rm",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #206.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "a45dcdb",
+          "053eb7c",
+          "dc9e825",
+          "80b0b2a",
+          "a41d043",
+          "18999b3",
+          "869daa1",
+          "227c686",
+          "e07302d",
+          "fda02b5",
+          "cde46c4",
+          "205ffc9",
+          "e5a417b",
+          "780cbff",
+          "52e44f3",
+          "80d54f0",
+          "afcba68",
+          "3d894e2",
+          "a3bd298",
+          "22c35c3",
+          "9ac3e29",
+          "67ca32f",
+          "89c0035",
+          "227f9a1",
+          "63c5b6f",
+          "2e8d467",
+          "1eadefd",
+          "cb12b4e",
+          "374fd56",
+          "0ec2826",
+          "988f5a8",
+          "47d527b",
+          "88900b5",
+          "7adde9b",
+          "a68be68",
+          "e625fd1",
+          "4588728",
+          "bae0bd0",
+          "e0afa16",
+          "8e5d7e7",
+          "11d7f49",
+          "4d7a593",
+          "4f064c8",
+          "b73c74b",
+          "f30107b",
+          "28aa420",
+          "8723b55",
+          "a7c2fdc",
+          "0c8e3a8",
+          "754e3c8",
+          "b4b5a0e",
+          "989a2c7",
+          "a202154",
+          "4e75975",
+          "f459bd8",
+          "471d6f3",
+          "2a307b2",
+          "c6ade07",
+          "6f2cba5",
+          "1a2b4ad"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #206"
+      },
+      "observacoes": "Backfill: 60 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-060",
+      "nome": "[Portal RH] Fix: mover checklist da vaga para o topo do resumo",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: mover checklist da vaga para o topo do resumo",
+      "inicio": "2026-06-10",
+      "horarioInicio": "16:27",
+      "conclusao": "2026-06-11",
+      "horarioConclusao": "09:20",
+      "totalHoras": 2.88,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: mover checklist da vaga para o topo do resumo",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #207.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "920c67a"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #207"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-061",
+      "nome": "[Portal RH] Feat: adicionar dashboard do gestor",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: adicionar dashboard do gestor",
+      "inicio": "2026-06-14",
+      "horarioInicio": "09:57",
+      "conclusao": "2026-06-15",
+      "horarioConclusao": "10:29",
+      "totalHoras": 10.48,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: adicionar dashboard do gestor",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #208.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "4b660cb",
+          "b60191c",
+          "85bfcd2",
+          "1248468",
+          "f50546a",
+          "30db894",
+          "db0b3a4",
+          "5559f5e",
+          "d8aaace"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #208"
+      },
+      "observacoes": "Backfill: 9 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-062",
+      "nome": "[Portal RH] Fix: corrigir tela Entra ID e preparar HMG para SSO Microsoft via HTTPS",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: corrigir tela Entra ID e preparar HMG para SSO Microsoft via HTTPS",
+      "inicio": "2026-06-15",
+      "horarioInicio": "13:20",
+      "conclusao": "2026-06-15",
+      "horarioConclusao": "13:35",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: corrigir tela Entra ID e preparar HMG para SSO Microsoft via HTTPS",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #210.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "52e0497"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #210"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-063",
+      "nome": "[Portal RH] Evitar CORS do portal admin apos TLS Entra na porta 5000",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hmg): evitar CORS do portal admin apos TLS Entra na porta 5000",
+      "inicio": "2026-06-15",
+      "horarioInicio": "13:57",
+      "conclusao": "2026-06-15",
+      "horarioConclusao": "14:07",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hmg): evitar CORS do portal admin apos TLS Entra na porta 5000",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #211.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "df3935a"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #211"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-064",
+      "nome": "[Portal RH] Liberar callback Entra ID sem header X-Tenant-Id",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(auth): liberar callback Entra ID sem header X-Tenant-Id",
+      "inicio": "2026-06-15",
+      "horarioInicio": "16:28",
+      "conclusao": "2026-06-15",
+      "horarioConclusao": "16:42",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(auth): liberar callback Entra ID sem header X-Tenant-Id",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #212.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c8566aa",
+          "ea56fa8"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #212"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-065",
+      "nome": "[Portal RH] Config Entra ID 100% no banco via admin",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(auth): config Entra ID 100% no banco via admin",
+      "inicio": "2026-06-15",
+      "horarioInicio": "17:23",
+      "conclusao": "2026-06-15",
+      "horarioConclusao": "17:45",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(auth): config Entra ID 100% no banco via admin",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #213.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "b41f6bf"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #213"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-066",
+      "nome": "[Portal RH] Resolver tenant antes do AppDbContext no callback Entra",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(auth): resolver tenant antes do AppDbContext no callback Entra",
+      "inicio": "2026-06-16",
+      "horarioInicio": "08:38",
+      "conclusao": "2026-06-16",
+      "horarioConclusao": "08:50",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(auth): resolver tenant antes do AppDbContext no callback Entra",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #214.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "b9cb276"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #214"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-067",
+      "nome": "[Portal RH] Botão oficial Entrar com a Microsoft na tela de login",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(login): botão oficial Entrar com a Microsoft na tela de login",
+      "inicio": "2026-06-16",
+      "horarioInicio": "10:04",
+      "conclusao": "2026-06-16",
+      "horarioConclusao": "10:24",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(login): botão oficial Entrar com a Microsoft na tela de login",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #215.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "52b1060",
+          "2c125e1",
+          "6ed3d30"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #215"
+      },
+      "observacoes": "Backfill: 3 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-068",
+      "nome": "[Portal RH] Clarificar login local vs conta criada via Microsoft SSO",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(auth): clarificar login local vs conta criada via Microsoft SSO",
+      "inicio": "2026-06-16",
+      "horarioInicio": "11:05",
+      "conclusao": "2026-06-16",
+      "horarioConclusao": "11:22",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(auth): clarificar login local vs conta criada via Microsoft SSO",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #216.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "b200380",
+          "5f7b9de"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #216"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-069",
+      "nome": "[Portal RH] Unificar criterio de solicitacoes ativas entre dashboard e grid",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(solicitacoes): unificar criterio de solicitacoes ativas entre dashboard e grid",
+      "inicio": "2026-06-16",
+      "horarioInicio": "13:12",
+      "conclusao": "2026-06-16",
+      "horarioConclusao": "15:47",
+      "totalHoras": 2.58,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(solicitacoes): unificar criterio de solicitacoes ativas entre dashboard e grid",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #217.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "3ceaa3f"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #217"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-070",
+      "nome": "[Portal RH] Expandir todas as secoes do menu lateral por padrao",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(nav): expandir todas as secoes do menu lateral por padrao",
+      "inicio": "2026-06-16",
+      "horarioInicio": "16:11",
+      "conclusao": "2026-06-16",
+      "horarioConclusao": "16:22",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(nav): expandir todas as secoes do menu lateral por padrao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #218.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ae76271"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #218"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-071",
+      "nome": "[Portal RH] Adicionar Liotecnica Hub com launcher Portal RH e SSO Entra",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): adicionar Liotecnica Hub com launcher Portal RH e SSO Entra",
+      "inicio": "2026-06-17",
+      "horarioInicio": "09:13",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "09:36",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): adicionar Liotecnica Hub com launcher Portal RH e SSO Entra",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #219.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e130eed"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #219"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-072",
+      "nome": "[Portal RH] SSO Hub para Portal RH via token HMAC assinado",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): SSO Hub para Portal RH via token HMAC assinado",
+      "inicio": "2026-06-17",
+      "horarioInicio": "10:55",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "11:12",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): SSO Hub para Portal RH via token HMAC assinado",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #220.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e49c1c6"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #220"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-073",
+      "nome": "[Portal RH] Evitar conflito de porta 3010 com Nginx TLS em HMG",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): evitar conflito de porta 3010 com Nginx TLS em HMG",
+      "inicio": "2026-06-17",
+      "horarioInicio": "11:19",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "11:24",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): evitar conflito de porta 3010 com Nginx TLS em HMG",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #221.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "196a48d"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #221"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-074",
+      "nome": "[Infra] Redesign UI Hub Corporativo e corrige Entra apos redeploy",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): redesign UI Hub Corporativo e corrige Entra apos redeploy",
+      "inicio": "2026-06-17",
+      "horarioInicio": "11:57",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "11:58",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): redesign UI Hub Corporativo e corrige Entra apos redeploy",
+      "entregavel": "Funcionalidade disponível em HML após merge(portalRH-DEV): hub UI redesign e fix Entra DataProtection.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "abaa3c4"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "merge(portalRH-DEV): hub UI redesign e fix Entra DataProtection"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-075",
+      "nome": "[Portal RH] Login admin bootstrap em HMG e erros Entra mais claros",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): login admin bootstrap em HMG e erros Entra mais claros",
+      "inicio": "2026-06-17",
+      "horarioInicio": "12:12",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "12:16",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): login admin bootstrap em HMG e erros Entra mais claros",
+      "entregavel": "Funcionalidade disponível em HML após merge(portalRH-DEV): hub login admin bootstrap HMG.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2f62d46"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "merge(portalRH-DEV): hub login admin bootstrap HMG"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-076",
+      "nome": "[Portal RH] Upload de icone nos aplicativos com previa e remocao",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): upload de icone nos aplicativos com previa e remocao",
+      "inicio": "2026-06-17",
+      "horarioInicio": "12:26",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "12:28",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): upload de icone nos aplicativos com previa e remocao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #222.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "0cb0132"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #222"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-077",
+      "nome": "[Portal RH] Whitelist hub-sso no TenantMiddleware para SSO do Hub",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(api): whitelist hub-sso no TenantMiddleware para SSO do Hub",
+      "inicio": "2026-06-17",
+      "horarioInicio": "12:32",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "12:33",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(api): whitelist hub-sso no TenantMiddleware para SSO do Hub",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #223.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c019074"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #223"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-078",
+      "nome": "[Portal RH] Grid 5 colunas e icone do card sem circulo",
+      "descricaoAmigavel": "Entrega promovida para homologação: style(hub): grid 5 colunas e icone do card sem circulo",
+      "inicio": "2026-06-17",
+      "horarioInicio": "13:29",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "13:31",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "style(hub): grid 5 colunas e icone do card sem circulo",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #224.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c634e18"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #224"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-079",
+      "nome": "[Portal RH] Padroniza tamanho do icone nos cards",
+      "descricaoAmigavel": "Entrega promovida para homologação: style(hub): padroniza tamanho do icone nos cards",
+      "inicio": "2026-06-17",
+      "horarioInicio": "13:39",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "13:42",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "style(hub): padroniza tamanho do icone nos cards",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #225.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "feec783"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #225"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-080",
+      "nome": "[Portal RH] Sidebar e altura das linhas do grid de apps",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): sidebar e altura das linhas do grid de apps",
+      "inicio": "2026-06-17",
+      "horarioInicio": "13:45",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "13:51",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): sidebar e altura das linhas do grid de apps",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #226.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e3f859f"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #226"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-081",
+      "nome": "[Portal RH] Fase 1 controle de acessos IAM",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): Fase 1 controle de acessos IAM",
+      "inicio": "2026-06-17",
+      "horarioInicio": "14:23",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "17:05",
+      "totalHoras": 2.7,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): Fase 1 controle de acessos IAM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #227.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c87d230",
+          "e5fa1b2"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #227"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-082",
+      "nome": "[Portal RH] Fase 2.1 acesso a sistemas no IAM",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): Fase 2.1 acesso a sistemas no IAM",
+      "inicio": "2026-06-17",
+      "horarioInicio": "17:14",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "17:21",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): Fase 2.1 acesso a sistemas no IAM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #228.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "dadd53c"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #228"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-083",
+      "nome": "[Portal RH] Evita duplicata no seed perfil-sistema IAM",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): evita duplicata no seed perfil-sistema IAM",
+      "inicio": "2026-06-17",
+      "horarioInicio": "17:33",
+      "conclusao": "2026-06-17",
+      "horarioConclusao": "17:35",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): evita duplicata no seed perfil-sistema IAM",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #229.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "d6a4b50"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #229"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-084",
+      "nome": "[Portal RH] Auto-provisiona usuario no Hub SSO com perfil Operacional",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(api): auto-provisiona usuario no Hub SSO com perfil Operacional",
+      "inicio": "2026-06-18",
+      "horarioInicio": "10:36",
+      "conclusao": "2026-06-18",
+      "horarioConclusao": "10:55",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(api): auto-provisiona usuario no Hub SSO com perfil Operacional",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #231.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "a621d7b"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #231"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-085",
+      "nome": "[Portal RH] Fase 3 admin IAM com usuarios, perfis, sistemas e auditoria",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): Fase 3 admin IAM com usuarios, perfis, sistemas e auditoria",
+      "inicio": "2026-06-18",
+      "horarioInicio": "12:04",
+      "conclusao": "2026-06-18",
+      "horarioConclusao": "12:23",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): Fase 3 admin IAM com usuarios, perfis, sistemas e auditoria",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #233.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "bd98af6",
+          "f6385a1"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #233"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-086",
+      "nome": "[Portal RH] Migration Fase3 usa uuid no Postgres para evitar crash no startup",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): migration Fase3 usa uuid no Postgres para evitar crash no startup",
+      "inicio": "2026-06-19",
+      "horarioInicio": "08:17",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "08:37",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): migration Fase3 usa uuid no Postgres para evitar crash no startup",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #235.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "9397cf5"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #235"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-087",
+      "nome": "[Portal RH] Login com senha e gestao de senha pelo admin",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): login com senha e gestao de senha pelo admin",
+      "inicio": "2026-06-19",
+      "horarioInicio": "08:39",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "09:12",
+      "totalHoras": 0.55,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): login com senha e gestao de senha pelo admin",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #236.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "94e065a"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #236"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-088",
+      "nome": "[Portal RH] Login LDAP com tela de configuracao no admin",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): login LDAP com tela de configuracao no admin",
+      "inicio": "2026-06-19",
+      "horarioInicio": "09:44",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "11:22",
+      "totalHoras": 1.63,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): login LDAP com tela de configuracao no admin",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #238.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "39c4eb8"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #238"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-089",
+      "nome": "[Portal RH] Migrations EF registradas e script HMG para PasswordHash",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): migrations EF registradas e script HMG para PasswordHash",
+      "inicio": "2026-06-19",
+      "horarioInicio": "11:37",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "11:49",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): migrations EF registradas e script HMG para PasswordHash",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #239.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "b799026"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #239"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-090",
+      "nome": "[Portal RH] Persistir configuracao LDAP ao salvar e testar",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): persistir configuracao LDAP ao salvar e testar",
+      "inicio": "2026-06-19",
+      "horarioInicio": "12:21",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "12:23",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): persistir configuracao LDAP ao salvar e testar",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #240.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "8692354"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #240"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-091",
+      "nome": "[Portal RH] Permitir remover senha local para login LDAP no admin",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): permitir remover senha local para login LDAP no admin",
+      "inicio": "2026-06-19",
+      "horarioInicio": "12:41",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "12:43",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): permitir remover senha local para login LDAP no admin",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #241.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "17de4f6"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #241"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-092",
+      "nome": "[Portal RH] LDAP apos remover senha local e fallback de bind AD",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): LDAP apos remover senha local e fallback de bind AD",
+      "inicio": "2026-06-19",
+      "horarioInicio": "13:14",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "13:26",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): LDAP apos remover senha local e fallback de bind AD",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #242.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c0abf23"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #242"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-093",
+      "nome": "[Portal RH] LDAP bind com AuthType.Basic no Linux (erro 92)",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(hub): LDAP bind com AuthType.Basic no Linux (erro 92)",
+      "inicio": "2026-06-19",
+      "horarioInicio": "13:46",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "13:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(hub): LDAP bind com AuthType.Basic no Linux (erro 92)",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #243.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "66d2798"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #243"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-094",
+      "nome": "[Portal RH] Permitir exclusao de usuarios pelo painel admin",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(hub): permitir exclusao de usuarios pelo painel admin",
+      "inicio": "2026-06-19",
+      "horarioInicio": "14:10",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "14:12",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(hub): permitir exclusao de usuarios pelo painel admin",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #244.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ba0b2e5"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #244"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-095",
+      "nome": "[Portal RH] Coluna e busca por codigo RM na listagem",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(solicitacoes): coluna e busca por codigo RM na listagem",
+      "inicio": "2026-06-19",
+      "horarioInicio": "14:38",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "14:39",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(solicitacoes): coluna e busca por codigo RM na listagem",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #245.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "76ffcd9"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #245"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-096",
+      "nome": "[Portal RH] Remover aba Diversidade e campos de inclusao",
+      "descricaoAmigavel": "Entrega promovida para homologação: refactor(vagas): remover aba Diversidade e campos de inclusao",
+      "inicio": "2026-06-19",
+      "horarioInicio": "15:16",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "15:24",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "refactor(vagas): remover aba Diversidade e campos de inclusao",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #246.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "53ca88a"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #246"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-097",
+      "nome": "[Portal RH] Titulo da vaga a partir da funcao RM sem fallback",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(rm): titulo da vaga a partir da funcao RM sem fallback",
+      "inicio": "2026-06-19",
+      "horarioInicio": "16:02",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "16:21",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(rm): titulo da vaga a partir da funcao RM sem fallback",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #247.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "d339be8"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #247"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-098",
+      "nome": "[Portal RH] Restringir tipos de requisição e reset para importação limpa",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(rm): restringir tipos de requisição e reset para importação limpa",
+      "inicio": "2026-06-19",
+      "horarioInicio": "16:36",
+      "conclusao": "2026-06-19",
+      "horarioConclusao": "16:54",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(rm): restringir tipos de requisição e reset para importação limpa",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #248.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "1c87650"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #248"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-099",
+      "nome": "[Portal RH] Corrigir reset de vagas que derrubava API no startup",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(migration): corrigir reset de vagas que derrubava API no startup",
+      "inicio": "2026-06-21",
+      "horarioInicio": "20:27",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "07:56",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(migration): corrigir reset de vagas que derrubava API no startup",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #249.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "41ad6d7",
+          "8d4ffaf",
+          "bd7a17a",
+          "32e9fb4",
+          "b14db25",
+          "c5b72b3",
+          "61be370",
+          "87aaa27",
+          "d27aaba",
+          "8dcac89",
+          "65304b1",
+          "d0d4b93",
+          "ee99403",
+          "d5ec42a",
+          "3f26f82",
+          "33e1010",
+          "f9c3455",
+          "ce8eadc",
+          "6762c54"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #249"
+      },
+      "observacoes": "Backfill: 19 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-100",
+      "nome": "[Portal RH] Feat: admissão simplificada, visibilidade RH, cartas e ajustes de gestão",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat: admissão simplificada, visibilidade RH, cartas e ajustes de gestão",
+      "inicio": "2026-06-22",
+      "horarioInicio": "10:10",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "10:13",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat: admissão simplificada, visibilidade RH, cartas e ajustes de gestão",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #250.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "267ce52",
+          "4fac621"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #250"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-101",
+      "nome": "[Portal RH] Fix: pré-admissão UAT e simplificar tela de Solicitações",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: pré-admissão UAT e simplificar tela de Solicitações",
+      "inicio": "2026-06-22",
+      "horarioInicio": "12:18",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "12:26",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: pré-admissão UAT e simplificar tela de Solicitações",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #251.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "46ee7bc"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #251"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-102",
+      "nome": "[Portal] Atualizar logo Liotécnica no header",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(portal-vagas): atualizar logo Liotécnica no header",
+      "inicio": "2026-06-22",
+      "horarioInicio": "13:38",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "14:14",
+      "totalHoras": 0.6,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(portal-vagas): atualizar logo Liotécnica no header",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #252.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2e6fc83",
+          "1ffff11"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #252"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-103",
+      "nome": "[Infra] GUI SSH para DEV/HMG sem GitHub Actions",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(deploy): GUI SSH para DEV/HMG sem GitHub Actions",
+      "inicio": "2026-06-22",
+      "horarioInicio": "14:36",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "14:37",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(deploy): GUI SSH para DEV/HMG sem GitHub Actions",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #253.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "8a12577"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #253"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-104",
+      "nome": "[Portal RH] Remover seção Ações Rápidas e subtítulo do Especialista RH",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(dashboard): remover seção Ações Rápidas e subtítulo do Especialista RH",
+      "inicio": "2026-06-22",
+      "horarioInicio": "16:08",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "16:11",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(dashboard): remover seção Ações Rápidas e subtítulo do Especialista RH",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #254.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "cb4f853",
+          "efa9c15"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #254"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-105",
+      "nome": "[Portal] Permitir /admissao/tracking na allowlist de rotas do perfil",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(auth): permitir /admissao/tracking na allowlist de rotas do perfil",
+      "inicio": "2026-06-22",
+      "horarioInicio": "16:34",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "16:38",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(auth): permitir /admissao/tracking na allowlist de rotas do perfil",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #255.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "3914cb1"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #255"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-106",
+      "nome": "[Infra] Health check HMG na porta 5001 e API URL HTTPS",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(deploy-gui): health check HMG na porta 5001 e API URL HTTPS",
+      "inicio": "2026-06-22",
+      "horarioInicio": "17:05",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "17:07",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(deploy-gui): health check HMG na porta 5001 e API URL HTTPS",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #256.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "132d3c0",
+          "43880a7"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #256"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-107",
+      "nome": "[Infra] Confirmar fechamento durante deploy ou rollback",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(deploy-gui): confirmar fechamento durante deploy ou rollback",
+      "inicio": "2026-06-22",
+      "horarioInicio": "20:42",
+      "conclusao": "2026-06-22",
+      "horarioConclusao": "20:45",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(deploy-gui): confirmar fechamento durante deploy ou rollback",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #257.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "7ff804d",
+          "000a5f2"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #257"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-108",
+      "nome": "[Portal RH] Fix: usar ipv4 no healthcheck web-next",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix: usar ipv4 no healthcheck web-next",
+      "inicio": "2026-06-05",
+      "horarioInicio": "10:44",
+      "conclusao": "2026-06-23",
+      "horarioConclusao": "09:18",
+      "totalHoras": 144.57,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix: usar ipv4 no healthcheck web-next",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #258.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "93bc5b2"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #258"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-109",
+      "nome": "[Portal RH] Menu Desligamentos abaixo de Solicitacoes com grid original",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(nav): menu Desligamentos abaixo de Solicitacoes com grid original",
+      "inicio": "2026-06-23",
+      "horarioInicio": "09:16",
+      "conclusao": "2026-06-23",
+      "horarioConclusao": "09:51",
+      "totalHoras": 0.58,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(nav): menu Desligamentos abaixo de Solicitacoes com grid original",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #259.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "4e2509b"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #259"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-110",
+      "nome": "[Portal RH] Registrar Desligamentos no catalogo de acessos e permissoes customizadas",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(menus): registrar Desligamentos no catalogo de acessos e permissoes customizadas",
+      "inicio": "2026-06-23",
+      "horarioInicio": "10:48",
+      "conclusao": "2026-06-23",
+      "horarioConclusao": "10:50",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(menus): registrar Desligamentos no catalogo de acessos e permissoes customizadas",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #260.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "b8ef4cc"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #260"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-111",
+      "nome": "[Portal RH] Alinhar kanban as 10 colunas do funil Key User",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(candidaturas): alinhar kanban as 10 colunas do funil Key User",
+      "inicio": "2026-06-23",
+      "horarioInicio": "12:08",
+      "conclusao": "2026-06-23",
+      "horarioConclusao": "12:09",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(candidaturas): alinhar kanban as 10 colunas do funil Key User",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #261.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "0c00ad7",
+          "9f0274e"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #261"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-112",
+      "nome": "[Portal] Portal publico com relacao completa de documentos, PDF e lightbox",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(admissao): portal publico com relacao completa de documentos, PDF e lightbox",
+      "inicio": "2026-06-23",
+      "horarioInicio": "13:09",
+      "conclusao": "2026-06-23",
+      "horarioConclusao": "13:18",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(admissao): portal publico com relacao completa de documentos, PDF e lightbox",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #262.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c0f231b"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #262"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-113",
+      "nome": "[Portal] Link de exemplo para portal publico de admissao no menu do tenant",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(owner): link de exemplo para portal publico de admissao no menu do tenant",
+      "inicio": "2026-06-24",
+      "horarioInicio": "08:50",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "08:53",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(owner): link de exemplo para portal publico de admissao no menu do tenant",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #263.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "6c250df"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #263"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-114",
+      "nome": "[Portal] Permitir /admissao/tracking via permissoes JWT no guard",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(auth): permitir /admissao/tracking via permissoes JWT no guard",
+      "inicio": "2026-06-24",
+      "horarioInicio": "09:57",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "10:40",
+      "totalHoras": 0.72,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(auth): permitir /admissao/tracking via permissoes JWT no guard",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #264.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "bc6282b"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #264"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-115",
+      "nome": "[Portal] Tracking via query param para static export",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao): tracking via query param para static export",
+      "inicio": "2026-06-24",
+      "horarioInicio": "11:31",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "11:34",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao): tracking via query param para static export",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #265.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "b0d047c"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #265"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-116",
+      "nome": "[Portal] Exibir acoes do tracking com status string da API",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao): exibir acoes do tracking com status string da API",
+      "inicio": "2026-06-24",
+      "horarioInicio": "12:28",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "12:35",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao): exibir acoes do tracking com status string da API",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #266.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "f415195"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #266"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-117",
+      "nome": "[Portal] Pre-selecionar documentos CLT padrao no tracking",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao): pre-selecionar documentos CLT padrao no tracking",
+      "inicio": "2026-06-24",
+      "horarioInicio": "13:45",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "13:49",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao): pre-selecionar documentos CLT padrao no tracking",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #267.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "40fcacc"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #267"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-118",
+      "nome": "[Portal] Validacao por etapa no portal e preview de documentos",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(admissao): validacao por etapa no portal e preview de documentos",
+      "inicio": "2026-06-24",
+      "horarioInicio": "15:51",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "15:54",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(admissao): validacao por etapa no portal e preview de documentos",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #268.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "9f719fc"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #268"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-119",
+      "nome": "[Portal] Refatorar envio de documentos com miniatura no card",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(admissao-portal): refatorar envio de documentos com miniatura no card",
+      "inicio": "2026-06-24",
+      "horarioInicio": "16:32",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "16:53",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(admissao-portal): refatorar envio de documentos com miniatura no card",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #269.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e8b69ac"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #269"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-120",
+      "nome": "[Portal] Validacao IA em SweetAlert e alinhamento dos cards",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(admissao-portal): validacao IA em SweetAlert e alinhamento dos cards",
+      "inicio": "2026-06-24",
+      "horarioInicio": "17:42",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "17:43",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(admissao-portal): validacao IA em SweetAlert e alinhamento dos cards",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #270.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "9344e02"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #270"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-121",
+      "nome": "[Portal] Exibir miniatura apos upload de documento",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): exibir miniatura apos upload de documento",
+      "inicio": "2026-06-24",
+      "horarioInicio": "21:09",
+      "conclusao": "2026-06-24",
+      "horarioConclusao": "21:11",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): exibir miniatura apos upload de documento",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #271.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2caa861"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #271"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-122",
+      "nome": "[Portal] Reduzir tamanho das miniaturas nos cards de documento",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): reduzir tamanho das miniaturas nos cards de documento",
+      "inicio": "2026-06-25",
+      "horarioInicio": "08:35",
+      "conclusao": "2026-06-25",
+      "horarioConclusao": "08:40",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): reduzir tamanho das miniaturas nos cards de documento",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #272.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e949452"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #272"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-123",
+      "nome": "[Portal] Wizard com uma etapa por documento e sidebar clicavel",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(admissao-portal): wizard com uma etapa por documento e sidebar clicavel",
+      "inicio": "2026-06-25",
+      "horarioInicio": "09:38",
+      "conclusao": "2026-06-25",
+      "horarioConclusao": "09:46",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(admissao-portal): wizard com uma etapa por documento e sidebar clicavel",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #273.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "aa9848d"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #273"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-124",
+      "nome": "[Portal RH] Docs: adicionar resumos diarios de 22-05 a 25-06-2026",
+      "descricaoAmigavel": "Entrega promovida para homologação: docs: adicionar resumos diarios de 22-05 a 25-06-2026",
+      "inicio": "2026-06-25",
+      "horarioInicio": "11:43",
+      "conclusao": "2026-06-25",
+      "horarioConclusao": "12:30",
+      "totalHoras": 0.78,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "docs: adicionar resumos diarios de 22-05 a 25-06-2026",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #274.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "7cf8b9f",
+          "5337bae"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #274"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-125",
+      "nome": "[Portal] Ampliar wizard 1.5x e envio no footer",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(admissao-portal): ampliar wizard 1.5x e envio no footer",
+      "inicio": "2026-06-25",
+      "horarioInicio": "14:04",
+      "conclusao": "2026-06-25",
+      "horarioConclusao": "15:15",
+      "totalHoras": 1.18,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(admissao-portal): ampliar wizard 1.5x e envio no footer",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #275.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "7e143f4"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #275"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-126",
+      "nome": "[Portal] Remover campos RIC e outros do formulario candidato",
+      "descricaoAmigavel": "Entrega promovida para homologação: refactor(admissao-portal): remover campos RIC e outros do formulario candidato",
+      "inicio": "2026-06-25",
+      "horarioInicio": "22:00",
+      "conclusao": "2026-06-25",
+      "horarioConclusao": "22:07",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "refactor(admissao-portal): remover campos RIC e outros do formulario candidato",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #276.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "de58841",
+          "6f83472"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #276"
+      },
+      "observacoes": "Backfill: 2 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-127",
+      "nome": "[Portal] Welcome full-width, cards no rodape e bg LIOTECNICA",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): welcome full-width, cards no rodape e bg LIOTECNICA",
+      "inicio": "2026-06-25",
+      "horarioInicio": "22:54",
+      "conclusao": "2026-06-25",
+      "horarioConclusao": "23:02",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): welcome full-width, cards no rodape e bg LIOTECNICA",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #277.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2e7cdad"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #277"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-128",
+      "nome": "[Portal] Corrigir path do bg welcome e reduzir card da vaga",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): corrigir path do bg welcome e reduzir card da vaga",
+      "inicio": "2026-06-25",
+      "horarioInicio": "23:34",
+      "conclusao": "2026-06-25",
+      "horarioConclusao": "23:38",
+      "totalHoras": 0,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): corrigir path do bg welcome e reduzir card da vaga",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #278.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "3e7c014"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #278"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-129",
+      "nome": "[Portal] Refatorar wizard em 6 etapas conforme mockups UI",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(admissao-portal): refatorar wizard em 6 etapas conforme mockups UI",
+      "inicio": "2026-06-26",
+      "horarioInicio": "12:56",
+      "conclusao": "2026-06-26",
+      "horarioConclusao": "12:58",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(admissao-portal): refatorar wizard em 6 etapas conforme mockups UI",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #279.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ac4c4a7"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #279"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-130",
+      "nome": "[Portal] Notificar analista RH por e-mail e comprovante PDF",
+      "descricaoAmigavel": "Entrega promovida para homologação: feat(admissao-portal): notificar analista RH por e-mail e comprovante PDF",
+      "inicio": "2026-06-26",
+      "horarioInicio": "16:23",
+      "conclusao": "2026-06-26",
+      "horarioConclusao": "16:29",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "feat(admissao-portal): notificar analista RH por e-mail e comprovante PDF",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #280.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "1e2ce49"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #280"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-131",
+      "nome": "[Portal] Usar e-mail de teste SMTP quando analista RH nao encontrada",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): usar e-mail de teste SMTP quando analista RH nao encontrada",
+      "inicio": "2026-06-26",
+      "horarioInicio": "17:28",
+      "conclusao": "2026-06-26",
+      "horarioConclusao": "17:35",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): usar e-mail de teste SMTP quando analista RH nao encontrada",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #281.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "e47a24d"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #281"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-132",
+      "nome": "[Portal] Melhorar layout e acentuacao do comprovante PDF",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): melhorar layout e acentuacao do comprovante PDF",
+      "inicio": "2026-06-27",
+      "horarioInicio": "10:55",
+      "conclusao": "2026-06-27",
+      "horarioConclusao": "10:57",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): melhorar layout e acentuacao do comprovante PDF",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #282.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "bf841ae"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #282"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-133",
+      "nome": "[Portal] Refazer comprovante PDF com formulario completo",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): refazer comprovante PDF com formulario completo",
+      "inicio": "2026-06-27",
+      "horarioInicio": "12:37",
+      "conclusao": "2026-06-27",
+      "horarioConclusao": "12:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): refazer comprovante PDF com formulario completo",
+      "entregavel": "Funcionalidade disponível em HML após Merge PR #283.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "8331244"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "Merge PR #283"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-134",
+      "nome": "[Portal] Corrigir erro 500 ao baixar comprovante PDF no Linux",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): corrigir erro 500 ao baixar comprovante PDF no Linux",
+      "inicio": "2026-06-29",
+      "horarioInicio": "08:49",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "09:00",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): corrigir erro 500 ao baixar comprovante PDF no Linux",
+      "entregavel": "Funcionalidade disponível em HML após merge(portalRH-DEV): corrigir erro 500 comprovante PDF admissao portal.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "d092725"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "merge(portalRH-DEV): corrigir erro 500 comprovante PDF admissao portal"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-135",
+      "nome": "[Portal] Corrigir EnumLabel no comprovante PDF para enums short",
+      "descricaoAmigavel": "Entrega promovida para homologação: fix(admissao-portal): corrigir EnumLabel no comprovante PDF para enums short",
+      "inicio": "2026-06-29",
+      "horarioInicio": "09:29",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "09:31",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "fix(admissao-portal): corrigir EnumLabel no comprovante PDF para enums short",
+      "entregavel": "Funcionalidade disponível em HML após merge(portalRH-DEV): corrigir EnumLabel comprovante PDF admissao.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "45d973e"
+        ],
+        "branch": "origin/portalRH-HML",
+        "prHml": "merge(portalRH-DEV): corrigir EnumLabel comprovante PDF admissao"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-136",
+      "nome": "[Portal RH] Export Planner, serve local e ajuste de saudacao do dashboard",
+      "descricaoAmigavel": "Promocao PR #284: ferramenta Export Planner para copiar entregas no Microsoft Planner, servidor local com MIME correto e remocao do emoji da saudacao do dashboard.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "12:42",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "12:58",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Export Planner + serve.py + remover emoji da saudacao Bom dia no dashboard",
+      "entregavel": "Export Planner em tools/planner-tasks/, serve.py para UI local e saudacao do dashboard sem emoji — disponivel em HML apos Merge PR #284.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c4727d0",
+          "e8b5a06",
+          "41d8c7d"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #284"
+      },
+      "observacoes": "Backfill: 3 commits no grupo."
+    },
+    {
+      "id": "TASK-2026-137",
+      "nome": "[Portal RH] Reforcar diretrizes Planner e corrigir registro de promocoes HML",
+      "descricaoAmigavel": "Torna obrigatorio registrar inicio e termino de toda solicitacao no Export Planner, corrige backfill para usar origin/portalRH-HML e registra a promocao PR #284 no tasks.json.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "13:03",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "13:08",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Reforcar diretrizes para registro obrigatorio no Planner; corrigir falta de registro na promocao PR #284; promover para HML",
+      "entregavel": "Regra always-apply do Cursor, DIRETRIZ.md reforcada, backfill corrigido e tasks.json alinhado — disponivel em HML apos Merge PR #285.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "0a029b6a",
+          "208dd5fc"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #285"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-138",
+      "nome": "[Portal RH] Simplificar subtitulo de boas-vindas do dashboard analista",
+      "descricaoAmigavel": "Ajuste de texto no dashboard do analista RH para exibir apenas 'Aqui está um resumo do seu dia!' no subtítulo.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "13:09",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "13:10",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Alterar texto do resumo do dia no dashboard para 'Aqui está um resumo do seu dia!' e promover para HML",
+      "entregavel": "Subtitulo do dashboard analista RH simplificado — disponivel em HML apos Merge PR #286.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "7de2b68a"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #286"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-139",
+      "nome": "[Portal RH] Abrir requisicao recente do dashboard na tela de solicitacoes",
+      "descricaoAmigavel": "Clique em Requisições recentes no dashboard leva para Solicitações com o modal Visualizar Requisição de Pessoal da requisição selecionada.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "16:17",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "16:19",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "No dashboard, clique em Requisições recentes deve abrir /app/gestao/solicitacoes com modal da requisição clicada",
+      "entregavel": "Deep link ?view=id no dashboard analista RH abre automaticamente o modal Visualizar Requisição de Pessoal — disponivel em HML apos Merge PR #287.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "6926d877"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #287"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-140",
+      "nome": "[Portal RH] Remover link Ver pipeline completo do dashboard",
+      "descricaoAmigavel": "Remove o link Ver pipeline completo da secao Pipeline de Recrutamento no dashboard analista RH.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "16:25",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "16:25",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Remover o link Ver pipeline completo do dashboard",
+      "entregavel": "Secao Pipeline de Recrutamento sem link Ver pipeline completo — disponivel em HML apos Merge PR #288.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "fffa9901"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #288"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-141",
+      "nome": "[Portal RH] Renomear KPI Inscritos para Candidatos no pipeline do dashboard",
+      "descricaoAmigavel": "Primeira etapa do Pipeline de Recrutamento no dashboard analista RH passa a exibir o rotulo Candidatos em vez de Inscritos.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "16:30",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "16:31",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Trocar texto Inscritos do KPI Pipeline de Recrutamento por Candidatos",
+      "entregavel": "Rotulo Candidatos na primeira etapa do pipeline — disponivel em HML apos Merge PR #289.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "f0070d5c"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #289"
+      },
+      "observacoes": ""
+    }
+  ]
+}

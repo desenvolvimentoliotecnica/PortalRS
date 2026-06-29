@@ -60,12 +60,14 @@ export interface DadosPessoais {
 }
 
 export interface UploadedDoc {
+    id?: string;
     tipo: number;
     nomeArquivo: string;
     tamanhoBytes: number;
     status: number;
     presignedUrl?: string;
     thumbnail?: string;
+    createdAtUtc?: string;
 }
 
 export interface AiExtractionResult {
@@ -78,7 +80,7 @@ export interface AiExtractionResult {
     processing: boolean;
 }
 
-export const TOTAL_STEPS = 5;
+export const TOTAL_STEPS = 5; // legado — use buildWizardPlan().totalSteps em runtime
 
 export const STEP_LABELS = [
     "Boas-vindas",
@@ -91,6 +93,7 @@ export const STEP_LABELS = [
 interface AdmissaoWizardState {
     currentStep: number;
     completedSteps: Set<number>;
+    wizardTotalSteps: number;
     formData: DadosPessoais;
     dependentes: DependenteResponse[];
     uploadedDocs: Map<number, UploadedDoc>;
@@ -102,6 +105,7 @@ interface AdmissaoWizardState {
     hasDependentes: boolean | null;
 
     setStep: (step: number) => void;
+    setWizardTotalSteps: (n: number) => void;
     setFormField: (field: string, value: unknown) => void;
     setFormData: (data: Partial<DadosPessoais>) => void;
     mergeAiFields: (fields: Record<string, string | null>) => void;
@@ -114,6 +118,10 @@ interface AdmissaoWizardState {
     setHasDependentes: (v: boolean) => void;
     setUploadedDoc: (tipo: number, doc: UploadedDoc) => void;
     setUploadedDocVerso: (tipo: number, doc: UploadedDoc) => void;
+    removeUploadedDoc: (tipo: number) => void;
+    removeUploadedDocVerso: (tipo: number) => void;
+    clearAiExtraction: (tipo: number) => void;
+    clearAiExtractionVerso: (tipo: number) => void;
     setAiExtraction: (tipo: number, result: AiExtractionResult) => void;
     setAiExtractionVerso: (tipo: number, result: AiExtractionResult) => void;
     markStepComplete: (step: number) => void;
@@ -126,6 +134,7 @@ interface AdmissaoWizardState {
 export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => ({
     currentStep: 0,
     completedSteps: new Set<number>(),
+    wizardTotalSteps: TOTAL_STEPS,
     formData: {},
     dependentes: [],
     uploadedDocs: new Map(),
@@ -137,6 +146,8 @@ export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => 
     hasDependentes: null,
 
     setStep: (step) => set({ currentStep: step }),
+
+    setWizardTotalSteps: (n) => set({ wizardTotalSteps: Math.max(1, n) }),
 
     setFormField: (field, value) =>
         set((s) => ({ formData: { ...s.formData, [field]: value } })),
@@ -190,6 +201,38 @@ export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => 
             return { uploadedDocsVerso: m };
         }),
 
+    removeUploadedDoc: (tipo) =>
+        set((s) => {
+            const m = new Map(s.uploadedDocs);
+            m.delete(tipo);
+            const ai = new Map(s.aiExtractions);
+            ai.delete(tipo);
+            return { uploadedDocs: m, aiExtractions: ai };
+        }),
+
+    removeUploadedDocVerso: (tipo) =>
+        set((s) => {
+            const m = new Map(s.uploadedDocsVerso);
+            m.delete(tipo);
+            const ai = new Map(s.aiExtractionsVerso);
+            ai.delete(tipo);
+            return { uploadedDocsVerso: m, aiExtractionsVerso: ai };
+        }),
+
+    clearAiExtraction: (tipo) =>
+        set((s) => {
+            const m = new Map(s.aiExtractions);
+            m.delete(tipo);
+            return { aiExtractions: m };
+        }),
+
+    clearAiExtractionVerso: (tipo) =>
+        set((s) => {
+            const m = new Map(s.aiExtractionsVerso);
+            m.delete(tipo);
+            return { aiExtractionsVerso: m };
+        }),
+
     setAiExtraction: (tipo, result) =>
         set((s) => {
             const m = new Map(s.aiExtractions);
@@ -216,13 +259,18 @@ export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => 
 
     computeCompletionPercent: () => {
         const s = get();
-        return Math.round((s.completedSteps.size / TOTAL_STEPS) * 100);
+        const mainSteps = 6;
+        const done = [1, 2, 3, 4, 5, 6].filter(
+            (step) => s.completedSteps.has(step) || s.currentStep > step,
+        ).length;
+        return Math.min(100, Math.round((done / mainSteps) * 100));
     },
 
     reset: () =>
         set({
             currentStep: 0,
             completedSteps: new Set(),
+            wizardTotalSteps: TOTAL_STEPS,
             formData: {},
             dependentes: [],
             uploadedDocs: new Map(),

@@ -74,13 +74,6 @@ const toneClasses: Record<Tone, { soft: string; text: string; border: string; bg
   },
 };
 
-const quickActions = [
-  { label: "Ver requisições", icon: FileText, href: "/app/gestao/painel-solicitacoes" },
-  { label: "Ver vagas", icon: BriefcaseBusiness, href: "/app/vagas" },
-  { label: "Minha agenda", icon: CalendarDays, href: "/app/agendas" },
-  { label: "Candidatos", icon: UserRoundCheck, href: "/app/candidaturas" },
-];
-
 function formatDateTime(iso?: string | null) {
   if (!iso) return "Sem horário";
   const date = new Date(iso);
@@ -121,7 +114,7 @@ function responseLabel(value?: string | null) {
 
 function todayGreeting(displayName?: string | null) {
   const firstName = displayName?.trim().split(/\s+/)[0];
-  return firstName ? `Bom dia, ${firstName} 👋` : "Bom dia, gestor 👋";
+  return firstName ? `Bom dia, ${firstName}` : "Bom dia, gestor";
 }
 
 export default function GestorDashboardScreen({ displayName }: { displayName?: string | null }) {
@@ -220,25 +213,6 @@ function GestorDashboardContent({ data }: { data: DashboardGestorSection }) {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(360px,1fr)]">
         <div className="space-y-4">
-          <Panel>
-            <PanelHeader title="Ações rápidas" />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <Link
-                    key={action.label}
-                    href={action.href}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-blue-100 bg-white px-4 text-sm font-semibold text-blue-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50"
-                  >
-                    <Icon className="size-4" />
-                    {action.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </Panel>
-
           <Panel>
             <PanelHeader title="Resumo da gestão" />
             <div className="mt-4 grid gap-3 md:grid-cols-4">

@@ -1,0 +1,75 @@
+---
+description: Registro obrigatorio no Export Planner (tasks.json) em todo pedido e promocao HML
+alwaysApply: true
+---
+
+# Planner Obrigatorio — Portal RH
+
+Toda solicitacao executavel do usuario DEVE ser registrada em `tools/planner-tasks/tasks.json`.
+Nenhuma excecao. Nao promover, nao mergear PR HML e nao declarar entrega concluida sem o Planner atualizado.
+
+Consulte `tools/planner-tasks/DIRETRIZ.md` para detalhes completos.
+
+## Quando registrar INICIO (obrigatorio)
+
+Ao receber pedido executavel no chat (feature, fix, ajuste, deploy, PR, refactor):
+
+1. Criar ou abrir entrada em `tasks.json` **antes ou junto com a primeira alteracao de codigo**.
+2. Preencher no minimo:
+   - `id` sequencial (`TASK-AAAA-NNN`)
+   - `nome` com prefixo `[Portal RH]`, `[Infra]` ou `[Portal]` + resultado de negocio
+   - `inicio` = data de hoje (America/Sao_Paulo)
+   - `horarioInicio` = horario atual (HH:mm, Brasilia)
+   - `horarioConclusao` = `null`
+   - `bucket` = `Em andamento`
+   - `percentualConcluido` = 50 a 90 conforme progresso
+   - `pedidoOriginal` = resumo do pedido no chat
+   - `descricaoAmigavel` e `entregavel` em linguagem de negocio
+3. Atualizar `meta.atualizadoEm` e `meta.totalTarefas`.
+
+## Quando registrar TERMINO (obrigatorio)
+
+Ao confirmar merge do PR DEV→HML (ou merge direto em `portalRH-HML`):
+
+1. **Antes** de dizer "promovido", "mergeado" ou "PR confirmado":
+   - `conclusao` = data do merge HML
+   - `horarioConclusao` = horario real do merge (`git log -1 --format=%ci <merge-hash>`)
+   - `bucket` = `Concluído`
+   - `percentualConcluido` = 100
+   - `referencias.commits` = hashes dos commits da entrega
+   - `referencias.prHml` = `Merge PR #N` ou mensagem do merge
+   - `totalHoras` recalculado (mesma logica de `calc-horas.mjs`)
+2. Commitar `tasks.json` em `portalRH-DEV` (no mesmo fluxo da promocao).
+3. So entao confirmar a promocao ao usuario.
+
+## Proibicoes
+
+- Proibido mergear PR para HML sem `tasks.json` atualizado na mesma sessao.
+- Proibido encerrar resposta de promocao HML sem tarefa fechada no JSON.
+- Proibido depender apenas de `backfill-git.mjs` para registro ao vivo — backfill e complemento historico, nao substituto do registro manual imediato.
+- Proibido inventar hash de commit; se nao houver commit, registrar em `observacoes`.
+
+## Ordem obrigatoria DEV→HML
+
+1. Registrar inicio (se ainda nao existir)
+2. Implementar e commitar em DEV
+3. Atualizar tarefa (commits parciais, progresso)
+4. Fechar tarefa no JSON com horarios e `totalHoras`
+5. Commit do Planner em DEV
+6. Abrir/mergear PR DEV→HML
+7. Ajustar `horarioConclusao` com horario real do merge se necessario
+8. Confirmar promocao ao usuario
+
+## Checklist antes de encerrar qualquer resposta com promocao HML
+
+- [ ] Toda solicitacao da conversa tem entrada no JSON
+- [ ] `inicio` + `horarioInicio` preenchidos
+- [ ] `conclusao` + `horarioConclusao` preenchidos apos merge
+- [ ] `referencias.commits` + `referencias.prHml`
+- [ ] `meta.atualizadoEm` e `meta.totalTarefas` corretos
+- [ ] `tasks.json` commitado em DEV
+
+## Multiplos pedidos na mesma conversa
+
+- Um pedido distinto = uma tarefa (ou agrupamento de negocio coerente).
+- Nunca deixar pedido atendido sem registro correspondente.

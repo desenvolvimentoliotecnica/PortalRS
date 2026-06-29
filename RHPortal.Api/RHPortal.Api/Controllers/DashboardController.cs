@@ -465,7 +465,7 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
             new FunilEtapaItem(EtapaMacroCandidatura.EmTriagem, "Triagem", counts.GetValueOrDefault(EtapaMacroCandidatura.EmTriagem), null),
             new FunilEtapaItem(EtapaMacroCandidatura.Entrevista, "Entrevista", entrevistaTotal, null),
             new FunilEtapaItem(EtapaMacroCandidatura.Teste, "Teste", counts.GetValueOrDefault(EtapaMacroCandidatura.Teste), null),
-            new FunilEtapaItem(EtapaMacroCandidatura.Contratado, "Contratado", counts.GetValueOrDefault(EtapaMacroCandidatura.Contratado), null),
+            new FunilEtapaItem(EtapaMacroCandidatura.Contratado, "Em processo de admissão", counts.GetValueOrDefault(EtapaMacroCandidatura.Contratado), null),
         };
 
         return Ok(new FunilCandidaturasResponse(etapas.Sum(e => e.Total), null, null, null, null, etapas));

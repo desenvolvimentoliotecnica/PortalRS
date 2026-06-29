@@ -43,7 +43,7 @@ public sealed class TenantRmConfiguracao : ITenantEntity
     public string RecModifiedBy { get; set; } = "portal";
 
     // Importação e status
-    public bool RequisicoesVagaOrigemRm { get; set; }
+    public bool RequisicoesVagaOrigemRm { get; set; } = true;
     public bool ImportacaoAutomaticaAtiva { get; set; }
     public int ImportacaoAutomaticaIntervaloMinutos { get; set; } = 15;
     public int ImportacaoAutomaticaMaxPorExecucao { get; set; } = 50;

@@ -46,13 +46,9 @@ const TIPO_OPTIONS = [
   { value: "AUMENTO_QUADRO", label: "Aumento de quadro" },
   { value: "SUBSTITUICAO", label: "Substituição" },
   { value: "DESLIGAMENTO", label: "Desligamento" },
-  { value: "PROMOCAO_ALTERACAO_FUNCIONAL", label: "Promoção / alteração funcional" },
-  { value: "TRANSFERENCIA", label: "Transferência" },
-  { value: "TRANSFERENCIA_PROMOCAO", label: "Transferência + promoção" },
-  { value: "TRANSFERENCIA_LOTE", label: "Transferência em lote" },
-  { value: "TREINAMENTO", label: "Treinamento" },
-  { value: "GERAL", label: "Geral" },
 ] as const;
+
+const RM_TIPOS_IMPORTAVEIS = new Set(["AUMENTO_QUADRO", "SUBSTITUICAO", "DESLIGAMENTO"]);
 
 const CODSTATUS_VISIVEIS = [1, 3] as const;
 
@@ -124,7 +120,12 @@ function formatDt(s: string | null): string {
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message.trim() ? error.message : fallback;
+  if (error instanceof Error) {
+    if (error.name === "AbortError" || /aborted|timeout|cancel/i.test(error.message))
+      return "Consulta ao RM excedeu o tempo limite. Reduza o período de abertura ou aplique filtros (tipo/status).";
+    if (error.message.trim()) return error.message;
+  }
+  return fallback;
 }
 
 function isRmIntegrationConfigMissing(message: string): boolean {
@@ -154,23 +155,13 @@ function formatMoney(value: string | number | null): string {
 }
 
 function formatTipoRequisicao(tipo: string | null | undefined): string {
-  const value = (tipo ?? "").trim();
+  const value = (tipo ?? "").trim().toUpperCase();
   const labels: Record<string, string> = {
     AUMENTO_QUADRO: "Aumento de Quadro",
     SUBSTITUICAO: "Substituição",
     DESLIGAMENTO: "Desligamento",
-    PROMOCAO_ALTERACAO_FUNCIONAL: "Promoção / Alteração Funcional",
-    TRANSFERENCIA: "Transferência",
-    TRANSFERENCIA_PROMOCAO: "Transferência + Promoção",
-    TRANSFERENCIA_LOTE: "Transferência em Lote",
-    TREINAMENTO: "Treinamento",
-    GERAL: "Geral",
   };
-  const fallback = value
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase("pt-BR"));
-  return labels[value] ?? (fallback || "—");
+  return labels[value] ?? (value ? value.replace(/_/g, " ") : "—");
 }
 
 function formatFuncao(row: Pick<RmRequisicaoRow, "codfuncao" | "nomeFuncao">): string {
@@ -186,6 +177,21 @@ function truncateText(value: string | null | undefined, maxLength = 40): string 
   return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
 }
 
+function formatIsoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Período padrão: últimos 3 meses — evita consulta RM sem filtro (muito lenta). */
+function defaultRmConsultaDataDe(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 3);
+  return formatIsoDate(d);
+}
+
+function defaultRmConsultaDataAte(): string {
+  return formatIsoDate(new Date());
+}
+
 export default function AdminRmRequisicoesScreen() {
   const router = useRouter();
   const rmConfigAlertOpenRef = useRef(false);
@@ -196,8 +202,8 @@ export default function AdminRmRequisicoesScreen() {
   const [pageSize, setPageSize] = useState(20);
   const [tipo, setTipo] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [dataDe, setDataDe] = useState("");
-  const [dataAte, setDataAte] = useState("");
+  const [dataDe, setDataDe] = useState(defaultRmConsultaDataDe);
+  const [dataAte, setDataAte] = useState(defaultRmConsultaDataAte);
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const [importing, setImporting] = useState(false);
@@ -270,15 +276,17 @@ export default function AdminRmRequisicoesScreen() {
       params.set("sortBy", sortKey);
       params.set("sortDir", sortDir);
 
-      const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" }, 75_000);
+      const res = await apiFetch(`/api/rm/requisicoes?${params}`, { cache: "no-store" }, 300_000);
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { detail?: string; title?: string } | null;
         const msg =
-          typeof body?.detail === "string"
-            ? body.detail
-            : typeof body?.title === "string"
-              ? body.title
-              : `HTTP ${res.status}`;
+          res.status === 504
+            ? "Consulta ao RM excedeu o tempo limite. Reduza o período de abertura ou aplique filtros (tipo/status)."
+            : typeof body?.detail === "string"
+              ? body.detail
+              : typeof body?.title === "string"
+                ? body.title
+                : `HTTP ${res.status}`;
         if (isRmIntegrationConfigMissing(msg)) await showRmConfigMissingAlert();
         else toast.error(msg);
         setRows([]);
@@ -328,7 +336,9 @@ export default function AdminRmRequisicoesScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             pageSize: 100,
-            tipoRequisicao: tipo.trim() || null,
+            tipoRequisicao: tipo.trim() && RM_TIPOS_IMPORTAVEIS.has(tipo.trim())
+              ? tipo.trim()
+              : null,
             dataAberturaDe: dataDe.trim() || null,
             dataAberturaAte: dataAte.trim() || null,
             codStatusIn: statusFilter === "all" ? [...CODSTATUS_VISIVEIS] : [Number(statusFilter)],
@@ -536,12 +546,21 @@ export default function AdminRmRequisicoesScreen() {
 
         <div className="text-muted-foreground mb-3 text-xs">
           Total no filtro atual: <span className="font-semibold text-foreground">{total}</span>
+          <span className="ml-2 opacity-80">Período padrão: últimos 3 meses (ajuste as datas se precisar de histórico maior).</span>
+          {tipo === "DESLIGAMENTO" && (
+            <span className="ml-2 text-emerald-700">
+              Desligamentos importados aparecem na aba Desligamento em Gestão → Solicitações (filtro Aprovadas).
+            </span>
+          )}
         </div>
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-24 cursor-pointer select-none whitespace-nowrap text-center" onClick={() => handleSort("id")}>
+                  Código RM<SortIcon col="id" />
+                </TableHead>
                 <TableHead className="cursor-pointer select-none whitespace-nowrap text-center" onClick={() => handleSort("abertura")}>
                   Abertura<SortIcon col="abertura" />
                 </TableHead>
@@ -568,13 +587,13 @@ export default function AdminRmRequisicoesScreen() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-muted-foreground py-10 text-center">
+                  <TableCell colSpan={10} className="text-muted-foreground py-10 text-center">
                     Carregando…
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-muted-foreground py-10 text-center">
+                  <TableCell colSpan={10} className="text-muted-foreground py-10 text-center">
                     Nenhuma requisição encontrada (ou integração RM não configurada).
                   </TableCell>
                 </TableRow>
@@ -585,6 +604,9 @@ export default function AdminRmRequisicoesScreen() {
                     className="cursor-pointer"
                     onClick={() => setDetailRow(r)}
                   >
+                    <TableCell className="whitespace-nowrap text-center font-mono text-xs font-medium">
+                      {r.idreq}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap text-center text-xs">
                       {formatDt(r.dataabertura)}
                     </TableCell>

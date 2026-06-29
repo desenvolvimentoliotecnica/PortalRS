@@ -1,12 +1,18 @@
-# Deploy HMG via GUI local
+# Deploy via GUI local (DEV e HMG)
 
-Ferramenta Windows para publicar a branch `main` no servidor HMG `10.0.0.80`
-sem depender do GitHub Actions.
+Ferramenta Windows para publicar no servidor **sem depender do GitHub Actions** (útil quando billing/runners hosted estão bloqueados).
 
-## O que ela faz
+| Ambiente | Servidor | Branch | Compose |
+| --- | --- | --- | --- |
+| **DEV** | `10.0.0.79` | `portalRH-DEV` | `docker-compose.portalrh-dev.yml` |
+| **HMG** | `10.0.0.80` | `portalRH-HML` | `docker-compose.hmg.yml` |
 
-1. Executa `git fetch origin main` no repositorio local.
-2. Gera um snapshot limpo de `origin/main` com `git archive`.
+Guia DEV: [DEV-DEPLOY-SSH.md](../DEV-DEPLOY-SSH.md)
+
+## O que ela faz (HMG ou DEV)
+
+1. Executa `git fetch origin portalRH-HML` no repositorio local.
+2. Gera um snapshot limpo de `origin/portalRH-HML` com `git archive`.
 3. Envia o snapshot ao servidor por SSH/SFTP.
 4. Builda no servidor as imagens da API, Web Next, Portal Vagas e RHPortal.Ai.
 5. Sobe a stack com `docker compose`.
@@ -16,7 +22,7 @@ As imagens ficam locais no Docker do servidor. A ferramenta nao faz push para GH
 
 ## Modos de deploy
 
-- **Inteligente**: compara a `main` atual com o ultimo SHA registrado no servidor
+- **Inteligente**: compara a `portalRH-HML` atual com o ultimo SHA registrado no servidor
   e builda somente os servicos afetados. Servicos sem mudanca sao retagueados a
   partir da imagem em execucao para que a stack inteira suba com a tag do SHA novo.
 - **Completo**: builda API, Web Next, Portal Vagas e RHPortal.Ai sempre. Use quando
@@ -49,6 +55,15 @@ Preencha:
 
 A senha nao e salva em arquivo.
 
+## API URL e validacao de health (HMG)
+
+| Campo | Valor HMG | Observacao |
+| --- | --- | --- |
+| **API URL (publica)** | `https://10.0.0.80:5000` | Entra ID e acesso externo. **Nao use HTTP** — a porta 5000 do host so aceita HTTPS (Nginx TLS). |
+| Health pos-deploy | `http://127.0.0.1:5001/health` | Automatico na GUI: API Docker publicada em `127.0.0.1:5001`, nao na 5000. |
+
+Ao trocar o ambiente para **HMG** na combo, os defaults recarregam (`https://…:5000`). O build do Portal Admin **nao** embute essa URL — as chamadas vao por `/api/` no `:3000`.
+
 ## Como gerar o .exe
 
 ```powershell
@@ -75,7 +90,7 @@ Exemplo:
   "user": "administrator",
   "repo_path": "D:\\Projetos\\PortalRH\\RH-devops-Lucas",
   "remote_deploy_dir": "/home/administrator/rh-deploys",
-  "api_url": "http://10.0.0.80:5000",
+  "api_url": "https://10.0.0.80:5000",
   "admin_url": "http://10.0.0.80:3000",
   "tenant": "liotecnica"
 }

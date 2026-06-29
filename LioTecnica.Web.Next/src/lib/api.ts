@@ -221,3 +221,58 @@ export async function apiJson<T>(
 
     return (await res.json()) as T;
 }
+
+function parseContentDispositionFilename(header: string | null): string | null {
+    if (!header) return null;
+    const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(header);
+    if (utf8?.[1]) {
+        try {
+            return decodeURIComponent(utf8[1].trim());
+        } catch {
+            return utf8[1].trim();
+        }
+    }
+    const plain = /filename="?([^";]+)"?/i.exec(header);
+    return plain?.[1]?.trim() ?? null;
+}
+
+/**
+ * Gera carta via POST: abre URL presigned (S3) ou faz download direto do DOCX quando S3 não está configurado.
+ */
+export async function gerarCartaDownload(
+    path: string,
+    defaultFileName: string,
+): Promise<void> {
+    const res = await apiFetch(path, { method: "POST" });
+
+    if (res.status === 401) throw new Error("UNAUTHORIZED");
+    if (!res.ok) {
+        const text = await res.text();
+        try {
+            const body = JSON.parse(text) as { message?: string };
+            throw new Error(body.message ?? `HTTP ${res.status}`);
+        } catch (e) {
+            if (e instanceof Error && e.message !== `HTTP ${res.status}`) throw e;
+            throw new Error(text || `HTTP ${res.status}`);
+        }
+    }
+
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+        const data = (await res.json()) as { url?: string };
+        if (!data.url) throw new Error("Resposta da API sem URL da carta.");
+        window.open(data.url, "_blank");
+        return;
+    }
+
+    const blob = await res.blob();
+    const fileName =
+        parseContentDispositionFilename(res.headers.get("content-disposition"))
+        ?? defaultFileName;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+}

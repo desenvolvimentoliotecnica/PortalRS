@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BriefcaseBusiness,
@@ -8,10 +9,7 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
-  Filter,
   MoreVertical,
-  Plus,
-  Send,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -154,13 +152,6 @@ const toneClasses: Record<Tone, { soft: string; text: string; border: string; bg
   },
 };
 
-const quickActions = [
-  { label: "Nova vaga", icon: Plus, href: "/app/vagas?open=create" },
-  { label: "Triar candidatos", icon: Filter, href: "/app/candidaturas" },
-  { label: "Agendar entrevista", icon: CalendarDays, href: "/app/agendas" },
-  { label: "Publicar vaga", icon: Send, href: "/app/vagas" },
-];
-
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await apiFetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP_${res.status}`);
@@ -247,7 +238,7 @@ function mapPipeline(funil: FunilCandidaturas | null): PipelineItem[] {
   };
 
   return [
-    { label: "Inscritos", value: findTotal("aplicad", "inscrit"), hint: "Total atual", tone: "blue" },
+    { label: "Candidatos", value: findTotal("aplicad", "inscrit"), hint: "Total atual", tone: "blue" },
     { label: "Triagem", value: findTotal("triagem"), hint: "Total atual", tone: "green" },
     { label: "Entrevista", value: findTotal("entrevista"), hint: "Total atual", tone: "purple" },
     { label: "Teste", value: findTotal("teste"), hint: "Total atual", tone: "amber" },
@@ -391,9 +382,9 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
   return (
     <section className="mx-auto max-w-[1440px] space-y-4 text-slate-800">
       <header>
-        <h1 className="text-[28px] font-bold tracking-tight text-slate-900">Bom dia, {firstName} 👋</h1>
+        <h1 className="text-[28px] font-bold tracking-tight text-slate-900">Bom dia, {firstName}</h1>
         <p className="mt-1 text-sm font-medium text-slate-500">
-          Aqui está um resumo do seu dia com dados reais do portal.
+          Aqui está um resumo do seu dia!
           {loading ? " Carregando indicadores..." : null}
         </p>
         {partialError ? (
@@ -412,22 +403,6 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.62fr)_minmax(360px,1fr)]">
         <div className="space-y-4">
           <Panel className="p-4">
-            <PanelHeader title="Ações rápidas" />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {quickActions.map(({ label, icon: Icon, href }) => (
-                <a
-                  key={label}
-                  href={href}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-blue-100 bg-white px-4 text-sm font-semibold text-blue-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50"
-                >
-                  <Icon className="size-4" />
-                  {label}
-                </a>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel className="p-4">
             <PanelHeader title="Pipeline de Recrutamento" />
             <div className="mt-4 grid gap-3 md:grid-cols-5">
               {pipeline.map((item, index) => (
@@ -443,9 +418,6 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
                 </div>
               ))}
             </div>
-            <a href="/app/candidaturas" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-blue-600">
-              Ver pipeline completo <ChevronRight className="size-4" />
-            </a>
           </Panel>
         </div>
 
@@ -505,7 +477,11 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
           <div className="mt-3 divide-y divide-slate-100">
             {requisicoes.length > 0 ? (
               requisicoes.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <Link
+                  key={item.id}
+                  href={`/app/gestao/solicitacoes?view=${encodeURIComponent(item.id)}`}
+                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 transition hover:bg-slate-50 rounded-lg px-1 -mx-1 cursor-pointer"
+                >
                   <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
                     <BriefcaseBusiness className="size-4" />
                   </div>
@@ -520,7 +496,7 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
                   </div>
                   <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
                   <span className="w-16 text-right text-xs font-medium text-slate-500">{item.when}</span>
-                </div>
+                </Link>
               ))
             ) : (
               <EmptyLine>Nenhuma requisição recente encontrada.</EmptyLine>

@@ -24,6 +24,7 @@ import {
   listarCandidaturasDoCandidato,
   registrarObservacaoCandidatura,
   resolveEtapa,
+  labelEtapaKanban,
   type CandidaturaDetalhe,
   type CandidaturaHistoricoItem,
   type KanbanCandidaturaItem,
@@ -88,18 +89,7 @@ function formatDateTime(iso: string | null | undefined) {
 }
 
 function etapaLabel(value: CandidaturaHistoricoItem["etapaNova"]) {
-  const etapa = resolveEtapa(value);
-  return {
-    Aplicada: "Aplicada",
-    EmTriagem: "Em triagem",
-    Entrevista: "Entrevista",
-    EntrevistaTecnica: "Entrevista técnica",
-    Teste: "Teste",
-    Proposta: "Proposta",
-    Contratado: "Contratado",
-    Recusado: "Recusado",
-    Desistiu: "Desistiu",
-  }[etapa] ?? etapa;
+  return labelEtapaKanban(resolveEtapa(value));
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {

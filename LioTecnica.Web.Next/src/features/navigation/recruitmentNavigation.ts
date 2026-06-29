@@ -25,13 +25,9 @@ export const RECRUITMENT_ROUTE_KEYS = {
 /** Ordem linear do fluxo de recrutamento no sidebar (pipeline R&S).
  *  Cada item representa uma etapa do funil: demanda → publicação → avaliação → contratação.
  */
-/** Itens de 1º nível fora do grupo "Recrutamento" (sem header de módulo).
- *  Painel de Solicitações é o agregador analítico transversal (R&S + Folha +
- *  Cadastros) — decisão de Onda 14 (2026-04-20): mora em "Principais".
- */
+/** Itens de 1º nível fora do grupo "Recrutamento" (sem header de módulo). */
 export const PRINCIPAIS_ORDER = [
   RECRUITMENT_ROUTE_KEYS.dashboard,           // Dashboard
-  RECRUITMENT_ROUTE_KEYS.painelSolicitacoes,  // Painel de Solicitações (visão consolidada RH/gestor)
   RECRUITMENT_ROUTE_KEYS.meuTime,             // Meu Time
 ] as const;
 
@@ -68,12 +64,15 @@ export const RECRUITMENT_ROUTE_LABELS: Record<string, string> = {
   [RECRUITMENT_ROUTE_KEYS.triagem]: "Candidaturas",
   [RECRUITMENT_ROUTE_KEYS.admissao]: "Admissão",
   [RECRUITMENT_ROUTE_KEYS.integracao]: "Integração TOTVS",
+  [RECRUITMENT_ROUTE_KEYS.desligamentos]: "Desligamentos",
   [RECRUITMENT_ROUTE_KEYS.painelSolicitacoes]: "Painel de Solicitações",
   [RECRUITMENT_ROUTE_KEYS.meuTime]: "Meu Time",
 };
 
 export const ADMIN_RECRUITMENT_ROUTE_PATTERNS = [
   RECRUITMENT_ROUTE_KEYS.dashboard,
+  RECRUITMENT_ROUTE_KEYS.solicitacoes,
+  RECRUITMENT_ROUTE_KEYS.desligamentos,
   RECRUITMENT_ROUTE_KEYS.vagas,
   RECRUITMENT_ROUTE_KEYS.portalVagas,
   RECRUITMENT_ROUTE_KEYS.talentos,

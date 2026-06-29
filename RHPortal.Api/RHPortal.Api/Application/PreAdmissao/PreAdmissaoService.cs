@@ -84,6 +84,32 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly IConfiguration _configuration;
     private readonly IHostEnvironment _hostEnvironment;
 
+    /// <summary>Lista CLT alinhada à relação de documentos enviada manualmente pelo RH.</summary>
+    private static readonly TipoDocumento[] CltDocumentosPadraoFallback =
+    [
+        TipoDocumento.CarteiraTrabalhoCTPS,
+        TipoDocumento.TituloEleitor,
+        TipoDocumento.RG,
+        TipoDocumento.CPF,
+        TipoDocumento.PisPasep,
+        TipoDocumento.Foto3x4,
+        TipoDocumento.Reservista,
+        TipoDocumento.CertidaoNascimentoCasamento,
+        TipoDocumento.ComprovanteResidencia,
+        TipoDocumento.Escolaridade,
+        TipoDocumento.CNH,
+        TipoDocumento.ComprovanteBancario,
+        TipoDocumento.ExameMedico,
+        TipoDocumento.ComprovanteVacinaCovid,
+        TipoDocumento.CartaBoasVindas,
+        TipoDocumento.CertidaoNascimentoFilho,
+        TipoDocumento.RGFilho,
+        TipoDocumento.CpfFilho,
+        TipoDocumento.CarteiraVacinacaoFilho,
+        TipoDocumento.FrequenciaEscolarFilho,
+        TipoDocumento.RgCpfConjuge,
+    ];
+
     public PreAdmissaoService(
         AppDbContext db,
         ITenantContext tenantContext,
@@ -397,7 +423,10 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         // ainda está null, então não sobrescreve valores do RH.
         await PreAdmissaoDefaultsSeeder.ApplyAsync(e, _db, _tenantContext.TenantId!, ct);
 
-        // Run validations
+        var admissionIssues = PreAdmissaoAdmissionValidator.Validate(e);
+        if (admissionIssues.Count > 0)
+            throw new TotvsValidationException(admissionIssues);
+
         e.ValidacaoCpfOk = ValidarCpf(e.Cpf);
         e.ValidacaoCepOk = !string.IsNullOrWhiteSpace(e.Cep);
         e.ValidacaoBancoOk = !string.IsNullOrWhiteSpace(e.BancoCodigo) && !string.IsNullOrWhiteSpace(e.Conta);
@@ -420,20 +449,16 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         e.SubmittedAtUtc = DateTimeOffset.UtcNow;
         e.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        // Auto-aprovar: se os campos obrigatórios do TOTVS estiverem todos preenchidos,
-        // já avança direto para Aprovada (Pendente TOTVS), sem exigir ação manual do RH.
-        // Se a validação falhar, mantém Preenchido e relança os erros para o chamador.
-        var issues = PreAdmissaoTotvsValidator.Validate(e);
-        if (issues.Count == 0)
+        // Auto-aprovar somente quando a validação TOTVS completa passar.
+        // Campos extras do TOTVS podem ser preenchidos depois; o submit exige apenas os mínimos de admissão.
+        var totvsIssues = PreAdmissaoTotvsValidator.Validate(e);
+        if (totvsIssues.Count == 0)
         {
             e.Status = PreAdmissaoStatus.Aprovada;
             e.ApprovedAtUtc = DateTimeOffset.UtcNow;
         }
 
         await _db.SaveChangesAsync(ct);
-
-        if (issues.Count > 0)
-            throw new TotvsValidationException(issues);
 
         // Se auto-aprovou, criar acesso ao portal (mesmo fluxo de ApproveAsync).
         if (e.Status == PreAdmissaoStatus.Aprovada)
@@ -1061,6 +1086,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     public async Task<PreAdmissaoDetailResponse> IniciarManualAsync(IniciarManualRequest request, CancellationToken ct)
     {
         var candidato = await _db.Set<Candidato>()
+            .Include(c => c.Talento)
+                .ThenInclude(t => t!.Pessoa)
             .FirstOrDefaultAsync(c => c.Id == request.CandidatoId && c.TenantId == _tenantContext.TenantId, ct)
             ?? throw new InvalidOperationException("Candidato não encontrado.");
 
@@ -1094,7 +1121,9 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                 .FirstOrDefaultAsync(jp => jp.Id == jobPositionId.Value, ct);
         }
 
-        // Reusar pré-admissão existente do candidato (evita duplicar)
+        // Reusar pré-admissão existente do candidato (evita duplicar) — somente rascunhos
+        // ou coleta em andamento na mesma vaga. Registros já preenchidos/aprovados de testes
+        // anteriores não devem ser reabertos silenciosamente.
         var existing = await _db.Set<Domain.Entities.PreAdmissao>()
             .Where(pa => pa.CandidatoId == candidato.Id
                 && pa.Status != PreAdmissaoStatus.Rejeitada
@@ -1102,9 +1131,17 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             .OrderByDescending(pa => pa.CreatedAtUtc)
             .FirstOrDefaultAsync(ct);
 
-        Console.Error.WriteLine($"[IniciarManual] CandidatoId={candidato.Id}, existing={existing?.Id}, status={existing?.Status}");
+        var vagaAtual = candidato.VagaId != Guid.Empty ? candidato.VagaId : (Guid?)null;
+        var podeReutilizarExistente = existing is not null
+            && existing.Status is PreAdmissaoStatus.Rascunho
+                or PreAdmissaoStatus.Enviado
+                or PreAdmissaoStatus.Acessado
+                or PreAdmissaoStatus.PreenchidoParcial
+            && (existing.VagaId is null || vagaAtual is null || existing.VagaId == vagaAtual);
 
-        if (existing != null)
+        Console.Error.WriteLine($"[IniciarManual] CandidatoId={candidato.Id}, existing={existing?.Id}, status={existing?.Status}, reuse={podeReutilizarExistente}");
+
+        if (podeReutilizarExistente && existing is not null)
         {
             if (request.TipoContratacao.HasValue)
                 existing.TipoContratacao = request.TipoContratacao;
@@ -1117,8 +1154,14 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
                 existing.VagaId = candidato.VagaId;
             if (string.IsNullOrWhiteSpace(existing.Celular))
                 existing.Celular = (candidato.Celular ?? candidato.Fone)?.Trim();
+            PreAdmissaoCandidatoPrefill.ApplyIfEmpty(existing, candidato);
             existing.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync(ct);
+            await AdicionarDocumentosPadraoSolicitadosAsync(
+                existing.Id,
+                existing.JobPositionId,
+                existing.TipoContratacao ?? TipoContratacaoAdmissao.CLT,
+                ct);
             return (await GetByIdAsync(existing.Id, ct))!;
         }
 
@@ -1132,6 +1175,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             Nome = candidato.Nome.Trim(),
             Email = candidato.Email?.Trim(),
             Celular = (candidato.Celular ?? candidato.Fone)?.Trim(),
+            Cidade = candidato.Cidade?.Trim(),
+            Uf = candidato.Uf?.Trim(),
             JobPositionId = request.JobPositionId,
             CodCargoTotvs = jobPosition?.TotvsCargoBasicId,
             CentroCustoId = request.CentroCustoId ?? vaga?.CentroCustoId,
@@ -1143,6 +1188,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
+
+        PreAdmissaoCandidatoPrefill.ApplyIfEmpty(entity, candidato);
 
         _db.Set<Domain.Entities.PreAdmissao>().Add(entity);
         await _db.SaveChangesAsync(ct);
@@ -1205,7 +1252,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             var docsTipo = entity.TipoContratacao switch
             {
                 TipoContratacaoAdmissao.PJ => new[] { TipoDocumento.CNPJ, TipoDocumento.ContratoSocialMEI, TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ContaBancariaPJ, TipoDocumento.CertidoesNegativas },
-                _ => new[] { TipoDocumento.RG, TipoDocumento.CPF, TipoDocumento.ComprovanteResidencia, TipoDocumento.CarteiraTrabalhoCTPS, TipoDocumento.TituloEleitor, TipoDocumento.PisPasep, TipoDocumento.Foto3x4, TipoDocumento.CertidaoNascimentoCasamento, TipoDocumento.Escolaridade, TipoDocumento.ComprovanteBancario },
+                _ => CltDocumentosPadraoFallback,
             };
             foreach (var tipo in docsTipo)
             {
@@ -1626,22 +1673,35 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     internal static string TipoDocumentoLabel(TipoDocumento tipo) => tipo switch
     {
-        TipoDocumento.RG => "RG",
-        TipoDocumento.CPF => "CPF",
-        TipoDocumento.CNH => "CNH",
+        TipoDocumento.RG => "Carteira de Identidade (R.G.)",
+        TipoDocumento.CPF => "Cadastro de Pessoas Físicas (C.P.F.)",
+        TipoDocumento.CNH => "Carteira Nacional de Habilitação",
         TipoDocumento.TituloEleitor => "Título de Eleitor",
         TipoDocumento.Reservista => "Reservista",
-        TipoDocumento.ComprovanteResidencia => "Comprovante de Residência",
-        TipoDocumento.CertidaoNascimentoCasamento => "Certidão Nasc./Casamento",
-        TipoDocumento.PisPasep => "PIS/PASEP",
+        TipoDocumento.ComprovanteResidencia => "Comprovante de Endereço",
+        TipoDocumento.CertidaoNascimentoCasamento => "Certidão de Nascimento ou Casamento",
+        TipoDocumento.PisPasep => "Cartão do PIS",
         TipoDocumento.Outro => "Outro",
         TipoDocumento.CarteiraTrabalhoCTPS => "Carteira de Trabalho (CTPS)",
         TipoDocumento.DeclaracaoUniaoEstavel => "Declaração de União Estável",
-        TipoDocumento.RGFilho => "RG dos Filhos",
-        TipoDocumento.CertidaoNascimentoFilho => "Certidão de Nascimento dos Filhos",
-        TipoDocumento.CarteiraVacinacaoFilho => "Carteira de Vacinação dos Filhos",
-        TipoDocumento.ComprovanteBancario => "Comprovante Bancário",
-        TipoDocumento.Foto3x4 => "Foto 3x4",
+        TipoDocumento.RGFilho => "RG dos filhos",
+        TipoDocumento.CertidaoNascimentoFilho => "Certidão de Nascimento dos filhos",
+        TipoDocumento.CarteiraVacinacaoFilho => "Cartão de Vacinação dos filhos",
+        TipoDocumento.ComprovanteBancario => "Abertura de Conta no Bradesco / Cartão",
+        TipoDocumento.Foto3x4 => "Foto 3x4 ou de perfil (crachá)",
+        TipoDocumento.Escolaridade => "Comprovante de Escolaridade",
+        TipoDocumento.ExameMedico => "Exame Médico",
+        TipoDocumento.ComprovanteVacinaCovid => "Comprovante de vacinação COVID-19",
+        TipoDocumento.CartaBoasVindas => "Carta de boas-vindas assinada",
+        TipoDocumento.PrintValidacaoCep => "Print — validação de CEP (Correios)",
+        TipoDocumento.PrintConsultaCpfReceita => "Print — consulta CPF (Receita Federal)",
+        TipoDocumento.CpfFilho => "CPF dos filhos",
+        TipoDocumento.FrequenciaEscolarFilho => "Comprovante de frequência escolar dos filhos",
+        TipoDocumento.RgCpfConjuge => "RG e CPF do cônjuge/companheiro(a)",
+        TipoDocumento.CNPJ => "CNPJ",
+        TipoDocumento.ContratoSocialMEI => "Contrato Social/MEI",
+        TipoDocumento.ContaBancariaPJ => "Conta Bancária PJ",
+        TipoDocumento.CertidoesNegativas => "Certidões Negativas",
         _ => tipo.ToString(),
     };
 }

@@ -8,6 +8,21 @@ public sealed record AdmissaoPortalLoginRequest(Guid PreAdmissaoId, string Cpf);
 
 public sealed record AdmissaoPortalLoginResponse(Guid PreAdmissaoId, string Nome, string TenantId);
 
+public sealed record PortalInformacoesVaga(
+    string? Cargo,
+    string? Area,
+    string? LocalTrabalho,
+    string? TipoContratacao,
+    string? Salario,
+    string? DataInicioPrevista
+);
+
+public sealed record PortalWelcomeContext(
+    string? NomeEmpresa,
+    string? LogoUrl,
+    PortalInformacoesVaga? Vaga
+);
+
 // ── Dados do portal ──
 
 public sealed record AdmissaoPortalDataResponse(
@@ -19,7 +34,8 @@ public sealed record AdmissaoPortalDataResponse(
     PortalDadosPessoais DadosPessoais,
     List<PreAdmissaoDependenteResponse> Dependentes,
     int? WizardCurrentStep,
-    int? WizardCompletionPercent
+    int? WizardCompletionPercent,
+    PortalWelcomeContext Welcome
 );
 
 public sealed record PortalDocumentoSolicitadoItem(
@@ -189,6 +205,30 @@ public sealed record DependenteUpdateRequest(
 // ── Wizard progress ──
 
 public sealed record WizardProgressRequest(int CurrentStep, int CompletionPercent);
+
+// ── Atendimento / ajuda ──
+
+public static class PortalAtendimentoAssuntos
+{
+    public static readonly IReadOnlyList<string> Opcoes =
+    [
+        "Dúvida sobre documentos",
+        "Problema ao enviar arquivo",
+        "Dúvida sobre dados pessoais",
+        "Dúvida sobre informações bancárias",
+        "Dificuldade de acesso ao portal",
+        "Outro assunto",
+    ];
+}
+
+public sealed record PortalAtendimentoRequest(
+    [property: System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(120)]
+    string Assunto,
+    [property: System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(4000)]
+    string Mensagem
+);
+
+public sealed record PortalAtendimentoResponse(bool Ok, string? Message = null);
 
 // ── Blip: consulta por CPF ou Telefone ──
 

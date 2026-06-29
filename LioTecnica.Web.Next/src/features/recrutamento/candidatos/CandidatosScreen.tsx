@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Download, Eye, Loader2, Search } from "lucide-react";
+import { Download, Eye, Loader2, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
+import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
 import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 
 import type { Candidato, CandidatosPaged, Documento } from "@/lib/schemas/recrutamento";
@@ -20,6 +21,13 @@ import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { getKanbanVagas } from "@/features/recrutamento/candidaturas/candidaturaApi";
 
@@ -811,7 +819,8 @@ export default function CandidatosScreen() {
   }
 
   return (
-    <section className="space-y-5">
+    <section className={`${VAGAS_FONT_135X_CLASS} space-y-4`}>
+      <style>{VAGAS_FONT_135X_STYLE}</style>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Candidatos</h1>
@@ -858,16 +867,16 @@ export default function CandidatosScreen() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Nome, email, vaga..." value={qInput} onChange={(e) => setQInput(e.target.value)} />
+      <div className="rounded-xl border border-border/40 bg-card shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2.5">
+          <div className="relative min-w-[180px] flex-1 max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-8 h-8 text-sm" placeholder="Nome, email, vaga..." value={qInput} onChange={(e) => setQInput(e.target.value)} />
           </div>
           <div ref={statusDropdownRef} className="relative">
             <button
               type="button"
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm inline-flex items-center justify-between gap-2 min-w-[180px]"
+              className="rounded-md border border-input bg-background px-3 text-sm inline-flex items-center justify-between gap-2 min-w-[180px]"
               onClick={() => setStatusOpen((v) => !v)}
             >
               <span className="truncate">{statusLabel}</span>
@@ -908,11 +917,11 @@ export default function CandidatosScreen() {
           <Button variant="outline" size="sm" type="button" onClick={() => { setQInput(""); setQ(""); setStatuses([]); setVagaId(""); setPage(1); setLoading(true); sync().catch(() => toast.error("Falha ao limpar filtros.")).finally(() => setLoading(false)); }}>
             Limpar
           </Button>
-          <div className="flex items-center rounded-md border border-input bg-background p-0.5 ml-auto">
-            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-[rgb(var(--lt-primary))] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
+          <div className="flex items-center rounded-md border border-input bg-background p-0.5">
+            <button type="button" className={`inline-flex h-8 w-10 items-center justify-center rounded-sm text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
             </button>
-            <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-[rgb(var(--lt-primary))] text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban">
+            <button type="button" className={`inline-flex h-8 w-10 items-center justify-center rounded-sm text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
             </button>
           </div>
@@ -920,7 +929,7 @@ export default function CandidatosScreen() {
 
         {viewMode === "list" ? (
         <>
-        <div className="overflow-x-auto mt-2">
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -928,9 +937,7 @@ export default function CandidatosScreen() {
                 <TableHead style={{ minWidth: 220 }}>Vaga</TableHead>
                 <TableHead style={{ minWidth: 150 }}>Status</TableHead>
                 <TableHead style={{ minWidth: 130 }}>Data</TableHead>
-                <TableHead className="text-end" style={{ minWidth: 200 }}>
-                  Ações
-                </TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -955,8 +962,8 @@ export default function CandidatosScreen() {
                         <div className="flex items-center gap-2">
                           <div className="size-10 rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">{initials(pickString(c.nome, ""))}</div>
                           <div>
-                            <div className="font-semibold">{c.nome ?? "—"}</div>
-                            <div className="text-muted-foreground text-sm">
+                            <div className="text-sm font-medium">{c.nome ?? "—"}</div>
+                            <div className="text-muted-foreground text-xs">
                               <span>{c.email ?? ""}</span>
                               {c.fone ? (
                                 <>
@@ -969,40 +976,41 @@ export default function CandidatosScreen() {
                         </div>
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        <div className="font-medium">{v?.label ? v.label.replace(/\s*\([^)]+\)\s*$/, "") : c.vagaTitle ?? "—"}</div>
-                        <div className="text-muted-foreground text-sm tabular-nums font-mono">{v?.code ?? c.vagaCode ?? ""}</div>
+                        <div className="text-sm font-medium max-w-[220px] truncate">{v?.label ? v.label.replace(/\s*\([^)]+\)\s*$/, "") : c.vagaTitle ?? "—"}</div>
+                        <div className="text-muted-foreground text-xs tabular-nums font-mono">{v?.code ?? c.vagaCode ?? ""}</div>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${tag.colorCls}`}>{statusLabelText}</span>
+                      <TableCell className="whitespace-nowrap text-center">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${tag.colorCls}`}>{statusLabelText}</span>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      <TableCell className="whitespace-nowrap text-center text-xs text-muted-foreground">
                         {c.createdAtUtc ? new Date(c.createdAtUtc).toLocaleDateString("pt-BR") : "—"}
                       </TableCell>
-                      <TableCell className="text-end whitespace-nowrap">
-                        <div className="flex gap-1 justify-end">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void openEdit(c.id);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void deleteCandidate(c.id);
-                            }}
-                          >
-                            Excluir
-                          </Button>
-                        </div>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon-sm">
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => void openDetail(c.id)}>
+                              <Eye className="mr-2 size-4" />
+                              Visualizar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => void openEdit(c.id)}>
+                              <Pencil className="mr-2 size-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => void deleteCandidate(c.id)}
+                            >
+                              <Trash2 className="mr-2 size-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );
@@ -1018,20 +1026,22 @@ export default function CandidatosScreen() {
           </Table>
         </div>
 
-        <PaginationBar
-          page={page}
-          pageSize={pageSize}
-          totalItems={total}
-          onPageChange={(p) => setPage(p)}
-          onPageSizeChange={(s) => {
-            setPage(1);
-            setPageSize(s || 20);
-          }}
-        />
+        <div className="border-t border-border/40 px-4 py-3">
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            totalItems={total}
+            onPageChange={(p) => setPage(p)}
+            onPageSizeChange={(s) => {
+              setPage(1);
+              setPageSize(s || 20);
+            }}
+          />
+        </div>
         </>
         ) : (
           /* ── Kanban View ── */
-          <div className="p-4 overflow-x-auto mt-2">
+          <div className="overflow-x-auto p-4">
             {loading ? (
               <div className="flex gap-4">
                 {Array.from({ length: 4 }).map((_, i) => (

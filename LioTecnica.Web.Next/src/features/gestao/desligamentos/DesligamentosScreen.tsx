@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import Link from "next/link";
+import { useAuth, useHasPermission } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
     Search,
@@ -22,12 +23,15 @@ import {
     UserCheck,
     Ban,
     Copy,
+    MoreHorizontal,
     Zap,
     Loader2,
     CalendarDays,
+    MessageSquare,
+    Filter,
 } from "lucide-react";
 import { AGING_BUCKETS, type AgingBucket, matchesAgingBucket } from "@/features/shared/urgencia";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, gerarCartaDownload } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,11 +51,29 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import DesligamentoFormModal from "./DesligamentoFormModal";
 import AcompanhamentoModal, { AprovacaoStep } from "@/features/gestao/shared/AcompanhamentoModal";
 import { mapEtapasToSteps, type EtapaAprovacaoResponse } from "@/features/gestao/shared/etapaUtils";
 import { confirmDialog } from "@/lib/confirm-dialog";
+import {
+    ENTREVISTA_STATUS_COLORS,
+    ENTREVISTA_STATUS_LABELS,
+    enviarEntrevistaSaida,
+    formatRespostaValor,
+    getEntrevistaSaidaDetalhe,
+    normalizeEntrevistaStatus,
+    reenviarEntrevistaSaida,
+    type EntrevistaSaidaDetalhe,
+    type EntrevistaSaidaStatusCode,
+} from "./entrevistaSaidaApi";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -60,6 +82,8 @@ interface SolicitacaoDesligamentoGridRow {
     status: number;
     solicitanteNome: string | null;
     funcionarioNome: string | null;
+    cargoAtualNome?: string | null;
+    rmIdReq?: number | null;
     tipoDesligamento: number;
     dataDesligamento: string | null;
     createdAtUtc: string;
@@ -68,6 +92,9 @@ interface SolicitacaoDesligamentoGridRow {
     etapaPendenteIsQueue?: boolean;
     etapaPendenteCanAssume?: boolean;
     etapaPendenteCanApprove?: boolean;
+    entrevistaSaidaStatus?: EntrevistaSaidaStatusCode | string | null;
+    entrevistaSaidaEnviadaEmUtc?: string | null;
+    entrevistaSaidaRespondidaEmUtc?: string | null;
 }
 
 interface SolicitacaoDesligamentoResponse {
@@ -94,9 +121,6 @@ type StatusKey = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 /* ──────────────────────────── helpers ──────────────────────────── */
 
 const API = "/api/solicitacoes-desligamento";
-
-// "Ativas" = solicitações que ainda precisam de atenção ou estão em andamento
-const ATIVAS = new Set(["0", "1", "4", "6", "7"]); // Rascunho, Pendente, Ajustes, Aguarda Fila, Em Integração
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await apiFetch(url, {
@@ -191,10 +215,20 @@ function formatDate(iso: string | null | undefined) {
     }
 }
 
+function entrevistaBadge(status: EntrevistaSaidaStatusCode | string | null | undefined) {
+    const key = normalizeEntrevistaStatus(status);
+    return (
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${ENTREVISTA_STATUS_COLORS[key]}`}>
+            {ENTREVISTA_STATUS_LABELS[key]}
+        </span>
+    );
+}
+
 /* ──────────────────────────── component ──────────────────────────── */
 
 export default function DesligamentosScreen() {
     const { me } = useAuth();
+    const canManageEntrevista = useHasPermission("folha.entrevista-saida.manage");
     const isAdmin = me?.roles?.some((r: string) => r.toLowerCase() === "admin" || r.toLowerCase() === "administrador") ?? false;
     const isRH = me?.roles?.some((r: string) => r.toLowerCase() === "rh") ?? false;
     const myFuncionarioId = (me as { funcionarioId?: string } | null)?.funcionarioId;
@@ -206,15 +240,10 @@ export default function DesligamentosScreen() {
 
     /* ── filters ── */
     const [q, setQ] = useState("");
-    const [statusFilter, setStatusFilter] = useState("ativas");
-    const [centroCustoFilter, setCentroCustoFilter] = useState("all");
-    const [centrosCusto, setCentrosCusto] = useState<{ id: string; code: string; description: string; displayLabel?: string }[]>([]);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [agingBucket, setAgingBucket] = useState<AgingBucket>("");
 
-    /* ── bulk selection ── */
-    const [selected, setSelected] = useState<Set<string>>(new Set());
 
     /* ── inline action dialogs ── */
     const [rejectTarget, setRejectTarget] = useState<string | null>(null);
@@ -242,18 +271,21 @@ export default function DesligamentosScreen() {
     /* ── delete confirm ── */
     const [deleteTarget, setDeleteTarget] = useState<SolicitacaoDesligamentoGridRow | null>(null);
 
+    /* ── entrevista de saída ── */
+    const [entrevistaDetalhe, setEntrevistaDetalhe] = useState<EntrevistaSaidaDetalhe | null>(null);
+    const [entrevistaDetalheOpen, setEntrevistaDetalheOpen] = useState(false);
+    const [entrevistaDetalheLoading, setEntrevistaDetalheLoading] = useState(false);
+    const [entrevistaFuncionario, setEntrevistaFuncionario] = useState<string | null>(null);
+
     /* ── approval actions ── */
     const [approvalObs, setApprovalObs] = useState("");
 
     /* ── data loading ── */
     const syncList = useCallback(async () => {
-        const params = new URLSearchParams();
-        if (centroCustoFilter !== "all") params.set("centroCustoId", centroCustoFilter);
-        const url = params.toString() ? `${API}?${params.toString()}` : API;
+        const url = `${API}?pageSize=500`;
         const data = await fetchJson<SolicitacaoDesligamentoGridRow[]>(url);
         setRows(Array.isArray(data) ? data.map(r => ({ ...r, status: normalizeStatus(r.status) })) : []);
-        setSelected(new Set());
-    }, [centroCustoFilter]);
+    }, []);
 
     useEffect(() => {
         let alive = true;
@@ -264,23 +296,10 @@ export default function DesligamentosScreen() {
         return () => { alive = false; };
     }, [syncList]);
 
-    /* ── fetch centros de custo for filter ── */
-    useEffect(() => {
-        apiFetch("/api/centros-custo/lookup")
-            .then((r) => r.json())
-            .then((d: { id: string; code: string; description: string; displayLabel?: string }[]) => setCentrosCusto(Array.isArray(d) ? d : []))
-            .catch(() => { });
-    }, []);
-
     /* ── filtering ── */
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
-            const s = String(r.status);
-            if (statusFilter === "ativas"    && !ATIVAS.has(s)) return false;
-            if (statusFilter === "aprovadas" && s !== "2") return false;
-            if (statusFilter === "reprovadas"&& s !== "3") return false;
-            if (statusFilter === "concluidas"&& s !== "8") return false;
             if (dateFrom && r.createdAtUtc && new Date(r.createdAtUtc) < new Date(dateFrom)) return false;
             if (dateTo && r.createdAtUtc && new Date(r.createdAtUtc) > new Date(`${dateTo}T23:59:59`)) return false;
             if (!matchesAgingBucket(r.createdAtUtc, agingBucket)) return false;
@@ -288,16 +307,7 @@ export default function DesligamentosScreen() {
             const blob = [r.funcionarioNome, r.solicitanteNome].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [q, rows, statusFilter, dateFrom, dateTo, agingBucket]);
-
-    /* ── KPIs ── */
-    const kpis = useMemo(() => {
-        const total = rows.length;
-        const pendentes = rows.filter((r) => r.status === 1 || r.status === 6).length;
-        const aprovadas = rows.filter((r) => r.status === 2).length;
-        const reprovadas = rows.filter((r) => r.status === 3).length;
-        return { total, pendentes, aprovadas, reprovadas };
-    }, [rows]);
+    }, [q, rows, dateFrom, dateTo, agingBucket]);
 
     /* ── actions ── */
     function openNew() {
@@ -444,16 +454,73 @@ export default function DesligamentosScreen() {
     async function efetivarDesligamento(id: string) {
         if (!(await confirmDialog({
             title: "Efetivar desligamento",
-            description: "Ao efetivar, a solicitação entra em integração com o TOTVS. O headcount da vaga será liberado após a confirmação da integração. Deseja continuar?",
+            description: "A solicitação de desligamento será concluída. Deseja continuar?",
             confirmText: "Efetivar",
         }))) return;
         try {
             await fetchJson(`${API}/${id}/efetivar`, { method: "POST" });
-            toast.success("Desligamento efetivado. Aguardando integração TOTVS.");
+            toast.success("Desligamento concluído no Portal.");
             await syncList();
         } catch (e) {
             toast.error(`Falha ao efetivar: ${e instanceof Error ? e.message : "erro"}`);
         }
+    }
+
+    async function enviarEntrevista(id: string, funcionarioNome: string | null) {
+        if (!(await confirmDialog({
+            title: "Enviar entrevista de saída",
+            description: `Enviar o questionário de entrevista de saída para ${funcionarioNome ?? "o colaborador"}? Um e-mail com link será disparado.`,
+            confirmText: "Enviar entrevista",
+        }))) return;
+        try {
+            await enviarEntrevistaSaida(id);
+            toast.success("Entrevista de saída enviada por e-mail.");
+            await syncList();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao enviar entrevista.");
+        }
+    }
+
+    async function reenviarEntrevista(id: string) {
+        try {
+            await reenviarEntrevistaSaida(id);
+            toast.success("Link da entrevista reenviado por e-mail.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao reenviar entrevista.");
+        }
+    }
+
+    async function verRespostasEntrevista(row: SolicitacaoDesligamentoGridRow) {
+        setEntrevistaDetalheOpen(true);
+        setEntrevistaDetalheLoading(true);
+        setEntrevistaDetalhe(null);
+        setEntrevistaFuncionario(row.funcionarioNome);
+        try {
+            const detalhe = await getEntrevistaSaidaDetalhe(row.id);
+            setEntrevistaDetalhe(detalhe);
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Falha ao carregar respostas.");
+            setEntrevistaDetalheOpen(false);
+        } finally {
+            setEntrevistaDetalheLoading(false);
+        }
+    }
+
+    function canEnviarEntrevista(row: SolicitacaoDesligamentoGridRow) {
+        const status = normalizeEntrevistaStatus(row.entrevistaSaidaStatus);
+        return status === "NaoEnviada" || status === "Expirada" || status === "SemTemplate" || status === "SemEmail";
+    }
+
+    function canReenviarEntrevista(row: SolicitacaoDesligamentoGridRow) {
+        return normalizeEntrevistaStatus(row.entrevistaSaidaStatus) === "Enviada";
+    }
+
+    function canVerRespostasEntrevista(row: SolicitacaoDesligamentoGridRow) {
+        return normalizeEntrevistaStatus(row.entrevistaSaidaStatus) === "Respondida";
+    }
+
+    function canEfetivarDesligamento(row: SolicitacaoDesligamentoGridRow) {
+        return row.status === 2 && canVerRespostasEntrevista(row);
     }
 
     function handleFormClose() {
@@ -528,27 +595,17 @@ export default function DesligamentosScreen() {
         }
     }
 
-    async function bulkApprove() {
-        const ids = [...selected];
-        await Promise.all(ids.map((id) => quickApprove(id)));
-        setSelected(new Set());
-        await syncList();
-    }
-
     async function gerarCarta(id: string) {
         try {
-            const res = await fetchJson<{ url: string }>(`${API}/${id}/carta`, { method: "POST" });
-            window.open(res.url, "_blank");
+            await gerarCartaDownload(`${API}/${id}/carta`, `carta-desligamento-${id}.docx`);
+            toast.success("Carta gerada com sucesso.");
         } catch (e) {
             toast.error(`Falha ao gerar carta: ${e instanceof Error ? e.message : "erro"}`);
         }
     }
 
     function exportCsv() {
-        const params = new URLSearchParams();
-        if (centroCustoFilter !== "all") params.set("centroCustoId", centroCustoFilter);
-        if (statusFilter !== "all") params.set("status", statusFilter);
-        apiFetch(`${API}/export?${params.toString()}`)
+        apiFetch(`${API}/export`)
             .then((res) => res.blob())
             .then((blob) => {
                 const a = document.createElement("a");
@@ -613,12 +670,22 @@ export default function DesligamentosScreen() {
                         <Plus className="size-4" />
                         <span className="hidden sm:inline">Nova solicitação</span>
                     </Button>
+                    {canManageEntrevista && (
+                        <>
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href="/gestao/desligamentos/entrevista-template">Configurar questionário</Link>
+                            </Button>
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href="/gestao/desligamentos/entrevistas-saida">Relatório entrevistas</Link>
+                            </Button>
+                        </>
+                    )}
                 </div>
             </div>
 
             {/* ── filters + table ── */}
             <div className="card-soft rounded-xl border border-border/40 bg-card/60 p-4 backdrop-blur">
-                {/* Row 1: title + search + area */}
+                {/* Row 1: title + search */}
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <div className="font-semibold">Solicitações de desligamento</div>
@@ -626,51 +693,17 @@ export default function DesligamentosScreen() {
                             {loading ? "Carregando…" : `${filtered.length} solicitação${filtered.length !== 1 ? "ões" : ""}`}
                         </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative min-w-[220px] flex-1">
-                            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                className="pl-9"
-                                placeholder="Buscar funcionário…"
-                                value={q}
-                                onChange={(e) => setQ(e.target.value)}
-                            />
-                        </div>
-                        {centrosCusto.length > 0 && (
-                            <select
-                                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                                value={centroCustoFilter}
-                                onChange={(e) => setCentroCustoFilter(e.target.value)}
-                            >
-                                <option value="all">Todos centros de custo</option>
-                                {centrosCusto.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.displayLabel || `${c.code} — ${c.description}`}</option>
-                                ))}
-                            </select>
-                        )}
+                    <div className="relative min-w-[220px] flex-1 max-w-md">
+                        <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            className="pl-9"
+                            placeholder="Buscar funcionário…"
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                        />
                     </div>
                 </div>
-                {/* Row 2: status chips */}
-                <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                    {([
-                        { key: "ativas",     label: "Ativas",      count: rows.filter(r => ATIVAS.has(String(r.status))).length,  cls: "data-[active=true]:bg-amber-500/15 data-[active=true]:text-amber-700 data-[active=true]:border-amber-400/50" },
-                        { key: "aprovadas",  label: "Aprovadas",   count: rows.filter(r => r.status === 2).length,                cls: "data-[active=true]:bg-emerald-500/15 data-[active=true]:text-emerald-700 data-[active=true]:border-emerald-400/50" },
-                        { key: "reprovadas", label: "Reprovadas",  count: rows.filter(r => r.status === 3).length,                cls: "data-[active=true]:bg-red-500/15 data-[active=true]:text-red-700 data-[active=true]:border-red-400/50" },
-                        { key: "concluidas", label: "Concluídas",  count: rows.filter(r => r.status === 8).length,                cls: "data-[active=true]:bg-teal-500/15 data-[active=true]:text-teal-700 data-[active=true]:border-teal-400/50" },
-                        { key: "all",        label: "Todas",       count: rows.length,                                           cls: "data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:border-primary/30" },
-                    ] as const).map(({ key, label, count, cls }) => (
-                        <button
-                            key={key}
-                            data-active={statusFilter === key}
-                            onClick={() => setStatusFilter(key)}
-                            className={`inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 ${cls}`}
-                        >
-                            {label}
-                            <span className="rounded-full bg-current/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none opacity-80">{count}</span>
-                        </button>
-                    ))}
-                </div>
-                {/* Row 3: date range + aging */}
+                {/* Row 2: date range + aging + limpar filtros */}
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <CalendarDays className="size-3.5" />
@@ -679,9 +712,6 @@ export default function DesligamentosScreen() {
                     <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data inicial" />
                     <span className="text-xs text-muted-foreground">–</span>
                     <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data final" />
-                    {(dateFrom || dateTo) && (
-                        <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground underline">Limpar</button>
-                    )}
                     <div className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Clock className="size-3.5" />
                         <span>Aging:</span>
@@ -689,67 +719,48 @@ export default function DesligamentosScreen() {
                     {AGING_BUCKETS.map((b) => (
                         <button key={b.value} type="button" onClick={() => setAgingBucket(prev => prev === b.value ? "" : b.value)} className={`inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-medium transition-colors ${agingBucket === b.value ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background text-muted-foreground hover:text-foreground"}`}>{b.label}</button>
                     ))}
+                    {(q || dateFrom || dateTo || agingBucket) && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="ml-auto h-8"
+                            onClick={() => {
+                                setQ("");
+                                setDateFrom("");
+                                setDateTo("");
+                                setAgingBucket("");
+                            }}
+                        >
+                            <Filter className="size-3.5" />
+                            Limpar Filtros
+                        </Button>
+                    )}
                 </div>
-
-                {selected.size > 0 && (
-                    <div className="mb-3 flex items-center gap-3 rounded-lg bg-primary/5 border border-primary/20 px-4 py-2">
-                        <span className="text-sm font-medium">{selected.size} selecionada(s)</span>
-                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-7 px-3 text-xs" onClick={() => void bulkApprove()}>
-                            <CheckCircle2 className="size-3 mr-1" /> Aprovar todas
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 px-3 text-xs" onClick={() => setSelected(new Set())}>
-                            Limpar seleção
-                        </Button>
-                    </div>
-                )}
 
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-10">
-                                <input
-                                    type="checkbox"
-                                    className="rounded border-border"
-                                    checked={selected.size > 0 && filtered.filter(r => r.etapaPendenteCanAssume).every(r => selected.has(r.id))}
-                                    onChange={(e) => {
-                                        const eligible = filtered.filter(r => r.etapaPendenteCanAssume).map(r => r.id);
-                                        setSelected(e.target.checked ? new Set(eligible) : new Set());
-                                    }}
-                                />
-                            </TableHead>
+                            <TableHead className="w-24 text-center">Código RM</TableHead>
                             <TableHead>Funcionário</TableHead>
-                            <TableHead>Tipo</TableHead>
+                            <TableHead>Cargo Atual</TableHead>
                             <TableHead>Data Desligamento</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Aguardando</TableHead>
+                            {canManageEntrevista && <TableHead>Entrevista</TableHead>}
                             <TableHead>Data Criação</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
+                            <TableHead className="w-12" />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canManageEntrevista ? 7 : 6} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
                         ) : filtered.length ? (
                             filtered.map((r) => (
                                 <TableRow key={r.id} className="hover:bg-muted/40">
-                                    <TableCell>
-                                        {r.etapaPendenteCanAssume ? (
-                                            <input
-                                                type="checkbox"
-                                                className="rounded border-border"
-                                                checked={selected.has(r.id)}
-                                                onChange={(e) => {
-                                                    const next = new Set(selected);
-                                                    if (e.target.checked) next.add(r.id); else next.delete(r.id);
-                                                    setSelected(next);
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                        ) : null}
+                                    <TableCell className="text-center font-mono text-xs font-medium">
+                                        {r.rmIdReq ?? "—"}
                                     </TableCell>
                                     <TableCell>
                                         <div className="font-semibold">{r.funcionarioNome || "—"}</div>
@@ -757,198 +768,162 @@ export default function DesligamentosScreen() {
                                             <div className="text-muted-foreground text-xs">Solicitante: {r.solicitanteNome}</div>
                                         )}
                                     </TableCell>
-                                    <TableCell className="text-sm">{TIPO_DESLIGAMENTO_MAP[r.tipoDesligamento] ?? "—"}</TableCell>
+                                    <TableCell className="text-sm">{r.cargoAtualNome || "—"}</TableCell>
                                     <TableCell className="text-sm">{formatDate(r.dataDesligamento)}</TableCell>
-                                    <TableCell>{statusBadge(r.status)}</TableCell>
-                                    <TableCell>
-                                        {(r.status === 1 || r.status === 6) && r.etapaPendenteLabel ? (
-                                            <div className="text-xs leading-tight">
-                                                <div className="text-muted-foreground">{r.etapaPendenteLabel}</div>
-                                                {r.etapaPendenteCom ? (
-                                                    <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
-                                                ) : (
-                                                    <div className="font-medium">{
-                                                        r.etapaPendenteIsQueue ? "Aguardando consenso" : "Aguardando"
-                                                    }</div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-muted-foreground text-xs">—</span>
-                                        )}
-                                    </TableCell>
+                                    {canManageEntrevista && (
+                                        <TableCell>{entrevistaBadge(r.entrevistaSaidaStatus)}</TableCell>
+                                    )}
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(r.createdAtUtc)}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                                            {/* Rascunho: editar, enviar, excluir */}
-                                            {r.status === 0 && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                        <Send />
-                                                    </Button>
-                                                    <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
-                                                        <Trash2 />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* AjustesNecessarios: editar, enviar */}
-                                            {r.status === 4 && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                        <Pencil />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                        <Send />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Aguarda Fila (6): exibe "Assumir" se pode assumir, ou aprovação se já assumiu */}
-                                            {r.status === 6 && r.etapaPendenteCanAssume && (
-                                                <Button
-                                                    variant="default"
-                                                    size="xs"
-                                                    title="Assumir etapa para aprovação"
-                                                    className="gap-1 bg-blue-600 hover:bg-blue-700 text-white"
-                                                    onClick={(e) => { e.stopPropagation(); void quickAssume(r.id); }}
-                                                >
-                                                    <UserCheck className="size-3" />
-                                                    Assumir
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" size="icon-sm">
+                                                    <MoreHorizontal className="size-4" />
                                                 </Button>
-                                            )}
-                                            {r.status === 6 && r.etapaPendenteCanApprove && !r.etapaPendenteCanAssume && (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
-                                                        className="hover:text-emerald-600 hover:border-emerald-300"
-                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
-                                                        <CheckCircle2 />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
-                                                        className="hover:text-amber-600 hover:border-amber-300"
-                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
-                                                        <AlertTriangle />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
-                                                        className="hover:text-red-600 hover:border-red-300"
-                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
-                                                        <XCircle />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Pendente (1): ações inline se pode aprovar, senão editar */}
-                                            {r.status === 1 && r.etapaPendenteCanAssume ? (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
-                                                        className="hover:text-emerald-600 hover:border-emerald-300"
-                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
-                                                        <CheckCircle2 />
-                                                    </Button>
-                                                    {r.etapaPendenteIsQueue && (
-                                                        <Button variant="outline" size="icon-xs" title="Assumir"
-                                                            className="hover:text-blue-600 hover:border-blue-300"
-                                                            onClick={(e) => { e.stopPropagation(); void quickAssume(r.id); }}>
-                                                            <UserCheck />
-                                                        </Button>
-                                                    )}
-                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
-                                                        className="hover:text-amber-600 hover:border-amber-300"
-                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
-                                                        <AlertTriangle />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
-                                                        className="hover:text-red-600 hover:border-red-300"
-                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
-                                                        <XCircle />
-                                                    </Button>
-                                                </>
-                                            ) : r.status === 1 && r.etapaPendenteCanApprove ? (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Aprovar"
-                                                        className="hover:text-emerald-600 hover:border-emerald-300"
-                                                        onClick={(e) => { e.stopPropagation(); void quickApprove(r.id); }}>
-                                                        <CheckCircle2 />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Solicitar ajustes"
-                                                        className="hover:text-amber-600 hover:border-amber-300"
-                                                        onClick={(e) => { e.stopPropagation(); setChangesTarget(r.id); }}>
-                                                        <AlertTriangle />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Reprovar"
-                                                        className="hover:text-red-600 hover:border-red-300"
-                                                        onClick={(e) => { e.stopPropagation(); setRejectTarget(r.id); }}>
-                                                        <XCircle />
-                                                    </Button>
-                                                </>
-                                            ) : r.status === 1 ? (
-                                                <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
-                                                    <Pencil />
-                                                </Button>
-                                            ) : null}
-                                            {/* Aprovada: efetivar (RH/Admin) + visualizar + gerar carta */}
-                                            {r.status === 2 && (
-                                                <>
-                                                    {(isAdmin || isRH) && (
-                                                        <Button variant="outline" size="icon-xs" title="Efetivar desligamento"
-                                                            className="hover:text-blue-600 hover:border-blue-300"
-                                                            onClick={(e) => { e.stopPropagation(); void efetivarDesligamento(r.id); }}
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-52">
+                                                {(r.status === 2 || r.status === 3 || r.status === 7 || r.status === 8) && (
+                                                    <DropdownMenuItem onClick={() => openView(r)}>
+                                                        <Eye className="mr-2 size-4" />
+                                                        Visualizar
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {r.status === 0 && (
+                                                    <>
+                                                        <DropdownMenuItem onClick={() => openEdit(r)}>
+                                                            <Pencil className="mr-2 size-4" />
+                                                            Editar
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => void submitForApproval(r.id)}>
+                                                            <Send className="mr-2 size-4" />
+                                                            Enviar para aprovação
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                {r.status === 4 && (
+                                                    <>
+                                                        <DropdownMenuItem onClick={() => openEdit(r)}>
+                                                            <Pencil className="mr-2 size-4" />
+                                                            Editar
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => void submitForApproval(r.id)}>
+                                                            <Send className="mr-2 size-4" />
+                                                            Enviar para aprovação
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                {r.status === 6 && r.etapaPendenteCanAssume && (
+                                                    <DropdownMenuItem onClick={() => void quickAssume(r.id)}>
+                                                        <UserCheck className="mr-2 size-4" />
+                                                        Assumir
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {((r.status === 6 && r.etapaPendenteCanApprove && !r.etapaPendenteCanAssume)
+                                                    || (r.status === 1 && (r.etapaPendenteCanAssume || r.etapaPendenteCanApprove))) && (
+                                                    <>
+                                                        <DropdownMenuItem
+                                                            className="text-emerald-600 focus:text-emerald-600"
+                                                            onClick={() => void quickApprove(r.id)}
                                                         >
-                                                            <Zap />
-                                                        </Button>
-                                                    )}
-                                                    <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                        <Eye />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Gerar carta" onClick={() => void gerarCarta(r.id)}>
-                                                        <FileText />
-                                                    </Button>
-                                                </>
-                                            )}
-                                            {/* Em Integração: visualizar */}
-                                            {r.status === 7 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* Concluída: visualizar */}
-                                            {r.status === 8 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* Reprovada: visualizar */}
-                                            {r.status === 3 && (
-                                                <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                    <Eye />
-                                                </Button>
-                                            )}
-                                            {/* Cancelar: pendente ou ajustes */}
-                                            {(r.status === 1 || r.status === 4) && (
-                                                <Button variant="outline" size="icon-xs" title="Cancelar solicitação"
-                                                    className="hover:text-red-600 hover:border-red-300"
-                                                    onClick={(e) => { e.stopPropagation(); void cancelSolicitacao(r.id); }}>
-                                                    <Ban />
-                                                </Button>
-                                            )}
-                                            {/* Copiar: todos os status */}
-                                            <Button variant="outline" size="icon-xs" title="Copiar solicitação"
-                                                onClick={(e) => { e.stopPropagation(); void copySolicitacao(r.id); }}>
-                                                <Copy />
-                                            </Button>
-                                            {/* Acompanhamento: todas as linhas */}
-                                            <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
-                                                <Activity />
-                                            </Button>
-                                        </div>
+                                                            <CheckCircle2 className="mr-2 size-4" />
+                                                            Aprovar
+                                                        </DropdownMenuItem>
+                                                        {r.status === 1 && r.etapaPendenteIsQueue && r.etapaPendenteCanAssume && (
+                                                            <DropdownMenuItem onClick={() => void quickAssume(r.id)}>
+                                                                <UserCheck className="mr-2 size-4" />
+                                                                Assumir
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        <DropdownMenuItem onClick={() => setChangesTarget(r.id)}>
+                                                            <AlertTriangle className="mr-2 size-4" />
+                                                            Solicitar ajustes
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            className="text-destructive focus:text-destructive"
+                                                            onClick={() => setRejectTarget(r.id)}
+                                                        >
+                                                            <XCircle className="mr-2 size-4" />
+                                                            Reprovar
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                {r.status === 1 && !r.etapaPendenteCanAssume && !r.etapaPendenteCanApprove && (
+                                                    <DropdownMenuItem onClick={() => openEditForApproval(r)}>
+                                                        <Pencil className="mr-2 size-4" />
+                                                        Editar e reenviar
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {canEfetivarDesligamento(r) && (isAdmin || isRH) && (
+                                                    <DropdownMenuItem onClick={() => void efetivarDesligamento(r.id)}>
+                                                        <Zap className="mr-2 size-4" />
+                                                        Efetivar desligamento
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {r.status === 2 && (
+                                                    <DropdownMenuItem onClick={() => void gerarCarta(r.id)}>
+                                                        <FileText className="mr-2 size-4" />
+                                                        Gerar carta
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {canManageEntrevista && (r.status === 2 || r.status === 7 || r.status === 8) && canEnviarEntrevista(r) && (
+                                                    <DropdownMenuItem onClick={() => void enviarEntrevista(r.id, r.funcionarioNome)}>
+                                                        <MessageSquare className="mr-2 size-4" />
+                                                        Enviar entrevista de saída
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {canManageEntrevista && canReenviarEntrevista(r) && (
+                                                    <DropdownMenuItem onClick={() => void reenviarEntrevista(r.id)}>
+                                                        <Send className="mr-2 size-4" />
+                                                        Reenviar link
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {canManageEntrevista && canVerRespostasEntrevista(r) && (
+                                                    <DropdownMenuItem onClick={() => void verRespostasEntrevista(r)}>
+                                                        <Eye className="mr-2 size-4" />
+                                                        Ver respostas
+                                                    </DropdownMenuItem>
+                                                )}
+                                                <DropdownMenuItem onClick={() => void copySolicitacao(r.id)}>
+                                                    <Copy className="mr-2 size-4" />
+                                                    Copiar solicitação
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => void openTimeline(r)}>
+                                                    <Activity className="mr-2 size-4" />
+                                                    Acompanhamento
+                                                </DropdownMenuItem>
+                                                {(r.status === 1 || r.status === 4) && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="text-orange-600 focus:text-orange-600"
+                                                            onClick={() => void cancelSolicitacao(r.id)}
+                                                        >
+                                                            <Ban className="mr-2 size-4" />
+                                                            Cancelar solicitação
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                                {r.status === 0 && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="text-destructive focus:text-destructive"
+                                                            onClick={() => setDeleteTarget(r)}
+                                                        >
+                                                            <Trash2 className="mr-2 size-4" />
+                                                            Excluir
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                                    {statusFilter === "ativas"
-                                ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
-                                : "Nenhuma solicitação encontrada."}
+                                <TableCell colSpan={canManageEntrevista ? 7 : 6} className="text-center text-muted-foreground py-8">
+                                    Nenhuma solicitação encontrada.
                                 </TableCell>
                             </TableRow>
                         )}
@@ -1194,6 +1169,36 @@ export default function DesligamentosScreen() {
                         <Button variant="outline" onClick={() => { setChangesTarget(null); setChangesObs(""); }}>Cancelar</Button>
                         <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => void confirmChanges()}>Solicitar ajustes</Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Entrevista respostas ── */}
+            <Dialog open={entrevistaDetalheOpen} onOpenChange={setEntrevistaDetalheOpen}>
+                <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Entrevista de saída — {entrevistaFuncionario ?? "Colaborador"}</DialogTitle>
+                        <DialogDescription>
+                            {entrevistaDetalhe?.respondidaEmUtc
+                                ? `Respondida em ${formatDate(entrevistaDetalhe.respondidaEmUtc)}`
+                                : "Respostas do questionário"}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {entrevistaDetalheLoading ? (
+                        <div className="text-center text-muted-foreground py-8">Carregando…</div>
+                    ) : entrevistaDetalhe?.respostas?.length ? (
+                        <div className="space-y-3">
+                            {entrevistaDetalhe.respostas.map((resp, idx) => (
+                                <div key={idx} className="rounded-md border border-border/40 p-3">
+                                    <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">
+                                        {resp.pergunta}
+                                    </div>
+                                    <div className="text-sm">{formatRespostaValor(resp)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-muted-foreground">Nenhuma resposta disponível.</div>
+                    )}
                 </DialogContent>
             </Dialog>
 

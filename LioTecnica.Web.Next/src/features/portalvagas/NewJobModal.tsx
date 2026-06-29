@@ -63,7 +63,6 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
     tagsStack: "",
     tagsResponsabilidades: "",
     confidencial: false,
-    aceitaPcd: false,
     urgente: false,
     canalSite: true,
     canalLinkedIn: false,
@@ -146,8 +145,8 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
         tagsResponsabilidadesRaw: form.tagsResponsabilidades || null,
         tagsKeywordsRaw: form.tagsKeywords || null,
         confidencial: form.confidencial,
-        aceitaPcd: form.aceitaPcd,
         urgente: form.urgente,
+        aceitaPcd: false,
         generoPreferencia: null,
         vagaAfirmativa: false,
         linguagemInclusiva: false,
@@ -239,7 +238,6 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
         tagsStack: "",
         tagsResponsabilidades: "",
         confidencial: false,
-        aceitaPcd: false,
         urgente: false,
         canalSite: true,
         canalLinkedIn: false,
@@ -374,10 +372,6 @@ export default function NewJobModal({ open, onClose, onSaved }: NewJobModalProps
                 <label className="inline-flex items-center gap-2">
                   <input type="checkbox" checked={form.confidencial} onChange={(e) => setForm((f) => ({ ...f, confidencial: e.target.checked }))} />
                   <span>Confidencial</span>
-                </label>
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={form.aceitaPcd} onChange={(e) => setForm((f) => ({ ...f, aceitaPcd: e.target.checked }))} />
-                  <span>Aceita PcD</span>
                 </label>
                 <label className="inline-flex items-center gap-2">
                   <input type="checkbox" checked={form.urgente} onChange={(e) => setForm((f) => ({ ...f, urgente: e.target.checked }))} />

@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { ScreenSkeleton } from "@/components/ui/ScreenSkeleton";
+import NextStepBanner from "@/components/feedback/NextStepBanner";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
     DialogFooter,
@@ -682,8 +683,22 @@ export default function AdmissaoRevisaoScreen() {
         && data.integracaoResultado !== 1
         && data.integracaoResultado !== "Sucesso";
 
+    const showSubmittedBanner = params.get("submitted") === "1";
+
     return (
         <section className="space-y-4">
+            {showSubmittedBanner && (
+                <NextStepBanner
+                    variant="success"
+                    title={isAprovada(data.status)
+                        ? "Admissão concluída e aprovada automaticamente"
+                        : "Admissão enviada para revisão"}
+                    description={isAprovada(data.status)
+                        ? "A validação TOTVS passou sem pendências. Revise abaixo e efetive a integração quando estiver pronto."
+                        : "Revise os dados e documentos nesta tela. Use Aprovar ou Rejeitar conforme necessário."}
+                    onDismiss={() => router.replace(`/admissao/revisao?id=${encodeURIComponent(data.id)}`)}
+                />
+            )}
             {/* header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -830,13 +845,6 @@ export default function AdmissaoRevisaoScreen() {
                         <Info label="Órgão Expedidor" value={data.rgOrgaoExpedidor} />
                         <Info label="UF Expedidor" value={data.rgUfExpedidor} />
                         <Info label="Data Expedição" value={data.rgDataExpedicao} />
-                    </Section>
-                    <Section title="RIC — Registro Identidade Civil" icon={FileText}>
-                        <Info label="Número" value={data.regIdentidCivilNumero} />
-                        <Info label="Órgão Emissor" value={data.regIdentidCivilOrgEmiss} />
-                        <Info label="UF" value={data.regIdentidCivilUf} />
-                        <Info label="Cidade" value={data.regIdentidCivilCidade} />
-                        <Info label="Data Expedição" value={data.regIdentidCivilDataExped} />
                     </Section>
                     <Section title="Características Físicas" icon={User}>
                         <Info label="Raça/Cor" value={data.cutis != null ? CUTIS_L[data.cutis] : null} />

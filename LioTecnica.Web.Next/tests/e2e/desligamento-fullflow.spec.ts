@@ -1,13 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * E2E Desligamento: login RH → cria Funcionario com códigos TOTVS → cria
- * solicitação de desligamento → submit → aprovação → verifica na fila
- * "Pendente TOTVS" → valida que o payload canônico tem os 23 campos esperados
- * pelo sync-service (apisfrescisao.p).
- *
- * Complementa `admissao-fullflow.spec.ts` — ambos seguem o mesmo padrão:
- * solicitação → pendente aprovação → aprovado → pendente TOTVS → sync consome.
+ * E2E Desligamento: fluxo 100% Portal — aprovação, entrevista manual,
+ * efetivação somente após questionário respondido (sem integração TOTVS).
  */
 
 const FRONT_URL = process.env.E2E_BASE_URL ?? "https://renderrh-qa.qualiit.com.br";
@@ -49,136 +44,100 @@ async function api(page: Page, method: string, path: string, body?: unknown) {
     );
 }
 
-test("Desligamento: criar → aprovar → gerar payload TOTVS em Pendente TOTVS", async ({ page }) => {
+test("Desligamento: aprovada não entra no Painel TOTVS e efetivar exige entrevista respondida", async ({ page }) => {
     const stamp = Date.now().toString().slice(-6);
-    const cdnFuncionario = `99${stamp}`;   // ex: "99123456" — fictício, mas único
 
     await loginViaUI(page);
 
-    // ── 0. Garante que o admin (user logado) tem Funcionario vinculado — necessário pra ser solicitante.
-    // Extrai userId do JWT e cria Funcionario-solicitante se não existir.
-    const adminUserId = await page.evaluate(() => {
-        const token = localStorage.getItem("renderrh.accessToken");
-        if (!token) return null;
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        return payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] ?? null;
-    });
-    expect(adminUserId, "nameidentifier no JWT").toBeTruthy();
-
-    // Tenta criar funcionário-solicitante vinculado ao admin. 409 é OK (já existe).
-    const solicitanteBody = {
-        name: "Admin Solicitante QA",
-        email: EMAIL,
-        status: "Active",
-        headcount: 1,
-        userId: adminUserId,
-    };
-    await api(page, "POST", "/api/funcionarios", solicitanteBody); // ignora erro — pode já existir
-
-    // ── 1. Cria Funcionario do desligado (com códigos TOTVS que o sync normalmente preencheria via admissão)
     const funcBody = {
         name: `QA Desligamento ${stamp}`,
         email: `qa.desl.${stamp}@qualiit-test.com`,
-        phone: null,
         status: "Active",
         headcount: 1,
-        cdnFuncionario,
-        cdnEmpresa: "1",
-        cdnEstab: "099",
     };
     const funcRes = await api(page, "POST", "/api/funcionarios", funcBody);
     expect(funcRes.status, `POST funcionário falhou: ${funcRes.text.slice(0, 400)}`).toBe(201);
     const funcionario = JSON.parse(funcRes.text);
-    console.log(`👤 Funcionario criado: ${funcionario.id} (cdnFuncionario=${cdnFuncionario})`);
 
-    // ── 2. Cria solicitação de desligamento (rascunho)
     const deslBody = {
         funcionarioId: funcionario.id,
         dataDesligamento: "2026-04-16",
-        tipoDesligamento: "PedidoDemissao",      // → percMultaFGTS = 0
+        tipoDesligamento: "PedidoDemissao",
         motivoDesligamento: `Teste E2E desligamento ${stamp}`,
-        tipoAvisoPrevio: "Dispensado",           // → cdnTipoAviso = 3, datIniAviso = ""
+        tipoAvisoPrevio: "Dispensado",
         diasAvisoPrevio: 30,
         possuiEstabilidade: false,
         elegivelRecontratacao: true,
         substituirPosicao: false,
     };
     const createRes = await api(page, "POST", "/api/solicitacoes-desligamento", deslBody);
-    expect(createRes.status, `POST desligamento falhou: ${createRes.text.slice(0, 400)}`).toBeLessThan(300);
+    expect(createRes.status).toBeLessThan(300);
     const desligamento = JSON.parse(createRes.text);
-    const desligamentoId = desligamento.id;
-    console.log(`📝 Desligamento criado: ${desligamentoId} (status inicial: ${desligamento.status})`);
 
-    // ── 3. Submit (Rascunho → PendenteAprovacao)
-    const submitRes = await api(page, "POST", `/api/solicitacoes-desligamento/${desligamentoId}/submit`);
-    expect(submitRes.status, `Submit falhou: ${submitRes.text.slice(0, 400)}`).toBeLessThan(300);
-    console.log(`🚀 Submit OK`);
+    await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/submit`);
+    await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/approve`, { observacao: "Aprovado via E2E" });
 
-    // ── 4. Approve (PendenteAprovacao → Aprovada).
-    // Se o workflow precisar de aprovador específico, o admin geralmente passa.
-    // Em tenants sem workflow configurado, pode aprovar em 1 chamada.
-    const approveRes = await api(page, "POST", `/api/solicitacoes-desligamento/${desligamentoId}/approve`, { observacao: "Aprovado via E2E" });
-    if (approveRes.status >= 300) {
-        console.log(`⚠️  Approve retornou ${approveRes.status}: ${approveRes.text.slice(0, 300)}`);
-    }
-    console.log(`✅ Approve enviado (status=${approveRes.status})`);
-
-    // ── 5. Verifica: solicitação está Aprovada (pronta pra sync)
-    const detailRes = await api(page, "GET", `/api/solicitacoes-desligamento/${desligamentoId}`);
+    const detailRes = await api(page, "GET", `/api/solicitacoes-desligamento/${desligamento.id}`);
     expect(detailRes.status).toBe(200);
     const detail = JSON.parse(detailRes.text);
-    expect(detail.status, `Esperava status 'Aprovada' para entrar na fila TOTVS. Atual: ${detail.status}`).toBe("Aprovada");
-    console.log(`📋 Status final: ${detail.status}`);
+    expect(detail.status).toBe("Aprovada");
 
-    // ── 6. Consulta a fila "Pendente TOTVS" e confirma que o desligamento aparece com tipo=3
     const painelRes = await api(page, "GET", `/api/integracao-totvs/painel?tipo=3`);
     expect(painelRes.status).toBe(200);
     const painel = JSON.parse(painelRes.text);
     const items = painel.items ?? painel;
-    const found = items.find((x: { id: string }) => x.id === desligamentoId);
-    expect(found, `Desligamento ${desligamentoId} não apareceu em /integracao-totvs/painel?tipo=3`).toBeTruthy();
-    expect(found.tipoIntegracao).toBe(3);
-    expect(found.tipoIntegracaoLabel).toBe("Desligamento");
-    console.log(`📊 Listado em Pendente TOTVS (tipo=3)`);
+    const found = items.find((x: { id: string }) => x.id === desligamento.id);
+    expect(found, "Desligamento não deve aparecer no Painel Integração TOTVS").toBeFalsy();
 
-    // ── 7. Baixa o payload canônico TOTVS (mesmo que o sync-service consome)
-    const payloadRes = await api(page, "GET", `/api/integracao-totvs/3/${desligamentoId}`);
-    expect(payloadRes.status).toBe(200);
-    const payload = JSON.parse(payloadRes.text);
+    const efetivarRes = await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/efetivar`);
+    expect(efetivarRes.status).toBe(409);
+    expect(efetivarRes.text.toLowerCase()).toContain("entrevista");
+});
 
-    // ── 8. Valida os 23 campos TOTVS do payload apisfrescisao.p
-    const expected = {
-        cdnEmpresaFunc: "1",
-        cdnEstabFunc: "099",
-        cdnFuncionario: parseInt(cdnFuncionario, 10),
-        cdnTipoCheque: 1,
-        cdnSitAfast: 86,
-        cdnTipoAviso: 3,                              // Dispensado
-        datDesligamento: "2026-04-16",
-        datIniAviso: "",                              // vazio pra Dispensado
-        datPagto: "2026-04-25",                        // +9 dias (limite legal)
-        datAviso: "",
-        datLimPgtoRecis: "2026-04-25",                 // CLT art. 477 §6º: +9 dias
-        percMultaFGTS: 0,                              // PedidoDemissao
-        codSaqueFGTS: "",
-        cdnTipoJornada: 0,
-        logCalcAdicAdmitidos: "",
-        logGeraComEstabilidade: "",
-        logValidaProgFerias: "",
-        logImprimeAviso: "",                           // vazio pra Dispensado
-        logRecFeriasProporc: "",
-        logReceb13Proporc: "",
-        logFGTSAnteriorGRFP: "",
-        logGeraSemExameDemis: "",
-        logGeraEPIDevolver: "",
+test("Desligamento: entrevista de saída manual — enviar e status na grid", async ({ page }) => {
+    const stamp = Date.now().toString().slice(-6);
+
+    await loginViaUI(page);
+
+    const funcBody = {
+        name: `QA Entrevista ${stamp}`,
+        email: `qa.entrevista.${stamp}@qualiit-test.com`,
+        status: "Active",
+        headcount: 1,
     };
+    const funcRes = await api(page, "POST", "/api/funcionarios", funcBody);
+    expect(funcRes.status).toBe(201);
+    const funcionario = JSON.parse(funcRes.text);
 
-    for (const [key, valueEsperado] of Object.entries(expected)) {
-        expect(payload[key], `Campo '${key}': esperado ${JSON.stringify(valueEsperado)}, recebido ${JSON.stringify(payload[key])}`).toBe(valueEsperado);
-    }
-    console.log(`🎯 Payload TOTVS validado — 23 campos corretos`);
-    console.log(`\n📄 JSON canônico gerado:\n${JSON.stringify(
-        Object.fromEntries(Object.keys(expected).map(k => [k, payload[k]])),
-        null, 2
-    )}`);
+    const deslBody = {
+        funcionarioId: funcionario.id,
+        dataDesligamento: "2026-06-30",
+        tipoDesligamento: "PedidoDemissao",
+        motivoDesligamento: `Teste entrevista E2E ${stamp}`,
+        tipoAvisoPrevio: "Dispensado",
+        diasAvisoPrevio: 30,
+        possuiEstabilidade: false,
+        elegivelRecontratacao: true,
+        substituirPosicao: false,
+    };
+    const createRes = await api(page, "POST", "/api/solicitacoes-desligamento", deslBody);
+    expect(createRes.status).toBeLessThan(300);
+    const desligamento = JSON.parse(createRes.text);
+
+    await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/submit`);
+    await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/approve`, { observacao: "E2E entrevista" });
+
+    const enviarRes = await api(page, "POST", `/api/solicitacoes-desligamento/${desligamento.id}/entrevista-saida/enviar`);
+    expect(enviarRes.status, `Enviar entrevista falhou: ${enviarRes.text.slice(0, 300)}`).toBe(204);
+
+    const detalheRes = await api(page, "GET", `/api/solicitacoes-desligamento/${desligamento.id}/entrevista-saida`);
+    expect(detalheRes.status).toBe(200);
+    const detalhe = JSON.parse(detalheRes.text);
+    expect(detalhe.status).toBe("Enviada");
+
+    const listRes = await api(page, "GET", "/api/solicitacoes-desligamento?pageSize=500");
+    expect(listRes.status).toBe(200);
+    const rows = JSON.parse(listRes.text) as Array<{ id: string; entrevistaSaidaStatus?: string }>;
+    const row = rows.find((r) => r.id === desligamento.id);
+    expect(row?.entrevistaSaidaStatus).toBe("Enviada");
 });

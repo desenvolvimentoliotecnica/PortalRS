@@ -1,9 +1,9 @@
-import AdmissaoTrackingPageClient from "./AdmissaoTrackingPageClient";
+import AdmissaoTrackingLegacyRedirectPage from "./AdmissaoTrackingLegacyRedirectPage";
 
 export function generateStaticParams() {
   return [{ id: "__" }];
 }
 
 export default function Page() {
-  return <AdmissaoTrackingPageClient />;
+  return <AdmissaoTrackingLegacyRedirectPage />;
 }

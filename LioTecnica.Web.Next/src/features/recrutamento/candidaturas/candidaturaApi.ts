@@ -10,9 +10,32 @@ export type EtapaMacroCandidatura =
   | "Teste"
   | "Proposta"
   | "Contratado"
+  | "ReprovadoRh"
+  | "ReprovadoGestor"
   | "Recusado"
   | "Desistiu";
 
+/** Rótulos exibidos no Kanban de Candidaturas (funil Key User). */
+export const ETAPA_KANBAN_LABELS: Record<EtapaMacroCandidatura, string> = {
+  Aplicada: "Candidatura",
+  EmTriagem: "Triagem",
+  Entrevista: "Entrevista RH",
+  EntrevistaTecnica: "Entrevista Técnica/Gestão",
+  Teste: "Testes",
+  Proposta: "Envio da Proposta",
+  Contratado: "Aprovado",
+  ReprovadoRh: "Reprovado RH",
+  ReprovadoGestor: "Reprovado Gestão",
+  Recusado: "Declinado",
+  Desistiu: "Declinado",
+};
+
+/** Coluna do kanban que agrupa candidatos declinados (legado Recusado + Desistiu). */
+export const KANBAN_COLUNA_DECLINADO: EtapaMacroCandidatura = "Desistiu";
+
+export const ETAPAS_DECLINADO: readonly EtapaMacroCandidatura[] = ["Recusado", "Desistiu"];
+
+/** Ordem das colunas no Kanban (10 colunas). */
 export const ETAPAS_KANBAN: EtapaMacroCandidatura[] = [
   "Aplicada",
   "EmTriagem",
@@ -21,9 +44,18 @@ export const ETAPAS_KANBAN: EtapaMacroCandidatura[] = [
   "Teste",
   "Proposta",
   "Contratado",
-  "Recusado",
-  "Desistiu",
+  "ReprovadoRh",
+  "ReprovadoGestor",
+  KANBAN_COLUNA_DECLINADO,
 ];
+
+export function labelEtapaKanban(etapa: EtapaMacroCandidatura): string {
+  return ETAPA_KANBAN_LABELS[etapa] ?? etapa;
+}
+
+export function isEtapaDeclinado(etapa: EtapaMacroCandidatura): boolean {
+  return ETAPAS_DECLINADO.includes(etapa);
+}
 
 const ETAPA_BY_INDEX: Record<number, EtapaMacroCandidatura> = {
   0: "Aplicada",
@@ -35,6 +67,8 @@ const ETAPA_BY_INDEX: Record<number, EtapaMacroCandidatura> = {
   6: "Recusado",
   7: "Desistiu",
   8: "EntrevistaTecnica",
+  9: "ReprovadoRh",
+  10: "ReprovadoGestor",
 };
 
 export function resolveEtapa(v: number | string): EtapaMacroCandidatura {

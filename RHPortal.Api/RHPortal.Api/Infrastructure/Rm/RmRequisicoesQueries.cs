@@ -3,10 +3,38 @@ namespace RhPortal.Api.Infrastructure.Rm;
 /// <summary>Unificação de requisições RM — mesma semântica da consulta analítica (views VREQ*).</summary>
 internal static class RmRequisicoesQueries
 {
+    /// <summary>Consultas ao SQL Server RM podem ser lentas (rede + UNION + joins).</summary>
+    internal const int SqlCommandTimeoutSeconds = 180;
+
+    /// <summary>Filtros aplicados em cada view VREQ* antes do UNION (reduz volume lido).</summary>
+    private const string BranchFilterAumento = """
+        WHERE (@Tipo IS NULL OR @Tipo = 'AUMENTO_QUADRO')
+        AND (@DataDe IS NULL OR R.DATAABERTURA >= @DataDe)
+        AND (@DataAte IS NULL OR R.DATAABERTURA < DATEADD(day, 1, @DataAte))
+        AND (@CodStatusCsv IS NULL OR CHARINDEX(',' + CAST(R.CODSTATUS AS VARCHAR(20)) + ',', @CodStatusCsv) > 0)
+        AND (@SearchPattern IS NULL OR (CAST(R.IDREQ AS VARCHAR(20)) LIKE @SearchPattern OR R.JUSTIFICATIVA LIKE @SearchPattern))
+        """;
+
+    private const string BranchFilterSubstituicao = """
+        WHERE (@Tipo IS NULL OR @Tipo = 'SUBSTITUICAO')
+        AND (@DataDe IS NULL OR R.DATAABERTURA >= @DataDe)
+        AND (@DataAte IS NULL OR R.DATAABERTURA < DATEADD(day, 1, @DataAte))
+        AND (@CodStatusCsv IS NULL OR CHARINDEX(',' + CAST(R.CODSTATUS AS VARCHAR(20)) + ',', @CodStatusCsv) > 0)
+        AND (@SearchPattern IS NULL OR (CAST(R.IDREQ AS VARCHAR(20)) LIKE @SearchPattern OR R.JUSTIFICATIVA LIKE @SearchPattern))
+        """;
+
+    private const string BranchFilterDesligamento = """
+        WHERE (@Tipo IS NULL OR @Tipo = 'DESLIGAMENTO')
+        AND (@DataDe IS NULL OR R.DATAABERTURA >= @DataDe)
+        AND (@DataAte IS NULL OR R.DATAABERTURA < DATEADD(day, 1, @DataAte))
+        AND (@CodStatusCsv IS NULL OR CHARINDEX(',' + CAST(R.CODSTATUS AS VARCHAR(20)) + ',', @CodStatusCsv) > 0)
+        AND (@SearchPattern IS NULL OR (CAST(R.IDREQ AS VARCHAR(20)) LIKE @SearchPattern OR R.JUSTIFICATIVA LIKE @SearchPattern))
+        """;
     /// <summary>
     /// CTE + projeção com joins (sem ORDER/WHERE final). Prefixo para COUNT ou página.
     /// </summary>
-    internal const string CteAndBase = """
+    internal static string CteAndBase =>
+        $"""
 WITH REQUISICOES AS
 (
     SELECT
@@ -38,6 +66,7 @@ WITH REQUISICOES AS
         R.RECMODIFIEDBY,
         R.RECMODIFIEDON
     FROM VREQAUMENTOQUADRO R
+    {BranchFilterAumento}
     UNION ALL
     SELECT
         'SUBSTITUICAO',
@@ -68,6 +97,7 @@ WITH REQUISICOES AS
         R.RECMODIFIEDBY,
         R.RECMODIFIEDON
     FROM VREQSUBSTITUICAO R
+    {BranchFilterSubstituicao}
     UNION ALL
     SELECT
         'DESLIGAMENTO',
@@ -98,186 +128,7 @@ WITH REQUISICOES AS
         R.RECMODIFIEDBY,
         R.RECMODIFIEDON
     FROM VREQDESLIGAMENTO R
-    UNION ALL
-    SELECT
-        'PROMOCAO_ALTERACAO_FUNCIONAL',
-        R.CODCOLREQUISICAO,
-        R.IDREQ,
-        R.JUSTIFICATIVA,
-        R.DATAABERTURA,
-        R.DATAPREVISTA,
-        R.DATACONCLUSAO,
-        R.DATACANCELAMENTO,
-        R.CODSTATUS,
-        R.CODCOLREQUISITANTE,
-        R.CHAPAREQUISITANTE,
-        R.CODATENDIMENTO,
-        R.CODLOCAL,
-        R.TIPOREQPAI,
-        R.IDREQPAI,
-        R.CHAPA,
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS INT),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS VARCHAR(30)),
-        R.CODFUNCAO,
-        R.VLRSALARIO,
-        R.CODCCUSTO,
-        R.RECCREATEDBY,
-        R.RECCREATEDON,
-        R.RECMODIFIEDBY,
-        R.RECMODIFIEDON
-    FROM VREQPROMOCAO R
-    UNION ALL
-    SELECT
-        'TRANSFERENCIA',
-        R.CODCOLREQUISICAO,
-        R.IDREQ,
-        R.JUSTIFICATIVA,
-        R.DATAABERTURA,
-        R.DATAPREVISTA,
-        R.DATACONCLUSAO,
-        R.DATACANCELAMENTO,
-        R.CODSTATUS,
-        R.CODCOLREQUISITANTE,
-        R.CHAPAREQUISITANTE,
-        R.CODATENDIMENTO,
-        R.CODLOCAL,
-        R.TIPOREQPAI,
-        R.IDREQPAI,
-        R.CHAPA,
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS INT),
-        R.CODFILIAL,
-        R.CODSECAO,
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS DECIMAL(18,2)),
-        R.CODCCUSTO,
-        R.RECCREATEDBY,
-        R.RECCREATEDON,
-        R.RECMODIFIEDBY,
-        R.RECMODIFIEDON
-    FROM VREQTRANSFERENCIA R
-    UNION ALL
-    SELECT
-        'TRANSFERENCIA_PROMOCAO',
-        R.CODCOLREQUISICAO,
-        R.IDREQ,
-        R.JUSTIFICATIVA,
-        R.DATAABERTURA,
-        R.DATAPREVISTA,
-        R.DATACONCLUSAO,
-        R.DATACANCELAMENTO,
-        R.CODSTATUS,
-        R.CODCOLREQUISITANTE,
-        R.CHAPAREQUISITANTE,
-        R.CODATENDIMENTO,
-        R.CODLOCAL,
-        R.TIPOREQPAI,
-        R.IDREQPAI,
-        R.CHAPA,
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS INT),
-        R.CODFILIAL,
-        R.CODSECAO,
-        R.CODFUNCAO,
-        R.VLRSALARIO,
-        R.CODCCUSTO,
-        R.RECCREATEDBY,
-        R.RECCREATEDON,
-        R.RECMODIFIEDBY,
-        R.RECMODIFIEDON
-    FROM VREQTRANSFPROMOCAO R
-    UNION ALL
-    SELECT
-        'TRANSFERENCIA_LOTE',
-        R.CODCOLREQUISICAO,
-        R.IDREQ,
-        R.JUSTIFICATIVA,
-        R.DATAABERTURA,
-        R.DATAPREVISTA,
-        R.DATACONCLUSAO,
-        R.DATACANCELAMENTO,
-        R.CODSTATUS,
-        R.CODCOLREQUISITANTE,
-        R.CHAPAREQUISITANTE,
-        R.CODATENDIMENTO,
-        R.CODLOCAL,
-        CAST(NULL AS VARCHAR(20)),
-        CAST(NULL AS INT),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS INT),
-        R.CODFILIAL,
-        R.CODSECAO,
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS DECIMAL(18,2)),
-        CAST(NULL AS VARCHAR(30)),
-        R.RECCREATEDBY,
-        R.RECCREATEDON,
-        R.RECMODIFIEDBY,
-        R.RECMODIFIEDON
-    FROM VREQTRANSFLOTE R
-    UNION ALL
-    SELECT
-        'TREINAMENTO',
-        R.CODCOLREQUISICAO,
-        R.IDREQ,
-        R.JUSTIFICATIVA,
-        R.DATAABERTURA,
-        R.DATAPREVISTA,
-        R.DATACONCLUSAO,
-        R.DATACANCELAMENTO,
-        R.CODSTATUS,
-        R.CODCOLREQUISITANTE,
-        R.CHAPAREQUISITANTE,
-        R.CODATENDIMENTO,
-        R.CODLOCAL,
-        CAST(NULL AS VARCHAR(20)),
-        CAST(NULL AS INT),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS INT),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS DECIMAL(18,2)),
-        CAST(NULL AS VARCHAR(30)),
-        R.RECCREATEDBY,
-        R.RECCREATEDON,
-        R.RECMODIFIEDBY,
-        R.RECMODIFIEDON
-    FROM VREQTREINAMENTO R
-    UNION ALL
-    SELECT
-        'GERAL',
-        R.CODCOLREQUISICAO,
-        R.IDREQ,
-        R.JUSTIFICATIVA,
-        R.DATAABERTURA,
-        R.DATAPREVISTA,
-        R.DATACONCLUSAO,
-        R.DATACANCELAMENTO,
-        R.CODSTATUS,
-        R.CODCOLREQUISITANTE,
-        R.CHAPAREQUISITANTE,
-        R.CODATENDIMENTO,
-        R.CODLOCAL,
-        CAST(NULL AS VARCHAR(20)),
-        CAST(NULL AS INT),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS INT),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS VARCHAR(30)),
-        CAST(NULL AS DECIMAL(18,2)),
-        CAST(NULL AS VARCHAR(30)),
-        R.RECCREATEDBY,
-        R.RECCREATEDON,
-        R.RECMODIFIEDBY,
-        R.RECMODIFIEDON
-    FROM VREQGERAL R
+    {BranchFilterDesligamento}
 ),
 Base AS (
     SELECT

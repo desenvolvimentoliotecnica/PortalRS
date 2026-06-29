@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
@@ -15,23 +15,42 @@ import {
 import { type DadosPessoais as WizardDadosPessoais, useAdmissaoWizardStore } from "./useAdmissaoWizardStore";
 import WizardLayout from "./components/WizardLayout";
 import WizardSidebar from "./components/WizardSidebar";
+import AdmissaoPortalHeader from "./components/AdmissaoPortalHeader";
 import WelcomeStep from "./steps/WelcomeStep";
 import DocumentUploadStep from "./steps/DocumentUploadStep";
-import ReviewDataStep from "./steps/ReviewDataStep";
-import DependentsStep from "./steps/DependentsStep";
+import DadosPessoaisStep from "./steps/DadosPessoaisStep";
+import DadosGeraisStep from "./steps/DadosGeraisStep";
+import DadosBancariosStep from "./steps/DadosBancariosStep";
 import ReviewStep from "./steps/ReviewStep";
+import ConclusaoStep from "./steps/ConclusaoStep";
+import AdmissaoHelpModal from "./components/AdmissaoHelpModal";
+import { savePortalFormNow } from "./hooks/usePortalFormAutoSave";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-    FileText, CheckCircle2, Loader2, AlertCircle, LogOut,
+    FileText, Loader2, AlertCircle, LogOut,
 } from "lucide-react";
-import { validatePortalForm } from "./portalValidation";
+import { formatMissingDocumentsMessage } from "./portalValidation";
+import { buildWizardPlan, validateAllDocuments } from "./wizardSteps";
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
-interface DocEnviado { id: string; tipo: number; lado: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; }
+interface DocEnviado { id: string; tipo: number; lado: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; createdAtUtc?: string; }
 interface DadosPessoais { [key: string]: unknown; }
 interface DependenteData { id: string; nomeCompleto: string; parentesco: number; cpf: string | null; dataNascimento: string; isPcd: boolean; }
+interface PortalInformacoesVaga {
+    cargo?: string | null;
+    area?: string | null;
+    localTrabalho?: string | null;
+    tipoContratacao?: string | null;
+    salario?: string | null;
+    dataInicioPrevista?: string | null;
+}
+interface PortalWelcomeContext {
+    nomeEmpresa?: string | null;
+    logoUrl?: string | null;
+    vaga?: PortalInformacoesVaga | null;
+}
 interface PortalData {
     preAdmissaoId: string; nome: string; status: number;
     documentosSolicitados: DocSolicitado[];
@@ -40,6 +59,7 @@ interface PortalData {
     dependentes: DependenteData[];
     wizardCurrentStep: number | null;
     wizardCompletionPercent: number | null;
+    welcome?: PortalWelcomeContext | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,8 +75,11 @@ export default function DocumentoAdmissaoScreen() {
     const [logging, setLogging] = useState(false);
     const [data, setData] = useState<PortalData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
+    const [helpOpen, setHelpOpen] = useState(false);
     // Prevents saveWizardProgress from overwriting the server step before loadData has restored it
     const hydratedRef = useRef(false);
+    const stepMigratedRef = useRef(false);
 
     const {
         currentStep,
@@ -66,10 +89,37 @@ export default function DocumentoAdmissaoScreen() {
         setFormData,
         setHasDependentes,
         setStep,
+        setWizardTotalSteps,
         setUploadedDoc,
         setUploadedDocVerso,
         computeCompletionPercent,
+        uploadedDocs,
+        uploadedDocsVerso,
+        setLastSavedAt,
+        markStepComplete,
     } = useAdmissaoWizardStore();
+
+    const wizardPlan = useMemo(
+        () => buildWizardPlan(data?.documentosSolicitados ?? []),
+        [data?.documentosSolicitados],
+    );
+
+    // Sincroniza total de etapas e migra step legado uma vez após carregar dados
+    useEffect(() => {
+        if (!data) return;
+        setWizardTotalSteps(wizardPlan.totalSteps);
+        if (stepMigratedRef.current) return;
+        stepMigratedRef.current = true;
+        const isSubmittedStatus = data.status === 2;
+        if (isSubmittedStatus) {
+            setSubmittedAt(new Date());
+            setStep(6);
+            return;
+        }
+        if (data.wizardCurrentStep != null) {
+            setStep(wizardPlan.migrateLegacyStep(data.wizardCurrentStep, false));
+        }
+    }, [data, wizardPlan, setWizardTotalSteps, setStep]);
 
     // Check existing session
     useEffect(() => {
@@ -107,18 +157,28 @@ export default function DocumentoAdmissaoScreen() {
             // Hydrate store
             setFormData(body.dadosPessoais as Partial<WizardDadosPessoais>);
             setDependentes(body.dependentes ?? []);
-            if (body.wizardCurrentStep != null) setStep(body.wizardCurrentStep);
             if (body.dependentes && body.dependentes.length > 0) setHasDependentes(true);
             hydratedRef.current = true;
 
             // Hydrate uploaded docs — roteia frente/verso para slots corretos
+            const storeSnapshot = useAdmissaoWizardStore.getState();
             for (const doc of body.documentosEnviados) {
+                const existingFrente = storeSnapshot.uploadedDocs.get(doc.tipo);
+                const existingVerso = storeSnapshot.uploadedDocsVerso.get(doc.tipo);
+                const isVerso = doc.lado === 2;
+                const existing = isVerso ? existingVerso : existingFrente;
+                const serverUrl = doc.presignedUrl?.trim() || "";
+                const previewUrl = serverUrl || existing?.thumbnail || existing?.presignedUrl;
+
                 const docData = {
+                    id: doc.id,
                     tipo: doc.tipo,
                     nomeArquivo: doc.nomeArquivo,
                     tamanhoBytes: doc.tamanhoBytes,
                     status: doc.status,
-                    presignedUrl: doc.presignedUrl,
+                    presignedUrl: previewUrl,
+                    thumbnail: existing?.thumbnail,
+                    createdAtUtc: doc.createdAtUtc,
                 };
                 if (doc.lado === 2) { // Verso = 2
                     setUploadedDocVerso(doc.tipo, docData);
@@ -160,35 +220,96 @@ export default function DocumentoAdmissaoScreen() {
             setSession(sess);
             reset();
             hydratedRef.current = false;
+            stepMigratedRef.current = false;
             setPhase("main");
         } catch { toast.error("Erro ao conectar."); }
         finally { setLogging(false); }
     }
 
+    async function handleWizardNext(): Promise<boolean> {
+        if (!session || !data) return true;
+
+        const stepInfo = wizardPlan.resolveStep(currentStep);
+
+        switch (stepInfo.kind) {
+            case "welcome":
+                return true;
+
+            case "dados-pessoais":
+            case "dados-gerais":
+            case "bancario": {
+                try {
+                    await savePortalFormNow(session, formData);
+                    setLastSavedAt(new Date());
+                } catch {
+                    toast.error("Erro ao salvar seus dados. Tente novamente.");
+                    return false;
+                }
+                return true;
+            }
+
+            case "documentos": {
+                const missingDocs = validateAllDocuments(
+                    wizardPlan.documentSteps,
+                    uploadedDocs,
+                    uploadedDocsVerso,
+                    data.documentosEnviados,
+                );
+                if (missingDocs.length > 0) {
+                    toast.error(formatMissingDocumentsMessage(missingDocs));
+                    return false;
+                }
+                return true;
+            }
+
+            case "revisao":
+                await handleSubmit();
+                return false;
+
+            case "conclusao":
+                return false;
+
+            default:
+                return true;
+        }
+    }
+
+    async function handleSaveAndExit() {
+        if (!session) return;
+        try {
+            await savePortalFormNow(session, formData);
+            setLastSavedAt(new Date());
+            const percent = computeCompletionPercent();
+            await saveWizardProgress(session, currentStep, percent);
+            toast.success("Progresso salvo. Você pode continuar depois pelo mesmo link.");
+        } catch {
+            toast.error("Erro ao salvar progresso.");
+        }
+    }
+
     async function handleSubmit() {
         if (!session) return;
 
-        // Fallback de segurança — ReviewStep já bloqueia e exibe painel inline
-        const missing = validatePortalForm(formData as Record<string, unknown>);
-        if (missing.length > 0) {
-            setStep(2);
-            return;
-        }
-
-        // Save form data one final time
         await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/dados`, session.cpf, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData),
         });
-        // Submit
         const res = await admissaoPortalFetch(session.tenantId, `/api/public/admissao-portal/${session.preAdmissaoId}/submit`, session.cpf, { method: "POST" });
         if (!res.ok) {
             const b = await res.json().catch(() => ({}));
             toast.error(b.message || "Erro ao enviar.");
             return;
         }
-        setPhase("submitted");
+        setSubmittedAt(new Date());
+        markStepComplete(5);
+        setStep(6);
+        await loadData();
+    }
+
+    function handleWelcomeStart() {
+        markStepComplete(0);
+        setStep(1);
     }
 
     function handleLogout() {
@@ -248,54 +369,41 @@ export default function DocumentoAdmissaoScreen() {
         );
     }
 
-    /* SUBMITTED */
-    if (phase === "submitted") {
-        return (
-            <div className="flex-1 flex items-start justify-center px-4 py-10">
-            <div className="w-full max-w-md">
-                <div className="rounded-xl border border-border/40 bg-card p-5 sm:p-8 shadow-sm text-center space-y-4">
-                    <div className="mx-auto size-20 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                        <CheckCircle2 className="size-10 text-emerald-500" />
-                    </div>
-                    <h1 className="text-2xl font-bold">Dados Enviados!</h1>
-                    <p className="text-muted-foreground">Seus documentos e dados foram enviados com sucesso. O RH entrara em contato em breve.</p>
-                    <Button variant="outline" size="lg" onClick={handleLogout}>Voltar ao inicio</Button>
-                </div>
-            </div>
-            </div>
-        );
-    }
-
     /* MAIN — Wizard */
-    const isSubmitted = data?.status === 2;
+    const isSubmitted = data?.status === 2 || currentStep === 6;
+    const stepInfo = wizardPlan.resolveStep(currentStep);
+    const isWelcome = stepInfo.kind === "welcome";
+    const isConclusao = stepInfo.kind === "conclusao";
 
     return (
-        <div className="flex flex-col lg:flex-row flex-1 min-h-0">
-            {/* Sidebar (desktop only) */}
-            <WizardSidebar nome={session?.nome} isSubmitted={isSubmitted} />
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white">
+            <AdmissaoPortalHeader
+                nomeEmpresa={data?.welcome?.nomeEmpresa}
+                logoUrl={data?.welcome?.logoUrl}
+                userName={session?.nome ?? data?.nome}
+                onLogout={handleLogout}
+                onOpenHelp={() => setHelpOpen(true)}
+            />
 
-            {/* Content */}
-            <div className="flex-1 min-w-0 flex flex-col px-4 sm:px-8 py-5 pb-16">
-                {/* Mobile top bar: candidato + logout */}
-                <div className="lg:hidden flex items-center justify-between mb-4">
-                    <span className="text-sm font-semibold truncate">{session?.nome || "Candidato"}</span>
-                    <Button variant="ghost" size="sm" onClick={handleLogout}>
-                        <LogOut className="size-4" />
-                    </Button>
-                </div>
-                {/* Desktop top bar: logout only */}
-                <div className="hidden lg:flex justify-end mb-2">
-                    <Button variant="ghost" size="sm" onClick={handleLogout}>
-                        <LogOut className="size-4 mr-1" />
-                        <span className="text-xs">Sair</span>
-                    </Button>
-                </div>
+            <AdmissaoHelpModal open={helpOpen} onOpenChange={setHelpOpen} session={session} />
 
-                {isSubmitted && (
-                    <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 mb-4 dark:bg-blue-900/20 dark:border-blue-800">
-                        <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                            Seus dados ja foram enviados e estao em revisao pelo RH.
-                        </p>
+            <div className="flex flex-1 min-h-0 overflow-hidden">
+            {data && !isWelcome && (
+                <WizardSidebar
+                    nome={session?.nome}
+                    isSubmitted={isSubmitted}
+                    plan={wizardPlan}
+                    onOpenHelp={() => setHelpOpen(true)}
+                />
+            )}
+
+            <div className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden ${isWelcome ? "" : ""}`}>
+                {!isWelcome && (
+                    <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                        <span className="text-sm font-semibold truncate">{session?.nome || "Candidato"}</span>
+                        <Button variant="ghost" size="sm" onClick={handleLogout}>
+                            <LogOut className="size-4" />
+                        </Button>
                     </div>
                 )}
 
@@ -303,14 +411,32 @@ export default function DocumentoAdmissaoScreen() {
                     <div className="flex justify-center py-12"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>
                 ) : data ? (
                     <WizardLayout
-                        hideNext={currentStep === 4}
-                        hideBack={currentStep === 0}
-                        nextLabel={currentStep === 0 ? "Começar" : undefined}
+                        plan={wizardPlan}
+                        hideNext={isWelcome || isConclusao}
+                        hideBack={isWelcome || isConclusao}
+                        hideFooter={isWelcome}
+                        showStepper={!isWelcome}
+                        isSubmitted={isSubmitted}
+                        contentScrollable
+                        nextLabel={stepInfo.kind === "revisao" ? "Confirmar e finalizar" : "Continuar"}
+                        nextClassName={stepInfo.kind === "revisao" ? "bg-[#0047BB] hover:bg-[#003a99]" : undefined}
+                        onNext={handleWizardNext}
+                        onSaveAndExit={isWelcome || isConclusao || isSubmitted ? undefined : handleSaveAndExit}
                     >
-                        {currentStep === 0 && (
-                            <WelcomeStep nome={data.nome} documentosSolicitados={data.documentosSolicitados} />
+                        {isWelcome && (
+                            <WelcomeStep
+                                vaga={data.welcome?.vaga}
+                                onStart={handleWelcomeStart}
+                                disabled={isSubmitted}
+                            />
                         )}
-                        {currentStep === 1 && session && (
+                        {stepInfo.kind === "dados-pessoais" && session && (
+                            <DadosPessoaisStep session={session} disabled={isSubmitted} />
+                        )}
+                        {stepInfo.kind === "dados-gerais" && session && (
+                            <DadosGeraisStep session={session} disabled={isSubmitted} />
+                        )}
+                        {stepInfo.kind === "documentos" && session && (
                             <DocumentUploadStep
                                 session={session}
                                 documentosSolicitados={data.documentosSolicitados}
@@ -318,17 +444,28 @@ export default function DocumentoAdmissaoScreen() {
                                 disabled={isSubmitted}
                             />
                         )}
-                        {currentStep === 2 && session && (
-                            <ReviewDataStep session={session} disabled={isSubmitted} />
+                        {stepInfo.kind === "bancario" && session && (
+                            <DadosBancariosStep session={session} disabled={isSubmitted} />
                         )}
-                        {currentStep === 3 && session && (
-                            <DependentsStep session={session} disabled={isSubmitted} />
+                        {stepInfo.kind === "revisao" && (
+                            <ReviewStep
+                                disabled={isSubmitted}
+                                documentosEnviados={data.documentosEnviados}
+                                onEditStep={setStep}
+                            />
                         )}
-                        {currentStep === 4 && (
-                            <ReviewStep onSubmit={handleSubmit} disabled={isSubmitted} />
+                        {isConclusao && session && (
+                            <ConclusaoStep
+                                session={session}
+                                userName={session?.nome ?? data.nome}
+                                userEmail={String(formData.email ?? "")}
+                                submittedAt={submittedAt}
+                                documentCount={data.documentosEnviados?.length ?? 0}
+                            />
                         )}
                     </WizardLayout>
                 ) : null}
+            </div>
             </div>
         </div>
     );

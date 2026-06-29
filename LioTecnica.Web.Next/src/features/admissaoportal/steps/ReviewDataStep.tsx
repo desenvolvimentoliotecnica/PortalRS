@@ -2,8 +2,9 @@
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { useAdmissaoWizardStore, type DadosPessoais } from "../useAdmissaoWizardStore";
+import WizardStepPanel from "../components/WizardStepPanel";
+import { getDadosSectionLabel, type DadosSectionId } from "../dadosFormSections";
 import {
     admissaoPortalFetch,
     type AdmissaoPortalSession,
@@ -105,9 +106,12 @@ const OLHOS_OPTIONS = [
 interface Props {
     session: AdmissaoPortalSession;
     disabled?: boolean;
+    sectionId: DadosSectionId;
+    sectionIndex: number;
+    totalSections: number;
 }
 
-export default function ReviewDataStep({ session, disabled }: Props) {
+export default function ReviewDataStep({ session, disabled, sectionId, sectionIndex, totalSections }: Props) {
     const { formData, setFormField, setAutoSaving, setLastSavedAt } = useAdmissaoWizardStore();
     const debounceRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -161,142 +165,134 @@ export default function ReviewDataStep({ session, disabled }: Props) {
         }
     }, [set]);
 
-    const selectCls = "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm";
+    const selectCls = "flex h-14 w-full rounded-md border border-input bg-transparent px-4 py-2 text-base";
+
+    const gridCls = "grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4";
 
     return (
-        <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-                Revise os dados preenchidos automaticamente. Corrija o que estiver errado e preencha o que faltar.
-            </p>
+        <WizardStepPanel wide>
+            <div className="flex flex-col gap-7">
+                <div className="text-center space-y-3 shrink-0">
+                    <p className="text-base font-semibold text-muted-foreground uppercase tracking-wider">
+                        Etapa {sectionIndex + 1} de {totalSections}
+                    </p>
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                        {getDadosSectionLabel(sectionId)}
+                    </h2>
+                    <p className="text-base text-muted-foreground max-w-2xl mx-auto">
+                        Preencha o que souber. A analista de RH revisará e solicitará ajustes, se necessário.
+                    </p>
+                </div>
 
-            {/* Dados Pessoais */}
-            <Section title="Seus Dados Pessoais" defaultOpen>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Nome Completo" field="nome" form={formData} set={set} disabled={disabled} required />
+            {sectionId === "pessoal" && (
+                <div className={gridCls}>
+                    <Field label="Nome Completo" field="nome" form={formData} set={set} disabled={disabled} />
                     <Field label="Nome Social" field="nomeSocial" form={formData} set={set} disabled={disabled} placeholder="Opcional" />
-                    <Field label="Nome Abreviado" field="nomeAbreviado" form={formData} set={set} disabled={disabled} placeholder="Ex: JOAO" required />
-                    <Field label="CPF" field="cpf" form={formData} set={set} disabled className="bg-muted" required />
-                    <Field label="RG" field="rg" form={formData} set={set} disabled={disabled} required />
-                    <Field label="Orgao Expedidor" field="rgOrgaoExpedidor" form={formData} set={set} disabled={disabled} required />
-                    <AutocompleteField label="UF Expedidor RG" field="rgUfExpedidor" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
-                    <Field label="Data Emissao RG" field="rgDataExpedicao" form={formData} set={set} disabled={disabled} type="date" required />
-
-                    {/* RIC — Registro Identidade Civil (obrigatório TOTVS/Datasul) */}
-                    <Field label="RIC (Numero Reg. Identidade Civil)" field="regIdentidCivilNumero" form={formData} set={set} disabled={disabled} required />
-                    <Field label="Orgao Emissor RIC" field="regIdentidCivilOrgEmiss" form={formData} set={set} disabled={disabled} placeholder="SSP" required />
-                    <AutocompleteField label="UF RIC" field="regIdentidCivilUf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
-                    <Field label="Cidade RIC" field="regIdentidCivilCidade" form={formData} set={set} disabled={disabled} required />
-                    <Field label="Data Expedicao RIC" field="regIdentidCivilDataExped" form={formData} set={set} disabled={disabled} type="date" />
-
-                    <Field label="Data de Nascimento" field="dataNascimento" form={formData} set={set} disabled={disabled} type="date" required />
-                    <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} required />
-                    <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} required />
-                    <Field label="Nacionalidade" field="nacionalidade" form={formData} set={set} disabled={disabled} placeholder="Brasileira" required />
-                    <FieldWrapper label="Pais Nacionalidade (ISO 3 letras)" field="paisNacionalidade" form={formData} required>
+                    <Field label="CPF" field="cpf" form={formData} set={set} disabled className="bg-muted" />
+                    <Field label="RG" field="rg" form={formData} set={set} disabled={disabled} />
+                    <Field label="Orgao Expedidor" field="rgOrgaoExpedidor" form={formData} set={set} disabled={disabled} />
+                    <AutocompleteField label="UF Expedidor RG" field="rgUfExpedidor" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
+                    <Field label="Data Emissao RG" field="rgDataExpedicao" form={formData} set={set} disabled={disabled} type="date" />
+                    <Field label="Data de Nascimento" field="dataNascimento" form={formData} set={set} disabled={disabled} type="date" />
+                    <SelectField label="Sexo" field="sexo" form={formData} set={set} disabled={disabled} options={SEXO_OPTIONS} cls={selectCls} />
+                    <SelectField label="Estado Civil" field="estadoCivil" form={formData} set={set} disabled={disabled} options={ESTADO_CIVIL_OPTIONS} cls={selectCls} />
+                    <Field label="Nacionalidade" field="nacionalidade" form={formData} set={set} disabled={disabled} placeholder="Brasileira" />
+                    <FieldWrapper label="Pais Nacionalidade (ISO 3 letras)" field="paisNacionalidade" form={formData}>
                         <Input
                             value={String(formData.paisNacionalidade ?? "")}
                             onChange={e => set("paisNacionalidade", normalizePaisIso3Portal(e.target.value))}
                             placeholder="BRA"
                             maxLength={3}
                             disabled={disabled}
-                            className="h-11"
+                            className="h-14"
                         />
                     </FieldWrapper>
-                    <CityField label="Cidade de Nascimento" field="naturalCidade" ufField="naturalUf" form={formData} set={set} disabled={disabled} required />
-                    <AutocompleteField label="UF de Nascimento" field="naturalUf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
-                    <FieldWrapper label="Pais de Nascimento (ISO 3 letras)" field="paisNascimento" form={formData} required>
+                    <CityField label="Cidade de Nascimento" field="naturalCidade" ufField="naturalUf" form={formData} set={set} disabled={disabled} />
+                    <AutocompleteField label="UF de Nascimento" field="naturalUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
+                    <FieldWrapper label="Pais de Nascimento (ISO 3 letras)" field="paisNascimento" form={formData}>
                         <Input
                             value={String(formData.paisNascimento ?? "")}
                             onChange={e => set("paisNascimento", normalizePaisIso3Portal(e.target.value))}
                             placeholder="BRA"
                             maxLength={3}
                             disabled={disabled}
-                            className="h-11"
+                            className="h-14"
                         />
                     </FieldWrapper>
-                    <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Nome da Mae" field="nomeMae" form={formData} set={set} disabled={disabled} />
                     <Field label="Nome do Pai" field="nomePai" form={formData} set={set} disabled={disabled} />
-                    <SelectField label="Escolaridade" field="grauInstrucao" form={formData} set={set} disabled={disabled} options={GRAU_INSTRUCAO_OPTIONS} cls={selectCls} required />
-                    <StringSelectField label="Doador de Orgaos" field="funcDoador" form={formData} set={set} disabled={disabled} options={[{value:"S",label:"Sim"},{value:"N",label:"Nao"}]} cls={selectCls} />
-                    <SelectField label="Origem" field="origemFuncionario" form={formData} set={set} disabled={disabled} options={ORIGEM_FUNCIONARIO_OPTIONS} cls={selectCls} required />
+                    <SelectField label="Escolaridade" field="grauInstrucao" form={formData} set={set} disabled={disabled} options={GRAU_INSTRUCAO_OPTIONS} cls={selectCls} />
+                    <SelectField label="Origem" field="origemFuncionario" form={formData} set={set} disabled={disabled} options={ORIGEM_FUNCIONARIO_OPTIONS} cls={selectCls} />
                 </div>
-            </Section>
+            )}
 
-            {/* Endereco */}
-            <Section title="Seu Endereco">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <FieldWrapper label="CEP" field="cep" form={formData} required>
+            {sectionId === "endereco" && (
+                <div className={gridCls}>
+                    <FieldWrapper label="CEP" field="cep" form={formData}>
                         <Input
                             value={String(formData.cep ?? "")}
                             onChange={e => handleCep(e.target.value.replace(/\D/g, ""))}
                             disabled={disabled}
                             placeholder="00000-000"
                             maxLength={9}
-                            className="h-11"
+                            className="h-14"
                         />
                     </FieldWrapper>
-                    <Field label="Logradouro" field="logradouro" form={formData} set={set} disabled={disabled} required />
-                    <Field label="Numero" field="numero" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Logradouro" field="logradouro" form={formData} set={set} disabled={disabled} />
+                    <Field label="Numero" field="numero" form={formData} set={set} disabled={disabled} />
                     <Field label="Complemento" field="complemento" form={formData} set={set} disabled={disabled} />
-                    <Field label="Bairro" field="bairro" form={formData} set={set} disabled={disabled} required />
-                    <AutocompleteField label="UF" field="uf" form={formData} set={set} disabled={disabled} required options={UF_OPTIONS} placeholder="Ex: SP" />
-                    <CityField label="Cidade" field="cidade" ufField="uf" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Bairro" field="bairro" form={formData} set={set} disabled={disabled} />
+                    <AutocompleteField label="UF" field="uf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
+                    <CityField label="Cidade" field="cidade" ufField="uf" form={formData} set={set} disabled={disabled} />
                     <Field label="Ponto de Referencia" field="pontoReferencia" form={formData} set={set} disabled={disabled} />
-                    <StringSelectField label="Reside no Exterior" field="resideExterior" form={formData} set={set} disabled={disabled} options={[{value:"N",label:"Nao"},{value:"S",label:"Sim"}]} cls={selectCls} />
                 </div>
-            </Section>
+            )}
 
-            {/* Contato */}
-            <Section title="Seus Contatos">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="E-mail" field="email" form={formData} set={set} disabled={disabled} type="email" required />
-                    <Field label="E-mail Alternativo" field="emailAlternativo" form={formData} set={set} disabled={disabled} type="email" />
+            {sectionId === "contatos" && (
+                <div className={gridCls}>
+                    <Field label="E-mail" field="email" form={formData} set={set} disabled={disabled} type="email" />
                     <Field label="DDD Telefone" field="dddTelefone" form={formData} set={set} disabled={disabled} type="number" placeholder="11" />
                     <Field label="Telefone" field="telefone" form={formData} set={set} disabled={disabled} />
-                    <Field label="Celular" field="celular" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Celular" field="celular" form={formData} set={set} disabled={disabled} />
                     <Field label="DDD Contato" field="dddTelContato" form={formData} set={set} disabled={disabled} type="number" placeholder="11" />
                     <Field label="Contato de Emergencia" field="contatoEmergenciaNome" form={formData} set={set} disabled={disabled} placeholder="Nome" />
                     <Field label="Fone Emergencia" field="contatoEmergenciaFone" form={formData} set={set} disabled={disabled} />
                 </div>
-            </Section>
+            )}
 
-            {/* Banco */}
-            <Section title="Dados Bancarios">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <BankField form={formData} set={set} disabled={disabled} required />
-                    <Field label="Agencia" field="agencia" form={formData} set={set} disabled={disabled} required />
+            {sectionId === "bancario" && (
+                <div className={gridCls}>
+                    <BankField form={formData} set={set} disabled={disabled} />
+                    <Field label="Agencia" field="agencia" form={formData} set={set} disabled={disabled} />
                     <Field label="Digito Ag." field="agenciaDigito" form={formData} set={set} disabled={disabled} maxLength={2} />
-                    <Field label="Conta" field="conta" form={formData} set={set} disabled={disabled} required />
+                    <Field label="Conta" field="conta" form={formData} set={set} disabled={disabled} />
                     <Field label="Digito Conta" field="contaDigito" form={formData} set={set} disabled={disabled} maxLength={2} />
-                    <SelectField label="Tipo Conta" field="tipoConta" form={formData} set={set} disabled={disabled} options={TIPO_CONTA_OPTIONS} cls={selectCls} required />
+                    <SelectField label="Tipo Conta" field="tipoConta" form={formData} set={set} disabled={disabled} options={TIPO_CONTA_OPTIONS} cls={selectCls} />
                 </div>
-            </Section>
+            )}
 
-            {/* Trabalhista */}
-            <Section title="Dados Trabalhistas">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sectionId === "trabalhista" && (
+                <div className={gridCls}>
                     <Field label="PIS/PASEP" field="pisPasep" form={formData} set={set} disabled={disabled} />
                     <Field label="CTPS" field="ctps" form={formData} set={set} disabled={disabled} />
                     <Field label="Serie CTPS" field="ctpsSerie" form={formData} set={set} disabled={disabled} />
                     <AutocompleteField label="UF CTPS" field="ctpsUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
                     <SelectField label="Modelo CTPS" field="ctpsModelo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Papel"},{value:3,label:"Digital"}]} cls={selectCls} />
                 </div>
-            </Section>
+            )}
 
-            {/* Titulo Eleitor */}
-            <Section title="Titulo de Eleitor">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sectionId === "titulo-eleitor" && (
+                <div className={gridCls}>
                     <Field label="Numero" field="tituloEleitorNumero" form={formData} set={set} disabled={disabled} />
                     <Field label="Zona" field="tituloEleitorZona" form={formData} set={set} disabled={disabled} />
                     <Field label="Secao" field="tituloEleitorSecao" form={formData} set={set} disabled={disabled} />
                     <AutocompleteField label="UF" field="tituloEleitorUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
                     <CityField label="Cidade" field="tituloEleitorCidade" ufField="tituloEleitorUf" form={formData} set={set} disabled={disabled} />
                 </div>
-            </Section>
+            )}
 
-            {/* CNH */}
-            <Section title="Carteira de Habilitacao (CNH)">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sectionId === "cnh" && (
+                <div className={gridCls}>
                     <Field label="Numero CNH" field="cnhNumero" form={formData} set={set} disabled={disabled} />
                     <Field label="Categoria" field="categoriaCnh" form={formData} set={set} disabled={disabled} placeholder="A, B, AB, etc" />
                     <AutocompleteField label="UF" field="cnhUf" form={formData} set={set} disabled={disabled} options={UF_OPTIONS} placeholder="Ex: SP" />
@@ -305,90 +301,68 @@ export default function ReviewDataStep({ session, disabled }: Props) {
                     <Field label="Primeira Habilitacao" field="cnhPrimeiraHabilitacao" form={formData} set={set} disabled={disabled} type="number" />
                     <Field label="Validade" field="validadeCnh" form={formData} set={set} disabled={disabled} type="date" />
                 </div>
-            </Section>
+            )}
 
-            {/* Doc Militar */}
-            <Section title="Documento Militar / Reservista">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sectionId === "militar" && (
+                <div className={gridCls}>
                     <Field label="Numero Reservista" field="reservistaNumero" form={formData} set={set} disabled={disabled} />
-                    <SelectField label="Tipo Doc Militar *" field="docMilitarTipo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Cert. Reservista"},{value:2,label:"Cert. Dispensa"},{value:3,label:"Cert. Alistamento"}]} cls={selectCls} />
+                    <SelectField label="Tipo Doc Militar" field="docMilitarTipo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Cert. Reservista"},{value:2,label:"Cert. Dispensa"},{value:3,label:"Cert. Alistamento"}]} cls={selectCls} />
                     <Field label="Numero" field="docMilitarNumero" form={formData} set={set} disabled={disabled} />
                     <Field label="Serie" field="docMilitarSerie" form={formData} set={set} disabled={disabled} />
-                    <Field label="Regiao *" field="docMilitarRegiao" form={formData} set={set} disabled={disabled} type="number" />
-                    <Field label="Circunscricao *" field="docMilitarCircunscricao" form={formData} set={set} disabled={disabled} type="number" />
+                    <Field label="Regiao" field="docMilitarRegiao" form={formData} set={set} disabled={disabled} type="number" />
+                    <Field label="Circunscricao" field="docMilitarCircunscricao" form={formData} set={set} disabled={disabled} type="number" />
                 </div>
-            </Section>
+            )}
 
-            {/* Estrangeiro */}
-            <Section title="Dados de Estrangeiro">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sectionId === "estrangeiro" && (
+                <div className={gridCls}>
                     <Field label="Passaporte" field="passaporte" form={formData} set={set} disabled={disabled} />
                     <Field label="RNM/RNE" field="rnmRne" form={formData} set={set} disabled={disabled} />
                     <Field label="Validade do Visto" field="validadeVisto" form={formData} set={set} disabled={disabled} type="date" />
                     <Field label="Tipo de Visto (texto)" field="tipoVisto" form={formData} set={set} disabled={disabled} />
-                    <SelectField label="Tipo Visto Estrangeiro (TOTVS) *" field="tipoVistoEstrangeiro" form={formData} set={set} disabled={disabled} options={[{value:1,label:"1 - Passaporte Comum"},{value:2,label:"2 - Temporário"},{value:3,label:"3 - Permanente"},{value:4,label:"4 - Oficial/Diplomático"},{value:5,label:"5 - Outros"}]} cls={selectCls} />
-                    <SelectField label="Ocorrência CAGED *" field="ocorrenciaCAGED" form={formData} set={set} disabled={disabled} options={[{value:1,label:"1 - Admissão Normal"},{value:2,label:"2 - Reintegração"},{value:3,label:"3 - Reemprego"},{value:4,label:"4 - Transferência Entrada"},{value:5,label:"5 - Trabalho Temporário"}]} cls={selectCls} />
+                    <SelectField label="Tipo Visto Estrangeiro (TOTVS)" field="tipoVistoEstrangeiro" form={formData} set={set} disabled={disabled} options={[{value:1,label:"1 - Passaporte Comum"},{value:2,label:"2 - Temporário"},{value:3,label:"3 - Permanente"},{value:4,label:"4 - Oficial/Diplomático"},{value:5,label:"5 - Outros"}]} cls={selectCls} />
+                    <SelectField label="Ocorrência CAGED" field="ocorrenciaCAGED" form={formData} set={set} disabled={disabled} options={[{value:1,label:"1 - Admissão Normal"},{value:2,label:"2 - Reintegração"},{value:3,label:"3 - Reemprego"},{value:4,label:"4 - Transferência Entrada"},{value:5,label:"5 - Trabalho Temporário"}]} cls={selectCls} />
                 </div>
-            </Section>
+            )}
 
-            {/* Saude e Caracteristicas */}
-            <Section title="Saude e Caracteristicas Fisicas">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sectionId === "saude" && (
+                <div className={gridCls}>
                     <SelectField label="Grupo Sanguineo" field="grupoSanguineo" form={formData} set={set} disabled={disabled} options={[{value:1,label:"A"},{value:2,label:"B"},{value:3,label:"AB"},{value:4,label:"O"}]} cls={selectCls} />
                     <SelectField label="Fator Rh" field="fatorRh" form={formData} set={set} disabled={disabled} options={[{value:1,label:"Positivo (+)"},{value:2,label:"Negativo (-)"}]} cls={selectCls} />
                     <StringSelectField label="Possui Deficiencia" field="possuiDeficiencia" form={formData} set={set} disabled={disabled} options={[{value:"N",label:"Nao"},{value:"S",label:"Sim"}]} cls={selectCls} />
                     <Field label="Cartao SUS" field="cartaoSus" form={formData} set={set} disabled={disabled} />
                     <Field label="Altura (cm)" field="altura" form={formData} set={set} disabled={disabled} type="number" />
                     <Field label="Peso (kg)" field="peso" form={formData} set={set} disabled={disabled} type="number" />
-                    <SelectField label="Cutis" field="cutis" form={formData} set={set} disabled={disabled} options={CUTIS_OPTIONS} cls={selectCls} required />
-                    <SelectField label="Cabelo" field="cabelo" form={formData} set={set} disabled={disabled} options={CABELO_OPTIONS} cls={selectCls} required />
-                    <SelectField label="Olhos" field="olhos" form={formData} set={set} disabled={disabled} options={OLHOS_OPTIONS} cls={selectCls} required />
+                    <SelectField label="Cutis" field="cutis" form={formData} set={set} disabled={disabled} options={CUTIS_OPTIONS} cls={selectCls} />
+                    <SelectField label="Cabelo" field="cabelo" form={formData} set={set} disabled={disabled} options={CABELO_OPTIONS} cls={selectCls} />
+                    <SelectField label="Olhos" field="olhos" form={formData} set={set} disabled={disabled} options={OLHOS_OPTIONS} cls={selectCls} />
                     <Field label="Manequim" field="manequim" form={formData} set={set} disabled={disabled} type="number" />
                     <Field label="Sapato" field="sapato" form={formData} set={set} disabled={disabled} type="number" />
                 </div>
-            </Section>
-        </div>
+            )}
+            </div>
+        </WizardStepPanel>
     );
 }
 
-// ── Sub-components ──
-
-function Section({ title, children, defaultOpen }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
-    const [open, setOpen] = useState(defaultOpen ?? false);
-    return (
-        <div className="rounded-xl border border-border/40 bg-card">
-            <button
-                type="button"
-                onClick={() => setOpen(!open)}
-                className="flex items-center justify-between w-full px-5 py-3 text-sm font-semibold hover:bg-muted/50 transition-colors"
-            >
-                {title}
-                {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-            </button>
-            {open && <div className="px-5 pb-5 pt-1">{children}</div>}
-        </div>
-    );
-}
-
-function FieldWrapper({ label, field, form, required, children }: { label: string; field: string; form: DadosPessoais; required?: boolean; children: React.ReactNode }) {
+function FieldWrapper({ label, field, form, children }: { label: string; field: string; form: DadosPessoais; children: React.ReactNode }) {
     return (
         <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
                 {label}
-                {required && <span className="text-red-500 font-bold text-sm leading-none">*</span>}
             </label>
             {children}
         </div>
     );
 }
 
-function Field({ label, field, form, set, disabled, type, placeholder, maxLength, className, required }: {
+function Field({ label, field, form, set, disabled, type, placeholder, maxLength, className }: {
     label: string; field: string; form: DadosPessoais;
     set: (f: string, v: string | number | null) => void;
-    disabled?: boolean; type?: string; placeholder?: string; maxLength?: number; className?: string; required?: boolean;
+    disabled?: boolean; type?: string; placeholder?: string; maxLength?: number; className?: string;
 }) {
     return (
-        <FieldWrapper label={label} field={field} form={form} required={required}>
+        <FieldWrapper label={label} field={field} form={form}>
             <Input
                 type={type}
                 value={String(form[field] ?? "")}
@@ -399,21 +373,21 @@ function Field({ label, field, form, set, disabled, type, placeholder, maxLength
                 disabled={disabled}
                 placeholder={placeholder}
                 maxLength={maxLength}
-                className={`h-11 ${className || ""}`}
+                className={`h-14 ${className || ""}`}
             />
         </FieldWrapper>
     );
 }
 
-function SelectField({ label, field, form, set, disabled, options, cls, required }: {
+function SelectField({ label, field, form, set, disabled, options, cls }: {
     label: string; field: string; form: DadosPessoais;
     set: (f: string, v: string | number | null) => void;
-    disabled?: boolean; options: { value: number; label: string }[]; cls: string; required?: boolean;
+    disabled?: boolean; options: { value: number; label: string }[]; cls: string;
 }) {
     return (
-        <FieldWrapper label={label} field={field} form={form} required={required}>
+        <FieldWrapper label={label} field={field} form={form}>
             <select
-                className={`${cls} h-11`}
+                className={`${cls} h-14`}
                 value={form[field] as number ?? ""}
                 onChange={e => set(field, e.target.value ? Number(e.target.value) : null)}
                 disabled={disabled}
@@ -425,15 +399,15 @@ function SelectField({ label, field, form, set, disabled, options, cls, required
     );
 }
 
-function StringSelectField({ label, field, form, set, disabled, options, cls, required }: {
+function StringSelectField({ label, field, form, set, disabled, options, cls }: {
     label: string; field: string; form: DadosPessoais;
     set: (f: string, v: string | number | null) => void;
-    disabled?: boolean; options: { value: string; label: string }[]; cls: string; required?: boolean;
+    disabled?: boolean; options: { value: string; label: string }[]; cls: string;
 }) {
     return (
-        <FieldWrapper label={label} field={field} form={form} required={required}>
+        <FieldWrapper label={label} field={field} form={form}>
             <select
-                className={`${cls} h-11`}
+                className={`${cls} h-14`}
                 value={String(form[field] ?? "")}
                 onChange={e => set(field, e.target.value || null)}
                 disabled={disabled}
@@ -466,10 +440,10 @@ function DropdownList({ items, onSelect }: {
     );
 }
 
-function AutocompleteField({ label, field, form, set, disabled, required, placeholder, options }: {
+function AutocompleteField({ label, field, form, set, disabled, placeholder, options }: {
     label: string; field: string; form: DadosPessoais;
     set: (f: string, v: string | null) => void;
-    disabled?: boolean; required?: boolean; placeholder?: string;
+    disabled?: boolean; placeholder?: string;
     options: { value: string; label: string }[];
 }) {
     const [open, setOpen] = useState(false);
@@ -493,7 +467,7 @@ function AutocompleteField({ label, field, form, set, disabled, required, placeh
     }, []);
 
     return (
-        <FieldWrapper label={label} field={field} form={form} required={required}>
+        <FieldWrapper label={label} field={field} form={form}>
             <div ref={containerRef} className="relative">
                 <Input
                     value={value}
@@ -501,7 +475,7 @@ function AutocompleteField({ label, field, form, set, disabled, required, placeh
                     onFocus={() => setOpen(true)}
                     disabled={disabled}
                     placeholder={placeholder}
-                    className="h-11"
+                    className="h-14"
                     autoComplete="off"
                 />
                 {open && <DropdownList items={filtered} onSelect={v => { set(field, v); setOpen(false); }} />}
@@ -510,10 +484,10 @@ function AutocompleteField({ label, field, form, set, disabled, required, placeh
     );
 }
 
-function CityField({ label, field, ufField, form, set, disabled, required }: {
+function CityField({ label, field, ufField, form, set, disabled }: {
     label: string; field: string; ufField: string; form: DadosPessoais;
     set: (f: string, v: string | null) => void;
-    disabled?: boolean; required?: boolean;
+    disabled?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -564,7 +538,7 @@ function CityField({ label, field, ufField, form, set, disabled, required }: {
         : [];
 
     return (
-        <FieldWrapper label={label} field={field} form={form} required={required}>
+        <FieldWrapper label={label} field={field} form={form}>
             <div ref={containerRef} className="relative">
                 <Input
                     value={value}
@@ -572,7 +546,7 @@ function CityField({ label, field, ufField, form, set, disabled, required }: {
                     onFocus={() => { if (ufValid) setOpen(true); }}
                     disabled={disabled || !ufValid}
                     placeholder={!ufValid ? "Preencha a UF primeiro" : loading ? "Carregando cidades..." : "Digite para buscar..."}
-                    className="h-11"
+                    className="h-14"
                     autoComplete="off"
                 />
                 {open && filtered.length > 0 && (
@@ -583,10 +557,10 @@ function CityField({ label, field, ufField, form, set, disabled, required }: {
     );
 }
 
-function BankField({ form, set, disabled, required }: {
+function BankField({ form, set, disabled }: {
     form: DadosPessoais;
     set: (f: string, v: string | null) => void;
-    disabled?: boolean; required?: boolean;
+    disabled?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -616,7 +590,7 @@ function BankField({ form, set, disabled, required }: {
 
     return (
         <>
-            <FieldWrapper label="Banco" field="bancoCodigo" form={form} required={required}>
+            <FieldWrapper label="Banco" field="bancoCodigo" form={form}>
                 <div ref={containerRef} className="relative">
                     <Input
                         value={query}
@@ -624,7 +598,7 @@ function BankField({ form, set, disabled, required }: {
                         onFocus={() => setOpen(true)}
                         disabled={disabled}
                         placeholder="Código ou nome..."
-                        className="h-11"
+                        className="h-14"
                         autoComplete="off"
                     />
                     {open && filtered.length > 0 && (
@@ -637,7 +611,7 @@ function BankField({ form, set, disabled, required }: {
                     value={nameVal}
                     onChange={e => set("bancoNome", e.target.value || null)}
                     disabled={disabled}
-                    className="h-11"
+                    className="h-14"
                     autoComplete="off"
                 />
             </FieldWrapper>

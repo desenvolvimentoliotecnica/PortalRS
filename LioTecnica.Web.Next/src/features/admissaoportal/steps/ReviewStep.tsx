@@ -1,196 +1,154 @@
 "use client";
 
-import React, { useState } from "react";
+import {
+    Building2,
+    ClipboardList,
+    Info,
+    Pencil,
+    User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2, AlertTriangle, ArrowRight, User, MapPin, Phone, CreditCard, Briefcase, Users } from "lucide-react";
+import WizardStepCard from "../components/WizardStepCard";
+import { PortalInfoBox } from "../components/PortalField";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
-import { validatePortalForm, SECTION_LABELS, type PortalSection } from "../portalValidation";
-
-const PARENTESCO_LABEL: Record<number, string> = { 0: "Conjuge", 1: "Filho(a)", 2: "Pai", 3: "Mae", 4: "Outro" };
+import { TIPO_DOC_LABELS } from "../constants";
 
 interface Props {
-    onSubmit: () => Promise<void>;
     disabled?: boolean;
+    documentosEnviados?: { tipo: number; nomeArquivo: string }[];
+    onEditStep?: (step: number) => void;
 }
 
-export default function ReviewStep({ onSubmit, disabled }: Props) {
-    const { formData, dependentes, setStep } = useAdmissaoWizardStore();
-    const [submitting, setSubmitting] = useState(false);
+export default function ReviewStep({ disabled, documentosEnviados = [], onEditStep }: Props) {
+    const { formData, uploadedDocs } = useAdmissaoWizardStore();
 
-    const validationErrors = validatePortalForm(formData as Record<string, unknown>);
-
-    const errorsBySection = validationErrors.reduce<Partial<Record<PortalSection, string[]>>>(
-        (acc, e) => {
-            if (!acc[e.section]) acc[e.section] = [];
-            acc[e.section]!.push(e.label);
-            return acc;
-        },
-        {},
-    );
-    const sectionKeys = Object.keys(errorsBySection) as PortalSection[];
-
-    async function handleSubmit() {
-        if (validationErrors.length > 0) {
-            setStep(2);
-            return;
-        }
-        setSubmitting(true);
-        try {
-            await onSubmit();
-        } finally {
-            setSubmitting(false);
-        }
-    }
+    const docsList = documentosEnviados.length > 0
+        ? documentosEnviados
+        : Array.from(uploadedDocs.values()).map((d) => ({
+            tipo: d.tipo,
+            nomeArquivo: d.nomeArquivo,
+        }));
 
     return (
-        <div className="space-y-4">
-            <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 dark:bg-blue-900/20 dark:border-blue-800">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Confira se seus dados estao corretos antes de enviar. Apos enviar, o RH vai revisar tudo.
-                </p>
-            </div>
+        <WizardStepCard
+            icon={ClipboardList}
+            title="Revisão"
+            subtitle="Confira todas as informações antes de finalizar seu processo de admissão."
+        >
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ReviewCard
+                    icon={User}
+                    title="Dados Pessoais"
+                    onEdit={onEditStep ? () => onEditStep(1) : undefined}
+                    disabled={disabled}
+                >
+                    <ReviewRow label="Nome completo" value={formData.nome} />
+                    <ReviewRow label="CPF" value={formData.cpf} />
+                    <ReviewRow label="Data de nascimento" value={formData.dataNascimento} />
+                    <ReviewRow label="RG" value={formData.rg} />
+                    <ReviewRow label="Estado civil" value={formData.estadoCivil} />
+                    <ReviewRow label="Órgão expedidor" value={formData.rgOrgaoExpedidor} />
+                </ReviewCard>
 
-            {/* Dados Pessoais */}
-            <ReviewSection icon={User} title="Dados Pessoais">
-                <ReviewRow label="Nome" value={formData.nome} />
-                <ReviewRow label="CPF" value={formData.cpf} />
-                <ReviewRow label="RG" value={[formData.rg, formData.rgOrgaoExpedidor, formData.rgUfExpedidor].filter(Boolean).join(" - ")} />
-                <ReviewRow label="Nascimento" value={formData.dataNascimento} />
-                <ReviewRow label="Natural de" value={[formData.naturalCidade, formData.naturalUf].filter(Boolean).join(" - ")} />
-                <ReviewRow label="Mae" value={formData.nomeMae} />
-                <ReviewRow label="Pai" value={formData.nomePai} />
-                <ReviewRow label="Escolaridade" value={formData.grauInstrucao} />
-            </ReviewSection>
+                <ReviewCard
+                    icon={User}
+                    title="Dados Gerais"
+                    onEdit={onEditStep ? () => onEditStep(2) : undefined}
+                    disabled={disabled}
+                >
+                    <ReviewRow label="CEP" value={formData.cep} />
+                    <ReviewRow label="Cidade/Estado" value={[formData.cidade, formData.uf].filter(Boolean).join(" - ")} />
+                    <ReviewRow label="Endereço" value={[formData.logradouro, formData.numero].filter(Boolean).join(", ")} />
+                    <ReviewRow label="País" value={formData.paisNacionalidade} />
+                    <ReviewRow label="Bairro" value={formData.bairro} />
+                    <ReviewRow label="E-mail" value={formData.email} />
+                </ReviewCard>
 
-            {/* Endereco */}
-            <ReviewSection icon={MapPin} title="Endereco">
-                <ReviewRow label="CEP" value={formData.cep} />
-                <ReviewRow label="Endereco" value={[formData.logradouro, formData.numero].filter(Boolean).join(", ")} />
-                <ReviewRow label="Bairro" value={formData.bairro} />
-                <ReviewRow label="Cidade/UF" value={[formData.cidade, formData.uf].filter(Boolean).join(" - ")} />
-            </ReviewSection>
-
-            {/* Contato */}
-            <ReviewSection icon={Phone} title="Contato">
-                <ReviewRow label="E-mail" value={formData.email} />
-                <ReviewRow label="E-mail Alt." value={formData.emailAlternativo} />
-                <ReviewRow label="Celular" value={formData.celular} />
-                <ReviewRow label="Telefone" value={formData.telefone} />
-                <ReviewRow label="Emergencia" value={[formData.contatoEmergenciaNome, formData.contatoEmergenciaFone].filter(Boolean).join(" - ")} />
-            </ReviewSection>
-
-            {/* Banco */}
-            <ReviewSection icon={CreditCard} title="Dados Bancarios">
-                <ReviewRow label="Banco" value={[formData.bancoCodigo, formData.bancoNome].filter(Boolean).join(" - ")} />
-                <ReviewRow label="Agencia" value={[formData.agencia, formData.agenciaDigito].filter(Boolean).join("-")} />
-                <ReviewRow label="Conta" value={[formData.conta, formData.contaDigito].filter(Boolean).join("-")} />
-            </ReviewSection>
-
-            {/* Trabalhista */}
-            <ReviewSection icon={Briefcase} title="Dados Trabalhistas">
-                <ReviewRow label="PIS/PASEP" value={formData.pisPasep} />
-                <ReviewRow label="CTPS" value={[formData.ctps, formData.ctpsSerie, formData.ctpsUf].filter(Boolean).join(" / ")} />
-                <ReviewRow label="Titulo Eleitor" value={formData.tituloEleitorNumero} />
-                <ReviewRow label="CNH" value={[formData.cnhNumero, formData.categoriaCnh].filter(Boolean).join(" - Cat. ")} />
-                <ReviewRow label="Reservista" value={formData.reservistaNumero} />
-            </ReviewSection>
-
-            {/* Dependentes */}
-            {dependentes.length > 0 && (
-                <ReviewSection icon={Users} title={`Dependentes (${dependentes.length})`}>
-                    {dependentes.map((d) => (
-                        <div key={d.id} className="text-sm py-1 border-b border-border/20 last:border-b-0">
-                            <span className="font-medium">{d.nomeCompleto}</span>
-                            <span className="text-muted-foreground ml-2">
-                                ({PARENTESCO_LABEL[d.parentesco] || "Outro"})
-                                {d.isPcd && " - PCD"}
-                            </span>
-                        </div>
-                    ))}
-                </ReviewSection>
-            )}
-
-            {/* Painel de erros inline */}
-            {validationErrors.length > 0 && (
-                <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                        <AlertTriangle className="size-4 text-red-600 dark:text-red-400 shrink-0" />
-                        <p className="text-sm font-semibold text-red-700 dark:text-red-300">
-                            {validationErrors.length === 1
-                                ? "1 campo obrigatório pendente"
-                                : `${validationErrors.length} campos obrigatórios pendentes`}
-                        </p>
-                    </div>
-
-                    <div className="space-y-2">
-                        {sectionKeys.map((section) => (
-                            <div key={section} className="rounded-lg bg-white/60 dark:bg-white/5 border border-red-100 dark:border-red-800/50 px-3 py-2">
-                                <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">
-                                    {SECTION_LABELS[section]}
-                                </p>
-                                <p className="text-xs text-red-700/80 dark:text-red-300/80 leading-relaxed">
-                                    {errorsBySection[section]!.join(", ")}
-                                </p>
+                <ReviewCard
+                    icon={ClipboardList}
+                    title="Documentos"
+                    onEdit={onEditStep ? () => onEditStep(3) : undefined}
+                    disabled={disabled}
+                >
+                    {docsList.length === 0 ? (
+                        <p className="text-sm text-slate-500">Nenhum documento enviado ainda.</p>
+                    ) : (
+                        docsList.map((doc, i) => (
+                            <div key={`${doc.tipo}-${i}`} className="flex items-center justify-between gap-2 text-sm">
+                                <span className="text-slate-700">
+                                    {TIPO_DOC_LABELS[doc.tipo] || `Documento ${doc.tipo}`}
+                                </span>
+                                <span className="truncate text-xs text-emerald-600">Enviado</span>
                             </div>
-                        ))}
-                    </div>
+                        ))
+                    )}
+                </ReviewCard>
 
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setStep(2)}
-                        className="w-full border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/40 gap-1.5"
-                    >
-                        Ir para Seus Dados e corrigir
-                        <ArrowRight className="size-3.5" />
-                    </Button>
-                </div>
-            )}
-
-            {/* Submit */}
-            {!disabled && (
-                <div className="pt-2">
-                    <Button
-                        size="lg"
-                        onClick={handleSubmit}
-                        disabled={submitting || validationErrors.length > 0}
-                        className="w-full min-h-[56px] text-lg bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50"
-                    >
-                        {submitting ? (
-                            <Loader2 className="size-5 animate-spin" />
-                        ) : (
-                            <Send className="size-5" />
-                        )}
-                        Enviar para o RH
-                    </Button>
-                    <p className="text-xs text-center text-muted-foreground mt-2">
-                        Apos enviar, o RH vai revisar seus dados e documentos.
-                    </p>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function ReviewSection({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
-    return (
-        <div className="rounded-xl border border-border/40 bg-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-                <Icon className="size-4 text-primary" />
-                <h3 className="text-sm font-semibold">{title}</h3>
+                <ReviewCard
+                    icon={Building2}
+                    title="Informações Bancárias"
+                    onEdit={onEditStep ? () => onEditStep(4) : undefined}
+                    disabled={disabled}
+                >
+                    <ReviewRow label="Banco" value={[formData.bancoCodigo, formData.bancoNome].filter(Boolean).join(" - ")} />
+                    <ReviewRow label="Conta" value={formData.conta} />
+                    <ReviewRow label="Tipo de conta" value={formData.tipoConta} />
+                    <ReviewRow label="Dígito" value={formData.contaDigito} />
+                    <ReviewRow label="Agência" value={formData.agencia} />
+                    <ReviewRow label="Favorecido" value={formData.nome} />
+                </ReviewCard>
             </div>
-            <div className="space-y-1">{children}</div>
+
+            <div className="mt-6">
+                <PortalInfoBox>
+                    <Info className="mt-0.5 size-5 shrink-0" />
+                    <p>
+                        Após confirmar, seus dados serão enviados para análise do RH. Você não poderá alterá-los
+                        diretamente após a confirmação.
+                    </p>
+                </PortalInfoBox>
+            </div>
+        </WizardStepCard>
+    );
+}
+
+function ReviewCard({
+    icon: Icon,
+    title,
+    children,
+    onEdit,
+    disabled,
+}: {
+    icon: React.ElementType;
+    title: string;
+    children: React.ReactNode;
+    onEdit?: () => void;
+    disabled?: boolean;
+}) {
+    return (
+        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Icon className="size-4 text-[#0047BB]" />
+                    <h3 className="font-semibold text-slate-900">{title}</h3>
+                </div>
+                {onEdit && !disabled && (
+                    <Button variant="ghost" size="sm" onClick={onEdit} className="h-8 gap-1 text-[#0047BB]">
+                        <Pencil className="size-3.5" /> Editar
+                    </Button>
+                )}
+            </div>
+            <div className="space-y-1.5">{children}</div>
         </div>
     );
 }
 
-function ReviewRow({ label, value }: { label: string; value: unknown }) {
-    const v = value != null ? String(value).trim() : "";
-    if (!v) return null;
+function ReviewRow({ label, value }: { label: string; value?: unknown }) {
+    const display = value == null || String(value).trim() === "" ? "—" : String(value);
     return (
-        <div className="flex justify-between text-sm py-0.5">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium text-right">{v}</span>
+        <div className="flex justify-between gap-3 text-sm">
+            <span className="text-slate-500">{label}</span>
+            <span className="max-w-[55%] truncate text-right font-medium text-slate-800">{display}</span>
         </div>
     );
 }

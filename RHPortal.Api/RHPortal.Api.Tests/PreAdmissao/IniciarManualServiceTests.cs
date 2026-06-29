@@ -263,6 +263,53 @@ public sealed class IniciarManualServiceTests
         Assert.Equal(PreenchidoPor.RH, entity.PreenchidoPor);
     }
 
+    [Fact]
+    public async Task IniciarManual_ComPreAdmissaoPreenchidaAnterior_CriaNovaEmRascunho()
+    {
+        var (db, svc, _) = CriarServico();
+        var candidatoId = SeedCandidato(db);
+
+        db.Set<Domain.Entities.PreAdmissao>().Add(new Domain.Entities.PreAdmissao
+        {
+            Id = Guid.NewGuid(),
+            TenantId = TenantTeste,
+            CandidatoId = candidatoId,
+            Nome = "João da Silva",
+            Status = PreAdmissaoStatus.Preenchido,
+            PreenchidoPor = PreenchidoPor.Candidato,
+            CreatedAtUtc = DateTimeOffset.UtcNow.AddDays(-30),
+            UpdatedAtUtc = DateTimeOffset.UtcNow.AddDays(-30),
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.IniciarManualAsync(
+            new IniciarManualRequest(candidatoId, null, null, null, null, null, null),
+            CancellationToken.None);
+
+        Assert.Equal(PreAdmissaoStatus.Rascunho, result.Status);
+        var total = await db.Set<Domain.Entities.PreAdmissao>().CountAsync(x => x.CandidatoId == candidatoId);
+        Assert.Equal(2, total);
+    }
+
+    [Fact]
+    public async Task IniciarManual_ComRascunhoExistente_ReutilizaRegistro()
+    {
+        var (db, svc, _) = CriarServico();
+        var candidatoId = SeedCandidato(db);
+
+        var first = await svc.IniciarManualAsync(
+            new IniciarManualRequest(candidatoId, null, null, null, null, null, null),
+            CancellationToken.None);
+
+        var second = await svc.IniciarManualAsync(
+            new IniciarManualRequest(candidatoId, null, null, null, null, null, null),
+            CancellationToken.None);
+
+        Assert.Equal(first.Id, second.Id);
+        var total = await db.Set<Domain.Entities.PreAdmissao>().CountAsync(x => x.CandidatoId == candidatoId);
+        Assert.Equal(1, total);
+    }
+
     // ── Upload de documento via S3 ────────────────────────────────────────────
 
     [Fact]

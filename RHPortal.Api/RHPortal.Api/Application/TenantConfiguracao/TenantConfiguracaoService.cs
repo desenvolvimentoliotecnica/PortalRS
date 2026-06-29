@@ -367,7 +367,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
         }
 
         config.RmRequisicaoCreateEndpointUrl = NullIfBlank(request.EndpointUrl);
-        config.RmRequisicaoGetEndpointUrl = NullIfBlank(request.GetEndpointUrl);
+        config.RmRequisicaoGetEndpointUrl = null;
         config.RmRequisicaoParecerEndpointUrl = NullIfBlank(request.ParecerEndpointUrl);
         config.RmRequisicaoCreateUsername = NullIfBlank(request.Username);
         config.RmRequisicaoCreatePassword = NullIfBlank(request.Password);

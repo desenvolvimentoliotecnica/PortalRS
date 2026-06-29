@@ -124,28 +124,6 @@ type PortalAccessibility = {
   pcdComprovacao?: string | null
   pcdObservacoes?: string | null
 }
-type PortalAgendaBlock = { id: string; tipo?: string | null; titulo?: string | null; data?: string | null; horario?: string | null; observacoes?: string | null; updatedAtUtc: string }
-type PortalAgenda = {
-  preferences: {
-    formatoEntrevista?: string | null
-    inicioDisponivel?: string | null
-    avisoPrevio?: string | null
-    observacoes?: string | null
-    diaSeg: boolean
-    diaTer: boolean
-    diaQua: boolean
-    diaQui: boolean
-    diaSex: boolean
-    diaSab: boolean
-    diaDom: boolean
-    periodoManha: boolean
-    periodoTarde: boolean
-    periodoNoite: boolean
-    horarioPreferido?: string | null
-    fusoHorario?: string | null
-  }
-  blocks: PortalAgendaBlock[]
-}
 type PortalNotifications = {
   canalEmail: boolean
   canalWhatsapp: boolean
@@ -193,8 +171,6 @@ type PortalJob = {
   tagsKeywordsRaw?: string | null
   tagsStackRaw?: string | null
   tagsResponsabilidadesRaw?: string | null
-  salarioMinimo?: number | null
-  salarioMaximo?: number | null
   createdAtUtc: string
   tenantName?: string | null
   descricaoPublica?: string | null
@@ -246,7 +222,6 @@ type WorkspaceState = {
   experience: PortalExperienceProject | null
   preferences: PortalPreferences | null
   accessibility: PortalAccessibility | null
-  agenda: PortalAgenda | null
   notifications: PortalNotifications | null
   internalNotifications: PortalInternalNotificationsResponse | null
   documents: PortalDocument[]
@@ -259,7 +234,6 @@ const WORKSPACE_SECTIONS = [
   { id: 'experiencias', label: 'Experiências', icon: 'fa-briefcase' },
   { id: 'projetos', label: 'Projetos', icon: 'fa-diagram-project' },
   { id: 'preferencias', label: 'Preferências de vaga', icon: 'fa-bullseye' },
-  { id: 'agenda', label: 'Agenda e disponibilidade', icon: 'fa-calendar-alt' },
   { id: 'skills', label: 'Portfólio e links', icon: 'fa-link' },
   { id: 'competencias', label: 'Competências', icon: 'fa-layer-group' },
   { id: 'credenciais', label: 'Credenciais', icon: 'fa-certificate' },
@@ -286,7 +260,11 @@ function normalizeWorkspaceSection(hash: string): WorkspaceSectionId {
 type AccessLanguage = 'pt-BR' | 'en-US' | 'es-ES'
 type BrazilianStateOption = { sigla: string; nome: string }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? 'https://localhost:7073'
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined
+const API_BASE_URL =
+  rawApiBaseUrl === undefined
+    ? 'https://localhost:7073'
+    : rawApiBaseUrl.replace(/\/$/, '')
 const DEFAULT_TENANT = (import.meta.env.VITE_DEFAULT_TENANT as string | undefined) ?? 'liotecnica'
 const TENANT_QUERY_KEY = 'tenantId'
 const ACCESS_LANGUAGE_STORAGE_KEY = 'portal-vagas-lang'
@@ -600,8 +578,12 @@ function PortalApp() {
           <nav className="portal-navbar">
             <div className="portal-container portal-nav-inner">
               <Link className="portal-brand" to={withTenant('/', tenantId)}>
-                <i className="fas fa-flask" aria-hidden="true"></i>
-                <span>LT Portal de Vagas</span>
+                <img
+                  className="portal-brand-logo"
+                  src="/images/logo-liotecnica.png"
+                  alt="Liotécnica"
+                />
+                <span>Portal de Vagas</span>
               </Link>
               <div className="portal-actions">
                 {session ?(
@@ -1326,7 +1308,6 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
             </button>
             <select className="jobs-board-sort" value={filters.sort} onChange={(e) => setFilters((v) => ({ ...v, sort: e.target.value }))}>
               <option value="recent">Mais recentes</option>
-              <option value="salaryDesc">Maior salário</option>
               <option value="companyAsc">Empresa (A-Z)</option>
             </select>
             <button className="jobs-board-search-btn" type="button" onClick={() => void loadJobs()}>Buscar</button>
@@ -1418,8 +1399,7 @@ function JobsPage({ ctx }: { ctx: AuthContext }) {
                     </div>
                   </div>
                   <div className="jobs-board-row-side">
-                    <strong>{formatSalary(job.salarioMinimo, job.salarioMaximo)}</strong>
-                    <small>{job.quantidadeVagas && job.quantidadeVagas > 1 ?`${job.quantidadeVagas} vagas` : '1 vaga'}</small>
+                    <small>{job.quantidadeVagas && job.quantidadeVagas > 1 ? `${job.quantidadeVagas} vagas` : '1 vaga'}</small>
                   </div>
                   <button
                     className="jobs-board-details-btn"
@@ -1565,7 +1545,6 @@ function JobDetailsPanel({ job }: { job: PortalJob }) {
       <div className="application-job-meta">
         <DetailItem label="Área" value={job.area || 'Não informado'} />
         <DetailItem label="Local" value={formatJobLocation(job)} />
-        <DetailItem label="Salário" value={formatSalary(job.salarioMinimo, job.salarioMaximo)} />
         <DetailItem label="Vagas" value={`${job.quantidadeVagas || 1}`} />
       </div>
 
@@ -1573,7 +1552,6 @@ function JobDetailsPanel({ job }: { job: PortalJob }) {
         {(badges.length ?badges : ['Perfil geral']).map((badge) => (
           <span className="job-tag" key={badge}>{badge}</span>
         ))}
-        {job.aceitaPcd ?<span className="job-tag accent">PCD</span> : null}
         {job.urgente ?<span className="job-tag urgent">Urgente</span> : null}
       </div>
 
@@ -1631,7 +1609,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
   const [experience, setExperience] = useState<PortalExperienceProject | null>(null)
   const [preferences, setPreferences] = useState<PortalPreferences | null>(null)
   const [accessibility, setAccessibility] = useState<PortalAccessibility | null>(null)
-  const [agenda, setAgenda] = useState<PortalAgenda | null>(null)
   const [notifications, setNotifications] = useState<PortalNotifications | null>(null)
   const [lgpd, setLgpd] = useState<PortalLgpd | null>(null)
   const [documents, setDocuments] = useState<PortalDocument[]>([])
@@ -1706,7 +1683,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
       experienceData,
       preferencesData,
       accessibilityData,
-      agendaData,
       notificationsData,
       documentsData,
       referencesData,
@@ -1720,7 +1696,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
       authFetch<PortalExperienceProject>(`/api/public/portal-candidates/${candidateId}/experience-projects`),
       authFetch<PortalPreferences>(`/api/public/portal-candidates/${candidateId}/preferences`),
       authFetch<PortalAccessibility>(`/api/public/portal-candidates/${candidateId}/accessibility`),
-      authFetch<PortalAgenda>(`/api/public/portal-candidates/${candidateId}/agenda`),
       authFetch<PortalNotifications>(`/api/public/portal-candidates/${candidateId}/notifications`),
       authFetch<{ items: PortalDocument[] }>(`/api/public/portal-candidates/${candidateId}/documents`),
       authFetch<{ items: PortalReference[] }>(`/api/public/portal-candidates/${candidateId}/references`),
@@ -1745,7 +1720,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
       experienceData,
       preferencesData,
       accessibilityData,
-      agendaData,
       notificationsData,
       documents: documentsData.items ?? [],
       references: referencesData.items ?? [],
@@ -1763,7 +1737,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     setExperience(snapshot.experienceData)
     setPreferences(snapshot.preferencesData)
     setAccessibility(snapshot.accessibilityData)
-    setAgenda(snapshot.agendaData)
     setNotifications(snapshot.notificationsData)
     setDocuments(snapshot.documents)
     setReferences(snapshot.references)
@@ -2009,7 +1982,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
     { key: 'formacao', label: 'Formação & Educação', sub: 'Cursos, instituições e destaques', icon: 'fa-graduation-cap', value: sectionProgress('formacao', countProgress(education?.items.length ?? 0)), kind: 'percent' as const },
     { key: 'comp', label: 'Competências & Portfólio', sub: 'Skills, certificados e links', icon: 'fa-bolt', value: sectionProgress('comp', countProgress((portfolio?.skills.length ?? 0) + (portfolio?.certifications.length ?? 0))), kind: 'percent' as const },
     { key: 'pref', label: 'Preferências / Objetivos', sub: 'Pretensão, benefícios e prioridades', icon: 'fa-bullseye', value: sectionProgress('pref'), kind: 'percent' as const },
-    { key: 'agenda', label: 'Disponibilidade & Agenda', sub: 'Horários, entrevistas e bloqueios', icon: 'fa-calendar-alt', value: sectionProgress('agenda', countProgress(agenda?.blocks.length ?? 0)), kind: 'percent' as const },
     { key: 'notif', label: 'Notificações & Comunicação', sub: 'Canais, alertas e frequência', icon: 'fa-bell', value: sectionProgress('notif'), kind: 'percent' as const },
     { key: 'docs', label: 'Documentos & Anexos', sub: 'Arquivos e comprovantes', icon: 'fa-paperclip', value: documents.length, progress: countProgress(documents.length), kind: 'count' as const },
     { key: 'refs', label: 'Referências', sub: 'Contatos profissionais', icon: 'fa-users', value: referencesCount, progress: countProgress(referencesCount), kind: 'count' as const },
@@ -2483,7 +2455,7 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                               [
                                 item.instituicao || 'Instituição livre',
                                 item.status || 'Status aberto',
-                                [item.inicio, item.fim].filter(Boolean).join(' – '),
+                                [item.inicio, item.fim].filter(Boolean).join(' “ '),
                               ]
                                 .filter((part) => Boolean(part && String(part).trim()))
                                 .join(' • ')
@@ -2641,49 +2613,6 @@ function CandidateProfileModal({ ctx, onClose }: CandidateProfileModalProps) {
                               check('consentimentoPcd', accessibility?.consentimentoPcd),
                             ]}
                             onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/accessibility`, values, 'Acessibilidade atualizada.')}
-                          />
-                        </div>
-                      ) : null}
-
-                      {selectedSection === 'agenda' ?(
-                        <div className="profile-section-detail-body">
-                          <RecordForm
-                            fields={[
-                              field('formatoEntrevista', agenda?.preferences.formatoEntrevista),
-                              field('inicioDisponivel', agenda?.preferences.inicioDisponivel),
-                              field('avisoPrevio', agenda?.preferences.avisoPrevio),
-                              field('observacoes', agenda?.preferences.observacoes, 'textarea'),
-                              field('horarioPreferido', agenda?.preferences.horarioPreferido),
-                              field('fusoHorario', agenda?.preferences.fusoHorario),
-                            ]}
-                            checks={[
-                              check('diaSeg', agenda?.preferences.diaSeg),
-                              check('diaTer', agenda?.preferences.diaTer),
-                              check('diaQua', agenda?.preferences.diaQua),
-                              check('diaQui', agenda?.preferences.diaQui),
-                              check('diaSex', agenda?.preferences.diaSex),
-                              check('diaSab', agenda?.preferences.diaSab),
-                              check('diaDom', agenda?.preferences.diaDom),
-                              check('periodoManha', agenda?.preferences.periodoManha),
-                              check('periodoTarde', agenda?.preferences.periodoTarde),
-                              check('periodoNoite', agenda?.preferences.periodoNoite),
-                            ]}
-                            onSubmit={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, values, 'Preferências de agenda salvas.')}
-                          />
-
-                          <RepeaterSection
-                            title="Bloqueios"
-                            items={agenda?.blocks ?? []}
-                            describe={(item) => `${item.data || 'Data'} • ${item.horario || 'Horário'} • ${item.observacoes || 'Sem observações'}`}
-                            fields={[
-                              { name: 'tipo', label: 'Tipo' },
-                              { name: 'titulo', label: 'Titulo' },
-                              { name: 'data', label: 'Data' },
-                              { name: 'horario', label: 'Horário' },
-                              { name: 'observacoes', label: 'Observações' },
-                            ]}
-                            onAdd={(values) => void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, values, 'Bloqueio adicionado.', 'POST')}
-                            onDelete={(item) => void removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}
                           />
                         </div>
                       ) : null}
@@ -2858,7 +2787,6 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     experience: null,
     preferences: null,
     accessibility: null,
-    agenda: null,
     notifications: null,
     internalNotifications: null,
     documents: [],
@@ -2882,7 +2810,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
     setMessage(null)
 
     try {
-      const [profile, completion, matches, portfolio, education, experience, preferences, accessibility, agenda, notifications, internalNotifications, documents, references, lgpd] = await Promise.all([
+      const [profile, completion, matches, portfolio, education, experience, preferences, accessibility, notifications, internalNotifications, documents, references, lgpd] = await Promise.all([
         authFetch<PortalProfile>(`/api/public/portal-candidates/${candidateId}`),
         authFetch<PortalCompletion>(`/api/public/portal-candidates/${candidateId}/profile-completion`),
         authFetch<{ matches: PortalMatchItem[] }>(`/api/public/portal-candidates/${candidateId}/job-matches`),
@@ -2891,7 +2819,6 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         authFetch<PortalExperienceProject>(`/api/public/portal-candidates/${candidateId}/experience-projects`),
         authFetch<PortalPreferences>(`/api/public/portal-candidates/${candidateId}/preferences`),
         authFetch<PortalAccessibility>(`/api/public/portal-candidates/${candidateId}/accessibility`),
-        authFetch<PortalAgenda>(`/api/public/portal-candidates/${candidateId}/agenda`),
         authFetch<PortalNotifications>(`/api/public/portal-candidates/${candidateId}/notifications`),
         authFetch<PortalInternalNotificationsResponse>(`/api/public/portal-candidates/${candidateId}/portal-notifications`),
         authFetch<{ items: PortalDocument[] }>(`/api/public/portal-candidates/${candidateId}/documents`),
@@ -2908,7 +2835,6 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
         experience,
         preferences,
         accessibility,
-        agenda,
         notifications,
         internalNotifications,
         documents: documents.items ?? [],
@@ -3283,7 +3209,7 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
                 [
                   item.instituicao || 'Instituição livre',
                   item.status || 'Status aberto',
-                  [item.inicio, item.fim].filter(Boolean).join(' – '),
+                  [item.inicio, item.fim].filter(Boolean).join(' “ '),
                 ]
                   .filter((part) => Boolean(part && String(part).trim()))
                   .join(' • ')
@@ -3327,10 +3253,6 @@ function CandidateWorkspace({ ctx }: { ctx: AuthContext }) {
               tenantId={ctx.tenantId}
               onSubmit={(values) => saveJson(`/api/public/portal-candidates/${candidateId}/preferences`, values, 'Preferências salvas.')}
             />
-          </WorkspaceSection>
-
-          <WorkspaceSection active={activeWorkspaceSection === 'agenda'} id="agenda" title="Agenda e disponibilidade" description="Combine disponibilidade para entrevistas com bloqueios quando você não pode ser contactado.">
-            <CandidateAgendaWorkspace agenda={state.agenda} candidateId={candidateId} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
           </WorkspaceSection>
 
           <WorkspaceSection active={activeWorkspaceSection === 'notificacoes'} id="notificacoes" title="Notificações" description="Escolha canais, ritmo dos avisos e horários de silêncio.">
@@ -4566,7 +4488,7 @@ function EducationRepeaterSection({
                       value={draft.tipo}
                       onChange={(event) => setDraft((current) => ({ ...current, tipo: event.target.value }))}
                     >
-                      <option value="">—</option>
+                      <option value="">”</option>
                       {tipoOptions.map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
@@ -4578,7 +4500,7 @@ function EducationRepeaterSection({
                       value={draft.status}
                       onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))}
                     >
-                      <option value="">—</option>
+                      <option value="">”</option>
                       {statusOptions.map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
@@ -5477,7 +5399,7 @@ function ReferenceRepeaterSection({
   )
 }
 
-/** Contrato com campo Frequencia (varchar 40) — valores estáveis recomendados. */
+/** Contrato com campo Frequencia (varchar 40) ” valores estáveis recomendados. */
 const NOTIFICATION_FREQUENCY_OPTIONS = [
   { value: 'immediate', label: 'Imediato' },
   { value: 'daily', label: 'Resumo diário' },
@@ -5522,7 +5444,7 @@ function canonicalFrequenciaFromApi(raw: string): string {
 const SILENCIO_ATIVO_OPTIONS = [
   { value: '', label: 'Automático (preferência não definida; usa só os horários se preenchidos)' },
   { value: 'true', label: 'Sim (true)' },
-  { value: 'false', label: 'Não (false) — ignorar horários mesmo preenchidos' },
+  { value: 'false', label: 'Não (false) ” ignorar horários mesmo preenchidos' },
 ] as const
 
 function canonicalSilencioAtivoFromApi(raw: string): string {
@@ -5534,9 +5456,9 @@ function canonicalSilencioAtivoFromApi(raw: string): string {
   return t
 }
 
-/** Contrato campo SilencioPrioridade (varchar 20) — apenas metadados; sem lógica adicional na API atual. */
+/** Contrato campo SilencioPrioridade (varchar 20) ” apenas metadados; sem lógica adicional na API atual. */
 const SILENCIO_PRIORIDADE_OPTIONS = [
-  { value: '', label: '—' },
+  { value: '', label: '”' },
   { value: 'normal', label: 'Normal' },
   { value: 'urgent', label: 'Só urgentes' },
   { value: 'all', label: 'Todas' },
@@ -5763,7 +5685,7 @@ function CandidateNotificationsWorkspaceForm({
               value={canonicalFrequenciaFromApi(String(values.frequencia))}
               onChange={(e) => setField('frequencia', e.target.value)}
             >
-              <option value="">— Definir depois —</option>
+              <option value="">” Definir depois ”</option>
               {freqOptionsMerged.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
@@ -5773,7 +5695,7 @@ function CandidateNotificationsWorkspaceForm({
           <label className="nl-field">
             <span>Idioma dos avisos</span>
             <select value={String(values.idioma)} onChange={(e) => setField('idioma', e.target.value)}>
-              <option value="">—</option>
+              <option value="">”</option>
               {langOptions.map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -6028,7 +5950,7 @@ function CandidateLgpdWorkspaceForm({
           <label className="nl-field">
             <span>Escopo de compartilhamento interno</span>
             <select value={String(values.compartilhamento)} onChange={(e) => setValues((v) => ({ ...v, compartilhamento: e.target.value }))}>
-              <option value="">— Informar quando necessário —</option>
+              <option value="">” Informar quando necessário ”</option>
               {scopeOptions.map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -6058,381 +5980,6 @@ function CandidateLgpdWorkspaceForm({
   )
 }
 
-const AGENDA_FORMATO_PRESETS = ['Presencial', 'Videochamada', 'Telefone', 'Indiferente'] as const
-const AGENDA_FUSO_PRESETS = ['America/Sao_Paulo', 'America/Fortaleza', 'America/Manaus', 'America/Recife', 'UTC'] as const
-const AGENDA_BLOCK_TIPO_PRESETS = ['Viagem', 'Saúde', 'Estudos', 'Família', 'Trabalho externo', 'Outro'] as const
-
-const AGENDA_WEEKDAY_KEYS = [
-  { key: 'diaSeg', short: 'Seg', label: 'Segunda-feira' },
-  { key: 'diaTer', short: 'Ter', label: 'Terça-feira' },
-  { key: 'diaQua', short: 'Qua', label: 'Quarta-feira' },
-  { key: 'diaQui', short: 'Qui', label: 'Quinta-feira' },
-  { key: 'diaSex', short: 'Sex', label: 'Sexta-feira' },
-  { key: 'diaSab', short: 'Sáb', label: 'Sábado' },
-  { key: 'diaDom', short: 'Dom', label: 'Domingo' },
-] as const
-
-const AGENDA_PERIOD_KEYS = [
-  { key: 'periodoManha', label: 'Manhã', hint: 'Ex.: 08–12h', iconClass: 'fas fa-sun' },
-  { key: 'periodoTarde', label: 'Tarde', hint: 'Ex.: 13–18h', iconClass: 'fas fa-cloud-sun' },
-  { key: 'periodoNoite', label: 'Noite', hint: 'Após 18h', iconClass: 'fas fa-moon' },
-] as const
-
-type AgendaPrefsForm = {
-  formatoEntrevista: string
-  inicioDisponivel: string
-  avisoPrevio: string
-  observacoes: string
-  horarioPreferido: string
-  fusoHorario: string
-  diaSeg: boolean
-  diaTer: boolean
-  diaQua: boolean
-  diaQui: boolean
-  diaSex: boolean
-  diaSab: boolean
-  diaDom: boolean
-  periodoManha: boolean
-  periodoTarde: boolean
-  periodoNoite: boolean
-}
-
-function normalizeAgendaPrefsForm(a: PortalAgenda | null): AgendaPrefsForm {
-  const p = a?.preferences
-  return {
-    formatoEntrevista: p?.formatoEntrevista ?? '',
-    inicioDisponivel: p?.inicioDisponivel ?? '',
-    avisoPrevio: p?.avisoPrevio ?? '',
-    observacoes: p?.observacoes ?? '',
-    horarioPreferido: p?.horarioPreferido ?? '',
-    fusoHorario: p?.fusoHorario ?? '',
-    diaSeg: Boolean(p?.diaSeg),
-    diaTer: Boolean(p?.diaTer),
-    diaQua: Boolean(p?.diaQua),
-    diaQui: Boolean(p?.diaQui),
-    diaSex: Boolean(p?.diaSex),
-    diaSab: Boolean(p?.diaSab),
-    diaDom: Boolean(p?.diaDom),
-    periodoManha: Boolean(p?.periodoManha),
-    periodoTarde: Boolean(p?.periodoTarde),
-    periodoNoite: Boolean(p?.periodoNoite),
-  }
-}
-
-function CandidateAgendaWorkspace({
-  agenda,
-  candidateId,
-  saveJson,
-  removeItem,
-  setMessage,
-}: {
-  agenda: PortalAgenda | null
-  candidateId: string
-  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
-  removeItem: (path: string, successText: string) => void | Promise<void>
-  setMessage: (message: string | null) => void
-}) {
-  const initial = useMemo(() => normalizeAgendaPrefsForm(agenda), [agenda])
-  const [values, setValues] = useState(initial)
-  useEffect(() => {
-    setValues(initial)
-  }, [initial])
-
-  function toggle<K extends keyof AgendaPrefsForm>(key: K) {
-    setValues((v) => ({ ...v, [key]: !Boolean(v[key]) }))
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const payload = {
-      formatoEntrevista: values.formatoEntrevista.trim().slice(0, 40) || null,
-      inicioDisponivel: values.inicioDisponivel.trim().slice(0, 40) || null,
-      avisoPrevio: values.avisoPrevio.trim().slice(0, 40) || null,
-      observacoes: values.observacoes.trim().slice(0, 400) || null,
-      horarioPreferido: values.horarioPreferido.trim().slice(0, 40) || null,
-      fusoHorario: values.fusoHorario.trim().slice(0, 60) || null,
-      diaSeg: Boolean(values.diaSeg),
-      diaTer: Boolean(values.diaTer),
-      diaQua: Boolean(values.diaQua),
-      diaQui: Boolean(values.diaQui),
-      diaSex: Boolean(values.diaSex),
-      diaSab: Boolean(values.diaSab),
-      diaDom: Boolean(values.diaDom),
-      periodoManha: Boolean(values.periodoManha),
-      periodoTarde: Boolean(values.periodoTarde),
-      periodoNoite: Boolean(values.periodoNoite),
-    }
-    void saveJson(`/api/public/portal-candidates/${candidateId}/agenda`, payload, 'Preferências de agenda salvas.')
-  }
-
-  return (
-    <div className="ag-workspace nl-form">
-      <header className="ag-hero nl-hero nl-hero-accent">
-        <div>
-          <span className="eyebrow">Recrutamento</span>
-          <h4>Quando posso participar de entrevistas?</h4>
-          <p>
-            Informe formato preferido, janelas de horário e dias da semana. Isso ajuda o RH a convidar você sem atritos —
-            os bloqueios ficam logo abaixo para dias em que você não pode ser contactado.
-          </p>
-        </div>
-        <div className="nl-privacy-pill" role="note">
-          <i className="fas fa-calendar-check" aria-hidden="true"></i>
-          <span>Você pode ajustar estes dados a qualquer momento; eles não substituem confirmações formais de agenda.</span>
-        </div>
-      </header>
-
-      <form className="nl-card ag-panel" onSubmit={handleSubmit}>
-        <div className="nl-card-head">
-          <div>
-            <span className="eyebrow">Preferências</span>
-            <strong>Formato e tempo</strong>
-          </div>
-          <p>Campos opcionais com limite compatível com o cadastro no servidor (até 40 caracteres nos campos curtos).</p>
-        </div>
-        <div className="nl-fields-grid nl-fields-grid--2">
-          <label className="nl-field">
-            <span>Formato de entrevista</span>
-            <select value={values.formatoEntrevista} onChange={(e) => setValues((v) => ({ ...v, formatoEntrevista: e.target.value }))}>
-              <option value="">—</option>
-              {mergeEducationSummarySelectOptions(AGENDA_FORMATO_PRESETS as unknown as readonly string[], values.formatoEntrevista).map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </label>
-          <label className="nl-field">
-            <span>Início disponível</span>
-            <input value={values.inicioDisponivel} onChange={(e) => setValues((v) => ({ ...v, inicioDisponivel: e.target.value }))} placeholder="Ex.: imediato, em 15 dias" maxLength={40} />
-          </label>
-          <label className="nl-field">
-            <span>Aviso prévio desejado</span>
-            <input value={values.avisoPrevio} onChange={(e) => setValues((v) => ({ ...v, avisoPrevio: e.target.value }))} placeholder="Ex.: 24h, 48h, 1 semana" maxLength={40} />
-          </label>
-          <label className="nl-field">
-            <span>Melhor faixa de horário (texto livre)</span>
-            <input value={values.horarioPreferido} onChange={(e) => setValues((v) => ({ ...v, horarioPreferido: e.target.value }))} placeholder="Ex.: manhãs após 9h, evitar almoço" maxLength={40} />
-          </label>
-          <label className="nl-field nl-field-span-2">
-            <span>Fuso ou referência de horário</span>
-            <select value={values.fusoHorario} onChange={(e) => setValues((v) => ({ ...v, fusoHorario: e.target.value }))}>
-              <option value="">—</option>
-              {mergeEducationSummarySelectOptions(AGENDA_FUSO_PRESETS as unknown as readonly string[], values.fusoHorario).map((opt) => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-          </label>
-          <label className="nl-field nl-field-span-2">
-            <span>Observações para o RH</span>
-            <textarea rows={3} value={values.observacoes} onChange={(e) => setValues((v) => ({ ...v, observacoes: e.target.value }))} placeholder="Ex.: prefiro encaixes curtos; disponível apenas às quartas para dinâmicas presenciais." maxLength={400} />
-          </label>
-        </div>
-
-        <div className="ag-subsection">
-          <div className="ag-subsection-head">
-            <strong>Dias da semana em que aceita conversas</strong>
-            <p className="nl-muted-copy">Toque para ligar ou desligar cada dia — foco nos dias úteis é comum.</p>
-          </div>
-          <div className="nl-toggle-grid nl-toggle-grid--week" role="group" aria-label="Dias disponíveis para entrevista">
-            {AGENDA_WEEKDAY_KEYS.map((d) => (
-              <button
-                key={d.key}
-                type="button"
-                className={`nl-toggle ag-weekday-toggle${values[d.key as keyof AgendaPrefsForm] ? ' is-on' : ''}`}
-                onClick={() => toggle(d.key as keyof AgendaPrefsForm)}
-                aria-pressed={Boolean(values[d.key as keyof AgendaPrefsForm])}
-                title={d.label}
-              >
-                <span>{d.short}</span>
-                <small aria-hidden="true">{d.label}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="ag-subsection">
-          <div className="ag-subsection-head">
-            <strong>Períodos preferidos no dia</strong>
-            <p className="nl-muted-copy">Ajuda o RH a encaixar janelas sem sobrepor sua rotina.</p>
-          </div>
-          <div className="nl-toggle-grid nl-toggle-grid--periods" role="group" aria-label="Períodos preferidos">
-            {AGENDA_PERIOD_KEYS.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                className={`nl-toggle${values[p.key as keyof AgendaPrefsForm] ? ' is-on' : ''}`}
-                onClick={() => toggle(p.key as keyof AgendaPrefsForm)}
-                aria-pressed={Boolean(values[p.key as keyof AgendaPrefsForm])}
-              >
-                <i className={p.iconClass} aria-hidden="true"></i>
-                <span>{p.label}</span>
-                <small>{p.hint}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button className="primary-btn ag-save-btn" type="submit">Salvar preferências de agenda</button>
-      </form>
-
-      <AgendaBlocksRepeater blocks={agenda?.blocks ?? []} candidateId={candidateId} saveJson={saveJson} removeItem={removeItem} setMessage={setMessage} />
-    </div>
-  )
-}
-
-function AgendaBlocksRepeater({
-  blocks,
-  candidateId,
-  saveJson,
-  removeItem,
-  setMessage,
-}: {
-  blocks: PortalAgendaBlock[]
-  candidateId: string
-  saveJson: (path: string, payload: unknown, successText: string, method?: 'PUT' | 'POST') => void | Promise<void>
-  removeItem: (path: string, successText: string) => void | Promise<void>
-  setMessage: (message: string | null) => void
-}) {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<PortalAgendaBlock | null>(null)
-  const [draft, setDraft] = useState({ tipo: '', titulo: '', data: '', horario: '', observacoes: '' })
-
-  const tipoOpts = useMemo(() => mergeEducationSummarySelectOptions(AGENDA_BLOCK_TIPO_PRESETS as unknown as readonly string[], draft.tipo), [draft.tipo])
-
-  function openCreate() {
-    setEditing(null)
-    setDraft({ tipo: AGENDA_BLOCK_TIPO_PRESETS[0] ?? 'Outro', titulo: '', data: '', horario: '', observacoes: '' })
-    setModalOpen(true)
-  }
-
-  function openEdit(item: PortalAgendaBlock) {
-    setEditing(item)
-    setDraft({
-      tipo: item.tipo ?? '',
-      titulo: item.titulo ?? '',
-      data: item.data ?? '',
-      horario: item.horario ?? '',
-      observacoes: item.observacoes ?? '',
-    })
-    setModalOpen(true)
-  }
-
-  function closeModal() {
-    setModalOpen(false)
-    setEditing(null)
-  }
-
-  return (
-    <section className="nl-card ag-blocks-panel">
-      <div className="nl-card-head">
-        <div>
-          <span className="eyebrow">Indisponibilidade</span>
-          <strong>Bloqueios na agenda</strong>
-        </div>
-        <p>Use para viagens, provas ou qualquer intervalo em que não deve receber convites ou lembretes de entrevista.</p>
-      </div>
-
-      <div className="ag-block-list">
-        {blocks.map((item) => (
-          <article key={item.id} className="ag-block-card">
-            <div>
-              <div className="ag-block-heading">
-                <strong>{item.titulo?.trim() || 'Bloqueio sem título'}</strong>
-                {item.tipo?.trim() ? <span className="sp-badge">{item.tipo}</span> : null}
-              </div>
-              <p className="ag-block-meta">
-                {[item.data, item.horario].filter(Boolean).join(' · ') || 'Data e horário não informados'}
-              </p>
-              {item.observacoes?.trim() ? <p className="ag-block-note">{item.observacoes}</p> : null}
-            </div>
-            <div className="sp-item-actions">
-              <button type="button" className="ghost-btn" onClick={() => openEdit(item)}>Editar</button>
-              <button type="button" className="ghost-btn danger" onClick={() => void removeItem(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${item.id}`, 'Bloqueio removido.')}>Remover</button>
-            </div>
-          </article>
-        ))}
-        {blocks.length === 0 ? (
-          <div className="sp-empty ag-blocks-empty">
-            <i className="fas fa-calendar-xmark" aria-hidden="true"></i>
-            <p>Nenhum bloqueio cadastrado. Adicione quando souber que não poderá ser contactado.</p>
-          </div>
-        ) : null}
-      </div>
-
-      <button type="button" className="secondary-btn ag-add-block-btn" onClick={openCreate}>
-        Adicionar bloqueio
-      </button>
-
-      {modalOpen ? createPortal(
-        <div className="workspace-form-modal-backdrop" onClick={closeModal} role="presentation">
-          <div className="workspace-form-modal-card workspace-form-modal-card--agenda" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-            <div className="workspace-form-modal-header">
-              <h3>{editing ? 'Editar bloqueio' : 'Novo bloqueio'}</h3>
-              <button type="button" className="profile-modal-close" aria-label="Fechar" onClick={closeModal}>
-                <i className="fas fa-times" aria-hidden="true"></i>
-              </button>
-            </div>
-            <form
-              className="project-form-grid"
-              onSubmit={(event) => {
-                event.preventDefault()
-                const titulo = draft.titulo.trim().slice(0, 120)
-                if (!titulo) {
-                  setMessage('Informe um título ou motivo breve para o bloqueio.')
-                  return
-                }
-                const payload = {
-                  tipo: draft.tipo.trim().slice(0, 40) || null,
-                  titulo,
-                  data: draft.data.trim().slice(0, 40) || null,
-                  horario: draft.horario.trim().slice(0, 40) || null,
-                  observacoes: draft.observacoes.trim().slice(0, 400) || null,
-                }
-                if (editing) {
-                  void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks/${editing.id}`, payload, 'Bloqueio atualizado.')
-                } else {
-                  void saveJson(`/api/public/portal-candidates/${candidateId}/agenda/blocks`, payload, 'Bloqueio adicionado.', 'POST')
-                }
-                closeModal()
-              }}
-            >
-              <div className="workspace-form-modal-body">
-                <label className="nl-field">
-                  <span>Motivo / tipo</span>
-                  <select value={draft.tipo} onChange={(e) => setDraft((d) => ({ ...d, tipo: e.target.value }))}>
-                    {tipoOpts.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="nl-field">
-                  <span>Título ou descrição curta</span>
-                  <input value={draft.titulo} onChange={(e) => setDraft((d) => ({ ...d, titulo: e.target.value }))} placeholder="Ex.: viagem a trabalho" maxLength={120} />
-                </label>
-                <label className="nl-field">
-                  <span>Data ou período</span>
-                  <input value={draft.data} onChange={(e) => setDraft((d) => ({ ...d, data: e.target.value }))} placeholder="Ex.: 2026-05-12 ou semana 12–16/05" maxLength={40} />
-                </label>
-                <label className="nl-field">
-                  <span>Horário ou faixa</span>
-                  <input value={draft.horario} onChange={(e) => setDraft((d) => ({ ...d, horario: e.target.value }))} placeholder="Ex.: manhã inteira, 14–18h" maxLength={40} />
-                </label>
-                <label className="nl-field">
-                  <span>Observações</span>
-                  <textarea rows={3} value={draft.observacoes} onChange={(e) => setDraft((d) => ({ ...d, observacoes: e.target.value }))} maxLength={400} />
-                </label>
-              </div>
-              <div className="workspace-form-modal-actions">
-                <button type="button" className="ghost-btn" onClick={closeModal}>Cancelar</button>
-                <button type="submit" className="secondary-btn">{editing ? 'Salvar bloqueio' : 'Adicionar'}</button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body,
-      ) : null}
-    </section>
-  )
-}
 
 const SKILL_TIPO_PRESETS = ['Tecnologia', 'Idioma', 'Metodologia', 'Soft skill', 'Ferramenta', 'Domínio', 'Outro'] as const
 const SKILL_NIVEL_PRESETS = ['Iniciante', 'Intermediário', 'Avançado', 'Especialista', 'Expert', 'Nativo / bilíngue'] as const
@@ -6523,13 +6070,13 @@ function CandidateSkillsPortfolioWorkspace({
             <span className="eyebrow">Visão rápida</span>
             <strong>Preferências e links do portfólio</strong>
           </div>
-          <p>Modelo de trabalho, links públicos e tags passam no mesmo salvamento — preencha o que fizer sentido para o seu momento de carreira.</p>
+          <p>Modelo de trabalho, links públicos e tags passam no mesmo salvamento ” preencha o que fizer sentido para o seu momento de carreira.</p>
         </div>
         <div className="nl-fields-grid nl-fields-grid--2">
           <label className="nl-field">
             <span>Modelo de trabalho</span>
             <select value={prefs.workModel} onChange={(e) => patchPrefs('workModel', e.target.value)}>
-              <option value="">—</option>
+              <option value="">”</option>
               {mergeEducationSummarySelectOptions(WORK_MODEL_OPTIONS, prefs.workModel).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -6538,7 +6085,7 @@ function CandidateSkillsPortfolioWorkspace({
           <label className="nl-field">
             <span>Disponibilidade</span>
             <select value={prefs.availability} onChange={(e) => patchPrefs('availability', e.target.value)}>
-              <option value="">—</option>
+              <option value="">”</option>
               {mergeEducationSummarySelectOptions(AVAILABILITY_OPTIONS, prefs.availability).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -6546,12 +6093,12 @@ function CandidateSkillsPortfolioWorkspace({
           </label>
           <label className="nl-field">
             <span>Pretensão / faixa breve</span>
-            <input value={prefs.salary} onChange={(e) => patchPrefs('salary', e.target.value)} placeholder="Ex.: R$ 8–10k PJ" maxLength={40} />
+            <input value={prefs.salary} onChange={(e) => patchPrefs('salary', e.target.value)} placeholder="Ex.: R$ 8“10k PJ" maxLength={40} />
           </label>
           <label className="nl-field">
             <span>Jornada / turno preferido</span>
             <select value={prefs.shift} onChange={(e) => patchPrefs('shift', e.target.value)}>
-              <option value="">—</option>
+              <option value="">”</option>
               {mergeEducationSummarySelectOptions(PORTFOLIO_SHIFT_PRESETS, prefs.shift).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -6953,7 +6500,7 @@ function RecordForm({
               value={String(values[fieldItem.name] ?? '')}
               onChange={(e) => setValues((v) => ({ ...v, [fieldItem.name]: e.target.value }))}
             >
-              <option value="">—</option>
+              <option value="">”</option>
               {mergeEducationSummarySelectOptions(fieldItem.options, String(values[fieldItem.name] ?? '')).map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
@@ -7105,13 +6652,6 @@ function fieldDate(name: string, value: string | null | undefined, displayLabel:
 
 function check(name: string, checked?: boolean, label?: string, hint?: string) {
   return { name, checked, label, hint }
-}
-
-function formatSalary(min?: number | null, max?: number | null) {
-  if (!min && !max) return 'Faixa a combinar'
-  const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-  if (min && max) return `${fmt.format(min)} - ${fmt.format(max)}`
-  return fmt.format(min || max || 0)
 }
 
 function formatJobDate(value: string) {
@@ -7350,13 +6890,14 @@ async function buildApiUrl(path: string, tenantId?: string) {
 }
 
 async function resolveApiBaseUrl() {
-  if (resolvedApiBaseUrl) return resolvedApiBaseUrl
+  if (resolvedApiBaseUrl !== null) return resolvedApiBaseUrl
 
   if (import.meta.env.DEV) {
     resolvedApiBaseUrl = DEV_PROXY_BASE_URL
     return resolvedApiBaseUrl
   }
 
+  // VITE_API_BASE_URL vazio → same-origin (/api via nginx do container).
   resolvedApiBaseUrl = API_BASE_URL
   return resolvedApiBaseUrl
 }
@@ -7431,7 +6972,6 @@ function getCompletionTargetSection(key: string): WorkspaceSectionId | null {
     projetos: 'projetos',
     pref: 'preferencias',
     preferencias: 'preferencias',
-    agenda: 'agenda',
     comp: 'competencias',
     competencias: 'competencias',
     certs: 'credenciais',

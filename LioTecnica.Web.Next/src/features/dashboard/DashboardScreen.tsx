@@ -41,7 +41,6 @@ import type {
 const DEFAULT_MIN_MATCH = 70;
 
 type VagaLookup = { id: string; titulo: string; codigo: string; cidade?: string | null; uf?: string | null };
-type AreaLookup = { id: string; nome: string };
 
 type EnumOption = { code: string; text: string };
 type EnumData = Record<string, EnumOption[]>;
@@ -175,18 +174,6 @@ function mapVagas(payload: unknown): VagaLookup[] {
     .filter(Boolean) as VagaLookup[];
 }
 
-function mapAreas(payload: unknown): AreaLookup[] {
-  const arr = Array.isArray(payload) ? (payload as unknown[]) : [];
-  return arr
-    .map((x) => {
-      const r = asRecord(x) ?? {};
-      const id = pickString(r.id, "");
-      if (!id) return null;
-      return { id, nome: pickString(r.nome, "") };
-    })
-    .filter(Boolean) as AreaLookup[];
-}
-
 function mapTopMatches(payload: unknown): TopMatchRow[] {
   const arr = Array.isArray(payload) ? (payload as unknown[]) : [];
   return arr
@@ -231,44 +218,17 @@ function mapOpenVagas(payload: unknown): OpenVagaRow[] {
     .filter(Boolean) as OpenVagaRow[];
 }
 
-function goToCreateVaga(payload?: {
-  titulo?: string;
-  area?: string;
-  status?: string;
-  keywords?: string;
-}) {
-  const url = new URL(`/app/vagas`, window.location.origin);
-  url.searchParams.set("open", "create");
-  if (payload?.titulo?.trim()) url.searchParams.set("titulo", payload.titulo.trim());
-  if (payload?.area?.trim()) url.searchParams.set("area", payload.area.trim());
-  if (payload?.status?.trim()) url.searchParams.set("status", payload.status.trim());
-  if (payload?.keywords?.trim()) url.searchParams.set("keywords", payload.keywords.trim());
-  window.location.href = url.toString();
-}
-
-function goToUploadCv() {
-  window.location.href = "/app/entradaemailpasta";
-}
-
-function goToExecutarMatch(vagaId?: string) {
-  const url = new URL("/app/matching", window.location.origin);
-  if (vagaId && vagaId !== "all") url.searchParams.set("vagaId", vagaId);
-  window.location.href = url.toString();
-}
-
 export default function DashboardScreen({
   initialKpis = null,
   initialFunil = null,
   initialSeries = null,
   initialVagas = null,
-  initialAreas = null,
   initialTopMatches = null,
 }: {
   initialKpis?: unknown;
   initialFunil?: unknown;
   initialSeries?: unknown;
   initialVagas?: unknown;
-  initialAreas?: unknown;
   initialTopMatches?: unknown;
 } = {}) {
   const [kpis, setKpis] = useState<Kpis>(() => mapKpis(initialKpis));
@@ -276,23 +236,17 @@ export default function DashboardScreen({
   const [funilConversao, setFunilConversao] = useState<FunilConversao | null>(null);
   const [series, setSeries] = useState<Series>(() => mapSeries(initialSeries));
   const [vagas, setVagas] = useState<VagaLookup[]>(() => mapVagas(initialVagas));
-  const [areas, setAreas] = useState<AreaLookup[]>(() => mapAreas(initialAreas));
   const [topMatches, setTopMatches] = useState<TopMatchRow[]>(() => mapTopMatches(initialTopMatches));
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [quickOpen, setQuickOpen] = useState(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
 
   const [vagaId, setVagaId] = useState<string>("all");
   const [minMatch, setMinMatch] = useState<number>(DEFAULT_MIN_MATCH);
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
-  const [quickArea, setQuickArea] = useState<string>("");
 
   const [enums, setEnums] = useState<EnumData>({});
-  const [quickTitle, setQuickTitle] = useState("");
-  const [quickStatus, setQuickStatus] = useState("");
-  const [quickKeywords, setQuickKeywords] = useState("");
 
   /* ── Solicitações pendentes widget ── */
   const [pendentes, setPendentes] = useState<PendingItem[]>([]);
@@ -396,16 +350,14 @@ export default function DashboardScreen({
       fetchJson<unknown>(`/api/dashboard/funil`),
       fetchJson<unknown>(`/api/dashboard/recebidos-series?days=14`),
       fetchJson<unknown>(`/api/dashboard/vagas`),
-      fetchJson<unknown>(`/api/dashboard/areas`),
       fetchJson<unknown>(`/api/dashboard/top-matches?minMatch=${DEFAULT_MIN_MATCH}&take=15`),
       fetchJson<unknown>(`/api/candidaturas/funil`),
     ])
-      .then(([k, f, s, v, a, t, fc]) => {
+      .then(([k, f, s, v, t, fc]) => {
         setKpis(mapKpis(k));
         setFunil(mapFunil(f));
         setSeries(mapSeries(s));
         setVagas(mapVagas(v));
-        setAreas(mapAreas(a));
         setTopMatches(mapTopMatches(t));
         setFunilConversao(mapFunilConversao(fc));
       })
@@ -425,19 +377,17 @@ export default function DashboardScreen({
 
   async function refreshAll() {
     try {
-      const [k, f, s, v, a, fc] = await Promise.all([
+      const [k, f, s, v, fc] = await Promise.all([
         fetchJson<unknown>(`/api/dashboard/kpis`),
         fetchJson<unknown>(`/api/dashboard/funil`),
         fetchJson<unknown>(`/api/dashboard/recebidos-series?days=14`),
         fetchJson<unknown>(`/api/dashboard/vagas`),
-        fetchJson<unknown>(`/api/dashboard/areas`),
         fetchJson<unknown>(`/api/candidaturas/funil`),
       ]);
       setKpis(mapKpis(k));
       setFunil(mapFunil(f));
       setSeries(mapSeries(s));
       setVagas(mapVagas(v));
-      setAreas(mapAreas(a));
       setFunilConversao(mapFunilConversao(fc));
       toast.success("Dashboard atualizado.");
     } catch {
@@ -723,9 +673,6 @@ export default function DashboardScreen({
           </Button>
           <Button variant="outline" size="sm" onClick={() => { if (!isEditMode) setFiltersOpen(true); }} disabled={isEditMode}>
             Filtros
-          </Button>
-          <Button size="sm" onClick={() => { if (!isEditMode) setQuickOpen(true); }} disabled={isEditMode}>
-            Ações
           </Button>
           <Button variant="outline" size="sm" onClick={() => { if (!isEditMode) void refreshAll(); }} disabled={isEditMode}>
             Atualizar
@@ -1066,117 +1013,6 @@ export default function DashboardScreen({
               >
                 Aplicar
               </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Ações rápidas drawer ── */}
-      {quickOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-stretch bg-black/40" role="dialog" aria-modal="true">
-          <div className="ml-auto h-dvh w-full max-w-md bg-white p-4 shadow-2xl">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="text-sm font-semibold">Ações rápidas</div>
-                <div className="text-muted-foreground text-sm">Atalhos para operação do RH</div>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setQuickOpen(false)}>
-                Fechar
-              </Button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-                <div className="text-sm font-medium mb-2">Criar vaga</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">Título</label>
-                    <input
-                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                      placeholder="Ex.: Analista de Marketing Jr"
-                      value={quickTitle}
-                      onChange={(e) => setQuickTitle(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">Área</label>
-                    <select
-                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                      value={quickArea}
-                      onChange={(e) => setQuickArea(e.target.value)}
-                    >
-                      <option value="">Selecionar área</option>
-                      {areas.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">Status</label>
-                    <select
-                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                      value={quickStatus}
-                      onChange={(e) => setQuickStatus(e.target.value)}
-                    >
-                      <option value="">Selecionar status</option>
-                      {(enums.vagaStatus ?? []).map((opt) => (
-                        <option key={opt.code} value={opt.code}>
-                          {opt.text}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-xs font-medium text-muted-foreground block mb-1">
-                      Palavras-chave (separadas por vírgula)
-                    </label>
-                    <input
-                      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                      placeholder="Ex.: power bi, seo, redes sociais, crm"
-                      value={quickKeywords}
-                      onChange={(e) => setQuickKeywords(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <Button
-                    className="w-full"
-                    size="sm"
-                    onClick={() => {
-                      const quickAreaName = areas.find((a) => a.id === quickArea)?.nome ?? "";
-                      goToCreateVaga({
-                        titulo: quickTitle,
-                        area: quickAreaName,
-                        status: quickStatus,
-                        keywords: quickKeywords,
-                      });
-                    }}
-                  >
-                    Criar vaga
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-                <div className="text-sm font-medium mb-2">Upload CV</div>
-                <div className="flex flex-col gap-2">
-                  <Button size="sm" onClick={goToUploadCv}>
-                    Abrir entrada de currículos
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4">
-                <div className="text-sm font-medium mb-2">Executar match</div>
-                <div className="text-muted-foreground text-sm mb-2">
-                  Ajustes: pesos, obrigatórios e sinônimos por vaga.
-                </div>
-                <Button className="w-full" size="sm" onClick={() => goToExecutarMatch(vagaId)}>
-                  Abrir matching
-                </Button>
-              </div>
             </div>
           </div>
         </div>

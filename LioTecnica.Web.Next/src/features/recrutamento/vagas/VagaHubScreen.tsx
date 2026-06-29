@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import { admissaoTrackingPath } from "@/features/admissao/admissaoRoutes";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -166,7 +167,7 @@ type WorkflowRhHubResponse = WorkflowRhHubItem[] | { items?: WorkflowRhHubItem[]
 
 function normalizeEtapaMacro(value: string | number | null | undefined): string {
   if (typeof value === "number") {
-    return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu"][value] ?? "Aplicada";
+    return ["Aplicada", "EmTriagem", "Entrevista", "Teste", "Proposta", "Contratado", "Recusado", "Desistiu", "EntrevistaTecnica", "ReprovadoRh", "ReprovadoGestor"][value] ?? "Aplicada";
   }
   return value ?? "Aplicada";
 }
@@ -1448,9 +1449,10 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
               });
               if (res.ok) {
                 const data = (await res.json()) as { id: string };
-                router.push(`/admissao/nova?id=${encodeURIComponent(data.id)}`);
+                router.push(admissaoTrackingPath(data.id));
               } else {
-                toast.error("Erro ao abrir admissão");
+                const body = await res.json().catch(() => null) as { message?: string } | null;
+                toast.error(body?.message ?? "Erro ao abrir admissão");
               }
             }}
           />

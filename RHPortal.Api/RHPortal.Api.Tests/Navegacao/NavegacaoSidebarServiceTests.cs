@@ -57,8 +57,8 @@ public sealed class NavegacaoSidebarServiceTests
         var totalItens = resp.Grupos.Sum(g => g.Itens.Count);
         Assert.Equal(esperado, totalItens);
 
-        // Invariante adicional: pacote 'folha-pagamento' hoje está inativo → 3 itens omitidos.
-        Assert.True(itensDePacoteInativo >= 3);
+        // Invariante adicional: pacote 'folha-pagamento' hoje está inativo → itens folha omitidos (exceto Desligamentos, em Principais).
+        Assert.True(itensDePacoteInativo >= 2);
     }
 
     [Fact]
@@ -95,13 +95,31 @@ public sealed class NavegacaoSidebarServiceTests
         var grupoFolha = resp.Grupos.FirstOrDefault(g => g.Key == "folha-pagamento");
         Assert.Null(grupoFolha);
 
-        // E também não pode vazar em nenhum outro grupo.
+        // E também não pode vazar batida/comissoes/entrevista (folha inativo). Desligamentos fica em Principais.
         var folhaEmQualquerGrupo = resp.Grupos
             .SelectMany(g => g.Itens)
             .Any(i => i.Href.StartsWith("/gestao/batida-ponto")
                    || i.Href.StartsWith("/gestao/comissoes")
-                   || i.Href.StartsWith("/gestao/desligamentos"));
+                   || i.Href.StartsWith("/gestao/desligamentos/entrevista"));
         Assert.False(folhaEmQualquerGrupo);
+    }
+
+    [Fact]
+    public void Build_AnalistaRh_VeDesligamentosAposSolicitacoes()
+    {
+        var resp = NavegacaoSidebarService.Build(
+            permissions: new[] { "solicitacoes-vaga.view", "folha.desligamentos.view" },
+            enabledModuleKeys: TodosModulosHabilitados(),
+            contextoEspecial: null);
+
+        var principais = resp.Grupos.Single(g => g.Key == "principais");
+        var hrefs = principais.Itens.Select(i => i.Href).ToList();
+        var idxSolicitacoes = hrefs.IndexOf("/gestao/solicitacoes");
+        var idxDesligamentos = hrefs.IndexOf("/gestao/desligamentos");
+        Assert.True(idxSolicitacoes >= 0);
+        Assert.True(idxDesligamentos >= 0);
+        Assert.True(idxDesligamentos > idxSolicitacoes);
+        Assert.True(principais.Itens.First(i => i.Href == "/gestao/desligamentos").Acessivel);
     }
 
     [Fact]
@@ -179,16 +197,25 @@ public sealed class NavegacaoSidebarServiceTests
     }
 
     [Fact]
-    public void Build_PendenciasESolicitacoes_VaoParaPrincipais()
+    public void Build_PendenciasESolicitacoes_AprovacoesSomenteOwner()
     {
-        var resp = NavegacaoSidebarService.Build(
+        var respTenant = NavegacaoSidebarService.Build(
             permissions: new[] { "aprovacoes-vaga.view", "solicitacoes-vaga.view" },
             enabledModuleKeys: TodosModulosHabilitados(),
             contextoEspecial: null);
 
-        var principais = resp.Grupos.Single(g => g.Key == "principais");
-        Assert.Contains(principais.Itens, i => i.Href == "/gestao/aprovacoes");
-        Assert.Contains(principais.Itens, i => i.Href == "/gestao/solicitacoes");
+        var principaisTenant = respTenant.Grupos.Single(g => g.Key == "principais");
+        Assert.DoesNotContain(principaisTenant.Itens, i => i.Href == "/gestao/aprovacoes");
+        Assert.Contains(principaisTenant.Itens, i => i.Href == "/gestao/solicitacoes");
+
+        var respOwner = NavegacaoSidebarService.Build(
+            permissions: new[] { "*" },
+            enabledModuleKeys: TodosModulosHabilitados(),
+            contextoEspecial: "owner-em-tenant");
+
+        var principaisOwner = respOwner.Grupos.Single(g => g.Key == "principais");
+        Assert.Contains(principaisOwner.Itens, i => i.Href == "/gestao/aprovacoes");
+        Assert.Contains(principaisOwner.Itens, i => i.Href == "/gestao/solicitacoes");
     }
 
     [Fact]
@@ -405,6 +432,23 @@ public sealed class NavegacaoSidebarServiceTests
         Assert.Equal("owner-em-tenant", resp.ContextoEspecial);
     }
 
+    [Fact]
+    public void Build_OwnerEmTenant_PortalAdmissaoComTenantIdNaUrl()
+    {
+        var resp = NavegacaoSidebarService.Build(
+            permissions: new[] { "*" },
+            enabledModuleKeys: TodosModulosHabilitados(),
+            contextoEspecial: "owner-em-tenant",
+            tenantId: "demo");
+
+        var recrutamento = resp.Grupos.FirstOrDefault(g => g.Key == "recrutamento-selecao");
+        Assert.NotNull(recrutamento);
+        var item = recrutamento!.Itens.FirstOrDefault(i => i.Id == "nav-portal-admissao");
+        Assert.NotNull(item);
+        Assert.Equal("/DocumentoAdmissao?tenantId=demo", item!.Href);
+        Assert.True(item.OpenInNewTab);
+    }
+
     // ── Alinhamento de buckets (Fase C) ────────────────────────────────────
 
     [Fact]
@@ -444,7 +488,9 @@ public sealed class NavegacaoSidebarServiceTests
         var hrefs = resp.Grupos.SelectMany(g => g.Itens).Select(i => i.Href).ToList();
         Assert.DoesNotContain("/gestao/batida-ponto", hrefs);
         Assert.DoesNotContain("/gestao/comissoes", hrefs);
-        Assert.DoesNotContain("/gestao/desligamentos", hrefs);
+        Assert.DoesNotContain("/gestao/desligamentos/entrevista-template", hrefs);
+        // Desligamentos operacional fica em Principais (fora do pacote folha inativo).
+        Assert.Contains("/gestao/desligamentos", hrefs);
     }
 
     [Fact]

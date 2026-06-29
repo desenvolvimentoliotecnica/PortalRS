@@ -16,16 +16,41 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { TIPO_DOC_LABELS } from "@/features/admissaoportal/constants";
+import {
+    buildDefaultSelectedDocs,
+    orderedTipoDocumentoEntries,
+    resolveStatusDocumentoCode,
+    resolveStatusDocumentoLabel,
+    resolveTipoDocumentoLabel,
+    type DocSelection,
+} from "@/features/admissao/admissaoDocumentosPadrao";
+import DocumentPreviewLightbox, { type PreviewItem } from "@/components/documents/DocumentPreviewLightbox";
+import DocumentThumbnail, { toPreviewItem } from "@/components/documents/DocumentThumbnail";
+import {
+    canAprovarPreAdmissao,
+    canGerarLinkPreAdmissao,
+    canRejeitarPreAdmissao,
+    canSolicitarDocumentosPreAdmissao,
+    canUploadManualPreAdmissao,
+    isPreAdmissaoAguardandoCandidato,
+    isPreAdmissaoRejeitada,
+    preAdmissaoStatusLabel,
+    preAdmissaoStatusCode,
+    preAdmissaoTimelinePhase,
+    type PreAdmissaoStatusValue,
+} from "@/features/admissao/preAdmissaoStatus";
 
 /* ────── types ────── */
 
 interface DocumentoResponse {
     id: string;
-    tipo: number;
+    tipo: number | string;
+    lado?: number;
     nomeArquivo: string;
     contentType: string;
     tamanhoBytes: number;
-    status: number;
+    status: number | string;
     observacaoRh: string | null;
     createdAtUtc: string;
     presignedUrl: string;
@@ -33,7 +58,7 @@ interface DocumentoResponse {
 
 interface PreAdmissaoDetail {
     id: string;
-    status: number;
+    status: PreAdmissaoStatusValue;
     nome: string;
     cpf: string | null;
     email: string | null;
@@ -57,37 +82,20 @@ interface PreAdmissaoDetail {
     integracaoMensagem: string | null;
     integradaEmUtc: string | null;
     documentos: DocumentoResponse[];
-    documentosSolicitados: { tipoDocumento: number; label: string; obrigatorio: boolean }[];
+    documentosSolicitados: { tipoDocumento: number | string; label: string; obrigatorio: boolean }[];
     accessToken: string | null;
 }
 
 /* ────── constants ────── */
 
 const STATUS_STEPS = [
-    { value: 1, label: "Preenchimento Pendente", desc: "Aguardando candidato preencher dados" },
-    { value: 2, label: "Em Revisão", desc: "RH revisando os dados e documentos" },
-    { value: 3, label: "Aprovada", desc: "Aguardando integração com TOTVS" },
-    { value: 5, label: "Integrada", desc: "Dados enviados ao TOTVS com sucesso" },
+    { phase: 1, label: "Preenchimento Pendente", desc: "Aguardando candidato preencher dados" },
+    { phase: 2, label: "Em Revisão", desc: "RH revisando os dados e documentos" },
+    { phase: 3, label: "Aprovada", desc: "Aguardando integração com TOTVS" },
+    { phase: 4, label: "Integrada", desc: "Dados enviados ao TOTVS com sucesso" },
 ];
 
-const TIPO_DOC_LABEL: Record<number, string> = {
-    0: "RG",
-    1: "CPF",
-    2: "CNH",
-    3: "Titulo de Eleitor",
-    4: "Reservista",
-    5: "Comprovante de Residencia",
-    6: "Certidao Nasc./Casamento",
-    7: "PIS/PASEP",
-    8: "Outro",
-    9: "Carteira de Trabalho (CTPS)",
-    10: "Declaracao de Uniao Estavel",
-    11: "RG dos Filhos",
-    12: "Certidao de Nascimento dos Filhos",
-    13: "Carteira de Vacinacao dos Filhos",
-    14: "Comprovante Bancario",
-    15: "Foto 3x4",
-};
+const TIPO_DOC_LABEL = TIPO_DOC_LABELS;
 
 const STATUS_DOC_LABEL: Record<number, string> = {
     0: "Pendente",
@@ -101,15 +109,6 @@ const STATUS_DOC_COLOR: Record<number, string> = {
     2: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
 };
 
-const PRE_ADMISSAO_STATUS_LABEL: Record<number, string> = {
-    0: "Rascunho",
-    1: "Preenchimento Pendente",
-    2: "Em Revisão",
-    3: "Aprovada",
-    4: "Rejeitada",
-    5: "Integrada",
-};
-
 const PRE_ADMISSAO_STATUS_VARIANT: Record<number, "default" | "secondary" | "destructive" | "outline"> = {
     0: "outline",
     1: "secondary",
@@ -117,6 +116,9 @@ const PRE_ADMISSAO_STATUS_VARIANT: Record<number, "default" | "secondary" | "des
     3: "secondary",
     4: "destructive",
     5: "secondary",
+    6: "secondary",
+    7: "secondary",
+    8: "default",
 };
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -146,8 +148,9 @@ function formatDate(iso: string | null | undefined) {
 
 /* ────── Timeline ────── */
 
-function Timeline({ status }: { status: number }) {
-    const isRejeitada = status === 4;
+function Timeline({ status }: { status: PreAdmissaoStatusValue }) {
+    const isRejeitada = isPreAdmissaoRejeitada(status);
+    const currentPhase = preAdmissaoTimelinePhase(status);
     return (
         <div className="flex items-start gap-0">
             {isRejeitada ? (
@@ -157,10 +160,10 @@ function Timeline({ status }: { status: number }) {
                 </div>
             ) : (
                 STATUS_STEPS.map((step, idx) => {
-                    const done = status >= step.value && status !== 4;
-                    const current = status === step.value;
+                    const done = currentPhase > step.phase;
+                    const current = currentPhase === step.phase;
                     return (
-                        <React.Fragment key={step.value}>
+                        <React.Fragment key={step.phase}>
                             <div className="flex flex-col items-center min-w-[100px]">
                                 <div className={`size-8 rounded-full flex items-center justify-center border-2 transition-colors ${done
                                     ? "bg-green-500 border-green-500 text-white"
@@ -178,7 +181,7 @@ function Timeline({ status }: { status: number }) {
                                 </div>
                             </div>
                             {idx < STATUS_STEPS.length - 1 && (
-                                <div className={`flex-1 h-0.5 mt-4 mx-1 ${status > step.value && status !== 4 ? "bg-green-500" : "bg-border"}`} />
+                                <div className={`flex-1 h-0.5 mt-4 mx-1 ${done ? "bg-green-500" : "bg-border"}`} />
                             )}
                         </React.Fragment>
                     );
@@ -206,13 +209,17 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const [rejeitarLoading, setRejeitarLoading] = useState(false);
 
     /* document solicitation */
-    const [selectedDocs, setSelectedDocs] = useState<Map<number, { checked: boolean; obrigatorio: boolean }>>(new Map());
+    const [selectedDocs, setSelectedDocs] = useState<Map<number, DocSelection>>(new Map());
     const [savingDocs, setSavingDocs] = useState(false);
+    const defaultsPersistedRef = React.useRef(false);
 
     /* link generation */
     const [linkCpf, setLinkCpf] = useState("");
+    const [enviarEmailLink, setEnviarEmailLink] = useState(true);
+    const [enviarWhatsappLink, setEnviarWhatsappLink] = useState(false);
     const [generatingLink, setGeneratingLink] = useState(false);
     const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+    const [linkEmailEnviado, setLinkEmailEnviado] = useState(false);
 
     /* manual upload */
     const [uploadTipo, setUploadTipo] = useState(0);
@@ -223,6 +230,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const [rejectDocId, setRejectDocId] = useState<string | null>(null);
     const [rejectObs, setRejectObs] = useState("");
     const [validatingDocId, setValidatingDocId] = useState<string | null>(null);
+    const [docPreview, setDocPreview] = useState<PreviewItem | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -238,18 +246,41 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
 
     useEffect(() => { void load(); }, [load]);
 
-    /* Initialize selectedDocs from server data */
+    const persistDocsSolicitados = useCallback(async (map: Map<number, DocSelection>, silent = false) => {
+        const documentos: { tipoDocumento: number; obrigatorio: boolean }[] = [];
+        map.forEach((val, key) => {
+            if (val.checked) documentos.push({ tipoDocumento: key, obrigatorio: val.obrigatorio });
+        });
+        await fetchJson(`/api/pre-admissao/${id}/documentos-solicitados`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ documentos }),
+        });
+        if (!silent) toast.success("Documentos solicitados salvos com sucesso!");
+        await load();
+    }, [id, load]);
+
+    /* Initialize selectedDocs from server data (API serializa enum como string) */
     useEffect(() => {
-        if (data?.documentosSolicitados) {
-            const map = new Map<number, { checked: boolean; obrigatorio: boolean }>();
-            data.documentosSolicitados.forEach(ds => map.set(ds.tipoDocumento, { checked: true, obrigatorio: ds.obrigatorio }));
-            setSelectedDocs(map);
-            setLinkCpf(data.cpf ?? "");
-            if (data.accessToken) {
-                setGeneratedUrl(`${window.location.origin}/DocumentoAdmissao?preAdmissaoId=${data.id}`);
-            }
+        if (!data) return;
+
+        setLinkCpf(data.cpf ?? "");
+        if (data.accessToken) {
+            setGeneratedUrl(`${window.location.origin}/DocumentoAdmissao?preAdmissaoId=${data.id}`);
         }
-    }, [data]);
+
+        if (!canSolicitarDocumentosPreAdmissao(data.status)) return;
+
+        const map = buildDefaultSelectedDocs(data.documentosSolicitados);
+        setSelectedDocs(map);
+
+        if (data.documentosSolicitados.length === 0 && !defaultsPersistedRef.current) {
+            defaultsPersistedRef.current = true;
+            void persistDocsSolicitados(map, true).catch(() => {
+                defaultsPersistedRef.current = false;
+            });
+        }
+    }, [data, persistDocsSolicitados]);
 
     async function handleAprovar() {
         setAprovarLoading(true);
@@ -291,17 +322,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     async function handleSaveDocsSolicitados() {
         setSavingDocs(true);
         try {
-            const documentos: { tipoDocumento: number; obrigatorio: boolean }[] = [];
-            selectedDocs.forEach((val, key) => {
-                if (val.checked) documentos.push({ tipoDocumento: key, obrigatorio: val.obrigatorio });
-            });
-            await fetchJson(`/api/pre-admissao/${id}/documentos-solicitados`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ documentos }),
-            });
-            toast.success("Documentos solicitados salvos com sucesso!");
-            await load();
+            await persistDocsSolicitados(selectedDocs);
         } catch (e) {
             toast.error(`Falha ao salvar documentos: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
@@ -312,13 +333,19 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     async function handleGerarLink() {
         setGeneratingLink(true);
         try {
-            const res = await fetchJson<{ url: string }>(`/api/pre-admissao/${id}/gerar-link`, {
+            const res = await fetchJson<{ publicUrl?: string; url?: string; emailEnviado?: boolean; whatsappEnviado?: boolean }>(`/api/pre-admissao/${id}/gerar-link`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ cpf: linkCpf.trim() }),
+                body: JSON.stringify({
+                    cpf: linkCpf.trim(),
+                    enviarEmail: enviarEmailLink,
+                    enviarWhatsapp: enviarWhatsappLink,
+                }),
             });
-            setGeneratedUrl(res.url);
-            toast.success("Link gerado com sucesso!");
+            setGeneratedUrl(res.publicUrl ?? res.url ?? null);
+            setLinkEmailEnviado(!!res.emailEnviado);
+            toast.success(res.emailEnviado ? "Link gerado e e-mail enviado!" : "Link gerado com sucesso!");
+            await load();
         } catch (e) {
             toast.error(`Falha ao gerar link: ${e instanceof Error ? e.message : "erro"}`);
         } finally {
@@ -402,9 +429,14 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
         );
     }
 
-    const canApprove = data.status === 2;
-    const canReject = data.status === 1 || data.status === 2;
-    const docsValidados = data.documentos.filter(d => d.status === 1).length;
+    const canApprove = canAprovarPreAdmissao(data.status);
+    const canReject = canRejeitarPreAdmissao(data.status);
+    const canGerarLinkCandidato = canGerarLinkPreAdmissao(data.status);
+    const canSolicitarDocumentos = canSolicitarDocumentosPreAdmissao(data.status);
+    const canUploadManual = canUploadManualPreAdmissao(data.status);
+    const aguardandoCandidato = isPreAdmissaoAguardandoCandidato(data.status);
+    const statusVariant = PRE_ADMISSAO_STATUS_VARIANT[preAdmissaoStatusCode(data.status)] ?? "outline";
+    const docsValidados = data.documentos.filter(d => resolveStatusDocumentoCode(d.status) === 1).length;
     const docsTotal = data.documentos.length;
 
     return (
@@ -416,14 +448,22 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                         <ArrowLeft className="size-4 mr-1" /> Voltar
                     </Button>
                     <h1 className="text-2xl font-semibold tracking-tight">{data.nome}</h1>
-                    <div className="flex items-center gap-2 mt-1">
-                        <Badge variant={PRE_ADMISSAO_STATUS_VARIANT[data.status]}>
-                            {PRE_ADMISSAO_STATUS_LABEL[data.status] ?? data.status}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant={statusVariant}>
+                            {preAdmissaoStatusLabel(data.status)}
                         </Badge>
                         <span className="text-xs text-muted-foreground">Criada em {formatDate(data.createdAtUtc)}</span>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {canGerarLinkCandidato && (
+                        <Button
+                            size="sm"
+                            onClick={() => document.getElementById("link-candidato")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                        >
+                            <Link className="size-4 mr-1" /> Enviar link ao candidato
+                        </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={async () => {
                         // Baixa o payload TOTVS exato (o mesmo que o sync-service consome).
                         // Atualiza em tempo real conforme o sync callback roda (matriculaRM, resultado).
@@ -457,6 +497,17 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     )}
                 </div>
             </div>
+
+            {aguardandoCandidato && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50/60 dark:border-sky-900 dark:bg-sky-950/20 px-5 py-4">
+                    <p className="text-sm font-medium text-sky-900 dark:text-sky-100">Próximo passo para o RH</p>
+                    <p className="text-sm text-sky-800/90 dark:text-sky-200/90 mt-1">
+                        {canSolicitarDocumentos
+                            ? "Revise os documentos solicitados abaixo, confirme o CPF e clique em «Gerar e enviar link» para o candidato acessar o Portal de Admissão."
+                            : "Acompanhe o preenchimento do candidato. Quando os documentos chegarem, valide nesta tela."}
+                    </p>
+                </div>
+            )}
 
             {/* Timeline */}
             <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm overflow-x-auto">
@@ -520,42 +571,51 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
             </div>
 
             {/* CARD A: Solicitar Documentos */}
-            {data.status === 1 && (
+            {canSolicitarDocumentos && (
                 <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Solicitar Documentos</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {Object.entries(TIPO_DOC_LABEL).map(([key, label]) => {
-                            const tipo = Number(key);
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">Solicitar Documentos</h2>
+                    <p className="text-xs text-muted-foreground mb-4">
+                        Documentos padrão CLT já vêm selecionados como obrigatórios. Ajuste se necessário e salve.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {orderedTipoDocumentoEntries().map(([tipo, label]) => {
                             const entry = selectedDocs.get(tipo);
                             const checked = entry?.checked ?? false;
                             const obrigatorio = entry?.obrigatorio ?? false;
                             return (
-                                <div key={tipo} className="flex items-center gap-2 rounded-lg border border-border/40 px-3 py-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={(e) => {
-                                            const next = new Map(selectedDocs);
-                                            next.set(tipo, { checked: e.target.checked, obrigatorio });
-                                            setSelectedDocs(next);
-                                        }}
-                                        className="size-4 rounded border-gray-300 accent-primary"
-                                    />
-                                    <span className="text-sm flex-1 min-w-0 truncate">{label}</span>
-                                    {checked && (
-                                        <label className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={obrigatorio}
-                                                onChange={(e) => {
-                                                    const next = new Map(selectedDocs);
-                                                    next.set(tipo, { checked, obrigatorio: e.target.checked });
-                                                    setSelectedDocs(next);
-                                                }}
-                                                className="size-3 rounded"
-                                            />
-                                            Obrig.
-                                        </label>
+                                <div key={tipo} className="flex flex-col gap-1 rounded-lg border border-border/40 px-3 py-2">
+                                    <div className="flex items-start gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={(e) => {
+                                                const next = new Map(selectedDocs);
+                                                next.set(tipo, { checked: e.target.checked, obrigatorio: e.target.checked ? obrigatorio || true : false });
+                                                setSelectedDocs(next);
+                                            }}
+                                            className="size-4 mt-0.5 rounded border-gray-300 accent-primary shrink-0"
+                                        />
+                                        <span className="text-sm flex-1 min-w-0 leading-snug">{label}</span>
+                                        {checked && (
+                                            <label className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 cursor-pointer" title="Obrigatório para o candidato">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={obrigatorio}
+                                                    onChange={(e) => {
+                                                        const next = new Map(selectedDocs);
+                                                        next.set(tipo, { checked, obrigatorio: e.target.checked });
+                                                        setSelectedDocs(next);
+                                                    }}
+                                                    className="size-3 rounded accent-primary"
+                                                />
+                                                Obrig.
+                                            </label>
+                                        )}
+                                    </div>
+                                    {tipo === 9 && checked && (
+                                        <p className="text-[10px] text-muted-foreground pl-6 leading-tight">
+                                            Inclui páginas de experiências e foto com data de emissão (frente e verso).
+                                        </p>
                                     )}
                                 </div>
                             );
@@ -570,12 +630,15 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
             )}
 
             {/* CARD B: Link de Acesso do Candidato */}
-            {data.status === 1 && (
-                <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+            {canGerarLinkCandidato && (
+                <div id="link-candidato" className="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20 p-5 shadow-sm scroll-mt-4">
+                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-1">
                         <Link className="size-4 inline-block mr-1 -mt-0.5" />
                         Link de Acesso do Candidato
                     </h2>
+                    <p className="text-xs text-muted-foreground mb-4">
+                        Informe o CPF, gere o link e envie ao candidato para preenchimento no Portal de Admissão.
+                    </p>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <div className="flex-1">
                             <label className="text-xs font-medium text-muted-foreground">CPF do Candidato</label>
@@ -589,10 +652,23 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                         <div className="flex items-end">
                             <Button size="sm" onClick={() => void handleGerarLink()} disabled={generatingLink || !linkCpf.trim()}>
                                 <Link className="size-4 mr-1" />
-                                {generatingLink ? "Gerando..." : "Gerar Link"}
+                                {generatingLink ? "Gerando..." : "Gerar e enviar link"}
                             </Button>
                         </div>
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-4 text-sm">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={enviarEmailLink} onChange={(e) => setEnviarEmailLink(e.target.checked)} className="size-4 rounded accent-primary" />
+                            Enviar por e-mail{data.email ? ` (${data.email})` : ""}
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={enviarWhatsappLink} onChange={(e) => setEnviarWhatsappLink(e.target.checked)} className="size-4 rounded accent-primary" />
+                            Enviar por WhatsApp{data.celular ? ` (${data.celular})` : ""}
+                        </label>
+                    </div>
+                    {linkEmailEnviado && (
+                        <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">E-mail de acesso enviado ao candidato.</p>
+                    )}
                     {generatedUrl && (
                         <div className="mt-3 flex items-center gap-2 rounded-lg bg-muted/40 px-4 py-3">
                             <code className="text-xs flex-1 min-w-0 truncate select-all">{generatedUrl}</code>
@@ -612,7 +688,7 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
             )}
 
             {/* CARD C: Upload Manual (RH) */}
-            {(data.status === 1 || data.status === 2) && (
+            {canUploadManual && (
                 <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                         <Upload className="size-4 inline-block mr-1 -mt-0.5" />
@@ -681,71 +757,116 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     <p className="text-sm text-muted-foreground">Nenhum documento recebido ainda.</p>
                 ) : (
                     <div className="space-y-2">
-                        {data.documentos.map((doc) => (
-                            <div key={doc.id} className="flex items-center gap-3 rounded-lg border border-border/40 px-4 py-3">
-                                <FileText className="size-4 text-muted-foreground shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium truncate">{doc.nomeArquivo}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {TIPO_DOC_LABEL[doc.tipo] ?? `Tipo ${doc.tipo}`} · {formatBytes(doc.tamanhoBytes)} · {formatDate(doc.createdAtUtc)}
+                        {data.documentos.map((doc) => {
+                            const statusCode = resolveStatusDocumentoCode(doc.status);
+                            const tipoLabel = resolveTipoDocumentoLabel(doc.tipo, doc.lado);
+                            const statusLabel = resolveStatusDocumentoLabel(doc.status);
+                            const canValidate = statusCode === 0 && canAprovarPreAdmissao(data.status);
+                            return (
+                            <div key={doc.id} className="flex items-start gap-3 rounded-lg border border-border/40 px-4 py-3">
+                                {doc.presignedUrl ? (
+                                    <DocumentThumbnail
+                                        url={doc.presignedUrl}
+                                        nomeArquivo={doc.nomeArquivo}
+                                        contentType={doc.contentType}
+                                        size="md"
+                                        className="mt-0.5"
+                                        onClick={() => setDocPreview(toPreviewItem(
+                                            doc.presignedUrl,
+                                            doc.nomeArquivo,
+                                            doc.contentType,
+                                        ))}
+                                    />
+                                ) : (
+                                    <div className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20">
+                                        <FileText className="size-5 text-muted-foreground" />
                                     </div>
-                                    {doc.status === 2 && doc.observacaoRh && (
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-semibold leading-snug">{tipoLabel}</div>
+                                    <div className="text-xs text-muted-foreground truncate mt-0.5">{doc.nomeArquivo}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                        {formatBytes(doc.tamanhoBytes)} · {formatDate(doc.createdAtUtc)}
+                                    </div>
+                                    {statusCode === 2 && doc.observacaoRh && (
                                         <div className="text-xs text-red-600 dark:text-red-400 mt-1">
                                             Motivo: {doc.observacaoRh}
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_DOC_COLOR[doc.status] ?? "bg-muted text-muted-foreground"}`}>
-                                        {STATUS_DOC_LABEL[doc.status] ?? doc.status}
+                                <div className="flex flex-col items-end gap-2 shrink-0 sm:flex-row sm:items-center">
+                                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_DOC_COLOR[statusCode] ?? "bg-muted text-muted-foreground"}`}>
+                                        {statusLabel}
                                     </span>
-                                    {doc.presignedUrl && (
+                                    <div className="flex items-center gap-1">
+                                        {doc.presignedUrl && (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 gap-1 px-2"
+                                                    onClick={() => setDocPreview(toPreviewItem(
+                                                        doc.presignedUrl,
+                                                        doc.nomeArquivo,
+                                                        doc.contentType,
+                                                    ))}
+                                                    title="Visualizar"
+                                                >
+                                                    <Eye className="size-3.5" />
+                                                    <span className="hidden sm:inline text-xs">Ver</span>
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 gap-1 px-2"
+                                                    asChild
+                                                    title="Baixar"
+                                                >
+                                                    <a href={doc.presignedUrl} download={doc.nomeArquivo} target="_blank" rel="noopener noreferrer">
+                                                        <Download className="size-3.5" />
+                                                        <span className="hidden sm:inline text-xs">Baixar</span>
+                                                    </a>
+                                                </Button>
+                                            </>
+                                        )}
+                                        {canValidate && (
+                                            <>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                    onClick={() => void handleValidarDoc(doc.id, 1)}
+                                                    disabled={validatingDocId === doc.id}
+                                                    title="Validar"
+                                                >
+                                                    <CheckCircle2 className="size-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={() => { setRejectDocId(doc.id); setRejectObs(""); }}
+                                                    disabled={validatingDocId === doc.id}
+                                                    title="Rejeitar"
+                                                >
+                                                    <XCircle className="size-4" />
+                                                </Button>
+                                            </>
+                                        )}
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-8 w-8 p-0"
-                                            onClick={() => window.open(doc.presignedUrl, "_blank")}
-                                            title="Visualizar"
+                                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                                            onClick={() => void handleDeleteDoc(doc.id)}
+                                            title="Excluir"
                                         >
-                                            <Eye className="size-4" />
+                                            <Trash2 className="size-4" />
                                         </Button>
-                                    )}
-                                    {doc.status === 0 && data.status === 2 && (
-                                        <>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 px-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                onClick={() => void handleValidarDoc(doc.id, 1)}
-                                                disabled={validatingDocId === doc.id}
-                                                title="Validar"
-                                            >
-                                                <CheckCircle2 className="size-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                onClick={() => { setRejectDocId(doc.id); setRejectObs(""); }}
-                                                disabled={validatingDocId === doc.id}
-                                                title="Rejeitar"
-                                            >
-                                                <XCircle className="size-4" />
-                                            </Button>
-                                        </>
-                                    )}
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
-                                        onClick={() => void handleDeleteDoc(doc.id)}
-                                        title="Excluir"
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
+                                    </div>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -839,6 +960,8 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <DocumentPreviewLightbox preview={docPreview} onClose={() => setDocPreview(null)} />
         </section>
     );
 }

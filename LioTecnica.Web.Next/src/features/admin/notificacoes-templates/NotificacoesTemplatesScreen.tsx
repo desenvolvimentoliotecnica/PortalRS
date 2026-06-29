@@ -18,6 +18,7 @@ import {
   type CanalNotificacao,
   type EtapaMacroCandidatura,
   type NotificacaoTemplateItem,
+  ETAPA_KANBAN_LABELS,
   listarNotificacoesTemplates,
   resolveCanal,
   resolveEtapa,
@@ -33,23 +34,15 @@ const ETAPAS_EDITAVEIS: EtapaMacroCandidatura[] = [
   "Teste",
   "Proposta",
   "Contratado",
+  "ReprovadoRh",
+  "ReprovadoGestor",
   "Recusado",
   "Desistiu",
 ];
 
 const CANAIS: CanalNotificacao[] = ["Email", "WhatsApp"];
 
-const ETAPA_LABEL: Record<EtapaMacroCandidatura, string> = {
-  Aplicada: "Aplicada",
-  EmTriagem: "Em triagem",
-  Entrevista: "Entrevista",
-  EntrevistaTecnica: "Entrevista técnica",
-  Teste: "Teste",
-  Proposta: "Proposta",
-  Contratado: "Contratado",
-  Recusado: "Recusado",
-  Desistiu: "Desistiu",
-};
+const ETAPA_LABEL = ETAPA_KANBAN_LABELS;
 
 const ETAPA_COLOR: Record<EtapaMacroCandidatura, string> = {
   Aplicada: "bg-sky-50 text-sky-800 border-sky-200",
@@ -59,6 +52,8 @@ const ETAPA_COLOR: Record<EtapaMacroCandidatura, string> = {
   Teste: "bg-amber-50 text-amber-800 border-amber-200",
   Proposta: "bg-cyan-50 text-cyan-800 border-cyan-200",
   Contratado: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  ReprovadoRh: "bg-orange-50 text-orange-800 border-orange-200",
+  ReprovadoGestor: "bg-rose-50 text-rose-800 border-rose-200",
   Recusado: "bg-red-50 text-red-800 border-red-200",
   Desistiu: "bg-zinc-50 text-zinc-700 border-zinc-200",
 };

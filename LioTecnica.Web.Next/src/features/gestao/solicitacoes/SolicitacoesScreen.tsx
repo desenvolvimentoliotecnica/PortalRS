@@ -1,14 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMobileSolicitacaoFormPreferred } from "@/hooks/useMobileSolicitacaoFormPreferred";
-import { SolicitacaoVagaStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
-import {
-    EMPTY_SOLICITACAO_CONTAGENS,
-    expandStatusKeys,
-    type SolicitacaoVagaContagens,
-} from "@/features/gestao/solicitacoes/solicitacaoStatusRules";
 import { useAuth, useHasPermission, useIsAdminOrOwner } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import Swal from "sweetalert2";
@@ -19,27 +13,22 @@ import {
     Pencil,
     Trash2,
     Send,
-    Clock,
     CheckCircle2,
-    Columns3,
-    List,
     XCircle,
     AlertTriangle,
-    FileText,
+    CalendarDays,
     Lock,
     UserMinus,
-    Briefcase,
-    TrendingUp,
     Activity,
     Ban,
     Copy,
+    MoreHorizontal,
     Plus,
     ChevronDown,
     ChevronUp,
     ChevronsUpDown,
 } from "lucide-react";
-import PromocoesScreen from "@/features/gestao/promocoes/PromocoesScreen";
-import DesligamentosScreen from "@/features/gestao/desligamentos/DesligamentosScreen";
+import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 
@@ -61,6 +50,13 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { RhAnalistaAutocomplete } from "@/components/autocomplete/RhAnalistaAutocomplete";
 
 import SolicitacaoFormModal, { type SolicitacaoDraft } from "./SolicitacaoFormModal";
@@ -74,6 +70,13 @@ import {
     type SolicitacaoTimelineEventoResponse,
 } from "@/features/gestao/shared/etapaUtils";
 import PaginationBar from "@/components/pagination/PaginationBar";
+import {
+    formatSolicitacaoCodigoRm,
+    formatTipoSolicitacaoLabel,
+    rowMatchesTipoSolicitacaoFilter,
+    tipoSolicitacaoBadgeClass,
+    type TipoSolicitacaoFilter,
+} from "@/features/gestao/solicitacoes/rmRequisicaoFormat";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -98,6 +101,9 @@ interface SolicitacaoGridRow {
     etapaPendenteCom: string | null;
     /** Aprovador da etapa pendente (workflow) — melhor que `aprovadorId` legado na linha. */
     etapaPendenteAprovadorId?: string | null;
+    rmIdReq?: number | null;
+    rmRequisicaoCodigo?: string | null;
+    rmTipoRequisicao?: string | null;
 }
 
 interface TenantConfiguracaoDto {
@@ -128,6 +134,30 @@ function isStatusDistribuivelParaAnalistaRh(status: number | string): boolean {
         || s === "AguardandoReprocessamentoRm"
         || s === "16"
     );
+}
+
+function detailToGridRow(d: SolicitacaoDetail): SolicitacaoGridRow {
+    return {
+        id: d.id,
+        titulo: d.titulo,
+        urgencia: d.urgencia,
+        status: d.status,
+        solicitanteId: d.solicitanteId,
+        solicitanteNome: d.solicitanteNome,
+        aprovadorId: d.aprovadorId,
+        aprovadorNome: d.aprovadorNome,
+        analistaRhResponsavelUserId: d.analistaRhResponsavelUserId ?? null,
+        analistaRhResponsavelNome: d.analistaRhResponsavelNome ?? null,
+        centroCustoNome: d.centroCustoNome,
+        qtdPosicoes: d.qtdPosicoes,
+        tipoSolicitacao: d.tipoSolicitacao,
+        isConfidencial: d.isConfidencial,
+        substituidoNome: d.substituidoNome,
+        createdAtUtc: d.createdAtUtc,
+        etapaPendenteLabel: null,
+        etapaPendenteCom: null,
+        rmRequisicaoCodigo: d.rmRequisicaoCodigo ?? null,
+    };
 }
 
 function dedupeSolicitacoesPorId(items: SolicitacaoGridRow[]): SolicitacaoGridRow[] {
@@ -184,7 +214,7 @@ interface SolicitacaoDetail {
 
 type StatusKey = 0 | 1 | 2 | 3 | 4 | string;
 type UrgenciaKey = 0 | 1 | 2 | 3 | string;
-type SolicitacaoSortKey = "titulo" | "secao" | "tipo" | "posicoes" | "urgencia" | "status" | "aguardando" | "data" | "abertoHa" | "requisitante";
+type SolicitacaoSortKey = "codigoRm" | "titulo" | "secao" | "tipo" | "posicoes" | "urgencia" | "data" | "abertoHa" | "requisitante";
 
 /* ──────────────────────────── helpers ──────────────────────────── */
 
@@ -204,38 +234,6 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return (await res.json()) as T;
 }
 
-/** Colunas do kanban (rótulo legado; status real vem de `SolicitacaoVagaStatusBadgeEl`). */
-const KANBAN_COL_META: Record<"Rascunho" | "PendenteAprovacao" | "Aprovada" | "Reprovada", { label: string; color: string; icon: React.ElementType }> = {
-    "Rascunho": { label: "Rascunho", color: "bg-zinc-400/15 text-zinc-600", icon: FileText },
-    "PendenteAprovacao": { label: "Em andamento", color: "bg-amber-500/15 text-amber-700", icon: Clock },
-    "Aprovada": { label: "Aprovada / avançadas", color: "bg-emerald-500/15 text-emerald-700", icon: CheckCircle2 },
-    "Reprovada": { label: "Reprovada", color: "bg-red-500/15 text-red-700", icon: XCircle },
-};
-
-const ROW_STATUS_COL_PENDENTE_LIKE = new Set<string>([
-    "PendenteAprovacao", "1",
-    "AjustesNecessarios", "4",
-    "PendenteAprovacaoRh", "5",
-    "EmIntegracao", "7",
-    "PendenteAprovacaoAumentoHC", "10",
-    "PendenteTriagem", "11",
-    "EmTriagem", "12",
-    "DevolvidaTriagemGestor", "13",
-    "PendenteIntegracaoRm", "14",
-    "ErroIntegracaoRm", "15",
-    "AguardandoReprocessamentoRm", "16",
-]);
-
-
-function rowStatusMatchesKanbanCol(r: SolicitacaoGridRow, col: keyof typeof KANBAN_COL_META): boolean {
-    const s = String(r.status);
-    if (col === "PendenteAprovacao") return ROW_STATUS_COL_PENDENTE_LIKE.has(s);
-    return s === col || (col === "Rascunho" && (s === "0" || s === "Rascunho"))
-        || (col === "Aprovada" && (s === "Aprovada" || s === "2" || s === "Concluida" || s === "8"))
-        || (col === "Reprovada" && (s === "Reprovada" || s === "3"))
-        ;
-}
-
 const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
     "Baixa": { label: "Baixa", color: "bg-sky-500/15 text-sky-700" },
     "Media": { label: "Média", color: "bg-amber-500/15 text-amber-700" },
@@ -246,10 +244,6 @@ const URGENCIA_MAP: Record<string, { label: string; color: string }> = {
     2: { label: "Alta", color: "bg-orange-500/15 text-orange-700" },
     3: { label: "Crítica", color: "bg-red-500/15 text-red-700" },
 };
-
-function statusBadge(status: number | string) {
-    return <SolicitacaoVagaStatusBadgeEl raw={status} />;
-}
 
 function urgenciaBadge(urgencia: number | string) {
     const u = URGENCIA_MAP[urgencia] ?? URGENCIA_MAP["Media"] ?? URGENCIA_MAP[1];
@@ -283,6 +277,10 @@ function formatOpenDays(iso: string | null | undefined) {
     return days === 1 ? "1 dia" : `${days} dias`;
 }
 
+function solicitacaoCodigoRm(r: Pick<SolicitacaoGridRow, "rmIdReq" | "rmRequisicaoCodigo">): string {
+    return formatSolicitacaoCodigoRm(r) || "—";
+}
+
 function truncateTitle(value: string | null | undefined, maxLength = 60) {
     const text = value?.trim() ?? "";
     if (!text) return "—";
@@ -310,59 +308,17 @@ async function showAnalistaRhObrigatoriaAlert() {
 
 /* ──────────────────────────── component ──────────────────────────── */
 
-/* ══════════════════════════════════════════════════════════════
-   Wrapper com tabs: Vagas | Promoções | Desligamentos
-   ══════════════════════════════════════════════════════════════ */
-
-type TopTab = "vagas" | "promocoes" | "desligamentos";
-
-const TOP_TABS: { id: TopTab; label: string; icon: React.ElementType }[] = [
-    { id: "vagas", label: "Requisição de Pessoal", icon: Briefcase },
-    { id: "promocoes", label: "Movimentação de Pessoal", icon: TrendingUp },
-    { id: "desligamentos", label: "Desligamento", icon: UserMinus },
-];
-
 export default function SolicitacoesScreen() {
-    const searchParams = useSearchParams();
-    const initialTab = (searchParams.get("tab") as TopTab | null) ?? "vagas";
-    const validTabs: TopTab[] = ["vagas", "promocoes", "desligamentos"];
-    const [topTab, setTopTab] = useState<TopTab>(validTabs.includes(initialTab) ? initialTab : "vagas");
-
     return (
-        <section className="space-y-4">
+        <section className={`${VAGAS_FONT_135X_CLASS} space-y-4`}>
+            <style>{VAGAS_FONT_135X_STYLE}</style>
             <div>
                 <h1 className="text-2xl font-semibold tracking-tight">Solicitações</h1>
                 <p className="text-muted-foreground text-sm mt-0.5">
-                    Gerencie solicitações de vagas, promoções e desligamentos
+                    Gerencie solicitações de vagas e substituições.
                 </p>
             </div>
-
-            {/* ── Top-level tabs ── */}
-            <div className="flex gap-1 border-b border-border/40">
-                {TOP_TABS.map(tab => {
-                    const Icon = tab.icon;
-                    const active = topTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setTopTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-[1px] transition-colors ${
-                                active
-                                    ? "border-primary text-primary"
-                                    : "border-transparent text-muted-foreground hover:text-foreground"
-                            }`}
-                        >
-                            <Icon className="size-4" />
-                            {tab.label}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {topTab === "vagas" && <SolicitacoesVagaContent />}
-            {topTab === "promocoes" && <PromocoesScreen />}
-            {topTab === "desligamentos" && <DesligamentosScreen />}
+            <SolicitacoesVagaContent />
         </section>
     );
 }
@@ -370,6 +326,8 @@ export default function SolicitacoesScreen() {
 function SolicitacoesVagaContent() {
     const { me } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const viewFromUrlHandled = useRef(false);
     const prefersMobileForm = useMobileSolicitacaoFormPreferred();
     const canViewRhContratacoes = useHasPermission("rh.contratacoes.view");
     const canTriagemRhContratacoes = useHasPermission("rh.contratacoes.triagem");
@@ -384,33 +342,26 @@ function SolicitacoesVagaContent() {
     const isRhEspecialista = normalizedRoles.some((role) => role.includes("especialista") && role.includes("rh"));
     const isRhLegadoAmplo = normalizedRoles.some((role) => role === "rh" || role.startsWith("recrutador"));
     const rhListaAmpla =
-        !isRhAnalista && (
-            isRhEspecialista
-            || isRhLegadoAmplo
-            || canViewRhContratacoes
-            || canTriagemRhContratacoes
-            || canSelecaoRhContratacoes
-        );
+        isRhAnalista
+        || isRhEspecialista
+        || isRhLegadoAmplo
+        || canViewRhContratacoes
+        || canTriagemRhContratacoes
+        || canSelecaoRhContratacoes;
     const canDistribuirParaAnalistaRh = isAdminOrOwner || isRhEspecialista;
 
     /* ── data ── */
     const [loading, setLoading] = useState(true);
     const [rows, setRows] = useState<SolicitacaoGridRow[]>([]);
     const [pendingRows, setPendingRows] = useState<SolicitacaoGridRow[]>([]);
-    const [contagens, setContagens] = useState<SolicitacaoVagaContagens>(EMPTY_SOLICITACAO_CONTAGENS);
     const [selectedSolicitacaoIds, setSelectedSolicitacaoIds] = useState<string[]>([]);
     const [requisicoesVagaOrigemRm, setRequisicoesVagaOrigemRm] = useState(false);
 
     /* ── filters ── */
     const [q, setQ] = useState("");
-    // "ativas" = padrão enterprise: mostra itens em andamento no fluxo,
-    // incluindo solicitações já aprovadas que ainda seguem para tratativa do RH.
-    const [statusFilter, setStatusFilter] = useState("ativas");
-    const [viewMode, setViewModeRaw] = useState<"list" | "kanban">(() => {
-        if (typeof window === "undefined") return "list";
-        return (localStorage.getItem("renderrh.solicitacoes.viewMode") as "list" | "kanban") || "list";
-    });
-    const setViewMode = (m: "list" | "kanban") => { setViewModeRaw(m); localStorage.setItem("renderrh.solicitacoes.viewMode", m); };
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
+    const [tipoFilter, setTipoFilter] = useState<TipoSolicitacaoFilter>("todas");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [sortKey, setSortKey] = useState<SolicitacaoSortKey>("data");
@@ -509,10 +460,9 @@ function SolicitacoesVagaContent() {
             } catch { /* ignore */ }
         }
 
-        const [myData, allData, contagensData] = await Promise.all([
-            fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true&pageSize=100`),
-            fetchJson<SolicitacaoGridRow[]>(`${API}?pageSize=100`).catch(() => []),
-            fetchJson<SolicitacaoVagaContagens>(`${API}/contagens`).catch(() => EMPTY_SOLICITACAO_CONTAGENS),
+        const [myData, allData] = await Promise.all([
+            fetchJson<SolicitacaoGridRow[]>(`${API}?apenasMeus=true&pageSize=500`),
+            fetchJson<SolicitacaoGridRow[]>(`${API}?pageSize=500`).catch(() => []),
         ]);
         const allItems = Array.isArray(allData) ? allData : [];
         const mine = Array.isArray(myData) ? myData : [];
@@ -532,7 +482,6 @@ function SolicitacoesVagaContent() {
             nextRows = dedupeSolicitacoesPorId([...mine, ...allItems, ...precisoAprovar]);
         }
         setRows(nextRows);
-        setContagens(contagensData ?? EMPTY_SOLICITACAO_CONTAGENS);
 
         const isPendente = (s: number | string) => s === 1 || s === "PendenteAprovacao";
         const pending = funcId
@@ -558,44 +507,38 @@ function SolicitacoesVagaContent() {
         return () => { alive = false; };
     }, [syncList]);
 
-    const statusAtivosSet = useMemo(
-        () => expandStatusKeys(contagens.statusAtivosKeys),
-        [contagens.statusAtivosKeys],
-    );
-    const statusAprovadosSet = useMemo(
-        () => expandStatusKeys(contagens.statusAprovadosKeys),
-        [contagens.statusAprovadosKeys],
-    );
-
     /* ── filtering ── */
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return rows.filter((r) => {
-            const s = String(r.status);
-            if (statusFilter === "ativas" && !statusAtivosSet.has(s)) return false;
-            if (statusFilter === "aprovadas" && !statusAprovadosSet.has(s)) return false;
-            if (statusFilter === "reprovadas" && s !== "Reprovada" && s !== "3") return false;
-            if (statusFilter === "canceladas" && s !== "Cancelada" && s !== "6") return false;
-            // "todas" — sem filtro de status
+            if (dateFrom && r.createdAtUtc && new Date(r.createdAtUtc) < new Date(dateFrom)) return false;
+            if (dateTo && r.createdAtUtc && new Date(r.createdAtUtc) > new Date(`${dateTo}T23:59:59`)) return false;
+            if (!rowMatchesTipoSolicitacaoFilter(r, tipoFilter)) return false;
             if (!term) return true;
-            const blob = [r.titulo, r.solicitanteNome, r.centroCustoNome].filter(Boolean).join(" ").toLowerCase();
+            const blob = [
+                solicitacaoCodigoRm(r),
+                r.rmRequisicaoCodigo,
+                r.rmIdReq != null ? String(r.rmIdReq) : "",
+                r.titulo,
+                r.solicitanteNome,
+                r.centroCustoNome,
+            ].filter(Boolean).join(" ").toLowerCase();
             return blob.includes(term);
         });
-    }, [q, rows, statusFilter, statusAtivosSet, statusAprovadosSet]);
+    }, [q, rows, dateFrom, dateTo, tipoFilter]);
 
     useEffect(() => {
         setPage(1);
-    }, [q, statusFilter, pageSize]);
+    }, [q, dateFrom, dateTo, tipoFilter, pageSize]);
 
     const sorted = useMemo(() => {
         const getValue = (r: SolicitacaoGridRow): string | number => {
+            if (sortKey === "codigoRm") return solicitacaoCodigoRm(r);
             if (sortKey === "titulo") return r.titulo ?? "";
             if (sortKey === "secao") return r.centroCustoNome ?? "";
             if (sortKey === "tipo") return String(r.tipoSolicitacao);
             if (sortKey === "posicoes") return r.qtdPosicoes ?? 0;
             if (sortKey === "urgencia") return String(r.urgencia);
-            if (sortKey === "status") return String(r.status);
-            if (sortKey === "aguardando") return r.etapaPendenteCom ?? r.etapaPendenteLabel ?? "";
             if (sortKey === "requisitante") return r.solicitanteNome ?? "";
             return new Date(r.createdAtUtc).getTime() || 0;
         };
@@ -692,6 +635,44 @@ function SolicitacoesVagaContent() {
         if (prefersMobileForm) {
             bumpFormNonce();
             setFormOpen(true);
+            return;
+        }
+        bumpFormNonce();
+        setFormOpen(true);
+    }
+
+    useEffect(() => {
+        if (loading || viewFromUrlHandled.current) return;
+        const viewIdParam = searchParams.get("view")?.trim();
+        if (!viewIdParam) return;
+
+        viewFromUrlHandled.current = true;
+
+        void (async () => {
+            const existing = rows.find((r) => r.id === viewIdParam);
+            if (existing) {
+                openView(existing);
+            } else {
+                try {
+                    const detail = await fetchJson<SolicitacaoDetail>(`${API}/${encodeURIComponent(viewIdParam)}`);
+                    openView(detailToGridRow(detail));
+                } catch {
+                    toast.error("Requisição não encontrada.");
+                }
+            }
+            router.replace("/app/gestao/solicitacoes", { scroll: false });
+        })();
+    }, [loading, rows, searchParams, router]);
+
+    function openCopyFromRow(row: SolicitacaoGridRow) {
+        setCopySourceId(row.id);
+        setEditId(null);
+        setViewId(null);
+        setViewMetaRow(null);
+        setResubmit(false);
+        setFormInitialData(null);
+        if (prefersMobileForm) {
+            router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(row.id)}`);
             return;
         }
         bumpFormNonce();
@@ -908,51 +889,37 @@ function SolicitacoesVagaContent() {
             {/* Ao aprovar, troca direto para aba triagem */}
 
             {/* ── filters + table ── */}
-            <div className="rounded-xl border border-border/40 bg-card p-4 shadow-sm">
-                {/* ── Header + filtros ── */}
-                <div className="mb-3 space-y-3">
-                    {/* linha 1: filtros + busca + ações */}
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                        {(() => {
-                            const chips = [
-                                { key: "ativas",     label: "Ativas",      count: contagens.ativas,     cls: "bg-amber-500/10 text-amber-700 border-amber-300 data-[active=true]:bg-amber-500 data-[active=true]:text-white data-[active=true]:border-amber-500" },
-                                { key: "aprovadas",  label: "Aprovadas",   count: contagens.aprovadas,  cls: "bg-emerald-500/10 text-emerald-700 border-emerald-300 data-[active=true]:bg-emerald-600 data-[active=true]:text-white data-[active=true]:border-emerald-600" },
-                                { key: "reprovadas", label: "Reprovadas",  count: contagens.reprovadas, cls: "bg-red-500/10 text-red-700 border-red-300 data-[active=true]:bg-red-600 data-[active=true]:text-white data-[active=true]:border-red-600" },
-                                { key: "canceladas", label: "Canceladas",  count: contagens.canceladas, cls: "bg-zinc-500/10 text-zinc-600 border-zinc-300 data-[active=true]:bg-zinc-600 data-[active=true]:text-white data-[active=true]:border-zinc-600" },
-                                { key: "todas",      label: "Todas",       count: contagens.todas,      cls: "bg-muted text-muted-foreground border-border data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:border-foreground" },
-                            ] as const;
-                            return (
-                                <div className="flex flex-wrap justify-end gap-1.5">
-                                    {chips.map(c => (
-                                        <button
-                                            key={c.key}
-                                            type="button"
-                                            data-active={statusFilter === c.key}
-                                            onClick={() => setStatusFilter(c.key)}
-                                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-xs font-medium transition-all ${c.cls}`}
-                                        >
-                                            {c.label}
-                                            <span className="rounded-full bg-black/10 px-1.5 py-px text-[10px] font-semibold tabular-nums">{c.count}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            );
-                        })()}
-                        <div className="flex items-center gap-2">
-                            <div className="relative min-w-[200px]">
-                                <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    className="pl-9 h-8"
-                                    placeholder="Buscar título, área…"
-                                    value={q}
-                                    onChange={(e) => setQ(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex items-center rounded-md border border-input bg-background p-0.5">
-                                <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("list")} title="Lista"><List className="size-3.5" /></button>
-                                <button type="button" className={`inline-flex items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors ${viewMode === "kanban" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setViewMode("kanban")} title="Kanban"><Columns3 className="size-3.5" /></button>
-                            </div>
-                        </div>
+            <div className="rounded-xl border border-border/40 bg-card shadow-sm">
+                <div className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mr-auto">
+                        <CalendarDays className="size-3.5" />
+                        <span>Criado em:</span>
+                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data inicial" />
+                        <span>–</span>
+                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" title="Data final" />
+                        {(dateFrom || dateTo) && (
+                            <button type="button" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-xs text-muted-foreground hover:text-foreground underline">Limpar</button>
+                        )}
+                    </div>
+                    <select
+                        value={tipoFilter}
+                        onChange={(e) => setTipoFilter(e.target.value as TipoSolicitacaoFilter)}
+                        className="rounded-md border border-input bg-background px-3 text-sm"
+                        aria-label="Filtrar por tipo de requisição"
+                    >
+                        <option value="todas">Todas</option>
+                        <option value="aumento_quadro">Aumento de Quadro</option>
+                        <option value="substituicao">Substituição</option>
+                    </select>
+                    <div className="relative min-w-[180px] flex-1 max-w-sm">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            className="pl-8 h-8 text-sm"
+                            placeholder="Buscar código RM, título, área…"
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                        />
+                    </div>
                         {canDistribuirParaAnalistaRh && (
                             <Button
                                 size="sm"
@@ -976,11 +943,8 @@ function SolicitacoesVagaContent() {
                             <RefreshCw className="size-4" />
                             <span className="hidden sm:inline">Atualizar</span>
                         </Button>
-                    </div>
                 </div>
 
-                {viewMode === "list" ? (
-                <>
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -1004,6 +968,9 @@ function SolicitacoesVagaContent() {
                                     />
                                 </TableHead>
                             )}
+                            <TableHead className="w-28 cursor-pointer select-none text-center" onClick={() => handleSort("codigoRm")}>
+                                Código RM<SortIcon col="codigoRm" />
+                            </TableHead>
                             <TableHead className="cursor-pointer select-none" onClick={() => handleSort("titulo")}>
                                 Título<SortIcon col="titulo" />
                             </TableHead>
@@ -1016,12 +983,6 @@ function SolicitacoesVagaContent() {
                             <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("posicoes")}>
                                 Posições<SortIcon col="posicoes" />
                             </TableHead>
-                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("status")}>
-                                Status<SortIcon col="status" />
-                            </TableHead>
-                            <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("aguardando")}>
-                                Aguardando<SortIcon col="aguardando" />
-                            </TableHead>
                             <TableHead className="w-1 whitespace-nowrap text-center cursor-pointer select-none" onClick={() => handleSort("data")}>
                                 Data<SortIcon col="data" />
                             </TableHead>
@@ -1031,13 +992,13 @@ function SolicitacoesVagaContent() {
                             <TableHead className="w-1 whitespace-nowrap text-left cursor-pointer select-none" onClick={() => handleSort("requisitante")}>
                                 Requisitante<SortIcon col="requisitante" />
                             </TableHead>
-                            <TableHead className="w-1 whitespace-nowrap text-center">Ações</TableHead>
+                            <TableHead className="w-12" />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 11 : 10} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 10 : 9} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -1059,9 +1020,12 @@ function SolicitacoesVagaContent() {
                                             />
                                         </TableCell>
                                     )}
+                                    <TableCell className="whitespace-nowrap text-center font-mono text-xs text-muted-foreground">
+                                        {solicitacaoCodigoRm(r) || "—"}
+                                    </TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="font-semibold" title={r.titulo}>{truncateTitle(r.titulo)}</span>
+                                        <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                            <span title={r.titulo}>{truncateTitle(r.titulo)}</span>
                                             {r.isConfidencial && (
                                                 <span title="Vaga Confidencial"><Lock className="size-3.5 text-amber-600" /></span>
                                             )}
@@ -1078,149 +1042,140 @@ function SolicitacoesVagaContent() {
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={r.centroCustoNome ?? ""}>
+                                        <div className="max-w-[220px] truncate text-xs text-muted-foreground" title={r.centroCustoNome ?? ""}>
                                             {r.centroCustoNome ?? "—"}
                                         </div>
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap text-center">
-                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${r.tipoSolicitacao === 1 ? "bg-blue-500/15 text-blue-700" : "bg-sky-500/15 text-sky-700"}`}>
-                                            {r.tipoSolicitacao === 1 ? "Substituição" : "Nova"}
+                                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tipoSolicitacaoBadgeClass(Number(r.tipoSolicitacao), r.rmTipoRequisicao)}`}>
+                                            {formatTipoSolicitacaoLabel(Number(r.tipoSolicitacao), r.rmTipoRequisicao)}
                                         </span>
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap text-center text-sm font-mono">{r.qtdPosicoes}</TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">{statusBadge(r.status)}</TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        {(r.status === 1 || r.status === "PendenteAprovacao" || r.status === 5 || r.status === "PendenteAprovacaoRh") && r.etapaPendenteLabel ? (
-                                            <div className="text-xs leading-tight">
-                                                <div className="text-muted-foreground">{r.etapaPendenteLabel}</div>
-                                                {r.etapaPendenteCom && (
-                                                    <div className="font-medium truncate max-w-[140px]" title={r.etapaPendenteCom}>{r.etapaPendenteCom}</div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-muted-foreground text-xs">—</span>
-                                        )}
+                                    <TableCell className="whitespace-nowrap text-center text-xs text-muted-foreground">
+                                        <span className="font-medium text-foreground">{formatDate(r.createdAtUtc)}</span>
                                     </TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        <span className="text-xs font-medium text-foreground">{formatDate(r.createdAtUtc)}</span>
-                                    </TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        <span className="text-xs text-muted-foreground">{formatOpenDays(r.createdAtUtc)}</span>
+                                    <TableCell className="whitespace-nowrap text-center text-xs text-muted-foreground">
+                                        {formatOpenDays(r.createdAtUtc)}
                                     </TableCell>
                                     <TableCell className="text-left">
                                         <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={r.solicitanteNome ?? ""}>
                                             {r.solicitanteNome ?? "—"}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="whitespace-nowrap text-center">
-                                        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                            {isExternoAoSolicitanteLista(r) ? (
-                                                <>
-                                                    <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                        <Eye />
-                                                    </Button>
-                                                    <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
-                                                        <Activity />
-                                                    </Button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    {/* Rascunho: editar, enviar, excluir */}
-                                                    {!requisicoesVagaOrigemRm && (r.status === 0 || r.status === "Rascunho") && (
-                                                        <>
-                                                            <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                                <Pencil />
-                                                            </Button>
-                                                            <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                                <Send />
-                                                            </Button>
-                                                            <Button variant="destructive" size="icon-xs" title="Excluir" onClick={() => setDeleteTarget(r)}>
-                                                                <Trash2 />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    {/* AjustesNecessarios: editar, enviar */}
-                                                    {!requisicoesVagaOrigemRm && (r.status === 4 || r.status === "AjustesNecessarios") && (
-                                                        <>
-                                                            <Button variant="outline" size="icon-xs" title="Editar" onClick={() => openEdit(r)}>
-                                                                <Pencil />
-                                                            </Button>
-                                                            <Button variant="outline" size="icon-xs" title="Enviar para aprovação" onClick={() => void submitForApproval(r.id)}>
-                                                                <Send />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    {/* Pendente: editar e reenviar + cancelar */}
-                                                    {!requisicoesVagaOrigemRm && (r.status === 1 || r.status === "PendenteAprovacao") && (
-                                                        <>
-                                                            <Button variant="outline" size="icon-xs" title="Editar e reenviar" onClick={() => openEditForApproval(r)}>
-                                                                <Pencil />
-                                                            </Button>
-                                                            <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
-                                                                <Ban />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    {/* Aprovada/Reprovada: apenas visualizar */}
-                                                    {(requisicoesVagaOrigemRm ||
-                                                      r.status === 2 || r.status === "Aprovada" ||
-                                                      r.status === 3 || r.status === "Reprovada") && (
-                                                        <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                            <Eye />
-                                                        </Button>
-                                                    )}
-                                                    {/* AguardaRH / AguardaHC: visualizar + cancelar se sem movimentação */}
-                                                    {!requisicoesVagaOrigemRm && (r.status === 5 || r.status === "PendenteAprovacaoRh" ||
-                                                      r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
-                                                        <>
-                                                            <Button variant="outline" size="icon-xs" title="Visualizar" onClick={() => openView(r)}>
-                                                                <Eye />
-                                                            </Button>
-                                                            <Button variant="outline" size="icon-xs" title="Cancelar solicitação" className="hover:text-red-600 hover:border-red-300" onClick={() => void cancelSolicitacao(r.id)}>
-                                                                <Ban />
-                                                            </Button>
-                                                        </>
-                                                    )}
-                                                    {/* Copiar: todas as linhas */}
-                                                    {!requisicoesVagaOrigemRm && (
-                                                        <Button
-                                                            variant="outline"
-                                                            size="icon-xs"
-                                                            title="Copiar vaga"
-                                                            onClick={() => {
-                                                                setCopySourceId(r.id);
-                                                                setEditId(null);
-                                                                setViewId(null);
-                                                                setViewMetaRow(null);
-                                                                setResubmit(false);
-                                                                setFormInitialData(null);
-                                                                if (prefersMobileForm) {
-                                                                    router.push(`/gestao/solicitacoes/nova?copyFrom=${encodeURIComponent(r.id)}`);
-                                                                    return;
-                                                                }
-                                                                bumpFormNonce();
-                                                                setFormOpen(true);
-                                                            }}
-                                                        >
-                                                            <Copy className="size-3.5" />
-                                                        </Button>
-                                                    )}
-                                                    {/* Acompanhamento: todas as linhas */}
-                                                    <Button variant="outline" size="icon-xs" title="Acompanhamento" onClick={() => void openTimeline(r)}>
-                                                        <Activity />
-                                                    </Button>
-                                                </>
-                                            )}
-                                        </div>
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" size="icon-sm">
+                                                    <MoreHorizontal className="size-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-52">
+                                                {isExternoAoSolicitanteLista(r) ? (
+                                                    <>
+                                                        <DropdownMenuItem onClick={() => openView(r)}>
+                                                            <Eye className="mr-2 size-4" />
+                                                            Visualizar
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => void openTimeline(r)}>
+                                                            <Activity className="mr-2 size-4" />
+                                                            Acompanhamento
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {(requisicoesVagaOrigemRm
+                                                            || r.status === 2 || r.status === "Aprovada"
+                                                            || r.status === 3 || r.status === "Reprovada"
+                                                            || r.status === 5 || r.status === "PendenteAprovacaoRh"
+                                                            || r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
+                                                            <DropdownMenuItem onClick={() => openView(r)}>
+                                                                <Eye className="mr-2 size-4" />
+                                                                Visualizar
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (r.status === 0 || r.status === "Rascunho") && (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => openEdit(r)}>
+                                                                    <Pencil className="mr-2 size-4" />
+                                                                    Editar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => void submitForApproval(r.id)}>
+                                                                    <Send className="mr-2 size-4" />
+                                                                    Enviar para aprovação
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (r.status === 4 || r.status === "AjustesNecessarios") && (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => openEdit(r)}>
+                                                                    <Pencil className="mr-2 size-4" />
+                                                                    Editar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => void submitForApproval(r.id)}>
+                                                                    <Send className="mr-2 size-4" />
+                                                                    Enviar para aprovação
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (r.status === 1 || r.status === "PendenteAprovacao") && (
+                                                            <DropdownMenuItem onClick={() => openEditForApproval(r)}>
+                                                                <Pencil className="mr-2 size-4" />
+                                                                Editar e reenviar
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        <DropdownMenuItem onClick={() => void openTimeline(r)}>
+                                                            <Activity className="mr-2 size-4" />
+                                                            Acompanhamento
+                                                        </DropdownMenuItem>
+                                                        {!requisicoesVagaOrigemRm && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => openCopyFromRow(r)}>
+                                                                    <Copy className="mr-2 size-4" />
+                                                                    Copiar vaga
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (
+                                                            (r.status === 1 || r.status === "PendenteAprovacao"
+                                                                || r.status === 5 || r.status === "PendenteAprovacaoRh"
+                                                                || r.status === 10 || r.status === "PendenteAprovacaoAumentoHC") && (
+                                                                <>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem
+                                                                        className="text-orange-600 focus:text-orange-600"
+                                                                        onClick={() => void cancelSolicitacao(r.id)}
+                                                                    >
+                                                                        <Ban className="mr-2 size-4" />
+                                                                        Cancelar solicitação
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )
+                                                        )}
+                                                        {!requisicoesVagaOrigemRm && (r.status === 0 || r.status === "Rascunho") && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive focus:text-destructive"
+                                                                    onClick={() => setDeleteTarget(r)}
+                                                                >
+                                                                    <Trash2 className="mr-2 size-4" />
+                                                                    Excluir
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 11 : 10} className="text-center text-muted-foreground py-8">
-                                    {statusFilter === "ativas"
-                                        ? "Nenhuma solicitação ativa. Tudo em dia! 🎉"
-                                        : "Nenhuma solicitação encontrada para o filtro selecionado."}
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 10 : 9} className="text-center text-muted-foreground py-8">
+                                    Nenhuma solicitação encontrada para os filtros selecionados.
                                 </TableCell>
                             </TableRow>
                         )}
@@ -1238,63 +1193,6 @@ function SolicitacoesVagaContent() {
                             setPage(1);
                         }}
                     />
-                )}
-                </>
-                ) : (
-                    /* ── Kanban View ── */
-                    <div className="p-4 overflow-x-auto">
-                        {loading ? (
-                            <div className="flex gap-4">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="w-64 shrink-0 space-y-3">
-                                        <div className="h-8 animate-pulse rounded-lg bg-muted" />
-                                        <div className="h-20 animate-pulse rounded-lg bg-muted" />
-                                        <div className="h-20 animate-pulse rounded-lg bg-muted" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="flex gap-4 items-start">
-                                {(["Rascunho", "PendenteAprovacao", "Aprovada", "Reprovada"] as const).map((col) => {
-                                    const meta = KANBAN_COL_META[col];
-                                    const Icon = meta.icon;
-                                    const colItems = filtered.filter((r) => rowStatusMatchesKanbanCol(r, col));
-                                    return (
-                                        <div key={col} className="w-64 shrink-0 flex flex-col rounded-xl border border-border/50 bg-muted/10">
-                                            <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
-                                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${meta.color}`}>
-                                                    <Icon className="size-3" />{meta.label}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground ml-auto">{colItems.length}</span>
-                                            </div>
-                                            <div className="flex-1 space-y-2 p-2 max-h-[calc(100vh-340px)] overflow-y-auto">
-                                                {colItems.length === 0 ? (
-                                                    <div className="rounded-lg border border-dashed border-border/40 py-8 text-center text-xs text-muted-foreground">
-                                                        Nenhuma
-                                                    </div>
-                                                ) : colItems.map((r) => (
-                                                    <div
-                                                        key={r.id}
-                                                        className="rounded-lg border border-border/50 bg-card p-3 shadow-sm"
-                                                    >
-                                                        <div className="text-sm font-medium leading-tight truncate">{r.titulo}</div>
-                                                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                                            <span>{r.qtdPosicoes} pos.</span>
-                                                            <span>{urgenciaBadge(r.urgencia)}</span>
-                                                        </div>
-                                                        <div className="mt-2 text-[10px] text-muted-foreground">
-                                                            {formatDate(r.createdAtUtc)}
-                                                            {r.solicitanteNome && <> · {r.solicitanteNome}</>}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
                 )}
             </div>
 

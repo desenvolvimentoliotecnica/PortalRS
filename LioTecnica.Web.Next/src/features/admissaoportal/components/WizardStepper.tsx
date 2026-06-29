@@ -1,41 +1,50 @@
 "use client";
 
-import { STEP_LABELS, TOTAL_STEPS } from "../useAdmissaoWizardStore";
 import { Check } from "lucide-react";
+import { MAIN_WIZARD_STEPS } from "../wizardSteps";
 
 interface Props {
     currentStep: number;
     completedSteps: Set<number>;
+    isSubmitted?: boolean;
 }
 
-export default function WizardStepper({ currentStep, completedSteps }: Props) {
+export default function WizardStepper({ currentStep, completedSteps, isSubmitted }: Props) {
     return (
-        <div className="flex items-center justify-between gap-1 px-2 py-3 overflow-x-auto">
-            {STEP_LABELS.map((label, i) => {
-                const isActive = i === currentStep;
-                const isDone = completedSteps.has(i);
+        <div className="flex items-center justify-between gap-1 px-2 py-4 overflow-x-auto">
+            {MAIN_WIZARD_STEPS.map((item, index) => {
+                const done = isSubmitted || completedSteps.has(item.step) || currentStep > item.step;
+                const active = !isSubmitted && currentStep === item.step;
+                const isLast = index === MAIN_WIZARD_STEPS.length - 1;
+
                 return (
-                    <div key={i} className="flex flex-col items-center gap-1 min-w-0 flex-1">
-                        <div
-                            className={`flex items-center justify-center size-8 rounded-full text-xs font-bold transition-all ${
-                                isDone
-                                    ? "bg-emerald-500 text-white"
-                                    : isActive
-                                      ? "bg-primary text-primary-foreground ring-2 ring-primary/30"
-                                      : "bg-muted text-muted-foreground"
-                            }`}
-                        >
-                            {isDone ? <Check className="size-4" /> : i + 1}
+                    <div key={item.step} className="flex min-w-0 flex-1 items-center">
+                        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                            <div
+                                className={`flex size-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                                    done
+                                        ? "bg-emerald-500 text-white"
+                                        : active
+                                          ? "bg-[#0047BB] text-white ring-4 ring-[#0047BB]/20"
+                                          : "bg-slate-200 text-slate-500"
+                                }`}
+                            >
+                                {done && !active ? <Check className="size-4" /> : item.step}
+                            </div>
+                            <span
+                                className={`max-w-[72px] truncate text-center text-[10px] leading-tight sm:text-xs ${
+                                    active ? "font-semibold text-[#0047BB]" : done ? "text-emerald-600" : "text-slate-500"
+                                }`}
+                            >
+                                {item.label}
+                            </span>
                         </div>
-                        <span
-                            className={`text-[10px] text-center leading-tight truncate max-w-[64px] ${
-                                isActive ? "text-primary font-semibold" : "text-muted-foreground"
-                            }`}
-                        >
-                            {label}
-                        </span>
-                        {i < TOTAL_STEPS - 1 && (
-                            <div className="hidden" />
+                        {!isLast && (
+                            <div
+                                className={`mx-1 mb-5 h-0.5 min-w-[12px] flex-1 ${
+                                    done ? "bg-emerald-400" : "bg-slate-200"
+                                }`}
+                            />
                         )}
                     </div>
                 );

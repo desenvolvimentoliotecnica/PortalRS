@@ -1,115 +1,162 @@
 "use client";
 
-import React from "react";
-import { Check, Upload, ClipboardList, Users, Send, PartyPopper } from "lucide-react";
-import { useAdmissaoWizardStore, STEP_LABELS, TOTAL_STEPS } from "../useAdmissaoWizardStore";
+import {
+    Building2,
+    Check,
+    CheckCircle2,
+    ClipboardList,
+    ExternalLink,
+    FileText,
+    Headphones,
+    Home,
+    Search,
+    User,
+} from "lucide-react";
+import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
+import { MAIN_WIZARD_STEPS, type WizardPlan } from "../wizardSteps";
 
-const STEP_ICONS = [PartyPopper, Upload, ClipboardList, Users, Send];
-
-// Key fields used to measure form-fill progress within step 2
-const KEY_FIELDS = [
-    "nome", "cpf", "dataNascimento", "sexo", "email", "telefone",
-    "cep", "logradouro", "numero", "cidade", "uf",
-    "bancoCodigo", "agencia", "conta",
-] as const;
-
-function motivationalMessage(pct: number): string {
-    if (pct === 0)  return "Vamos começar!";
-    if (pct < 25)   return "Boa sorte, você está indo bem!";
-    if (pct < 50)   return "Continue assim!";
-    if (pct < 75)   return "Mais da metade concluída!";
-    if (pct < 100)  return "Quase lá, falta pouco!";
-    return "Processo concluído! 🎉";
-}
+const STEP_ICONS = {
+    "dados-pessoais": User,
+    "dados-gerais": Home,
+    documentos: FileText,
+    bancario: Building2,
+    revisao: Search,
+    conclusao: CheckCircle2,
+} as const;
 
 interface Props {
     nome: string | undefined;
     isSubmitted: boolean;
+    plan: WizardPlan;
+    onOpenHelp?: () => void;
 }
 
-export default function WizardSidebar({ nome, isSubmitted }: Props) {
-    const { currentStep, completedSteps, formData } = useAdmissaoWizardStore();
+export default function WizardSidebar({ nome, isSubmitted, plan, onOpenHelp }: Props) {
+    const { currentStep, completedSteps, setStep } = useAdmissaoWizardStore();
+    const firstName = nome?.trim().split(/\s+/)[0] || "Candidato";
 
-    // Form-fill progress: counts key fields filled in formData, contributes within step 2
-    const filledKeyFields = KEY_FIELDS.filter(f => {
-        const v = formData[f];
-        return v != null && String(v).trim() !== "";
-    }).length;
-    const formBonus = currentStep >= 2 ? (filledKeyFields / KEY_FIELDS.length) / TOTAL_STEPS : 0;
+    const completedCount = MAIN_WIZARD_STEPS.filter((s) =>
+        isSubmitted || completedSteps.has(s.step) || currentStep > s.step,
+    ).length;
+    const pct = isSubmitted ? 100 : Math.round((completedCount / MAIN_WIZARD_STEPS.length) * 100);
 
-    const pct = isSubmitted
-        ? 100
-        : Math.min(99, Math.round((Math.max(completedSteps.size, currentStep) / TOTAL_STEPS + formBonus) * 100));
+    function isStepDone(step: number): boolean {
+        return isSubmitted || completedSteps.has(step) || currentStep > step;
+    }
 
-    const radius = 40;
-    const circ   = 2 * Math.PI * radius;
+    function isStepActive(step: number): boolean {
+        if (isSubmitted && step === 6) return true;
+        return currentStep === step;
+    }
+
+    function canNavigateTo(step: number): boolean {
+        if (isSubmitted) return step === 6;
+        if (step === 6) return false;
+        if (step <= currentStep) return step !== currentStep;
+        for (let i = 1; i < step; i++) {
+            if (!completedSteps.has(i) && currentStep < i) return false;
+        }
+        return step <= currentStep + 1 || completedSteps.has(step - 1);
+    }
+
+    function handleClick(step: number) {
+        if (!canNavigateTo(step)) return;
+        setStep(step);
+    }
 
     return (
-        <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-sidebar text-sidebar-foreground p-6 gap-6 min-h-full">
-            {/* Candidato */}
-            {nome && (
-                <div>
-                    <div className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest mb-0.5">Candidato</div>
-                    <div className="font-semibold text-sm truncate">{nome}</div>
-                </div>
-            )}
-
-            {/* Progresso circular */}
-            <div className="flex flex-col items-center gap-2">
-                <div className="relative size-24">
-                    <svg className="size-24 -rotate-90" viewBox="0 0 96 96">
-                        {/* Track */}
-                        <circle cx="48" cy="48" r={radius} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
-                        {/* Fill */}
-                        <circle
-                            cx="48" cy="48" r={radius} fill="none"
-                            stroke="rgba(255,255,255,0.9)" strokeWidth="8"
-                            strokeLinecap="round"
-                            strokeDasharray={circ}
-                            strokeDashoffset={circ * (1 - pct / 100)}
-                            className="transition-all duration-700"
-                        />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-2xl font-black leading-none text-white">{pct}%</span>
-                        <span className="text-[9px] text-sidebar-foreground/50 uppercase tracking-wider mt-0.5">completo</span>
-                    </div>
-                </div>
-                <p className="text-xs text-center text-sidebar-foreground/60 italic px-2">{motivationalMessage(pct)}</p>
+        <aside className="hidden lg:flex w-72 shrink-0 flex-col border-r border-slate-200 bg-[#f8fafc] p-6">
+            <div className="mb-6">
+                <p className="text-lg font-bold text-slate-900">
+                    Olá, {firstName}! <span aria-hidden>👋</span>
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                    {isSubmitted
+                        ? "Você concluiu todas as etapas do processo de admissão."
+                        : "Estamos felizes em ter você no time! Complete todas as etapas para finalizar seu processo de admissão."}
+                </p>
             </div>
 
-            {/* Separator */}
-            <div className="h-px bg-sidebar-border" />
+            <div className="mb-6">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-700">Seu progresso</span>
+                    <span className="font-bold text-[#0047BB]">{pct}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                        className="h-full rounded-full bg-[#0047BB] transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                    />
+                </div>
+            </div>
 
-            {/* Etapas */}
-            <nav className="space-y-0.5 flex-1">
-                {STEP_LABELS.map((label, i) => {
-                    const isDone   = completedSteps.has(i) || isSubmitted;
-                    const isActive = i === currentStep && !isSubmitted;
-                    const Icon     = STEP_ICONS[i];
+            <nav className="flex-1 space-y-1">
+                {MAIN_WIZARD_STEPS.map((item) => {
+                    const done = isStepDone(item.step);
+                    const active = isStepActive(item.step);
+                    const clickable = canNavigateTo(item.step);
+                    const Icon = STEP_ICONS[item.kind];
+
                     return (
-                        <div
-                            key={i}
-                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                                isActive
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-                                    : isDone
-                                      ? "text-emerald-300"
-                                      : "text-sidebar-foreground/50"
-                            }`}
+                        <button
+                            key={item.step}
+                            type="button"
+                            onClick={() => handleClick(item.step)}
+                            disabled={!clickable}
+                            aria-current={active ? "step" : undefined}
+                            className={`relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
+                                active
+                                    ? "border border-[#bfdbfe] bg-[#eff6ff]"
+                                    : "border border-transparent hover:bg-white"
+                            } ${clickable ? "cursor-pointer" : "cursor-default opacity-60"}`}
                         >
-                            <div className={`flex size-7 shrink-0 items-center justify-center rounded-full transition-colors ${
-                                isActive ? "bg-white/20 text-white" :
-                                isDone   ? "bg-emerald-500 text-white" :
-                                "bg-white/10 text-sidebar-foreground/40"
-                            }`}>
-                                {isDone ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
+                            {active && (
+                                <span className="absolute bottom-2 left-0 top-2 w-1 rounded-r-full bg-[#0047BB]" />
+                            )}
+                            <div
+                                className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                                    done
+                                        ? "bg-emerald-500 text-white"
+                                        : active
+                                          ? "bg-[#0047BB] text-white"
+                                          : "bg-slate-200 text-slate-500"
+                                }`}
+                            >
+                                {done && !active ? <Check className="size-4" /> : item.step}
                             </div>
-                            <span className="truncate">{label}</span>
-                        </div>
+                            <div className="min-w-0 pt-0.5">
+                                <div className="flex items-center gap-1.5">
+                                    <Icon className="size-3.5 text-slate-400" />
+                                    <p className={`text-sm font-semibold ${active ? "text-[#0047BB]" : "text-slate-800"}`}>
+                                        {item.label}
+                                    </p>
+                                </div>
+                                <p className="text-xs text-slate-500">{item.subtitle}</p>
+                            </div>
+                        </button>
                     );
                 })}
             </nav>
+
+            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#eff6ff]">
+                        <Headphones className="size-5 text-[#0047BB]" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-slate-900">Dúvidas?</p>
+                        <p className="text-xs text-slate-500">Fale com nosso time de RH</p>
+                        <button
+                            type="button"
+                            onClick={onOpenHelp}
+                            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0047BB] hover:underline"
+                        >
+                            Abrir atendimento
+                            <ExternalLink className="size-3" />
+                        </button>
+                    </div>
+                </div>
+            </div>
         </aside>
     );
 }

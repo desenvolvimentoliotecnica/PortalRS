@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RhPortal.Api.Application.EntrevistasSaida;
+using RhPortal.Api.Contracts.EntrevistasSaida;
+using RhPortal.Api.Infrastructure.Security;
 
 namespace RhPortal.Api.Controllers;
 
@@ -18,8 +20,40 @@ public sealed class EntrevistasSaidaController : ControllerBase
         _service = service;
     }
 
+    /// <summary>Template ativo do tenant com perguntas ordenadas.</summary>
+    [HttpGet("template-ativo")]
+    [RequirePermission("folha.entrevista-saida.manage")]
+    [ProducesResponseType(typeof(TemplateEntrevistaSaidaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTemplateAtivo(CancellationToken ct)
+    {
+        var template = await _service.GetTemplateAtivoAsync(ct);
+        return template is null ? NotFound() : Ok(template);
+    }
+
+    /// <summary>Upsert do template ativo (1 por tenant).</summary>
+    [HttpPut("template-ativo")]
+    [RequirePermission("folha.entrevista-saida.manage")]
+    [ProducesResponseType(typeof(TemplateEntrevistaSaidaResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpsertTemplateAtivo(
+        [FromBody] TemplateEntrevistaSaidaUpsertRequest request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var template = await _service.UpsertTemplateAtivoAsync(request, ct);
+            return Ok(template);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Relatório agregado de entrevistas de saída respondidas.</summary>
     [HttpGet("relatorio")]
+    [RequirePermission("folha.entrevista-saida.manage")]
     [ProducesResponseType(typeof(EntrevistaSaidaRelatorio), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRelatorio(
         [FromQuery] DateOnly? de,

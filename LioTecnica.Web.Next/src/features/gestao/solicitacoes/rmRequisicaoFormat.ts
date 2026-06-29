@@ -1,0 +1,71 @@
+export const RM_TIPO_LABELS: Record<string, string> = {
+  AUMENTO_QUADRO: "Aumento de Quadro",
+  SUBSTITUICAO: "Substituição",
+  DESLIGAMENTO: "Desligamento",
+};
+
+export function formatRmTipoRequisicao(tipo: string | null | undefined): string {
+  const value = (tipo ?? "").trim();
+  if (!value) return "—";
+  return RM_TIPO_LABELS[value] ?? value.replace(/_/g, " ");
+}
+
+export function formatSolicitacaoCodigoRm(input: {
+  rmRequisicaoCodigo?: string | null;
+  rmIdReq?: number | null;
+}): string {
+  if (input.rmIdReq != null) return String(input.rmIdReq);
+
+  const cod = input.rmRequisicaoCodigo?.trim();
+  if (cod && !cod.startsWith("STUB-")) {
+    const parts = cod.split("|");
+    if (parts.length === 3) {
+      return parts[2].trim();
+    }
+  }
+  return "";
+}
+
+export function formatTipoSolicitacaoLabel(
+  tipoSolicitacao: number,
+  rmTipoRequisicao?: string | null,
+): string {
+  if (rmTipoRequisicao) return formatRmTipoRequisicao(rmTipoRequisicao);
+  if (tipoSolicitacao === 1) return "Substituição";
+  if (tipoSolicitacao === 2) return "Aumento de Quadro";
+  return "Nova";
+}
+
+export function tipoSolicitacaoBadgeClass(tipoSolicitacao: number, rmTipoRequisicao?: string | null): string {
+  const rm = (rmTipoRequisicao ?? "").toUpperCase();
+  if (rm === "SUBSTITUICAO" || tipoSolicitacao === 1) return "bg-blue-500/15 text-blue-700";
+  if (rm === "AUMENTO_QUADRO" || tipoSolicitacao === 2) return "bg-emerald-500/15 text-emerald-700";
+  return "bg-sky-500/15 text-sky-700";
+}
+
+export type TipoSolicitacaoFilter = "todas" | "aumento_quadro" | "substituicao";
+
+function normalizeTipoSolicitacaoKind(input: {
+  tipoSolicitacao: number | string;
+  rmTipoRequisicao?: string | null;
+}): "substituicao" | "aumento_quadro" | "outro" {
+  const rm = (input.rmTipoRequisicao ?? "").toUpperCase();
+  if (rm === "SUBSTITUICAO") return "substituicao";
+  if (rm === "AUMENTO_QUADRO") return "aumento_quadro";
+
+  const raw = input.tipoSolicitacao;
+  if (raw === 1 || raw === "1" || raw === "Substituicao") return "substituicao";
+  if (raw === 2 || raw === "2" || raw === "AumentoQuadro") return "aumento_quadro";
+  return "outro";
+}
+
+export function rowMatchesTipoSolicitacaoFilter(
+  row: { tipoSolicitacao: number | string; rmTipoRequisicao?: string | null },
+  filter: TipoSolicitacaoFilter,
+): boolean {
+  if (filter === "todas") return true;
+  const kind = normalizeTipoSolicitacaoKind(row);
+  if (filter === "substituicao") return kind === "substituicao";
+  if (filter === "aumento_quadro") return kind === "aumento_quadro";
+  return true;
+}

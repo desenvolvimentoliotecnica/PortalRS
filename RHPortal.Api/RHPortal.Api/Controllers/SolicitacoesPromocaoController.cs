@@ -288,7 +288,7 @@ public sealed class SolicitacoesPromocaoController : ControllerBase
         }
     }
 
-    /// <summary>Gera carta de movimentação em DOCX e retorna URL presigned S3 (24h).</summary>
+    /// <summary>Gera carta de movimentação em DOCX (S3 presigned ou download direto).</summary>
     [HttpPost("{id:guid}/carta")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -296,8 +296,8 @@ public sealed class SolicitacoesPromocaoController : ControllerBase
     {
         try
         {
-            var url = await _cartaService.GerarCartaPromocaoAsync(id, ct);
-            return Ok(new { url });
+            var result = await _cartaService.GerarCartaPromocaoAsync(id, ct);
+            return result.ToActionResult();
         }
         catch (InvalidOperationException ex)
         {

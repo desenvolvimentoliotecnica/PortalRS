@@ -11,6 +11,7 @@ import {
 
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { buildEffectiveVisibleHrefs } from "@/features/navigation/menuPermissions";
 import {
   normalizeNavegacaoSidebarResponse,
   type NavegacaoSidebarResponse,
@@ -99,7 +100,8 @@ export function NavegacaoSidebarProvider({ children }: { children: ReactNode }) 
       g.itens.map((it) => navItemResponseToBff(it)),
     );
 
-    // Allowlist: hrefs dos itens acessíveis (motivo de bloqueio nulo).
+    // Allowlist: hrefs do sidebar + hrefs das permissões JWT (sub-rotas como
+    // /admissao/tracking/* herdam do prefixo /admissao via isHrefAllowed).
     // Owner wildcard / owner-root → sem filtro.
     let visibleHrefs: Set<string> | null = null;
     const isOwnerWildcard =
@@ -108,14 +110,11 @@ export function NavegacaoSidebarProvider({ children }: { children: ReactNode }) 
       const hrefs = new Set<string>();
       for (const g of grupos) {
         for (const it of g.itens) {
-          if (it.acessivel) {
-            hrefs.add(it.href);
-            // Rota embutida antiga /portalvagas continua permitida se o menu apontar à origem externa.
-            if (it.id === "nav-portalvagas") hrefs.add("/portalvagas");
-          }
+          if (it.href) hrefs.add(it.href);
+          if (it.id === "nav-portalvagas") hrefs.add("/portalvagas");
         }
       }
-      visibleHrefs = hrefs;
+      visibleHrefs = buildEffectiveVisibleHrefs(hrefs, me?.permissions ?? []);
     }
 
     return {

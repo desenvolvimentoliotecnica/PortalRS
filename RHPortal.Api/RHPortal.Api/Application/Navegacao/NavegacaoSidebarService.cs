@@ -53,7 +53,8 @@ public sealed class NavegacaoSidebarService
             enabledModuleKeys,
             contextoEspecial: null,
             screenEstados,
-            portalVagasPublicUrl: ResolvePortalVagasPublicUrl());
+            portalVagasPublicUrl: ResolvePortalVagasPublicUrl(),
+            tenantId);
     }
 
     /// <summary>
@@ -70,7 +71,8 @@ public sealed class NavegacaoSidebarService
             enabledModuleKeys,
             contextoEspecial: "owner-em-tenant",
             screenEstados,
-            portalVagasPublicUrl: ResolvePortalVagasPublicUrl());
+            portalVagasPublicUrl: ResolvePortalVagasPublicUrl(),
+            tenantId);
     }
 
     /// <summary>
@@ -93,7 +95,8 @@ public sealed class NavegacaoSidebarService
         ISet<string> enabledModuleKeys,
         string? contextoEspecial,
         IReadOnlyDictionary<string, string>? screenEstados = null,
-        string? portalVagasPublicUrl = null)
+        string? portalVagasPublicUrl = null,
+        string? tenantId = null)
     {
         var hasWildcard = permissions.Contains("*");
         var isOwnerContext = contextoEspecial is not null;
@@ -107,6 +110,7 @@ public sealed class NavegacaoSidebarService
         {
             // 1) Permissão + filtro de contexto owner
             if (isOwnerContext && item.OcultarDoOwner) continue;
+            if (item.SomenteOwner && !hasWildcard) continue;
             var temPermissao = hasWildcard || permSet.Contains(item.PermissionKey);
             if (!temPermissao) continue; // não emite sem permissão (matches UX atual)
 
@@ -163,7 +167,7 @@ public sealed class NavegacaoSidebarService
                 grupos[grupoKey] = new List<NavItemResponse>();
             }
 
-            var href = ResolveItemHref(item, portalVagasPublicUrl);
+            var href = ResolveItemHref(item, portalVagasPublicUrl, tenantId);
             grupos[grupoKey].Add(new NavItemResponse(
                 Id: item.Id,
                 Label: item.Label,
@@ -194,8 +198,18 @@ public sealed class NavegacaoSidebarService
         return new NavegacaoSidebarResponse(respostaGrupos, contextoEspecial);
     }
 
-    private static string ResolveItemHref(NavegacaoManifest.NavManifestItem item, string? portalVagasPublicUrl)
+    private static string ResolveItemHref(
+        NavegacaoManifest.NavManifestItem item,
+        string? portalVagasPublicUrl,
+        string? tenantId)
     {
+        if (string.Equals(item.Id, "nav-portal-admissao", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(tenantId))
+                return $"/DocumentoAdmissao?tenantId={Uri.EscapeDataString(tenantId.Trim())}";
+            return item.Href;
+        }
+
         if (!string.Equals(item.Id, "nav-portalvagas", StringComparison.OrdinalIgnoreCase))
             return item.Href;
 

@@ -5,13 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useNavegacaoSidebar } from "@/features/navigation/NavegacaoSidebarProvider";
-import { isHrefAllowed } from "@/features/navigation/menuPermissions";
+import { isRouteAllowedForUser } from "@/features/navigation/menuPermissions";
 
 /**
  * Bloqueia acesso direto por URL a rotas fora da allowlist do perfil.
- * A allowlist vem do backend (`/api/navegacao/sidebar`), via o
- * `NavegacaoSidebarProvider` — um href entra na allowlist quando o item vem
- * como acessível (`acessivel`, sem motivo de bloqueio).
+ * A allowlist vem do backend (`/api/navegacao/sidebar`) + permissões JWT.
+ * Sub-rotas (ex.: `/admissao/tracking/{id}`) herdam o prefixo do menu pai.
  *
  * Owner/Admin/Wildcard passam sem filtro (visibleHrefs=null). Demais perfis
  * são redirecionados para /dashboard ao tentar abrir rota não permitida.
@@ -25,11 +24,9 @@ export function RouteAllowlistGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authLoading || navLoading || !me) return;
 
-    const normalized = pathname.replace(/^\/app(?=\/|$)/, "") || "/";
-
     if (!visibleHrefs) return; // sem restrição (owner/admin/wildcard)
 
-    if (isHrefAllowed(normalized, visibleHrefs)) return;
+    if (isRouteAllowedForUser(pathname, visibleHrefs, me.permissions ?? [])) return;
 
     router.replace("/dashboard");
   }, [authLoading, navLoading, me, pathname, router, visibleHrefs]);
