@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-29",
-    "totalTarefas": 139
+    "totalTarefas": 140
   },
   "tarefas": [
     {
@@ -3595,7 +3595,7 @@
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Alterar texto do resumo do dia no dashboard para 'Aqui está um resumo do seu dia!' e promover para HML",
-      "entregavel": "Subtitulo do dashboard analista RH simplificado, sem mencao a dados reais do portal.",
+      "entregavel": "Subtitulo do dashboard analista RH simplificado — disponivel em HML apos Merge PR #286.",
       "ambiente": "HML",
       "referencias": {
         "commits": [
@@ -3603,6 +3603,31 @@
         ],
         "branch": "portalRH-HML",
         "prHml": "Merge PR #286"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-139",
+      "nome": "[Portal RH] Abrir requisicao recente do dashboard na tela de solicitacoes",
+      "descricaoAmigavel": "Clique em Requisições recentes no dashboard leva para Solicitações com o modal Visualizar Requisição de Pessoal da requisição selecionada.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "16:17",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "16:18",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "No dashboard, clique em Requisições recentes deve abrir /app/gestao/solicitacoes com modal da requisição clicada",
+      "entregavel": "Deep link ?view=id no dashboard analista RH abre automaticamente o modal Visualizar Requisição de Pessoal em Solicitações.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "6926d877"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #287"
       },
       "observacoes": ""
     }

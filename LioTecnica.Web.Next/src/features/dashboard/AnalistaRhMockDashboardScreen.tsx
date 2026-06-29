@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BriefcaseBusiness,
@@ -479,7 +480,11 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
           <div className="mt-3 divide-y divide-slate-100">
             {requisicoes.length > 0 ? (
               requisicoes.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <Link
+                  key={item.id}
+                  href={`/app/gestao/solicitacoes?view=${encodeURIComponent(item.id)}`}
+                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 transition hover:bg-slate-50 rounded-lg px-1 -mx-1 cursor-pointer"
+                >
                   <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
                     <BriefcaseBusiness className="size-4" />
                   </div>
@@ -494,7 +499,7 @@ export default function AnalistaRhMockDashboardScreen({ displayName }: { display
                   </div>
                   <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
                   <span className="w-16 text-right text-xs font-medium text-slate-500">{item.when}</span>
-                </div>
+                </Link>
               ))
             ) : (
               <EmptyLine>Nenhuma requisição recente encontrada.</EmptyLine>
