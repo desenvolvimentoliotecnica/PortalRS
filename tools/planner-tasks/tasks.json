@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-29",
-    "totalTarefas": 136
+    "totalTarefas": 137
   },
   "tarefas": [
     {
@@ -31,7 +31,7 @@
           "5aced09c",
           "75884c24"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Backfill histórico (pré-registro ao vivo)"
       },
       "observacoes": "Backfill a partir de commits git (dez/2025)."
@@ -57,7 +57,7 @@
           "ccde5c0f",
           "a7879aa3"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Backfill histórico (pré-registro ao vivo)"
       },
       "observacoes": "Backfill a partir de commits git (jan/2026)."
@@ -83,7 +83,7 @@
           "593e932d",
           "e5bb3201"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Backfill histórico (pré-registro ao vivo)"
       },
       "observacoes": "Backfill a partir de commits git (fev/2026)."
@@ -109,7 +109,7 @@
           "ad4ed504",
           "9d698756"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Backfill histórico (pré-registro ao vivo)"
       },
       "observacoes": "Backfill a partir de commits git (mar/2026)."
@@ -135,7 +135,7 @@
           "f56f78d0",
           "ae5035c5"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Backfill histórico (pré-registro ao vivo)"
       },
       "observacoes": "Backfill a partir de commits git (abr/2026)."
@@ -161,7 +161,7 @@
           "316b7be1",
           "53c9cfe4"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #148"
       },
       "observacoes": "Backfill a partir de commits git (mai/2026 até 22/05). Incluído no Merge PR #148 (22/05)."
@@ -186,7 +186,7 @@
         "commits": [
           "0c7f467"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #149"
       },
       "observacoes": ""
@@ -211,7 +211,7 @@
         "commits": [
           "512c17b"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #150"
       },
       "observacoes": ""
@@ -236,7 +236,7 @@
         "commits": [
           "f1d5599"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #151"
       },
       "observacoes": ""
@@ -261,7 +261,7 @@
         "commits": [
           "7c9a565"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #152"
       },
       "observacoes": ""
@@ -286,7 +286,7 @@
         "commits": [
           "28878ba"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #153"
       },
       "observacoes": ""
@@ -311,7 +311,7 @@
         "commits": [
           "cb82696"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #154"
       },
       "observacoes": ""
@@ -337,7 +337,7 @@
           "c6d1de8",
           "2f1fad8"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #155"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -362,7 +362,7 @@
         "commits": [
           "094ca37"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #156"
       },
       "observacoes": ""
@@ -387,7 +387,7 @@
         "commits": [
           "ed50499"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #157"
       },
       "observacoes": ""
@@ -412,7 +412,7 @@
         "commits": [
           "41810b2"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #158"
       },
       "observacoes": ""
@@ -437,7 +437,7 @@
         "commits": [
           "2e710bc"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #159"
       },
       "observacoes": ""
@@ -462,7 +462,7 @@
         "commits": [
           "ad96151"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #160"
       },
       "observacoes": ""
@@ -487,7 +487,7 @@
         "commits": [
           "a78bec8"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #161"
       },
       "observacoes": ""
@@ -513,7 +513,7 @@
           "73a4df5",
           "4d11b7e"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #162"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -538,7 +538,7 @@
         "commits": [
           "c7f8763"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #163"
       },
       "observacoes": ""
@@ -563,7 +563,7 @@
         "commits": [
           "24c9cd9"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #164"
       },
       "observacoes": ""
@@ -588,7 +588,7 @@
         "commits": [
           "725e0f5"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #165"
       },
       "observacoes": ""
@@ -613,7 +613,7 @@
         "commits": [
           "4fa2c61"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #166"
       },
       "observacoes": ""
@@ -638,7 +638,7 @@
         "commits": [
           "38bce69"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #167"
       },
       "observacoes": ""
@@ -663,7 +663,7 @@
         "commits": [
           "863c763"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #168"
       },
       "observacoes": ""
@@ -688,7 +688,7 @@
         "commits": [
           "c1b84e2"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #169"
       },
       "observacoes": ""
@@ -713,7 +713,7 @@
         "commits": [
           "e962a18"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #170"
       },
       "observacoes": ""
@@ -738,7 +738,7 @@
         "commits": [
           "2c510e0"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #171"
       },
       "observacoes": ""
@@ -763,7 +763,7 @@
         "commits": [
           "5405ec8"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #172"
       },
       "observacoes": ""
@@ -789,7 +789,7 @@
           "4a4c414",
           "924f320"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #173"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -814,7 +814,7 @@
         "commits": [
           "fe9278d"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #174"
       },
       "observacoes": ""
@@ -840,7 +840,7 @@
           "19ccd3f",
           "25200e9"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #175"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -865,7 +865,7 @@
         "commits": [
           "eb3c715"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #176"
       },
       "observacoes": ""
@@ -890,7 +890,7 @@
         "commits": [
           "4600bd9"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #177"
       },
       "observacoes": ""
@@ -915,7 +915,7 @@
         "commits": [
           "2a14109"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #178"
       },
       "observacoes": ""
@@ -940,7 +940,7 @@
         "commits": [
           "5652f9b"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #179"
       },
       "observacoes": ""
@@ -969,7 +969,7 @@
           "0aac654",
           "098b1db"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #180"
       },
       "observacoes": "Backfill: 5 commits no grupo."
@@ -994,7 +994,7 @@
         "commits": [
           "ac813f5"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #181"
       },
       "observacoes": ""
@@ -1019,7 +1019,7 @@
         "commits": [
           "1a9c8ba"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #182"
       },
       "observacoes": ""
@@ -1044,7 +1044,7 @@
         "commits": [
           "bf1e76e"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #183"
       },
       "observacoes": ""
@@ -1069,7 +1069,7 @@
         "commits": [
           "776aa39"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #184"
       },
       "observacoes": ""
@@ -1095,7 +1095,7 @@
           "85d8078",
           "f46de77"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #185"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -1120,7 +1120,7 @@
         "commits": [
           "e6d6769"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #186"
       },
       "observacoes": ""
@@ -1146,7 +1146,7 @@
           "bf071c5",
           "36b38bd"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #187"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -1171,7 +1171,7 @@
         "commits": [
           "475e2f7"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #188"
       },
       "observacoes": ""
@@ -1196,7 +1196,7 @@
         "commits": [
           "a5b9d99"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #189"
       },
       "observacoes": ""
@@ -1221,7 +1221,7 @@
         "commits": [
           "57adfb2"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #190"
       },
       "observacoes": ""
@@ -1246,7 +1246,7 @@
         "commits": [
           "2d2027b"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #191"
       },
       "observacoes": ""
@@ -1271,7 +1271,7 @@
         "commits": [
           "eebac7a"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #192"
       },
       "observacoes": ""
@@ -1296,7 +1296,7 @@
         "commits": [
           "ad2e59a"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #193"
       },
       "observacoes": ""
@@ -1321,7 +1321,7 @@
         "commits": [
           "3112aec"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #194"
       },
       "observacoes": ""
@@ -1346,7 +1346,7 @@
         "commits": [
           "d0bccb7"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #195"
       },
       "observacoes": ""
@@ -1371,7 +1371,7 @@
         "commits": [
           "762d81d"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #196"
       },
       "observacoes": ""
@@ -1396,7 +1396,7 @@
         "commits": [
           "3bc3dbf"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #197"
       },
       "observacoes": ""
@@ -1422,7 +1422,7 @@
           "34a20c7",
           "2b6d9b0"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #198"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -1449,7 +1449,7 @@
           "3850669",
           "12ddcfa"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #200"
       },
       "observacoes": "Backfill: 3 commits no grupo."
@@ -1474,7 +1474,7 @@
         "commits": [
           "937dc6e"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #202"
       },
       "observacoes": ""
@@ -1499,7 +1499,7 @@
         "commits": [
           "4b9582e"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #204"
       },
       "observacoes": ""
@@ -1583,7 +1583,7 @@
           "6f2cba5",
           "1a2b4ad"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #206"
       },
       "observacoes": "Backfill: 60 commits no grupo."
@@ -1608,7 +1608,7 @@
         "commits": [
           "920c67a"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #207"
       },
       "observacoes": ""
@@ -1641,7 +1641,7 @@
           "5559f5e",
           "d8aaace"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #208"
       },
       "observacoes": "Backfill: 9 commits no grupo."
@@ -1666,7 +1666,7 @@
         "commits": [
           "52e0497"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #210"
       },
       "observacoes": ""
@@ -1691,7 +1691,7 @@
         "commits": [
           "df3935a"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #211"
       },
       "observacoes": ""
@@ -1717,7 +1717,7 @@
           "c8566aa",
           "ea56fa8"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #212"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -1742,7 +1742,7 @@
         "commits": [
           "b41f6bf"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #213"
       },
       "observacoes": ""
@@ -1767,7 +1767,7 @@
         "commits": [
           "b9cb276"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #214"
       },
       "observacoes": ""
@@ -1794,7 +1794,7 @@
           "2c125e1",
           "6ed3d30"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #215"
       },
       "observacoes": "Backfill: 3 commits no grupo."
@@ -1820,7 +1820,7 @@
           "b200380",
           "5f7b9de"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #216"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -1845,7 +1845,7 @@
         "commits": [
           "3ceaa3f"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #217"
       },
       "observacoes": ""
@@ -1870,7 +1870,7 @@
         "commits": [
           "ae76271"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #218"
       },
       "observacoes": ""
@@ -1895,7 +1895,7 @@
         "commits": [
           "e130eed"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #219"
       },
       "observacoes": ""
@@ -1920,7 +1920,7 @@
         "commits": [
           "e49c1c6"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #220"
       },
       "observacoes": ""
@@ -1945,7 +1945,7 @@
         "commits": [
           "196a48d"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #221"
       },
       "observacoes": ""
@@ -1970,7 +1970,7 @@
         "commits": [
           "abaa3c4"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "merge(portalRH-DEV): hub UI redesign e fix Entra DataProtection"
       },
       "observacoes": ""
@@ -1995,7 +1995,7 @@
         "commits": [
           "2f62d46"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "merge(portalRH-DEV): hub login admin bootstrap HMG"
       },
       "observacoes": ""
@@ -2020,7 +2020,7 @@
         "commits": [
           "0cb0132"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #222"
       },
       "observacoes": ""
@@ -2045,7 +2045,7 @@
         "commits": [
           "c019074"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #223"
       },
       "observacoes": ""
@@ -2070,7 +2070,7 @@
         "commits": [
           "c634e18"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #224"
       },
       "observacoes": ""
@@ -2095,7 +2095,7 @@
         "commits": [
           "feec783"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #225"
       },
       "observacoes": ""
@@ -2120,7 +2120,7 @@
         "commits": [
           "e3f859f"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #226"
       },
       "observacoes": ""
@@ -2146,7 +2146,7 @@
           "c87d230",
           "e5fa1b2"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #227"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -2171,7 +2171,7 @@
         "commits": [
           "dadd53c"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #228"
       },
       "observacoes": ""
@@ -2196,7 +2196,7 @@
         "commits": [
           "d6a4b50"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #229"
       },
       "observacoes": ""
@@ -2221,7 +2221,7 @@
         "commits": [
           "a621d7b"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #231"
       },
       "observacoes": ""
@@ -2247,7 +2247,7 @@
           "bd98af6",
           "f6385a1"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #233"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -2272,7 +2272,7 @@
         "commits": [
           "9397cf5"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #235"
       },
       "observacoes": ""
@@ -2297,7 +2297,7 @@
         "commits": [
           "94e065a"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #236"
       },
       "observacoes": ""
@@ -2322,7 +2322,7 @@
         "commits": [
           "39c4eb8"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #238"
       },
       "observacoes": ""
@@ -2347,7 +2347,7 @@
         "commits": [
           "b799026"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #239"
       },
       "observacoes": ""
@@ -2372,7 +2372,7 @@
         "commits": [
           "8692354"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #240"
       },
       "observacoes": ""
@@ -2397,7 +2397,7 @@
         "commits": [
           "17de4f6"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #241"
       },
       "observacoes": ""
@@ -2422,7 +2422,7 @@
         "commits": [
           "c0abf23"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #242"
       },
       "observacoes": ""
@@ -2447,7 +2447,7 @@
         "commits": [
           "66d2798"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #243"
       },
       "observacoes": ""
@@ -2472,7 +2472,7 @@
         "commits": [
           "ba0b2e5"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #244"
       },
       "observacoes": ""
@@ -2497,7 +2497,7 @@
         "commits": [
           "76ffcd9"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #245"
       },
       "observacoes": ""
@@ -2522,7 +2522,7 @@
         "commits": [
           "53ca88a"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #246"
       },
       "observacoes": ""
@@ -2547,7 +2547,7 @@
         "commits": [
           "d339be8"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #247"
       },
       "observacoes": ""
@@ -2572,7 +2572,7 @@
         "commits": [
           "1c87650"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #248"
       },
       "observacoes": ""
@@ -2615,7 +2615,7 @@
           "ce8eadc",
           "6762c54"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #249"
       },
       "observacoes": "Backfill: 19 commits no grupo."
@@ -2641,7 +2641,7 @@
           "267ce52",
           "4fac621"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #250"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -2666,7 +2666,7 @@
         "commits": [
           "46ee7bc"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #251"
       },
       "observacoes": ""
@@ -2692,7 +2692,7 @@
           "2e6fc83",
           "1ffff11"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #252"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -2717,7 +2717,7 @@
         "commits": [
           "8a12577"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #253"
       },
       "observacoes": ""
@@ -2743,7 +2743,7 @@
           "cb4f853",
           "efa9c15"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #254"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -2768,7 +2768,7 @@
         "commits": [
           "3914cb1"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #255"
       },
       "observacoes": ""
@@ -2794,7 +2794,7 @@
           "132d3c0",
           "43880a7"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #256"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -2820,7 +2820,7 @@
           "7ff804d",
           "000a5f2"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #257"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -2845,7 +2845,7 @@
         "commits": [
           "93bc5b2"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #258"
       },
       "observacoes": ""
@@ -2870,7 +2870,7 @@
         "commits": [
           "4e2509b"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #259"
       },
       "observacoes": ""
@@ -2895,7 +2895,7 @@
         "commits": [
           "b8ef4cc"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #260"
       },
       "observacoes": ""
@@ -2921,7 +2921,7 @@
           "0c00ad7",
           "9f0274e"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #261"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -2946,7 +2946,7 @@
         "commits": [
           "c0f231b"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #262"
       },
       "observacoes": ""
@@ -2971,7 +2971,7 @@
         "commits": [
           "6c250df"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #263"
       },
       "observacoes": ""
@@ -2996,7 +2996,7 @@
         "commits": [
           "bc6282b"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #264"
       },
       "observacoes": ""
@@ -3021,7 +3021,7 @@
         "commits": [
           "b0d047c"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #265"
       },
       "observacoes": ""
@@ -3046,7 +3046,7 @@
         "commits": [
           "f415195"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #266"
       },
       "observacoes": ""
@@ -3071,7 +3071,7 @@
         "commits": [
           "40fcacc"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #267"
       },
       "observacoes": ""
@@ -3096,7 +3096,7 @@
         "commits": [
           "9f719fc"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #268"
       },
       "observacoes": ""
@@ -3121,7 +3121,7 @@
         "commits": [
           "e8b69ac"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #269"
       },
       "observacoes": ""
@@ -3146,7 +3146,7 @@
         "commits": [
           "9344e02"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #270"
       },
       "observacoes": ""
@@ -3171,7 +3171,7 @@
         "commits": [
           "2caa861"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #271"
       },
       "observacoes": ""
@@ -3196,7 +3196,7 @@
         "commits": [
           "e949452"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #272"
       },
       "observacoes": ""
@@ -3221,7 +3221,7 @@
         "commits": [
           "aa9848d"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #273"
       },
       "observacoes": ""
@@ -3247,7 +3247,7 @@
           "7cf8b9f",
           "5337bae"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #274"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -3272,7 +3272,7 @@
         "commits": [
           "7e143f4"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #275"
       },
       "observacoes": ""
@@ -3298,7 +3298,7 @@
           "de58841",
           "6f83472"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #276"
       },
       "observacoes": "Backfill: 2 commits no grupo."
@@ -3323,7 +3323,7 @@
         "commits": [
           "2e7cdad"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #277"
       },
       "observacoes": ""
@@ -3348,7 +3348,7 @@
         "commits": [
           "3e7c014"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #278"
       },
       "observacoes": ""
@@ -3373,7 +3373,7 @@
         "commits": [
           "ac4c4a7"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #279"
       },
       "observacoes": ""
@@ -3398,7 +3398,7 @@
         "commits": [
           "1e2ce49"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #280"
       },
       "observacoes": ""
@@ -3423,7 +3423,7 @@
         "commits": [
           "e47a24d"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #281"
       },
       "observacoes": ""
@@ -3448,7 +3448,7 @@
         "commits": [
           "bf841ae"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #282"
       },
       "observacoes": ""
@@ -3473,7 +3473,7 @@
         "commits": [
           "8331244"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "Merge PR #283"
       },
       "observacoes": ""
@@ -3498,7 +3498,7 @@
         "commits": [
           "d092725"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "merge(portalRH-DEV): corrigir erro 500 comprovante PDF admissao portal"
       },
       "observacoes": ""
@@ -3523,10 +3523,37 @@
         "commits": [
           "45d973e"
         ],
-        "branch": "portalRH-HML",
+        "branch": "origin/portalRH-HML",
         "prHml": "merge(portalRH-DEV): corrigir EnumLabel comprovante PDF admissao"
       },
       "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-136",
+      "nome": "[Portal RH] Export Planner, serve local e ajuste de saudacao do dashboard",
+      "descricaoAmigavel": "Promocao PR #284: ferramenta Export Planner para copiar entregas no Microsoft Planner, servidor local com MIME correto e remocao do emoji da saudacao do dashboard.",
+      "inicio": "2026-06-29",
+      "horarioInicio": "12:42",
+      "conclusao": "2026-06-29",
+      "horarioConclusao": "12:58",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Export Planner + serve.py + remover emoji da saudacao Bom dia no dashboard",
+      "entregavel": "Export Planner em tools/planner-tasks/, serve.py para UI local e saudacao do dashboard sem emoji — disponivel em HML apos Merge PR #284.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "c4727d0",
+          "e8b5a06",
+          "41d8c7d"
+        ],
+        "branch": "portalRH-HML",
+        "prHml": "Merge PR #284"
+      },
+      "observacoes": "Backfill: 3 commits no grupo."
     }
   ]
 }
