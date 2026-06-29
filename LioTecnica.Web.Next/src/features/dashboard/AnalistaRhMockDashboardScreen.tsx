@@ -238,7 +238,7 @@ function mapPipeline(funil: FunilCandidaturas | null): PipelineItem[] {
   };
 
   return [
-    { label: "Inscritos", value: findTotal("aplicad", "inscrit"), hint: "Total atual", tone: "blue" },
+    { label: "Candidatos", value: findTotal("aplicad", "inscrit"), hint: "Total atual", tone: "blue" },
     { label: "Triagem", value: findTotal("triagem"), hint: "Total atual", tone: "green" },
     { label: "Entrevista", value: findTotal("entrevista"), hint: "Total atual", tone: "purple" },
     { label: "Teste", value: findTotal("teste"), hint: "Total atual", tone: "amber" },
