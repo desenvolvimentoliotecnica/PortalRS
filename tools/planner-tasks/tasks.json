@@ -3613,14 +3613,14 @@
       "inicio": "2026-06-29",
       "horarioInicio": "16:17",
       "conclusao": "2026-06-29",
-      "horarioConclusao": "16:18",
+      "horarioConclusao": "16:19",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "No dashboard, clique em Requisições recentes deve abrir /app/gestao/solicitacoes com modal da requisição clicada",
-      "entregavel": "Deep link ?view=id no dashboard analista RH abre automaticamente o modal Visualizar Requisição de Pessoal em Solicitações.",
+      "entregavel": "Deep link ?view=id no dashboard analista RH abre automaticamente o modal Visualizar Requisição de Pessoal — disponivel em HML apos Merge PR #287.",
       "ambiente": "HML",
       "referencias": {
         "commits": [
