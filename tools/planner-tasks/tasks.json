@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 150
+    "totalTarefas": 151
   },
   "tarefas": [
     {
@@ -3870,26 +3870,53 @@
       "descricaoAmigavel": "Deploy DEV/HML/PRD volta a compilar após alinhar tipos TypeScript na validação de documentos do portal.",
       "inicio": "2026-06-30",
       "horarioInicio": "12:30",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "13:03",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Urgente",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Deploy DEV, HML e PRD falhando na etapa BUILD após TASK-2026-148",
       "entregavel": "validateAllDocuments e ReviewStep compatíveis com enums string da API; build CI verde.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "e2e290cd",
-          "b4739dbd"
+          "b4739dbd",
+          "902480dc",
+          "9cdf24dd"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #10",
+        "prPrd": "Merge PR #11"
+      },
+      "observacoes": "Dois erros TS: wizardSteps:273 e ReviewStep:471. HML 1b8c7006 (PR #10); PRD 49b99f46 (PR #11)."
+    },
+    {
+      "id": "TASK-2026-150",
+      "nome": "[Portal RH] Corrigir layout cortado no portal público de documentos",
+      "descricaoAmigavel": "Formulário público de envio de documentos exibe o conteúdo completo desde o topo, sem corte pela barra de etapas.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "13:15",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "UI do formulário público de documentos cortando parte superior — ajustar layout e equalizar DEV/HML/PRD",
+      "entregavel": "Scroll alinhado ao topo em DocumentUploadStep e WizardStepPanel no portal DocumentoAdmissao.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "3f866d98"
         ],
         "branch": "DEV",
-        "prHml": "Merge PR #8 (build ainda falhou ReviewStep)",
-        "prPrd": "Merge PR #9 (build ainda falhou ReviewStep)"
+        "prHml": null
       },
-      "observacoes": "1o fix wizardSteps OK; 2o erro CI ReviewStep.tsx:471 documentosEnviados.tipo. Repromocao pendente."
+      "observacoes": "Causa: justify-center e my-auto centralizavam conteúdo alto e cortavam o topo."
     }
   ]
 }
