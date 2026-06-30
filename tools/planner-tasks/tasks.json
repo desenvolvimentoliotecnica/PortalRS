@@ -3847,14 +3847,16 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Erro React #310 ao clicar em Acessar Formulário no e-mail de reenvio de documentos",
       "entregavel": "Hook useMemo movido antes de returns condicionais no portal DocumentoAdmissao; normalização de lado/status enum.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "c56804ed"
+        ],
         "branch": "DEV",
         "prHml": null
       },
