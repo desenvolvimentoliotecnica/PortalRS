@@ -788,7 +788,7 @@ export default function AdmissaoRevisaoScreen() {
 
             {/* Data sections — divididas em abas */}
             <Tabs defaultValue="pessoal" className="rounded-xl border border-border/40 bg-card shadow-sm overflow-hidden">
-                <TabsList className="w-full flex flex-nowrap justify-start overflow-x-auto rounded-none border-b border-border/40 bg-muted/20 px-2 h-auto py-1.5 gap-1">
+                <TabsList className="w-full flex flex-nowrap justify-start overflow-x-auto rounded-none border-b border-border/40 bg-muted/20 px-2 h-auto py-2 gap-1.5">
                     <RevisaoTabTrigger value="pessoal" icon={User} label="Pessoal" />
                     <RevisaoTabTrigger value="endereco" icon={MapPin} label="Endereço & Contato" />
                     <RevisaoTabTrigger value="bancario" icon={CreditCard} label="Bancário" />
@@ -801,7 +801,7 @@ export default function AdmissaoRevisaoScreen() {
                         label="Arquivos Enviados"
                         badge={
                             (data.documentos.length > 0 || data.documentosSolicitados.length > 0) ? (
-                                <span className="text-[10px] bg-primary/15 text-primary rounded-full px-1.5 py-0.5 font-semibold leading-none">
+                                <span className="text-[0.9375rem] bg-primary/15 text-primary rounded-full px-2 py-0.5 font-semibold leading-none whitespace-nowrap">
                                     {data.documentos.length > 0 ? data.documentos.length : data.documentosSolicitados.length}
                                 </span>
                             ) : undefined
@@ -1291,10 +1291,10 @@ function RevisaoTabTrigger({
     return (
         <TabsTrigger
             value={value}
-            className="inline-flex flex-row items-center gap-2.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap shrink-0"
+            className="inline-flex flex-row items-center gap-[0.9375rem] px-[1.125rem] py-3 text-[1.125rem] sm:text-[1.3125rem] whitespace-nowrap shrink-0"
         >
-            <Icon className="size-5 shrink-0" aria-hidden />
-            <span className="leading-tight">{label}</span>
+            <Icon className="size-[1.875rem] shrink-0" aria-hidden />
+            <span className="leading-tight whitespace-nowrap">{label}</span>
             {badge}
         </TabsTrigger>
     );
