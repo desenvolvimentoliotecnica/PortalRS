@@ -4162,22 +4162,25 @@
       "descricaoAmigavel": "Ícones ilustrativos na lateral dos cards de documentos alinhados ao topo, alinhados ao cabeçalho do card.",
       "inicio": "2026-06-30",
       "horarioInicio": "17:40",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "17:42",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Ícones dos cards alinhados ao topo; promover DEV/HML/PRD",
       "entregavel": "DocumentoIconSidebar items-start + object-top.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "962f775c"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #30",
+        "prPrd": "Merge PR #31"
       },
-      "observacoes": ""
+      "observacoes": "items-start justify-center na sidebar; object-top na imagem. PR #30 HML, PR #31 PRD."
     }
   ]
 }
