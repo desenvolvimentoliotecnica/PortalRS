@@ -73,7 +73,7 @@ def crop_to_content(img: Image.Image, pad_ratio: float = 0.06) -> Image.Image:
     return square
 
 
-def save_ico(path: Path, img: Image.Image, sizes: tuple[int, ...] = (16, 32, 48)) -> None:
+def save_ico(path: Path, img: Image.Image, sizes: tuple[int, ...] = (16, 32, 48, 64, 128, 256)) -> None:
     images = [img.resize((s, s), Image.Resampling.LANCZOS) for s in sizes]
     images[0].save(path, format="ICO", sizes=[(s, s) for s in sizes], append_images=images[1:])
 
@@ -88,16 +88,19 @@ def main() -> None:
 
     processed = crop_to_content(remove_background(raw, bg))
     master = processed.resize((512, 512), Image.Resampling.LANCZOS)
+    icon_tab = master.resize((48, 48), Image.Resampling.LANCZOS)
 
     OUT_NEXT_APP.mkdir(parents=True, exist_ok=True)
     OUT_NEXT_PUBLIC.mkdir(parents=True, exist_ok=True)
     OUT_VAGAS.mkdir(parents=True, exist_ok=True)
 
-    master.save(OUT_NEXT_APP / "icon.png", format="PNG", optimize=True)
+    # Next.js prioriza app/favicon.ico sobre app/icon.png — ambos devem ser da arte nova.
+    save_ico(OUT_NEXT_APP / "favicon.ico", master)
+    save_ico(OUT_NEXT_PUBLIC / "favicon.ico", master)
+    icon_tab.save(OUT_NEXT_APP / "icon.png", format="PNG", optimize=True)
     master.resize((180, 180), Image.Resampling.LANCZOS).save(
         OUT_NEXT_APP / "apple-icon.png", format="PNG", optimize=True
     )
-    save_ico(OUT_NEXT_PUBLIC / "favicon.ico", master)
     master.resize((192, 192), Image.Resampling.LANCZOS).save(
         OUT_VAGAS / "favicon.png", format="PNG", optimize=True
     )
