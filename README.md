@@ -1,5 +1,9 @@
 # RenderRH — Guia de Setup Local
 
+> **Repositório:** [desenvolvimentoliotecnica/PortalRS](https://github.com/desenvolvimentoliotecnica/PortalRS)  
+> **Clone local sugerido:** `D:\Projetos\PortalRS`  
+> **Branches:** `DEV`, `HML`, `PRD`
+
 ## Pré-requisitos
 
 | Ferramenta | Versão mínima | Verificar |

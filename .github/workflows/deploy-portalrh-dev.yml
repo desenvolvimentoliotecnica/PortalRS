@@ -1,4 +1,4 @@
-# Deploy automático para DEV: push em portalRH-DEV -> build imagens -> GHCR -> compose no servidor.
+# Deploy automático para DEV: push em DEV -> build imagens -> GHCR -> compose no servidor.
 #
 # O job deploy-dev usa runner self-hosted com label portalrh-dev-deploy
 # instalado no próprio servidor 10.0.0.79.
@@ -8,7 +8,7 @@ name: Deploy PortalRH DEV
 on:
   push:
     branches:
-      - portalRH-DEV
+      - DEV
   workflow_dispatch:
 
 concurrency:
@@ -123,7 +123,7 @@ jobs:
     name: Deploy local no servidor DEV (self-hosted)
     needs: build-and-push
     runs-on: [self-hosted, portalrh-dev-deploy]
-    if: github.ref == 'refs/heads/portalRH-DEV' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/DEV' || github.event_name == 'workflow_dispatch'
     defaults:
       run:
         shell: bash

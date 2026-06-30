@@ -1,18 +1,18 @@
-# Deploy via GUI local (DEV e HMG)
+﻿# Deploy via GUI local (DEV e HMG)
 
 Ferramenta Windows para publicar no servidor **sem depender do GitHub Actions** (útil quando billing/runners hosted estão bloqueados).
 
 | Ambiente | Servidor | Branch | Compose |
 | --- | --- | --- | --- |
-| **DEV** | `10.0.0.79` | `portalRH-DEV` | `docker-compose.portalrh-dev.yml` |
-| **HMG** | `10.0.0.80` | `portalRH-HML` | `docker-compose.hmg.yml` |
+| **DEV** | `10.0.0.79` | `DEV` | `docker-compose.portalrh-dev.yml` |
+| **HMG** | `10.0.0.80` | `HML` | `docker-compose.hmg.yml` |
 
 Guia DEV: [DEV-DEPLOY-SSH.md](../DEV-DEPLOY-SSH.md)
 
 ## O que ela faz (HMG ou DEV)
 
-1. Executa `git fetch origin portalRH-HML` no repositorio local.
-2. Gera um snapshot limpo de `origin/portalRH-HML` com `git archive`.
+1. Executa `git fetch origin HML` no repositorio local.
+2. Gera um snapshot limpo de `origin/HML` com `git archive`.
 3. Envia o snapshot ao servidor por SSH/SFTP.
 4. Builda no servidor as imagens da API, Web Next, Portal Vagas e RHPortal.Ai.
 5. Sobe a stack com `docker compose`.
@@ -22,7 +22,7 @@ As imagens ficam locais no Docker do servidor. A ferramenta nao faz push para GH
 
 ## Modos de deploy
 
-- **Inteligente**: compara a `portalRH-HML` atual com o ultimo SHA registrado no servidor
+- **Inteligente**: compara a `HML` atual com o ultimo SHA registrado no servidor
   e builda somente os servicos afetados. Servicos sem mudanca sao retagueados a
   partir da imagem em execucao para que a stack inteira suba com a tag do SHA novo.
 - **Completo**: builda API, Web Next, Portal Vagas e RHPortal.Ai sempre. Use quando
@@ -88,7 +88,7 @@ Exemplo:
 {
   "host": "10.0.0.80",
   "user": "administrator",
-  "repo_path": "D:\\Projetos\\PortalRH\\RH-devops-Lucas",
+  "repo_path": "D:\\Projetos\\PortalRH\\PortalRS",
   "remote_deploy_dir": "/home/administrator/rh-deploys",
   "api_url": "https://10.0.0.80:5000",
   "admin_url": "http://10.0.0.80:3000",

@@ -1,4 +1,4 @@
-# DIRETRIZ — Export Planner (Portal RH)
+﻿# DIRETRIZ — Export Planner (Portal RH)
 
 Ferramenta de registro de tarefas em JSON e exportação para Microsoft Planner do gestor.
 
@@ -28,7 +28,7 @@ O Export Planner **não sincroniza sozinho** com git, CI ou Microsoft Planner. A
 
 - Mergear PR HML **sem** entrada correspondente no JSON
 - Confiar que `backfill-git.mjs` preencherá depois — backfill é **histórico**, não fluxo ao vivo
-- Usar branch local desatualizada — merges HML vêm de `origin/portalRH-HML` (remoto)
+- Usar branch local desatualizada — merges HML vêm de `origin/HML` (remoto)
 
 **Proibido** dizer ao usuário: “promovido com sucesso”, “PR confirmado” ou “mergeado em HML” se `tasks.json` não estiver atualizado e commitado em DEV.
 
@@ -36,12 +36,12 @@ O Export Planner **não sincroniza sozinho** com git, CI ou Microsoft Planner. A
 
 | Item | Valor |
 |------|-------|
-| Repositório | `RH-devops-Lucas` / `munizlmachado-jpg/RH` |
+| Repositório | `PortalRS` / `desenvolvimentoliotecnica/PortalRS` |
 | Produto | Portal RH (RenderRH) |
 | Responsável padrão | Lucas Muniz Machado |
-| Branch DEV | `portalRH-DEV` |
-| Branch HML | `portalRH-HML` |
-| Branch PRD | `portalRH-PRD` |
+| Branch DEV | `DEV` |
+| Branch HML | `HML` |
+| Branch PRD | `PRD` |
 | Ambiente homologação | HMG/HML — `10.0.0.80` |
 | Fuso horário | America/Sao_Paulo (Brasília) |
 | Registro ao vivo desde | **2026-05-23** |
@@ -133,7 +133,7 @@ O `index.html` **recalcula na exibição** — não confiar cegamente no JSON. O
 ### REGRA OBRIGATÓRIA — INÍCIO E TÉRMINO
 
 1. **Toda solicitação** gera registro de **início** (data/hora do pedido no chat).
-2. **Toda promoção HML** gera registro de **término** (data/hora do merge em `portalRH-HML`).
+2. **Toda promoção HML** gera registro de **término** (data/hora do merge em `HML`).
 3. Ambos na **mesma sessão** do assistente — sem exceção.
 4. Regra também aplicada via `.cursor/rules/planner-obrigatorio.mdc` (always apply).
 
@@ -216,7 +216,7 @@ Abrir: http://localhost:8877/index.html
 
 ```bash
 git log --reverse  # desde raiz até 2026-05-22
-git log portalRH-HML  # merges/PRs
+git log HML  # merges/PRs
 ```
 
 Agrupar por **entrega de negócio** (não 1 commit = 1 tarefa).
@@ -242,7 +242,7 @@ node backfill-git.mjs --validate-only
 O script:
 
 1. Lê grupos históricos em `BACKFILL_GROUPS`
-2. Descobre merges HML desde 2026-05-23 em **`origin/portalRH-HML`** (remoto — nunca branch local desatualizada)
+2. Descobre merges HML desde 2026-05-23 em **`origin/HML`** (remoto — nunca branch local desatualizada)
 3. Obtém horários via git
 4. Calcula `totalHoras`
 5. Valida soma JSON = soma recalculada e subtotais diários
