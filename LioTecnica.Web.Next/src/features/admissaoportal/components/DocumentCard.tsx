@@ -95,7 +95,7 @@ export default function DocumentCard({
                 <DocumentoIconSidebar
                     tipo={tipo}
                     label={label}
-                    className={size === "wizard" ? "min-w-[5.5rem] max-w-[7rem]" : undefined}
+                    className={size === "wizard" ? "min-w-[8.25rem] max-w-[10.5rem]" : undefined}
                 />
 
                 <div className="flex min-w-0 flex-1 flex-col">
