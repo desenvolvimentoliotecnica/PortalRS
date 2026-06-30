@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-06-29",
-    "totalTarefas": 142
+    "atualizadoEm": "2026-06-30",
+    "totalTarefas": 146
   },
   "tarefas": [
     {
@@ -3680,6 +3680,107 @@
         "prHml": "Merge PR #289"
       },
       "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-142",
+      "nome": "[Infra] Migração do Portal RH para repositório PortalRS",
+      "descricaoAmigavel": "Portal RH passou do monorepo legado para desenvolvimentoliotecnica/PortalRS com branches DEV, HML e PRD, runners e CI/CD nos servidores.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "07:30",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "08:05",
+      "totalHoras": 2,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Executar Fase 1 da migração para PortalRS: mirror, branches, push, ajuste workflows e promoção inicial",
+      "entregavel": "Repositório PortalRS ativo com histórico preservado, deploy DEV/HML/PRD e runners portalrs-* nos servidores.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ac974f3d",
+          "5b56f574"
+        ],
+        "branch": "HML",
+        "prHml": "Promoção DEV→HML (30/06/2026)"
+      },
+      "observacoes": "Inclui remoção do LiotecnicaHub do monorepo (PR #290) e limpeza de runners antigos nos servidores 10.0.0.80 e 10.0.0.88."
+    },
+    {
+      "id": "TASK-2026-143",
+      "nome": "[Portal RH] Favicon do Portal com arte corporativa",
+      "descricaoAmigavel": "Ícone do Portal RH (aba do navegador) gerado a partir da arte fornecida, com fundo transparente e substituição do favicon padrão do Next.js.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "08:25",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "08:50",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar favicon a partir da imagem fornecida, crop, fundo transparente e integrar ao Portal Admin e Portal de Vagas",
+      "entregavel": "favicon.ico e icon.png no Next.js e Portal de Vagas com a arte de RH (documento + lupa).",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "919364e6",
+          "a0c7030d",
+          "f2ced1dc"
+        ],
+        "branch": "HML",
+        "prHml": "Promoção DEV→HML (30/06/2026)"
+      },
+      "observacoes": "Correção do app/favicon.ico padrão do Next que sobrescrevia o icon.png."
+    },
+    {
+      "id": "TASK-2026-144",
+      "nome": "[Infra] Atualizar referências do repositório legado",
+      "descricaoAmigavel": "Varredura e correção de caminhos locais, URLs do GitHub e prefixo GHCR que ainda apontavam para RH-devops-Lucas ou munizlmachado-jpg/RH.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "08:35",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "08:42",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Varrer o projeto e atualizar referências ao repo antigo para desenvolvimentoliotecnica/PortalRS",
+      "entregavel": "Scripts, docs, deploy_env.py e links de commit alinhados ao novo repositório PortalRS.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "9c863c0c"
+        ],
+        "branch": "HML",
+        "prHml": "Promoção DEV→HML (30/06/2026)"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-145",
+      "nome": "[Infra] Atalho abrir-planner.bat para Export Planner",
+      "descricaoAmigavel": "Script Windows na raiz do repositório para subir o servidor local do Export Planner (tasks.json + index.html).",
+      "inicio": "2026-06-30",
+      "horarioInicio": "09:00",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "09:05",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar .bat para servir o HTML do Planner localmente",
+      "entregavel": "abrir-planner.bat abre http://localhost:8877/index.html via serve.py.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [],
+        "branch": "HML",
+        "prHml": "Promoção DEV→HML (30/06/2026)"
+      },
+      "observacoes": "Commit do .bat nesta promoção."
     }
   ]
 }
