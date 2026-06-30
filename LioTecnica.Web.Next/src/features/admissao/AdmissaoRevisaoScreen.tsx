@@ -788,14 +788,25 @@ export default function AdmissaoRevisaoScreen() {
 
             {/* Data sections — divididas em abas */}
             <Tabs defaultValue="pessoal" className="rounded-xl border border-border/40 bg-card shadow-sm overflow-hidden">
-                <TabsList className="w-full justify-start rounded-none border-b border-border/40 bg-muted/20 px-2 h-auto py-1.5 gap-1">
-                    <TabsTrigger value="pessoal" className="gap-1.5 text-xs"><User className="size-3.5" /> Pessoal</TabsTrigger>
-                    <TabsTrigger value="endereco" className="gap-1.5 text-xs"><MapPin className="size-3.5" /> Endereço & Contato</TabsTrigger>
-                    <TabsTrigger value="bancario" className="gap-1.5 text-xs"><CreditCard className="size-3.5" /> Bancário</TabsTrigger>
-                    <TabsTrigger value="trabalhista" className="gap-1.5 text-xs"><Briefcase className="size-3.5" /> Trabalhista</TabsTrigger>
-                    <TabsTrigger value="encargos" className="gap-1.5 text-xs"><Coins className="size-3.5" /> Encargos & eSocial</TabsTrigger>
-                    <TabsTrigger value="documentos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Documentação</TabsTrigger>
-                    <TabsTrigger value="arquivos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Arquivos Enviados{(data.documentos.length > 0 || data.documentosSolicitados.length > 0) && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{data.documentos.length > 0 ? data.documentos.length : data.documentosSolicitados.length}</span>}</TabsTrigger>
+                <TabsList className="w-full flex flex-nowrap justify-start overflow-x-auto rounded-none border-b border-border/40 bg-muted/20 px-2 h-auto py-1.5 gap-1">
+                    <RevisaoTabTrigger value="pessoal" icon={User} label="Pessoal" />
+                    <RevisaoTabTrigger value="endereco" icon={MapPin} label="Endereço & Contato" />
+                    <RevisaoTabTrigger value="bancario" icon={CreditCard} label="Bancário" />
+                    <RevisaoTabTrigger value="trabalhista" icon={Briefcase} label="Trabalhista" />
+                    <RevisaoTabTrigger value="encargos" icon={Coins} label="Encargos & eSocial" />
+                    <RevisaoTabTrigger value="documentos" icon={FileText} label="Documentação" />
+                    <RevisaoTabTrigger
+                        value="arquivos"
+                        icon={FileText}
+                        label="Arquivos Enviados"
+                        badge={
+                            (data.documentos.length > 0 || data.documentosSolicitados.length > 0) ? (
+                                <span className="text-[10px] bg-primary/15 text-primary rounded-full px-1.5 py-0.5 font-semibold leading-none">
+                                    {data.documentos.length > 0 ? data.documentos.length : data.documentosSolicitados.length}
+                                </span>
+                            ) : undefined
+                        }
+                    />
                 </TabsList>
 
                 {/* Aba: Pessoal */}
@@ -1265,6 +1276,29 @@ export default function AdmissaoRevisaoScreen() {
 }
 
 /* ── sub-components ── */
+
+function RevisaoTabTrigger({
+    value,
+    icon: Icon,
+    label,
+    badge,
+}: {
+    value: string;
+    icon: React.ElementType;
+    label: React.ReactNode;
+    badge?: React.ReactNode;
+}) {
+    return (
+        <TabsTrigger
+            value={value}
+            className="inline-flex flex-row items-center gap-2.5 px-3 py-2 text-xs sm:text-sm whitespace-nowrap shrink-0"
+        >
+            <Icon className="size-5 shrink-0" aria-hidden />
+            <span className="leading-tight">{label}</span>
+            {badge}
+        </TabsTrigger>
+    );
+}
 
 function Section({ title, icon: SIcon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
     return (
