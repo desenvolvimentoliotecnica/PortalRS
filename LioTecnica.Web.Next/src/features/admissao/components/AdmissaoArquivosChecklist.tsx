@@ -89,6 +89,16 @@ function resolveTipoEnvioStatus(arquivos: ArquivoDocumento[], tipo: number): Env
     return "rejeitado";
 }
 
+function tipoTemArquivos(arquivos: ArquivoDocumento[]) {
+    return arquivos.length > 0;
+}
+
+function cardBackgroundClass(temArquivos: boolean) {
+    return temArquivos
+        ? "border-teal-200/90 bg-teal-50/80 dark:border-teal-800/60 dark:bg-teal-950/25"
+        : "border-red-200/90 bg-red-50/70 dark:border-red-800/60 dark:bg-red-950/20";
+}
+
 const STATUS_BADGE: Record<EnvioStatus, { label: string; className: string; icon: ElementType }> = {
     pendente: { label: "Pendente", className: "bg-red-500/10 text-red-700 dark:text-red-400", icon: XCircle },
     enviado: { label: "Enviado", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", icon: CheckCircle2 },
@@ -333,16 +343,12 @@ export default function AdmissaoArquivosChecklist({
                         const latestVerso = versos[0];
                         const latestUnico = unicos[0];
 
+                        const temArquivos = tipoTemArquivos(arquivos);
+
                         return (
                             <div
                                 key={tipo}
-                                className={`flex flex-row rounded-lg border overflow-hidden h-full min-h-[5.5rem] ${
-                                    envioStatus === "enviado"
-                                        ? "border-emerald-200/80 bg-emerald-50/30 dark:border-emerald-800/60 dark:bg-emerald-950/10"
-                                        : envioStatus === "pendente"
-                                            ? "border-red-200/80 bg-red-50/20 dark:border-red-800/60 dark:bg-red-950/10"
-                                            : "border-amber-200/80 bg-amber-50/20 dark:border-amber-800/60 dark:bg-amber-950/10"
-                                }`}
+                                className={`flex flex-row rounded-lg border overflow-hidden h-full min-h-[5.5rem] ${cardBackgroundClass(temArquivos)}`}
                             >
                                 <DocumentoIconSidebar tipo={tipo} label={sol.label} />
 
