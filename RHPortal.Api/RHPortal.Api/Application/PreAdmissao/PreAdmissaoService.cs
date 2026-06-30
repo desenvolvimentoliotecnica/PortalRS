@@ -16,6 +16,8 @@ using RhPortal.Api.Messaging.Email;
 
 namespace RhPortal.Api.Application.PreAdmissao;
 
+public sealed record PreAdmissaoDocumentoDownloadResult(Stream Stream, string ContentType, string FileName);
+
 public interface IPreAdmissaoService
 {
     Task<IReadOnlyList<PreAdmissaoGridRow>> ListAsync(PreAdmissaoListQuery query, CancellationToken ct);
@@ -29,6 +31,7 @@ public interface IPreAdmissaoService
     Task<BuscaCpfResponse> BuscarPorCpfAsync(string cpf, CancellationToken ct);
     Task<PreAdmissaoDocumentoResponse> UploadDocumentoAsync(Guid preAdmissaoId, TipoDocumento tipo, string nomeArquivo, string contentType, long tamanho, Stream stream, CancellationToken ct);
     Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct);
+    Task<PreAdmissaoDocumentoDownloadResult?> GetDocumentoDownloadAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct);
     Task<IReadOnlyList<DocumentoSolicitadoResponse>> SalvarDocumentosSolicitadosAsync(Guid preAdmissaoId, SalvarDocumentosSolicitadosRequest request, CancellationToken ct);
     Task<GerarLinkResponse?> GerarLinkAsync(Guid preAdmissaoId, GerarLinkRequest request, CancellationToken ct);
     Task<SolicitarReenvioDocumentosResponse?> SolicitarReenvioDocumentosAsync(Guid preAdmissaoId, SolicitarReenvioDocumentosRequest request, CancellationToken ct);
@@ -84,6 +87,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
     private readonly BlipMessagingService _blipMessaging;
     private readonly IConfiguration _configuration;
     private readonly IHostEnvironment _hostEnvironment;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     /// <summary>Lista CLT alinhada à relação de documentos enviada manualmente pelo RH.</summary>
     private static readonly TipoDocumento[] CltDocumentosPadraoFallback =
@@ -123,7 +127,8 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         IOcupacaoHistoricoService ocupacaoService,
         BlipMessagingService blipMessaging,
         IConfiguration configuration,
-        IHostEnvironment hostEnvironment)
+        IHostEnvironment hostEnvironment,
+        IHttpClientFactory httpClientFactory)
     {
         _db = db;
         _tenantContext = tenantContext;
@@ -137,6 +142,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _blipMessaging = blipMessaging;
         _configuration = configuration;
         _hostEnvironment = hostEnvironment;
+        _httpClientFactory = httpClientFactory;
     }
 
     // ── List ──
@@ -797,6 +803,41 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
         _db.Set<PreAdmissaoDocumento>().Remove(doc);
         await _db.SaveChangesAsync(ct);
         return true;
+    }
+
+    public async Task<PreAdmissaoDocumentoDownloadResult?> GetDocumentoDownloadAsync(
+        Guid preAdmissaoId, Guid docId, CancellationToken ct)
+    {
+        var doc = await _db.Set<PreAdmissaoDocumento>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == docId && d.PreAdmissaoId == preAdmissaoId, ct);
+        if (doc is null) return null;
+
+        if (PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath))
+        {
+            var path = PreAdmissaoDocumentoStorage.TryResolveLocalPath(_hostEnvironment, doc.TenantId, doc.StoragePath);
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+
+            var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var contentType = string.IsNullOrWhiteSpace(doc.ContentType) ? "application/octet-stream" : doc.ContentType;
+            return new PreAdmissaoDocumentoDownloadResult(stream, contentType, doc.NomeArquivo);
+        }
+
+        try
+        {
+            var url = _storage.GetPresignedUrl(doc.StoragePath);
+            using var http = _httpClientFactory.CreateClient();
+            var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var remoteStream = await response.Content.ReadAsStreamAsync(ct);
+            var remoteType = response.Content.Headers.ContentType?.MediaType ?? doc.ContentType ?? "application/octet-stream";
+            return new PreAdmissaoDocumentoDownloadResult(remoteStream, remoteType, doc.NomeArquivo);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // ── Solicitação de documentos / link / validação ──
@@ -1566,7 +1607,7 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
 
     private string ResolveDocumentUrl(PreAdmissaoDocumento doc)
         => PreAdmissaoDocumentoStorage.IsLocal(doc.StoragePath)
-            ? string.Empty
+            ? $"/api/pre-admissao/{doc.PreAdmissaoId}/documentos/{doc.Id}/download"
             : _storage.GetPresignedUrl(doc.StoragePath);
 
     private async Task DeleteStoredDocumentAsync(PreAdmissaoDocumento doc, CancellationToken ct)

@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 154
+    "totalTarefas": 155
   },
   "tarefas": [
     {
@@ -3999,6 +3999,29 @@
         "prPrd": "Merge PR #19"
       },
       "observacoes": "DocumentFileActions compartilhado; downloadPortalDocument no portal. HML 7c228fda (PR #18); PRD 1b21d66b (PR #19)."
+    },
+    {
+      "id": "TASK-2026-154",
+      "nome": "[Portal RH] Corrigir botões Visualizar/Baixar na revisão RH (storage local HML)",
+      "descricaoAmigavel": "Botões Visualizar e Baixar aparecem na revisão RH mesmo com arquivos em disco local (HML), via endpoint autenticado de download.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "15:35",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Botões Visualizar e Baixar não apareciam nos cards da revisão RH (print HML)",
+      "entregavel": "GET /api/pre-admissao/{id}/documentos/{docId}/download + hook usePreAdmissaoDocumentPreview.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Causa: presignedUrl vazio quando storage é local:// no HML."
     }
   ]
 }

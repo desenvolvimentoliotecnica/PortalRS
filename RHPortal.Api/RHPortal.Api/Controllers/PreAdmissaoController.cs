@@ -210,6 +210,17 @@ public sealed class PreAdmissaoController : ControllerBase
         return await _service.DeleteDocumentoAsync(id, docId, ct) ? NoContent() : NotFound();
     }
 
+    /// <summary>Download de documento enviado na pré-admissão (RH autenticado).</summary>
+    [HttpGet("{id:guid}/documentos/{docId:guid}/download")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadDocumento(Guid id, Guid docId, CancellationToken ct)
+    {
+        var result = await _service.GetDocumentoDownloadAsync(id, docId, ct);
+        if (result is null) return NotFound(new { message = "Documento não encontrado." });
+        return File(result.Stream, result.ContentType, result.FileName);
+    }
+
     /// <summary>RH define quais documentos solicitar ao candidato (checkbox).</summary>
     [HttpPost("{id:guid}/documentos-solicitados")]
     [ProducesResponseType(typeof(IReadOnlyList<DocumentoSolicitadoResponse>), StatusCodes.Status200OK)]
