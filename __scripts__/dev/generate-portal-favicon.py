@@ -74,8 +74,17 @@ def crop_to_content(img: Image.Image, pad_ratio: float = 0.06) -> Image.Image:
 
 
 def save_ico(path: Path, img: Image.Image, sizes: tuple[int, ...] = (16, 32, 48, 64, 128, 256)) -> None:
-    images = [img.resize((s, s), Image.Resampling.LANCZOS) for s in sizes]
-    images[0].save(path, format="ICO", sizes=[(s, s) for s in sizes], append_images=images[1:])
+    frames = [
+        img.resize((size, size), Image.Resampling.LANCZOS).convert("RGBA")
+        for size in sizes
+    ]
+    # Pillow grava a partir do maior frame; sizes lista todas as resolucoes embutidas.
+    frames[-1].save(
+        path,
+        format="ICO",
+        sizes=[(size, size) for size in sizes],
+        append_images=frames[:-1],
+    )
 
 
 def main() -> None:
