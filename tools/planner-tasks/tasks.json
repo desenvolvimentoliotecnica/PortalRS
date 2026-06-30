@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 161
+    "totalTarefas": 162
   },
   "tarefas": [
     {
@@ -4181,6 +4181,29 @@
         "prPrd": "Merge PR #31"
       },
       "observacoes": "items-start justify-center na sidebar; object-top na imagem. PR #30 HML, PR #31 PRD."
+    },
+    {
+      "id": "TASK-2026-161",
+      "nome": "[Portal RH] Remover metadados de arquivo dos cards de documentos",
+      "descricaoAmigavel": "Cards de documentos na revisão RH não exibem mais nome, tamanho nem data/hora do arquivo — apenas Frente/Verso, observação do RH e botões Visualizar/Baixar.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "17:50",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Remover informações de arquivo (tamanho, nome, data/hora) dos cards",
+      "entregavel": "FileSideRow simplificado em AdmissaoArquivosChecklist.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": ""
     }
   ]
 }
