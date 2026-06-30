@@ -285,9 +285,9 @@ export default function DocumentUploadStep({
     }
 
     return (
-        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#f4f7fb]">
-            <div className="flex flex-1 min-h-0 flex-col justify-center overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
-                <div className="mx-auto my-auto w-full max-w-5xl space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_2px_16px_rgba(15,23,42,0.06)] sm:p-8">
+        <div className="w-full bg-[#f4f7fb]">
+            <div className="px-4 pt-6 pb-8 sm:px-6 sm:pt-8 lg:px-8">
+                <div className="mx-auto w-full max-w-5xl space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_2px_16px_rgba(15,23,42,0.06)] sm:p-8">
             {/* Page header */}
             <div>
                 <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Documentos</h1>

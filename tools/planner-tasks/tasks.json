@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 150
+    "totalTarefas": 151
   },
   "tarefas": [
     {
@@ -3892,6 +3892,29 @@
         "prPrd": "Merge PR #11"
       },
       "observacoes": "Dois erros TS: wizardSteps:273 e ReviewStep:471. HML 1b8c7006 (PR #10); PRD 49b99f46 (PR #11)."
+    },
+    {
+      "id": "TASK-2026-150",
+      "nome": "[Portal RH] Corrigir layout cortado no portal público de documentos",
+      "descricaoAmigavel": "Formulário público de envio de documentos exibe o conteúdo completo desde o topo, sem corte pela barra de etapas.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "13:15",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "UI do formulário público de documentos cortando parte superior — ajustar layout e equalizar DEV/HML/PRD",
+      "entregavel": "Scroll alinhado ao topo em DocumentUploadStep e WizardStepPanel no portal DocumentoAdmissao.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Causa: justify-center e my-auto centralizavam conteúdo alto e cortavam o topo."
     }
   ]
 }
