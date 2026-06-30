@@ -19,6 +19,10 @@ import {
     resolveStatusDocumentoCode,
     tipoDocumentoToCode,
 } from "@/features/admissao/admissaoDocumentosPadrao";
+import {
+    downloadPreAdmissaoDocument,
+    usePreAdmissaoDocumentPreview,
+} from "@/features/admissao/usePreAdmissaoDocumentPreview";
 
 export interface ArquivoDocumento {
     id: string;
@@ -97,38 +101,54 @@ function fmtDate(d: string) {
 }
 
 function DocFileActions({
+    preAdmissaoId,
     doc,
     onPreview,
 }: {
+    preAdmissaoId: string;
     doc: ArquivoDocumento;
     onPreview: (item: PreviewItem) => void;
 }) {
-    if (!doc.presignedUrl) return null;
+    const previewUrl = usePreAdmissaoDocumentPreview(preAdmissaoId, doc);
+    const [downloading, setDownloading] = useState(false);
+
+    if (!doc.id) return null;
+
     return (
         <DocumentFileActions
-            url={doc.presignedUrl}
+            url={previewUrl ?? ""}
             nomeArquivo={doc.nomeArquivo}
             contentType={doc.contentType}
             onPreview={onPreview}
+            onDownload={() => {
+                setDownloading(true);
+                void downloadPreAdmissaoDocument(preAdmissaoId, doc, previewUrl)
+                    .catch(() => toast.error("Não foi possível baixar o arquivo."))
+                    .finally(() => setDownloading(false));
+            }}
+            disabled={!previewUrl || downloading}
+            className="w-full sm:w-auto"
         />
     );
 }
 
 function FileSideRow({
+    preAdmissaoId,
     doc,
     sideLabel,
     onPreview,
 }: {
+    preAdmissaoId: string;
     doc: ArquivoDocumento;
     sideLabel?: string;
     onPreview: (item: PreviewItem) => void;
 }) {
     const valid = isValidDoc(doc);
     return (
-        <div className={`flex items-center justify-between gap-2 px-3 py-2 ${!valid ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}>
-            <div className="flex items-center gap-2 min-w-0">
-                <FileText className="size-3.5 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
+        <div className={`space-y-2 px-3 py-2 ${!valid ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}>
+            <div className="flex items-start gap-2 min-w-0">
+                <FileText className="size-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                         {sideLabel && (
                             <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground shrink-0">
@@ -145,7 +165,7 @@ function FileSideRow({
                     )}
                 </div>
             </div>
-            <DocFileActions doc={doc} onPreview={onPreview} />
+            <DocFileActions preAdmissaoId={preAdmissaoId} doc={doc} onPreview={onPreview} />
         </div>
     );
 }
@@ -352,12 +372,12 @@ export default function AdmissaoArquivosChecklist({
                                 {hasSides ? (
                                     <div className="divide-y divide-border/20">
                                         {latestFrente ? (
-                                            <FileSideRow doc={latestFrente} sideLabel="Frente" onPreview={setPreview} />
+                                            <FileSideRow doc={latestFrente} sideLabel="Frente" preAdmissaoId={preAdmissaoId} onPreview={setPreview} />
                                         ) : (
                                             <div className="px-3 py-2 text-xs text-muted-foreground">Frente não enviada</div>
                                         )}
                                         {latestVerso ? (
-                                            <FileSideRow doc={latestVerso} sideLabel="Verso" onPreview={setPreview} />
+                                            <FileSideRow doc={latestVerso} sideLabel="Verso" preAdmissaoId={preAdmissaoId} onPreview={setPreview} />
                                         ) : (
                                             <div className="px-3 py-2 text-xs text-muted-foreground">Verso não enviado</div>
                                         )}
@@ -365,6 +385,7 @@ export default function AdmissaoArquivosChecklist({
                                 ) : latestUnico || latestFrente ? (
                                     <FileSideRow
                                         doc={latestUnico ?? latestFrente!}
+                                        preAdmissaoId={preAdmissaoId}
                                         onPreview={setPreview}
                                     />
                                 ) : (
@@ -387,14 +408,14 @@ export default function AdmissaoArquivosChecklist({
                     </summary>
                     <div className="divide-y divide-border/20 border-t border-border/20">
                         {extras.map((d) => (
-                            <div key={d.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                            <div key={d.id} className="px-3 py-2 space-y-2">
                                 <div className="min-w-0">
                                     <div className="text-sm truncate">{d.nomeArquivo}</div>
                                     <div className="text-xs text-muted-foreground">
                                         {(d.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(d.createdAtUtc)}
                                     </div>
                                 </div>
-                                <DocFileActions doc={d} onPreview={setPreview} />
+                                <DocFileActions preAdmissaoId={preAdmissaoId} doc={d} onPreview={setPreview} />
                             </div>
                         ))}
                     </div>

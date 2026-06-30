@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 154
+    "totalTarefas": 156
   },
   "tarefas": [
     {
@@ -3980,15 +3980,64 @@
       "descricaoAmigavel": "Cards de documentos exibem botões Visualizar (lightbox) e Baixar no portal do candidato e na revisão RH.",
       "inicio": "2026-06-30",
       "horarioInicio": "15:30",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "15:30",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Colocar 2 botões nos cards (Visualizar com lightbox e Baixar) e promover DEV/HML/PRD",
       "entregavel": "Componente DocumentFileActions; botões no portal candidato e revisão RH.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "ca21042a"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #18",
+        "prPrd": "Merge PR #19"
+      },
+      "observacoes": "DocumentFileActions compartilhado; downloadPortalDocument no portal. HML 7c228fda (PR #18); PRD 1b21d66b (PR #19)."
+    },
+    {
+      "id": "TASK-2026-154",
+      "nome": "[Portal RH] Corrigir botões Visualizar/Baixar na revisão RH (storage local HML)",
+      "descricaoAmigavel": "Botões Visualizar e Baixar aparecem na revisão RH mesmo com arquivos em disco local (HML), via endpoint autenticado de download.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "15:35",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Botões Visualizar e Baixar não apareciam nos cards da revisão RH (print HML)",
+      "entregavel": "GET /api/pre-admissao/{id}/documentos/{docId}/download + hook usePreAdmissaoDocumentPreview.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Causa: presignedUrl vazio quando storage é local:// no HML."
+    },
+    {
+      "id": "TASK-2026-155",
+      "nome": "[Portal RH] Layout horizontal das abas na revisão de admissão",
+      "descricaoAmigavel": "Abas da revisão de admissão exibem ícone maior à esquerda e rótulo à direita, em linha.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "15:40",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Ajustar layout dos botões das abas: ícones à esquerda, label à direita, ícones maiores",
+      "entregavel": "Componente RevisaoTabTrigger em AdmissaoRevisaoScreen.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
