@@ -3957,14 +3957,16 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Ícones muito pequenos — layout 20% ícone / 80% conteúdo nos cards de documentos",
       "entregavel": "DocumentoIconSidebar com coluna lateral 20%; grid revisão RH em 3 colunas.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "d8174026"
+        ],
         "branch": "DEV",
         "prHml": null
       },
