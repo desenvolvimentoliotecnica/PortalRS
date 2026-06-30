@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 153
+    "totalTarefas": 154
   },
   "tarefas": [
     {
@@ -3953,20 +3953,45 @@
       "descricaoAmigavel": "Ícones dos cards de documentos ocupam 20% da lateral esquerda do card, com conteúdo nos 80% restantes, na revisão RH e no portal do candidato.",
       "inicio": "2026-06-30",
       "horarioInicio": "14:05",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "15:17",
+      "totalHoras": 1.2,
+      "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Ícones muito pequenos — layout 20% ícone / 80% conteúdo nos cards de documentos",
       "entregavel": "DocumentoIconSidebar com coluna lateral 20%; grid revisão RH em 3 colunas.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "d8174026"
+          "d8174026",
+          "ab1a1cc1"
         ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #16",
+        "prPrd": "Merge PR #17"
+      },
+      "observacoes": "DocumentoIconSidebar 20/80 em AdmissaoArquivosChecklist e DocumentCard; grid revisão 3 colunas xl. HML 479d828c (PR #16); PRD f9b807df (PR #17)."
+    },
+    {
+      "id": "TASK-2026-153",
+      "nome": "[Portal RH] Botões Visualizar e Baixar nos cards de documentos",
+      "descricaoAmigavel": "Cards de documentos exibem botões Visualizar (lightbox) e Baixar no portal do candidato e na revisão RH.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "15:30",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Colocar 2 botões nos cards (Visualizar com lightbox e Baixar) e promover DEV/HML/PRD",
+      "entregavel": "Componente DocumentFileActions; botões no portal candidato e revisão RH.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
         "branch": "DEV",
         "prHml": null
       },

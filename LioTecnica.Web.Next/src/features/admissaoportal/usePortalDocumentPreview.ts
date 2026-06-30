@@ -68,3 +68,41 @@ export function usePortalDocumentPreview(
 export function portalDocumentDownloadPath(session: AdmissaoPortalSession, docId: string) {
     return `/api/public/admissao-portal/${session.preAdmissaoId}/documentos/${docId}/download`;
 }
+
+/** Baixa documento do portal — usa URL já resolvida ou busca via API autenticada. */
+export async function downloadPortalDocument(
+    session: AdmissaoPortalSession | undefined,
+    doc: UploadedDoc,
+    previewUrl?: string,
+): Promise<void> {
+    const fileName = doc.nomeArquivo || "documento";
+
+    const triggerDownload = (url: string, revoke?: boolean) => {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.rel = "noopener";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        if (revoke) URL.revokeObjectURL(url);
+    };
+
+    if (previewUrl) {
+        triggerDownload(previewUrl);
+        return;
+    }
+
+    if (!session || !doc.id) {
+        throw new Error("Arquivo indisponível para download.");
+    }
+
+    const res = await admissaoPortalFetch(
+        session.tenantId,
+        portalDocumentDownloadPath(session, doc.id),
+        session.cpf,
+    );
+    if (!res.ok) throw new Error("Falha ao baixar documento.");
+    const blob = await res.blob();
+    triggerDownload(URL.createObjectURL(blob), true);
+}
