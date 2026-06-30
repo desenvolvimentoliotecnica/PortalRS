@@ -3801,10 +3801,11 @@
       "referencias": {
         "commits": [
           "421d42d1",
-          "988c63d7"
+          "988c63d7",
+          "321266cb"
         ],
         "branch": "HML",
-        "prHml": "Promoção DEV→HML (30/06/2026)"
+        "prHml": "Merge PR #1"
       },
       "observacoes": ""
     }
