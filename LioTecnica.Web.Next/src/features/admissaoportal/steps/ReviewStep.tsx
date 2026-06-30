@@ -12,10 +12,11 @@ import WizardStepCard from "../components/WizardStepCard";
 import { PortalInfoBox } from "../components/PortalField";
 import { useAdmissaoWizardStore } from "../useAdmissaoWizardStore";
 import { TIPO_DOC_LABELS } from "../constants";
+import { tipoDocumentoToCode } from "@/features/admissao/admissaoDocumentosPadrao";
 
 interface Props {
     disabled?: boolean;
-    documentosEnviados?: { tipo: number; nomeArquivo: string }[];
+    documentosEnviados?: { tipo: number | string; nomeArquivo: string }[];
     onEditStep?: (step: number) => void;
 }
 
@@ -73,14 +74,17 @@ export default function ReviewStep({ disabled, documentosEnviados = [], onEditSt
                     {docsList.length === 0 ? (
                         <p className="text-sm text-slate-500">Nenhum documento enviado ainda.</p>
                     ) : (
-                        docsList.map((doc, i) => (
-                            <div key={`${doc.tipo}-${i}`} className="flex items-center justify-between gap-2 text-sm">
+                        docsList.map((doc, i) => {
+                            const tipoCode = tipoDocumentoToCode(doc.tipo);
+                            return (
+                            <div key={`${tipoCode}-${i}`} className="flex items-center justify-between gap-2 text-sm">
                                 <span className="text-slate-700">
-                                    {TIPO_DOC_LABELS[doc.tipo] || `Documento ${doc.tipo}`}
+                                    {TIPO_DOC_LABELS[tipoCode] || `Documento ${doc.tipo}`}
                                 </span>
                                 <span className="truncate text-xs text-emerald-600">Enviado</span>
                             </div>
-                        ))
+                            );
+                        })
                     )}
                 </ReviewCard>
 
