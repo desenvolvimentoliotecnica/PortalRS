@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useCallback } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
     CloudUpload, Loader2, Trash2, RotateCcw, FileText, Eye, CheckCircle2,
@@ -10,8 +11,9 @@ import { ACCEPTED_DOC_MIME, TIPOS_COM_VERSO } from "../constants";
 import { DOC_FRENTE_LABELS, DOC_HINTS, DOC_VERSO_LABELS } from "../admissaoDocumentoCatalog";
 import DocumentPreviewLightbox, { type PreviewItem, isPdfPreview } from "@/components/documents/DocumentPreviewLightbox";
 import { DocumentoIconSidebar } from "@/components/documents/DocumentoTipoIcon";
+import DocumentFileActions from "@/components/documents/DocumentFileActions";
 import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
-import { usePortalDocumentPreview } from "../usePortalDocumentPreview";
+import { usePortalDocumentPreview, downloadPortalDocument } from "../usePortalDocumentPreview";
 import type { AdmissaoPortalSession } from "../publicApi";
 
 /** Altura fixa das zonas de upload para alinhar cards simples e frente/verso. */
@@ -228,12 +230,25 @@ function UploadSlot({
 }: SlotProps) {
     const s = SIZES[size];
     const [dragOver, setDragOver] = useState(false);
+    const [downloading, setDownloading] = useState(false);
     const isProcessing = aiResult?.processing;
     const previewUrl = usePortalDocumentPreview(session, uploadedDoc);
     const isPdf = uploadedDoc && isPdfPreview({
         url: previewUrl ?? "",
         nomeArquivo: uploadedDoc.nomeArquivo,
     });
+
+    const handleDownload = useCallback(async () => {
+        if (!uploadedDoc) return;
+        setDownloading(true);
+        try {
+            await downloadPortalDocument(session, uploadedDoc, previewUrl);
+        } catch {
+            toast.error("Não foi possível baixar o arquivo.");
+        } finally {
+            setDownloading(false);
+        }
+    }, [session, uploadedDoc, previewUrl]);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -294,6 +309,15 @@ function UploadSlot({
                         </div>
                     )}
                 </div>
+                <DocumentFileActions
+                    url={previewUrl ?? ""}
+                    nomeArquivo={uploadedDoc.nomeArquivo}
+                    contentType={isPdf ? "application/pdf" : undefined}
+                    onPreview={onPreview}
+                    onDownload={() => void handleDownload()}
+                    disabled={!previewUrl || downloading || isProcessing}
+                    className="w-full"
+                />
                 {!disabled && (
                     <div className="flex gap-2 shrink-0">
                         <Button

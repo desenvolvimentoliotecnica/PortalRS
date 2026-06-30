@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 153
+    "totalTarefas": 154
   },
   "tarefas": [
     {
@@ -3973,6 +3973,29 @@
         "prPrd": "Merge PR #17"
       },
       "observacoes": "DocumentoIconSidebar 20/80 em AdmissaoArquivosChecklist e DocumentCard; grid revisão 3 colunas xl. HML 479d828c (PR #16); PRD f9b807df (PR #17)."
+    },
+    {
+      "id": "TASK-2026-153",
+      "nome": "[Portal RH] Botões Visualizar e Baixar nos cards de documentos",
+      "descricaoAmigavel": "Cards de documentos exibem botões Visualizar (lightbox) e Baixar no portal do candidato e na revisão RH.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "15:30",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Colocar 2 botões nos cards (Visualizar com lightbox e Baixar) e promover DEV/HML/PRD",
+      "entregavel": "Componente DocumentFileActions; botões no portal candidato e revisão RH.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": ""
     }
   ]
 }
