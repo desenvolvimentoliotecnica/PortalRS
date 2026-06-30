@@ -32,10 +32,15 @@ import {
 } from "lucide-react";
 import { formatMissingDocumentsMessage } from "./portalValidation";
 import { buildWizardPlan, validateAllDocuments } from "./wizardSteps";
+import {
+    resolveLadoDocumentoCode,
+    resolveStatusDocumentoCode,
+    tipoDocumentoToCode,
+} from "@/features/admissao/admissaoDocumentosPadrao";
 
 /* types */
 interface DocSolicitado { tipo: number; label: string; obrigatorio: boolean; jaEnviado: boolean; }
-interface DocEnviado { id: string; tipo: number; lado: number; nomeArquivo: string; tamanhoBytes: number; status: number; observacaoRh: string | null; presignedUrl: string; createdAtUtc?: string; }
+interface DocEnviado { id: string; tipo: number | string; lado: number | string; nomeArquivo: string; tamanhoBytes: number; status: number | string; observacaoRh: string | null; presignedUrl: string; createdAtUtc?: string; }
 interface DadosPessoais { [key: string]: unknown; }
 interface DependenteData { id: string; nomeCompleto: string; parentesco: number; cpf: string | null; dataNascimento: string; isPcd: boolean; }
 interface PortalInformacoesVaga {
@@ -104,6 +109,15 @@ export default function DocumentoAdmissaoScreen() {
         [data?.documentosSolicitados],
     );
 
+    const rejeicoesPorTipo = useMemo(() => {
+        const map = new Map<number, string>();
+        for (const d of data?.documentosEnviados ?? []) {
+            if (resolveStatusDocumentoCode(d.status) !== 2) continue;
+            map.set(tipoDocumentoToCode(d.tipo), d.observacaoRh || "O RH solicitou o reenvio deste documento.");
+        }
+        return map;
+    }, [data?.documentosEnviados]);
+
     // Sincroniza total de etapas e migra step legado uma vez após carregar dados
     useEffect(() => {
         if (!data) return;
@@ -163,28 +177,30 @@ export default function DocumentoAdmissaoScreen() {
             // Hydrate uploaded docs — roteia frente/verso para slots corretos (ignora rejeitados)
             const storeSnapshot = useAdmissaoWizardStore.getState();
             for (const doc of body.documentosEnviados) {
-                if (doc.status === 2) continue;
-                const existingFrente = storeSnapshot.uploadedDocs.get(doc.tipo);
-                const existingVerso = storeSnapshot.uploadedDocsVerso.get(doc.tipo);
-                const isVerso = doc.lado === 2;
+                if (resolveStatusDocumentoCode(doc.status) === 2) continue;
+                const tipo = tipoDocumentoToCode(doc.tipo);
+                const lado = resolveLadoDocumentoCode(doc.lado);
+                const existingFrente = storeSnapshot.uploadedDocs.get(tipo);
+                const existingVerso = storeSnapshot.uploadedDocsVerso.get(tipo);
+                const isVerso = lado === 2;
                 const existing = isVerso ? existingVerso : existingFrente;
                 const serverUrl = doc.presignedUrl?.trim() || "";
                 const previewUrl = serverUrl || existing?.thumbnail || existing?.presignedUrl;
 
                 const docData = {
                     id: doc.id,
-                    tipo: doc.tipo,
+                    tipo,
                     nomeArquivo: doc.nomeArquivo,
                     tamanhoBytes: doc.tamanhoBytes,
-                    status: doc.status,
+                    status: resolveStatusDocumentoCode(doc.status),
                     presignedUrl: previewUrl,
                     thumbnail: existing?.thumbnail,
                     createdAtUtc: doc.createdAtUtc,
                 };
-                if (doc.lado === 2) { // Verso = 2
-                    setUploadedDocVerso(doc.tipo, docData);
-                } else { // Frente = 1 ou Unico = 0
-                    setUploadedDoc(doc.tipo, docData);
+                if (lado === 2) {
+                    setUploadedDocVerso(tipo, docData);
+                } else {
+                    setUploadedDoc(tipo, docData);
                 }
             }
         } catch { toast.error("Erro de conexao."); }
@@ -375,14 +391,6 @@ export default function DocumentoAdmissaoScreen() {
     const stepInfo = wizardPlan.resolveStep(currentStep);
     const isWelcome = stepInfo.kind === "welcome";
     const isConclusao = stepInfo.kind === "conclusao";
-    const rejeicoesPorTipo = useMemo(() => {
-        const map = new Map<number, string>();
-        for (const d of data?.documentosEnviados ?? []) {
-            if (d.status !== 2) continue;
-            map.set(d.tipo, d.observacaoRh || "O RH solicitou o reenvio deste documento.");
-        }
-        return map;
-    }, [data?.documentosEnviados]);
 
     return (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white">
