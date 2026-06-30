@@ -4084,22 +4084,25 @@
       "descricaoAmigavel": "Aba ativa em azul marinho com texto branco; cards com documentos em verde-água claro e sem documentos em vermelho claro.",
       "inicio": "2026-06-30",
       "horarioInicio": "16:25",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "16:49",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Destaque na aba ativa (azul marinho/branco); cards com docs verde-água, sem docs vermelho claro; promover DEV/HML/PRD",
       "entregavel": "RevisaoTabTrigger com bg lt-primary; cardBackgroundClass teal/red em AdmissaoArquivosChecklist.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "ab053408"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #24",
+        "prPrd": "Merge PR #25"
       },
-      "observacoes": ""
+      "observacoes": "Aba ativa #0C3A64; cards teal-50 com arquivos, red-50 sem. HML 9c58d7db (PR #24); PRD PR #25."
     }
   ]
 }
