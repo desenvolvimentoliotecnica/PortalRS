@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import DocumentPreviewLightbox, { type PreviewItem } from "@/components/documents/DocumentPreviewLightbox";
-import DocumentoTipoIcon from "@/components/documents/DocumentoTipoIcon";
+import { DocumentoIconSidebar } from "@/components/documents/DocumentoTipoIcon";
 import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import { sortDocumentosSolicitados } from "@/features/admissaoportal/admissaoDocumentoCatalog";
 import { TIPOS_COM_VERSO } from "@/features/admissaoportal/constants";
@@ -311,7 +311,7 @@ export default function AdmissaoArquivosChecklist({
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Documentos solicitados ({sortedSolicitados.length})
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     {sortedSolicitados.map((sol) => {
                         const tipo = sol.tipo;
                         const arquivos = docsByTipo.get(tipo) ?? [];
@@ -327,7 +327,7 @@ export default function AdmissaoArquivosChecklist({
                         return (
                             <div
                                 key={tipo}
-                                className={`flex flex-col rounded-lg border overflow-hidden h-full ${
+                                className={`flex flex-row rounded-lg border overflow-hidden h-full min-h-[5.5rem] ${
                                     envioStatus === "enviado"
                                         ? "border-emerald-200/80 bg-emerald-50/30 dark:border-emerald-800/60 dark:bg-emerald-950/10"
                                         : envioStatus === "pendente"
@@ -335,14 +335,16 @@ export default function AdmissaoArquivosChecklist({
                                             : "border-amber-200/80 bg-amber-50/20 dark:border-amber-800/60 dark:bg-amber-950/10"
                                 }`}
                             >
-                                <div className="flex items-start gap-2.5 px-3 py-2.5 border-b border-border/20">
-                                    <DocumentoTipoIcon tipo={tipo} label={sol.label} size="sm" className="mt-0.5" />
+                                <DocumentoIconSidebar tipo={tipo} label={sol.label} />
+
+                                <div className="flex min-w-0 flex-1 flex-col">
+                                <div className="flex items-start gap-2 px-3 py-2.5 border-b border-border/20">
                                     {canSolicitarReenvio && (
                                         <input
                                             type="checkbox"
                                             checked={selected.has(tipo)}
                                             onChange={() => toggleTipo(tipo)}
-                                            className="size-4 rounded border-gray-300 accent-primary shrink-0 mt-1"
+                                            className="size-4 rounded border-gray-300 accent-primary shrink-0 mt-0.5"
                                             aria-label={`Selecionar ${sol.label}`}
                                         />
                                     )}
@@ -381,6 +383,7 @@ export default function AdmissaoArquivosChecklist({
                                         Nenhum arquivo enviado ainda.
                                     </div>
                                 )}
+                                </div>
                             </div>
                         );
                     })}
