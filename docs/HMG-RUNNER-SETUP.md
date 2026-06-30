@@ -1,4 +1,4 @@
-# Self-hosted runner em `10.0.0.80` (já preparado)
+﻿# Self-hosted runner em `10.0.0.80` (já preparado)
 
 No servidor HMG (**Ubuntu 24.04**, utilizador `administrator`) o pacote oficial do GitHub Actions Runner já está em:
 
@@ -10,11 +10,11 @@ As dependências base foram instaladas com `./bin/installdependencies.sh`.
 
 ## O que falta (obrigatório — precisa de token)
 
-Só um **administrador do repositório** `munizlmachado-jpg/RH` pode gerar o **registration token** (válido poucos minutos).
+Só um **administrador do repositório** `desenvolvimentoliotecnica/PortalRS` pode gerar o **registration token** (válido poucos minutos).
 
 ### 1. Gerar token na UI GitHub
 
-1. Abre **https://github.com/munizlmachado-jpg/RH/settings/actions/runners**
+1. Abre **https://github.com/desenvolvimentoliotecnica/PortalRS/settings/actions/runners**
 2. **New self-hosted runner** → escolhe **Linux** → copia o **token** que aparece no passo `config.sh`.
 
 ### 2. No servidor (SSH como `administrator`)
@@ -23,7 +23,7 @@ Substitui `COLOCA_TOKEN_AQUI` pelo token copiado:
 
 ```bash
 cd ~/actions-runner
-./config.sh --url https://github.com/munizlmachado-jpg/RH \
+./config.sh --url https://github.com/desenvolvimentoliotecnica/PortalRS \
   --token COLOCA_TOKEN_AQUI \
   --labels hmg-deploy \
   --unattended \

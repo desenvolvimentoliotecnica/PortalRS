@@ -23,8 +23,8 @@ const META = {
   jornadaComercial: '08:00-18:00',
 };
 
-const BRANCH_DEV = 'portalRH-DEV';
-const BRANCH_HML = 'origin/portalRH-HML';
+const BRANCH_DEV = 'DEV';
+const BRANCH_HML = 'origin/HML';
 const DATA_INICIO_AO_VIVO = '2026-05-23';
 
 /** Grupos históricos (backfill) — agrupados por entrega de negócio, não 1 commit = 1 tarefa */
@@ -250,7 +250,7 @@ function discoverHmlMerges() {
       ambiente: 'HML',
       referencias: {
         commits: commits.map(c => c.slice(0, 7)),
-        branch: 'portalRH-HML',
+        branch: 'HML',
         prHml,
       },
       observacoes: commits.length > 1 ? `Backfill: ${commits.length} commits no grupo.` : '',

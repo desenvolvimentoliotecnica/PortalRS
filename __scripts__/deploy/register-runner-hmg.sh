@@ -7,7 +7,7 @@
 #   bash register-runner-hmg.sh
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/munizlmachado-jpg/RH}"
+REPO_URL="${REPO_URL:-https://github.com/desenvolvimentoliotecnica/PortalRS}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/actions-runner}"
 
 if [[ -z "${RUNNER_TOKEN:-}" ]]; then

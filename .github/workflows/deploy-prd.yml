@@ -1,4 +1,4 @@
-# Deploy automatico para PRD: push em portalRH-PRD -> build imagens -> GHCR -> compose no servidor.
+# Deploy automatico para PRD: push em PRD -> build imagens -> GHCR -> compose no servidor.
 #
 # O job deploy-prd usa runner self-hosted com label prd-deploy instalado no servidor 10.0.0.88.
 
@@ -7,7 +7,7 @@ name: Deploy PortalRH PRD
 on:
   push:
     branches:
-      - portalRH-PRD
+      - PRD
   workflow_dispatch:
 
 concurrency:
@@ -122,7 +122,7 @@ jobs:
     name: Deploy local no servidor PRD (self-hosted)
     needs: build-and-push
     runs-on: [self-hosted, prd-deploy]
-    if: github.ref == 'refs/heads/portalRH-PRD' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/PRD' || github.event_name == 'workflow_dispatch'
     defaults:
       run:
         shell: bash

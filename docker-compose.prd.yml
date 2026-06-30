@@ -1,4 +1,4 @@
-# Stack PRD (portalRH-PRD) - GitHub Actions faz build/push das imagens; no servidor: pull + up.
+# Stack PRD (PRD) - GitHub Actions faz build/push das imagens; no servidor: pull + up.
 #
 # Variaveis esperadas no shell ou num ficheiro `.env` ao lado deste ficheiro:
 #   PRD_REGISTRY_PREFIX  ex.: ghcr.io/org/repo   (sem barra final)

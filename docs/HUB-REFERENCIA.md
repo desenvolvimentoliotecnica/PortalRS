@@ -1,5 +1,7 @@
 # Liotecnica Hub — repositório dedicado
 
+O **Portal RH** vive em [desenvolvimentoliotecnica/PortalRS](https://github.com/desenvolvimentoliotecnica/PortalRS) (`D:\Projetos\PortalRS`, branches `DEV` / `HML` / `PRD`).
+
 O **Liotecnica Hub** foi extraído deste monorepo e passou a viver em repositório próprio:
 
 - **GitHub:** [desenvolvimentoliotecnica/LiotecnicaHub](https://github.com/desenvolvimentoliotecnica/LiotecnicaHub)
