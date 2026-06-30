@@ -3874,14 +3874,16 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "percentualConcluido": 100,
       "prioridade": "Urgente",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Deploy DEV, HML e PRD falhando na etapa BUILD após TASK-2026-148",
       "entregavel": "validateAllDocuments usa DocEnviadoForValidation compatível com enums string da API.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "e2e290cd"
+        ],
         "branch": "DEV",
         "prHml": null
       },
