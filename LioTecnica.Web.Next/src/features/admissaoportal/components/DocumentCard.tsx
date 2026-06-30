@@ -9,6 +9,7 @@ import type { AiExtractionResult, UploadedDoc } from "../useAdmissaoWizardStore"
 import { ACCEPTED_DOC_MIME, TIPOS_COM_VERSO } from "../constants";
 import { DOC_FRENTE_LABELS, DOC_HINTS, DOC_VERSO_LABELS } from "../admissaoDocumentoCatalog";
 import DocumentPreviewLightbox, { type PreviewItem, isPdfPreview } from "@/components/documents/DocumentPreviewLightbox";
+import DocumentoTipoIcon from "@/components/documents/DocumentoTipoIcon";
 import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import { usePortalDocumentPreview } from "../usePortalDocumentPreview";
 import type { AdmissaoPortalSession } from "../publicApi";
@@ -92,9 +93,12 @@ export default function DocumentCard({
                 {/* Header — altura estável do título + hint */}
                 <div className={`px-5 pt-5 pb-4 ${s.headerMinH}`}>
                     <div className="flex items-start gap-3">
-                        <span className={`flex shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary mt-0.5 ${s.indexBadge}`}>
-                            {index > 0 ? index : "·"}
-                        </span>
+                        <DocumentoTipoIcon
+                            tipo={tipo}
+                            label={label}
+                            size={size === "wizard" ? "lg" : "md"}
+                            className="mt-0.5"
+                        />
                         <div className="flex-1 min-w-0">
                             <div className="flex items-start gap-1 min-h-[1.25rem]">
                                 <h3 className={`${s.title} font-semibold leading-snug text-foreground line-clamp-2`}>{label}</h3>
