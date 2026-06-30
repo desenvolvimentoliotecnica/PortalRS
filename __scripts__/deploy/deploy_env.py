@@ -67,7 +67,7 @@ ENVIRONMENTS: dict[str, DeployEnvironment] = {
     "hmg": DeployEnvironment(
         id="hmg",
         label="HMG (10.0.0.80)",
-        branch="portalRH-HML",
+        branch="HML",
         default_host="10.0.0.80",
         default_remote_dir="/home/administrator/rh-deploys",
         # URL pública (Entra ID, scripts externos). Porta 5000 = HTTPS via Nginx do host.
@@ -95,7 +95,7 @@ ENVIRONMENTS: dict[str, DeployEnvironment] = {
     "dev": DeployEnvironment(
         id="dev",
         label="DEV (10.0.0.79)",
-        branch="portalRH-DEV",
+        branch="DEV",
         default_host="10.0.0.79",
         default_remote_dir="/home/administrator/rh-deploys-dev",
         default_api_url="http://10.0.0.79:5000",
@@ -121,4 +121,4 @@ ENVIRONMENTS: dict[str, DeployEnvironment] = {
     ),
 }
 
-IMAGE_PREFIX = "ghcr.io/munizlmachado-jpg/rh"
+IMAGE_PREFIX = "ghcr.io/desenvolvimentoliotecnica/portalrs"

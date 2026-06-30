@@ -9,7 +9,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 OUT_DIR = REPO / "docs" / "Reumos-Diarios"
 OUT_FILE = OUT_DIR / "agenda-atividades.html"
-GITHUB = "https://github.com/munizlmachado-jpg/RH"
+GITHUB = "https://github.com/desenvolvimentoliotecnica/PortalRS"
 
 START = date(2026, 5, 22)
 END = date(2026, 6, 25)
