@@ -4110,22 +4110,25 @@
       "descricaoAmigavel": "Ícones ilustrativos na lateral dos cards de documentos 50% maiores na revisão RH e portal candidato.",
       "inicio": "2026-06-30",
       "horarioInicio": "16:55",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "17:04",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Aumentar ícones dos cards em 1.5x e promover DEV/HML/PRD",
       "entregavel": "DocumentoIconSidebar e DocumentoTipoIcon com dimensões 1.5x.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "fb8740f8"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #26",
+        "prPrd": "Merge PR #27"
       },
-      "observacoes": ""
+      "observacoes": "Sidebar min 6.375rem, imagem 240px. HML 13637972 (PR #26); PRD PR #27."
     }
   ]
 }
