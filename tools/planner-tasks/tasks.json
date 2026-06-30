@@ -3816,7 +3816,7 @@
       "inicio": "2026-06-30",
       "horarioInicio": "11:20",
       "conclusao": "2026-06-30",
-      "horarioConclusao": "11:36",
+      "horarioConclusao": "11:48",
       "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
@@ -3824,16 +3824,18 @@
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Investigar por que documentos não aparecem na revisão de admissão (id 3be96c7b) e ajustar layout da lista para 4 colunas",
       "entregavel": "Bug de lado enum corrigido no checklist de arquivos; grid 4 colunas na aba Arquivos Enviados.",
-      "ambiente": "HML",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "cddf7b77",
-          "14d80154"
+          "14d80154",
+          "04bbdad5"
         ],
-        "branch": "origin/HML",
-        "prHml": "Merge PR #3"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #3",
+        "prPrd": "Merge PR #5"
       },
-      "observacoes": "Causa raiz: API retorna lado como string (Frente/Verso/Unico) e checklist comparava com números. Merge HML 01315dac."
+      "observacoes": "Causa raiz: API retorna lado como string (Frente/Verso/Unico) e checklist comparava com números. HML 01315dac (PR #3); planner HML 1f173d5c (PR #4); PRD 7e93e069 (PR #5)."
     }
   ]
 }
