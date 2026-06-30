@@ -1,4 +1,4 @@
-﻿{
+{
   "meta": {
     "projeto": "Portal RH (RenderRH)",
     "responsavelPadrao": "Lucas Muniz Machado",
@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 146
+    "totalTarefas": 147
   },
   "tarefas": [
     {
