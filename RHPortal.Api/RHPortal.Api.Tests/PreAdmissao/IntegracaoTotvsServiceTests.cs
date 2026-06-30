@@ -78,7 +78,8 @@ public sealed class IntegracaoTotvsServiceTests
             ocupacaoService.Object,
             blipMessaging,
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
-            hostEnvironment.Object);
+            hostEnvironment.Object,
+            httpClientFactory.Object);
 
         return (db, service);
     }
