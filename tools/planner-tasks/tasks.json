@@ -3870,26 +3870,28 @@
       "descricaoAmigavel": "Deploy DEV/HML/PRD volta a compilar após alinhar tipos TypeScript na validação de documentos do portal.",
       "inicio": "2026-06-30",
       "horarioInicio": "12:30",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "13:03",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Urgente",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Deploy DEV, HML e PRD falhando na etapa BUILD após TASK-2026-148",
       "entregavel": "validateAllDocuments e ReviewStep compatíveis com enums string da API; build CI verde.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "e2e290cd",
-          "b4739dbd"
+          "b4739dbd",
+          "902480dc",
+          "9cdf24dd"
         ],
-        "branch": "DEV",
-        "prHml": "Merge PR #8 (build ainda falhou ReviewStep)",
-        "prPrd": "Merge PR #9 (build ainda falhou ReviewStep)"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #10",
+        "prPrd": "Merge PR #11"
       },
-      "observacoes": "1o fix wizardSteps OK; 2o erro CI ReviewStep.tsx:471 documentosEnviados.tipo. Repromocao pendente."
+      "observacoes": "Dois erros TS: wizardSteps:273 e ReviewStep:471. HML 1b8c7006 (PR #10); PRD 49b99f46 (PR #11)."
     }
   ]
 }
