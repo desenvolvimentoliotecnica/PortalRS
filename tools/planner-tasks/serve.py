@@ -10,6 +10,11 @@ mimetypes.add_type('application/json', '.json')
 
 
 class PlannerHandler(SimpleHTTPRequestHandler):
+    def end_headers(self):
+        if self.path.rstrip('/').endswith('tasks.json'):
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
+        super().end_headers()
+
     def guess_type(self, path):
         base, ext = __import__('os').path.splitext(path)
         if ext.lower() == '.mjs':

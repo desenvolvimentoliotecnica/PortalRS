@@ -1,4 +1,4 @@
-﻿{
+{
   "meta": {
     "projeto": "Portal RH (RenderRH)",
     "responsavelPadrao": "Lucas Muniz Machado",
@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 146
+    "totalTarefas": 147
   },
   "tarefas": [
     {
@@ -3801,10 +3801,11 @@
       "referencias": {
         "commits": [
           "421d42d1",
-          "988c63d7"
+          "988c63d7",
+          "321266cb"
         ],
         "branch": "HML",
-        "prHml": "Promoção DEV→HML (30/06/2026)"
+        "prHml": "Merge PR #1"
       },
       "observacoes": ""
     }
