@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 157
+    "totalTarefas": 158
   },
   "tarefas": [
     {
@@ -4058,6 +4058,32 @@
       "descricaoAmigavel": "Abas da revisão de admissão com ícones e textos 50% maiores, sem quebra de linha nos rótulos.",
       "inicio": "2026-06-30",
       "horarioInicio": "16:00",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "16:19",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Aumentar em 1.5x ícones e labels das abas, sem text-wrap, e promover DEV/HML/PRD",
+      "entregavel": "RevisaoTabTrigger com size-[1.875rem] e text-[1.125rem], whitespace-nowrap.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "e0c566a6"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #22",
+        "prPrd": "Merge PR #23"
+      },
+      "observacoes": "Icones 30px (1.5x de 20px); labels 18px/21px. HML 3b9711bd (PR #22); PRD PR #23."
+    },
+    {
+      "id": "TASK-2026-157",
+      "nome": "[Portal RH] Destaque visual abas e cards de documentos na revisão",
+      "descricaoAmigavel": "Aba ativa em azul marinho com texto branco; cards com documentos em verde-água claro e sem documentos em vermelho claro.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "16:25",
       "conclusao": null,
       "horarioConclusao": null,
       "totalHoras": null,
@@ -4065,8 +4091,8 @@
       "percentualConcluido": 90,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "Aumentar em 1.5x ícones e labels das abas, sem text-wrap, e promover DEV/HML/PRD",
-      "entregavel": "RevisaoTabTrigger com size-[1.875rem] e text-[1.125rem], whitespace-nowrap.",
+      "pedidoOriginal": "Destaque na aba ativa (azul marinho/branco); cards com docs verde-água, sem docs vermelho claro; promover DEV/HML/PRD",
+      "entregavel": "RevisaoTabTrigger com bg lt-primary; cardBackgroundClass teal/red em AdmissaoArquivosChecklist.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],

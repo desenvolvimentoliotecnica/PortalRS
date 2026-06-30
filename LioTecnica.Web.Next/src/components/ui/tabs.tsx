@@ -11,6 +11,8 @@ interface TabsContextValue {
 
 const TabsContext = React.createContext<TabsContextValue>({ value: "", onChange: () => {} });
 
+export { TabsContext };
+
 interface TabsProps {
   defaultValue?: string;
   value?: string;

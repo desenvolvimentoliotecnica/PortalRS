@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ChevronLeft, CheckCircle2, XCircle, AlertTriangle, FileText, User, MapPin,
@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent, TabsContext } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { useApiQuery } from "@/hooks/useApiQuery";
@@ -799,12 +799,12 @@ export default function AdmissaoRevisaoScreen() {
                         value="arquivos"
                         icon={FileText}
                         label="Arquivos Enviados"
-                        badge={
-                            (data.documentos.length > 0 || data.documentosSolicitados.length > 0) ? (
-                                <span className="text-[0.9375rem] bg-primary/15 text-primary rounded-full px-2 py-0.5 font-semibold leading-none whitespace-nowrap">
-                                    {data.documentos.length > 0 ? data.documentos.length : data.documentosSolicitados.length}
-                                </span>
-                            ) : undefined
+                        badgeCount={
+                            data.documentos.length > 0
+                                ? data.documentos.length
+                                : data.documentosSolicitados.length > 0
+                                    ? data.documentosSolicitados.length
+                                    : undefined
                         }
                     />
                 </TabsList>
@@ -1281,21 +1281,36 @@ function RevisaoTabTrigger({
     value,
     icon: Icon,
     label,
-    badge,
+    badgeCount,
 }: {
     value: string;
     icon: React.ElementType;
     label: React.ReactNode;
-    badge?: React.ReactNode;
+    badgeCount?: number;
 }) {
+    const ctx = useContext(TabsContext);
+    const active = ctx.value === value;
+
     return (
         <TabsTrigger
             value={value}
-            className="inline-flex flex-row items-center gap-[0.9375rem] px-[1.125rem] py-3 text-[1.125rem] sm:text-[1.3125rem] whitespace-nowrap shrink-0"
+            className={`inline-flex flex-row items-center gap-[0.9375rem] px-[1.125rem] py-3 text-[1.125rem] sm:text-[1.3125rem] whitespace-nowrap shrink-0 rounded-lg transition-colors ${
+                active
+                    ? "!bg-[rgb(var(--lt-primary))] !text-white shadow-md hover:!text-white"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            }`}
         >
-            <Icon className="size-[1.875rem] shrink-0" aria-hidden />
+            <Icon className={`size-[1.875rem] shrink-0 ${active ? "text-white" : ""}`} aria-hidden />
             <span className="leading-tight whitespace-nowrap">{label}</span>
-            {badge}
+            {badgeCount != null && badgeCount > 0 && (
+                <span
+                    className={`text-[0.9375rem] rounded-full px-2 py-0.5 font-semibold leading-none whitespace-nowrap ${
+                        active ? "bg-white/20 text-white" : "bg-primary/15 text-primary"
+                    }`}
+                >
+                    {badgeCount}
+                </span>
+            )}
         </TabsTrigger>
     );
 }
