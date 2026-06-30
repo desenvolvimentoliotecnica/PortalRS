@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 156
+    "totalTarefas": 157
   },
   "tarefas": [
     {
@@ -4006,22 +4006,25 @@
       "descricaoAmigavel": "Botões Visualizar e Baixar aparecem na revisão RH mesmo com arquivos em disco local (HML), via endpoint autenticado de download.",
       "inicio": "2026-06-30",
       "horarioInicio": "15:35",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "15:58",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Botões Visualizar e Baixar não apareciam nos cards da revisão RH (print HML)",
       "entregavel": "GET /api/pre-admissao/{id}/documentos/{docId}/download + hook usePreAdmissaoDocumentPreview.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "a0f5e864"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #20",
+        "prPrd": "Merge PR #21"
       },
-      "observacoes": "Causa: presignedUrl vazio quando storage é local:// no HML."
+      "observacoes": "Causa: presignedUrl vazio quando storage é local:// no HML. HML 7855ab1b (PR #20); PRD incluído em PR #21."
     },
     {
       "id": "TASK-2026-155",
@@ -4029,6 +4032,32 @@
       "descricaoAmigavel": "Abas da revisão de admissão exibem ícone maior à esquerda e rótulo à direita, em linha.",
       "inicio": "2026-06-30",
       "horarioInicio": "15:40",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "15:58",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Ajustar layout dos botões das abas: ícones à esquerda, label à direita, ícones maiores",
+      "entregavel": "Componente RevisaoTabTrigger em AdmissaoRevisaoScreen.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "0b42b2c1"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #20",
+        "prPrd": "Merge PR #21"
+      },
+      "observacoes": "Icones size-5, flex-row, scroll horizontal nas abas. HML 7855ab1b (PR #20); PRD PR #21."
+    },
+    {
+      "id": "TASK-2026-156",
+      "nome": "[Portal RH] Ampliar ícones e labels das abas na revisão (1.5x)",
+      "descricaoAmigavel": "Abas da revisão de admissão com ícones e textos 50% maiores, sem quebra de linha nos rótulos.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "16:00",
       "conclusao": null,
       "horarioConclusao": null,
       "totalHoras": null,
@@ -4036,8 +4065,8 @@
       "percentualConcluido": 90,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "Ajustar layout dos botões das abas: ícones à esquerda, label à direita, ícones maiores",
-      "entregavel": "Componente RevisaoTabTrigger em AdmissaoRevisaoScreen.",
+      "pedidoOriginal": "Aumentar em 1.5x ícones e labels das abas, sem text-wrap, e promover DEV/HML/PRD",
+      "entregavel": "RevisaoTabTrigger com size-[1.875rem] e text-[1.125rem], whitespace-nowrap.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
