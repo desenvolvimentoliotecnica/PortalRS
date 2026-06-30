@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 156
+    "totalTarefas": 157
   },
   "tarefas": [
     {
@@ -4051,6 +4051,29 @@
         "prPrd": "Merge PR #21"
       },
       "observacoes": "Icones size-5, flex-row, scroll horizontal nas abas. HML 7855ab1b (PR #20); PRD PR #21."
+    },
+    {
+      "id": "TASK-2026-156",
+      "nome": "[Portal RH] Ampliar ícones e labels das abas na revisão (1.5x)",
+      "descricaoAmigavel": "Abas da revisão de admissão com ícones e textos 50% maiores, sem quebra de linha nos rótulos.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "16:00",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Aumentar em 1.5x ícones e labels das abas, sem text-wrap, e promover DEV/HML/PRD",
+      "entregavel": "RevisaoTabTrigger com size-[1.875rem] e text-[1.125rem], whitespace-nowrap.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": ""
     }
   ]
 }
