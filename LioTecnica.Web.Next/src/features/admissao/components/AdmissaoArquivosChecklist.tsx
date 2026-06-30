@@ -89,14 +89,11 @@ function resolveTipoEnvioStatus(arquivos: ArquivoDocumento[], tipo: number): Env
     return "rejeitado";
 }
 
-function tipoTemArquivos(arquivos: ArquivoDocumento[]) {
-    return arquivos.length > 0;
-}
-
-function cardBackgroundClass(temArquivos: boolean) {
-    return temArquivos
-        ? "border-teal-200/90 bg-teal-50/80 dark:border-teal-800/60 dark:bg-teal-950/25"
-        : "border-red-200/90 bg-red-50/70 dark:border-red-800/60 dark:bg-red-950/20";
+function cardBackgroundClass(envioStatus: EnvioStatus) {
+    if (envioStatus === "enviado") {
+        return "border-teal-200/90 bg-teal-50/80 dark:border-teal-800/60 dark:bg-teal-950/25";
+    }
+    return "border-red-200/90 bg-red-50/70 dark:border-red-800/60 dark:bg-red-950/20";
 }
 
 const STATUS_BADGE: Record<EnvioStatus, { label: string; className: string; icon: ElementType }> = {
@@ -343,12 +340,10 @@ export default function AdmissaoArquivosChecklist({
                         const latestVerso = versos[0];
                         const latestUnico = unicos[0];
 
-                        const temArquivos = tipoTemArquivos(arquivos);
-
                         return (
                             <div
                                 key={tipo}
-                                className={`flex flex-row rounded-lg border overflow-hidden h-full min-h-[8.25rem] ${cardBackgroundClass(temArquivos)}`}
+                                className={`flex flex-row rounded-lg border overflow-hidden h-full min-h-[8.25rem] ${cardBackgroundClass(envioStatus)}`}
                             >
                                 <DocumentoIconSidebar tipo={tipo} label={sol.label} />
 
