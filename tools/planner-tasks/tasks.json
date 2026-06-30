@@ -3903,14 +3903,16 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "UI do formulário público de documentos cortando parte superior — ajustar layout e equalizar DEV/HML/PRD",
       "entregavel": "Scroll alinhado ao topo em DocumentUploadStep e WizardStepPanel no portal DocumentoAdmissao.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "3f866d98"
+        ],
         "branch": "DEV",
         "prHml": null
       },
