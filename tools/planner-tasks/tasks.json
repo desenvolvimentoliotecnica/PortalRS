@@ -3819,14 +3819,16 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Investigar por que documentos não aparecem na revisão de admissão (id 3be96c7b) e ajustar layout da lista para 4 colunas",
       "entregavel": "Bug de lado enum corrigido no checklist de arquivos; grid 4 colunas na aba Arquivos Enviados.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "cddf7b77"
+        ],
         "branch": "DEV",
         "prHml": null
       },
