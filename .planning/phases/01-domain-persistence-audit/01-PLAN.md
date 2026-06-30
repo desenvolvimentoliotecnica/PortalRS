@@ -42,7 +42,7 @@ phase_name: "Domínio, persistência e auditoria"
 
 ## Verification
 
-- `dotnet build "d:/Projetos/PortalRH/RH-devops-Lucas/RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj" -c Release` exit code **0**.
+- `dotnet build "d:/Projetos/PortalRS/RHPortal.Api/RHPortal.Api/RHPortal.Api.csproj" -c Release` exit code **0**.
 - `rg -n "AumentoQuadro|PendenteTriagem|RmRequisicaoStatusMap|RequisitosDetalhados" RHPortal.Api/RHPortal.Api/Domain` retorna correspondências esperadas.
 
 ---

@@ -60,7 +60,7 @@ URLs padrão DEV:
 1. `git fetch` da branch `DEV`
 2. Snapshot (`git archive`) enviado por SFTP
 3. Limpeza de disco (cache Docker, imagens antigas)
-4. `docker build` no servidor (tags locais `ghcr.io/munizlmachado-jpg/rh/rhportal-*:<sha>`)
+4. `docker build` no servidor (tags locais `ghcr.io/desenvolvimentoliotecnica/portalrs/rhportal-*:<sha>`)
 5. `docker compose -f docker-compose.portalrh-dev.yml up -d`
 6. Validação de health (`/health`, `/app/login`, Portal Vagas)
 

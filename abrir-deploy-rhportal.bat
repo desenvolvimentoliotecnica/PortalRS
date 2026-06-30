@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "REPO_DIR=D:\Projetos\PortalRH\RH-devops-Lucas"
+set "REPO_DIR=D:\Projetos\PortalRS"
 set "PYTHON_EXE=C:\Users\leonardo.mendes\AppData\Local\Programs\Python\Python311\python.exe"
 set "SCRIPT=%REPO_DIR%\__scripts__\deploy\gui\deploy_gui.py"
 
