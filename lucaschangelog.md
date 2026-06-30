@@ -295,7 +295,7 @@ Auditoria de qualidade descobriu que dados sincronizados pra o tenant `liotecnic
 - PostgreSQL 18.3 limpo (só `shieldops` preservado) + `dev_render`, `dev_render_master`, `dev_render_liotecnica`, `dev_render_dev` provisionados.
 - RHPortal.Api (.NET :5056), LioTecnica.Web.Next (:3001), RHPortal.Ai (:8000) no ar.
 - Login owner `owner@dev.local` e admin `admin@dev.local` validados.
-- Branch `devops_Lucas` criada e pushada para https://github.com/munizlmachado-jpg/RH (remote `github`).
+- Branch `devops_Lucas` criada no repositório legado; histórico migrado para https://github.com/desenvolvimentoliotecnica/PortalRS (clone local: `D:\Projetos\PortalRS`).
 - **Importante:** push agora vai apenas para `github`. `origin` (Azure DevOps) fica intocado.
 
 ---

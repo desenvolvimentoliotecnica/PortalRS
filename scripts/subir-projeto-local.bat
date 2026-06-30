@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "REPO_DIR=D:\Projetos\PortalRH\RH-devops-Lucas"
+set "REPO_DIR=D:\Projetos\PortalRS"
 set "API_DIR=%REPO_DIR%\RHPortal.Api\RHPortal.Api"
 set "FRONT_DIR=%REPO_DIR%\LioTecnica.Web.Next"
 set "PORTAL_VAGAS_DIR=%REPO_DIR%\LioTecnica.PortalVagas.React"
