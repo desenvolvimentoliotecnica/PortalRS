@@ -3781,6 +3781,31 @@
         "prHml": "Promoção DEV→HML (30/06/2026)"
       },
       "observacoes": "Commit do .bat nesta promoção."
+    },
+    {
+      "id": "TASK-2026-146",
+      "nome": "[Portal RH] Melhorar aba Arquivos Enviados na revisão de admissão",
+      "descricaoAmigavel": "Checklist unificado espelhando portal público, lightbox para visualizar PDF/imagem, download, checkbox e e-mail de re-solicitação com reabertura do formulário do candidato.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "09:15",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "10:30",
+      "totalHoras": 1.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Melhorar visualização dos documentos enviados na aba Arquivos Enviados da revisão de admissão com checklist, lightbox, download, checkbox e e-mail de reenvio",
+      "entregavel": "Endpoint POST solicitar-reenvio-documentos, checklist AdmissaoArquivosChecklist na revisão RH, portal reabre etapa Documentos após re-solicitação.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "a102fb23"
+        ],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": ""
     }
   ]
 }

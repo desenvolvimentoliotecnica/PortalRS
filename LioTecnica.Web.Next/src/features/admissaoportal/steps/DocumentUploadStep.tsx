@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { ExternalLink, Info, Lock } from "lucide-react";
+import { ExternalLink, Info, Lock, AlertTriangle } from "lucide-react";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import DocumentCard from "../components/DocumentCard";
 import WizardStepPanel from "../components/WizardStepPanel";
@@ -28,6 +28,7 @@ import {
 interface Props {
     session: AdmissaoPortalSession;
     documentosSolicitados: DocSolicitadoItem[];
+    rejeicoesPorTipo?: Map<number, string>;
     onDataRefresh: () => void;
     disabled?: boolean;
     /** Modo wizard: um documento por etapa */
@@ -51,9 +52,21 @@ function countDocProgress(
     return { done, total: obrigatorios.length };
 }
 
+function ReenvioAlert({ tipo, rejeicoesPorTipo }: { tipo: number; rejeicoesPorTipo?: Map<number, string> }) {
+    const msg = rejeicoesPorTipo?.get(tipo);
+    if (!msg) return null;
+    return (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+            <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+            <p><span className="font-semibold">Reenvio solicitado pelo RH:</span> {msg}</p>
+        </div>
+    );
+}
+
 export default function DocumentUploadStep({
     session,
     documentosSolicitados,
+    rejeicoesPorTipo,
     onDataRefresh,
     disabled,
     activeDocument,
@@ -249,6 +262,8 @@ export default function DocumentUploadStep({
                         </p>
                     </div>
 
+                    <ReenvioAlert tipo={activeDocument.tipo} rejeicoesPorTipo={rejeicoesPorTipo} />
+
                     <DocumentCard
                         size="wizard"
                         index={docIndex}
@@ -342,8 +357,9 @@ export default function DocumentUploadStep({
                             const obrigatorioIndex = obrigatorios.findIndex((o) => o.tipo === ds.tipo);
                             const index = obrigatorioIndex >= 0 ? obrigatorioIndex + 1 : 0;
                             return (
-                                <DocumentCard
-                                    key={ds.tipo}
+                                <div key={ds.tipo} className="flex flex-col gap-2">
+                                    <ReenvioAlert tipo={ds.tipo} rejeicoesPorTipo={rejeicoesPorTipo} />
+                                    <DocumentCard
                                     index={index}
                                     tipo={ds.tipo}
                                     labelOverride={ds.label}
@@ -357,6 +373,7 @@ export default function DocumentUploadStep({
                                     disabled={disabled}
                                     session={session}
                                 />
+                                </div>
                             );
                         })}
                     </div>

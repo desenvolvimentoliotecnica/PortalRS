@@ -122,7 +122,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
 
         var solicitados = pa.DocumentosSolicitados.Select(ds =>
         {
-            var jaEnviado = pa.Documentos.Any(d => d.Tipo == ds.TipoDocumento);
+            var jaEnviado = DocumentoTipoJaEnviado(pa.Documentos, ds.TipoDocumento);
             return new PortalDocumentoSolicitadoItem(
                 (int)ds.TipoDocumento,
                 PreAdmissaoService.TipoDocumentoLabel(ds.TipoDocumento),
@@ -939,6 +939,27 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         VagaAreaTime.OperacaoChaoDeFabrica => "Operação / Chão de fábrica",
         _ => null,
     };
+
+    private static readonly HashSet<TipoDocumento> TiposComVerso =
+    [
+        TipoDocumento.RG,
+        TipoDocumento.CNH,
+        TipoDocumento.CarteiraTrabalhoCTPS,
+        TipoDocumento.RGFilho,
+        TipoDocumento.ComprovanteBancario,
+    ];
+
+    private static bool DocumentoTipoJaEnviado(IEnumerable<PreAdmissaoDocumento> documentos, TipoDocumento tipo)
+    {
+        var valid = documentos
+            .Where(d => d.Tipo == tipo && d.Status != StatusDocumento.Rejeitado)
+            .ToList();
+        if (valid.Count == 0) return false;
+        if (!TiposComVerso.Contains(tipo)) return true;
+        var hasFrente = valid.Any(d => d.Lado != LadoDocumento.Verso);
+        var hasVerso = valid.Any(d => d.Lado == LadoDocumento.Verso);
+        return hasFrente && hasVerso;
+    }
 
     private static string NormalizeCpf(string cpf) => cpf.Replace(".", "").Replace("-", "").Replace(" ", "").Trim();
 }

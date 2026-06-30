@@ -31,6 +31,7 @@ public interface IPreAdmissaoService
     Task<bool> DeleteDocumentoAsync(Guid preAdmissaoId, Guid docId, CancellationToken ct);
     Task<IReadOnlyList<DocumentoSolicitadoResponse>> SalvarDocumentosSolicitadosAsync(Guid preAdmissaoId, SalvarDocumentosSolicitadosRequest request, CancellationToken ct);
     Task<GerarLinkResponse?> GerarLinkAsync(Guid preAdmissaoId, GerarLinkRequest request, CancellationToken ct);
+    Task<SolicitarReenvioDocumentosResponse?> SolicitarReenvioDocumentosAsync(Guid preAdmissaoId, SolicitarReenvioDocumentosRequest request, CancellationToken ct);
     Task<ValidarDocumentoResponse?> ValidarDocumentoAsync(Guid preAdmissaoId, Guid docId, ValidarDocumentoRequest request, CancellationToken ct);
     Task<IReadOnlyList<PreAdmissaoPendenteIntegracaoRow>> ListPendentesIntegracaoAsync(CancellationToken ct);
     Task<IReadOnlyList<PreAdmissaoPainelIntegracaoRow>> ListPainelIntegracaoAsync(IntegracaoResultado? filtro, CancellationToken ct);
@@ -896,6 +897,109 @@ public sealed class PreAdmissaoService : IPreAdmissaoService
             whatsappEnviado = await _blipMessaging.EnviarOnboardingAdmissaoAsync(pa.Celular, ct);
 
         return new GerarLinkResponse(pa.AccessToken, url, emailEnviado, whatsappEnviado);
+    }
+
+    public async Task<SolicitarReenvioDocumentosResponse?> SolicitarReenvioDocumentosAsync(
+        Guid preAdmissaoId, SolicitarReenvioDocumentosRequest request, CancellationToken ct)
+    {
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .Include(x => x.Documentos)
+            .Include(x => x.DocumentosSolicitados)
+            .FirstOrDefaultAsync(x => x.Id == preAdmissaoId, ct);
+        if (pa is null) return null;
+
+        var allowedStatuses = new[]
+        {
+            PreAdmissaoStatus.Preenchido,
+            PreAdmissaoStatus.PreenchidoParcial,
+            PreAdmissaoStatus.Acessado,
+        };
+        if (!allowedStatuses.Contains(pa.Status))
+            throw new InvalidOperationException("Não é possível solicitar reenvio de documentos neste status.");
+
+        if (request.TiposDocumento is null || request.TiposDocumento.Length == 0)
+            throw new InvalidOperationException("Selecione ao menos um documento para solicitar novamente.");
+
+        var solicitadosTipos = pa.DocumentosSolicitados.Select(d => d.TipoDocumento).ToHashSet();
+        var tipos = request.TiposDocumento.Select(t => (TipoDocumento)t).Distinct().ToList();
+        foreach (var tipo in tipos)
+        {
+            if (!solicitadosTipos.Contains(tipo))
+                throw new InvalidOperationException($"O documento '{TipoDocumentoLabel(tipo)}' não está na lista de documentos solicitados.");
+        }
+
+        var observacao = string.IsNullOrWhiteSpace(request.ObservacaoRh)
+            ? "Por favor, envie novamente este documento."
+            : request.ObservacaoRh.Trim();
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var tipo in tipos)
+        {
+            foreach (var doc in pa.Documentos.Where(d => d.Tipo == tipo && d.Status != StatusDocumento.Rejeitado))
+            {
+                doc.Status = StatusDocumento.Rejeitado;
+                doc.ObservacaoRh = observacao;
+                doc.UpdatedAtUtc = now;
+            }
+        }
+
+        pa.Status = PreAdmissaoStatus.PreenchidoParcial;
+        pa.SubmittedAtUtc = null;
+        pa.WizardCurrentStep = 3;
+        pa.UpdatedAtUtc = now;
+        pa.LastActivityUtc = now;
+        await _db.SaveChangesAsync(ct);
+
+        var labels = tipos.Select(TipoDocumentoLabel).ToList();
+        var url = BuildFrontendUrl($"/app/DocumentoAdmissao?tenantId={_tenantContext.TenantId}&preAdmissaoId={pa.Id}");
+
+        var emailEnviado = false;
+        if (request.EnviarEmail && !string.IsNullOrWhiteSpace(pa.Email))
+        {
+            var listaDocsHtml = string.Join("", labels.Select(l => $"<li>{l}</li>"));
+            var tokens = new Dictionary<string, string?>
+            {
+                ["nome"] = pa.Nome,
+                ["url"] = url,
+                ["empresa"] = _tenantContext.TenantId,
+                ["documentos"] = string.Join(", ", labels),
+                ["observacao"] = observacao,
+            };
+
+            var template = await _db.EmailTemplates.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Name == "PreAdmissaoReenvioDocumentos" && t.IsActive, ct);
+
+            string subject;
+            string body;
+            if (template is not null)
+            {
+                subject = Messaging.Email.EmailTemplateRenderer.Render(template.SubjectTemplate, tokens);
+                body = Messaging.Email.EmailTemplateRenderer.Render(template.BodyHtml, tokens);
+            }
+            else
+            {
+                subject = "Reenvio de documentos — Admissão";
+                var obsBlock = string.IsNullOrWhiteSpace(request.ObservacaoRh)
+                    ? ""
+                    : $"<p><b>Observação do RH:</b> {observacao}</p>";
+                body = $@"<p>Olá <b>{pa.Nome}</b>,</p>
+<p>Identificamos a necessidade de reenviar os seguintes documentos para sua admissão:</p>
+<ul>{listaDocsHtml}</ul>
+{obsBlock}
+<p><a href=""{url}"" style=""background:#2563eb;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;display:inline-block;"">Acessar formulário</a></p>
+<p>Ou copie e cole este link no navegador:<br/><small>{url}</small></p>
+<p>Atenciosamente,<br/>Equipe RH</p>";
+            }
+
+            try
+            {
+                await _emailQueue.EnqueueRawAsync(pa.Email, subject, body, null, true, "pre-admissao-reenvio-docs", ct);
+                emailEnviado = true;
+            }
+            catch { /* best-effort */ }
+        }
+
+        return new SolicitarReenvioDocumentosResponse(url, emailEnviado, labels);
     }
 
     public async Task<ValidarDocumentoResponse?> ValidarDocumentoAsync(
