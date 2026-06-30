@@ -4136,22 +4136,25 @@
       "descricaoAmigavel": "Cards de documentos rejeitados ou pendentes exibem fundo vermelho claro; apenas enviados ficam verde-água.",
       "inicio": "2026-06-30",
       "horarioInicio": "17:10",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "17:12",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Rejeitados também devem ter background vermelho",
       "entregavel": "cardBackgroundClass por envioStatus em AdmissaoArquivosChecklist.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "dceeeba9"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #28",
+        "prPrd": "Merge PR #29"
       },
-      "observacoes": ""
+      "observacoes": "Verde-agua so para enviado; rejeitado/pendente/parcial vermelho claro. PR #28 HML, PR #29 PRD."
     }
   ]
 }
