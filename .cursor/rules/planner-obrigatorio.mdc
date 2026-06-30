@@ -29,7 +29,7 @@ Ao receber pedido executavel no chat (feature, fix, ajuste, deploy, PR, refactor
 
 ## Quando registrar TERMINO (obrigatorio)
 
-Ao confirmar merge do PR DEV→HML (ou merge direto em `portalRH-HML`):
+Ao confirmar merge do PR DEV→HML (ou merge direto em `HML`):
 
 1. **Antes** de dizer "promovido", "mergeado" ou "PR confirmado":
    - `conclusao` = data do merge HML
@@ -39,7 +39,7 @@ Ao confirmar merge do PR DEV→HML (ou merge direto em `portalRH-HML`):
    - `referencias.commits` = hashes dos commits da entrega
    - `referencias.prHml` = `Merge PR #N` ou mensagem do merge
    - `totalHoras` recalculado (mesma logica de `calc-horas.mjs`)
-2. Commitar `tasks.json` em `portalRH-DEV` (no mesmo fluxo da promocao).
+2. Commitar `tasks.json` em `DEV` (no mesmo fluxo da promocao).
 3. So entao confirmar a promocao ao usuario.
 
 ## Proibicoes

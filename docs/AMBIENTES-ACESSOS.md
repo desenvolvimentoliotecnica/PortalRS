@@ -1,4 +1,4 @@
-# PortalRH - Ambientes e Acessos
+﻿# PortalRH - Ambientes e Acessos
 
 Documento operacional com URLs, branches de deploy e acessos conhecidos dos ambientes DEV, HMG/HML e PRD.
 
@@ -8,9 +8,9 @@ Documento operacional com URLs, branches de deploy e acessos conhecidos dos ambi
 
 | Ambiente | Servidor | Branch de deploy | Workflow | Portal Admin | Portal de Vagas | API | AI |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| DEV | `10.0.0.79` | `portalRH-DEV` | `.github/workflows/deploy-portalrh-dev.yml` | `http://10.0.0.79:3000/app` | `http://10.0.0.79:3050` | `http://10.0.0.79:5000` | `http://10.0.0.79:8000` |
-| HMG/HML | `10.0.0.80` | `portalRH-HML` | `.github/workflows/deploy-hmg.yml` | `http://10.0.0.80:3000/app` | `http://10.0.0.80:3050` | `http://10.0.0.80:5000` | `http://10.0.0.80:8000` |
-| PRD | `10.0.0.88` | `portalRH-PRD` | `.github/workflows/deploy-prd.yml` | `http://10.0.0.88:3000/app` | `http://10.0.0.88:3050` | `http://10.0.0.88:5000` | `http://10.0.0.88:8000` |
+| DEV | `10.0.0.79` | `DEV` | `.github/workflows/deploy-portalrh-dev.yml` | `http://10.0.0.79:3000/app` | `http://10.0.0.79:3050` | `http://10.0.0.79:5000` | `http://10.0.0.79:8000` |
+| HMG/HML | `10.0.0.80` | `HML` | `.github/workflows/deploy-hmg.yml` | `http://10.0.0.80:3000/app` | `http://10.0.0.80:3050` | `http://10.0.0.80:5000` | `http://10.0.0.80:8000` |
+| PRD | `10.0.0.88` | `PRD` | `.github/workflows/deploy-prd.yml` | `http://10.0.0.88:3000/app` | `http://10.0.0.88:3050` | `http://10.0.0.88:5000` | `http://10.0.0.88:8000` |
 
 ## URLs Operacionais
 
@@ -74,17 +74,17 @@ Banco tenant da Liotecnica:
 
 Fluxo de promocao aprovado:
 
-1. Desenvolvimento e fixes entram primeiro em `portalRH-DEV`.
-2. Após validar DEV, abrir/mergear PR de `portalRH-DEV` para `portalRH-HML`.
-3. Após validar HMG/HML, abrir/mergear PR de `portalRH-HML` para `portalRH-PRD`.
+1. Desenvolvimento e fixes entram primeiro em `DEV`.
+2. Após validar DEV, abrir/mergear PR de `DEV` para `HML`.
+3. Após validar HMG/HML, abrir/mergear PR de `HML` para `PRD`.
 
 Deploy automatico:
 
 | Ambiente | Disparo | Runner label |
 | --- | --- | --- |
-| DEV | Push em `portalRH-DEV` | self-hosted no ambiente DEV |
-| HMG/HML | Push/merge em `portalRH-HML` | `hmg-deploy` |
-| PRD | Push/merge em `portalRH-PRD` | `prd-deploy` |
+| DEV | Push em `DEV` | self-hosted no ambiente DEV |
+| HMG/HML | Push/merge em `HML` | `hmg-deploy` |
+| PRD | Push/merge em `PRD` | `prd-deploy` |
 
 ## Observacoes de Seguranca
 

@@ -1,4 +1,4 @@
-# Deploy DEV via SSH (sem GitHub Actions)
+﻿# Deploy DEV via SSH (sem GitHub Actions)
 
 Use este fluxo quando o GitHub Actions estiver indisponível (billing, runners hosted, etc.).
 O build roda **no servidor** `10.0.0.79`; não há push para GHCR.
@@ -6,7 +6,7 @@ O build roda **no servidor** `10.0.0.79`; não há push para GHCR.
 ## Pré-requisitos
 
 1. **VPN/rede** com acesso SSH ao `10.0.0.79`.
-2. **Git** no Windows (para `git archive` da branch `portalRH-DEV`).
+2. **Git** no Windows (para `git archive` da branch `DEV`).
 3. **Python 3.11+** com dependências da GUI:
    ```powershell
    cd __scripts__\deploy\gui
@@ -28,7 +28,7 @@ O build roda **no servidor** `10.0.0.79`; não há push para GHCR.
 ### Opção B — manual
 
 ```powershell
-cd D:\Projetos\PortalRH\RH-devops-Lucas
+cd D:\Projetos\PortalRH\PortalRS
 python __scripts__\deploy\gui\deploy_gui.py
 ```
 
@@ -57,7 +57,7 @@ URLs padrão DEV:
 
 ## O que a ferramenta faz
 
-1. `git fetch` da branch `portalRH-DEV`
+1. `git fetch` da branch `DEV`
 2. Snapshot (`git archive`) enviado por SFTP
 3. Limpeza de disco (cache Docker, imagens antigas)
 4. `docker build` no servidor (tags locais `ghcr.io/munizlmachado-jpg/rh/rhportal-*:<sha>`)
@@ -84,6 +84,6 @@ Use o botão **Rollback** para voltar ao SHA anterior (sem rebuild).
 
 ## HMG
 
-Na mesma GUI, selecione **Ambiente → hmg — HMG (10.0.0.80)** (branch `portalRH-HML`, compose `docker-compose.hmg.yml`).
+Na mesma GUI, selecione **Ambiente → hmg — HMG (10.0.0.80)** (branch `HML`, compose `docker-compose.hmg.yml`).
 
 Documentação complementar: [HMG-DEPLOY-GUI.md](./HMG-DEPLOY-GUI.md)

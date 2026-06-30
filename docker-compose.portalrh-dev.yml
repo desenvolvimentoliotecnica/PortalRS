@@ -1,4 +1,4 @@
-# Stack DEV (portalRH-DEV) — GitHub Actions faz build/push das imagens; no servidor: pull + up.
+# Stack DEV (DEV) — GitHub Actions faz build/push das imagens; no servidor: pull + up.
 #
 # Variáveis esperadas no shell ou num ficheiro `.env` ao lado deste ficheiro:
 #   DEV_REGISTRY_PREFIX  ex.: ghcr.io/org/repo   (sem barra final)
