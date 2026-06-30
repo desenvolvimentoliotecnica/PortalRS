@@ -75,10 +75,11 @@ export function resolveTipoDocumentoLabel(tipo: number | string, lado?: number |
       ? tipo.replace(/([a-z])([A-Z])/g, "$1 $2")
       : `Documento (${tipo})`);
 
-  if (lado === 1 && DOC_FRENTE_LABELS[code]) return DOC_FRENTE_LABELS[code];
-  if (lado === 2 && DOC_VERSO_LABELS[code]) return DOC_VERSO_LABELS[code];
-  if (lado === 1) return `${base} — Frente`;
-  if (lado === 2) return `${base} — Verso`;
+  const ladoCode = resolveLadoDocumentoCode(lado);
+  if (ladoCode === 1 && DOC_FRENTE_LABELS[code]) return DOC_FRENTE_LABELS[code];
+  if (ladoCode === 2 && DOC_VERSO_LABELS[code]) return DOC_VERSO_LABELS[code];
+  if (ladoCode === 1) return `${base} — Frente`;
+  if (ladoCode === 2) return `${base} — Verso`;
   return base;
 }
 
@@ -94,6 +95,20 @@ export function resolveStatusDocumentoCode(status: number | string): number {
     Rejeitado: 2,
   };
   return map[status] ?? -1;
+}
+
+/** Lado pode vir como int (0,1,2) ou string ("Unico","Frente","Verso") via JsonStringEnumConverter. */
+export function resolveLadoDocumentoCode(lado: number | string | null | undefined): number {
+  if (lado == null) return 0;
+  if (typeof lado === "number" && !Number.isNaN(lado)) return lado;
+  const s = String(lado).trim();
+  if (/^\d+$/.test(s)) return Number(s);
+  const map: Record<string, number> = {
+    Unico: 0,
+    Frente: 1,
+    Verso: 2,
+  };
+  return map[s] ?? 0;
 }
 
 export type DocSelection = { checked: boolean; obrigatorio: boolean };

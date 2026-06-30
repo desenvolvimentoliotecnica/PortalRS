@@ -14,6 +14,7 @@ import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import { sortDocumentosSolicitados } from "@/features/admissaoportal/admissaoDocumentoCatalog";
 import { TIPOS_COM_VERSO } from "@/features/admissaoportal/constants";
 import {
+    resolveLadoDocumentoCode,
     resolveStatusDocumentoCode,
     tipoDocumentoToCode,
 } from "@/features/admissao/admissaoDocumentosPadrao";
@@ -21,7 +22,7 @@ import {
 export interface ArquivoDocumento {
     id: string;
     tipo: number | string;
-    lado: number;
+    lado: number | string;
     nomeArquivo: string;
     contentType: string;
     tamanhoBytes: number;
@@ -54,9 +55,9 @@ function byDate(a: ArquivoDocumento, b: ArquivoDocumento) {
 
 function splitByLado(arquivos: ArquivoDocumento[]) {
     return {
-        frentes: arquivos.filter((d) => d.lado === 1).sort(byDate),
-        versos: arquivos.filter((d) => d.lado === 2).sort(byDate),
-        unicos: arquivos.filter((d) => d.lado === 0 || d.lado == null).sort(byDate),
+        frentes: arquivos.filter((d) => resolveLadoDocumentoCode(d.lado) === 1).sort(byDate),
+        versos: arquivos.filter((d) => resolveLadoDocumentoCode(d.lado) === 2).sort(byDate),
+        unicos: arquivos.filter((d) => resolveLadoDocumentoCode(d.lado) === 0).sort(byDate),
     };
 }
 
@@ -309,6 +310,7 @@ export default function AdmissaoArquivosChecklist({
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Documentos solicitados ({sortedSolicitados.length})
                     </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                     {sortedSolicitados.map((sol) => {
                         const tipo = sol.tipo;
                         const arquivos = docsByTipo.get(tipo) ?? [];
@@ -324,7 +326,7 @@ export default function AdmissaoArquivosChecklist({
                         return (
                             <div
                                 key={tipo}
-                                className={`rounded-lg border overflow-hidden ${
+                                className={`flex flex-col rounded-lg border overflow-hidden h-full ${
                                     envioStatus === "enviado"
                                         ? "border-emerald-200/80 bg-emerald-50/30 dark:border-emerald-800/60 dark:bg-emerald-950/10"
                                         : envioStatus === "pendente"
@@ -380,6 +382,7 @@ export default function AdmissaoArquivosChecklist({
                             </div>
                         );
                     })}
+                    </div>
                 </div>
             )}
 

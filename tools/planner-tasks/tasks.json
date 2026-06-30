@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 147
+    "totalTarefas": 148
   },
   "tarefas": [
     {
@@ -3808,6 +3808,31 @@
         "prHml": "Merge PR #1"
       },
       "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-147",
+      "nome": "[Portal RH] Corrigir exibição de documentos enviados na revisão de admissão",
+      "descricaoAmigavel": "Documentos enviados pelo candidato passam a aparecer corretamente na aba Arquivos Enviados, com lista em 4 colunas para revisão mais rápida pelo RH.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "11:20",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Investigar por que documentos não aparecem na revisão de admissão (id 3be96c7b) e ajustar layout da lista para 4 colunas",
+      "entregavel": "Bug de lado enum corrigido no checklist de arquivos; grid 4 colunas na aba Arquivos Enviados.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "cddf7b77"
+        ],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Causa raiz: API retorna lado como string (Frente/Verso/Unico) e checklist comparava com números."
     }
   ]
 }
