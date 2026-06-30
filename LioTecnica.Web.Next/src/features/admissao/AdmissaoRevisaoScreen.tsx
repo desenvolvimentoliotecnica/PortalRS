@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     ChevronLeft, CheckCircle2, XCircle, AlertTriangle, FileText, User, MapPin,
-    CreditCard, Briefcase, Phone, ShieldCheck, Loader2, Pencil, Download, Eye,
+    CreditCard, Briefcase, Phone, ShieldCheck, Loader2, Pencil, Download,
     Zap, Clock, WrenchIcon, Trash2, Coins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { apiFetch } from "@/lib/api";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { ScreenSkeleton } from "@/components/ui/ScreenSkeleton";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
+import AdmissaoArquivosChecklist from "@/features/admissao/components/AdmissaoArquivosChecklist";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
     DialogFooter,
@@ -290,7 +291,6 @@ const SEXO_L: Record<number, string> = { 0: "—", 1: "Masculino", 2: "Feminino"
 const EST_CIVIL_L: Record<number, string> = { 0: "—", 1: "Solteiro(a)", 2: "Casado(a)", 3: "Divorciado(a)", 4: "Viúvo(a)", 5: "União Estável", 6: "Separado(a)" };
 const TIPO_CONT_L: Record<number, string> = { 0: "CLT", 1: "PJ", 2: "Estágio", 3: "Temporário", 4: "Aprendiz", 5: "Terceirizado" };
 const TIPO_CONTA_L: Record<number, string> = { 0: "Conta Corrente", 1: "Conta Poupança", 2: "Conta Salário" };
-const TIPO_DOC_L: Record<number, string> = { 0: "RG", 1: "CPF", 2: "CNH", 3: "Comprovante Residência", 4: "Comprovante Bancário", 5: "Certidão", 6: "CTPS", 7: "Título Eleitor", 8: "Reservista", 9: "Outro" };
 // Labels dos códigos TOTVS/eSocial que agora aparecem na revisão
 const CUTIS_L: Record<number, string> = { 1: "Branca", 2: "Preta", 3: "Parda", 4: "Amarela", 5: "Indígena", 6: "Não Informada", 9: "Anonimizado" };
 const CABELO_L: Record<number, string> = { 1: "Castanho", 2: "Preto", 3: "Loiro", 4: "Ruivo", 5: "Grisalho", 6: "Outros", 9: "Anonimizado" };
@@ -341,7 +341,6 @@ export default function AdmissaoRevisaoScreen() {
     const [rejectMotivo, setRejectMotivo] = useState("");
     const [approveObs, setApproveObs] = useState("");
     const [processing, setProcessing] = useState(false);
-    const [expandedHistories, setExpandedHistories] = useState<Set<string>>(new Set());
 
     // TOTVS validation errors from failed approve
     const [totvsErrors, setTotvsErrors] = useState<TotvsError[]>([]);
@@ -635,29 +634,6 @@ export default function AdmissaoRevisaoScreen() {
         { label: "Salário na faixa", ok: data.validacaoSalarioOk },
     ];
 
-    // Arquivos — agrupados por tipo, ordenados por data desc
-    const toggleHistory = (k: string) =>
-        setExpandedHistories(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
-    const byDate = (a: typeof data.documentos[0], b: typeof data.documentos[0]) =>
-        new Date(b.createdAtUtc).getTime() - new Date(a.createdAtUtc).getTime();
-    const docsByTipo = new Map<string, typeof data.documentos>();
-    for (const d of data.documentos) {
-        const k = String(d.tipo);
-        if (!docsByTipo.has(k)) docsByTipo.set(k, []);
-        docsByTipo.get(k)!.push(d);
-    }
-    const solicitadosKeys = new Set(data.documentosSolicitados.map(s => String(s.tipoDocumento)));
-    const solEnviados = data.documentosSolicitados.filter(s => docsByTipo.has(String(s.tipoDocumento)));
-    const solFaltando = data.documentosSolicitados.filter(s => !docsByTipo.has(String(s.tipoDocumento)));
-    const extras = data.documentos.filter(d => !solicitadosKeys.has(String(d.tipo)));
-
-    // Separa os arquivos de um grupo por lado (0=Unico, 1=Frente, 2=Verso)
-    const splitByLado = (arquivos: typeof data.documentos) => ({
-        frentes: arquivos.filter(d => d.lado === 1).sort(byDate),
-        versos:  arquivos.filter(d => d.lado === 2).sort(byDate),
-        unicos:  arquivos.filter(d => d.lado === 0 || d.lado == null).sort(byDate),
-    });
-
     // TOTVS errors grouped by secao
     const totvsErrorsBySecao = totvsErrors.reduce<Record<string, TotvsError[]>>((acc, e) => {
         const s = e.secao || "Geral";
@@ -819,7 +795,7 @@ export default function AdmissaoRevisaoScreen() {
                     <TabsTrigger value="trabalhista" className="gap-1.5 text-xs"><Briefcase className="size-3.5" /> Trabalhista</TabsTrigger>
                     <TabsTrigger value="encargos" className="gap-1.5 text-xs"><Coins className="size-3.5" /> Encargos & eSocial</TabsTrigger>
                     <TabsTrigger value="documentos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Documentação</TabsTrigger>
-                    <TabsTrigger value="arquivos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Arquivos Enviados{docsByTipo.size > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{docsByTipo.size}</span>}</TabsTrigger>
+                    <TabsTrigger value="arquivos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Arquivos Enviados{data.documentos.length > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{data.documentosSolicitados.length || data.documentos.length}</span>}</TabsTrigger>
                 </TabsList>
 
                 {/* Aba: Pessoal */}
@@ -1044,178 +1020,15 @@ export default function AdmissaoRevisaoScreen() {
                 </TabsContent>
 
                 {/* Aba: Arquivos Enviados */}
-                <TabsContent value="arquivos" className="p-4 mt-0 space-y-5">
-                    {/* ── Seção: Enviados ── */}
-                    {(solEnviados.length > 0 || (data.documentosSolicitados.length === 0 && data.documentos.length > 0)) && (
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                <CheckCircle2 className="size-3.5 text-emerald-600" />
-                                Enviados ({solEnviados.length || docsByTipo.size})
-                            </p>
-                            {solEnviados.map(sol => {
-                                const k = String(sol.tipoDocumento);
-                                const { frentes, versos, unicos } = splitByLado(docsByTipo.get(k) ?? []);
-                                const hasSides = frentes.length > 0 || versos.length > 0;
-
-                                const FileRow = ({ latest, older, histKey, sideLabel }: {
-                                    latest: typeof data.documentos[0];
-                                    older: typeof data.documentos[0][];
-                                    histKey: string;
-                                    sideLabel?: string;
-                                }) => {
-                                    const expanded = expandedHistories.has(histKey);
-                                    return (
-                                        <div className="divide-y divide-emerald-100 dark:divide-emerald-900/40">
-                                            <div className="flex items-center justify-between px-3 py-2 gap-2">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <FileText className="size-3.5 text-muted-foreground shrink-0" />
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                            {sideLabel && (
-                                                                <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 shrink-0">
-                                                                    {sideLabel}
-                                                                </span>
-                                                            )}
-                                                            <span className="text-sm truncate">{latest.nomeArquivo}</span>
-                                                        </div>
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {(latest.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(latest.createdAtUtc)}
-                                                            {older.length > 0 && (
-                                                                <button onClick={() => toggleHistory(histKey)}
-                                                                    className="ml-2 underline underline-offset-2 hover:text-foreground transition-colors">
-                                                                    {expanded ? "ocultar histórico" : `ver ${older.length} anterior${older.length > 1 ? "es" : ""}`}
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                {latest.presignedUrl && <DocActions d={latest} />}
-                                            </div>
-                                            {expanded && older.map(d => (
-                                                <div key={d.id} className="flex items-center justify-between px-3 py-2 gap-2 bg-muted/20">
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <FileText className="size-3.5 text-muted-foreground/50 shrink-0" />
-                                                        <div className="min-w-0">
-                                                            <div className="text-xs text-muted-foreground truncate">{d.nomeArquivo}</div>
-                                                            <div className="text-xs text-muted-foreground/70">{(d.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(d.createdAtUtc)}</div>
-                                                        </div>
-                                                    </div>
-                                                    {d.presignedUrl && <DocActions d={d} />}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    );
-                                };
-
-                                return (
-                                    <div key={k} className="rounded-lg border border-emerald-200 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-900/10 overflow-hidden">
-                                        <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-200/60 dark:border-emerald-800/60">
-                                            <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                                            <span className="text-sm font-medium">{sol.label}</span>
-                                            {hasSides && (
-                                                <span className="ml-auto text-xs text-muted-foreground">
-                                                    {frentes.length > 0 && versos.length > 0 ? "Frente + Verso" : frentes.length > 0 ? "Frente" : "Verso"}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {frentes.length > 0 && (
-                                            <FileRow latest={frentes[0]} older={frentes.slice(1)} histKey={`${k}-f`} sideLabel="Frente" />
-                                        )}
-                                        {versos.length > 0 && (
-                                            <div className={frentes.length > 0 ? "border-t border-emerald-200/60 dark:border-emerald-800/60" : ""}>
-                                                <FileRow latest={versos[0]} older={versos.slice(1)} histKey={`${k}-v`} sideLabel="Verso" />
-                                            </div>
-                                        )}
-                                        {!hasSides && unicos.length > 0 && (
-                                            <FileRow latest={unicos[0]} older={unicos.slice(1)} histKey={k} />
-                                        )}
-                                    </div>
-                                );
-                            })}
-                            {/* sem solicitados — exibe o mais recente de cada tipo */}
-                            {data.documentosSolicitados.length === 0 && Array.from(docsByTipo.entries()).map(([k, arquivos]) => {
-                                const { frentes, versos, unicos } = splitByLado(arquivos);
-                                const hasSides = frentes.length > 0 || versos.length > 0;
-                                const label = TIPO_DOC_L[Number(k)] ?? `Tipo ${k}`;
-                                const renderSideRow = (latest: typeof data.documentos[0], older: typeof data.documentos[0][], histKey: string, sideLabel?: string) => {
-                                    const exp = expandedHistories.has(histKey);
-                                    return (
-                                        <div key={histKey} className="flex items-center justify-between px-3 py-2 gap-2">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <FileText className="size-3.5 text-muted-foreground shrink-0" />
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                                        {sideLabel && <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground shrink-0">{sideLabel}</span>}
-                                                        <span className="text-sm truncate">{latest.nomeArquivo}</span>
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {(latest.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(latest.createdAtUtc)}
-                                                        {older.length > 0 && <button onClick={() => toggleHistory(histKey)} className="ml-2 underline underline-offset-2 hover:text-foreground transition-colors">{exp ? "ocultar" : `+${older.length} anterior${older.length > 1 ? "es" : ""}`}</button>}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {latest.presignedUrl && <DocActions d={latest} />}
-                                        </div>
-                                    );
-                                };
-                                return (
-                                    <div key={k} className="rounded-lg border border-border/30 bg-muted/10 overflow-hidden">
-                                        <div className="px-3 py-1.5 border-b border-border/20 bg-muted/20">
-                                            <span className="text-xs font-semibold text-muted-foreground">{label}</span>
-                                        </div>
-                                        {hasSides ? (
-                                            <>
-                                                {frentes.length > 0 && renderSideRow(frentes[0], frentes.slice(1), `${k}-f`, "Frente")}
-                                                {versos.length > 0 && <div className="border-t border-border/20">{renderSideRow(versos[0], versos.slice(1), `${k}-v`, "Verso")}</div>}
-                                            </>
-                                        ) : (
-                                            unicos.length > 0 && renderSideRow(unicos[0], unicos.slice(1), k)
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* ── Seção: Não enviados ── */}
-                    {solFaltando.length > 0 && (
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                <XCircle className="size-3.5 text-red-500" />
-                                Não enviados ({solFaltando.length})
-                            </p>
-                            {solFaltando.map(sol => (
-                                <div key={String(sol.tipoDocumento)} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 ${sol.obrigatorio ? "border-red-200 bg-red-50/40 dark:border-red-800 dark:bg-red-900/10" : "border-amber-200 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-900/10"}`}>
-                                    <XCircle className={`size-4 shrink-0 ${sol.obrigatorio ? "text-red-500" : "text-amber-500"}`} />
-                                    <span className="text-sm font-medium flex-1">{sol.label}</span>
-                                    <span className={`text-xs font-medium ${sol.obrigatorio ? "text-red-600" : "text-amber-600"}`}>{sol.obrigatorio ? "Obrigatório" : "Opcional"}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* ── Seção: Extras (fora do solicitado) ── */}
-                    {extras.length > 0 && (
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Outros arquivos enviados</p>
-                            {extras.map(d => (
-                                <div key={d.id} className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/10 p-3 gap-2">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <FileText className="size-4 text-muted-foreground shrink-0" />
-                                        <div className="min-w-0">
-                                            <div className="text-sm font-medium truncate">{d.nomeArquivo}</div>
-                                            <div className="text-xs text-muted-foreground">{TIPO_DOC_L[Number(d.tipo)] ?? String(d.tipo)} • {(d.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(d.createdAtUtc)}</div>
-                                        </div>
-                                    </div>
-                                    {d.presignedUrl && <DocActions d={d} />}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {data.documentos.length === 0 && data.documentosSolicitados.length === 0 && (
-                        <div className="text-center py-8 text-sm text-muted-foreground">Nenhum arquivo enviado.</div>
-                    )}
+                <TabsContent value="arquivos" className="p-4 mt-0">
+                    <AdmissaoArquivosChecklist
+                        preAdmissaoId={data.id}
+                        candidatoEmail={data.email}
+                        documentos={data.documentos}
+                        documentosSolicitados={data.documentosSolicitados}
+                        canSolicitarReenvio={isEmRevisao(data.status)}
+                        onSuccess={() => void refetch()}
+                    />
                 </TabsContent>
             </Tabs>
 
@@ -1452,23 +1265,6 @@ export default function AdmissaoRevisaoScreen() {
 }
 
 /* ── sub-components ── */
-
-type DocumentoItem = PreAdmissao["documentos"][number];
-
-function DocActions({ d }: { d: DocumentoItem }) {
-    return (
-        <div className="flex gap-1.5 shrink-0">
-            <a href={d.presignedUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-xs font-medium hover:bg-muted transition-colors">
-                <Eye className="size-3.5" /> Visualizar
-            </a>
-            <a href={d.presignedUrl} download={d.nomeArquivo}
-                className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-background px-2 py-1 text-xs font-medium hover:bg-muted transition-colors">
-                <Download className="size-3.5" /> Baixar
-            </a>
-        </div>
-    );
-}
 
 function Section({ title, icon: SIcon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
     return (

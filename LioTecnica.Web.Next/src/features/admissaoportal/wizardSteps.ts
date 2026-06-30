@@ -121,19 +121,20 @@ export function validateAllDocuments(
     docs: DocSolicitadoItem[],
     uploadedDocs: Map<number, UploadedDoc>,
     uploadedDocsVerso: Map<number, UploadedDoc>,
-    enviados: { tipo: number; lado: number }[] = [],
+    enviados: { tipo: number; lado: number; status?: number }[] = [],
 ): string[] {
     const missing: string[] = [];
+    const isValid = (d: { status?: number }) => d.status !== 2;
     for (const doc of docs.filter((d) => d.obrigatorio)) {
         const hasFrente = uploadedDocs.has(doc.tipo)
-            || enviados.some((d) => d.tipo === doc.tipo && d.lado !== 2);
+            || enviados.some((d) => d.tipo === doc.tipo && d.lado !== 2 && isValid(d));
         if (!hasFrente) {
             missing.push(doc.label);
             continue;
         }
         if (TIPOS_COM_VERSO.has(doc.tipo)) {
             const hasVerso = uploadedDocsVerso.has(doc.tipo)
-                || enviados.some((d) => d.tipo === doc.tipo && d.lado === 2);
+                || enviados.some((d) => d.tipo === doc.tipo && d.lado === 2 && isValid(d));
             if (!hasVerso) missing.push(`${doc.label} (verso)`);
         }
     }

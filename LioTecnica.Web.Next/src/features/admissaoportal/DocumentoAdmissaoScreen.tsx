@@ -160,9 +160,10 @@ export default function DocumentoAdmissaoScreen() {
             if (body.dependentes && body.dependentes.length > 0) setHasDependentes(true);
             hydratedRef.current = true;
 
-            // Hydrate uploaded docs — roteia frente/verso para slots corretos
+            // Hydrate uploaded docs — roteia frente/verso para slots corretos (ignora rejeitados)
             const storeSnapshot = useAdmissaoWizardStore.getState();
             for (const doc of body.documentosEnviados) {
+                if (doc.status === 2) continue;
                 const existingFrente = storeSnapshot.uploadedDocs.get(doc.tipo);
                 const existingVerso = storeSnapshot.uploadedDocsVerso.get(doc.tipo);
                 const isVerso = doc.lado === 2;
@@ -374,6 +375,14 @@ export default function DocumentoAdmissaoScreen() {
     const stepInfo = wizardPlan.resolveStep(currentStep);
     const isWelcome = stepInfo.kind === "welcome";
     const isConclusao = stepInfo.kind === "conclusao";
+    const rejeicoesPorTipo = useMemo(() => {
+        const map = new Map<number, string>();
+        for (const d of data?.documentosEnviados ?? []) {
+            if (d.status !== 2) continue;
+            map.set(d.tipo, d.observacaoRh || "O RH solicitou o reenvio deste documento.");
+        }
+        return map;
+    }, [data?.documentosEnviados]);
 
     return (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white">
@@ -440,6 +449,7 @@ export default function DocumentoAdmissaoScreen() {
                             <DocumentUploadStep
                                 session={session}
                                 documentosSolicitados={data.documentosSolicitados}
+                                rejeicoesPorTipo={rejeicoesPorTipo}
                                 onDataRefresh={loadData}
                                 disabled={isSubmitted}
                             />
