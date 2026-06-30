@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import DocumentPreviewLightbox, { type PreviewItem } from "@/components/documents/DocumentPreviewLightbox";
+import DocumentoTipoIcon from "@/components/documents/DocumentoTipoIcon";
 import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import { sortDocumentosSolicitados } from "@/features/admissaoportal/admissaoDocumentoCatalog";
 import { TIPOS_COM_VERSO } from "@/features/admissaoportal/constants";
@@ -334,24 +335,25 @@ export default function AdmissaoArquivosChecklist({
                                             : "border-amber-200/80 bg-amber-50/20 dark:border-amber-800/60 dark:bg-amber-950/10"
                                 }`}
                             >
-                                <div className="flex items-center gap-3 px-3 py-2.5 border-b border-border/20">
+                                <div className="flex items-start gap-2.5 px-3 py-2.5 border-b border-border/20">
+                                    <DocumentoTipoIcon tipo={tipo} label={sol.label} size="sm" className="mt-0.5" />
                                     {canSolicitarReenvio && (
                                         <input
                                             type="checkbox"
                                             checked={selected.has(tipo)}
                                             onChange={() => toggleTipo(tipo)}
-                                            className="size-4 rounded border-gray-300 accent-primary shrink-0"
+                                            className="size-4 rounded border-gray-300 accent-primary shrink-0 mt-1"
                                             aria-label={`Selecionar ${sol.label}`}
                                         />
                                     )}
-                                    <BadgeIcon className={`size-4 shrink-0 ${badge.className.split(" ")[1]}`} />
                                     <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium leading-snug">{sol.label}</div>
                                         {sol.obrigatorio && (
                                             <span className="text-[10px] text-muted-foreground">Obrigatório</span>
                                         )}
                                     </div>
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge.className}`}>
+                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge.className}`}>
+                                        <BadgeIcon className="size-3.5" />
                                         {badge.label}
                                     </span>
                                 </div>

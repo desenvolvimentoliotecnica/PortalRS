@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 151
+    "totalTarefas": 152
   },
   "tarefas": [
     {
@@ -3899,24 +3899,51 @@
       "descricaoAmigavel": "Formulário público de envio de documentos exibe o conteúdo completo desde o topo, sem corte pela barra de etapas.",
       "inicio": "2026-06-30",
       "horarioInicio": "13:15",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "13:24",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "UI do formulário público de documentos cortando parte superior — ajustar layout e equalizar DEV/HML/PRD",
       "entregavel": "Scroll alinhado ao topo em DocumentUploadStep e WizardStepPanel no portal DocumentoAdmissao.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "3f866d98",
+          "e18c83cc"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #12",
+        "prPrd": "Merge PR #13"
+      },
+      "observacoes": "Causa: justify-center e my-auto centralizavam conteúdo alto e cortavam o topo. HML 4e6b7ebd (PR #12); PRD 1e3978db (PR #13)."
+    },
+    {
+      "id": "TASK-2026-151",
+      "nome": "[Portal RH] Ícones nos cards de documentos da admissão",
+      "descricaoAmigavel": "Cards de documentos na revisão RH e no portal do candidato exibem ícone ilustrativo à esquerda de cada tipo de documento.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "13:45",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Ajustar cards de documentos para ter ícones respectivos à esquerda e promover DEV/HML/PRD",
+      "entregavel": "9 ícones em public/icons/documentos-admissao; componente DocumentoTipoIcon nos cards RH e portal.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [
-          "3f866d98"
+          "b12828e3"
         ],
         "branch": "DEV",
         "prHml": null
       },
-      "observacoes": "Causa: justify-center e my-auto centralizavam conteúdo alto e cortavam o topo."
+      "observacoes": "Ícones recortados de grid 3x3; fallback FileText para tipos sem arte."
     }
   ]
 }
