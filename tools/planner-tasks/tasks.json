@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 149
+    "totalTarefas": 150
   },
   "tarefas": [
     {
@@ -3863,6 +3863,29 @@
         "prPrd": "Merge PR #7"
       },
       "observacoes": "React error #310 = useMemo após early return login/main. HML a6bc84a9 (PR #6); PRD 1575aff0 (PR #7)."
+    },
+    {
+      "id": "TASK-2026-149",
+      "nome": "[Portal RH] Corrigir build CI após fix de reenvio de documentos",
+      "descricaoAmigavel": "Deploy DEV/HML/PRD volta a compilar após alinhar tipos TypeScript na validação de documentos do portal.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "12:30",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Urgente",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Deploy DEV, HML e PRD falhando na etapa BUILD após TASK-2026-148",
+      "entregavel": "validateAllDocuments usa DocEnviadoForValidation compatível com enums string da API.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Erro CI: DocumentoAdmissaoScreen.tsx:273 tipo string|number incompatível com validateAllDocuments."
     }
   ]
 }

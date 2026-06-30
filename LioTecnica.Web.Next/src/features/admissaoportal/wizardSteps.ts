@@ -1,6 +1,9 @@
 import { sortDocumentosSolicitados, type DocSolicitadoItem } from "./admissaoDocumentoCatalog";
-import { TIPOS_COM_VERSO } from "./constants";
 import type { UploadedDoc } from "./useAdmissaoWizardStore";
+import {
+    validateRequiredDocuments,
+    type DocEnviadoForValidation,
+} from "./portalValidation";
 
 export type WizardStepKind =
     | "welcome"
@@ -121,24 +124,9 @@ export function validateAllDocuments(
     docs: DocSolicitadoItem[],
     uploadedDocs: Map<number, UploadedDoc>,
     uploadedDocsVerso: Map<number, UploadedDoc>,
-    enviados: { tipo: number; lado: number; status?: number }[] = [],
+    enviados: DocEnviadoForValidation[] = [],
 ): string[] {
-    const missing: string[] = [];
-    const isValid = (d: { status?: number }) => d.status !== 2;
-    for (const doc of docs.filter((d) => d.obrigatorio)) {
-        const hasFrente = uploadedDocs.has(doc.tipo)
-            || enviados.some((d) => d.tipo === doc.tipo && d.lado !== 2 && isValid(d));
-        if (!hasFrente) {
-            missing.push(doc.label);
-            continue;
-        }
-        if (TIPOS_COM_VERSO.has(doc.tipo)) {
-            const hasVerso = uploadedDocsVerso.has(doc.tipo)
-                || enviados.some((d) => d.tipo === doc.tipo && d.lado === 2 && isValid(d));
-            if (!hasVerso) missing.push(`${doc.label} (verso)`);
-        }
-    }
-    return missing;
+    return validateRequiredDocuments(docs, uploadedDocs, uploadedDocsVerso, enviados);
 }
 
 /** @deprecated use validateAllDocuments */
@@ -146,7 +134,7 @@ export function validateSingleDocument(
     doc: DocSolicitadoItem,
     uploadedDocs: Map<number, UploadedDoc>,
     uploadedDocsVerso: Map<number, UploadedDoc>,
-    enviados: { tipo: number; lado: number }[] = [],
+    enviados: DocEnviadoForValidation[] = [],
 ): string[] {
     return validateAllDocuments([doc], uploadedDocs, uploadedDocsVerso, enviados);
 }
