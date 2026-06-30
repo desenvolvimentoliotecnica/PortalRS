@@ -3,15 +3,15 @@
 import { useMemo, useState, type ElementType } from "react";
 import { toast } from "sonner";
 import {
-    CheckCircle2, Download, Eye, FileText, Loader2, Mail, XCircle, AlertTriangle,
+    CheckCircle2, FileText, Loader2, Mail, XCircle, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import DocumentPreviewLightbox, { type PreviewItem } from "@/components/documents/DocumentPreviewLightbox";
+import DocumentFileActions from "@/components/documents/DocumentFileActions";
 import { DocumentoIconSidebar } from "@/components/documents/DocumentoTipoIcon";
-import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import { sortDocumentosSolicitados } from "@/features/admissaoportal/admissaoDocumentoCatalog";
 import { TIPOS_COM_VERSO } from "@/features/admissaoportal/constants";
 import {
@@ -105,23 +105,12 @@ function DocFileActions({
 }) {
     if (!doc.presignedUrl) return null;
     return (
-        <div className="flex gap-1 shrink-0">
-            <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1 px-2"
-                onClick={() => onPreview(toPreviewItem(doc.presignedUrl, doc.nomeArquivo, doc.contentType))}
-            >
-                <Eye className="size-3.5" />
-                <span className="hidden sm:inline text-xs">Visualizar</span>
-            </Button>
-            <Button variant="outline" size="sm" className="h-8 gap-1 px-2" asChild>
-                <a href={doc.presignedUrl} download={doc.nomeArquivo} target="_blank" rel="noopener noreferrer">
-                    <Download className="size-3.5" />
-                    <span className="hidden sm:inline text-xs">Baixar</span>
-                </a>
-            </Button>
-        </div>
+        <DocumentFileActions
+            url={doc.presignedUrl}
+            nomeArquivo={doc.nomeArquivo}
+            contentType={doc.contentType}
+            onPreview={onPreview}
+        />
     );
 }
 
