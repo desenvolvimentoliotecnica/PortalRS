@@ -3874,20 +3874,22 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 100,
+      "percentualConcluido": 90,
       "prioridade": "Urgente",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Deploy DEV, HML e PRD falhando na etapa BUILD após TASK-2026-148",
-      "entregavel": "validateAllDocuments usa DocEnviadoForValidation compatível com enums string da API.",
+      "entregavel": "validateAllDocuments e ReviewStep compatíveis com enums string da API; build CI verde.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [
-          "e2e290cd"
+          "e2e290cd",
+          "b4739dbd"
         ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #8 (build ainda falhou ReviewStep)",
+        "prPrd": "Merge PR #9 (build ainda falhou ReviewStep)"
       },
-      "observacoes": "Erro CI: DocumentoAdmissaoScreen.tsx:273 tipo string|number incompatível com validateAllDocuments."
+      "observacoes": "1o fix wizardSteps OK; 2o erro CI ReviewStep.tsx:471 documentosEnviados.tipo. Repromocao pendente."
     }
   ]
 }
