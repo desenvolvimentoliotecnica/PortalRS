@@ -3930,14 +3930,16 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Ajustar cards de documentos para ter ícones respectivos à esquerda e promover DEV/HML/PRD",
       "entregavel": "9 ícones em public/icons/documentos-admissao; componente DocumentoTipoIcon nos cards RH e portal.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "b12828e3"
+        ],
         "branch": "DEV",
         "prHml": null
       },
