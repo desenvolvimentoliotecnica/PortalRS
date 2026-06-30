@@ -9,7 +9,7 @@ import type { AiExtractionResult, UploadedDoc } from "../useAdmissaoWizardStore"
 import { ACCEPTED_DOC_MIME, TIPOS_COM_VERSO } from "../constants";
 import { DOC_FRENTE_LABELS, DOC_HINTS, DOC_VERSO_LABELS } from "../admissaoDocumentoCatalog";
 import DocumentPreviewLightbox, { type PreviewItem, isPdfPreview } from "@/components/documents/DocumentPreviewLightbox";
-import DocumentoTipoIcon from "@/components/documents/DocumentoTipoIcon";
+import { DocumentoIconSidebar } from "@/components/documents/DocumentoTipoIcon";
 import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import { usePortalDocumentPreview } from "../usePortalDocumentPreview";
 import type { AdmissaoPortalSession } from "../publicApi";
@@ -89,32 +89,31 @@ export default function DocumentCard({
 
     return (
         <>
-            <div className={`flex flex-col rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden h-full ${s.cardMinH}`}>
-                {/* Header — altura estável do título + hint */}
-                <div className={`px-5 pt-5 pb-4 ${s.headerMinH}`}>
-                    <div className="flex items-start gap-3">
-                        <DocumentoTipoIcon
-                            tipo={tipo}
-                            label={label}
-                            size={size === "wizard" ? "lg" : "md"}
-                            className="mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-start gap-1 min-h-[1.25rem]">
-                                <h3 className={`${s.title} font-semibold leading-snug text-foreground line-clamp-2`}>{label}</h3>
-                                {obrigatorio && (
-                                    <span className="text-red-500 font-bold leading-none shrink-0 text-lg" title="Obrigatório">*</span>
-                                )}
-                            </div>
-                            <p className={`${s.hint} text-muted-foreground mt-1.5 leading-relaxed line-clamp-3`}>
-                                {hint || "\u00A0"}
-                            </p>
+            <div className={`flex flex-row rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden h-full ${s.cardMinH}`}>
+                <DocumentoIconSidebar
+                    tipo={tipo}
+                    label={label}
+                    className={size === "wizard" ? "min-w-[5.5rem] max-w-[7rem]" : undefined}
+                />
+
+                <div className="flex min-w-0 flex-1 flex-col">
+                {/* Header — título + hint */}
+                <div className={`px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4 ${size === "wizard" ? s.headerMinH : ""}`}>
+                    <div className="min-w-0">
+                        <div className="flex items-start gap-1 min-h-[1.25rem]">
+                            <h3 className={`${s.title} font-semibold leading-snug text-foreground line-clamp-2`}>{label}</h3>
+                            {obrigatorio && (
+                                <span className="text-red-500 font-bold leading-none shrink-0 text-lg" title="Obrigatório">*</span>
+                            )}
                         </div>
+                        <p className={`${s.hint} text-muted-foreground mt-1.5 leading-relaxed line-clamp-3`}>
+                            {hint || "\u00A0"}
+                        </p>
                     </div>
                 </div>
 
                 {/* Body */}
-                <div className="px-5 pb-4 flex-1 flex flex-col">
+                <div className="px-4 pb-4 sm:px-5 flex-1 flex flex-col">
                     {hasVerso ? (
                         <div className="grid grid-cols-2 gap-3 items-stretch flex-1">
                             <UploadSlot
@@ -194,6 +193,7 @@ export default function DocumentCard({
                         }}
                     />
                 )}
+                </div>
             </div>
 
             <DocumentPreviewLightbox preview={preview} onClose={() => setPreview(null)} />
