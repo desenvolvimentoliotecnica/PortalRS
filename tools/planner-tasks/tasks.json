@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 159
+    "totalTarefas": 160
   },
   "tarefas": [
     {
@@ -4110,6 +4110,32 @@
       "descricaoAmigavel": "Ícones ilustrativos na lateral dos cards de documentos 50% maiores na revisão RH e portal candidato.",
       "inicio": "2026-06-30",
       "horarioInicio": "16:55",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "17:04",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Aumentar ícones dos cards em 1.5x e promover DEV/HML/PRD",
+      "entregavel": "DocumentoIconSidebar e DocumentoTipoIcon com dimensões 1.5x.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "fb8740f8"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #26",
+        "prPrd": "Merge PR #27"
+      },
+      "observacoes": "Sidebar min 6.375rem, imagem 240px. HML 13637972 (PR #26); PRD PR #27."
+    },
+    {
+      "id": "TASK-2026-159",
+      "nome": "[Portal RH] Background vermelho nos cards rejeitados",
+      "descricaoAmigavel": "Cards de documentos rejeitados ou pendentes exibem fundo vermelho claro; apenas enviados ficam verde-água.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "17:10",
       "conclusao": null,
       "horarioConclusao": null,
       "totalHoras": null,
@@ -4117,8 +4143,8 @@
       "percentualConcluido": 90,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "Aumentar ícones dos cards em 1.5x e promover DEV/HML/PRD",
-      "entregavel": "DocumentoIconSidebar e DocumentoTipoIcon com dimensões 1.5x.",
+      "pedidoOriginal": "Rejeitados também devem ter background vermelho",
+      "entregavel": "cardBackgroundClass por envioStatus em AdmissaoArquivosChecklist.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
