@@ -40,7 +40,7 @@ export default function DocumentoTipoIcon({
             return (
                 <span
                     className={cn(
-                        "flex h-full w-full items-center justify-center bg-primary/5 p-3",
+                        "flex h-full w-full items-start justify-center bg-primary/5 p-3 pt-2.5 sm:pt-3",
                         className,
                     )}
                     aria-hidden
@@ -53,7 +53,7 @@ export default function DocumentoTipoIcon({
         return (
             <span
                 className={cn(
-                    "relative flex h-full w-full items-center justify-center bg-white/80 p-2 sm:p-3",
+                    "relative flex h-full w-full items-start justify-center bg-white/80 p-2 pt-2.5 sm:p-3 sm:pt-3",
                     className,
                 )}
             >
@@ -62,7 +62,7 @@ export default function DocumentoTipoIcon({
                     alt=""
                     width={240}
                     height={240}
-                    className="max-h-full max-w-full object-contain"
+                    className="max-w-full object-contain object-top"
                     unoptimized
                 />
                 <span className="sr-only">{label}</span>
@@ -108,7 +108,7 @@ export default function DocumentoTipoIcon({
     );
 }
 
-/** Coluna lateral (20%) com ícone centralizado na altura do card. */
+/** Coluna lateral (20%) com ícone alinhado ao topo do card. */
 export function DocumentoIconSidebar({
     tipo,
     label,
@@ -125,7 +125,7 @@ export function DocumentoIconSidebar({
                 className,
             )}
         >
-            <DocumentoTipoIcon tipo={tipo} label={label} variant="sidebar" className="min-h-[8.25rem]" />
+            <DocumentoTipoIcon tipo={tipo} label={label} variant="sidebar" />
         </div>
     );
 }
