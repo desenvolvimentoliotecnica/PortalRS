@@ -4188,22 +4188,25 @@
       "descricaoAmigavel": "Cards de documentos na revisão RH não exibem mais nome, tamanho nem data/hora do arquivo — apenas Frente/Verso, observação do RH e botões Visualizar/Baixar.",
       "inicio": "2026-06-30",
       "horarioInicio": "17:50",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "17:52",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Remover informações de arquivo (tamanho, nome, data/hora) dos cards",
       "entregavel": "FileSideRow simplificado em AdmissaoArquivosChecklist.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "073acf0f"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #32",
+        "prPrd": "Merge PR #33"
       },
-      "observacoes": ""
+      "observacoes": "Mantidos label Frente/Verso, observacao RH e botoes. PR #32 HML, PR #33 PRD."
     }
   ]
 }
