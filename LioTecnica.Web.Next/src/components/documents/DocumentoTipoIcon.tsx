@@ -15,15 +15,15 @@ interface Props {
 }
 
 const SIZE_CLASS = {
-    sm: "size-9",
-    md: "size-11",
-    lg: "size-14",
+    sm: "size-[3.375rem]",
+    md: "size-[4.125rem]",
+    lg: "size-[5.25rem]",
 } as const;
 
 const IMG_PX = {
-    sm: 36,
-    md: 44,
-    lg: 56,
+    sm: 54,
+    md: 66,
+    lg: 84,
 } as const;
 
 export default function DocumentoTipoIcon({
@@ -45,7 +45,7 @@ export default function DocumentoTipoIcon({
                     )}
                     aria-hidden
                 >
-                    <FileText className="size-10 text-primary/70 sm:size-12" />
+                    <FileText className="size-[3.75rem] text-primary/70 sm:size-[4.5rem]" />
                 </span>
             );
         }
@@ -60,8 +60,8 @@ export default function DocumentoTipoIcon({
                 <Image
                     src={src}
                     alt=""
-                    width={160}
-                    height={160}
+                    width={240}
+                    height={240}
                     className="max-h-full max-w-full object-contain"
                     unoptimized
                 />
@@ -82,7 +82,7 @@ export default function DocumentoTipoIcon({
                 )}
                 aria-hidden
             >
-                <FileText className={size === "lg" ? "size-7" : size === "md" ? "size-5" : "size-4"} />
+                <FileText className={size === "lg" ? "size-[2.625rem]" : size === "md" ? "size-8" : "size-6"} />
             </span>
         );
     }
@@ -121,11 +121,11 @@ export function DocumentoIconSidebar({
     return (
         <div
             className={cn(
-                "flex w-[20%] min-w-[4.25rem] max-w-[5.5rem] shrink-0 self-stretch border-r border-border/25",
+                "flex w-[20%] min-w-[6.375rem] max-w-[8.25rem] shrink-0 self-stretch border-r border-border/25",
                 className,
             )}
         >
-            <DocumentoTipoIcon tipo={tipo} label={label} variant="sidebar" className="min-h-[5.5rem]" />
+            <DocumentoTipoIcon tipo={tipo} label={label} variant="sidebar" className="min-h-[8.25rem]" />
         </div>
     );
 }

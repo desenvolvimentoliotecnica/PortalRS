@@ -348,7 +348,7 @@ export default function AdmissaoArquivosChecklist({
                         return (
                             <div
                                 key={tipo}
-                                className={`flex flex-row rounded-lg border overflow-hidden h-full min-h-[5.5rem] ${cardBackgroundClass(temArquivos)}`}
+                                className={`flex flex-row rounded-lg border overflow-hidden h-full min-h-[8.25rem] ${cardBackgroundClass(temArquivos)}`}
                             >
                                 <DocumentoIconSidebar tipo={tipo} label={sol.label} />
 

@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 158
+    "totalTarefas": 159
   },
   "tarefas": [
     {
@@ -4103,6 +4103,29 @@
         "prPrd": "Merge PR #25"
       },
       "observacoes": "Aba ativa #0C3A64; cards teal-50 com arquivos, red-50 sem. HML 9c58d7db (PR #24); PRD PR #25."
+    },
+    {
+      "id": "TASK-2026-158",
+      "nome": "[Portal RH] Ampliar ícones laterais dos cards de documentos (1.5x)",
+      "descricaoAmigavel": "Ícones ilustrativos na lateral dos cards de documentos 50% maiores na revisão RH e portal candidato.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "16:55",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Aumentar ícones dos cards em 1.5x e promover DEV/HML/PRD",
+      "entregavel": "DocumentoIconSidebar e DocumentoTipoIcon com dimensões 1.5x.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": ""
     }
   ]
 }
