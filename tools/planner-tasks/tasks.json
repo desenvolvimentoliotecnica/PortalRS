@@ -4058,22 +4058,25 @@
       "descricaoAmigavel": "Abas da revisão de admissão com ícones e textos 50% maiores, sem quebra de linha nos rótulos.",
       "inicio": "2026-06-30",
       "horarioInicio": "16:00",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "16:19",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Aumentar em 1.5x ícones e labels das abas, sem text-wrap, e promover DEV/HML/PRD",
       "entregavel": "RevisaoTabTrigger com size-[1.875rem] e text-[1.125rem], whitespace-nowrap.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "e0c566a6"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #22",
+        "prPrd": "Merge PR #23"
       },
-      "observacoes": ""
+      "observacoes": "Icones 30px (1.5x de 20px); labels 18px/21px. HML 3b9711bd (PR #22); PRD PR #23."
     }
   ]
 }
