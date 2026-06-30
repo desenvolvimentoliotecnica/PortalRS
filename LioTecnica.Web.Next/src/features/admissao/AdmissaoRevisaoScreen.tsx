@@ -795,7 +795,7 @@ export default function AdmissaoRevisaoScreen() {
                     <TabsTrigger value="trabalhista" className="gap-1.5 text-xs"><Briefcase className="size-3.5" /> Trabalhista</TabsTrigger>
                     <TabsTrigger value="encargos" className="gap-1.5 text-xs"><Coins className="size-3.5" /> Encargos & eSocial</TabsTrigger>
                     <TabsTrigger value="documentos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Documentação</TabsTrigger>
-                    <TabsTrigger value="arquivos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Arquivos Enviados{data.documentos.length > 0 && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{data.documentosSolicitados.length || data.documentos.length}</span>}</TabsTrigger>
+                    <TabsTrigger value="arquivos" className="gap-1.5 text-xs"><FileText className="size-3.5" /> Arquivos Enviados{(data.documentos.length > 0 || data.documentosSolicitados.length > 0) && <span className="ml-1 text-[10px] bg-primary/15 text-primary rounded-full px-1.5">{data.documentos.length > 0 ? data.documentos.length : data.documentosSolicitados.length}</span>}</TabsTrigger>
                 </TabsList>
 
                 {/* Aba: Pessoal */}
