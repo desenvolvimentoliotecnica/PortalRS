@@ -3,7 +3,7 @@
 import { useMemo, useState, type ElementType } from "react";
 import { toast } from "sonner";
 import {
-    CheckCircle2, FileText, Loader2, Mail, XCircle, AlertTriangle,
+    CheckCircle2, Loader2, Mail, XCircle, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -103,8 +103,37 @@ const STATUS_BADGE: Record<EnvioStatus, { label: string; className: string; icon
     parcial: { label: "Incompleto", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: AlertTriangle },
 };
 
-function fmtDate(d: string) {
-    return new Date(d).toLocaleString("pt-BR");
+function FileSideRow({
+    preAdmissaoId,
+    doc,
+    sideLabel,
+    onPreview,
+}: {
+    preAdmissaoId: string;
+    doc: ArquivoDocumento;
+    sideLabel?: string;
+    onPreview: (item: PreviewItem) => void;
+}) {
+    const valid = isValidDoc(doc);
+    const showMeta = sideLabel || (!valid && doc.observacaoRh);
+
+    return (
+        <div className={`px-3 py-2 space-y-2 ${!valid ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}>
+            {showMeta && (
+                <div className="space-y-1">
+                    {sideLabel && (
+                        <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">
+                            {sideLabel}
+                        </span>
+                    )}
+                    {!valid && doc.observacaoRh && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400">{doc.observacaoRh}</p>
+                    )}
+                </div>
+            )}
+            <DocFileActions preAdmissaoId={preAdmissaoId} doc={doc} onPreview={onPreview} />
+        </div>
+    );
 }
 
 function DocFileActions({
@@ -136,44 +165,6 @@ function DocFileActions({
             disabled={!previewUrl || downloading}
             className="w-full sm:w-auto"
         />
-    );
-}
-
-function FileSideRow({
-    preAdmissaoId,
-    doc,
-    sideLabel,
-    onPreview,
-}: {
-    preAdmissaoId: string;
-    doc: ArquivoDocumento;
-    sideLabel?: string;
-    onPreview: (item: PreviewItem) => void;
-}) {
-    const valid = isValidDoc(doc);
-    return (
-        <div className={`space-y-2 px-3 py-2 ${!valid ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}>
-            <div className="flex items-start gap-2 min-w-0">
-                <FileText className="size-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                        {sideLabel && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground shrink-0">
-                                {sideLabel}
-                            </span>
-                        )}
-                        <span className="text-sm truncate">{doc.nomeArquivo}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                        {(doc.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(doc.createdAtUtc)}
-                    </div>
-                    {!valid && doc.observacaoRh && (
-                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">{doc.observacaoRh}</p>
-                    )}
-                </div>
-            </div>
-            <DocFileActions preAdmissaoId={preAdmissaoId} doc={doc} onPreview={onPreview} />
-        </div>
     );
 }
 
@@ -409,13 +400,7 @@ export default function AdmissaoArquivosChecklist({
                     </summary>
                     <div className="divide-y divide-border/20 border-t border-border/20">
                         {extras.map((d) => (
-                            <div key={d.id} className="px-3 py-2 space-y-2">
-                                <div className="min-w-0">
-                                    <div className="text-sm truncate">{d.nomeArquivo}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {(d.tamanhoBytes / 1024).toFixed(0)} KB • {fmtDate(d.createdAtUtc)}
-                                    </div>
-                                </div>
+                            <div key={d.id} className="px-3 py-2">
                                 <DocFileActions preAdmissaoId={preAdmissaoId} doc={d} onPreview={setPreview} />
                             </div>
                         ))}
