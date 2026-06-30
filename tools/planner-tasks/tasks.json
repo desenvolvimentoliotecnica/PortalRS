@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 160
+    "totalTarefas": 161
   },
   "tarefas": [
     {
@@ -4136,6 +4136,32 @@
       "descricaoAmigavel": "Cards de documentos rejeitados ou pendentes exibem fundo vermelho claro; apenas enviados ficam verde-água.",
       "inicio": "2026-06-30",
       "horarioInicio": "17:10",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "17:12",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Rejeitados também devem ter background vermelho",
+      "entregavel": "cardBackgroundClass por envioStatus em AdmissaoArquivosChecklist.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "dceeeba9"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #28",
+        "prPrd": "Merge PR #29"
+      },
+      "observacoes": "Verde-agua so para enviado; rejeitado/pendente/parcial vermelho claro. PR #28 HML, PR #29 PRD."
+    },
+    {
+      "id": "TASK-2026-160",
+      "nome": "[Portal RH] Ícones dos cards alinhados ao topo",
+      "descricaoAmigavel": "Ícones ilustrativos na lateral dos cards de documentos alinhados ao topo, alinhados ao cabeçalho do card.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "17:40",
       "conclusao": null,
       "horarioConclusao": null,
       "totalHoras": null,
@@ -4143,8 +4169,8 @@
       "percentualConcluido": 90,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "Rejeitados também devem ter background vermelho",
-      "entregavel": "cardBackgroundClass por envioStatus em AdmissaoArquivosChecklist.",
+      "pedidoOriginal": "Ícones dos cards alinhados ao topo; promover DEV/HML/PRD",
+      "entregavel": "DocumentoIconSidebar items-start + object-top.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
