@@ -3842,25 +3842,27 @@
       "nome": "[Portal RH] Corrigir crash ao abrir link de reenvio de documentos",
       "descricaoAmigavel": "Candidato consegue abrir o formulário de admissão pelo e-mail de reenvio de documentos sem erro crítico na tela.",
       "inicio": "2026-06-30",
-      "horarioInicio": "12:05",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
+      "horarioInicio": "11:35",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "11:57",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Erro React #310 ao clicar em Acessar Formulário no e-mail de reenvio de documentos",
       "entregavel": "Hook useMemo movido antes de returns condicionais no portal DocumentoAdmissao; normalização de lado/status enum.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "c56804ed"
+          "c56804ed",
+          "254734fb"
         ],
-        "branch": "DEV",
-        "prHml": null
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #6",
+        "prPrd": "Merge PR #7"
       },
-      "observacoes": "React error #310 = hooks após early return (login vs main phase)."
+      "observacoes": "React error #310 = useMemo após early return login/main. HML a6bc84a9 (PR #6); PRD 1575aff0 (PR #7)."
     }
   ]
 }
