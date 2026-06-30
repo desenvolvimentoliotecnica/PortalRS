@@ -65,6 +65,11 @@ const INT_FIELDS_BASE0: [string, string, PortalSection][] = [
 
 import { TIPOS_COM_VERSO } from "./constants";
 import type { UploadedDoc } from "./useAdmissaoWizardStore";
+import {
+  resolveLadoDocumentoCode,
+  resolveStatusDocumentoCode,
+  tipoDocumentoToCode,
+} from "@/features/admissao/admissaoDocumentosPadrao";
 
 export interface DocSolicitadoForValidation {
   tipo: number;
@@ -73,13 +78,13 @@ export interface DocSolicitadoForValidation {
 }
 
 export interface DocEnviadoForValidation {
-  tipo: number;
-  lado: number;
-  status?: number;
+  tipo: number | string;
+  lado: number | string;
+  status?: number | string;
 }
 
 function isDocValido(enviado: DocEnviadoForValidation): boolean {
-  return enviado.status !== 2;
+  return resolveStatusDocumentoCode(enviado.status ?? 0) !== 2;
 }
 
 function hasDocFrente(
@@ -88,7 +93,7 @@ function hasDocFrente(
   enviados: DocEnviadoForValidation[],
 ): boolean {
   if (uploadedDocs.has(tipo)) return true;
-  return enviados.some((d) => d.tipo === tipo && d.lado !== 2 && isDocValido(d));
+  return enviados.some((d) => tipoDocumentoToCode(d.tipo) === tipo && resolveLadoDocumentoCode(d.lado) !== 2 && isDocValido(d));
 }
 
 function hasDocVerso(
@@ -97,7 +102,7 @@ function hasDocVerso(
   enviados: DocEnviadoForValidation[],
 ): boolean {
   if (uploadedDocsVerso.has(tipo)) return true;
-  return enviados.some((d) => d.tipo === tipo && d.lado === 2 && isDocValido(d));
+  return enviados.some((d) => tipoDocumentoToCode(d.tipo) === tipo && resolveLadoDocumentoCode(d.lado) === 2 && isDocValido(d));
 }
 
 /** Documentos obrigatórios ainda pendentes (frente e verso quando aplicável). */
