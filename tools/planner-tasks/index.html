@@ -360,8 +360,8 @@
     document.getElementById('btnCopy').addEventListener('click', copyTSV);
 
     fetch('./tasks.json')
-      .then(r => { if (!r.ok) throw new Error('tasks.json não encontrado'); return r.json(); })
-      .then(json => { data = json; render(); })
+      .then(r => { if (!r.ok) throw new Error('tasks.json não encontrado'); return r.text(); })
+      .then(text => { data = JSON.parse(text.replace(/^\uFEFF/, '')); render(); })
       .catch(err => {
         document.getElementById('tbody').innerHTML =
           `<tr><td colspan="7" class="error">Erro ao carregar tasks.json: ${err.message}<br>

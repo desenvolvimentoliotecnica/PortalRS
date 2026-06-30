@@ -1,4 +1,4 @@
-﻿{
+{
   "meta": {
     "projeto": "Portal RH (RenderRH)",
     "responsavelPadrao": "Lucas Muniz Machado",
@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 146
+    "totalTarefas": 148
   },
   "tarefas": [
     {
@@ -3781,6 +3781,59 @@
         "prHml": "Promoção DEV→HML (30/06/2026)"
       },
       "observacoes": "Commit do .bat nesta promoção."
+    },
+    {
+      "id": "TASK-2026-146",
+      "nome": "[Portal RH] Melhorar aba Arquivos Enviados na revisão de admissão",
+      "descricaoAmigavel": "Checklist unificado espelhando portal público, lightbox para visualizar PDF/imagem, download, checkbox e e-mail de re-solicitação com reabertura do formulário do candidato.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "09:15",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "09:38",
+      "totalHoras": 1.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Melhorar visualização dos documentos enviados na aba Arquivos Enviados da revisão de admissão com checklist, lightbox, download, checkbox e e-mail de reenvio",
+      "entregavel": "Endpoint POST solicitar-reenvio-documentos, checklist AdmissaoArquivosChecklist na revisão RH, portal reabre etapa Documentos após re-solicitação.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "421d42d1",
+          "988c63d7",
+          "321266cb"
+        ],
+        "branch": "HML",
+        "prHml": "Merge PR #1"
+      },
+      "observacoes": ""
+    },
+    {
+      "id": "TASK-2026-147",
+      "nome": "[Portal RH] Corrigir exibição de documentos enviados na revisão de admissão",
+      "descricaoAmigavel": "Documentos enviados pelo candidato passam a aparecer corretamente na aba Arquivos Enviados, com lista em 4 colunas para revisão mais rápida pelo RH.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "11:20",
+      "conclusao": "2026-06-30",
+      "horarioConclusao": "11:36",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Investigar por que documentos não aparecem na revisão de admissão (id 3be96c7b) e ajustar layout da lista para 4 colunas",
+      "entregavel": "Bug de lado enum corrigido no checklist de arquivos; grid 4 colunas na aba Arquivos Enviados.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "cddf7b77",
+          "14d80154"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #3"
+      },
+      "observacoes": "Causa raiz: API retorna lado como string (Frente/Verso/Unico) e checklist comparava com números. Merge HML 01315dac."
     }
   ]
 }

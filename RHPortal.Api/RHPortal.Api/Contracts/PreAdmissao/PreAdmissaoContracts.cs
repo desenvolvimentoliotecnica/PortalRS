@@ -548,6 +548,20 @@ public sealed record GerarLinkRequest(string? Cpf, bool EnviarEmail = true, bool
 
 public sealed record GerarLinkResponse(string AccessToken, string PublicUrl, bool EmailEnviado, bool WhatsappEnviado);
 
+// ── Re-solicitação de documentos ao candidato ──
+
+public sealed record SolicitarReenvioDocumentosRequest(
+    int[] TiposDocumento,
+    string? ObservacaoRh,
+    bool EnviarEmail = true
+);
+
+public sealed record SolicitarReenvioDocumentosResponse(
+    string PublicUrl,
+    bool EmailEnviado,
+    IReadOnlyList<string> DocumentosSolicitados
+);
+
 // ── Validação de documento individual pelo RH ──
 
 public sealed record ValidarDocumentoRequest(

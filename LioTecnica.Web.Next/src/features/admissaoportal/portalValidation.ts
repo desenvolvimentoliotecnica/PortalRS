@@ -75,6 +75,11 @@ export interface DocSolicitadoForValidation {
 export interface DocEnviadoForValidation {
   tipo: number;
   lado: number;
+  status?: number;
+}
+
+function isDocValido(enviado: DocEnviadoForValidation): boolean {
+  return enviado.status !== 2;
 }
 
 function hasDocFrente(
@@ -83,7 +88,7 @@ function hasDocFrente(
   enviados: DocEnviadoForValidation[],
 ): boolean {
   if (uploadedDocs.has(tipo)) return true;
-  return enviados.some((d) => d.tipo === tipo && d.lado !== 2);
+  return enviados.some((d) => d.tipo === tipo && d.lado !== 2 && isDocValido(d));
 }
 
 function hasDocVerso(
@@ -92,7 +97,7 @@ function hasDocVerso(
   enviados: DocEnviadoForValidation[],
 ): boolean {
   if (uploadedDocsVerso.has(tipo)) return true;
-  return enviados.some((d) => d.tipo === tipo && d.lado === 2);
+  return enviados.some((d) => d.tipo === tipo && d.lado === 2 && isDocValido(d));
 }
 
 /** Documentos obrigatórios ainda pendentes (frente e verso quando aplicável). */
