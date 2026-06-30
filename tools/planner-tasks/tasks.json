@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-06-30",
-    "totalTarefas": 151
+    "totalTarefas": 152
   },
   "tarefas": [
     {
@@ -3919,6 +3919,29 @@
         "prPrd": "Merge PR #13"
       },
       "observacoes": "Causa: justify-center e my-auto centralizavam conteúdo alto e cortavam o topo. HML 4e6b7ebd (PR #12); PRD 1e3978db (PR #13)."
+    },
+    {
+      "id": "TASK-2026-151",
+      "nome": "[Portal RH] Ícones nos cards de documentos da admissão",
+      "descricaoAmigavel": "Cards de documentos na revisão RH e no portal do candidato exibem ícone ilustrativo à esquerda de cada tipo de documento.",
+      "inicio": "2026-06-30",
+      "horarioInicio": "13:45",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Ajustar cards de documentos para ter ícones respectivos à esquerda e promover DEV/HML/PRD",
+      "entregavel": "9 ícones em public/icons/documentos-admissao; componente DocumentoTipoIcon nos cards RH e portal.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Ícones recortados de grid 3x3; fallback FileText para tipos sem arte."
     }
   ]
 }
