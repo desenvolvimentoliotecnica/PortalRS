@@ -318,8 +318,9 @@ Grid de solicitações não exibe status de forma visível.
 | P2 | 2 | Baixo | Reduz ruído de e-mail — **entregue 01/07/2026** |
 | P2 | 10 | Baixo | Visibilidade gestão — **entregue 01/07/2026** |
 | P2 | 3 | Médio | Produtividade RH — **entregue 01/07/2026** |
-| P3 | 4 | Médio | Propostas |
-| P3 | 9 | Médio | Experiência candidato |
+| P3 | 4 | Médio | Propostas — **entregue 01/07/2026** |
+| P3 | 9 | Médio | Experiência candidato — **entregue 01/07/2026** |
+| P4 | Preview wizard DNALIO | Médio | UX publicar vaga — **promovido 01/07/2026** |
 
 ---
 

@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 176
+    "totalTarefas": 177
   },
   "tarefas": [
     {
@@ -4624,6 +4624,32 @@
         "prPrd": "Merge PR #59"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-177",
+      "nome": "[Portal RH] Preview wizard — etapa DNALIO para match IA",
+      "descricaoAmigavel": "Incluir no wizard mock de publicar vaga a escolha obrigatória da Descrição de Cargo (DNALIO), alinhada ao fluxo real de matching por IA.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "15:15",
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "15:33",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Seguir com P4 — etapa DNALIO no wizard preview de publicar vaga; integrar busca real via apiFetch sem fallback mock.",
+      "entregavel": "Etapa DNALIO no wizard preview consumindo /api/descricoes-cargo/lookup e detalhe por id para match IA.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "88cfb2e4"
+        ],
+        "branch": "origin/HML",
+        "prHml": null,
+        "prPrd": null
+      },
+      "observacoes": "Lookup isTemplate=true + GET /api/descricoes-cargo/{id}; promocao DEV→HML→PRD em andamento."
     }
   ]
 }

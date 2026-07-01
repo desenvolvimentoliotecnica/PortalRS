@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  AlertCircle,
   ArrowLeft,
   BriefcaseBusiness,
   Check,
@@ -12,6 +13,7 @@ import {
   Globe,
   Loader2,
   MapPin,
+  Search,
   Sparkles,
   Wallet,
 } from "lucide-react";
@@ -19,14 +21,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
   { id: 1, label: "Requisição", hint: "Escolha a origem" },
-  { id: 2, label: "Dados da vaga", hint: "Conteúdo e requisitos" },
-  { id: 3, label: "Publicação", hint: "Configurações do portal" },
-  { id: 4, label: "Confirmação", hint: "Revisar e publicar" },
+  { id: 2, label: "Dados da vaga", hint: "Título e condições" },
+  { id: 3, label: "DNALIO", hint: "Match por IA" },
+  { id: 4, label: "Conteúdo", hint: "Texto para candidatos" },
+  { id: 5, label: "Publicação", hint: "Configurações do portal" },
+  { id: 6, label: "Confirmação", hint: "Revisar e publicar" },
 ] as const;
+
+const TOTAL_STEPS = STEPS.length;
 
 const REQUISICOES_MOCK = [
   {
@@ -71,6 +78,135 @@ const REQUISICOES_MOCK = [
   },
 ];
 
+type DescricaoCargoLookupItem = {
+  id: string;
+  code: string;
+  title: string;
+  displayLabel: string;
+  isTemplate: boolean;
+};
+
+type DescricaoCargoItemCategoria =
+  | "AtividadeEspecifica"
+  | "AtividadeComum"
+  | "VivenciaEspecifica"
+  | "CompetenciaDnalio"
+  | "CompetenciaLideranca"
+  | "CompetenciaFuncional"
+  | "CompetenciaTecnica"
+  | "RequisitoObrigatorio"
+  | number;
+
+type DescricaoCargoItemResponse = {
+  id: string;
+  categoria: DescricaoCargoItemCategoria;
+  texto: string;
+  isObrigatoria: boolean;
+  nivelMinimo: string | null;
+  subcategoria: string | null;
+  ordem: number;
+};
+
+type DescricaoCargoDetail = {
+  id: string;
+  code: string;
+  title: string;
+  areaTemplate?: string | null;
+  itens: DescricaoCargoItemResponse[];
+};
+
+type DnalioSections = {
+  atividades: string[];
+  competencias: string[];
+  vivencias: string[];
+  requisitos: string[];
+};
+
+const CATEGORIA_NUM_TO_NAME: Record<number, DescricaoCargoItemCategoria> = {
+  1: "AtividadeEspecifica",
+  2: "AtividadeComum",
+  3: "VivenciaEspecifica",
+  10: "CompetenciaDnalio",
+  11: "CompetenciaLideranca",
+  12: "CompetenciaFuncional",
+  13: "CompetenciaTecnica",
+  20: "RequisitoObrigatorio",
+};
+
+async function fetchDescricoesCargoLookup(search: string): Promise<DescricaoCargoLookupItem[]> {
+  const params = new URLSearchParams();
+  params.set("isTemplate", "true");
+  const trimmed = search.trim();
+  if (trimmed) params.set("search", trimmed);
+
+  const res = await apiFetch(`/api/descricoes-cargo/lookup?${params.toString()}`, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Falha ao buscar DNALIO (HTTP ${res.status})`);
+  }
+  const data = (await res.json()) as DescricaoCargoLookupItem[];
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchDescricaoCargoDetail(id: string): Promise<DescricaoCargoDetail> {
+  const res = await apiFetch(`/api/descricoes-cargo/${encodeURIComponent(id)}`, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Falha ao carregar descrição (HTTP ${res.status})`);
+  }
+  return (await res.json()) as DescricaoCargoDetail;
+}
+
+function normalizeCategoria(categoria: DescricaoCargoItemCategoria): string {
+  if (typeof categoria === "number") return String(CATEGORIA_NUM_TO_NAME[categoria] ?? categoria);
+  return categoria;
+}
+
+function groupDnalioSections(itens: DescricaoCargoItemResponse[]): DnalioSections {
+  const sections: DnalioSections = {
+    atividades: [],
+    competencias: [],
+    vivencias: [],
+    requisitos: [],
+  };
+
+  for (const item of itens) {
+    const cat = normalizeCategoria(item.categoria);
+    if (cat === "AtividadeEspecifica" || cat === "AtividadeComum") sections.atividades.push(item.texto);
+    else if (cat === "VivenciaEspecifica") sections.vivencias.push(item.texto);
+    else if (
+      cat === "CompetenciaDnalio" ||
+      cat === "CompetenciaLideranca" ||
+      cat === "CompetenciaFuncional" ||
+      cat === "CompetenciaTecnica"
+    ) {
+      sections.competencias.push(item.texto);
+    } else if (cat === "RequisitoObrigatorio") sections.requisitos.push(item.texto);
+  }
+
+  return sections;
+}
+
+function findSuggestedLookupId(items: DescricaoCargoLookupItem[], titulo: string): string | null {
+  const normalized = titulo.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const exact = items.find((item) => item.title.trim().toLowerCase() === normalized);
+  if (exact) return exact.id;
+
+  const partial = items.find((item) => {
+    const title = item.title.trim().toLowerCase();
+    return title.includes(normalized) || normalized.includes(title);
+  });
+  return partial?.id ?? null;
+}
+
 type FormState = {
   requisicaoId: string;
   titulo: string;
@@ -81,6 +217,10 @@ type FormState = {
   tipoContrato: string;
   faixaSalarial: string;
   local: string;
+  descricaoCargoId: string;
+  descricaoCargoCode: string;
+  descricaoCargoTitle: string;
+  matchMinimoPercentual: number;
   publicarAgora: boolean;
   exibirSalario: boolean;
   destaquePortal: boolean;
@@ -97,6 +237,10 @@ const INITIAL_FORM: FormState = {
   tipoContrato: "clt",
   faixaSalarial: "",
   local: "",
+  descricaoCargoId: "",
+  descricaoCargoCode: "",
+  descricaoCargoTitle: "",
+  matchMinimoPercentual: 70,
   publicarAgora: true,
   exibirSalario: false,
   destaquePortal: false,
@@ -104,7 +248,7 @@ const INITIAL_FORM: FormState = {
 };
 
 /**
- * Wizard mockado (até 4 etapas) para publicar vaga no portal a partir de uma requisição.
+ * Wizard mockado para publicar vaga no portal a partir de uma requisição.
  * Rota oculta de validação de UX.
  */
 export default function PublicarVagaWizardPreviewScreen() {
@@ -125,6 +269,7 @@ export default function PublicarVagaWizardPreviewScreen() {
   function selectRequisicao(id: string) {
     const item = REQUISICOES_MOCK.find((row) => row.id === id);
     if (!item) return;
+
     patchForm({
       requisicaoId: id,
       titulo: item.titulo,
@@ -133,20 +278,38 @@ export default function PublicarVagaWizardPreviewScreen() {
       descricao: `Buscamos profissional para atuar como ${item.titulo}, contribuindo com o time de ${item.area} em projetos estratégicos da empresa.`,
       requisitos: "Experiência na função; comunicação clara; disponibilidade para início em até 30 dias.",
       faixaSalarial: "A combinar",
+      descricaoCargoId: "",
+      descricaoCargoCode: "",
+      descricaoCargoTitle: "",
+    });
+  }
+
+  function selectDnalio(item: DescricaoCargoLookupItem) {
+    patchForm({
+      descricaoCargoId: item.id,
+      descricaoCargoCode: item.code,
+      descricaoCargoTitle: item.title,
+    });
+  }
+
+  function clearDnalio() {
+    patchForm({
+      descricaoCargoId: "",
+      descricaoCargoCode: "",
+      descricaoCargoTitle: "",
     });
   }
 
   function canAdvance() {
     if (step === 1) return !!form.requisicaoId;
     if (step === 2) {
-      return (
-        form.titulo.trim().length > 2 &&
-        form.resumo.trim().length > 10 &&
-        form.descricao.trim().length > 20 &&
-        form.requisitos.trim().length > 10
-      );
+      return form.titulo.trim().length > 2 && form.resumo.trim().length > 10 && form.local.trim().length > 0;
     }
-    if (step === 3) return form.publicarAgora || form.dataEncerramento.trim().length > 0;
+    if (step === 3) return !!form.descricaoCargoId;
+    if (step === 4) {
+      return form.descricao.trim().length > 20 && form.requisitos.trim().length > 10;
+    }
+    if (step === 5) return form.publicarAgora || form.dataEncerramento.trim().length > 0;
     return true;
   }
 
@@ -169,7 +332,7 @@ export default function PublicarVagaWizardPreviewScreen() {
         </Link>
         <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Publicar vaga no portal</h1>
         <p className="text-xs font-medium text-slate-500 sm:text-sm">
-          Selecione a requisição e publique em poucos passos.
+          Selecione a requisição, vincule o DNALIO e publique em poucos passos.
         </p>
       </header>
 
@@ -185,15 +348,24 @@ export default function PublicarVagaWizardPreviewScreen() {
             <div
               className={cn(
                 "flex min-h-0 flex-1 flex-col px-4 py-3 sm:px-6 sm:py-4",
-                step === 1 && "overflow-y-auto overscroll-contain",
-                step === 2 && "overflow-hidden",
-                step > 2 && "overflow-hidden",
+                (step === 1 || step === 3) && "overflow-y-auto overscroll-contain",
+                step >= 2 && step !== 3 && "overflow-hidden",
               )}
             >
               {step === 1 ? <StepRequisicao selectedId={form.requisicaoId} onSelect={selectRequisicao} /> : null}
               {step === 2 ? <StepDadosVaga form={form} onChange={patchForm} requisicao={requisicao} /> : null}
-              {step === 3 ? <StepPublicacao form={form} onChange={patchForm} /> : null}
-              {step === 4 ? <StepConfirmacao form={form} requisicao={requisicao} /> : null}
+              {step === 3 ? (
+                <StepDnalio
+                  form={form}
+                  requisicao={requisicao}
+                  onSelect={selectDnalio}
+                  onClear={clearDnalio}
+                  onChange={patchForm}
+                />
+              ) : null}
+              {step === 4 ? <StepConteudoCandidatos form={form} onChange={patchForm} requisicao={requisicao} /> : null}
+              {step === 5 ? <StepPublicacao form={form} onChange={patchForm} /> : null}
+              {step === 6 ? <StepConfirmacao form={form} requisicao={requisicao} /> : null}
             </div>
 
             <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:px-6">
@@ -207,8 +379,13 @@ export default function PublicarVagaWizardPreviewScreen() {
                 Voltar
               </Button>
 
-              {step < 4 ? (
-                <Button type="button" size="sm" disabled={!canAdvance()} onClick={() => setStep((current) => Math.min(4, current + 1))}>
+              {step < TOTAL_STEPS ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!canAdvance()}
+                  onClick={() => setStep((current) => Math.min(TOTAL_STEPS, current + 1))}
+                >
                   Continuar
                   <ChevronRight className="size-4" />
                 </Button>
@@ -237,7 +414,7 @@ export default function PublicarVagaWizardPreviewScreen() {
 
 function WizardStepper({ currentStep, published }: { currentStep: number; published: boolean }) {
   return (
-    <ol className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4">
+    <ol className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
       {STEPS.map((item) => {
         const done = published || item.id < currentStep;
         const active = !published && item.id === currentStep;
@@ -350,8 +527,6 @@ function StepDadosVaga({
     form.titulo.trim().length > 2,
     form.resumo.trim().length > 10,
     form.local.trim().length > 0,
-    form.descricao.trim().length > 20,
-    form.requisitos.trim().length > 10,
   ].filter(Boolean).length;
 
   return (
@@ -359,7 +534,7 @@ function StepDadosVaga({
       <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
         <div>
           <h2 className="text-base font-bold text-slate-900">Dados da vaga</h2>
-          <p className="text-xs text-slate-500">Revise o que o candidato verá no portal público.</p>
+          <p className="text-xs text-slate-500">Título, resumo e condições exibidos no portal.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {requisicao ? (
@@ -368,146 +543,432 @@ function StepDadosVaga({
             </span>
           ) : null}
           <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
-            {filledCount}/5 campos essenciais
+            {filledCount}/3 campos essenciais
           </span>
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(260px,32%)_minmax(0,1fr)]">
-        <PortalVagaPreviewCard form={form} requisicao={requisicao} />
+      <div className="flex min-h-0 flex-col gap-3">
+        <FormSection title="Identificação no portal" icon={BriefcaseBusiness}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Título da vaga" hint="Nome exibido no card e na página da vaga" className="sm:col-span-2" required>
+              <Input className="h-9" value={form.titulo} onChange={(e) => onChange({ titulo: e.target.value })} />
+            </Field>
+            <Field label="Resumo" hint="Uma linha para chamar atenção no card" className="sm:col-span-2" required>
+              <Input className="h-9" value={form.resumo} onChange={(e) => onChange({ resumo: e.target.value })} />
+            </Field>
+          </div>
+        </FormSection>
 
-        <div className="flex min-h-0 flex-col gap-3">
-          <FormSection title="Identificação no portal" icon={BriefcaseBusiness}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Título da vaga" hint="Nome exibido no card e na página da vaga" className="sm:col-span-2" required>
-                <Input className="h-9" value={form.titulo} onChange={(e) => onChange({ titulo: e.target.value })} />
-              </Field>
-              <Field label="Resumo" hint="Uma linha para chamar atenção no card" className="sm:col-span-2" required>
-                <Input className="h-9" value={form.resumo} onChange={(e) => onChange({ resumo: e.target.value })} />
-              </Field>
-            </div>
-          </FormSection>
-
-          <FormSection title="Condições de trabalho" icon={MapPin}>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Field label="Local" required>
-                <Input className="h-9" value={form.local} onChange={(e) => onChange({ local: e.target.value })} />
-              </Field>
-              <Field label="Modalidade" required>
-                <SelectField
-                  value={form.modalidade}
-                  onChange={(value) => onChange({ modalidade: value })}
-                  options={[
-                    { value: "presencial", label: "Presencial" },
-                    { value: "hibrido", label: "Híbrido" },
-                    { value: "remoto", label: "Remoto" },
-                  ]}
-                />
-              </Field>
-              <Field label="Contrato" required>
-                <SelectField
-                  value={form.tipoContrato}
-                  onChange={(value) => onChange({ tipoContrato: value })}
-                  options={[
-                    { value: "clt", label: "CLT" },
-                    { value: "pj", label: "PJ" },
-                    { value: "estagio", label: "Estágio" },
-                    { value: "temporario", label: "Temporário" },
-                  ]}
-                />
-              </Field>
-              <Field label="Faixa salarial" icon={Wallet} hint="Pode ficar oculta na etapa seguinte">
-                <Input
-                  className="h-9"
-                  value={form.faixaSalarial}
-                  onChange={(e) => onChange({ faixaSalarial: e.target.value })}
-                  placeholder="A combinar"
-                />
-              </Field>
-            </div>
-          </FormSection>
-
-          <FormSection title="Conteúdo para candidatos" icon={FileText} className="flex min-h-0 flex-1 flex-col">
-            <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
-              <Field
-                label="Descrição da vaga"
-                hint="Responsabilidades, dia a dia e o que a pessoa fará"
-                className="flex min-h-[8.5rem] flex-col lg:min-h-0 lg:flex-1"
-                required
-              >
-                <textarea
-                  className="min-h-[8.5rem] flex-1 w-full resize-none rounded-lg border border-input bg-slate-50/50 px-3 py-2 text-sm leading-relaxed focus:bg-white lg:min-h-0"
-                  value={form.descricao}
-                  onChange={(e) => onChange({ descricao: e.target.value })}
-                />
-              </Field>
-              <Field
-                label="Requisitos e qualificações"
-                hint="Formação, experiência e competências desejadas"
-                className="flex min-h-[8.5rem] flex-col lg:min-h-0 lg:flex-1"
-                required
-              >
-                <textarea
-                  className="min-h-[8.5rem] flex-1 w-full resize-none rounded-lg border border-input bg-slate-50/50 px-3 py-2 text-sm leading-relaxed focus:bg-white lg:min-h-0"
-                  value={form.requisitos}
-                  onChange={(e) => onChange({ requisitos: e.target.value })}
-                />
-              </Field>
-            </div>
-          </FormSection>
-        </div>
+        <FormSection title="Condições de trabalho" icon={MapPin}>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Field label="Local" required>
+              <Input className="h-9" value={form.local} onChange={(e) => onChange({ local: e.target.value })} />
+            </Field>
+            <Field label="Modalidade" required>
+              <SelectField
+                value={form.modalidade}
+                onChange={(value) => onChange({ modalidade: value })}
+                options={[
+                  { value: "presencial", label: "Presencial" },
+                  { value: "hibrido", label: "Híbrido" },
+                  { value: "remoto", label: "Remoto" },
+                ]}
+              />
+            </Field>
+            <Field label="Contrato" required>
+              <SelectField
+                value={form.tipoContrato}
+                onChange={(value) => onChange({ tipoContrato: value })}
+                options={[
+                  { value: "clt", label: "CLT" },
+                  { value: "pj", label: "PJ" },
+                  { value: "estagio", label: "Estágio" },
+                  { value: "temporario", label: "Temporário" },
+                ]}
+              />
+            </Field>
+            <Field label="Faixa salarial" icon={Wallet} hint="Pode ficar oculta na etapa de publicação">
+              <Input
+                className="h-9"
+                value={form.faixaSalarial}
+                onChange={(e) => onChange({ faixaSalarial: e.target.value })}
+                placeholder="A combinar"
+              />
+            </Field>
+          </div>
+        </FormSection>
       </div>
     </div>
   );
 }
 
-function PortalVagaPreviewCard({
+function StepDnalio({
   form,
   requisicao,
+  onSelect,
+  onClear,
+  onChange,
 }: {
   form: FormState;
   requisicao: (typeof REQUISICOES_MOCK)[number] | null;
+  onSelect: (item: DescricaoCargoLookupItem) => void;
+  onClear: () => void;
+  onChange: (patch: Partial<FormState>) => void;
 }) {
+  const [search, setSearch] = useState("");
+  const [lookupItems, setLookupItems] = useState<DescricaoCargoLookupItem[]>([]);
+  const [lookupLoading, setLookupLoading] = useState(true);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupReloadKey, setLookupReloadKey] = useState(0);
+
+  const [detail, setDetail] = useState<DescricaoCargoDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const loadLookup = useCallback(async (term: string) => {
+    setLookupLoading(true);
+    setLookupError(null);
+    try {
+      const items = await fetchDescricoesCargoLookup(term);
+      setLookupItems(items);
+    } catch (err) {
+      setLookupItems([]);
+      setLookupError(err instanceof Error ? err.message : "Falha ao buscar descrições de cargo.");
+    } finally {
+      setLookupLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      void loadLookup(search);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [search, loadLookup, lookupReloadKey]);
+
+  useEffect(() => {
+    if (!form.descricaoCargoId) {
+      setDetail(null);
+      setDetailError(null);
+      setDetailLoading(false);
+      return;
+    }
+
+    let alive = true;
+    setDetailLoading(true);
+    setDetailError(null);
+
+    void fetchDescricaoCargoDetail(form.descricaoCargoId)
+      .then((data) => {
+        if (!alive) return;
+        setDetail(data);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setDetail(null);
+        setDetailError(err instanceof Error ? err.message : "Falha ao carregar detalhes do DNALIO.");
+      })
+      .finally(() => {
+        if (alive) setDetailLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [form.descricaoCargoId]);
+
+  const suggestedId = useMemo(
+    () => findSuggestedLookupId(lookupItems, requisicao?.titulo ?? form.titulo),
+    [lookupItems, requisicao?.titulo, form.titulo],
+  );
+
+  const selectedLookup = useMemo(
+    () => lookupItems.find((item) => item.id === form.descricaoCargoId) ?? null,
+    [lookupItems, form.descricaoCargoId],
+  );
+
+  const sections = useMemo(
+    () => (detail?.itens?.length ? groupDnalioSections(detail.itens) : null),
+    [detail],
+  );
+
+  const selectedLabel = selectedLookup
+    ? `${selectedLookup.code} — ${selectedLookup.title}`
+    : form.descricaoCargoCode
+      ? `${form.descricaoCargoCode} — ${form.descricaoCargoTitle}`
+      : null;
+
   return (
-    <aside className="flex shrink-0 flex-col rounded-xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Prévia do card no portal</p>
-      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="truncate text-base font-bold text-slate-900">
-              {form.titulo.trim() || "Título da vaga"}
-            </h3>
-            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-600">
-              {form.resumo.trim() || "Resumo curto exibido no card de oportunidades."}
-            </p>
-          </div>
-          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-600">
-            <BriefcaseBusiness className="size-4" />
-          </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">Descrição de Cargo (DNALIO)</h2>
+          <p className="text-xs text-slate-500">
+            Obrigatório para publicar e alimentar o matching por IA — mesma regra do cadastro de vagas.
+          </p>
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-            <MapPin className="size-3" />
-            {form.local.trim() || "Local"}
+        {requisicao ? (
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+            {requisicao.code} · {requisicao.titulo}
           </span>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-            {labelModalidade(form.modalidade)}
-          </span>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-            {form.tipoContrato.toUpperCase()}
-          </span>
-        </div>
-        {form.faixaSalarial ? (
-          <p className="mt-3 text-xs font-semibold text-emerald-700">{form.faixaSalarial}</p>
         ) : null}
       </div>
-      {requisicao ? (
-        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-          Origem: <span className="font-semibold text-slate-700">{requisicao.code}</span> · gestor{" "}
-          {requisicao.gestor}
+
+      <div className="rounded-lg border border-blue-100 bg-blue-50/70 px-3 py-2.5 text-xs text-blue-900">
+        <p className="font-semibold">Como o match usa o DNALIO</p>
+        <p className="mt-0.5 leading-relaxed text-blue-800/90">
+          O sistema lê as seções estruturadas — Atividades, Competências, Vivências e Requisitos — para calcular o
+          score do candidato por categoria, como na aba <strong>Matching IA</strong> do formulário de vagas.
         </p>
+      </div>
+
+      {suggestedId && !form.descricaoCargoId ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-900">
+          <span>
+            Sugestão com base no título da vaga/requisição:{" "}
+            <strong>
+              {lookupItems.find((item) => item.id === suggestedId)?.displayLabel ?? "template compatível"}
+            </strong>
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 border-violet-300 bg-white text-violet-800 hover:bg-violet-100"
+            onClick={() => {
+              const item = lookupItems.find((row) => row.id === suggestedId);
+              if (item) onSelect(item);
+            }}
+          >
+            Usar sugestão
+          </Button>
+        </div>
       ) : null}
-    </aside>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+        <Input
+          className="h-9 pl-9"
+          placeholder="Buscar por código ou título da descrição"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          disabled={lookupLoading && lookupItems.length === 0 && !lookupError}
+        />
+      </div>
+
+      {lookupError ? (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Não foi possível carregar os templates DNALIO</p>
+            <p className="mt-0.5">{lookupError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 h-7 border-red-200 bg-white text-red-800 hover:bg-red-50"
+              onClick={() => setLookupReloadKey((key) => key + 1)}
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {lookupLoading && lookupItems.length === 0 ? (
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
+          <Loader2 className="size-4 animate-spin" />
+          Carregando templates DNALIO...
+        </div>
+      ) : null}
+
+      {!lookupError && (!lookupLoading || lookupItems.length > 0) ? (
+        <div className="grid gap-2 lg:grid-cols-2">
+          {lookupItems.map((item) => {
+            const active = form.descricaoCargoId === item.id;
+            const sugerido = suggestedId === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSelect(item)}
+                className={cn(
+                  "rounded-lg border p-3 text-left transition",
+                  active && "border-blue-300 bg-blue-50/70 ring-1 ring-blue-200",
+                  !active && "border-slate-200 hover:border-blue-200 hover:bg-slate-50",
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-bold text-slate-500">{item.code}</div>
+                    <div className="truncate text-sm font-bold text-slate-900">{item.title}</div>
+                    <div className="truncate text-xs text-slate-600">{item.displayLabel}</div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {sugerido ? (
+                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                        Sugerido
+                      </span>
+                    ) : null}
+                    {active ? (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        Vinculado
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {!lookupLoading && !lookupError && lookupItems.length === 0 ? (
+        <p className="text-center text-xs text-slate-500">Nenhuma descrição encontrada para essa busca.</p>
+      ) : null}
+
+      {form.descricaoCargoId ? (
+        <FormSection title="Prévia do template selecionado" icon={Sparkles}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-emerald-700">
+              Vinculado: {selectedLabel ?? "Descrição selecionada"}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={onClear}>
+              Limpar vínculo
+            </Button>
+          </div>
+
+          {detailLoading ? (
+            <div className="flex items-center gap-2 py-4 text-xs text-slate-500">
+              <Loader2 className="size-3.5 animate-spin" />
+              Carregando seções do template...
+            </div>
+          ) : null}
+
+          {detailError ? (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+              <span>{detailError}</span>
+            </div>
+          ) : null}
+
+          {sections ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  ["Atividades", sections.atividades],
+                  ["Competências", sections.competencias],
+                  ["Vivências", sections.vivencias],
+                  ["Requisitos", sections.requisitos],
+                ] as const
+              ).map(([label, items]) => (
+                <div key={label} className="rounded-lg border border-slate-100 bg-slate-50/80 p-2.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</div>
+                  {items.length > 0 ? (
+                    <ul className="mt-1 space-y-0.5 text-xs text-slate-700">
+                      {items.slice(0, 6).map((line) => (
+                        <li key={line}>· {line}</li>
+                      ))}
+                      {items.length > 6 ? (
+                        <li className="text-slate-400">+ {items.length - 6} itens</li>
+                      ) : null}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate-400">Sem itens nesta categoria.</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {!detailLoading && !detailError && sections && detail?.areaTemplate ? (
+            <p className="mt-2 text-[11px] text-slate-500">Área do template: {detail.areaTemplate}</p>
+          ) : null}
+        </FormSection>
+      ) : (
+        <p className="rounded-lg border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Selecione uma descrição de cargo para continuar — sem DNALIO a vaga não pode ser publicada no fluxo real.
+        </p>
+      )}
+
+      <Field
+        label="Match mínimo (IA)"
+        hint="Percentual mínimo para considerar candidato compatível — padrão 70%"
+        className="max-w-xs"
+      >
+        <div className="flex items-center gap-2">
+          <Input
+            className="h-9"
+            type="number"
+            min={0}
+            max={100}
+            value={form.matchMinimoPercentual}
+            onChange={(e) =>
+              onChange({
+                matchMinimoPercentual: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
+              })
+            }
+          />
+          <span className="text-sm font-medium text-slate-500">%</span>
+        </div>
+      </Field>
+    </div>
+  );
+}
+
+function StepConteudoCandidatos({
+  form,
+  onChange,
+  requisicao,
+}: {
+  form: FormState;
+  onChange: (patch: Partial<FormState>) => void;
+  requisicao: (typeof REQUISICOES_MOCK)[number] | null;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">Conteúdo para candidatos</h2>
+          <p className="text-xs text-slate-500">Texto completo exibido na página da vaga no portal.</p>
+        </div>
+        {requisicao ? (
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+            {requisicao.code} · {form.titulo || requisicao.titulo}
+          </span>
+        ) : null}
+      </div>
+
+      <FormSection title="Descrição e requisitos" icon={FileText} className="flex min-h-0 flex-1 flex-col">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
+          <Field
+            label="Descrição da vaga"
+            hint="Responsabilidades, dia a dia e o que a pessoa fará"
+            className="flex min-h-[10rem] flex-col lg:min-h-0 lg:flex-1"
+            required
+          >
+            <textarea
+              className="min-h-[10rem] flex-1 w-full resize-none rounded-lg border border-input bg-slate-50/50 px-3 py-2 text-sm leading-relaxed focus:bg-white lg:min-h-0"
+              value={form.descricao}
+              onChange={(e) => onChange({ descricao: e.target.value })}
+            />
+          </Field>
+          <Field
+            label="Requisitos e qualificações"
+            hint="Formação, experiência e competências desejadas"
+            className="flex min-h-[10rem] flex-col lg:min-h-0 lg:flex-1"
+            required
+          >
+            <textarea
+              className="min-h-[10rem] flex-1 w-full resize-none rounded-lg border border-input bg-slate-50/50 px-3 py-2 text-sm leading-relaxed focus:bg-white lg:min-h-0"
+              value={form.requisitos}
+              onChange={(e) => onChange({ requisitos: e.target.value })}
+            />
+          </Field>
+        </div>
+      </FormSection>
+    </div>
   );
 }
 
@@ -617,6 +1078,8 @@ function StepConfirmacao({
 }) {
   const rows = [
     { label: "Requisição", value: requisicao ? `${requisicao.code} — ${requisicao.titulo}` : "—" },
+    { label: "DNALIO", value: form.descricaoCargoCode ? `${form.descricaoCargoCode} — ${form.descricaoCargoTitle}` : "—" },
+    { label: "Match mínimo", value: `${form.matchMinimoPercentual}%` },
     { label: "Título publicado", value: form.titulo },
     { label: "Modalidade", value: labelModalidade(form.modalidade) },
     { label: "Contrato", value: form.tipoContrato.toUpperCase() },
