@@ -138,39 +138,7 @@ public sealed class AgendaService
 
     public async Task<ScheduleEventResponse?> GetEventByIdAsync(Guid id, CancellationToken ct)
     {
-        var item = await _db.AgendaEvents
-            .AsNoTracking()
-            .Include(x => x.Type)
-            .Where(x => x.Id == id)
-            .Select(x => new ScheduleEventResponse(
-                x.Id,
-                x.Title,
-                x.StartAtUtc,
-                x.EndAtUtc,
-                x.AllDay,
-                x.Status,
-                x.Location,
-                x.Owner,
-                x.Candidate,
-                x.VagaTitle,
-                x.VagaCode,
-                x.Notes,
-                x.CandidaturaId,
-                x.CandidatoId,
-                x.VagaId,
-                x.CandidateResponseStatus,
-                x.CandidateRespondedAtUtc,
-                x.CandidateSuggestedStartAtUtc,
-                x.CandidateSuggestedEndAtUtc,
-                x.CandidateResponseMessage,
-                x.CandidateConfirmationToken,
-                x.Type != null ? x.Type.Code : string.Empty,
-                x.Type != null ? x.Type.Label : string.Empty,
-                x.Type != null ? x.Type.Color : "#6c757d",
-                x.Type != null ? x.Type.Icon : "bi-calendar"
-            ))
-            .FirstOrDefaultAsync(ct);
-
+        var item = await QueryEventResponseAsync(id, ct);
         if (item is null)
             return null;
 
@@ -187,6 +155,8 @@ public sealed class AgendaService
         var owner = TrimOrNull(request.Owner);
         if (string.IsNullOrWhiteSpace(owner))
             owner = await AgendaEventVisibility.GetCurrentUserDisplayNameAsync(_db, _currentUser, ct);
+        if (string.IsNullOrWhiteSpace(owner))
+            owner = TrimOrNull(_currentUser.Email);
 
         var entity = new AgendaEvent
         {
@@ -208,7 +178,9 @@ public sealed class AgendaService
         _db.AgendaEvents.Add(entity);
         await _db.SaveChangesAsync(ct);
         await _graphSync.TrySyncCreateAsync(entity.Id, ct);
-        return (await GetEventByIdAsync(entity.Id, ct))!;
+
+        return await QueryEventResponseAsync(entity.Id, ct)
+               ?? throw new InvalidOperationException("Evento criado, mas não foi possível carregá-lo.");
     }
 
     public async Task<ScheduleEventResponse?> UpdateAsync(Guid id, ScheduleEventUpdateRequest request, CancellationToken ct)
@@ -236,7 +208,7 @@ public sealed class AgendaService
 
         await _db.SaveChangesAsync(ct);
         await _graphSync.TrySyncUpdateAsync(id, ct);
-        return await GetEventByIdAsync(id, ct);
+        return await QueryEventResponseAsync(id, ct);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
@@ -308,6 +280,40 @@ public sealed class AgendaService
 
         return MapPublic(entity);
     }
+
+    private async Task<ScheduleEventResponse?> QueryEventResponseAsync(Guid id, CancellationToken ct) =>
+        await _db.AgendaEvents
+            .AsNoTracking()
+            .Include(x => x.Type)
+            .Where(x => x.Id == id)
+            .Select(x => new ScheduleEventResponse(
+                x.Id,
+                x.Title,
+                x.StartAtUtc,
+                x.EndAtUtc,
+                x.AllDay,
+                x.Status,
+                x.Location,
+                x.Owner,
+                x.Candidate,
+                x.VagaTitle,
+                x.VagaCode,
+                x.Notes,
+                x.CandidaturaId,
+                x.CandidatoId,
+                x.VagaId,
+                x.CandidateResponseStatus,
+                x.CandidateRespondedAtUtc,
+                x.CandidateSuggestedStartAtUtc,
+                x.CandidateSuggestedEndAtUtc,
+                x.CandidateResponseMessage,
+                x.CandidateConfirmationToken,
+                x.Type != null ? x.Type.Code : string.Empty,
+                x.Type != null ? x.Type.Label : string.Empty,
+                x.Type != null ? x.Type.Color : "#6c757d",
+                x.Type != null ? x.Type.Icon : "bi-calendar"
+            ))
+            .FirstOrDefaultAsync(ct);
 
     private async Task<AgendaEventType> GetTypeByCodeAsync(string code, CancellationToken ct)
     {
