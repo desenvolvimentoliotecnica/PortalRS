@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Download, Eye, Loader2, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
+import { Download, Eye, Loader2, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2 } from "lucide-react";
 import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
 import { VagaAutocomplete } from "@/components/autocomplete/VagaAutocomplete";
 
@@ -123,6 +123,32 @@ function statusTag(statusRaw: string | null | undefined) {
   if (s === "reprovado" || s === "reprovados") return { colorCls: "bg-red-500/15 text-red-700", label: "Reprovado" };
   if (!s) return { colorCls: "bg-zinc-400/15 text-zinc-600", label: "—" };
   return { colorCls: "bg-zinc-400/15 text-zinc-600", label: statusRaw ?? "—" };
+}
+
+function isCandidatoAprovado(statusRaw: string | null | undefined) {
+  const s = normalizeEnumCode(statusRaw);
+  return s === "aprovado" || s === "aprovados" || s.includes("aprov");
+}
+
+function resolveStatusEnumCode(statusRaw: unknown, enums: EnumsByKey | null, fallback = "novo") {
+  const target = normalizeEnumCode(statusRaw);
+  const opts = enumOptions(enums, "candidatoStatus");
+  if (!target) return opts[0]?.code ?? fallback;
+  const byCode = opts.find((o) => normalizeEnumCode(o.code) === target);
+  if (byCode) return byCode.code;
+  const byText = opts.find((o) => normalizeEnumCode(o.text) === target);
+  if (byText) return byText.code;
+  return opts[0]?.code ?? fallback;
+}
+
+function vagaLabelForId(vagaId: string | null | undefined, vagas: VagaOption[], cand?: Partial<Candidato>) {
+  const id = pickString(vagaId, "").trim();
+  const fromList = vagas.find((v) => v.id === id);
+  if (fromList) return fromList.label;
+  const title = pickString(cand?.vagaTitle, "").trim();
+  const code = pickString(cand?.vagaCode, "").trim();
+  if (title || code) return [code, title].filter(Boolean).join(" - ");
+  return id ? id.slice(0, 8) : "Sem vaga";
 }
 
 function normalizeText(s: string) {
@@ -460,7 +486,7 @@ export default function CandidatosScreen() {
     setPortalPerfilLoading(true);
     try {
       const d = await fetchJson<Candidato>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`);
-      setDetail(d);
+      setDetail({ ...d, status: resolveStatusEnumCode(d.status, enums) });
     } catch {
       toast.error("Falha ao carregar detalhes do candidato.");
       setPortalPerfilLoading(false);
@@ -514,7 +540,7 @@ export default function CandidatosScreen() {
       setDraftDocFile(null);
       setDraftDocTipo(enumOptions(enums, "candidatoDocumentoTipo")[0]?.code ?? "curriculo");
       const d = await fetchJson<Candidato>(`${BASE}/api/candidatos/${encodeURIComponent(id)}`);
-      setDraft(d);
+      setDraft({ ...d, status: resolveStatusEnumCode(d.status, enums) });
       setEditOpen(true);
     } catch {
       toast.error("Falha ao abrir edição.");
@@ -1123,327 +1149,399 @@ export default function CandidatosScreen() {
       </div>
 
       {detailOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setDetailOpen(false)}>
-          <div className="h-[60vh] w-full max-w-5xl overflow-y-auto rounded-xl border border-border/50 bg-card p-4 shadow-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="size-[52px] rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">
-                  {initials(pickString(detail?.nome, ""))}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setDetailOpen(false)}>
+          <div
+            className="flex h-[85vh] max-h-[900px] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 border-b border-border/40 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="size-[52px] rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">
+                    {initials(pickString(detail?.nome, ""))}
+                  </div>
+                  <div>
+                    <div className="text-lg font-extrabold">{detail?.nome ?? "—"}</div>
+                    <div className="text-muted-foreground text-sm">
+                      <span>{detail?.email ?? ""}</span>
+                      {detail?.fone ? (
+                        <>
+                          <span className="mx-2">•</span>
+                          <span>{detail.fone}</span>
+                        </>
+                      ) : null}
+                    </div>
+                    <div className="text-muted-foreground text-sm">
+                      <span>{[detail?.cidade, detail?.uf].filter(Boolean).join(" - ") || ""}</span>
+                    </div>
+                    <div className="text-muted-foreground text-sm">
+                      <span>Fonte: {enumText(enums, "candidatoFonte", (detail as Record<string, unknown>)?.fonte, "—")}</span>
+                      {(detail as Record<string, unknown>)?.applicationRecruiterUserName ? (
+                        <>
+                          <span className="mx-2">•</span>
+                          <span>Recrutador: {pickString((detail as Record<string, unknown>)?.applicationRecruiterUserName, "—")}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-lg font-extrabold">{detail?.nome ?? "—"}</div>
-                  <div className="text-muted-foreground text-sm">
-                    <span>{detail?.email ?? ""}</span>
-                    {detail?.fone ? (
-                      <>
-                        <span className="mx-2">•</span>
-                        <span>{detail.fone}</span>
-                      </>
-                    ) : null}
-                  </div>
-                  <div className="text-muted-foreground text-sm">
-                    <span>
-                      {[detail?.cidade, detail?.uf].filter(Boolean).join(" - ") || ""}
-                    </span>
-                  </div>
-                  <div className="text-muted-foreground text-sm">
-                    <span>
-                      Fonte: {enumText(enums, "candidatoFonte", (detail as Record<string, unknown>)?.fonte, "—")}
-                    </span>
-                    {(detail as Record<string, unknown>)?.applicationRecruiterUserName ? (
-                      <>
-                        <span className="mx-2">•</span>
-                        <span>Recrutador: {pickString((detail as Record<string, unknown>)?.applicationRecruiterUserName, "—")}</span>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                {detail?.id ? (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link
-                      href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}${pickString(detail.vagaId, "").trim() ? `&vagaId=${encodeURIComponent(pickString(detail.vagaId, "").trim())}` : ""}`}
-                      onClick={() => setDetailOpen(false)}
-                    >
-                      Abrir em página
-                    </Link>
+                <div className="flex items-center gap-2">
+                  {detail?.id ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link
+                        href={`/candidatos/detalhes?id=${encodeURIComponent(detail.id)}${pickString(detail.vagaId, "").trim() ? `&vagaId=${encodeURIComponent(pickString(detail.vagaId, "").trim())}` : ""}`}
+                        onClick={() => setDetailOpen(false)}
+                      >
+                        Abrir em página
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <WhatsAppContactButton
+                    size="sm"
+                    celular={pickString((detail as Record<string, unknown> | null)?.celular, "")}
+                    fone={detail?.fone}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>
+                    Fechar
                   </Button>
-                ) : null}
-                <WhatsAppContactButton
-                  size="sm"
-                  celular={pickString((detail as Record<string, unknown> | null)?.celular, "")}
-                  fone={detail?.fone}
-                />
-                <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>
-                  Fechar
-                </Button>
+                </div>
               </div>
             </div>
 
             {!detail ? (
-              <div className="text-muted-foreground py-10 text-center">Carregando…</div>
+              <div className="flex flex-1 items-center justify-center text-muted-foreground">Carregando…</div>
             ) : (
-              <div className="mt-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <div className="flex flex-wrap gap-2">
-                    {(
-                      [
-                        { key: "resumo", label: "Resumo" },
-                        { key: "cv", label: "Texto do CV" },
-                        { key: "docs", label: "Documentos" },
-                        { key: "match", label: "Match" },
-                        { key: "perfilPortal", label: "Perfil portal" },
-                      ] as const
-                    ).map((t) => (
-                      <Button
-                        key={t.key}
-                        size="sm"
-                        variant={detailTab === t.key ? "default" : "outline"}
-                        onClick={() => setDetailTab(t.key)}
-                      >
-                        {t.label}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="text-end">
-                    {(() => {
-                      const st = statusTag(detail.status);
-                      const label = enumText(enums, "candidatoStatus", detail.status, st.label);
-                      const updatedIso = pickString((detail as Record<string, unknown>)?.updatedAtUtc ?? (detail as Record<string, unknown>)?.updatedAt, "");
-                      const updatedTxt = updatedIso ? new Date(updatedIso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
-                      return (
-                        <>
-                          <div className="mb-1">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.colorCls}`}>{label}</span>
-                          </div>
-                          <div className="text-muted-foreground text-sm">Atualizado: {updatedTxt}</div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
+              (() => {
+                const detailApproved = isCandidatoAprovado(detail.status);
+                const statusResolved = resolveStatusEnumCode(detail.status, enums);
+                const st = statusTag(statusResolved);
+                const statusLabelResolved = enumText(enums, "candidatoStatus", statusResolved, st.label);
+                const updatedIso = pickString((detail as Record<string, unknown>)?.updatedAtUtc ?? (detail as Record<string, unknown>)?.updatedAt, "");
+                const updatedTxt = updatedIso
+                  ? new Date(updatedIso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : "—";
+                const cvTextValue = pickString(detail.cvText, "");
+                const cvCharCount = cvTextValue.length;
+                const cvLineCount = cvTextValue ? cvTextValue.split(/\r?\n/).length : 0;
 
-                {detailTab === "resumo" ? (
-                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4" style={{ boxShadow: "none" }}>
-                    <div className="font-medium mb-1">Observações</div>
-                    <div className="text-muted-foreground text-sm whitespace-pre-wrap">{pickString((detail as Record<string, unknown>)?.obs, "—") || "—"}</div>
-
-                    <div className="mt-3 grid grid-cols-1 gap-2">
-                      <div className="min-w-0 md:max-w-xs">
-                        <div className="text-sm text-muted-foreground mb-1">Status</div>
-                        <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={detail.status ?? ""} onChange={(e) => setDetail({ ...detail, status: e.target.value })}>
-                          {statusOptionsEffective.map((opt) => (
-                            <option key={opt.code} value={opt.code}>
-                              {opt.text}
-                            </option>
-                          ))}
-                        </select>
+                return (
+                  <div className="flex min-h-0 flex-1 flex-col p-4 pt-3">
+                    <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {(
+                          [
+                            { key: "resumo", label: "Resumo" },
+                            { key: "cv", label: "Texto do CV" },
+                            { key: "docs", label: "Documentos" },
+                            { key: "match", label: "Match" },
+                            { key: "perfilPortal", label: "Perfil portal" },
+                          ] as const
+                        ).map((t) => (
+                          <Button
+                            key={t.key}
+                            size="sm"
+                            variant={detailTab === t.key ? "default" : "outline"}
+                            onClick={() => setDetailTab(t.key)}
+                          >
+                            {t.label}
+                          </Button>
+                        ))}
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-sm text-muted-foreground mb-1">Vaga</div>
-                        <select
-                          className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm"
-                          value={detail.vagaId ?? ""}
-                          onChange={(e) => {
-                            const id = e.target.value;
-                            const v = vagas.find((x) => x.id === id);
-                            setDetail({
-                              ...detail,
-                              vagaId: id || null,
-                              vagaTitle: v?.label ? v.label.replace(/\s*\([^)]+\)\s*$/, "") : null,
-                              vagaCode: v?.code ?? null,
-                            });
-                          }}
-                        >
-                          <option value="">Sem vaga</option>
-                          {vagas.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm" onClick={() => void openEdit(detail.id)}>
-                        Editar
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => void saveMeta()}>
-                        Salvar status/vaga
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => void deleteCandidate(detail.id)}>
-                        Excluir
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {detailTab === "cv" ? (
-                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4" style={{ boxShadow: "none" }}>
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <div className="font-medium">Texto do CV</div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            fetchJson(`${BASE}/api/candidatos/${encodeURIComponent(detail.id)}`, {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify(buildCandidatePayload(detail)),
-                            })
-                              .then(() => toast.success("Texto do CV salvo."))
-                              .catch(() => toast.error("Falha ao salvar texto do CV."));
-                          }}
-                        >
-                          Salvar texto
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => void recalcMatch(detail.id)}>
-                          Recalcular match
-                        </Button>
-                      </div>
-                    </div>
-                    <textarea className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" rows={10} value={detail.cvText ?? ""} onChange={(e) => setDetail({ ...detail, cvText: e.target.value })} />
-                  </div>
-                ) : null}
-
-                {detailTab === "docs" ? (
-                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4" style={{ boxShadow: "none" }}>
-                    <div className="font-medium mb-2">Documentos</div>
-                    <DocumentosBox
-                      candidato={detail}
-                      docTipoOptions={enumOptions(enums, "candidatoDocumentoTipo")}
-                      onUploaded={(doc) => {
-                        const docs = Array.isArray(detail.documentos) ? detail.documentos.slice() : [];
-                        docs.unshift(doc);
-                        setDetail({ ...detail, documentos: docs });
-                      }}
-                      onDeleted={(docId) => {
-                        const docs = Array.isArray(detail.documentos) ? detail.documentos.filter((d) => d.id !== docId) : [];
-                        setDetail({ ...detail, documentos: docs });
-                      }}
-                      uploadDocumento={uploadDocumento}
-                      deleteDocumento={deleteDocumento}
-                      uploadCvExtrair={uploadCvExtrair}
-                      onSuggested={(payload, cvText) => {
-                        setSuggested(payload);
-                        setSuggestedCvText(cvText);
-                        setSuggestOpen(true);
-                      }}
-                    />
-                  </div>
-                ) : null}
-
-                {detailTab === "match" ? (
-                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4" style={{ boxShadow: "none" }}>
-                    {!pickString(detail.vagaId, "").trim() ? (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 p-3 text-sm">
-                        Vincule uma vaga ao candidato para calcular o match.
-                      </div>
-                    ) : !detailMatch ? (
-                      <div className="text-muted-foreground text-sm">Carregando match…</div>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-semibold">Resultado atual</div>
-                            <div className="text-muted-foreground text-sm">Score por palavras-chave</div>
-                          </div>
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${detailMatch.pass ? "bg-emerald-500/15 text-emerald-700" : "bg-red-500/15 text-red-700"}`}>
-                            {detailMatch.pass ? "Dentro do mínimo" : "Abaixo do mínimo"}
-                          </span>
+                      <div className="text-end">
+                        <div className="mb-1">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.colorCls}`}>{statusLabelResolved}</span>
                         </div>
+                        <div className="text-muted-foreground text-sm">Atualizado: {updatedTxt}</div>
+                      </div>
+                    </div>
 
-                        <div className="mt-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                              <div className="h-full rounded-full bg-[rgb(var(--lt-primary))] transition-all" style={{ width: `${clamp(detailMatch.score, 0, 100)}%` }} />
-                            </div>
-                            <div className="font-semibold" style={{ minWidth: 54, textAlign: "right" }}>
-                              {clamp(detailMatch.score, 0, 100)}%
+                    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                      {detailTab === "resumo" ? (
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/50 bg-card">
+                          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                            {detailApproved ? (
+                              <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
+                                <Lock className="mt-0.5 size-4 shrink-0" />
+                                <span>Candidato aprovado — status e vaga estão bloqueados para esta candidatura.</span>
+                              </div>
+                            ) : null}
+
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                              <div className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                                <div className="mb-1 font-medium">Observações</div>
+                                <div className="whitespace-pre-wrap text-sm text-muted-foreground">{pickString((detail as Record<string, unknown>)?.obs, "—") || "—"}</div>
+                              </div>
+
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="mb-1 text-sm text-muted-foreground">Status</div>
+                                  {detailApproved ? (
+                                    <div className="flex h-9 items-center">
+                                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.colorCls}`}>{statusLabelResolved}</span>
+                                    </div>
+                                  ) : (
+                                    <select
+                                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                      value={statusResolved}
+                                      onChange={(e) => setDetail({ ...detail, status: e.target.value })}
+                                    >
+                                      {statusOptionsEffective.map((opt) => (
+                                        <option key={opt.code} value={opt.code}>
+                                          {opt.text}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="mb-1 text-sm text-muted-foreground">Vaga</div>
+                                  {detailApproved ? (
+                                    <div className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                                      <Lock className="size-3.5 shrink-0" />
+                                      <span className="truncate">{vagaLabelForId(detail.vagaId, vagas, detail)}</span>
+                                    </div>
+                                  ) : (
+                                    <select
+                                      className="h-9 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+                                      value={detail.vagaId ?? ""}
+                                      onChange={(e) => {
+                                        const id = e.target.value;
+                                        const v = vagas.find((x) => x.id === id);
+                                        setDetail({
+                                          ...detail,
+                                          vagaId: id || null,
+                                          vagaTitle: v?.label ? v.label.replace(/\s*\([^)]+\)\s*$/, "") : null,
+                                          vagaCode: v?.code ?? null,
+                                        });
+                                      }}
+                                    >
+                                      <option value="">Sem vaga</option>
+                                      {vagas.map((v) => (
+                                        <option key={v.id} value={v.id}>
+                                          {v.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                          <div className="text-muted-foreground text-sm mt-1">
-                            Match mínimo da vaga: <strong>{detailMatch.threshold}%</strong>
-                            <span className="mx-1">•</span> Encontrados: <strong>{detailMatch.hits.length}</strong>
-                            <span className="mx-1">•</span> Obrigatórios faltando: <strong>{detailMatch.missMandatory.length}</strong>
+
+                          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-border/40 px-4 py-3">
+                            {!detailApproved ? (
+                              <Button variant="outline" size="sm" onClick={() => void saveMeta()}>
+                                Salvar status/vaga
+                              </Button>
+                            ) : null}
+                            <Button variant="outline" size="sm" onClick={() => void openEdit(detail.id)}>
+                              Editar candidato
+                            </Button>
                           </div>
                         </div>
+                      ) : null}
 
-                        {detailMatch.missMandatory.length ? (
-                          <div className="rounded-xl border border-red-200 bg-red-50 text-red-800 p-3 text-sm mt-3">
-                            <div className="font-medium mb-1">Obrigatórios não encontrados</div>
-                            <div className="text-sm">{detailMatch.missMandatory.map((x) => x.termo).slice(0, 12).join(", ")}</div>
+                      {detailTab === "cv" ? (
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/50 bg-card">
+                          <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-border/40 p-4 pb-3">
+                            <div>
+                              <div className="font-medium">Texto do CV</div>
+                              <div className="text-xs text-muted-foreground">Texto usado para cálculo de match com a vaga</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  fetchJson(`${BASE}/api/candidatos/${encodeURIComponent(detail.id)}`, {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify(buildCandidatePayload(detail)),
+                                  })
+                                    .then(() => toast.success("Texto do CV salvo."))
+                                    .catch(() => toast.error("Falha ao salvar texto do CV."));
+                                }}
+                              >
+                                Salvar texto
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => void recalcMatch(detail.id)}>
+                                <RefreshCw className="mr-1.5 size-3.5" />
+                                Recalcular match
+                              </Button>
+                            </div>
                           </div>
-                        ) : null}
-
-                        <div className="mt-3">
-                          <div className="font-medium mb-1">Encontrados</div>
-                          <div className="text-sm text-muted-foreground">{detailMatch.hits.map((x) => x.termo).slice(0, 12).join(", ") || "—"}</div>
+                          <div className="min-h-0 flex-1 px-4 py-3">
+                            <textarea
+                              className="h-full min-h-[280px] w-full resize-none rounded-md border border-input bg-muted/30 px-3 py-2 font-mono text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              value={detail.cvText ?? ""}
+                              onChange={(e) => setDetail({ ...detail, cvText: e.target.value })}
+                            />
+                          </div>
+                          <div className="shrink-0 border-t border-border/40 px-4 py-2 text-xs text-muted-foreground">
+                            {cvCharCount.toLocaleString("pt-BR")} caracteres · {cvLineCount.toLocaleString("pt-BR")} linhas
+                            {updatedIso ? ` · Última edição ${updatedTxt}` : null}
+                          </div>
                         </div>
+                      ) : null}
 
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          <Button variant="outline" size="sm" onClick={() => void recalcMatch(detail.id)}>
-                            Recalcular
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => toast.info("Placeholder: aqui abriria a tela de Vagas filtrada na vaga.")}>
-                            Abrir vaga (placeholder)
-                          </Button>
+                      {detailTab === "docs" ? (
+                        <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border/50 bg-card p-4">
+                          <div className="mb-2 font-medium">Documentos</div>
+                          <DocumentosBox
+                            candidato={detail}
+                            docTipoOptions={enumOptions(enums, "candidatoDocumentoTipo")}
+                            onUploaded={(doc) => {
+                              const docs = Array.isArray(detail.documentos) ? detail.documentos.slice() : [];
+                              docs.unshift(doc);
+                              setDetail({ ...detail, documentos: docs });
+                            }}
+                            onDeleted={(docId) => {
+                              const docs = Array.isArray(detail.documentos) ? detail.documentos.filter((d) => d.id !== docId) : [];
+                              setDetail({ ...detail, documentos: docs });
+                            }}
+                            uploadDocumento={uploadDocumento}
+                            deleteDocumento={deleteDocumento}
+                            uploadCvExtrair={uploadCvExtrair}
+                            onSuggested={(payload, cvText) => {
+                              setSuggested(payload);
+                              setSuggestedCvText(cvText);
+                              setSuggestOpen(true);
+                            }}
+                          />
                         </div>
-                      </>
-                    )}
-                  </div>
-                ) : null}
+                      ) : null}
 
-                {detailTab === "perfilPortal" ? (
-                  <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4 max-h-[min(70vh,640px)] overflow-y-auto" style={{ boxShadow: "none" }}>
-                    <div className="text-muted-foreground text-xs mb-3">
-                      Dados preenchidos pelo candidato no portal (somente leitura).
+                      {detailTab === "match" ? (
+                        <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border/50 bg-card p-4">
+                          {!pickString(detail.vagaId, "").trim() ? (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                              Vincule uma vaga ao candidato para calcular o match.
+                            </div>
+                          ) : !detailMatch ? (
+                            <div className="text-sm text-muted-foreground">Carregando match…</div>
+                          ) : (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-semibold">Resultado atual</div>
+                                  <div className="text-sm text-muted-foreground">Score por palavras-chave</div>
+                                </div>
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${detailMatch.pass ? "bg-emerald-500/15 text-emerald-700" : "bg-red-500/15 text-red-700"}`}>
+                                  {detailMatch.pass ? "Dentro do mínimo" : "Abaixo do mínimo"}
+                                </span>
+                              </div>
+
+                              <div className="mt-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-2 overflow-hidden rounded-full bg-muted">
+                                    <div className="h-full rounded-full bg-[rgb(var(--lt-primary))] transition-all" style={{ width: `${clamp(detailMatch.score, 0, 100)}%` }} />
+                                  </div>
+                                  <div className="min-w-[54px] text-right font-semibold">{clamp(detailMatch.score, 0, 100)}%</div>
+                                </div>
+                                <div className="mt-1 text-sm text-muted-foreground">
+                                  Match mínimo da vaga: <strong>{detailMatch.threshold}%</strong>
+                                  <span className="mx-1">•</span> Encontrados: <strong>{detailMatch.hits.length}</strong>
+                                  <span className="mx-1">•</span> Obrigatórios faltando: <strong>{detailMatch.missMandatory.length}</strong>
+                                </div>
+                              </div>
+
+                              {detailMatch.missMandatory.length ? (
+                                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                                  <div className="mb-1 font-medium">Obrigatórios não encontrados</div>
+                                  <div className="text-sm">{detailMatch.missMandatory.map((x) => x.termo).slice(0, 12).join(", ")}</div>
+                                </div>
+                              ) : null}
+
+                              <div className="mt-3">
+                                <div className="mb-1 font-medium">Encontrados</div>
+                                <div className="text-sm text-muted-foreground">{detailMatch.hits.map((x) => x.termo).slice(0, 12).join(", ") || "—"}</div>
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <Button variant="outline" size="sm" onClick={() => void recalcMatch(detail.id)}>
+                                  Recalcular
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => toast.info("Placeholder: aqui abriria a tela de Vagas filtrada na vaga.")}>
+                                  Abrir vaga (placeholder)
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {detailTab === "perfilPortal" ? (
+                        <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border/50 bg-card p-4">
+                          <div className="mb-3 text-xs text-muted-foreground">Dados preenchidos pelo candidato no portal (somente leitura).</div>
+                          <CandidatoPortalPerfilReadonly
+                            data={portalPerfil}
+                            loading={portalPerfilLoading}
+                            loadError={portalPerfilError}
+                            candidatoId={detail.id}
+                            apiPathPrefix={BASE}
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                    <CandidatoPortalPerfilReadonly
-                      data={portalPerfil}
-                      loading={portalPerfilLoading}
-                      loadError={portalPerfilError}
-                      candidatoId={detail.id}
-                      apiPathPrefix={BASE}
-                    />
                   </div>
-                ) : null}
-              </div>
+                );
+              })()
             )}
           </div>
         </div>
       ) : null}
 
       {editOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditOpen(false)}>
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm w-full max-w-3xl p-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
-                <div className="text-lg font-extrabold">Cadastro</div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditOpen(false)}>
+          <div
+            className="flex h-[85vh] max-h-[900px] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 border-b border-border/40 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{draft.id ? "Editar candidato" : "Novo candidato"}</p>
+                  <div className="text-lg font-extrabold">Cadastro</div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setEditOpen(false)}>
+                  Fechar
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(false)}>
-                Fechar
-              </Button>
             </div>
 
-            <div className="mt-4 space-y-4">
-              {/* ── Vaga (destaque) ── */}
-              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
-                <label className="text-[10px] font-semibold text-blue-700 uppercase tracking-widest mb-1 block">Vaga *</label>
-                <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.vagaId, "")} onChange={(e) => setDraft({ ...draft, vagaId: e.target.value })}>
-                  <option value="">Selecione a vaga...</option>
-                  {vagas.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="space-y-4">
+                {(() => {
+                  const draftApproved = isCandidatoAprovado(draft.status);
+                  return (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-widest text-blue-700">Vaga *</label>
+                      {draftApproved ? (
+                        <>
+                          <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                            <Lock className="size-3.5 shrink-0" />
+                            <span className="truncate">{vagaLabelForId(draft.vagaId, vagas, draft)}</span>
+                          </div>
+                          <p className="mt-1.5 text-xs text-blue-700/80">Vaga bloqueada — candidato já aprovado.</p>
+                        </>
+                      ) : (
+                        <select
+                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={pickString(draft.vagaId, "")}
+                          onChange={(e) => setDraft({ ...draft, vagaId: e.target.value })}
+                        >
+                          <option value="">Selecione a vaga...</option>
+                          {vagas.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  );
+                })()}
 
               {/* ── Dados pessoais ── */}
               <div>
@@ -1507,7 +1605,7 @@ export default function CandidatosScreen() {
                       }
                     />
                   </div>
-                  <div className="md:col-span-4">
+                  <div className="md:col-span-6">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Trabalhando atualmente?</label>
                     <select
                       className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -1529,17 +1627,7 @@ export default function CandidatosScreen() {
                       <option value="nao">Não</option>
                     </select>
                   </div>
-                  <div className="md:col-span-4">
-                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">Status</label>
-                    <select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={pickString(draft.status, defaultEnumCode("candidatoStatus", "novo"))} onChange={(e) => setDraft({ ...draft, status: e.target.value })}>
-                      {statusOptionsEffective.map((opt) => (
-                        <option key={opt.code} value={opt.code}>
-                          {opt.text}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="md:col-span-8">
+                  <div className="md:col-span-12">
                     <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 block">LinkedIn</label>
                     <input
                       className="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
@@ -1687,9 +1775,10 @@ export default function CandidatosScreen() {
                   ) : null}
                 </div>
               </div>
+              </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-border/40 p-4">
               <Button variant="outline" size="sm" onClick={() => setEditOpen(false)}>
                 Cancelar
               </Button>
