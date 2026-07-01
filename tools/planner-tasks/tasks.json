@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 183
+    "totalTarefas": 184
   },
   "tarefas": [
     {
@@ -4786,21 +4786,51 @@
       "descricaoAmigavel": "Correção da largura e do header do modal de detalhe de candidatos para os botões (Fechar, WhatsApp, Abrir em página) não serem cortados.",
       "inicio": "2026-07-01",
       "horarioInicio": "16:27",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "16:28",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Largura do modal ainda ruim — botão Fechar sendo cortado no header.",
       "entregavel": "Modal mais largo (72rem), header responsivo com flex-wrap e min-w-0 no bloco do candidato.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "cac1cca7"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #76",
+        "prPrd": "Merge PR #77"
       },
-      "observacoes": "Follow-up da TASK-2026-180."
+      "observacoes": "Follow-up da TASK-2026-180. Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-184",
+      "nome": "[Portal RH] Wizard preview — requisições reais do analista logado",
+      "descricaoAmigavel": "Etapa 1 do wizard de publicar vaga passa a listar somente solicitações atribuídas ao analista de RH logado, via API do dashboard.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "15:35",
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "16:46",
+      "totalHoras": 1.18,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Trazer somente requisições atribuídas ao analista de RH logado no wizard preview, como no portal, sem fallback mock.",
+      "entregavel": "Etapa Requisição consumindo GET /api/dashboard/analista-rh/solicitacoes-vaga com filtro server-side por analista.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "ba2be455"
+        ],
+        "branch": "origin/HML",
+        "prHml": null,
+        "prPrd": null
+      },
+      "observacoes": "Mesmo endpoint do dashboard analista; apenas status Aprovada selecionável."
     }
   ]
 }
