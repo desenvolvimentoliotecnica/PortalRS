@@ -1151,19 +1151,19 @@ export default function CandidatosScreen() {
       {detailOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setDetailOpen(false)}>
           <div
-            className="flex h-[85vh] max-h-[900px] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
+            className="flex h-[85vh] max-h-[900px] w-full max-w-[min(96vw,72rem)] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="shrink-0 border-b border-border/40 p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex min-w-0 items-start gap-2">
                   <div className="size-[52px] rounded-xl grid place-items-center bg-[rgb(var(--lt-soft)/0.35)] border border-[rgb(var(--lt-brand)/0.18)] text-[rgb(var(--lt-primary))] font-black shrink-0">
                     {initials(pickString(detail?.nome, ""))}
                   </div>
-                  <div>
-                    <div className="text-lg font-extrabold">{detail?.nome ?? "—"}</div>
+                  <div className="min-w-0">
+                    <div className="truncate text-lg font-extrabold">{detail?.nome ?? "—"}</div>
                     <div className="text-muted-foreground text-sm">
-                      <span>{detail?.email ?? ""}</span>
+                      <span className="break-all">{detail?.email ?? ""}</span>
                       {detail?.fone ? (
                         <>
                           <span className="mx-2">•</span>
@@ -1186,7 +1186,7 @@ export default function CandidatosScreen() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                   {detail?.id ? (
                     <Button variant="outline" size="sm" asChild>
                       <Link
@@ -1495,7 +1495,7 @@ export default function CandidatosScreen() {
       {editOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" onClick={() => setEditOpen(false)}>
           <div
-            className="flex h-[85vh] max-h-[900px] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
+            className="flex h-[85vh] max-h-[900px] w-full max-w-[min(96vw,48rem)] flex-col overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="shrink-0 border-b border-border/40 p-4">

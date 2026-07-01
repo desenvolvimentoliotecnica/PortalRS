@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 182
+    "totalTarefas": 183
   },
   "tarefas": [
     {
@@ -4779,6 +4779,28 @@
         "prPrd": "Merge PR #75"
       },
       "observacoes": "Causa: GetEventByIdAsync após create aplicava filtro e retornava null → 500."
+    },
+    {
+      "id": "TASK-2026-183",
+      "nome": "[Portal RH] Ajustar largura do modal de candidatos",
+      "descricaoAmigavel": "Correção da largura e do header do modal de detalhe de candidatos para os botões (Fechar, WhatsApp, Abrir em página) não serem cortados.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "16:27",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Largura do modal ainda ruim — botão Fechar sendo cortado no header.",
+      "entregavel": "Modal mais largo (72rem), header responsivo com flex-wrap e min-w-0 no bloco do candidato.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Follow-up da TASK-2026-180."
     }
   ]
 }
