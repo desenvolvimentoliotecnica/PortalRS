@@ -11,7 +11,6 @@ import type { BffNavItem } from "@/lib/schemas/bff";
 const OWNER_ONLY_NAV_IDS = new Set([
     "nav-gestao-aprovacoes-vaga",
     "nav-rh-contrat-aprovacoes",
-    "nav-admin-reset-operacional",
 ]);
 
 const NAV_MANIFEST: ReadonlyArray<{
@@ -96,7 +95,6 @@ const NAV_MANIFEST: ReadonlyArray<{
     { id: "nav-admin-organograma",         label: "Organograma",                 href: "/admin/organograma",              icon: "bi-diagram-2",      permission: "access.manage" },
 
     { id: "nav-admin-tenant-config",       label: "Configurações",               href: "/admin/tenant-configuracao",      icon: "bi-gear",           permission: "access.manage" },
-    { id: "nav-admin-reset-operacional",   label: "Reset operacional",           href: "/admin/reset-operacional",        icon: "triangle-alert",    permission: "access.manage" },
     { id: "nav-admin-configuracao-rm",     label: "Configuração RM",             href: "/admin/configuracao-rm",          icon: "database",          permission: "access.manage" },
     { id: "nav-admin-ia",                  label: "Configuração de IA",          href: "/admin/ia",                       icon: "brain",             permission: "ai.config" },
     { id: "nav-admin-documentacao-padrao", label: "Documentação Padrão",         href: "/admin/documentacao-padrao",      icon: "file-text",         permission: "documentacao-padrao.manage" },

@@ -194,7 +194,6 @@ public static class NavegacaoManifest
         // o item ainda aparece para o admin, mas a UI mostra banner "IA não habilitada".
         new("nav-admin-ia",                 "Configuração de IA",     "/admin/ia",                       "brain",             "ai.config",                GrupoUiOverride: "configuracoes", Ordem: 75),
         new("nav-admin-tenant-branding",    "Branding / White-Label", "/admin/tenant-branding",          "palette",           "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 80),
-        new("nav-admin-reset-operacional",  "Reset operacional",      "/admin/reset-operacional",        "triangle-alert",    "access.manage",            GrupoUiOverride: "configuracoes", Ordem: 90, SomenteOwner: true),
 
         // ── Relatórios (standalone) ──────────────────────────────────────────
         new("nav-relatorios",               "Relatórios",             "/relatorios",                     "pie-chart",         "relatorios.view",          Ordem: 10),
