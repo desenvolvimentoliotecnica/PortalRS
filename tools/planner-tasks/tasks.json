@@ -4786,19 +4786,22 @@
       "descricaoAmigavel": "Correção da largura e do header do modal de detalhe de candidatos para os botões (Fechar, WhatsApp, Abrir em página) não serem cortados.",
       "inicio": "2026-07-01",
       "horarioInicio": "16:27",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "16:28",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Largura do modal ainda ruim — botão Fechar sendo cortado no header.",
       "entregavel": "Modal mais largo (72rem), header responsivo com flex-wrap e min-w-0 no bloco do candidato.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "cac1cca7"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #76"
       },
       "observacoes": "Follow-up da TASK-2026-180."
     }
