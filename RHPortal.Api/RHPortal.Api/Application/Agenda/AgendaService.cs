@@ -15,6 +15,7 @@ public sealed class AgendaService
     private readonly AppDbContext _db;
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly ITenantContext _tenantContext;
+    private readonly ICurrentUserContext _currentUser;
     private readonly NotificationPublisher _notifications;
     private readonly IEmailQueueService _emailQueue;
 
@@ -22,12 +23,14 @@ public sealed class AgendaService
         AppDbContext db,
         IStringLocalizer<ServiceMessages> localizer,
         ITenantContext tenantContext,
+        ICurrentUserContext currentUser,
         NotificationPublisher notifications,
         IEmailQueueService emailQueue)
     {
         _db = db;
         _localizer = localizer;
         _tenantContext = tenantContext;
+        _currentUser = currentUser;
         _notifications = notifications;
         _emailQueue = emailQueue;
     }
@@ -85,7 +88,7 @@ public sealed class AgendaService
         if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
             q = q.Where(x => x.Status == status);
 
-        return await q
+        var items = await q
             .OrderBy(x => x.StartAtUtc)
             .Select(x => new ScheduleEventResponse(
                 x.Id,
@@ -115,11 +118,24 @@ public sealed class AgendaService
                 x.Type != null ? x.Type.Icon : "bi-calendar"
             ))
             .ToListAsync(ct);
+
+        if (AgendaEventVisibility.CanViewAllEvents(_currentUser))
+            return items;
+
+        if (!_currentUser.UserId.HasValue)
+            return Array.Empty<ScheduleEventResponse>();
+
+        var ownerTokens = await AgendaEventVisibility.GetCurrentUserTokensAsync(_db, _currentUser, ct);
+        var vagasCarteiraIds = await AgendaEventVisibility.GetVagasCarteiraIdsAsync(_db, _currentUser, ct);
+
+        return items
+            .Where(x => AgendaEventVisibility.IsVisibleToUser(x, vagasCarteiraIds, ownerTokens))
+            .ToList();
     }
 
     public async Task<ScheduleEventResponse?> GetEventByIdAsync(Guid id, CancellationToken ct)
     {
-        return await _db.AgendaEvents
+        var item = await _db.AgendaEvents
             .AsNoTracking()
             .Include(x => x.Type)
             .Where(x => x.Id == id)
@@ -151,6 +167,11 @@ public sealed class AgendaService
                 x.Type != null ? x.Type.Icon : "bi-calendar"
             ))
             .FirstOrDefaultAsync(ct);
+
+        if (item is null)
+            return null;
+
+        return await IsVisibleToCurrentUserAsync(item, ct) ? item : null;
     }
 
     public async Task<ScheduleEventResponse> CreateAsync(ScheduleEventCreateRequest request, CancellationToken ct)
@@ -159,6 +180,10 @@ public sealed class AgendaService
 
         var start = NormalizeToUtc(request.StartAtUtc);
         var end = NormalizeEnd(start, NormalizeToUtc(request.EndAtUtc));
+
+        var owner = TrimOrNull(request.Owner);
+        if (string.IsNullOrWhiteSpace(owner))
+            owner = await AgendaEventVisibility.GetCurrentUserDisplayNameAsync(_db, _currentUser, ct);
 
         var entity = new AgendaEvent
         {
@@ -170,7 +195,7 @@ public sealed class AgendaService
             AllDay = request.AllDay,
             Status = request.Status.Trim(),
             Location = TrimOrNull(request.Location),
-            Owner = TrimOrNull(request.Owner),
+            Owner = owner,
             Candidate = TrimOrNull(request.Candidate),
             VagaTitle = TrimOrNull(request.VagaTitle),
             VagaCode = TrimOrNull(request.VagaCode),
@@ -186,6 +211,9 @@ public sealed class AgendaService
     {
         var entity = await _db.AgendaEvents.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return null;
+
+        if (!await CanMutateEventAsync(entity, ct))
+            return null;
 
         var type = await GetTypeByCodeAsync(request.TypeCode, ct);
 
@@ -210,6 +238,9 @@ public sealed class AgendaService
     {
         var entity = await _db.AgendaEvents.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (entity is null) return false;
+
+        if (!await CanMutateEventAsync(entity, ct))
+            return false;
 
         _db.AgendaEvents.Remove(entity);
         await _db.SaveChangesAsync(ct);
@@ -408,6 +439,37 @@ public sealed class AgendaService
 
     private static string Html(string value)
         => System.Net.WebUtility.HtmlEncode(value);
+
+    private async Task<bool> IsVisibleToCurrentUserAsync(ScheduleEventResponse item, CancellationToken ct)
+    {
+        if (AgendaEventVisibility.CanViewAllEvents(_currentUser))
+            return true;
+
+        if (!_currentUser.UserId.HasValue)
+            return false;
+
+        var ownerTokens = await AgendaEventVisibility.GetCurrentUserTokensAsync(_db, _currentUser, ct);
+        var vagasCarteiraIds = await AgendaEventVisibility.GetVagasCarteiraIdsAsync(_db, _currentUser, ct);
+        return AgendaEventVisibility.IsVisibleToUser(item, vagasCarteiraIds, ownerTokens);
+    }
+
+    private async Task<bool> CanMutateEventAsync(AgendaEvent entity, CancellationToken ct)
+    {
+        if (AgendaEventVisibility.CanViewAllEvents(_currentUser))
+            return true;
+
+        if (!_currentUser.UserId.HasValue)
+            return false;
+
+        var ownerTokens = await AgendaEventVisibility.GetCurrentUserTokensAsync(_db, _currentUser, ct);
+        var vagasCarteiraIds = await AgendaEventVisibility.GetVagasCarteiraIdsAsync(_db, _currentUser, ct);
+        return AgendaEventVisibility.IsVisibleToUser(
+            entity.VagaId,
+            entity.Owner,
+            entity.Notes,
+            vagasCarteiraIds,
+            ownerTokens);
+    }
 
     private static PublicInterviewResponse MapPublic(AgendaEvent entity) => new(
         entity.Id,
