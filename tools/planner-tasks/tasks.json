@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 179
+    "totalTarefas": 180
   },
   "tarefas": [
     {
@@ -4705,6 +4705,28 @@
         "prPrd": "Merge PR #71"
       },
       "observacoes": "Requer Calendars.ReadWrite no app Azure AD."
+    },
+    {
+      "id": "TASK-2026-180",
+      "nome": "[Portal RH] Melhorar UI/UX dos modais de candidatos",
+      "descricaoAmigavel": "Redesign dos modais de detalhe e edição de candidatos: layout sem scroll duplo, status/vaga bloqueados quando aprovado, aba CV ampliada e remoção do botão Excluir no detalhe.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "15:58",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Melhorar UI/UX do modal de candidatos (Resumo, Editar, Texto do CV): corrigir status vs badge, travar vaga se aprovado, ocultar Salvar status/vaga, remover Excluir, layout flex sem scrolls desnecessários.",
+      "entregavel": "Modais de detalhe e edição com layout flex 85vh, bloqueio de status/vaga para aprovados, aba CV em tela cheia com contador de caracteres, campo Status removido do editar.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Protótipos aprovados pelo usuário antes da implementação."
     }
   ]
 }
