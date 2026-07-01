@@ -11,6 +11,7 @@ using RhPortal.Api.Infrastructure.Frontend;
 using RhPortal.Api.Infrastructure.Tenancy;
 using RhPortal.Api.Messaging.Email;
 using RHPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Entities;
 
 namespace RhPortal.Api.Application.PropostasVaga;
 
@@ -66,6 +67,12 @@ public sealed class PropostaVagaService : IPropostaVagaService
         var candidatura = await _candidaturaService.GetOrCreateAsync(
             request.CandidatoId, request.VagaId, fonte: "Proposta", obs: null, ct);
 
+        var (incluirBeneficios, beneficiosJson) = await ResolveBeneficiosCamposAsync(
+            request.VagaId,
+            request.IncluirBeneficiosNaProposta,
+            request.BeneficiosSelecionados,
+            ct);
+
         var now = DateTimeOffset.UtcNow;
         var entity = new PropostaVaga
         {
@@ -78,6 +85,8 @@ public sealed class PropostaVagaService : IPropostaVagaService
             Moeda = request.Moeda,
             SalarioOferecido = request.SalarioOferecido,
             DescricaoBeneficios = request.DescricaoBeneficios,
+            IncluirBeneficiosNaProposta = incluirBeneficios,
+            BeneficiosSelecionadosJson = beneficiosJson,
             DataPrevistaInicio = request.DataPrevistaInicio,
             MensagemPersonalizada = request.MensagemPersonalizada,
             ObservacaoInternaRh = request.ObservacaoInternaRh,
@@ -104,6 +113,16 @@ public sealed class PropostaVagaService : IPropostaVagaService
         entity.Moeda = request.Moeda;
         entity.SalarioOferecido = request.SalarioOferecido;
         entity.DescricaoBeneficios = request.DescricaoBeneficios;
+        if (request.IncluirBeneficiosNaProposta.HasValue || request.BeneficiosSelecionados is not null)
+        {
+            var (incluirBeneficios, beneficiosJson) = await ResolveBeneficiosCamposAsync(
+                entity.VagaId,
+                request.IncluirBeneficiosNaProposta ?? entity.IncluirBeneficiosNaProposta,
+                request.BeneficiosSelecionados,
+                ct);
+            entity.IncluirBeneficiosNaProposta = incluirBeneficios;
+            entity.BeneficiosSelecionadosJson = beneficiosJson;
+        }
         entity.DataPrevistaInicio = request.DataPrevistaInicio;
         entity.MensagemPersonalizada = request.MensagemPersonalizada;
         entity.ObservacaoInternaRh = request.ObservacaoInternaRh;
@@ -350,6 +369,9 @@ public sealed class PropostaVagaService : IPropostaVagaService
             ? row.Proposta.ExpiraEmUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("pt-BR"))
             : "não informado";
 
+        var beneficiosTexto = MontarBeneficiosTexto(row.Proposta);
+        var beneficiosHtml = MontarBeneficiosHtml(row.Proposta);
+
         var subject = $"Proposta enviada — {SafeText(vagaTitulo, "vaga")}";
         var bodyText = $"""
             Olá, {SafeText(candidatoNome, "candidato")}!
@@ -360,6 +382,7 @@ public sealed class PropostaVagaService : IPropostaVagaService
             {link}
 
             Prazo: {prazo}
+            {(string.IsNullOrWhiteSpace(beneficiosTexto) ? "" : $"\nBenefícios:\n{beneficiosTexto}\n")}
 
             {SafeText(empresaNome, "Portal de RH")} — RH
             """;
@@ -370,6 +393,7 @@ public sealed class PropostaVagaService : IPropostaVagaService
             Você pode visualizar e aceitar pelo link abaixo:</p>
             <p><a href="{WebUtility.HtmlEncode(link)}">{WebUtility.HtmlEncode(link)}</a></p>
             <p>Prazo: {WebUtility.HtmlEncode(prazo)}</p>
+            {(string.IsNullOrWhiteSpace(beneficiosHtml) ? "" : $"<p><strong>Benefícios:</strong></p>{beneficiosHtml}")}
             <p>{Html(empresaNome, "Portal de RH")} — RH</p>
             """;
 
@@ -438,11 +462,13 @@ public sealed class PropostaVagaService : IPropostaVagaService
         var row = await q.FirstOrDefaultAsync(ct);
         if (row is null) return null;
         var p = row.p;
+        var beneficios = PropostaBeneficioHelper.Deserialize(p.BeneficiosSelecionadosJson);
         return new PropostaVagaResponse(
             p.Id, p.VagaId, row.v == null ? null : row.v.Titulo,
             p.CandidatoId, row.c == null ? null : row.c.Nome, row.c == null ? null : row.c.Email,
             p.CandidaturaId,
             p.Status, p.Moeda, p.SalarioOferecido, p.DescricaoBeneficios,
+            p.IncluirBeneficiosNaProposta, beneficios,
             p.DataPrevistaInicio, p.MensagemPersonalizada, p.AccessToken,
             p.EnviadaEmUtc, p.ExpiraEmUtc, p.VisualizadaEmUtc, p.RespondidaEmUtc,
             p.NomeConfirmadoCandidato, p.MotivoRecusa, p.ObservacaoInternaRh,
@@ -461,12 +487,69 @@ public sealed class PropostaVagaService : IPropostaVagaService
         var row = await q.FirstOrDefaultAsync(ct);
         if (row is null) return null;
         var p = row.p;
+        var beneficios = PropostaBeneficioHelper.Deserialize(p.BeneficiosSelecionadosJson);
         return new PropostaVagaPublicaResponse(
             p.Id, row.v == null ? null : row.v.Titulo,
             row.c == null ? null : row.c.Nome,
             p.Status, p.Moeda, p.SalarioOferecido, p.DescricaoBeneficios,
+            p.IncluirBeneficiosNaProposta, beneficios,
             p.DataPrevistaInicio, p.MensagemPersonalizada,
             p.EnviadaEmUtc, p.ExpiraEmUtc, p.RespondidaEmUtc);
+    }
+
+    private async Task<(bool Incluir, string? Json)> ResolveBeneficiosCamposAsync(
+        Guid vagaId,
+        bool? incluirBeneficiosNaProposta,
+        IReadOnlyList<PropostaBeneficioItemDto>? selecionados,
+        CancellationToken ct)
+    {
+        var vagaBeneficios = await _db.Set<VagaBeneficio>()
+            .AsNoTracking()
+            .Where(b => b.VagaId == vagaId)
+            .OrderBy(b => b.Ordem)
+            .ToListAsync(ct);
+
+        var incluir = incluirBeneficiosNaProposta ?? vagaBeneficios.Count > 0;
+        var lista = selecionados?.ToList();
+        if ((lista is null || lista.Count == 0) && incluir && vagaBeneficios.Count > 0)
+        {
+            lista = vagaBeneficios
+                .Select(b => new PropostaBeneficioItemDto(b.Id, b.Tipo, b.Valor, b.Recorrencia, b.Observacoes))
+                .ToList();
+        }
+
+        if (!incluir) lista = [];
+        return (incluir, PropostaBeneficioHelper.Serialize(lista));
+    }
+
+    private static string MontarBeneficiosTexto(PropostaVaga proposta)
+    {
+        var partes = new List<string>();
+        if (proposta.IncluirBeneficiosNaProposta)
+        {
+            var lista = PropostaBeneficioHelper.FormatarListaTexto(
+                PropostaBeneficioHelper.Deserialize(proposta.BeneficiosSelecionadosJson));
+            if (!string.IsNullOrWhiteSpace(lista))
+                partes.Add(lista);
+        }
+        if (!string.IsNullOrWhiteSpace(proposta.DescricaoBeneficios))
+            partes.Add(proposta.DescricaoBeneficios.Trim());
+        return string.Join("\n\n", partes);
+    }
+
+    private static string MontarBeneficiosHtml(PropostaVaga proposta)
+    {
+        var partes = new List<string>();
+        if (proposta.IncluirBeneficiosNaProposta)
+        {
+            var lista = PropostaBeneficioHelper.FormatarListaHtml(
+                PropostaBeneficioHelper.Deserialize(proposta.BeneficiosSelecionadosJson));
+            if (!string.IsNullOrWhiteSpace(lista))
+                partes.Add(lista);
+        }
+        if (!string.IsNullOrWhiteSpace(proposta.DescricaoBeneficios))
+            partes.Add($"<p>{WebUtility.HtmlEncode(proposta.DescricaoBeneficios.Trim())}</p>");
+        return string.Join("", partes);
     }
 
     private static string GenerateSecureToken()
