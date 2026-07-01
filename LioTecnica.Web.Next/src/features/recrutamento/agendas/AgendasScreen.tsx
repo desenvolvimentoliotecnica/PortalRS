@@ -33,6 +33,7 @@ import {
   type AgendaVagaListItem as VagaListItem,
 } from "@/lib/schemas/recrutamento";
 import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
 
 type CandidatoListItem = CandidatoListItemBase & {
@@ -181,10 +182,37 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP_${res.status}`);
+    throw new Error(parseApiError(text) || `HTTP_${res.status}`);
   }
   if (res.status === 204) return null as T;
   return (await res.json()) as T;
+}
+
+
+function parseApiError(text: string): string {
+  if (!text?.trim()) return "";
+  try {
+    const json = JSON.parse(text) as Record<string, unknown>;
+    const detail = typeof json.detail === "string" ? json.detail : "";
+    const title = typeof json.title === "string" ? json.title : "";
+    const message = typeof json.message === "string" ? json.message : "";
+    return detail || message || title || text;
+  } catch {
+    return text;
+  }
+}
+
+
+function validateEventForm(form: EventForm): string | null {
+  if (!form.title?.trim()) return "Informe um título para o evento.";
+  if (!form.typeCode?.trim()) return "Selecione o tipo do evento.";
+  if (!form.start?.trim()) return "Informe a data e hora de início.";
+  if (!form.end?.trim()) return "Informe a data e hora de fim.";
+  const start = parseLocalIsoInputValue(form.start);
+  const end = parseLocalIsoInputValue(form.end);
+  if (!start || !end) return "Datas inválidas. Verifique início e fim.";
+  if (end.getTime() <= start.getTime()) return "O horário de fim deve ser posterior ao início.";
+  return null;
 }
 
 
@@ -256,9 +284,12 @@ function fmtTimeRange(start: Date | null, end: Date | null, allDay = false) {
 
 export default function AgendasScreen() {
   const calRef = useRef<FullCalendar | null>(null);
+  const { me } = useAuth();
+  const defaultOwner = me?.displayName?.trim() || me?.email?.trim() || "";
 
 
   const [busy, setBusy] = useState<Health>("loading");
+  const [savingEvent, setSavingEvent] = useState(false);
   const [types, setTypes] = useState<AgendaType[]>([]);
   const [events, setEvents] = useState<AgendaEventApi[]>([]);
   const [graphEvents, setGraphEvents] = useState<GraphCalendarEventApi[]>([]);
@@ -524,7 +555,7 @@ export default function AgendasScreen() {
       typeCode: types[0]?.code || "entrevista",
       status: "confirmado",
       location: "",
-      owner: "",
+      owner: defaultOwner,
       candidateName: "",
       vagaId: "",
       notes: "",
@@ -578,14 +609,20 @@ export default function AgendasScreen() {
 
 
   async function saveForm() {
+    const validationError = validateEventForm(form);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     const payload = {
-      title: form.title?.trim() || "Evento",
+      title: form.title.trim(),
       startAtUtc: form.start,
-      endAtUtc: form.end || form.start,
+      endAtUtc: form.end,
       allDay: false,
       status: form.status,
       location: form.location?.trim() || "",
-      owner: form.owner?.trim() || "",
+      owner: form.owner?.trim() || defaultOwner,
       candidate: form.candidateName?.trim() || "",
       vagaTitle: vagas.find((v) => v.id === form.vagaId)?.titulo ?? "",
       vagaCode: vagas.find((v) => v.id === form.vagaId)?.codigo ?? "",
@@ -593,25 +630,30 @@ export default function AgendasScreen() {
       typeCode: form.typeCode,
     };
 
-
-    if (form.id) {
-      await fetchJson(`${AGENDA_API_BASE}/events/${encodeURIComponent(form.id)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } else {
-      await fetchJson(`${AGENDA_API_BASE}/events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    setSavingEvent(true);
+    try {
+      if (form.id) {
+        await fetchJson(`${AGENDA_API_BASE}/events/${encodeURIComponent(form.id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await fetchJson(`${AGENDA_API_BASE}/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+      toast.success(form.id ? "Evento atualizado." : "Evento criado e sincronizado com o Outlook.");
+      await loadEventsForCurrentRange();
+      setCreateOpen(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao salvar evento.";
+      toast.error(message);
+    } finally {
+      setSavingEvent(false);
     }
-    toast.success("Evento salvo.");
-
-
-    await loadEventsForCurrentRange();
-    setCreateOpen(false);
   }
 
 
@@ -1063,12 +1105,21 @@ export default function AgendasScreen() {
 
 
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-12">
+              <div className="md:col-span-12 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Campos com <span className="text-destructive">*</span> são obrigatórios. O evento será criado no portal (verde) e sincronizado com o Outlook do responsável.
+              </div>
               <div className="md:col-span-8">
-                <label className="mini-title mb-1 block">Título</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                <label className="mini-title mb-1 block">Título <span className="text-destructive">*</span></label>
+                <input
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="Ex.: Entrevista RH — Maria Silva"
+                  required
+                />
               </div>
               <div className="md:col-span-4">
-                <label className="mini-title mb-1 block">Tipo</label>
+                <label className="mini-title mb-1 block">Tipo <span className="text-destructive">*</span></label>
                 <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={form.typeCode} onChange={(e) => setForm({ ...form, typeCode: e.target.value })}>
                   {types.map((t) => (
                     <option key={t.code} value={t.code}>
@@ -1080,7 +1131,7 @@ export default function AgendasScreen() {
 
 
               <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Início</label>
+                <label className="mini-title mb-1 block">Início <span className="text-destructive">*</span></label>
                 <input
                   className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                   type="datetime-local"
@@ -1089,14 +1140,26 @@ export default function AgendasScreen() {
                 />
               </div>
               <div className="md:col-span-6">
-                <label className="mini-title mb-1 block">Fim</label>
+                <label className="mini-title mb-1 block">Fim <span className="text-destructive">*</span></label>
                 <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" type="datetime-local" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
               </div>
 
 
               <div className="md:col-span-6">
                 <label className="mini-title mb-1 block">Local</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+                <input
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  placeholder="Ex.: Online, Sala 3 ou endereço"
+                  list="agenda-location-suggestions"
+                />
+                <datalist id="agenda-location-suggestions">
+                  <option value="Online" />
+                  <option value="Microsoft Teams" />
+                  <option value="Presencial" />
+                </datalist>
+                <p className="mt-1 text-[11px] text-muted-foreground">Use &quot;Online&quot; para gerar link do Teams no Outlook.</p>
               </div>
               <div className="md:col-span-3">
                 <label className="mini-title mb-1 block">Status</label>
@@ -1109,8 +1172,14 @@ export default function AgendasScreen() {
                 </select>
               </div>
               <div className="md:col-span-3">
-                <label className="mini-title mb-1 block">Owner</label>
-                <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={form.owner} onChange={(e) => setForm({ ...form, owner: e.target.value })} />
+                <label className="mini-title mb-1 block">Responsável</label>
+                <input
+                  className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                  value={form.owner}
+                  onChange={(e) => setForm({ ...form, owner: e.target.value })}
+                  placeholder={defaultOwner || "Nome ou e-mail corporativo"}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">Calendário Outlook desta pessoa.</p>
               </div>
 
 
@@ -1146,15 +1215,15 @@ export default function AgendasScreen() {
 
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)} disabled={busy === "loading"}>
+              <Button variant="outline" size="sm" onClick={() => setCreateOpen(false)} disabled={savingEvent}>
                 Cancelar
               </Button>
               <Button
                 size="sm"
-                onClick={() => void saveForm().catch(() => toast.error("Falha ao salvar evento."))}
-                disabled={busy === "loading"}
+                onClick={() => void saveForm()}
+                disabled={savingEvent || busy === "loading"}
               >
-                Salvar
+                {savingEvent ? "Salvando…" : form.id ? "Salvar alterações" : "Criar evento"}
               </Button>
             </div>
           </div>
