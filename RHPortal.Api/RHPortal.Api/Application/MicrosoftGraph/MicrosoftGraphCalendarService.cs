@@ -34,6 +34,10 @@ public sealed class GraphCalendarEventDto
     public DateTimeOffset End { get; set; }
     public bool IsAllDay { get; set; }
     public string? Location { get; set; }
+    public string? BodyPreview { get; set; }
+    public string? OrganizerName { get; set; }
+    public string? WebLink { get; set; }
+    public bool IsOnlineMeeting { get; set; }
     public string Source { get; set; } = "microsoft-graph";
 }
 
@@ -189,7 +193,7 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
         var end = Uri.EscapeDataString(endUtc.ToString("o"));
         var upn = Uri.EscapeDataString(credentials.UserUpn);
         var url =
-            $"{GraphBaseUrl}/users/{upn}/calendarView?startDateTime={start}&endDateTime={end}&$select=id,subject,start,end,isAllDay,location&$orderby=start/dateTime&$top=200";
+            $"{GraphBaseUrl}/users/{upn}/calendarView?startDateTime={start}&endDateTime={end}&$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer,webLink,isOnlineMeeting&$orderby=start/dateTime&$top=200";
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -218,6 +222,16 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
                 && loc.TryGetProperty("displayName", out var displayName)
                 ? displayName.GetString()
                 : null;
+            var bodyPreview = item.TryGetProperty("bodyPreview", out var preview) ? preview.GetString() : null;
+            var webLink = item.TryGetProperty("webLink", out var link) ? link.GetString() : null;
+            var isOnlineMeeting = item.TryGetProperty("isOnlineMeeting", out var online) && online.GetBoolean();
+            string? organizerName = null;
+            if (item.TryGetProperty("organizer", out var organizer)
+                && organizer.TryGetProperty("emailAddress", out var email)
+                && email.TryGetProperty("name", out var name))
+            {
+                organizerName = name.GetString();
+            }
 
             if (!TryReadDateTimeOffset(item, "start", out var start)
                 || !TryReadDateTimeOffset(item, "end", out var end))
@@ -231,6 +245,10 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
                 End = end,
                 IsAllDay = isAllDay,
                 Location = location,
+                BodyPreview = bodyPreview,
+                OrganizerName = organizerName,
+                WebLink = webLink,
+                IsOnlineMeeting = isOnlineMeeting,
             });
         }
 
