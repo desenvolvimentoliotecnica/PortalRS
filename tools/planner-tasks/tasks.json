@@ -4760,19 +4760,22 @@
       "descricaoAmigavel": "Corrigido erro ao salvar evento na agenda após sync Outlook; modal de criação com campos obrigatórios e responsável pré-preenchido.",
       "inicio": "2026-07-01",
       "horarioInicio": "16:22",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "16:23",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Urgente",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "POST /api/agenda/events retornava 500 ao criar evento; melhorar UX do modal de agendamento.",
       "entregavel": "Create retorna evento sem filtro de visibilidade pós-criação; validação e labels no modal; mensagens de erro da API.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "1a4b0978"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #74"
       },
       "observacoes": "Causa: GetEventByIdAsync após create aplicava filtro e retornava null → 500."
     }
