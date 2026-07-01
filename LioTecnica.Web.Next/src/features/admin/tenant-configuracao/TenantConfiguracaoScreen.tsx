@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Save, Settings2, Users, Clock, ChevronDown, ChevronRight, Lock, MessageCircle, Briefcase, Download, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import RmRequisicaoConfigCard from "./RmRequisicaoConfigCard";
+import MicrosoftGraphCalendarConfigCard from "./MicrosoftGraphCalendarConfigCard";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -728,6 +729,9 @@ export default function TenantConfiguracaoScreen() {
                             </Button>
                         </div>
                     </div>
+
+                    {/* ── Microsoft Graph — Agenda ── */}
+                    <MicrosoftGraphCalendarConfigCard />
 
                     {/* ── Configuração de Status ── */}
                     <div className="space-y-4">

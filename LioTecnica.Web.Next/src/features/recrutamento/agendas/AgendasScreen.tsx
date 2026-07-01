@@ -65,7 +65,18 @@ type ImportedAgendaEvent = {
     vagaTitle?: unknown;
     vagaCode?: unknown;
     notes?: unknown;
+    source?: unknown;
   };
+};
+
+type GraphCalendarEventApi = {
+  id: string;
+  subject: string;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+  location: string | null;
+  source: string;
 };
 
 
@@ -200,6 +211,7 @@ export default function AgendasScreen() {
   const [busy, setBusy] = useState<Health>("loading");
   const [types, setTypes] = useState<AgendaType[]>([]);
   const [events, setEvents] = useState<AgendaEventApi[]>([]);
+  const [graphEvents, setGraphEvents] = useState<GraphCalendarEventApi[]>([]);
   const [candidatos, setCandidatos] = useState<CandidatoListItem[]>([]);
   const [vagas, setVagas] = useState<VagaListItem[]>([]);
 
@@ -286,8 +298,13 @@ export default function AgendasScreen() {
     const params = new URLSearchParams();
     if (start) params.set("start", toLocalIsoInputValue(start));
     if (end) params.set("end", toLocalIsoInputValue(end));
-    const list = await fetchJson<AgendaEventApi[]>(`${AGENDA_API_BASE}/events?${params.toString()}`);
+    const query = params.toString();
+    const [list, graphList] = await Promise.all([
+      fetchJson<AgendaEventApi[]>(`${AGENDA_API_BASE}/events?${query}`),
+      fetchJson<GraphCalendarEventApi[]>(`${AGENDA_API_BASE}/graph-events?${query}`).catch(() => []),
+    ]);
     setEvents(Array.isArray(list) ? list : []);
+    setGraphEvents(Array.isArray(graphList) ? graphList : []);
   }
 
 
@@ -314,6 +331,46 @@ export default function AgendasScreen() {
       return blob.includes(qq);
     });
   }, [events, filterStatus, filterType, q]);
+
+
+  const filteredGraphEvents = useMemo(() => {
+    if (filterType !== "all" || filterStatus !== "all") return [];
+    const qq = q.trim().toLowerCase();
+    return graphEvents.filter((ev) => {
+      if (!qq) return true;
+      const blob = [ev.subject, ev.location].filter(Boolean).join(" ").toLowerCase();
+      return blob.includes(qq);
+    });
+  }, [filterStatus, filterType, graphEvents, q]);
+
+
+  const calendarEvents = useMemo(
+    () => [
+      ...filtered.map((ev) => ({
+        id: ev.id,
+        title: ev.title ?? "Evento",
+        start: ev.startAtUtc,
+        end: ev.endAtUtc ?? undefined,
+        backgroundColor: ev.typeColor ?? "#6c757d",
+        borderColor: ev.typeColor ?? "#6c757d",
+        textColor: "#fff",
+        editable: true,
+        extendedProps: { source: "portal" },
+      })),
+      ...filteredGraphEvents.map((ev) => ({
+        id: ev.id,
+        title: ev.subject || "Evento Outlook",
+        start: ev.start,
+        end: ev.end,
+        backgroundColor: "#0078d4",
+        borderColor: "#005a9e",
+        textColor: "#fff",
+        editable: false,
+        extendedProps: { source: "microsoft-graph", location: ev.location },
+      })),
+    ],
+    [filtered, filteredGraphEvents],
+  );
 
 
   const kpis = useMemo(() => {
@@ -771,15 +828,7 @@ export default function AgendasScreen() {
               expandRows
               headerToolbar={false}
               locale="pt-br"
-              events={filtered.map((ev) => ({
-                id: ev.id,
-                title: ev.title ?? "Evento",
-                start: ev.startAtUtc,
-                end: ev.endAtUtc ?? undefined,
-                backgroundColor: ev.typeColor ?? "#6c757d",
-                borderColor: ev.typeColor ?? "#6c757d",
-                textColor: "#fff",
-              }))}
+              events={calendarEvents}
               datesSet={(arg: DatesSetArg) => {
                 setActiveRange({ start: arg.start, end: arg.end });
                 setViewTitle(String(arg.view?.title ?? "—"));
@@ -790,6 +839,15 @@ export default function AgendasScreen() {
               }}
               eventClick={(info: EventClickArg) => {
                 info.jsEvent.preventDefault();
+                if (info.event.extendedProps?.source === "microsoft-graph") {
+                  const location = String(info.event.extendedProps.location ?? "").trim();
+                  toast.info(
+                    location
+                      ? `${info.event.title} · ${location} (Outlook)`
+                      : `${info.event.title} (Outlook)`,
+                  );
+                  return;
+                }
                 openView(info.event.id);
               }}
               eventDrop={(arg) => {
@@ -808,6 +866,12 @@ export default function AgendasScreen() {
 
           <div className="text-muted-foreground mt-2 text-sm">
             Dica: clique e arraste no calendário para agendar rapidamente.
+            {filteredGraphEvents.length > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1">
+                · <span className="inline-block size-2 rounded-full bg-[#0078d4]" />
+                {filteredGraphEvents.length} evento(s) do Outlook
+              </span>
+            )}
           </div>
         </div>
 
