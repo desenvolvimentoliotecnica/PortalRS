@@ -98,15 +98,16 @@ RH precisa contatar candidatos rapidamente pelo WhatsApp, mas o atalho está aus
 - [x] Abre nova aba sem sair do portal
 
 ### Como testar
-1. Abrir lista de candidatos, matching, hub da vaga, triagem ou tracking de admissão.
+1. Abrir lista de candidatos, matching, hub da vaga, triagem, kanban de candidaturas, propostas, agendas, processo seletivo, dashboard (top matches), revisão de admissão ou tracking de admissão.
 2. Candidato com celular → botão **Conversar com WhatsApp Web** abre `wa.me` em nova aba.
 3. Candidato sem telefone → botão desabilitado com tooltip.
+4. Modais de match, retorno negativo e integração TOTVS também exibem o atalho quando há telefone cadastrado.
 
 ---
 
 ## Item 4 — Flag de benefícios ao criar/enviar proposta
 
-**Status:** `[x]` Refinado — aguardando priorização
+**Status:** `[x]` **Implementado (P3 — 01/07/2026, PRD)**
 
 ### Problema
 Campo de benefícios na proposta é texto livre; RH quer marcar benefícios de forma estruturada.
@@ -120,13 +121,22 @@ Campo de benefícios na proposta é texto livre; RH quer marcar benefícios de f
 | **Envio** | Só benefícios **marcados** entram no e-mail/carta ao candidato |
 | **Obrigatoriedade** | **Opcional** — RH decide incluir ou não; toggle para incluir seção de benefícios |
 
-### Critérios de aceite
-- [ ] Ao criar proposta, checkboxes listam benefícios da vaga selecionada
-- [ ] Toggle "Incluir benefícios na proposta" (default: ligado se vaga tem benefícios)
-- [ ] E-mail/carta pública exibe apenas itens marcados
-- [ ] Textarea livre pode permanecer como complemento/observação (confirmar na implementação)
+### Entrega técnica
+- `PropostaVaga`: campos `IncluirBeneficiosNaProposta` e `BeneficiosSelecionadosJson`
+- `PropostasVagaScreen`: toggle + checkboxes a partir dos benefícios da vaga; textarea como complemento
+- E-mail e página pública da proposta exibem apenas itens marcados
 
----
+### Critérios de aceite
+- [x] Ao criar proposta, checkboxes listam benefícios da vaga selecionada
+- [x] Toggle "Incluir benefícios na proposta" (default: ligado se vaga tem benefícios)
+- [x] E-mail/carta pública exibe apenas itens marcados
+- [x] Textarea livre permanece como complemento/observação
+
+### Como testar
+1. Abrir **Propostas de vaga** e criar/editar proposta para vaga com benefícios cadastrados.
+2. Confirmar toggle **Incluir benefícios na proposta** e checkboxes pré-preenchidos da vaga.
+3. Desmarcar itens → salvar/enviar → e-mail e link público mostram só os marcados.
+4. Complemento em texto livre aparece junto à lista estruturada quando preenchido.
 
 ## Item 5 — Simplificar preenchimento da Admissão (RH)
 
@@ -260,7 +270,7 @@ RH faz upload manual de documentos no tracking, contornando o fluxo do candidato
 
 ## Item 9 — Retorno negativo aos demais candidatos quando vaga fechada
 
-**Status:** `[x]` Refinado — aguardando priorização
+**Status:** `[x]` **Implementado (P3 — 01/07/2026, PRD)**
 
 ### Problema
 Vaga fechada com 1 contratado deixa demais candidatos sem retorno.
@@ -269,16 +279,28 @@ Vaga fechada com 1 contratado deixa demais candidatos sem retorno.
 
 | Tópico | Decisão |
 |--------|---------|
-| **Gatilho** | Ao **fechar a vaga** (status Fechada) |
+| **Gatilho** | Ao **fechar a vaga** (status Fechada ou Preenchida no kanban de vagas) |
 | **Canal** | **E-mail** com template configurável |
 | **Confirmação** | **Modal** listando candidatos que receberão antes de enviar |
 | **Escopo** | Candidatos ativos na vaga **exceto** o contratado/selecionado |
 
+### Entrega técnica
+- API: `GET/POST /api/vagas/{id}/retorno-negativo/preview|enviar`
+- `VagaRetornoNegativoModal` integrado ao kanban de vagas (`VagasScreen`) ao mover para Encerrada/Preenchida
+- Envio via `AvancarEtapaAsync` → etapa Recusado + log de notificação
+
 ### Critérios de aceite
-- [ ] Ao fechar vaga com múltiplos candidatos, sistema oferece envio de retorno negativo
-- [ ] Modal mostra lista de destinatários antes de confirmar
-- [ ] E-mail usa template editável (nome candidato, vaga, empresa)
-- [ ] Log de envio por candidatura
+- [x] Ao fechar vaga com múltiplos candidatos, sistema oferece envio de retorno negativo
+- [x] Modal mostra lista de destinatários antes de confirmar
+- [x] E-mail usa template editável (nome candidato, vaga, empresa)
+- [x] Log de envio por candidatura
+
+### Como testar
+1. No **kanban de vagas**, arrastar vaga com candidatos ativos para **Encerrada** ou **Preenchida**.
+2. Confirmar modal com lista de destinatários (exceto contratado) e prévia do template.
+3. Marcar candidatos e confirmar → e-mails enviados; candidaturas avançam para recusado.
+4. Verificar log de notificação/candidatura no histórico.
+5. Opção **Fechar sem enviar** altera status sem disparar e-mails.
 
 ---
 

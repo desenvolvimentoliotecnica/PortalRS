@@ -20,6 +20,7 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { apiFetch } from "@/lib/api";
 
 /* ── types ── */
@@ -262,15 +263,24 @@ export default function IntegracaoDetalhesDrawer({
             <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
                 <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-3">
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIPO_COLORS[item.tipoIntegracao] ?? "bg-gray-100 text-gray-800"}`}>
-                                {item.tipoIntegracaoLabel}
-                            </span>
-                            {item.nome}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Dados completos para integração TOTVS
-                        </DialogDescription>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <DialogTitle className="flex items-center gap-3">
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${TIPO_COLORS[item.tipoIntegracao] ?? "bg-gray-100 text-gray-800"}`}>
+                                        {item.tipoIntegracaoLabel}
+                                    </span>
+                                    {item.nome}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Dados completos para integração TOTVS
+                                </DialogDescription>
+                            </div>
+                            <WhatsAppContactButton
+                                size="sm"
+                                celular={typeof detalhe?.celular === "string" ? detalhe.celular : null}
+                                fone={typeof detalhe?.telefone === "string" ? detalhe.telefone : null}
+                            />
+                        </div>
                     </DialogHeader>
 
                     {/* Resultado + datas */}

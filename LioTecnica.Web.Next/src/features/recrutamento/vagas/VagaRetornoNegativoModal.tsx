@@ -15,6 +15,7 @@ import {
   previewRetornoNegativo,
   type VagaRetornoNegativoPreviewResponse,
 } from "./vagaRetornoNegativoApi";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 
 type Props = {
   open: boolean;
@@ -142,10 +143,11 @@ export default function VagaRetornoNegativoModal({
                         checked={selected.has(d.candidaturaId)}
                         onChange={() => toggleOne(d.candidaturaId)}
                       />
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="font-medium">{d.candidatoNome}</div>
                         <div className="text-xs text-muted-foreground">{d.candidatoEmail ?? "Sem e-mail"}</div>
                       </div>
+                      <WhatsAppContactButton size="xs" celular={d.candidatoCelular} fone={d.candidatoFone} />
                     </li>
                   ))}
                 </ul>

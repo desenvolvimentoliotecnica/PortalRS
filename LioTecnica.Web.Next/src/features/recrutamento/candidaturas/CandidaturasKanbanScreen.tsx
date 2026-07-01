@@ -33,6 +33,7 @@ import {
 } from "./candidaturaApi";
 import CandidateKanbanDetailDialog from "./CandidateKanbanDetailDialog";
 import MatchingBreakdownDialog, { useMatchingBreakdownDialog } from "@/features/recrutamento/matching/MatchingBreakdownDialog";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 
 const ETAPA_LABELS = ETAPA_KANBAN_LABELS;
 
@@ -458,6 +459,13 @@ export default function CandidaturasKanbanScreen() {
                               {it.candidatoEmail && (
                                 <div className="truncate text-xs text-neutral-500">{it.candidatoEmail}</div>
                               )}
+                              <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                                <WhatsAppContactButton
+                                  size="xs"
+                                  celular={it.candidatoCelular}
+                                  fone={it.candidatoFone}
+                                />
+                              </div>
                             </div>
                           </div>
                           <div className="mt-1 text-xs text-neutral-600">
@@ -473,7 +481,7 @@ export default function CandidaturasKanbanScreen() {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  matchDialog.open(it.vagaId, it.candidatoId, it.candidatoNome);
+                                  matchDialog.open(it.vagaId, it.candidatoId, it.candidatoNome, it.candidatoCelular, it.candidatoFone);
                                 }}
                                 className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-800 hover:bg-sky-100 cursor-pointer transition-colors"
                                 title="Ver breakdown explicável (peso × score por critério)"
@@ -504,6 +512,8 @@ export default function CandidaturasKanbanScreen() {
           vagaId={matchDialog.target.vagaId}
           candidatoId={matchDialog.target.candidatoId}
           candidatoNome={matchDialog.target.candidatoNome}
+          candidatoCelular={matchDialog.target.candidatoCelular}
+          candidatoFone={matchDialog.target.candidatoFone}
         />
       )}
 
@@ -530,7 +540,14 @@ export default function CandidaturasKanbanScreen() {
           {moveDialog && (
             <div className="space-y-4">
               <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950">
-                <div className="font-medium">{moveDialog.item.candidatoNome}</div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-medium">{moveDialog.item.candidatoNome}</div>
+                  <WhatsAppContactButton
+                    size="xs"
+                    celular={moveDialog.item.candidatoCelular}
+                    fone={moveDialog.item.candidatoFone}
+                  />
+                </div>
                 <div className="mt-1 text-xs">
                   De <strong>{ETAPA_LABELS[moveDialog.origem]}</strong> para{" "}
                   <strong>{ETAPA_LABELS[moveDialog.destino]}</strong>

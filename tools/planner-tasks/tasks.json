@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 177
+    "totalTarefas": 179
   },
   "tarefas": [
     {
@@ -4651,6 +4651,52 @@
         "prPrd": "Merge PR #63"
       },
       "observacoes": "Lookup isTemplate=true + GET /api/descricoes-cargo/{id}; promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-178",
+      "nome": "[Portal RH] WhatsApp em todas as telas de candidato + doc backlog itens 4 e 9",
+      "descricaoAmigavel": "Completar botão WhatsApp Web em kanban, propostas, agendas e demais telas com dados de candidato; atualizar documentação do backlog para benefícios na proposta e retorno negativo.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "15:35",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 95,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Item 3: regra WhatsApp para TODOS os locais com dados de candidato; itens 4 e 9: atualizar documentação do backlog.",
+      "entregavel": "WhatsAppContactButton em kanban candidaturas, propostas, agendas, processo seletivo, modais de match/retorno negativo e revisão de admissão; backlog itens 4 e 9 marcados como implementados (P3).",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [
+          "4125a74a"
+        ],
+        "branch": "DEV"
+      },
+      "observacoes": "Cobertura complementar ao P2 item 3."
+    },
+    {
+      "id": "TASK-2026-179",
+      "nome": "[Portal RH] Sincronizar eventos da agenda portal com Outlook",
+      "descricaoAmigavel": "Ao criar evento verde no portal, o sistema cria o mesmo evento no Outlook do responsável e evita duplicata verde/azul na agenda.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "15:47",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Implementar criação no Outlook ao criar evento na agenda do portal; evitar duplicar verde e azul; todo evento verde vai pro Outlook.",
+      "entregavel": "Sync portal→Graph em create/update/delete; dedup na listagem graph-events; entrevistas do funil também sincronizam.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Requer Calendars.ReadWrite no app Azure AD."
     }
   ]
 }
