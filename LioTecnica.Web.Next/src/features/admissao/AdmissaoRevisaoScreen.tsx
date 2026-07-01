@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent, TabsContext } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -787,18 +788,12 @@ export default function AdmissaoRevisaoScreen() {
             )}
 
             {/* Data sections — divididas em abas */}
-            <Tabs defaultValue="pessoal" className="rounded-xl border border-border/40 bg-card shadow-sm overflow-hidden">
+            <Tabs defaultValue="arquivos" className="rounded-xl border border-border/40 bg-card shadow-sm overflow-hidden">
                 <TabsList className="w-full flex flex-nowrap justify-start overflow-x-auto rounded-none border-b border-border/40 bg-muted/20 px-2 h-auto py-2 gap-1.5">
-                    <RevisaoTabTrigger value="pessoal" icon={User} label="Pessoal" />
-                    <RevisaoTabTrigger value="endereco" icon={MapPin} label="Endereço & Contato" />
-                    <RevisaoTabTrigger value="bancario" icon={CreditCard} label="Bancário" />
-                    <RevisaoTabTrigger value="trabalhista" icon={Briefcase} label="Trabalhista" />
-                    <RevisaoTabTrigger value="encargos" icon={Coins} label="Encargos & eSocial" />
-                    <RevisaoTabTrigger value="documentos" icon={FileText} label="Documentação" />
                     <RevisaoTabTrigger
                         value="arquivos"
                         icon={FileText}
-                        label="Arquivos Enviados"
+                        label="Documentos Solicitados"
                         badgeCount={
                             data.documentos.length > 0
                                 ? data.documentos.length
@@ -807,6 +802,12 @@ export default function AdmissaoRevisaoScreen() {
                                     : undefined
                         }
                     />
+                    <RevisaoTabTrigger value="pessoal" icon={User} label="Pessoal" />
+                    <RevisaoTabTrigger value="endereco" icon={MapPin} label="Endereço & Contato" />
+                    <RevisaoTabTrigger value="bancario" icon={CreditCard} label="Bancário" />
+                    <RevisaoTabTrigger value="trabalhista" icon={Briefcase} label="Trabalhista" />
+                    <RevisaoTabTrigger value="encargos" icon={Coins} label="Encargos & eSocial" />
+                    <RevisaoTabTrigger value="documentos" icon={FileText} label="Documentação" />
                 </TabsList>
 
                 {/* Aba: Pessoal */}
@@ -1031,7 +1032,8 @@ export default function AdmissaoRevisaoScreen() {
                 </TabsContent>
 
                 {/* Aba: Arquivos Enviados */}
-                <TabsContent value="arquivos" className="p-4 mt-0">
+                <TabsContent value="arquivos" className="p-4 sm:p-6 mt-0 bg-[#f4f7fb]">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_2px_16px_rgba(15,23,42,0.06)] sm:p-6">
                     <AdmissaoArquivosChecklist
                         preAdmissaoId={data.id}
                         candidatoEmail={data.email}
@@ -1040,29 +1042,36 @@ export default function AdmissaoRevisaoScreen() {
                         canSolicitarReenvio={isEmRevisao(data.status)}
                         onSuccess={() => void refetch()}
                     />
+                    </div>
                 </TabsContent>
             </Tabs>
 
             {/* ── Action bar: statuses editáveis ── */}
             {isEditavel(data.status) && (
-                <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border/40 bg-card shadow-sm">
-                    {/* Observação só faz sentido para aprovação */}
+                <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between">
                     {isEmRevisao(data.status) && (
-                        <div className="flex-1 min-w-[200px]">
-                            <label className="text-xs text-muted-foreground block mb-1">Observação do RH (opcional)</label>
-                            <Input value={approveObs} onChange={e => setApproveObs(e.target.value)} placeholder="Comentários adicionais…" />
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                            <label className="text-sm font-medium text-slate-700">Observação do RH (opcional)</label>
+                            <Textarea
+                                value={approveObs}
+                                onChange={e => setApproveObs(e.target.value.slice(0, 500))}
+                                placeholder="Escreva comentários adicionais…"
+                                rows={3}
+                                className="resize-none text-sm"
+                            />
+                            <p className="text-right text-xs text-muted-foreground tabular-nums">{approveObs.length}/500</p>
                         </div>
                     )}
+                    <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
                     <Button variant="outline" onClick={openFillDialog}>
-                        <WrenchIcon className="size-4" /> Preencher Manualmente
+                        <WrenchIcon className="size-4" /> Preencher manualmente
                     </Button>
                     <Button variant="outline" onClick={() => router.push(`/admissao/nova?id=${data.id}`)}>
-                        <Pencil className="size-4" /> Editar Dados
+                        <Pencil className="size-4" /> Editar dados
                     </Button>
-                    {/* Rejeitar e Enviar ao TOTVS apenas para EmRevisão */}
                     {isEmRevisao(data.status) && (
                         <>
-                            <Button variant="destructive" onClick={() => setRejectOpen(true)} disabled={processing}>
+                            <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => setRejectOpen(true)} disabled={processing}>
                                 <XCircle className="size-4" /> Rejeitar
                             </Button>
                             <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleApprove} disabled={processing}>
@@ -1070,16 +1079,15 @@ export default function AdmissaoRevisaoScreen() {
                             </Button>
                         </>
                     )}
-                    {/* Cancelar para statuses não-revisão (Rascunho/Enviado) */}
                     {isCancelavel(data.status) && !isEmRevisao(data.status) && (
                         <Button variant="destructive" onClick={() => setCancelOpen(true)} disabled={processing}>
                             <XCircle className="size-4" /> Cancelar
                         </Button>
                     )}
-                    {/* Excluir permanentemente */}
                     <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => setDeleteOpen(true)} disabled={processing}>
                         <Trash2 className="size-4" /> Excluir
                     </Button>
+                    </div>
                 </div>
             )}
 

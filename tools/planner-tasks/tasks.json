@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-06-30",
-    "totalTarefas": 162
+    "atualizadoEm": "2026-07-01",
+    "totalTarefas": 163
   },
   "tarefas": [
     {
@@ -4207,6 +4207,28 @@
         "prPrd": "Merge PR #33"
       },
       "observacoes": "Mantidos label Frente/Verso, observacao RH e botoes. PR #32 HML, PR #33 PRD."
+    },
+    {
+      "id": "TASK-2026-162",
+      "nome": "[Portal RH] Layout revisão documentos enviados pelo candidato",
+      "descricaoAmigavel": "Tela de revisão RH dos documentos de admissão com cabeçalho, barra de progresso, cards em grade e barra de ações conforme layout aprovado.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "09:27",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 70,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Alterar view de revisão de documentos enviados pelo candidato para layout do print (Documentos Solicitados).",
+      "entregavel": "AdmissaoArquivosChecklist e barra de ações da revisão alinhados ao mockup.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": null
     }
   ]
 }
