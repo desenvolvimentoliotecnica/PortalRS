@@ -8,6 +8,10 @@ public sealed record AdmissaoPortalLoginRequest(Guid PreAdmissaoId, string Cpf);
 
 public sealed record AdmissaoPortalLoginResponse(Guid PreAdmissaoId, string Nome, string TenantId);
 
+public sealed record AdmissaoPortalRequestOtpRequest(Guid PreAdmissaoId, string Cpf);
+
+public sealed record AdmissaoPortalVerifyOtpRequest(Guid PreAdmissaoId, string Cpf, string Otp);
+
 public sealed record PortalInformacoesVaga(
     string? Cargo,
     string? Area,

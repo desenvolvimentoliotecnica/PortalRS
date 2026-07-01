@@ -214,7 +214,7 @@ export default function DependentsStep({ session, disabled }: Props) {
 
             {/* Add button */}
             {!showForm && !disabled && (
-                <Button variant="outline" size="lg" className="w-full gap-2 min-h-[48px]" onClick={() => setShowForm(true)}>
+                <Button variant="outline" size="lg" className="wizard-touch-target w-full gap-2" onClick={() => setShowForm(true)}>
                     <Plus className="size-5" /> Adicionar outro dependente
                 </Button>
             )}

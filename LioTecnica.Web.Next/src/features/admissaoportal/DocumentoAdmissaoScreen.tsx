@@ -19,8 +19,6 @@ import AdmissaoPortalHeader from "./components/AdmissaoPortalHeader";
 import WelcomeStep from "./steps/WelcomeStep";
 import DocumentUploadStep from "./steps/DocumentUploadStep";
 import DadosPessoaisStep from "./steps/DadosPessoaisStep";
-import DadosGeraisStep from "./steps/DadosGeraisStep";
-import DadosBancariosStep from "./steps/DadosBancariosStep";
 import ReviewStep from "./steps/ReviewStep";
 import ConclusaoStep from "./steps/ConclusaoStep";
 import AdmissaoHelpModal from "./components/AdmissaoHelpModal";
@@ -77,6 +75,8 @@ export default function DocumentoAdmissaoScreen() {
     const [phase, setPhase] = useState<"login" | "main" | "submitted">("login");
     const [session, setSession] = useState<AdmissaoPortalSession | null>(null);
     const [cpfInput, setCpfInput] = useState("");
+    const [otpInput, setOtpInput] = useState("");
+    const [loginPhase, setLoginPhase] = useState<"cpf" | "otp">("cpf");
     const [logging, setLogging] = useState(false);
     const [data, setData] = useState<PortalData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -127,7 +127,7 @@ export default function DocumentoAdmissaoScreen() {
         const isSubmittedStatus = data.status === 2;
         if (isSubmittedStatus) {
             setSubmittedAt(new Date());
-            setStep(6);
+            setStep(4);
             return;
         }
         if (data.wizardCurrentStep != null) {
@@ -218,19 +218,46 @@ export default function DocumentoAdmissaoScreen() {
         saveWizardProgress(session, currentStep, percent).catch(() => {});
     }, [computeCompletionPercent, currentStep, session, phase]);
 
-    async function handleLogin() {
+    async function handleRequestOtp() {
         if (!cpfInput.trim() || !tenantId || !preAdmissaoId) return;
         setLogging(true);
         try {
             const headers = new Headers();
             headers.set("X-Tenant-Id", tenantId);
             headers.set("Content-Type", "application/json");
-            const res = await apiFetch("/api/public/admissao-portal/login", {
+            const res = await apiFetch("/api/public/admissao-portal/login/request-otp", {
                 method: "POST",
                 headers,
                 body: JSON.stringify({ preAdmissaoId, cpf: cpfInput.trim() }),
             });
-            if (!res.ok) { toast.error("CPF nao reconhecido ou acesso nao liberado."); return; }
+            const body = await res.json().catch(() => ({})) as { message?: string };
+            if (!res.ok) {
+                toast.error(body.message || "CPF não reconhecido ou acesso não liberado.");
+                return;
+            }
+            toast.success("Enviamos um código para o seu e-mail cadastrado.");
+            setLoginPhase("otp");
+        } catch { toast.error("Erro ao conectar."); }
+        finally { setLogging(false); }
+    }
+
+    async function handleVerifyOtp() {
+        if (!cpfInput.trim() || !otpInput.trim() || !tenantId || !preAdmissaoId) return;
+        setLogging(true);
+        try {
+            const headers = new Headers();
+            headers.set("X-Tenant-Id", tenantId);
+            headers.set("Content-Type", "application/json");
+            const res = await apiFetch("/api/public/admissao-portal/login/verify-otp", {
+                method: "POST",
+                headers,
+                body: JSON.stringify({ preAdmissaoId, cpf: cpfInput.trim(), otp: otpInput.trim() }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({})) as { message?: string };
+                toast.error(body.message || "Código inválido ou expirado.");
+                return;
+            }
             const body = await res.json();
             const sess: AdmissaoPortalSession = { tenantId, preAdmissaoId: body.preAdmissaoId, cpf: cpfInput.replace(/\D/g, ""), nome: body.nome };
             saveAdmissaoPortalSession(sess);
@@ -252,9 +279,7 @@ export default function DocumentoAdmissaoScreen() {
             case "welcome":
                 return true;
 
-            case "dados-pessoais":
-            case "dados-gerais":
-            case "bancario": {
+            case "dados-pessoais": {
                 try {
                     await savePortalFormNow(session, formData);
                     setLastSavedAt(new Date());
@@ -320,7 +345,7 @@ export default function DocumentoAdmissaoScreen() {
         }
         setSubmittedAt(new Date());
         markStepComplete(5);
-        setStep(6);
+        setStep(4);
         await loadData();
     }
 
@@ -364,21 +389,47 @@ export default function DocumentoAdmissaoScreen() {
                             <FileText className="size-8 text-primary" />
                         </div>
                         <h1 className="text-2xl font-bold">Portal de Admissao</h1>
-                        <p className="text-muted-foreground text-sm mt-1">Informe seu CPF para acessar o portal</p>
+                        <p className="text-muted-foreground text-sm mt-1">
+                            {loginPhase === "cpf"
+                                ? "Informe seu CPF para receber o código de acesso por e-mail"
+                                : "Digite o código de 6 dígitos enviado ao seu e-mail"}
+                        </p>
                     </div>
                     <div className="space-y-3">
-                        <Input
-                            placeholder="000.000.000-00"
-                            value={cpfInput}
-                            onChange={e => setCpfInput(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && handleLogin()}
-                            maxLength={14}
-                            className="text-center text-lg tracking-wider h-12"
-                        />
-                        <Button className="w-full min-h-[48px] text-base" size="lg" onClick={handleLogin} disabled={logging || !cpfInput.trim()}>
-                            {logging ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                            Acessar Portal
-                        </Button>
+                        {loginPhase === "cpf" ? (
+                            <>
+                                <Input
+                                    placeholder="000.000.000-00"
+                                    value={cpfInput}
+                                    onChange={e => setCpfInput(e.target.value)}
+                                    onKeyDown={e => e.key === "Enter" && void handleRequestOtp()}
+                                    maxLength={14}
+                                    className="text-center text-lg tracking-wider h-12"
+                                />
+                                <Button className="wizard-touch-target w-full text-base" size="lg" onClick={() => void handleRequestOtp()} disabled={logging || !cpfInput.trim()}>
+                                    {logging ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                                    Enviar código
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <Input
+                                    placeholder="000000"
+                                    value={otpInput}
+                                    onChange={e => setOtpInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                    onKeyDown={e => e.key === "Enter" && void handleVerifyOtp()}
+                                    maxLength={6}
+                                    className="text-center text-2xl tracking-[0.4em] h-12"
+                                />
+                                <Button className="wizard-touch-target w-full text-base" size="lg" onClick={() => void handleVerifyOtp()} disabled={logging || otpInput.length < 6}>
+                                    {logging ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                                    Validar e entrar
+                                </Button>
+                                <Button variant="ghost" className="w-full" onClick={() => { setLoginPhase("cpf"); setOtpInput(""); }}>
+                                    Voltar e alterar CPF
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -387,7 +438,7 @@ export default function DocumentoAdmissaoScreen() {
     }
 
     /* MAIN — Wizard */
-    const isSubmitted = data?.status === 2 || currentStep === 6;
+    const isSubmitted = data?.status === 2 || currentStep === 4;
     const stepInfo = wizardPlan.resolveStep(currentStep);
     const isWelcome = stepInfo.kind === "welcome";
     const isConclusao = stepInfo.kind === "conclusao";
@@ -450,9 +501,6 @@ export default function DocumentoAdmissaoScreen() {
                         {stepInfo.kind === "dados-pessoais" && session && (
                             <DadosPessoaisStep session={session} disabled={isSubmitted} />
                         )}
-                        {stepInfo.kind === "dados-gerais" && session && (
-                            <DadosGeraisStep session={session} disabled={isSubmitted} />
-                        )}
                         {stepInfo.kind === "documentos" && session && (
                             <DocumentUploadStep
                                 session={session}
@@ -461,9 +509,6 @@ export default function DocumentoAdmissaoScreen() {
                                 onDataRefresh={loadData}
                                 disabled={isSubmitted}
                             />
-                        )}
-                        {stepInfo.kind === "bancario" && session && (
-                            <DadosBancariosStep session={session} disabled={isSubmitted} />
                         )}
                         {stepInfo.kind === "revisao" && (
                             <ReviewStep

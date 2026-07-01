@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 import {
     CheckCircle2, Clock, XCircle, FileText, User, Mail, Phone,
     ArrowLeft, Building2, Briefcase, CalendarDays, RefreshCw,
-    Upload, Eye, Trash2, Copy, Link, Download,
+    Eye, Trash2, Copy, Link, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +32,6 @@ import {
     canGerarLinkPreAdmissao,
     canRejeitarPreAdmissao,
     canSolicitarDocumentosPreAdmissao,
-    canUploadManualPreAdmissao,
     isPreAdmissaoAguardandoCandidato,
     isPreAdmissaoRejeitada,
     preAdmissaoStatusLabel,
@@ -221,11 +220,6 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
     const [linkEmailEnviado, setLinkEmailEnviado] = useState(false);
 
-    /* manual upload */
-    const [uploadTipo, setUploadTipo] = useState(0);
-    const [uploading, setUploading] = useState(false);
-    const fileRef = React.useRef<HTMLInputElement>(null);
-
     /* document validation */
     const [rejectDocId, setRejectDocId] = useState<string | null>(null);
     const [rejectObs, setRejectObs] = useState("");
@@ -353,33 +347,6 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
         }
     }
 
-    async function handleUpload() {
-        const file = fileRef.current?.files?.[0];
-        if (!file) { toast.error("Selecione um arquivo."); return; }
-        setUploading(true);
-        try {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("tipo", String(uploadTipo));
-            const res = await apiFetch(`/api/pre-admissao/${id}/documentos`, {
-                method: "POST",
-                body: formData,
-                cache: "no-store",
-            });
-            if (!res.ok) {
-                const text = await res.text().catch(() => "");
-                throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
-            }
-            toast.success("Documento enviado com sucesso!");
-            if (fileRef.current) fileRef.current.value = "";
-            await load();
-        } catch (e) {
-            toast.error(`Falha no upload: ${e instanceof Error ? e.message : "erro"}`);
-        } finally {
-            setUploading(false);
-        }
-    }
-
     async function handleValidarDoc(docId: string, status: number, observacao?: string) {
         setValidatingDocId(docId);
         try {
@@ -433,7 +400,6 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
     const canReject = canRejeitarPreAdmissao(data.status);
     const canGerarLinkCandidato = canGerarLinkPreAdmissao(data.status);
     const canSolicitarDocumentos = canSolicitarDocumentosPreAdmissao(data.status);
-    const canUploadManual = canUploadManualPreAdmissao(data.status);
     const aguardandoCandidato = isPreAdmissaoAguardandoCandidato(data.status);
     const statusVariant = PRE_ADMISSAO_STATUS_VARIANT[preAdmissaoStatusCode(data.status)] ?? "outline";
     const docsValidados = data.documentos.filter(d => resolveStatusDocumentoCode(d.status) === 1).length;
@@ -687,42 +653,6 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                 </div>
             )}
 
-            {/* CARD C: Upload Manual (RH) */}
-            {canUploadManual && (
-                <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
-                    <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                        <Upload className="size-4 inline-block mr-1 -mt-0.5" />
-                        Upload Manual (RH)
-                    </h2>
-                    <div className="flex flex-col sm:flex-row gap-3 items-end">
-                        <div className="flex-1">
-                            <label className="text-xs font-medium text-muted-foreground">Tipo de Documento</label>
-                            <select
-                                value={uploadTipo}
-                                onChange={(e) => setUploadTipo(Number(e.target.value))}
-                                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                            >
-                                {Object.entries(TIPO_DOC_LABEL).map(([key, label]) => (
-                                    <option key={key} value={key}>{label}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="flex-1">
-                            <label className="text-xs font-medium text-muted-foreground">Arquivo</label>
-                            <input
-                                ref={fileRef}
-                                type="file"
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                className="mt-1 w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
-                            />
-                        </div>
-                        <Button size="sm" onClick={() => void handleUpload()} disabled={uploading}>
-                            <Upload className="size-4 mr-1" />
-                            {uploading ? "Enviando..." : "Enviar"}
-                        </Button>
-                    </div>
-                </div>
-            )}
 
             {/* Documentos Recebidos */}
             <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">

@@ -1,14 +1,12 @@
 "use client";
 
 import {
-    Building2,
     Check,
     CheckCircle2,
     ClipboardList,
     ExternalLink,
     FileText,
     Headphones,
-    Home,
     Search,
     User,
 } from "lucide-react";
@@ -17,9 +15,7 @@ import { MAIN_WIZARD_STEPS, type WizardPlan } from "../wizardSteps";
 
 const STEP_ICONS = {
     "dados-pessoais": User,
-    "dados-gerais": Home,
     documentos: FileText,
-    bancario: Building2,
     revisao: Search,
     conclusao: CheckCircle2,
 } as const;
@@ -45,13 +41,13 @@ export default function WizardSidebar({ nome, isSubmitted, plan, onOpenHelp }: P
     }
 
     function isStepActive(step: number): boolean {
-        if (isSubmitted && step === 6) return true;
+        if (isSubmitted && step === 4) return true;
         return currentStep === step;
     }
 
     function canNavigateTo(step: number): boolean {
-        if (isSubmitted) return step === 6;
-        if (step === 6) return false;
+        if (isSubmitted) return step === 4;
+        if (step === 4 && !isSubmitted) return false;
         if (step <= currentStep) return step !== currentStep;
         for (let i = 1; i < step; i++) {
             if (!completedSteps.has(i) && currentStep < i) return false;
