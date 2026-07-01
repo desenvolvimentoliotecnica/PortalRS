@@ -4605,21 +4605,25 @@
       "descricaoAmigavel": "RH escolhe quais benefícios entram na carta de oferta e, ao encerrar vaga, pode avisar candidatos ativos com e-mail configurável.",
       "inicio": "2026-07-01",
       "horarioInicio": "15:10",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "15:14",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Seguir com P3 do backlog RH analistas — item 4 (flag benefícios na proposta) e item 9 (retorno negativo ao fechar vaga).",
       "entregavel": "Proposta com toggle/checkboxes de benefícios da vaga; modal ao fechar vaga listando candidatos para e-mail de retorno negativo.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "752774f7"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #58",
+        "prPrd": "Merge PR #59"
       },
-      "observacoes": "Implementação local — aguardando commit e promoção DEV→HML."
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
