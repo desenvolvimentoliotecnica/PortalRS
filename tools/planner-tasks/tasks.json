@@ -4658,23 +4658,26 @@
       "descricaoAmigavel": "Completar botão WhatsApp Web em kanban, propostas, agendas e demais telas com dados de candidato; atualizar documentação do backlog para benefícios na proposta e retorno negativo.",
       "inicio": "2026-07-01",
       "horarioInicio": "15:35",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "15:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Item 3: regra WhatsApp para TODOS os locais com dados de candidato; itens 4 e 9: atualizar documentação do backlog.",
       "entregavel": "WhatsAppContactButton em kanban candidaturas, propostas, agendas, processo seletivo, modais de match/retorno negativo e revisão de admissão; backlog itens 4 e 9 marcados como implementados (P3).",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "4125a74a"
+          "4125a74a",
+          "faacbd1b"
         ],
-        "branch": "DEV"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #66",
+        "prPrd": "Merge PR #67"
       },
-      "observacoes": "Cobertura complementar ao P2 item 3."
+      "observacoes": "Cobertura complementar ao P2 item 3. Promovido DEV→HML→PRD."
     },
     {
       "id": "TASK-2026-179",
