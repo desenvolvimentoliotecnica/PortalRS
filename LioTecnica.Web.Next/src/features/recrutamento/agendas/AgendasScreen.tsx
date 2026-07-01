@@ -76,6 +76,10 @@ type GraphCalendarEventApi = {
   end: string;
   isAllDay: boolean;
   location: string | null;
+  bodyPreview?: string | null;
+  organizerName?: string | null;
+  webLink?: string | null;
+  isOnlineMeeting?: boolean;
   source: string;
 };
 
@@ -194,8 +198,17 @@ function mapVagasPayload(payload: unknown): VagaListItem[] {
 }
 
 
-function fmtTimeRange(start: Date | null, end: Date | null) {
+function fmtTimeRange(start: Date | null, end: Date | null, allDay = false) {
   if (!start) return "—";
+  if (allDay) {
+    const day = start.toLocaleDateString("pt-BR", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    return `${day} · Dia inteiro`;
+  }
   const s = start.toLocaleString("pt-BR", {
     weekday: "short",
     day: "2-digit",
@@ -235,12 +248,19 @@ export default function AgendasScreen() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
+  const [graphViewOpen, setGraphViewOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedGraphEventId, setSelectedGraphEventId] = useState<string | null>(null);
 
 
   const selectedEvent = useMemo(
     () => (selectedId ? events.find((e) => e.id === selectedId) ?? null : null),
     [events, selectedId],
+  );
+
+  const selectedGraphEvent = useMemo(
+    () => (selectedGraphEventId ? graphEvents.find((e) => e.id === selectedGraphEventId) ?? null : null),
+    [graphEvents, selectedGraphEventId],
   );
 
 
@@ -413,7 +433,7 @@ export default function AgendasScreen() {
   const sideList = useMemo(() => {
     const start = activeRange?.start;
     const end = activeRange?.end;
-    const list = filtered
+    const portalItems = filtered
       .filter((ev) => {
         const s = new Date(ev.startAtUtc);
         if (Number.isNaN(s.getTime())) return false;
@@ -421,10 +441,44 @@ export default function AgendasScreen() {
         if (end && s >= end) return false;
         return true;
       })
-      .sort((a, b) => (a.startAtUtc || "").localeCompare(b.startAtUtc || ""))
+      .map((ev) => ({
+        kind: "portal" as const,
+        id: ev.id,
+        title: ev.title ?? "Evento",
+        startAt: ev.startAtUtc,
+        typeColor: PORTAL_EVENT_COLOR,
+        typeCode: ev.typeCode,
+        typeIcon: ev.typeIcon,
+        typeLabel: ev.typeLabel,
+        status: ev.status,
+        candidate: ev.candidate,
+      }));
+
+    const graphItems = filteredGraphEvents
+      .filter((ev) => {
+        const s = new Date(ev.start);
+        if (Number.isNaN(s.getTime())) return false;
+        if (start && s < start) return false;
+        if (end && s >= end) return false;
+        return true;
+      })
+      .map((ev) => ({
+        kind: "graph" as const,
+        id: ev.id,
+        title: ev.subject || "Evento Outlook",
+        startAt: ev.start,
+        typeColor: GRAPH_EVENT_COLOR,
+        typeCode: null,
+        typeIcon: null,
+        typeLabel: null,
+        status: null,
+        candidate: null,
+      }));
+
+    return [...portalItems, ...graphItems]
+      .sort((a, b) => (a.startAt || "").localeCompare(b.startAt || ""))
       .slice(0, 12);
-    return list;
-  }, [activeRange?.end, activeRange?.start, filtered]);
+  }, [activeRange?.end, activeRange?.start, filtered, filteredGraphEvents]);
 
 
   function openCreate(start?: Date, end?: Date) {
@@ -477,8 +531,17 @@ export default function AgendasScreen() {
 
 
   function openView(id: string) {
+    setGraphViewOpen(false);
+    setSelectedGraphEventId(null);
     setSelectedId(id);
     setViewOpen(true);
+  }
+
+  function openGraphView(id: string) {
+    setViewOpen(false);
+    setSelectedId(null);
+    setSelectedGraphEventId(id);
+    setGraphViewOpen(true);
   }
 
 
@@ -845,12 +908,7 @@ export default function AgendasScreen() {
               eventClick={(info: EventClickArg) => {
                 info.jsEvent.preventDefault();
                 if (info.event.extendedProps?.source === "microsoft-graph") {
-                  const location = String(info.event.extendedProps.location ?? "").trim();
-                  toast.info(
-                    location
-                      ? `${info.event.title} · ${location} (Outlook)`
-                      : `${info.event.title} (Outlook)`,
-                  );
+                  openGraphView(info.event.id);
                   return;
                 }
                 openView(info.event.id);
@@ -907,17 +965,17 @@ export default function AgendasScreen() {
                   key={ev.id}
                   className="w-full rounded-xl border border-[rgba(16,82,144,.14)] bg-white/55 p-3 text-left hover:bg-white/90"
                   type="button"
-                  onClick={() => openView(ev.id)}
+                  onClick={() => (ev.kind === "graph" ? openGraphView(ev.id) : openView(ev.id))}
                 >
                   <div className="flex items-start gap-2">
                     <span
                       className="mt-1 inline-block size-3 rounded-full border-2 border-black/10"
-                      style={{ background: ev.typeColor ?? "#6c757d" }}
+                      style={{ background: ev.typeColor }}
                     />
                     <div className="min-w-0">
-                      <div className="truncate font-extrabold">{ev.title ?? "Evento"}</div>
+                      <div className="truncate font-extrabold">{ev.title}</div>
                       <div className="text-muted-foreground text-xs">
-                        {new Date(ev.startAtUtc).toLocaleString("pt-BR", {
+                        {new Date(ev.startAt).toLocaleString("pt-BR", {
                           weekday: "short",
                           day: "2-digit",
                           month: "2-digit",
@@ -926,15 +984,24 @@ export default function AgendasScreen() {
                         })}
                       </div>
                       <div className="mt-1 flex flex-wrap gap-1">
-                        <span className="badge-soft text-xs inline-flex items-center gap-1">
-                          {(() => {
-                            const Icon = agendaIcon(ev.typeIcon ?? "bi-calendar");
-                            return <Icon className="size-3.5" />;
-                          })()}
-                          {agendaTypeLabel(types.find((t) => t.code === ev.typeCode)?.label ?? ev.typeLabel, ev.typeCode)}
-                        </span>
-                        <span className="badge-soft text-xs">{statusLabel((ev.status ?? "").toLowerCase())}</span>
-                        {ev.candidate ? <span className="badge-soft text-xs">{ev.candidate}</span> : null}
+                        {ev.kind === "graph" ? (
+                          <span className="badge-soft text-xs inline-flex items-center gap-1 text-[#0078d4]">
+                            <Calendar className="size-3.5" />
+                            Outlook
+                          </span>
+                        ) : (
+                          <>
+                            <span className="badge-soft text-xs inline-flex items-center gap-1">
+                              {(() => {
+                                const Icon = agendaIcon(ev.typeIcon ?? "bi-calendar");
+                                return <Icon className="size-3.5" />;
+                              })()}
+                              {agendaTypeLabel(types.find((t) => t.code === ev.typeCode)?.label ?? ev.typeLabel, ev.typeCode)}
+                            </span>
+                            <span className="badge-soft text-xs">{statusLabel((ev.status ?? "").toLowerCase())}</span>
+                            {ev.candidate ? <span className="badge-soft text-xs">{ev.candidate}</span> : null}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1056,6 +1123,83 @@ export default function AgendasScreen() {
                 disabled={busy === "loading"}
               >
                 Salvar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+
+      {graphViewOpen && selectedGraphEvent ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <div className="card-soft w-full max-w-3xl p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="mini-title mb-1">Detalhes · Outlook</div>
+                <div className="text-lg font-extrabold">{selectedGraphEvent.subject || "Evento"}</div>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <span className="badge-soft inline-flex items-center gap-1 text-[#0078d4]">
+                    <Calendar className="size-4" />
+                    Microsoft Graph
+                  </span>
+                  {selectedGraphEvent.isOnlineMeeting ? (
+                    <span className="badge-soft inline-flex items-center gap-1">
+                      <Video className="size-4" />
+                      Reunião online
+                    </span>
+                  ) : null}
+                  {selectedGraphEvent.isAllDay ? (
+                    <span className="badge-soft">Dia inteiro</span>
+                  ) : null}
+                </div>
+                <div className="text-muted-foreground mt-1 text-sm">
+                  {fmtTimeRange(
+                    safeDate(selectedGraphEvent.start),
+                    safeDate(selectedGraphEvent.end),
+                    selectedGraphEvent.isAllDay,
+                  )}
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setGraphViewOpen(false)}>
+                Fechar
+              </Button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                <div className="mini-title mb-1">Organizador</div>
+                <div className="font-semibold">{selectedGraphEvent.organizerName?.trim() || "—"}</div>
+              </div>
+              <div className="card-soft p-3" style={{ boxShadow: "none" }}>
+                <div className="mini-title mb-1">Local</div>
+                <div className="font-semibold">{selectedGraphEvent.location?.trim() || "—"}</div>
+              </div>
+              {selectedGraphEvent.bodyPreview?.trim() ? (
+                <div className="card-soft p-3 md:col-span-2" style={{ boxShadow: "none" }}>
+                  <div className="mini-title mb-1">Descrição</div>
+                  <div className="text-muted-foreground whitespace-pre-wrap text-sm">
+                    {selectedGraphEvent.bodyPreview.trim()}
+                  </div>
+                </div>
+              ) : null}
+              <div className="card-soft border-[#0078d4]/20 bg-[#0078d4]/5 p-3 md:col-span-2" style={{ boxShadow: "none" }}>
+                <div className="mini-title mb-1">Origem</div>
+                <div className="text-muted-foreground text-sm">
+                  Evento sincronizado do calendário Outlook. Alterações devem ser feitas no Outlook ou Teams.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              {selectedGraphEvent.webLink ? (
+                <Button variant="outline" size="sm" asChild>
+                  <a href={selectedGraphEvent.webLink} target="_blank" rel="noopener noreferrer">
+                    Abrir no Outlook
+                  </a>
+                </Button>
+              ) : null}
+              <Button size="sm" onClick={() => setGraphViewOpen(false)}>
+                OK
               </Button>
             </div>
           </div>
