@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Check, X, Clock, RotateCcw, Mail, MessageCircle, Linkedin } from "lucide-react";
+import { Check, X, Clock, RotateCcw, Mail, Linkedin } from "lucide-react";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { type RankItem, type VagaDetail, type CandidatoFull, type MatchResult, type TabKey, calcMatch, initials } from "./matchingHelpers";
 
 function ScoreRing({ score, size = 52 }: { score: number; size?: number }) {
@@ -103,9 +104,9 @@ export default function CandidateDetailModal({ item, candidatoFull, vagaDetail, 
                         {item.source && <div><span className="text-muted-foreground text-xs block">Fonte</span><span className="font-medium">{item.source === "talento" ? "Talento" : "Candidato"}</span></div>}
                         <div>
                             <span className="text-muted-foreground text-xs block">Contato direto</span>
-                            <div className="flex gap-2 mt-0.5">
+                            <div className="flex flex-wrap gap-2 mt-0.5">
                                 {displayEmail && <a href={`mailto:${displayEmail}`} className="inline-flex items-center gap-1 text-sm hover:underline text-blue-600" title="Email"><Mail className="size-3.5" /> Email</a>}
-                                {(candidatoFull?.fone || item.fone) && <a href={`https://wa.me/${(candidatoFull?.fone || item.fone || "").replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm hover:underline text-green-600" title="WhatsApp"><MessageCircle className="size-3.5" /> WhatsApp</a>}
+                                <WhatsAppContactButton size="xs" fone={candidatoFull?.fone || item.fone} />
                                 {(candidatoFull?.linkedinUrl || item.linkedinUrl) && <a href={candidatoFull?.linkedinUrl || item.linkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm hover:underline text-blue-700" title="LinkedIn"><Linkedin className="size-3.5" /> LinkedIn</a>}
                             </div>
                         </div>

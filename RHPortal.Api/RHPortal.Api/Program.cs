@@ -546,6 +546,7 @@ builder.Services.AddScoped<IVagaService, VagaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.PropostasVaga.IPropostaVagaService, RhPortal.Api.Application.PropostasVaga.PropostaVagaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaService, RhPortal.Api.Application.Candidaturas.CandidaturaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaNotificacaoService, RhPortal.Api.Application.Candidaturas.CandidaturaNotificacaoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaResponsavelEmailNotifier, RhPortal.Api.Application.Candidaturas.CandidaturaResponsavelEmailNotifier>();
 builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.INotificacaoTemplateService, RhPortal.Api.Application.Candidaturas.NotificacaoTemplateService>();
 builder.Services.Configure<RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions>(
     builder.Configuration.GetSection(RhPortal.Api.Messaging.WhatsApp.WhatsAppOptions.SectionName));

@@ -7,7 +7,7 @@ Status: `[ ]` pendente · `[~]` em refinamento · `[x]` pronto para dev · `[!]`
 
 ## Item 1 — Documentação básica no cadastro de candidato (portal de vagas)
 
-**Status:** `[x]` Refinado — aguardando priorização
+**Status:** `[x]` **Implementado (P2 — 01/07/2026, DEV)**
 
 ### Problema
 Candidatos se cadastram no portal de vagas sem documentação básica. RH precisa desses dados cedo no funil.
@@ -31,17 +31,22 @@ Candidatos se cadastram no portal de vagas sem documentação básica. RH precis
 - Modal/banner para candidatos legados no login
 
 ### Critérios de aceite
-- [ ] Novo cadastro não conclui sem RG, CPF, nascimento e nome da mãe
-- [ ] Nome do pai é opcional e pode ficar em branco
-- [ ] CPF inválido ou duplicado no tenant é rejeitado com mensagem clara
-- [ ] Candidato antigo vê solicitação de completar dados no login
-- [ ] Tentativa de candidatura com perfil incompleto abre complemento sem perder vaga
+- [x] Novo cadastro não conclui sem RG, CPF, nascimento e nome da mãe
+- [x] Nome do pai é opcional e pode ficar em branco
+- [x] CPF inválido ou duplicado no tenant é rejeitado com mensagem clara
+- [x] Candidato antigo vê solicitação de completar dados no login
+- [x] Tentativa de candidatura com perfil incompleto abre complemento sem perder vaga
+
+### Como testar
+1. **Novo cadastro:** em `/app/PortalVagas/Acesso?tenantId=...`, criar conta sem CPF → bloqueio; com CPF inválido → mensagem; preencher todos os campos obrigatórios → sucesso.
+2. **Legado:** candidato sem doc no banco → login → banner + modal pedindo complemento.
+3. **Candidatura bloqueada:** logado com perfil incompleto → clicar candidatar → modal de doc mantendo vaga selecionada → após salvar, fluxo de candidatura abre.
 
 ---
 
 ## Item 2 — Não enviar e-mail ao responsável da vaga na candidatura
 
-**Status:** `[x]` Refinado — aguardando priorização
+**Status:** `[x]` **Implementado (P2 — 01/07/2026, DEV)**
 
 ### Problema
 Gestor e recrutador recebem e-mail a cada nova candidatura, gerando ruído. RH prefere acompanhar pelo portal.
@@ -56,17 +61,22 @@ Gestor e recrutador recebem e-mail a cada nova candidatura, gerando ruído. RH p
 | **Configurabilidade** | Flag por **tenant** em Configurações; **ligada por padrão** (= não envia e-mail ao responsável) |
 
 ### Critérios de aceite
-- [ ] Flag em Configurações do tenant: "Enviar e-mail ao responsável na candidatura" (default: desligada)
-- [ ] Com flag desligada (padrão): nenhum e-mail para gestor nem recrutador ao candidatar-se
-- [ ] Notificação in-app continua funcionando
-- [ ] Candidato continua recebendo e-mail de confirmação
-- [ ] Com flag ligada: comportamento anterior restaurado (para tenants que quiserem)
+- [x] Flag em Configurações do tenant: "Enviar e-mail ao responsável na candidatura" (default: desligada)
+- [x] Com flag desligada (padrão): nenhum e-mail para gestor nem recrutador ao candidatar-se
+- [x] Notificação in-app continua funcionando
+- [x] Candidato continua recebendo e-mail de confirmação
+- [x] Com flag ligada: comportamento anterior restaurado (para tenants que quiserem)
+
+### Como testar
+1. Admin → **Configurações do tenant** → Recrutamento → confirmar checkbox **desligado** por padrão.
+2. Candidatar-se a uma vaga → gestor/recrutador **não** recebem e-mail; candidato recebe confirmação.
+3. Ligar a flag, salvar, candidatar novamente → e-mails ao responsável voltam.
 
 ---
 
 ## Item 3 — Adicionar "Conversar com WhatsApp Web"
 
-**Status:** `[x]` Refinado — aguardando priorização
+**Status:** `[x]` **Implementado (P2 — 01/07/2026, DEV)**
 
 ### Problema
 RH precisa contatar candidatos rapidamente pelo WhatsApp, mas o atalho está ausente ou discreto em várias telas.
@@ -82,10 +92,15 @@ RH precisa contatar candidatos rapidamente pelo WhatsApp, mas o atalho está aus
 | **Label** | "Conversar com WhatsApp Web" (texto explícito, não só ícone) |
 
 ### Critérios de aceite
-- [ ] Componente reutilizável `WhatsAppContactButton` aplicado em todas as telas com dados de candidato
-- [ ] Normalização E.164/brasil (55 + DDD + número) antes do link
-- [ ] Botão desabilitado + tooltip quando não há telefone
-- [ ] Abre nova aba sem sair do portal
+- [x] Componente reutilizável `WhatsAppContactButton` aplicado em todas as telas com dados de candidato
+- [x] Normalização E.164/brasil (55 + DDD + número) antes do link
+- [x] Botão desabilitado + tooltip quando não há telefone
+- [x] Abre nova aba sem sair do portal
+
+### Como testar
+1. Abrir lista de candidatos, matching, hub da vaga, triagem ou tracking de admissão.
+2. Candidato com celular → botão **Conversar com WhatsApp Web** abre `wa.me` em nova aba.
+3. Candidato sem telefone → botão desabilitado com tooltip.
 
 ---
 
@@ -269,7 +284,7 @@ Vaga fechada com 1 contratado deixa demais candidatos sem retorno.
 
 ## Item 10 — Coluna STATUS em `/app/gestao/solicitacoes`
 
-**Status:** `[x]` Refinado — aguardando priorização
+**Status:** `[x]` **Implementado (P2 — 01/07/2026, DEV)**
 
 ### Problema
 Grid de solicitações não exibe status de forma visível.
@@ -283,9 +298,13 @@ Grid de solicitações não exibe status de forma visível.
 | **Origem** | Mapear do **status existente** em `SolicitacaoVaga` (validar enum na implementação) |
 
 ### Critérios de aceite
-- [ ] Coluna STATUS visível na grid de solicitações
-- [ ] Badge com cor distinta por status
-- [ ] Labels exatamente: Aberto, Fechado, Stand-by, Cancelada, Reprovada
+- [x] Coluna STATUS visível na grid de solicitações
+- [x] Badge com cor distinta por status
+- [x] Labels exatamente: Aberto, Fechado, Stand-by, Cancelada, Reprovada
+
+### Como testar
+1. Abrir `/app/gestao/solicitacoes`.
+2. Confirmar coluna **Status** com badges coloridos (Aberto, Fechado, Stand-by, Cancelada, Reprovada).
 
 ---
 
@@ -295,10 +314,10 @@ Grid de solicitações não exibe status de forma visível.
 |------------|------|------------------|------------|
 | P1 | 7 + 5 + 8 | Alto | Admissão — **entregue 01/07/2026** |
 | P1 | 6 | Médio | Segurança/LGPD — **entregue 01/07/2026** |
-| P2 | 1 | Médio | Qualidade do funil de candidatos |
-| P2 | 2 | Baixo | Reduz ruído de e-mail |
-| P2 | 10 | Baixo | Visibilidade gestão |
-| P2 | 3 | Médio | Produtividade RH |
+| P2 | 1 | Médio | Qualidade do funil — **entregue 01/07/2026** |
+| P2 | 2 | Baixo | Reduz ruído de e-mail — **entregue 01/07/2026** |
+| P2 | 10 | Baixo | Visibilidade gestão — **entregue 01/07/2026** |
+| P2 | 3 | Médio | Produtividade RH — **entregue 01/07/2026** |
 | P3 | 4 | Médio | Propostas |
 | P3 | 9 | Médio | Experiência candidato |
 

@@ -77,6 +77,7 @@ import {
     tipoSolicitacaoBadgeClass,
     type TipoSolicitacaoFilter,
 } from "@/features/gestao/solicitacoes/rmRequisicaoFormat";
+import { SolicitacaoBacklogStatusBadgeEl } from "@/features/gestao/shared/solicitacaoVagaStatusUi";
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -992,13 +993,14 @@ function SolicitacoesVagaContent() {
                             <TableHead className="w-1 whitespace-nowrap text-left cursor-pointer select-none" onClick={() => handleSort("requisitante")}>
                                 Requisitante<SortIcon col="requisitante" />
                             </TableHead>
+                            <TableHead className="w-1 whitespace-nowrap text-center">Status</TableHead>
                             <TableHead className="w-12" />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 10 : 9} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 11 : 10} className="text-center text-muted-foreground py-8">
                                     Carregando…
                                 </TableCell>
                             </TableRow>
@@ -1062,6 +1064,9 @@ function SolicitacoesVagaContent() {
                                         <div className="max-w-[180px] truncate text-xs text-muted-foreground" title={r.solicitanteNome ?? ""}>
                                             {r.solicitanteNome ?? "—"}
                                         </div>
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap text-center">
+                                        <SolicitacaoBacklogStatusBadgeEl raw={r.status} />
                                     </TableCell>
                                     <TableCell onClick={(e) => e.stopPropagation()}>
                                         <DropdownMenu>
@@ -1174,7 +1179,7 @@ function SolicitacoesVagaContent() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 10 : 9} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={canDistribuirParaAnalistaRh ? 11 : 10} className="text-center text-muted-foreground py-8">
                                     Nenhuma solicitação encontrada para os filtros selecionados.
                                 </TableCell>
                             </TableRow>

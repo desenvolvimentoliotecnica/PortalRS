@@ -71,6 +71,7 @@ public sealed class PublicCandidaturasController : ControllerBase
         [FromServices] IEmailQueueService emailQueue,
         [FromServices] IProjetoVagaService projetoVagaService,
         [FromServices] ICandidaturaService candidaturaService,
+        [FromServices] ICandidaturaResponsavelEmailNotifier responsavelEmailNotifier,
         CancellationToken ct)
     {
         if (request.VagaId == Guid.Empty)
@@ -268,6 +269,10 @@ public sealed class PublicCandidaturasController : ControllerBase
             }
 
             // ── Registrar/atualizar Candidatura (junction Candidato↔Vaga com histórico) ──
+            var candidaturaJaExistia = await db.Candidaturas
+                .AsNoTracking()
+                .AnyAsync(x => x.CandidatoId == result.Id && x.VagaId == request.VagaId, ct);
+
             try
             {
                 await candidaturaService.GetOrCreateAsync(
@@ -276,6 +281,15 @@ public sealed class PublicCandidaturasController : ControllerBase
                     fonte: "Portal",
                     obs: obs,
                     ct);
+
+                if (!candidaturaJaExistia)
+                {
+                    try
+                    {
+                        await responsavelEmailNotifier.NotifyNovaCandidaturaAsync(result.Id, request.VagaId, ct);
+                    }
+                    catch { /* best-effort */ }
+                }
             }
             catch { /* best-effort: não falha a candidatura */ }
 

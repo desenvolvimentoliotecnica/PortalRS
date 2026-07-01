@@ -137,6 +137,40 @@ export function SolicitacaoVagaStatusBadgeEl({ raw }: { raw: string | number | u
     );
 }
 
+export type SolicitacaoBacklogStatusLabel = "Aberto" | "Fechado" | "Stand-by" | "Cancelada" | "Reprovada";
+
+export type SolicitacaoBacklogBadgeMeta = {
+    label: SolicitacaoBacklogStatusLabel;
+    className: string;
+};
+
+const BACKLOG_BADGE_BASE = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap";
+
+/**
+ * Simplified grid status for solicitações: Aberto, Fechado, Stand-by, Cancelada, Reprovada.
+ */
+export function solicitacaoBacklogStatusBadge(raw: string | number | undefined | null): SolicitacaoBacklogBadgeMeta {
+    const ord = normalizeSolicitacaoStatusOrdinal(raw ?? 0);
+    if (ord === 3) {
+        return { label: "Reprovada", className: `${BACKLOG_BADGE_BASE} bg-red-500/15 text-red-700` };
+    }
+    if (ord === 6) {
+        return { label: "Cancelada", className: `${BACKLOG_BADGE_BASE} bg-zinc-500/15 text-zinc-600` };
+    }
+    if (ord === 18) {
+        return { label: "Stand-by", className: `${BACKLOG_BADGE_BASE} bg-amber-500/15 text-amber-800` };
+    }
+    if (ord === 8 || ord === 19 || ord === 20) {
+        return { label: "Fechado", className: `${BACKLOG_BADGE_BASE} bg-emerald-600/15 text-emerald-800` };
+    }
+    return { label: "Aberto", className: `${BACKLOG_BADGE_BASE} bg-sky-500/15 text-sky-700` };
+}
+
+export function SolicitacaoBacklogStatusBadgeEl({ raw }: { raw: string | number | undefined | null }) {
+    const meta = solicitacaoBacklogStatusBadge(raw);
+    return <span className={meta.className}>{meta.label}</span>;
+}
+
 /** KPI / delay badge: solicitacao awaiting action (excluding terminal). */
 export function solicitacaoPainelUnifiedStatusOrdinal(vagaOrdinal: number): number {
     switch (vagaOrdinal) {

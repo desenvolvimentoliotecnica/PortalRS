@@ -174,6 +174,7 @@ export default function MicrosoftGraphCalendarConfigCard() {
                 <p className="text-xs text-muted-foreground">
                     Integração para exibir eventos do calendário Outlook na agenda do portal.
                     O app no Azure AD precisa da permissão de aplicativo <strong>Calendars.Read</strong> com consentimento do administrador.
+                    Na agenda, <strong>cada usuário vê apenas os eventos do próprio e-mail de login</strong> (mesmo UPN no Azure AD).
                 </p>
 
                 <label className="flex items-center gap-2 text-sm">
@@ -227,7 +228,7 @@ export default function MicrosoftGraphCalendarConfigCard() {
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="graph-user-upn">User Principal Name (UPN)</Label>
+                        <Label htmlFor="graph-user-upn">UPN para teste de conexão</Label>
                         <Input
                             id="graph-user-upn"
                             value={userPrincipalName}
@@ -236,7 +237,8 @@ export default function MicrosoftGraphCalendarConfigCard() {
                             disabled={loading || saving}
                         />
                         <p className="text-[11px] text-muted-foreground">
-                            E-mail/UPN do usuário no Azure AD cujo calendário será lido.
+                            Usado apenas no botão &quot;Testar leitura da agenda&quot;. Na agenda do portal, cada usuário
+                            consulta o calendário do <strong>próprio e-mail de login</strong> (ex.: julia.machado@… vê só a agenda da Julia).
                         </p>
                     </div>
                 </div>

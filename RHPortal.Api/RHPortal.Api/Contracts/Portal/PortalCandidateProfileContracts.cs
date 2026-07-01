@@ -12,6 +12,11 @@ public sealed record PortalCandidateProfileResponse(
     Guid Id,
     string Nome,
     string Email,
+    string? Cpf,
+    string? Rg,
+    string? DataNascimento,
+    string? NomeMae,
+    string? NomePai,
     string? Fone,
     string? Celular,
     string? Cidade,
@@ -20,7 +25,8 @@ public sealed record PortalCandidateProfileResponse(
     string? ResumoProfissional,
     string? AvatarUrl,
     PortalCandidateDocumentoSummary? Curriculo,
-    bool? TrabalhandoAtualmente
+    bool? TrabalhandoAtualmente,
+    bool PerfilDocumentacaoCompleta
 );
 
 public sealed record PortalCandidateProfileUpdateRequest(
@@ -31,7 +37,12 @@ public sealed record PortalCandidateProfileUpdateRequest(
     [Required, MaxLength(2)] string Uf,
     [MaxLength(260)] string? LinkedinUrl,
     [MaxLength(2000)] string? ResumoProfissional,
-    bool? TrabalhandoAtualmente
+    bool? TrabalhandoAtualmente,
+    [MaxLength(14)] string? Cpf,
+    [MaxLength(20)] string? Rg,
+    [MaxLength(10)] string? DataNascimento,
+    [MaxLength(160)] string? NomeMae,
+    [MaxLength(160)] string? NomePai
 );
 
 public sealed record PortalCandidateAvatarResponse(

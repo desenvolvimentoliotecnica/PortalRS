@@ -11,6 +11,11 @@ public sealed record PortalCandidateLoginRequest(
 public sealed record PortalCandidateRegisterRequest(
     [Required, MaxLength(160)] string Nome,
     [Required, MaxLength(180)] string Email,
+    [Required, MaxLength(14)] string Cpf,
+    [Required, MaxLength(20)] string Rg,
+    [Required, MaxLength(10)] string DataNascimento,
+    [Required, MaxLength(160)] string NomeMae,
+    [MaxLength(160)] string? NomePai,
     [Required, MaxLength(40)] string Fone,
     [Required, MaxLength(120)] string Cidade,
     [Required, MaxLength(2)] string Uf,
@@ -24,5 +29,6 @@ public sealed record PortalCandidateRegisterRequest(
 public sealed record PortalCandidateAuthResponse(
     Guid Id,
     string Nome,
-    string Email
+    string Email,
+    bool PerfilDocumentacaoCompleta
 );
