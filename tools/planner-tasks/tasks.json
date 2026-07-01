@@ -4712,19 +4712,22 @@
       "descricaoAmigavel": "Redesign dos modais de detalhe e edição de candidatos: layout sem scroll duplo, status/vaga bloqueados quando aprovado, aba CV ampliada e remoção do botão Excluir no detalhe.",
       "inicio": "2026-07-01",
       "horarioInicio": "15:58",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "16:05",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Melhorar UI/UX do modal de candidatos (Resumo, Editar, Texto do CV): corrigir status vs badge, travar vaga se aprovado, ocultar Salvar status/vaga, remover Excluir, layout flex sem scrolls desnecessários.",
       "entregavel": "Modais de detalhe e edição com layout flex 85vh, bloqueio de status/vaga para aprovados, aba CV em tela cheia com contador de caracteres, campo Status removido do editar.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "68addfb0"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #72"
       },
       "observacoes": "Protótipos aprovados pelo usuário antes da implementação."
     }
