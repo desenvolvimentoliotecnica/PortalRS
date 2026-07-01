@@ -21,6 +21,8 @@ public sealed record PortalDocumentoDownloadResult(Stream Stream, string Content
 public interface IAdmissaoPortalService
 {
     Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct);
+    Task<(bool Ok, string? Error)> RequestLoginOtpAsync(AdmissaoPortalRequestOtpRequest request, CancellationToken ct);
+    Task<AdmissaoPortalLoginResponse?> VerifyLoginOtpAsync(AdmissaoPortalVerifyOtpRequest request, CancellationToken ct);
     Task<AdmissaoPortalDataResponse?> GetDataAsync(Guid preAdmissaoId, string cpf, CancellationToken ct);
     Task<BlipDocumentosResponse?> GetDocumentosByIdentificadorAsync(string? cpf, string? telefone, CancellationToken ct);
     Task<(int HttpStatus, string Mensagem)> EnviarDocumentoBlipAsync(BlipEnviarDocumentoRequest request, CancellationToken ct);
@@ -51,6 +53,7 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
     private readonly BlipDocumentoValidator _blipValidator;
     private readonly IHostEnvironment _hostEnvironment;
     private readonly IAdmissaoPortalRhNotificacaoService _rhNotificacao;
+    private readonly IAdmissaoPortalOtpService _otpService;
 
     public AdmissaoPortalService(
         AppDbContext db,
@@ -62,7 +65,8 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         IHttpClientFactory httpClientFactory,
         BlipDocumentoValidator blipValidator,
         IHostEnvironment hostEnvironment,
-        IAdmissaoPortalRhNotificacaoService rhNotificacao)
+        IAdmissaoPortalRhNotificacaoService rhNotificacao,
+        IAdmissaoPortalOtpService otpService)
     {
         _db = db;
         _masterDb = masterDb;
@@ -74,6 +78,46 @@ public sealed class AdmissaoPortalService : IAdmissaoPortalService
         _blipValidator = blipValidator;
         _hostEnvironment = hostEnvironment;
         _rhNotificacao = rhNotificacao;
+        _otpService = otpService;
+    }
+
+    public async Task<(bool Ok, string? Error)> RequestLoginOtpAsync(
+        AdmissaoPortalRequestOtpRequest request,
+        CancellationToken ct)
+    {
+        var cpfNorm = NormalizeCpf(request.Cpf);
+        if (string.IsNullOrWhiteSpace(cpfNorm) || cpfNorm.Length < 11)
+            return (false, "CPF inválido.");
+
+        var pa = await _db.Set<Domain.Entities.PreAdmissao>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == request.PreAdmissaoId && x.AccessToken != null, ct);
+
+        if (pa is null)
+            return (false, "CPF não reconhecido ou acesso não liberado.");
+
+        if (!string.IsNullOrWhiteSpace(pa.Cpf) && NormalizeCpf(pa.Cpf) != cpfNorm)
+            return (false, "CPF não reconhecido ou acesso não liberado.");
+
+        if (pa.Status != PreAdmissaoStatus.Enviado
+            && pa.Status != PreAdmissaoStatus.Acessado
+            && pa.Status != PreAdmissaoStatus.PreenchidoParcial
+            && pa.Status != PreAdmissaoStatus.Preenchido)
+            return (false, "Acesso não liberado neste momento.");
+
+        return await _otpService.RequestOtpAsync(request.PreAdmissaoId, cpfNorm, pa.Email, ct);
+    }
+
+    public async Task<AdmissaoPortalLoginResponse?> VerifyLoginOtpAsync(
+        AdmissaoPortalVerifyOtpRequest request,
+        CancellationToken ct)
+    {
+        var cpfNorm = NormalizeCpf(request.Cpf);
+        if (string.IsNullOrWhiteSpace(cpfNorm) || cpfNorm.Length < 11) return null;
+        if (!_otpService.VerifyOtp(request.PreAdmissaoId, cpfNorm, request.Otp))
+            return null;
+
+        return await LoginAsync(new AdmissaoPortalLoginRequest(request.PreAdmissaoId, request.Cpf), ct);
     }
 
     public async Task<AdmissaoPortalLoginResponse?> LoginAsync(AdmissaoPortalLoginRequest request, CancellationToken ct)

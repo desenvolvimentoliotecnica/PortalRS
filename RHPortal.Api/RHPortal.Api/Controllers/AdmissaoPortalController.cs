@@ -68,6 +68,28 @@ public sealed class AdmissaoPortalController : ControllerBase
         };
     }
 
+    /// <summary>Candidato solicita código OTP por e-mail (após informar CPF).</summary>
+    [HttpPost("login/request-otp")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RequestLoginOtp([FromBody] AdmissaoPortalRequestOtpRequest request, CancellationToken ct)
+    {
+        var (ok, error) = await _service.RequestLoginOtpAsync(request, ct);
+        return ok ? Ok(new { ok = true }) : BadRequest(new { message = error ?? "Não foi possível enviar o código." });
+    }
+
+    /// <summary>Candidato valida OTP e conclui login.</summary>
+    [HttpPost("login/verify-otp")]
+    [ProducesResponseType(typeof(AdmissaoPortalLoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> VerifyLoginOtp([FromBody] AdmissaoPortalVerifyOtpRequest request, CancellationToken ct)
+    {
+        var result = await _service.VerifyLoginOtpAsync(request, ct);
+        return result is null
+            ? Unauthorized(new { message = "Código inválido ou expirado." })
+            : Ok(result);
+    }
+
     /// <summary>Candidato faz login com CPF para acessar o portal de documentos.</summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(AdmissaoPortalLoginResponse), StatusCodes.Status200OK)]

@@ -8,9 +8,7 @@ import {
 export type WizardStepKind =
     | "welcome"
     | "dados-pessoais"
-    | "dados-gerais"
     | "documentos"
-    | "bancario"
     | "revisao"
     | "conclusao";
 
@@ -21,14 +19,12 @@ export interface MainWizardStep {
     subtitle: string;
 }
 
-/** 6 etapas principais (steps 1–6). Step 0 = boas-vindas. */
+/** 4 etapas principais (steps 1–4). Step 0 = boas-vindas. */
 export const MAIN_WIZARD_STEPS: MainWizardStep[] = [
     { step: 1, kind: "dados-pessoais", label: "Dados Pessoais", subtitle: "Informações básicas" },
-    { step: 2, kind: "dados-gerais", label: "Dados Gerais", subtitle: "Endereço e contato" },
-    { step: 3, kind: "documentos", label: "Documentos", subtitle: "Envio de documentos" },
-    { step: 4, kind: "bancario", label: "Informações Bancárias", subtitle: "Dados da conta" },
-    { step: 5, kind: "revisao", label: "Revisão", subtitle: "Confira seus dados" },
-    { step: 6, kind: "conclusao", label: "Conclusão", subtitle: "Finalizar processo" },
+    { step: 2, kind: "documentos", label: "Documentos", subtitle: "Envio de documentos" },
+    { step: 3, kind: "revisao", label: "Revisão", subtitle: "Confira seus dados" },
+    { step: 4, kind: "conclusao", label: "Conclusão", subtitle: "Finalizar processo" },
 ];
 
 export interface WizardStepInfo {
@@ -49,18 +45,16 @@ export interface WizardPlan {
 const STEP_KIND_BY_NUMBER: Record<number, WizardStepKind> = {
     0: "welcome",
     1: "dados-pessoais",
-    2: "dados-gerais",
-    3: "documentos",
-    4: "bancario",
-    5: "revisao",
-    6: "conclusao",
+    2: "documentos",
+    3: "revisao",
+    4: "conclusao",
 };
 
 export function buildWizardPlan(documentosSolicitados: DocSolicitadoItem[]): WizardPlan {
     const documentSteps = sortDocumentosSolicitados(
         documentosSolicitados.filter((d) => d.obrigatorio),
     );
-    const totalSteps = 7; // 0 welcome + 6 main
+    const totalSteps = 5; // 0 welcome + 4 main
 
     function resolveStep(step: number): WizardStepInfo {
         const clamped = Math.min(Math.max(0, step), totalSteps - 1);
@@ -81,31 +75,27 @@ export function buildWizardPlan(documentosSolicitados: DocSolicitadoItem[]): Wiz
     }
 
     function migrateLegacyStep(saved: number, isSubmitted = false): number {
-        if (isSubmitted) return 6;
+        if (isSubmitted) return 4;
         if (saved <= 0) return 0;
 
-        // Novo formato (0–6)
-        if (saved <= 6) return saved;
+        // Formato atual (0–4)
+        if (saved <= 4) return saved;
 
-        // Formato anterior: welcome + N docs + 10 dados + dependentes + review
+        // Formato anterior (0–6 com gerais/bancários): 1 pessoal, 2 gerais, 3 docs, 4 banc, 5 rev, 6 conclusão
+        if (saved === 1) return 1;
+        if (saved === 2) return 1;
+        if (saved === 3) return 2;
+        if (saved === 4) return 1;
+        if (saved === 5) return 3;
+        if (saved >= 6) return isSubmitted ? 4 : 3;
+
+        // Formato legado expandido (docs individuais)
         const oldDocsStart = 1;
         const oldDadosStart = oldDocsStart + Math.max(documentSteps.length, 1);
-        const oldDadosEnd = oldDadosStart + 9;
-        const oldDependentes = oldDadosEnd + 1;
-        const oldReview = oldDependentes + 1;
+        if (saved < oldDadosStart) return 2;
+        if (saved >= oldDadosStart + 10) return 3;
 
-        if (saved < oldDadosStart) return 3;
-        if (saved <= oldDadosEnd) {
-            const sectionIndex = saved - oldDadosStart;
-            if (sectionIndex === 0) return 1;
-            if (sectionIndex <= 2) return 2;
-            if (sectionIndex === 3) return 4;
-            return 2;
-        }
-        if (saved === oldDependentes) return 2;
-        if (saved >= oldReview) return 5;
-
-        return Math.min(saved, 6);
+        return Math.min(saved, 4);
     }
 
     return {

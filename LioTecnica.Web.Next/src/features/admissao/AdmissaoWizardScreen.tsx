@@ -3,8 +3,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-    User, MapPin, Phone, CreditCard, Briefcase, FileUp, CheckCircle2, Upload,
-    ChevronLeft, ChevronRight, Save, Send, AlertTriangle, Loader2, Eye, Coins,
+    Briefcase, FileUp, CheckCircle2, Upload,
+    ChevronLeft, ChevronRight, Save, Send, AlertTriangle, Loader2, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,8 @@ import { CentroCustoAutocomplete } from "@/components/autocomplete/CentroCustoAu
 import { EstabelecimentoAutocomplete } from "@/components/autocomplete/EstabelecimentoAutocomplete";
 import { TurnoAutocomplete } from "@/components/autocomplete/TurnoAutocomplete";
 import { UnidadeLotacaoAutocomplete } from "@/components/autocomplete/UnidadeLotacaoAutocomplete";
-import { validatePreAdmissao, firstErrorStep } from "@/features/admissao/validation";
-import { mapTotvsIssuesToErrors, type TotvsValidationIssue } from "@/features/admissao/totvsErrorMap";
+import { validateRhContratual, firstRhErrorStep } from "@/features/admissao/rhWizardValidation";
+import AdmissaoContratualStep from "@/features/admissao/AdmissaoContratualStep";
 
 /** Converte string do autocomplete em número, retornando null quando não numérico. */
 function toIntOrNull(v: string | null | undefined): number | null {
@@ -216,12 +216,7 @@ interface PreAdmissao {
 }
 
 const STEPS = [
-    { key: "pessoal", label: "Dados Pessoais", icon: User },
-    { key: "endereco", label: "Endereço", icon: MapPin },
-    { key: "contato", label: "Contato", icon: Phone },
-    { key: "bancario", label: "Dados Bancários", icon: CreditCard },
-    { key: "trabalhista", label: "Dados Trabalhistas", icon: Briefcase },
-    { key: "encargos", label: "Encargos e eSocial", icon: Coins },
+    { key: "contratual", label: "Dados Contratuais", icon: Briefcase },
     { key: "documentos", label: "Documentos", icon: FileUp },
     { key: "revisao", label: "Revisão e Envio", icon: CheckCircle2 },
 ];
@@ -569,7 +564,7 @@ export default function AdmissaoWizardScreen() {
             const cargo = params.get("cargo");
             if (cargo) {
                 setForm(prev => ({ ...prev, nome: prev.nome || cargo }));
-                setStep(4); // Jump to Dados Trabalhistas where cargo is relevant
+                setStep(0);
             }
         }
     }, [id]);
@@ -613,7 +608,7 @@ export default function AdmissaoWizardScreen() {
     // Navega ao step do primeiro erro, destaca inputs em vermelho e faz scroll até o campo.
     function applyErrors(errors: { field: string; label: string; stepIndex: number; message: string }[]) {
         if (errors.length === 0) return;
-        const firstStep = firstErrorStep(errors) ?? 0;
+        const firstStep = firstRhErrorStep(errors) ?? 0;
         setStep(firstStep);
         setFieldErrors(new Set(errors.map(e => e.field)));
         const first = errors[0];
@@ -629,10 +624,9 @@ export default function AdmissaoWizardScreen() {
         }, 120);
     }
 
-    async function submit() {
+    async function finishWizard() {
         if (!id) return;
-        // Validação só no clique em "Finalizar" — passos intermediários permitem dados incompletos.
-        const errors = validatePreAdmissao(form);
+        const errors = validateRhContratual(form);
         if (errors.length > 0) {
             applyErrors(errors);
             return;
@@ -641,36 +635,13 @@ export default function AdmissaoWizardScreen() {
         try {
             setSubmitting(true);
             await save();
-            const res = await apiFetch(`/api/pre-admissao/${id}/submit`, { method: "POST" });
-            if (res.ok) {
-                const detail = await res.json().catch(() => null) as { status?: number | string } | null;
-                const st = detail?.status;
-                const aprovada = st === 3 || st === "Aprovada";
-                toast.success(aprovada
-                    ? "Admissão concluída e aprovada automaticamente."
-                    : "Admissão enviada para revisão do RH.");
-                router.push(aprovada
-                    ? `/admissao/revisao?id=${encodeURIComponent(id)}&submitted=1`
-                    : `/admissao/revisao?id=${encodeURIComponent(id)}&submitted=1&review=1`);
-                return;
-            }
-
-            // 422 → backend identificou campo TOTVS faltando; redireciona ao step culpado.
-            if (res.status === 422) {
-                const body = await res.json().catch(() => null) as
-                    | { type?: string; message?: string; errors?: TotvsValidationIssue[] }
-                    | null;
-                if (body?.type === "totvs_validation" && body.errors?.length) {
-                    const mapped = mapTotvsIssuesToErrors(body.errors);
-                    applyErrors(mapped);
-                    return;
-                }
-            }
-
-            const fallback = await res.text().catch(() => "");
-            toast.error(fallback || "Erro ao submeter");
-        } catch { toast.error("Erro de conexão"); }
-        finally { setSubmitting(false); }
+            toast.success("Dados salvos. Continue no acompanhamento para enviar o link ao candidato.");
+            router.push(`/app/admissao/tracking?id=${encodeURIComponent(id)}`);
+        } catch {
+            toast.error("Erro de conexão");
+        } finally {
+            setSubmitting(false);
+        }
     }
 
     async function handleCep() {
@@ -761,441 +732,13 @@ export default function AdmissaoWizardScreen() {
             {/* conteúdo do step */}
             <div className="p-6 min-h-[400px]">
 
-                {/* Step 0: Dados Pessoais */}
+                {/* Step 0: Dados Contratuais */}
                 {step === 0 && (
-                    <div className="space-y-4">
-                        <h5 className="font-semibold text-sm flex items-center gap-2"><User className="size-4" /> Dados Pessoais</h5>
-
-                        <section>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Identificação</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                <div className="col-span-2 lg:col-span-3"><Field field="nome" label="Nome Completo *" value={form.nome} onChange={v => set("nome", v)} /></div>
-                                <div className="col-span-2"><Field field="nomeAbreviado" label="Nome Abreviado" value={form.nomeAbreviado} onChange={v => set("nomeAbreviado", v)} placeholder="Máx. 12 caracteres" maxLength={12} /></div>
-                                <div className="col-span-2"><Field field="nomeSocial" label="Nome Social" value={form.nomeSocial} onChange={v => set("nomeSocial", v)} hint="Nome pelo qual a pessoa deseja ser reconhecida" /></div>
-                                <Field field="cpf" label="CPF *" value={form.cpf} onChange={v => set("cpf", v)} placeholder="000.000.000-00" maxLength={14} />
-                                <Field field="dataNascimento" label="Data Nascimento *" value={form.dataNascimento} onChange={v => set("dataNascimento", v)} type="date" />
-                                <Select field="sexo" label="Sexo" value={form.sexo} options={SEXO_OPTIONS} onChange={v => set("sexo", Number(v))} />
-                                <Select field="estadoCivil" label="Estado Civil" value={form.estadoCivil} options={ESTADO_CIVIL_OPTIONS} onChange={v => set("estadoCivil", Number(v))} />
-                                <Select field="origemFuncionario" label="Origem" value={form.origemFuncionario} options={ORIGEM_FUNCIONARIO} onChange={v => set("origemFuncionario", Number(v))} />
-                                <Field field="nacionalidade" label="Nacionalidade" value={form.nacionalidade} onChange={v => set("nacionalidade", v)} placeholder="Brasileira" />
-                                <Field field="paisNacionalidade" label="País Nacionalidade" value={form.paisNacionalidade} onChange={v => set("paisNacionalidade", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras (BRA, USA, ARG)" />
-                                <div className="col-span-2"><Field field="naturalCidade" label="Natural (Cidade)" value={form.naturalCidade} onChange={v => set("naturalCidade", v)} /></div>
-                                <Select field="naturalUf" label="UF Naturalidade" value={form.naturalUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("naturalUf", v)} />
-                                <Field field="paisNascimento" label="País Nascimento" value={form.paisNascimento} onChange={v => set("paisNascimento", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras" />
-                                <Field field="municipioNascimentoIbge" label="Município Nasc. (IBGE)" value={form.municipioNascimentoIbge != null ? String(form.municipioNascimentoIbge) : ""} onChange={v => { const n = parseInt(v, 10); set("municipioNascimentoIbge", Number.isFinite(n) ? n : null); }} type="number" placeholder="3550308" maxLength={7} hint="7 dígitos — cód. IBGE da cidade de nascimento" />
-                                <div className="col-span-2 md:col-span-3"><Field field="nomeMae" label="Nome da Mãe *" value={form.nomeMae} onChange={v => set("nomeMae", v)} /></div>
-                                <div className="col-span-2 md:col-span-3"><Field field="nomePai" label="Nome do Pai *" value={form.nomePai} onChange={v => set("nomePai", v)} /></div>
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">RG — Registro Geral</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <Field field="rg" label="RG *" value={form.rg} onChange={v => set("rg", v)} />
-                                <Field field="rgOrgaoExpedidor" label="Órgão Expedidor" value={form.rgOrgaoExpedidor} onChange={v => set("rgOrgaoExpedidor", v)} placeholder="SSP" maxLength={10} />
-                                <Select field="rgUfExpedidor" label="UF" value={form.rgUfExpedidor} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("rgUfExpedidor", v)} />
-                                <Field field="rgDataExpedicao" label="Data Expedição" value={form.rgDataExpedicao} onChange={v => set("rgDataExpedicao", v)} type="date" />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Características Físicas</div>
-                            <div className="grid grid-cols-3 gap-3 max-w-2xl">
-                                <Select field="cutis" label="Raça/Cor" value={form.cutis} options={CUTIS_OPTIONS} onChange={v => set("cutis", Number(v))} />
-                                <Select field="cabelo" label="Cabelo" value={form.cabelo} options={CABELO_OPTIONS} onChange={v => set("cabelo", Number(v))} />
-                                <Select field="olhos" label="Olhos" value={form.olhos} options={OLHOS_OPTIONS} onChange={v => set("olhos", Number(v))} />
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mt-3">
-                                <Field field="altura" label="Altura (cm)" value={form.altura != null ? String(form.altura) : ""} onChange={v => { const n = parseInt(v, 10); set("altura", Number.isFinite(n) ? n : null); }} type="number" placeholder="175" maxLength={3} />
-                                <Field field="peso" label="Peso (gramas)" value={form.peso != null ? String(form.peso) : ""} onChange={v => { const n = parseInt(v, 10); set("peso", Number.isFinite(n) ? n : null); }} type="number" placeholder="75000" hint="Em gramas (mínimo 1000 = 1kg)" />
-                                <Field field="manequim" label="Manequim" value={form.manequim != null ? String(form.manequim) : ""} onChange={v => { const n = parseInt(v, 10); set("manequim", Number.isFinite(n) ? n : null); }} type="number" placeholder="40" maxLength={3} />
-                                <Field field="sapato" label="Sapato" value={form.sapato != null ? String(form.sapato) : ""} onChange={v => { const n = parseInt(v, 10); set("sapato", Number.isFinite(n) ? n : null); }} type="number" placeholder="42" maxLength={3} />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Saúde</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                <Select field="grupoSanguineo" label="Grupo Sanguíneo" value={form.grupoSanguineo} options={GRUPO_SANGUINEO_OPTIONS} onChange={v => set("grupoSanguineo", v === "" ? null : Number(v))} />
-                                <Select field="fatorRh" label="Fator Rh" value={form.fatorRh} options={FATOR_RH_OPTIONS} onChange={v => set("fatorRh", v === "" ? null : Number(v))} />
-                                <FlagSN field="possuiDeficiencia" label="Possui Deficiência" value={form.possuiDeficiencia} onChange={v => set("possuiDeficiencia", v)} hint='Padrão: "N"' />
-                                <FlagSN field="funcDoador" label="Doador" value={form.funcDoador} onChange={v => set("funcDoador", v)} hint="Doador de sangue/órgãos" />
-                                <Field field="cartaoSus" label="Cartão SUS (CNS)" value={form.cartaoSus} onChange={v => set("cartaoSus", v)} maxLength={15} placeholder="000 0000 0000 0000" />
-                            </div>
-                        </section>
-
-                        {form.nacionalidade && form.nacionalidade.toLowerCase() !== "brasileira" && (
-                            <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
-                                <div className="text-sm font-semibold text-amber-700 flex items-center gap-1"><AlertTriangle className="size-4" /> Dados do Estrangeiro</div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <Field field="passaporte" label="Passaporte" value={form.passaporte} onChange={v => set("passaporte", v)} />
-                                    <Field field="rnmRne" label="RNM/RNE" value={form.rnmRne} onChange={v => set("rnmRne", v)} />
-                                    <Field field="validadeVisto" label="Validade Visto" value={form.validadeVisto} onChange={v => set("validadeVisto", v)} type="date" />
-                                    <Field field="tipoVisto" label="Tipo Visto" value={form.tipoVisto} onChange={v => set("tipoVisto", v)} />
-                                </div>
-                                {form.validadeVisto && new Date(form.validadeVisto) < new Date() && (
-                                    <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700 flex items-center gap-2">
-                                        <AlertTriangle className="size-4 flex-shrink-0" />
-                                        <span><strong>Visto expirado!</strong> A validade do visto é anterior à data atual. O processo não poderá prosseguir até a renovação.</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    <AdmissaoContratualStep form={form} set={set} fieldErrors={fieldErrors} />
                 )}
 
-                {/* Step 1: Endereço */}
+                {/* Step 1: Documentos — campo individual por tipo */}
                 {step === 1 && (
-                    <div className="space-y-3">
-                        <h5 className="font-semibold text-sm flex items-center gap-2"><MapPin className="size-4" /> Endereço</h5>
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            <div data-field="cep" className="col-span-2 md:col-span-1">
-                                <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("cep") ? "text-red-600" : "text-muted-foreground"}`}>CEP</label>
-                                <div className="flex gap-1">
-                                    <Input
-                                        value={form.cep || ""}
-                                        onChange={e => set("cep", e.target.value)}
-                                        placeholder="00000-000"
-                                        maxLength={9}
-                                        className={`h-8 text-sm ${fieldErrors.has("cep") ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                                    />
-                                    <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={handleCep} type="button">🔍</Button>
-                                </div>
-                            </div>
-                            <div className="col-span-2 md:col-span-3"><Field field="logradouro" label="Logradouro" value={form.logradouro} onChange={v => set("logradouro", v)} /></div>
-                            <Field field="numero" label="Número" value={form.numero} onChange={v => set("numero", v)} maxLength={10} />
-                            <Field field="complemento" label="Complemento" value={form.complemento} onChange={v => set("complemento", v)} />
-                            <div className="col-span-2"><Field field="bairro" label="Bairro" value={form.bairro} onChange={v => set("bairro", v)} /></div>
-                            <div className="col-span-2"><Field field="cidade" label="Cidade *" value={form.cidade} onChange={v => set("cidade", v)} /></div>
-                            <Select field="uf" label="UF *" value={form.uf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("uf", v)} />
-                            <Field field="municipioEnderecoIbge" label="Código IBGE" value={form.municipioEnderecoIbge != null ? String(form.municipioEnderecoIbge) : ""} onChange={v => {
-                                const n = parseInt(v, 10);
-                                set("municipioEnderecoIbge", Number.isFinite(n) ? n : null);
-                            }} type="number" placeholder="3550308" maxLength={7} hint="7 dígitos — preenchido automaticamente pelo CEP" />
-                            <div className="col-span-2 md:col-span-3"><Field field="pontoReferencia" label="Ponto de Referência" value={form.pontoReferencia} onChange={v => set("pontoReferencia", v)} placeholder="Próximo ao shopping, etc." /></div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 2: Contato */}
-                {step === 2 && (
-                    <div className="space-y-3">
-                        <h5 className="font-semibold text-sm flex items-center gap-2"><Phone className="size-4" /> Contato</h5>
-                        <section>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Pessoal</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <div className="col-span-2"><Field field="email" label="E-mail" value={form.email} onChange={v => set("email", v)} type="email" placeholder="email@exemplo.com" /></div>
-                                <div className="col-span-2"><Field field="emailAlternativo" label="E-mail Alternativo" value={form.emailAlternativo} onChange={v => set("emailAlternativo", v)} type="email" placeholder="email2@exemplo.com" /></div>
-                                <Field field="dddTelefone" label="DDD" value={form.dddTelefone != null ? String(form.dddTelefone) : ""} onChange={v => { const n = parseInt(v, 10); set("dddTelefone", Number.isFinite(n) ? n : null); }} type="number" maxLength={2} placeholder="11" />
-                                <Field field="telefone" label="Telefone" value={form.telefone} onChange={v => set("telefone", v)} placeholder="0000-0000" maxLength={9} />
-                                <Field field="dddTelContato" label="DDD Celular" value={form.dddTelContato != null ? String(form.dddTelContato) : ""} onChange={v => { const n = parseInt(v, 10); set("dddTelContato", Number.isFinite(n) ? n : null); }} type="number" maxLength={2} placeholder="11" />
-                                <Field field="celular" label="Celular" value={form.celular} onChange={v => set("celular", v)} placeholder="90000-0000" maxLength={10} />
-                            </div>
-                        </section>
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Contato de Emergência</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <div className="col-span-2"><Field field="contatoEmergenciaNome" label="Nome" value={form.contatoEmergenciaNome} onChange={v => set("contatoEmergenciaNome", v)} /></div>
-                                <div className="col-span-2"><Field field="contatoEmergenciaFone" label="Telefone" value={form.contatoEmergenciaFone} onChange={v => set("contatoEmergenciaFone", v)} placeholder="(11) 90000-0000" maxLength={16} /></div>
-                            </div>
-                        </section>
-                    </div>
-                )}
-
-                {/* Step 3: Bancário */}
-                {step === 3 && (
-                    <div className="space-y-3">
-                        <h5 className="font-semibold text-sm flex items-center gap-2"><CreditCard className="size-4" /> Dados Bancários</h5>
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                            <div data-field="bancoCodigo" data-field-extra="bancoNome" className="col-span-2 md:col-span-3">
-                                <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Banco (FEBRABAN)</label>
-                                <select className="w-full h-8 rounded-md border border-input bg-background px-2 text-sm" value={form.bancoCodigo || ""} onChange={e => {
-                                    const cod = e.target.value;
-                                    if (!cod) { set("bancoCodigo", null); set("bancoNome", null); return; }
-                                    const banco = BANCOS.find(b => b.startsWith(cod + "-"));
-                                    set("bancoCodigo", cod);
-                                    set("bancoNome", banco ? banco.substring(cod.length + 1) : null);
-                                }}>
-                                    <option value="">Selecione…</option>
-                                    {BANCOS.map(b => {
-                                        const dash = b.indexOf("-");
-                                        const cod = b.substring(0, dash);
-                                        return <option key={b} value={cod}>{b}</option>;
-                                    })}
-                                </select>
-                            </div>
-                            <div data-field="bancoNome" className="hidden" aria-hidden="true" />
-
-                            <div className="col-span-2"><Select field="tipoConta" label="Tipo de Conta" value={form.tipoConta} options={TIPO_CONTA} onChange={v => set("tipoConta", Number(v))} /></div>
-                            <Field field="agencia" label="Agência" value={form.agencia} onChange={v => set("agencia", v)} maxLength={6} />
-                            <Field field="agenciaDigito" label="Dígito Ag." value={form.agenciaDigito} onChange={v => set("agenciaDigito", v)} maxLength={2} />
-                            <div className="col-span-2"><Field field="conta" label="Conta" value={form.conta} onChange={v => set("conta", v)} maxLength={15} /></div>
-                            <Field field="contaDigito" label="Dígito Cta." value={form.contaDigito} onChange={v => set("contaDigito", v)} maxLength={2} />
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 4: Trabalhista */}
-                {step === 4 && (
-                    <div className="space-y-3">
-                        <h5 className="font-semibold text-sm flex items-center gap-2"><Briefcase className="size-4" /> Dados Trabalhistas</h5>
-
-                        <section>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Empresa e Admissão</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                <div data-field="codEmpresa" className="col-span-2 md:col-span-3">
-                                    <label className={`text-[11px] font-medium block mb-0.5 flex items-center ${fieldErrors.has("codEmpresa") ? "text-red-600" : "text-muted-foreground"}`}>
-                                        Empresa<Hint text="Busca nas empresas do tenant. Vira cCodEmpresa no TOTVS." />
-                                    </label>
-                                    <EmpresaAutocomplete
-                                        value={null}
-                                        onChange={() => {}}
-                                        onSelect={(empresa) => set("codEmpresa", empresa?.code || null)}
-                                        defaultLabel={form.codEmpresa ? { code: form.codEmpresa, description: "Empresa selecionada" } : undefined}
-                                        placeholder="Razão social ou código..."
-                                    />
-                                </div>
-                                <div data-field="estabelecimentoCodigo" className="col-span-2 md:col-span-3">
-                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Estabelecimento</label>
-                                    <EstabelecimentoAutocomplete
-                                        value={form.estabelecimentoCodigo ?? null}
-                                        onChange={(code) => set("estabelecimentoCodigo", code || null)}
-                                        valueAsCode
-                                    />
-                                </div>
-                                <Field field="dataAdmissao" label="Data Admissão" value={form.dataAdmissao} onChange={v => set("dataAdmissao", v)} type="date" />
-                                <Field field="salario" label="Salário (R$)" value={form.salario != null ? String(form.salario) : ""} onChange={v => {
-                                    if (!v) { set("salario", null); return; }
-                                    const n = parseFloat(v);
-                                    set("salario", Number.isFinite(n) ? n : null);
-                                }} type="number" placeholder="0,00" />
-                                <Select field="tipoContratacao" label="Contratação" value={form.tipoContratacao} options={TIPO_CONTRATACAO} onChange={v => set("tipoContratacao", Number(v))} />
-                                <Field field="cargaHorariaSemanal" label="Carga Horária/sem" value={form.cargaHorariaSemanal != null ? String(form.cargaHorariaSemanal) : ""} onChange={v => {
-                                    if (!v) { set("cargaHorariaSemanal", null); return; }
-                                    const n = parseInt(v, 10);
-                                    if (!Number.isFinite(n) || n < 0) { set("cargaHorariaSemanal", null); return; }
-                                    set("cargaHorariaSemanal", Math.min(n, 32767));
-                                }} type="number" placeholder="44" maxLength={3} />
-                                <Field field="pisPasep" label="PIS/PASEP *" value={form.pisPasep} onChange={v => set("pisPasep", v)} maxLength={11} hint="11 dígitos sem máscara" />
-                                <Field field="salarioSimulado" label="Salário Simulado (R$)" value={form.salarioSimulado != null ? String(form.salarioSimulado) : ""} onChange={v => { if (!v) { set("salarioSimulado", null); return; } const n = parseFloat(v); set("salarioSimulado", Number.isFinite(n) ? n : null); }} type="number" placeholder="0,00" hint="Salário simulado para cálculos TOTVS" />
-                                <Field field="dataOpcaoFgts" label="Data Opção FGTS" value={form.dataOpcaoFgts} onChange={v => set("dataOpcaoFgts", v)} type="date" />
-                                <Field field="dataTerminoContrato" label="Data Término Contrato" value={form.dataTerminoContrato != null ? String(form.dataTerminoContrato) : ""} onChange={v => { const n = parseInt(v, 10); set("dataTerminoContrato", Number.isFinite(n) ? n : null); }} type="number" maxLength={8} placeholder="DDMMAAAA" hint="Obrigatório p/ CLT Prazo Determinado (vínculo 20). Formato DDMMAAAA ex: 30082021" />
-                                <FlagSN field="funcQualificado" label="Func. Qualificado" value={form.funcQualificado} onChange={v => set("funcQualificado", v)} hint='CLT padrão: "S"' />
-                            </div>
-                            {form.salario && form.validacaoSalarioOk === false && (
-                                <div data-field="validacaoSalarioJustificativa" className="mt-2 rounded border border-amber-500/30 bg-amber-500/5 p-2.5 flex items-start gap-2">
-                                    <AlertTriangle className="size-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                                    <div className="flex-1 space-y-1.5">
-                                        <div className="text-[11px] font-semibold text-amber-700">Salário acima do teto da faixa do cargo — justifique:</div>
-                                        <Input
-                                            value={form.validacaoSalarioJustificativa || ""}
-                                            onChange={e => set("validacaoSalarioJustificativa", e.target.value)}
-                                            placeholder="Ex: contratação estratégica aprovada pelo diretor"
-                                            className={`h-8 text-sm ${fieldErrors.has("validacaoSalarioJustificativa") ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Cargo e Vínculo TOTVS</div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                <div data-field="codCargoTotvs" className={`col-span-2 ${fieldErrors.has("codCargoTotvs") ? "[&_input]:border-red-500 [&_input]:focus-visible:ring-red-500" : ""}`}>
-                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("codCargoTotvs") ? "text-red-600" : "text-muted-foreground"}`}>Cargo TOTVS</label>
-                                    <CargoAutocomplete
-                                      value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : ""}
-                                      onChange={() => {}}
-                                      onSelect={(cargo) => {
-                                        set("codCargoTotvs", cargo.totvsCargoBasicId ?? null);
-                                        set("jobPositionId", cargo.id || null);
-                                      }}
-                                    />
-                                </div>
-                                <Select field="codVinculoEmpregaticio" label="Vínculo" value={form.codVinculoEmpregaticio} options={VINCULO_EMPREGATICIO} onChange={v => set("codVinculoEmpregaticio", Number(v))} />
-                                <Select field="tipoFuncionario" label="Tipo Func." value={form.tipoFuncionario} options={TIPO_FUNCIONARIO_TOTVS} onChange={v => set("tipoFuncionario", Number(v))} />
-                                <div data-field="categoriaSalarial" className={fieldErrors.has("categoriaSalarial") ? "[&_input]:border-red-500 [&_input]:focus-visible:ring-red-500" : ""}>
-                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("categoriaSalarial") ? "text-red-600" : "text-muted-foreground"}`}>Cat. Salarial</label>
-                                    <CategoriaSalarialAutocomplete
-                                      value={form.categoriaSalarial != null ? String(form.categoriaSalarial) : ""}
-                                      onChange={(code) => set("categoriaSalarial", toIntOrNull(code))}
-                                    />
-                                </div>
-                                <Select field="grauInstrucao" label="Grau de Instrução" value={form.grauInstrucao} options={GRAU_INSTRUCAO} onChange={v => set("grauInstrucao", Number(v))} />
-                                <Select field="emitCartPonto" label="Emite Cart. Ponto" value={form.emitCartPonto} options={EMIT_CART_PONTO} onChange={v => set("emitCartPonto", v)} />
-                                <Select field="tipoEstatistica" label="Estatística" value={form.tipoEstatistica} options={TIPO_ESTATISTICA} onChange={v => set("tipoEstatistica", Number(v))} />
-                                <Select field="formaPagamento" label="Forma Pagto" value={form.formaPagamento} options={FORMA_PAGAMENTO} onChange={v => set("formaPagamento", Number(v))} />
-                                <Select field="tipoAdmissaoFgts" label="Tipo Adm. FGTS" value={form.tipoAdmissaoFgts} options={TIPO_ADMISSAO_FGTS} onChange={v => set("tipoAdmissaoFgts", Number(v))} />
-                                <Field field="paisLocalidade" label="País Localidade" value={form.paisLocalidade} onChange={v => set("paisLocalidade", normalizePaisIso3(v))} placeholder="BRA" maxLength={3} hint="ISO 3 letras" />
-                                <Field field="codNivel" label="Cód. Nível" value={form.codNivel != null ? String(form.codNivel) : ""} onChange={v => { const n = parseInt(v, 10); set("codNivel", Number.isFinite(n) ? n : null); }} type="number" hint="Nível do cargo TOTVS" />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Lotação e Turno</div>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                <div data-field="codTurno">
-                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Cód. Turno</label>
-                                    <TurnoAutocomplete value={form.codTurno ?? null} onChange={(code) => set("codTurno", toIntOrNull(code))} />
-                                </div>
-                                <div data-field="centroCusto">
-                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Centro de Custo</label>
-                                    <CentroCustoAutocomplete value={form.centroCusto ?? null} onChange={(code) => set("centroCusto", code || null)} />
-                                </div>
-                                <div data-field="unidadeLotacao">
-                                    <label className="text-[11px] font-medium block mb-0.5 text-muted-foreground">Unid. Lotação</label>
-                                    <UnidadeLotacaoAutocomplete value={form.unidadeLotacao ?? null} onChange={(code) => set("unidadeLotacao", code || null)} />
-                                </div>
-                                <Field field="codPlanoLotacao" label="Cód. Plano Lotação" value={form.codPlanoLotacao != null ? String(form.codPlanoLotacao) : ""} onChange={v => { const n = parseInt(v, 10); set("codPlanoLotacao", Number.isFinite(n) ? n : null); }} type="number" placeholder="101" />
-                                <Field field="numCartaoPonto" label="Nº Cartão Ponto" value={form.numCartaoPonto != null ? String(form.numCartaoPonto) : ""} onChange={v => { const n = parseInt(v, 10); set("numCartaoPonto", Number.isFinite(n) ? n : null); }} type="number" />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Jornada, Ponto e Sindicato (TOTVS)</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                <Field field="codTurma" label="Cód. Turma" value={form.codTurma != null ? String(form.codTurma) : ""} onChange={v => set("codTurma", toIntOrNull(v))} type="number" />
-                                <Field field="indFuncVinculado" label="Ind. Func. Vinc." value={form.indFuncVinculado != null ? String(form.indFuncVinculado) : ""} onChange={v => set("indFuncVinculado", toIntOrNull(v))} type="number" />
-                                <div data-field="tipoMaoDeObra">
-                                    <label className={`text-[11px] font-medium block mb-0.5 ${fieldErrors.has("tipoMaoDeObra") ? "text-red-600" : "text-muted-foreground"}`}>Tipo Mão-de-Obra</label>
-                                    <select
-                                        className={`w-full h-8 rounded-md border bg-background px-2 text-sm ${fieldErrors.has("tipoMaoDeObra") ? "border-red-500 focus-visible:ring-red-500" : "border-input"}`}
-                                        value={form.tipoMaoDeObra ?? ""}
-                                        onChange={e => set("tipoMaoDeObra", e.target.value || null)}
-                                    >
-                                        <option value="">Selecione…</option>
-                                        <option value="ADM">ADM — Administrativo</option>
-                                        <option value="COM">COM — Comercial</option>
-                                        <option value="GER">GER — Gerencial</option>
-                                        <option value="OPE">OPE — Operacional</option>
-                                    </select>
-                                </div>
-                                <Field field="codSindicato" label="Cód. Sindicato" value={form.codSindicato != null ? String(form.codSindicato) : ""} onChange={v => set("codSindicato", toIntOrNull(v))} type="number" />
-                                <FlagSN field="contribSindicDia" label="Contrib. Sindical Dia" value={form.contribSindicDia} onChange={v => set("contribSindicDia", v)} hint='CLT padrão: "S"' />
-                                <Field field="codLocalMarcacao" label="Cód. Loc. Marcação" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : ""} onChange={v => set("codLocalMarcacao", toIntOrNull(v))} type="number" />
-                                <Field field="codClassFuncPontoEletronico" label="Classif. Func. Ponto" value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : ""} onChange={v => set("codClassFuncPontoEletronico", toIntOrNull(v))} type="number" />
-                                <Field field="codLocalidade" label="Cód. Localidade" value={form.codLocalidade != null ? String(form.codLocalidade) : ""} onChange={v => set("codLocalidade", toIntOrNull(v))} type="number" />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Documentos Militares / Estrangeiro / CAGED (TOTVS)</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                <Select field="docMilitarTipo" label="Tipo Doc. Militar" value={form.docMilitarTipo} options={DOC_MILITAR_TIPO} onChange={v => set("docMilitarTipo", Number(v))} />
-                                <Field field="docMilitarRegiao" label="Região" value={form.docMilitarRegiao != null ? String(form.docMilitarRegiao) : ""} onChange={v => set("docMilitarRegiao", toIntOrNull(v))} type="number" />
-                                <Field field="docMilitarCircunscricao" label="Circunscrição" value={form.docMilitarCircunscricao != null ? String(form.docMilitarCircunscricao) : ""} onChange={v => set("docMilitarCircunscricao", toIntOrNull(v))} type="number" />
-                                <Field field="docMilitarNumero" label="Doc. Nº" value={form.docMilitarNumero} onChange={v => set("docMilitarNumero", v)} />
-                                <Field field="docMilitarSerie" label="Série" value={form.docMilitarSerie} onChange={v => set("docMilitarSerie", v)} maxLength={5} />
-                                <div></div>
-                                <Select field="tipoVistoEstrangeiro" label="Tipo Visto Estrang." value={form.tipoVistoEstrangeiro} options={TIPO_VISTO_ESTRANGEIRO} onChange={v => set("tipoVistoEstrangeiro", Number(v))} />
-                                <Select field="ocorrenciaCAGED" label="Ocorrência CAGED" value={form.ocorrenciaCAGED} options={OCORRENCIA_CAGED} onChange={v => set("ocorrenciaCAGED", Number(v))} />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Título de Eleitor</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                <Field field="tituloEleitorNumero" label="Título Eleitor" value={form.tituloEleitorNumero} onChange={v => set("tituloEleitorNumero", v)} maxLength={13} />
-                                <Field field="tituloEleitorZona" label="Zona" value={form.tituloEleitorZona} onChange={v => set("tituloEleitorZona", v)} maxLength={4} />
-                                <Field field="tituloEleitorSecao" label="Seção" value={form.tituloEleitorSecao} onChange={v => set("tituloEleitorSecao", v)} maxLength={4} />
-                                <Field field="tituloEleitorCidade" label="Cidade" value={form.tituloEleitorCidade} onChange={v => set("tituloEleitorCidade", v)} />
-                                <Select field="tituloEleitorUf" label="UF" value={form.tituloEleitorUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("tituloEleitorUf", v)} />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Reservista / CNH</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                <Field field="reservistaNumero" label="Reservista Nº" value={form.reservistaNumero} onChange={v => set("reservistaNumero", v)} />
-                                <Field field="categoriaCnh" label="Cat. CNH" value={form.categoriaCnh} onChange={v => set("categoriaCnh", v)} maxLength={3} placeholder="A, B, AB…" />
-                                <Field field="cnhNumero" label="CNH Nº" value={form.cnhNumero} onChange={v => set("cnhNumero", v)} maxLength={11} />
-                                <Select field="cnhUf" label="CNH UF" value={form.cnhUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("cnhUf", v)} />
-                                <Field field="cnhOrgaoEmissor" label="CNH Órgão Emissor" value={form.cnhOrgaoEmissor} onChange={v => set("cnhOrgaoEmissor", v)} maxLength={20} placeholder="SSP" />
-                                <Field field="cnhDataExpedicao" label="Data Expedição" value={form.cnhDataExpedicao} onChange={v => set("cnhDataExpedicao", v)} type="date" />
-                                <Field field="cnhPrimeiraHabilitacao" label="1ª Habilitação" value={form.cnhPrimeiraHabilitacao} onChange={v => set("cnhPrimeiraHabilitacao", v)} type="date" />
-                                <Field field="validadeCnh" label="Validade CNH" value={form.validadeCnh} onChange={v => set("validadeCnh", v)} type="date" />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">CTPS</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                <Field field="ctps" label="CTPS" value={form.ctps} onChange={v => set("ctps", v)} maxLength={10} />
-                                <Field field="ctpsSerie" label="Série" value={form.ctpsSerie} onChange={v => set("ctpsSerie", v)} maxLength={6} />
-                                <Select field="ctpsUf" label="UF" value={form.ctpsUf} options={UF_LIST.map(u => ({ value: u, label: u }))} onChange={v => set("ctpsUf", v)} />
-                                <Field field="ctpsModelo" label="Modelo" value={form.ctpsModelo != null ? String(form.ctpsModelo) : ""} onChange={v => { const n = parseInt(v, 10); set("ctpsModelo", Number.isFinite(n) ? n : null); }} type="number" placeholder="3" hint="Modelo TOTVS: 3" />
-                                <Field field="ctpsSerieESocial" label="Série eSocial" value={form.ctpsSerieESocial} onChange={v => set("ctpsSerieESocial", v)} maxLength={10} />
-                            </div>
-                        </section>
-                    </div>
-                )}
-
-                {/* Step 5: Encargos / eSocial — flags FGTS/INSS/Sindicato + códigos eSocial obrigatórios TOTVS */}
-                {step === 5 && (
-                    <div className="space-y-3">
-                        <h5 className="font-semibold text-sm flex items-center gap-2"><Coins className="size-4" /> Encargos, Sindicato e eSocial</h5>
-                        <div className="rounded border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-[11px] text-amber-700">
-                            Passe o mouse no <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted-foreground/15 text-[9px] font-bold">?</span> para ver o valor típico CLT. Cada funcionário pode ter contexto diferente — confirme antes.
-                        </div>
-
-                        <section>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">FGTS / INSS</div>
-                            <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                <FlagSN field="optanteFgts"  label="Optante FGTS"  value={form.optanteFgts}  onChange={v => set("optanteFgts", v)}  hint="CLT regular: Sim" />
-                                <FlagSN field="recolheFgts"  label="Recolhe FGTS"  value={form.recolheFgts}  onChange={v => set("recolheFgts", v)}  hint="CLT padrão: Sim" />
-                                <FlagSN field="recolheInss"  label="Recolhe INSS"  value={form.recolheInss}  onChange={v => set("recolheInss", v)}  hint="CLT padrão: Sim" />
-                            </div>
-                        </section>
-
-                        <section>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Sindicato</div>
-                            <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                <FlagSN field="sindicalizado"       label="Sindicalizado"             value={form.sindicalizado}       onChange={v => set("sindicalizado", v)}       hint="Comum: Não" />
-                                <FlagSN field="descContribSindical" label="Desconta Contrib. Sindical" value={form.descContribSindical} onChange={v => set("descContribSindical", v)} hint="Pós Reforma 2017: Não" />
-                                <FlagSN field="resideExterior"      label="Reside no Exterior"        value={form.resideExterior}      onChange={v => set("resideExterior", v)}      hint="Quase sempre: Não" />
-                            </div>
-                        </section>
-
-                        <section>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Cálculo da folha</div>
-                            <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                <FlagSN field="cargaAutomTurno"  label="Carga Aut. Turno"   value={form.cargaAutomTurno}  onChange={v => set("cargaAutomTurno", v)}  hint="Mensalista turno fixo: Sim" />
-                                <FlagSN field="calcula13"        label="Calcula 13º"         value={form.calcula13}        onChange={v => set("calcula13", v)}        hint="CLT regular: Sim" />
-                                <FlagSN field="recebeFerias"     label="Recebe Férias"       value={form.recebeFerias}     onChange={v => set("recebeFerias", v)}     hint="CLT regular: Sim" />
-                                <FlagSN field="considEmissRAIS"  label="Considera RAIS"      value={form.considEmissRAIS}  onChange={v => set("considEmissRAIS", v)}  hint="CLT: Sim (obrigatório)" />
-                            </div>
-                        </section>
-
-                        <section>
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Adicionais (marque se aplica ao funcionário)</div>
-                            <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                <FlagSN field="recebePericul"      label="Periculosidade"  value={form.recebePericul}      onChange={v => set("recebePericul", v)}      hint="Ambiente periculoso: Sim" />
-                                <FlagSN field="recebeInsalub"      label="Insalubridade"   value={form.recebeInsalub}      onChange={v => set("recebeInsalub", v)}      hint="Ambiente insalubre: Sim" />
-                                <FlagSN field="recebeAdiantamento" label="Adiantamento"    value={form.recebeAdiantamento} onChange={v => set("recebeAdiantamento", v)} hint="Empresa faz adto. quinzenal: Sim" />
-                            </div>
-                        </section>
-
-                        <section className="border-t border-border/30 pt-3">
-                            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-1.5">Parâmetros eSocial</div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                <Select field="tipoLogradouroESocial"     label="Tipo Logradouro"          value={form.tipoLogradouroESocial}     options={TIPO_LOGRADOURO_ESOCIAL} onChange={v => set("tipoLogradouroESocial", v || null)}              hint="Mesmo tipo do endereço (R, AV...)" />
-                                <Select field="categoriaTrabalhoESocial" label="Cat. Trabalhador"          value={form.categoriaTrabalhoESocial} options={CATEGORIA_ESOCIAL}       onChange={v => set("categoriaTrabalhoESocial", Number(v) || null)} hint="Empregado CLT: 101" />
-                                <Select field="indAdmissao"              label="Indicativo Admissão"       value={form.indAdmissao}              options={IND_ADMISSAO}            onChange={v => set("indAdmissao", Number(v) || null)}              hint="Novo funcionário: 1" />
-                                <Select field="tipoAdmissaoESocial"      label="Tipo Admissão"             value={form.tipoAdmissaoESocial}      options={TIPO_ADMISSAO_ESOCIAL}   onChange={v => set("tipoAdmissaoESocial", Number(v) || null)}      hint="Admissão padrão: 1" />
-                                <Select field="regimeTrabalhista"        label="Regime Trabalhista"        value={form.regimeTrabalhista}        options={REGIME_TRABALHISTA}      onChange={v => set("regimeTrabalhista", Number(v) || null)}        hint="CLT: 1" />
-                                <Select field="regimePrevidenciario"     label="Regime Previdenciário"     value={form.regimePrevidenciario}     options={REGIME_PREVIDENCIARIO}   onChange={v => set("regimePrevidenciario", Number(v) || null)}     hint="CLT: 1 (RGPS)" />
-                                <Select field="regimeJornada"            label="Regime de Jornada"         value={form.regimeJornada}            options={REGIME_JORNADA}          onChange={v => set("regimeJornada", Number(v) || null)}            hint="Horário fixo: 1" />
-                                <Select field="naturezaAtividade"        label="Natureza da Atividade"       value={form.naturezaAtividade}        options={NATUREZA_ATIVIDADE_OPTIONS} onChange={v => set("naturezaAtividade", v === "" ? null : Number(v))} hint="Empresa urbana: 1" />
-                                <Field field="matriculaESocial" label="Matrícula eSocial" value={form.matriculaESocial} onChange={v => set("matriculaESocial", v)} maxLength={30} hint="Gerada após integração — pode ficar em branco" />
-                                <Field field="codFpas" label="Cód. FPAS" value={form.codFpas != null ? String(form.codFpas) : ""} onChange={v => { const n = parseInt(v, 10); set("codFpas", Number.isFinite(n) ? n : null); }} type="number" placeholder="515" hint="Código FPAS (Fundo de Previdência e Assistência Social)" />
-                                <Field field="codRegistroExterior" label="Cód. Registro Exterior" value={form.codRegistroExterior} onChange={v => set("codRegistroExterior", v)} maxLength={30} hint="Só para funcionário cedido ao exterior" />
-                            </div>
-                        </section>
-                    </div>
-                )}
-
-                {/* Step 6: Documentos — campo individual por tipo */}
-                {step === 6 && (
                     <div className="space-y-4">
                         <h5 className="font-semibold text-sm flex items-center gap-2"><FileUp className="size-4" /> Documentos — {form.tipoContratacao === 1 ? "PJ" : "CLT"}</h5>
                         <div className="space-y-3">
@@ -1275,45 +818,24 @@ export default function AdmissaoWizardScreen() {
                     </div>
                 )}
 
-                {/* Step 7: Revisão */}
-                {step === 7 && (
+                {/* Step 2: Revisão */}
+                {step === 2 && (
                     <div className="space-y-4">
-                        <h5 className="font-semibold text-sm flex items-center gap-2"><CheckCircle2 className="size-4" /> Revisão Final</h5>
+                        <h5 className="font-semibold text-sm flex items-center gap-2"><CheckCircle2 className="size-4" /> Revisão</h5>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                             <Info label="Nome" value={form.nome} />
                             <Info label="CPF" value={form.cpf} />
-                            <Info label="RG" value={form.rg} />
-                            <Info label="Email" value={form.email} />
-                            <Info label="Celular" value={form.celular} />
-                            <Info label="Nascimento" value={form.dataNascimento} />
-                            <Info label="Nacionalidade" value={form.nacionalidade} />
-                            <Info label="Endereço" value={[form.logradouro, form.numero].filter(Boolean).join(", ")} />
-                            <Info label="Cidade/UF" value={[form.cidade, form.uf].filter(Boolean).join("/")} />
-                            <Info label="Banco" value={form.bancoNome} />
-                            <Info label="Agência" value={form.agencia} />
-                            <Info label="Conta" value={form.conta} />
-                            <Info label="Estab." value={form.estabelecimentoCodigo} />
+                            <Info label="E-mail" value={form.email} />
+                            <Info label="Celular" value={form.celular ?? form.telefone} />
                             <Info label="Data Admissão" value={form.dataAdmissao} />
                             <Info label="Salário" value={form.salario != null ? fmtBrl(form.salario) : null} />
                             <Info label="Tipo Contratação" value={TIPO_CONTRATACAO.find(t => t.value === form.tipoContratacao)?.label} />
-                            <Info label="Cargo TOTVS" value={form.codCargoTotvs != null ? String(form.codCargoTotvs) : null} />
-                            <Info label="Vínculo" value={VINCULO_EMPREGATICIO.find(v => v.value === form.codVinculoEmpregaticio)?.label} />
-                            <Info label="Tipo Func." value={TIPO_FUNCIONARIO_TOTVS.find(v => v.value === form.tipoFuncionario)?.label} />
-                            <Info label="Grau Instrução" value={GRAU_INSTRUCAO.find(v => v.value === form.grauInstrucao)?.label} />
-                            <Info label="Tipo Estatística" value={TIPO_ESTATISTICA.find(v => v.value === form.tipoEstatistica)?.label} />
                             <Info label="Centro Custo" value={form.centroCusto} />
                             <Info label="Unid. Lotação" value={form.unidadeLotacao} />
-                            <Info label="Cód. Turma" value={form.codTurma != null ? String(form.codTurma) : null} />
-                            <Info label="Ind. Func. Vinc." value={form.indFuncVinculado != null ? String(form.indFuncVinculado) : null} />
-                            <Info label="Tipo Mão-de-Obra" value={form.tipoMaoDeObra} />
-                            <Info label="Cód. Sindicato" value={form.codSindicato != null ? String(form.codSindicato) : null} />
-                            <Info label="Local Marcação" value={form.codLocalMarcacao != null ? String(form.codLocalMarcacao) : null} />
-                            <Info label="Classif. Ponto Eletr." value={form.codClassFuncPontoEletronico != null ? String(form.codClassFuncPontoEletronico) : null} />
-                            <Info label="Cód. Localidade" value={form.codLocalidade != null ? String(form.codLocalidade) : null} />
                             <Info label="Documentos" value={`${form.documentos?.length ?? 0} arquivo(s)`} />
                         </div>
                         <div className="rounded-md bg-sky-500/10 p-3 text-sm text-sky-700">
-                            Revise os dados antes de finalizar. Após finalizar, a admissão será processada.
+                            Revise os dados contratuais. Na próxima tela você poderá gerar e enviar o link ao candidato.
                         </div>
                     </div>
                 )}
@@ -1333,8 +855,8 @@ export default function AdmissaoWizardScreen() {
                             Próximo <ChevronRight className="size-4" />
                         </Button>
                     ) : (
-                        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={submit} disabled={submitting}>
-                            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Finalizar Admissão
+                        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={finishWizard} disabled={submitting}>
+                            {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Salvar e continuar
                         </Button>
                     )}
                 </div>

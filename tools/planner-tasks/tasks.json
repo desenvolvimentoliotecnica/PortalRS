@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 168
+    "totalTarefas": 169
   },
   "tarefas": [
     {
@@ -4386,6 +4386,28 @@
         "branch": "DEV"
       },
       "observacoes": "Rota não listada no menu lateral; herda permissão de /dashboard."
+    },
+    {
+      "id": "TASK-2026-168",
+      "nome": "[Portal RH] P1 Admissão — wizard RH, OTP portal, fluxo candidato e tracking",
+      "descricaoAmigavel": "Simplificar admissão para o RH (3 etapas contratuais), reforçar login do candidato com código por e-mail, enxugar portal do candidato e remover upload manual no acompanhamento.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "12:58",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Implementar P1 do backlog admissão (itens 5, 6, 7, 8): wizard RH simplificado, OTP no portal, portal candidato sem gerais/bancários, remover upload manual RH.",
+      "entregavel": "Wizard RH com 3 etapas; login candidato CPF+OTP; portal com pessoais/docs/revisão; tracking sem upload manual; API OTP.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Backlog docs/backlog-rh-analistas-2026-07-01.md itens 5-8."
     }
   ]
 }
