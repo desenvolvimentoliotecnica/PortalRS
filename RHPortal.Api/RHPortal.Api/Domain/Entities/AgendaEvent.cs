@@ -32,6 +32,12 @@ public sealed class AgendaEvent : ITenantEntity
     public DateTime? CandidateSuggestedEndAtUtc { get; set; }
     public string? CandidateResponseMessage { get; set; }
 
+    /// <summary>ID do evento no Microsoft Graph (Outlook), quando sincronizado.</summary>
+    public string? GraphCalendarEventId { get; set; }
+
+    /// <summary>UPN do calendário onde o evento foi criado no Graph.</summary>
+    public string? GraphCalendarUserUpn { get; set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
 }

@@ -16,6 +16,7 @@ public sealed class AgendaService
     private readonly IStringLocalizer<ServiceMessages> _localizer;
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
+    private readonly IAgendaGraphSyncService _graphSync;
     private readonly NotificationPublisher _notifications;
     private readonly IEmailQueueService _emailQueue;
 
@@ -24,6 +25,7 @@ public sealed class AgendaService
         IStringLocalizer<ServiceMessages> localizer,
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
+        IAgendaGraphSyncService graphSync,
         NotificationPublisher notifications,
         IEmailQueueService emailQueue)
     {
@@ -31,6 +33,7 @@ public sealed class AgendaService
         _localizer = localizer;
         _tenantContext = tenantContext;
         _currentUser = currentUser;
+        _graphSync = graphSync;
         _notifications = notifications;
         _emailQueue = emailQueue;
     }
@@ -204,6 +207,7 @@ public sealed class AgendaService
 
         _db.AgendaEvents.Add(entity);
         await _db.SaveChangesAsync(ct);
+        await _graphSync.TrySyncCreateAsync(entity.Id, ct);
         return (await GetEventByIdAsync(entity.Id, ct))!;
     }
 
@@ -231,6 +235,7 @@ public sealed class AgendaService
         entity.Notes = TrimOrNull(request.Notes);
 
         await _db.SaveChangesAsync(ct);
+        await _graphSync.TrySyncUpdateAsync(id, ct);
         return await GetEventByIdAsync(id, ct);
     }
 
@@ -242,8 +247,12 @@ public sealed class AgendaService
         if (!await CanMutateEventAsync(entity, ct))
             return false;
 
+        var graphEventId = entity.GraphCalendarEventId;
+        var graphUserUpn = entity.GraphCalendarUserUpn;
+
         _db.AgendaEvents.Remove(entity);
         await _db.SaveChangesAsync(ct);
+        await _graphSync.TrySyncDeleteAsync(graphEventId, graphUserUpn, ct);
         return true;
     }
 

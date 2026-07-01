@@ -172,9 +172,10 @@ export default function MicrosoftGraphCalendarConfigCard() {
 
             <div className="rounded-xl border border-border/40 bg-card p-6 space-y-5 max-w-2xl">
                 <p className="text-xs text-muted-foreground">
-                    Integração para exibir eventos do calendário Outlook na agenda do portal.
-                    O app no Azure AD precisa da permissão de aplicativo <strong>Calendars.Read</strong> com consentimento do administrador.
-                    Na agenda, <strong>cada usuário vê apenas os eventos do próprio e-mail de login</strong> (mesmo UPN no Azure AD).
+                    Integração com o calendário Outlook na agenda do portal.
+                    O app no Azure AD precisa da permissão de aplicativo <strong>Calendars.ReadWrite</strong> com consentimento do administrador
+                    (leitura e escrita). Na agenda, <strong>cada usuário vê apenas os eventos do próprio e-mail de login</strong>.
+                    Eventos criados no portal (verdes) são sincronizados automaticamente para o Outlook do responsável.
                 </p>
 
                 <label className="flex items-center gap-2 text-sm">
@@ -185,7 +186,7 @@ export default function MicrosoftGraphCalendarConfigCard() {
                         disabled={loading || saving}
                         className="rounded border-input"
                     />
-                    Habilitar exibição de eventos do Outlook na agenda
+                    Habilitar integração Outlook na agenda (leitura + sincronização ao criar eventos)
                 </label>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
