@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 175
+    "totalTarefas": 176
   },
   "tarefas": [
     {
@@ -4598,6 +4598,28 @@
         "prPrd": "Merge PR #55"
       },
       "observacoes": "Mesma regra do dashboard analista-rh/agenda-events."
+    },
+    {
+      "id": "TASK-2026-176",
+      "nome": "[Portal RH] P3 — benefícios na proposta e retorno negativo ao fechar vaga",
+      "descricaoAmigavel": "RH escolhe quais benefícios entram na carta de oferta e, ao encerrar vaga, pode avisar candidatos ativos com e-mail configurável.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "15:10",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Seguir com P3 do backlog RH analistas — item 4 (flag benefícios na proposta) e item 9 (retorno negativo ao fechar vaga).",
+      "entregavel": "Proposta com toggle/checkboxes de benefícios da vaga; modal ao fechar vaga listando candidatos para e-mail de retorno negativo.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Implementação local — aguardando commit e promoção DEV→HML."
     }
   ]
 }

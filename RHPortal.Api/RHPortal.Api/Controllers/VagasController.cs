@@ -487,6 +487,41 @@ public sealed class VagasController : ControllerBase
     }
 
     /// <summary>
+    /// Pré-visualiza candidatos elegíveis para retorno negativo ao fechar a vaga.
+    /// </summary>
+    [HttpGet("{id:guid}/retorno-negativo/preview")]
+    [ProducesResponseType(typeof(VagaRetornoNegativoPreviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VagaRetornoNegativoPreviewResponse>> PreviewRetornoNegativo(
+        [FromRoute] Guid id,
+        [FromServices] IVagaRetornoNegativoService service,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && _userContext.IsReadOnly)
+            return Forbid();
+        var result = await service.PreviewAsync(id, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>
+    /// Envia retorno negativo (e-mail + etapa Recusado) para candidatos selecionados.
+    /// </summary>
+    [HttpPost("{id:guid}/retorno-negativo/enviar")]
+    [ProducesResponseType(typeof(VagaRetornoNegativoEnviarResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<VagaRetornoNegativoEnviarResponse>> EnviarRetornoNegativo(
+        [FromRoute] Guid id,
+        [FromBody] VagaRetornoNegativoEnviarRequest request,
+        [FromServices] IVagaRetornoNegativoService service,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin && _userContext.IsReadOnly)
+            return Forbid();
+        var result = await service.EnviarAsync(id, request, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Atualiza apenas os filtros de matching (IA) da vaga.
     /// </summary>
     [HttpPatch("{id:guid}/matching-filtros")]

@@ -28,6 +28,12 @@ import {
   updateProposta,
   type PropostaVagaResponse,
 } from "./propostaApi";
+import {
+  beneficioKey,
+  formatBeneficioLinha,
+  mapVagaBeneficios,
+  type VagaBeneficioFormItem,
+} from "./propostaBeneficioUtils";
 
 type VagaLite = { id: string; titulo: string | null };
 type CandidatoLite = { id: string; nome: string | null; email: string | null };
@@ -211,10 +217,13 @@ export default function PropostasVagaScreen() {
     moeda: "BRL",
     salarioOferecido: "",
     descricaoBeneficios: "",
+    incluirBeneficiosNaProposta: true,
+    beneficiosSelecionadosKeys: [] as string[],
     dataPrevistaInicio: "",
     mensagemPersonalizada: "",
     observacaoInternaRh: "",
   });
+  const [vagaBeneficios, setVagaBeneficios] = useState<VagaBeneficioFormItem[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -250,6 +259,8 @@ export default function PropostasVagaScreen() {
         moeda: existing.moeda ?? "BRL",
         salarioOferecido: existing.salarioOferecido != null ? String(existing.salarioOferecido) : "",
         descricaoBeneficios: existing.descricaoBeneficios ?? "",
+        incluirBeneficiosNaProposta: existing.incluirBeneficiosNaProposta ?? true,
+        beneficiosSelecionadosKeys: (existing.beneficiosSelecionados ?? []).map(beneficioKey),
         dataPrevistaInicio: existing.dataPrevistaInicio ? existing.dataPrevistaInicio.slice(0, 10) : "",
         mensagemPersonalizada: existing.mensagemPersonalizada ?? "",
         observacaoInternaRh: existing.observacaoInternaRh ?? "",
@@ -287,23 +298,56 @@ export default function PropostasVagaScreen() {
     return () => ac.abort();
   }, [showNew, editingProposta]);
 
-  const resetForm = () => setForm({
-    vagaId: "", candidatoId: "", moeda: "BRL", salarioOferecido: "",
-    descricaoBeneficios: "", dataPrevistaInicio: "",
-    mensagemPersonalizada: "", observacaoInternaRh: "",
-  });
+  useEffect(() => {
+    if (!form.vagaId || (!showNew && !editingProposta)) return;
+    const ac = new AbortController();
+    (async () => {
+      try {
+        const vaga = await apiJson<Record<string, unknown>>(`/api/vagas/${encodeURIComponent(form.vagaId)}`);
+        if (ac.signal.aborted) return;
+        const benefs = mapVagaBeneficios(vaga.beneficios ?? vaga.Beneficios);
+        setVagaBeneficios(benefs);
+        if (!editingProposta && benefs.length > 0) {
+          setForm((f) => ({
+            ...f,
+            incluirBeneficiosNaProposta: true,
+            beneficiosSelecionadosKeys: benefs.map((b) => b.key),
+          }));
+        }
+      } catch {
+        if (!ac.signal.aborted) setVagaBeneficios([]);
+      }
+    })();
+    return () => ac.abort();
+  }, [form.vagaId, showNew, editingProposta]);
+
+  const resetForm = () => {
+    setVagaBeneficios([]);
+    setForm({
+      vagaId: "", candidatoId: "", moeda: "BRL", salarioOferecido: "",
+      descricaoBeneficios: "", incluirBeneficiosNaProposta: true, beneficiosSelecionadosKeys: [],
+      dataPrevistaInicio: "",
+      mensagemPersonalizada: "", observacaoInternaRh: "",
+    });
+  };
 
   function fillFormFromProposta(p: PropostaVagaResponse) {
+    const selecionados = (p.beneficiosSelecionados ?? []).map(beneficioKey);
     setForm({
       vagaId: p.vagaId,
       candidatoId: p.candidatoId,
       moeda: p.moeda ?? "BRL",
       salarioOferecido: p.salarioOferecido != null ? String(p.salarioOferecido) : "",
       descricaoBeneficios: p.descricaoBeneficios ?? "",
+      incluirBeneficiosNaProposta: p.incluirBeneficiosNaProposta ?? true,
+      beneficiosSelecionadosKeys: selecionados,
       dataPrevistaInicio: p.dataPrevistaInicio ? p.dataPrevistaInicio.slice(0, 10) : "",
       mensagemPersonalizada: p.mensagemPersonalizada ?? "",
       observacaoInternaRh: p.observacaoInternaRh ?? "",
     });
+    if ((p.beneficiosSelecionados ?? []).length > 0) {
+      setVagaBeneficios((p.beneficiosSelecionados ?? []).map((b) => ({ ...b, key: beneficioKey(b) })));
+    }
   }
 
   function openEditProposta(p: PropostaVagaResponse) {
@@ -318,14 +362,24 @@ export default function PropostasVagaScreen() {
     resetForm();
   }
 
-  const propostaPayload = () => ({
-    moeda: form.moeda || null,
-    salarioOferecido: form.salarioOferecido ? Number(form.salarioOferecido) : null,
-    descricaoBeneficios: form.descricaoBeneficios || null,
-    dataPrevistaInicio: form.dataPrevistaInicio || null,
-    mensagemPersonalizada: form.mensagemPersonalizada || null,
-    observacaoInternaRh: form.observacaoInternaRh || null,
-  });
+  const propostaPayload = () => {
+    const catalog = vagaBeneficios.length > 0
+      ? vagaBeneficios
+      : (editingProposta?.beneficiosSelecionados ?? []).map((b) => ({ ...b, key: beneficioKey(b) }));
+    const selected = form.incluirBeneficiosNaProposta
+      ? catalog.filter((b) => form.beneficiosSelecionadosKeys.includes(b.key))
+      : [];
+    return {
+      moeda: form.moeda || null,
+      salarioOferecido: form.salarioOferecido ? Number(form.salarioOferecido) : null,
+      descricaoBeneficios: form.descricaoBeneficios || null,
+      incluirBeneficiosNaProposta: form.incluirBeneficiosNaProposta,
+      beneficiosSelecionados: selected.map(({ key: _k, ...b }) => b),
+      dataPrevistaInicio: form.dataPrevistaInicio || null,
+      mensagemPersonalizada: form.mensagemPersonalizada || null,
+      observacaoInternaRh: form.observacaoInternaRh || null,
+    };
+  };
 
   const submitNew = async () => {
     if (!form.vagaId || !form.candidatoId) {
@@ -800,11 +854,43 @@ export default function PropostasVagaScreen() {
               </label>
               <label className="text-sm md:col-span-2">
                 <span className="mb-1 block font-medium">Benefícios</span>
+                <label className="mb-3 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.incluirBeneficiosNaProposta}
+                    onChange={(e) => setForm((f) => ({ ...f, incluirBeneficiosNaProposta: e.target.checked }))}
+                  />
+                  Incluir benefícios da vaga na proposta
+                </label>
+                {form.incluirBeneficiosNaProposta && vagaBeneficios.length > 0 && (
+                  <div className="mb-3 space-y-2 rounded-md border border-neutral-200 p-3">
+                    {vagaBeneficios.map((b) => (
+                      <label key={b.key} className="flex items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={form.beneficiosSelecionadosKeys.includes(b.key)}
+                          onChange={(e) => {
+                            setForm((f) => ({
+                              ...f,
+                              beneficiosSelecionadosKeys: e.target.checked
+                                ? [...f.beneficiosSelecionadosKeys, b.key]
+                                : f.beneficiosSelecionadosKeys.filter((k) => k !== b.key),
+                            }));
+                          }}
+                        />
+                        <span>{formatBeneficioLinha(b)}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <span className="mb-1 block text-xs text-neutral-600">Complemento / observações (opcional)</span>
                 <textarea
                   rows={2}
                   className="w-full rounded-md border border-neutral-300 px-3 py-2"
                   value={form.descricaoBeneficios}
                   onChange={(e) => setForm((f) => ({ ...f, descricaoBeneficios: e.target.value }))}
+                  placeholder="Texto livre para complementar a lista de benefícios"
                 />
               </label>
               <label className="text-sm">

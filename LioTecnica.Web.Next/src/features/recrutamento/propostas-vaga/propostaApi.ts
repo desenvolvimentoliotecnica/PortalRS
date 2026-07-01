@@ -26,6 +26,14 @@ export function resolveStatus(v: number | string): PropostaVagaStatus {
   return (v as PropostaVagaStatus) ?? "Rascunho";
 }
 
+export type PropostaBeneficioItem = {
+  id?: string | null;
+  tipo: string | number;
+  valor?: number | null;
+  recorrencia?: string | number;
+  observacoes?: string | null;
+};
+
 export type PropostaVagaResponse = {
   id: string;
   vagaId: string;
@@ -38,6 +46,8 @@ export type PropostaVagaResponse = {
   moeda: string | null;
   salarioOferecido: number | null;
   descricaoBeneficios: string | null;
+  incluirBeneficiosNaProposta: boolean;
+  beneficiosSelecionados: PropostaBeneficioItem[];
   dataPrevistaInicio: string | null;
   mensagemPersonalizada: string | null;
   accessToken: string | null;
@@ -60,6 +70,8 @@ export type PropostaVagaPublicaResponse = {
   moeda: string | null;
   salarioOferecido: number | null;
   descricaoBeneficios: string | null;
+  incluirBeneficiosNaProposta: boolean;
+  beneficiosSelecionados: PropostaBeneficioItem[];
   dataPrevistaInicio: string | null;
   mensagemPersonalizada: string | null;
   enviadaEmUtc: string | null;
@@ -73,6 +85,8 @@ export type PropostaVagaCreateRequest = {
   moeda?: string | null;
   salarioOferecido?: number | null;
   descricaoBeneficios?: string | null;
+  incluirBeneficiosNaProposta?: boolean | null;
+  beneficiosSelecionados?: PropostaBeneficioItem[] | null;
   dataPrevistaInicio?: string | null;
   mensagemPersonalizada?: string | null;
   observacaoInternaRh?: string | null;

@@ -1,7 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using RhPortal.Api.Domain.Enums;
+using RHPortal.Api.Domain.Enums;
 
 namespace RhPortal.Api.Contracts.PropostaVaga;
+
+public sealed record PropostaBeneficioItemDto(
+    Guid? Id,
+    VagaBeneficioTipo Tipo,
+    decimal? Valor,
+    VagaBeneficioRecorrencia Recorrencia,
+    string? Observacoes);
 
 public sealed record PropostaVagaCreateRequest(
     [Required] Guid VagaId,
@@ -9,6 +17,8 @@ public sealed record PropostaVagaCreateRequest(
     [MaxLength(3)] string? Moeda,
     decimal? SalarioOferecido,
     [MaxLength(2000)] string? DescricaoBeneficios,
+    bool? IncluirBeneficiosNaProposta,
+    IReadOnlyList<PropostaBeneficioItemDto>? BeneficiosSelecionados,
     DateOnly? DataPrevistaInicio,
     [MaxLength(8000)] string? MensagemPersonalizada,
     [MaxLength(500)] string? ObservacaoInternaRh);
@@ -17,6 +27,8 @@ public sealed record PropostaVagaUpdateRequest(
     [MaxLength(3)] string? Moeda,
     decimal? SalarioOferecido,
     [MaxLength(2000)] string? DescricaoBeneficios,
+    bool? IncluirBeneficiosNaProposta,
+    IReadOnlyList<PropostaBeneficioItemDto>? BeneficiosSelecionados,
     DateOnly? DataPrevistaInicio,
     [MaxLength(8000)] string? MensagemPersonalizada,
     [MaxLength(500)] string? ObservacaoInternaRh);
@@ -42,6 +54,8 @@ public sealed record PropostaVagaResponse(
     string? Moeda,
     decimal? SalarioOferecido,
     string? DescricaoBeneficios,
+    bool IncluirBeneficiosNaProposta,
+    IReadOnlyList<PropostaBeneficioItemDto> BeneficiosSelecionados,
     DateOnly? DataPrevistaInicio,
     string? MensagemPersonalizada,
     string? AccessToken,
@@ -64,6 +78,8 @@ public sealed record PropostaVagaPublicaResponse(
     string? Moeda,
     decimal? SalarioOferecido,
     string? DescricaoBeneficios,
+    bool IncluirBeneficiosNaProposta,
+    IReadOnlyList<PropostaBeneficioItemDto> BeneficiosSelecionados,
     DateOnly? DataPrevistaInicio,
     string? MensagemPersonalizada,
     DateTimeOffset? EnviadaEmUtc,

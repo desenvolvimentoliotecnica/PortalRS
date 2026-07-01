@@ -543,6 +543,7 @@ builder.Services.AddHttpClient<IItaloIntegrationService, ItaloIntegrationService
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 builder.Services.AddScoped<IVagaService, VagaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Vagas.IVagaRetornoNegativoService, RhPortal.Api.Application.Vagas.VagaRetornoNegativoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.PropostasVaga.IPropostaVagaService, RhPortal.Api.Application.PropostasVaga.PropostaVagaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaService, RhPortal.Api.Application.Candidaturas.CandidaturaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Candidaturas.ICandidaturaNotificacaoService, RhPortal.Api.Application.Candidaturas.CandidaturaNotificacaoService>();
