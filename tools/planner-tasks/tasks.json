@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 166
+    "totalTarefas": 167
   },
   "tarefas": [
     {
@@ -4292,10 +4292,10 @@
       "descricaoAmigavel": "Configuração por tenant para ler calendário Outlook via Microsoft Graph, com teste de conexão e exibição dos eventos na agenda.",
       "inicio": "2026-07-01",
       "horarioInicio": "10:26",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "12:16",
+      "totalHoras": 1.83,
+      "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
@@ -4304,13 +4304,37 @@
       "ambiente": "HML",
       "referencias": {
         "commits": [
-          "7735b436"
+          "7735b436",
+          "ca854b98"
         ],
         "branch": "origin/HML",
         "prHml": "Merge PR #40",
         "prPrd": "Merge PR #41"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-166",
+      "nome": "[Portal RH] Cores distintas na agenda (Portal verde, Outlook azul)",
+      "descricaoAmigavel": "Eventos criados no portal aparecem em verde; eventos do Microsoft Graph/Outlook permanecem em azul, facilitando a leitura do calendário.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "12:30",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Eventos do portal devem ser verdes e eventos do Graph azuis na view de agenda.",
+      "entregavel": "Calendário com verde para eventos do portal e azul para Outlook, com legenda visual.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Ajuste visual em AgendasScreen.tsx."
     }
   ]
 }

@@ -83,6 +83,11 @@ type GraphCalendarEventApi = {
 const BASE = "/app";
 const AGENDA_API_BASE = `/api/agenda`;
 
+const PORTAL_EVENT_COLOR = "#16a34a";
+const PORTAL_EVENT_BORDER = "#15803d";
+const GRAPH_EVENT_COLOR = "#0078d4";
+const GRAPH_EVENT_BORDER = "#005a9e";
+
 
 function toLocalIsoInputValue(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -351,8 +356,8 @@ export default function AgendasScreen() {
         title: ev.title ?? "Evento",
         start: ev.startAtUtc,
         end: ev.endAtUtc ?? undefined,
-        backgroundColor: ev.typeColor ?? "#6c757d",
-        borderColor: ev.typeColor ?? "#6c757d",
+        backgroundColor: PORTAL_EVENT_COLOR,
+        borderColor: PORTAL_EVENT_BORDER,
         textColor: "#fff",
         editable: true,
         extendedProps: { source: "portal" },
@@ -362,8 +367,8 @@ export default function AgendasScreen() {
         title: ev.subject || "Evento Outlook",
         start: ev.start,
         end: ev.end,
-        backgroundColor: "#0078d4",
-        borderColor: "#005a9e",
+        backgroundColor: GRAPH_EVENT_COLOR,
+        borderColor: GRAPH_EVENT_BORDER,
         textColor: "#fff",
         editable: false,
         extendedProps: { source: "microsoft-graph", location: ev.location },
@@ -866,12 +871,18 @@ export default function AgendasScreen() {
 
           <div className="text-muted-foreground mt-2 text-sm">
             Dica: clique e arraste no calendário para agendar rapidamente.
-            {filteredGraphEvents.length > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1">
-                · <span className="inline-block size-2 rounded-full bg-[#0078d4]" />
-                {filteredGraphEvents.length} evento(s) do Outlook
+            <span className="ml-2 inline-flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block size-2 rounded-full bg-[#16a34a]" />
+                Portal
               </span>
-            )}
+              {filteredGraphEvents.length > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block size-2 rounded-full bg-[#0078d4]" />
+                  Outlook ({filteredGraphEvents.length})
+                </span>
+              )}
+            </span>
           </div>
         </div>
 
