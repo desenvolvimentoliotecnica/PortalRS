@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 167
+    "totalTarefas": 168
   },
   "tarefas": [
     {
@@ -4319,6 +4319,32 @@
       "descricaoAmigavel": "Eventos criados no portal aparecem em verde; eventos do Microsoft Graph/Outlook permanecem em azul, facilitando a leitura do calendário.",
       "inicio": "2026-07-01",
       "horarioInicio": "12:30",
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "12:32",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Eventos do portal devem ser verdes e eventos do Graph azuis na view de agenda.",
+      "entregavel": "Calendário com verde para eventos do portal e azul para Outlook, com legenda visual.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "739fa498"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #42",
+        "prPrd": "Merge PR #43"
+      },
+      "observacoes": "Ajuste visual em AgendasScreen.tsx."
+    },
+    {
+      "id": "TASK-2026-167",
+      "nome": "[Portal RH] Modal de detalhes para eventos Outlook na agenda",
+      "descricaoAmigavel": "Ao clicar em eventos azuis do Outlook, o usuário vê um painel com horário, local, organizador, descrição e link para abrir no Outlook.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "12:40",
       "conclusao": null,
       "horarioConclusao": null,
       "totalHoras": null,
@@ -4326,15 +4352,37 @@
       "percentualConcluido": 90,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "Eventos do portal devem ser verdes e eventos do Graph azuis na view de agenda.",
-      "entregavel": "Calendário com verde para eventos do portal e azul para Outlook, com legenda visual.",
+      "pedidoOriginal": "Permitir clicar nos eventos azuis (Graph) e ver detalhes, não apenas toast.",
+      "entregavel": "Modal de detalhes para eventos Outlook e campos extras do Graph (organizador, descrição, link).",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
         "branch": "DEV",
         "prHml": null
       },
-      "observacoes": "Ajuste visual em AgendasScreen.tsx."
+      "observacoes": "AgendasScreen + MicrosoftGraphCalendarService."
+    },
+    {
+      "id": "TASK-2026-167",
+      "nome": "[Portal RH] Preview oculta da home do analista de RH (R&S)",
+      "descricaoAmigavel": "Tela de conceito para avaliar a home ideal do analista de recrutamento, com KPIs, funil, agenda, requisições, ações rápidas e alertas, acessível por rota oculta.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "12:35",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar view com mockup da home do analista de RH em rota oculta para avaliação.",
+      "entregavel": "Rota /app/dashboard/preview/home-analista-rh com layout baseado no mockup e dados ilustrativos.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Rota não listada no menu lateral; herda permissão de /dashboard."
     }
   ]
 }
