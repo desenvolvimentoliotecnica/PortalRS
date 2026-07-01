@@ -4345,20 +4345,23 @@
       "descricaoAmigavel": "Ao clicar em eventos azuis do Outlook, o usuário vê um painel com horário, local, organizador, descrição e link para abrir no Outlook.",
       "inicio": "2026-07-01",
       "horarioInicio": "12:40",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "12:54",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Permitir clicar nos eventos azuis (Graph) e ver detalhes, não apenas toast.",
       "entregavel": "Modal de detalhes para eventos Outlook e campos extras do Graph (organizador, descrição, link).",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "cddcee3b"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #44",
+        "prPrd": "Merge PR #45"
       },
       "observacoes": "AgendasScreen + MicrosoftGraphCalendarService."
     },
