@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Mail, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import {
   Dialog,
   DialogContent,
@@ -290,6 +291,12 @@ export default function CandidateKanbanDetailDialog({ open, item, onClose }: Pro
               <Field label="Email" value={resumoEmail} />
               <Field label="Telefone" value={resumoTelefone} />
               <Field label="Celular" value={resumoCelular} />
+              <div className="md:col-span-3">
+                <WhatsAppContactButton
+                  celular={item.candidatoCelular ?? perfilBasico?.celular}
+                  fone={item.candidatoFone ?? perfilBasico?.fone}
+                />
+              </div>
               <Field label="Vaga" value={[item.vagaTitulo, item.vagaCodigo].filter(Boolean).join(" · ")} />
               <Field label="Aplicada em" value={formatDate(item.aplicadaEmUtc)} />
               <Field label="SLA da etapa" value={`${item.diasNaEtapa}d / ${item.slaDiasEtapa}d`} />

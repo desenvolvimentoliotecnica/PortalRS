@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { MATCHING_FETCH_TIMEOUT_MS } from "@/features/recrutamento/matching/matchingHelpers";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -60,6 +61,8 @@ interface Props {
   vagaId: string;
   candidatoId: string;
   candidatoNome?: string;
+  candidatoCelular?: string | null;
+  candidatoFone?: string | null;
 }
 
 function scoreColor(score: number): string {
@@ -74,7 +77,7 @@ function barColor(score: number): string {
   return "bg-red-500";
 }
 
-export default function MatchingBreakdownDialog({ open, onClose, vagaId, candidatoId, candidatoNome }: Props) {
+export default function MatchingBreakdownDialog({ open, onClose, vagaId, candidatoId, candidatoNome, candidatoCelular, candidatoFone }: Props) {
   const [data, setData] = useState<Breakdown | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,12 +119,17 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-y-auto text-base">
         <DialogHeader>
-          <DialogTitle className="text-2xl">
-            Match {candidatoNome ? `de ${candidatoNome}` : "do candidato"} com a vaga
-          </DialogTitle>
-          <DialogDescription className="text-base leading-relaxed">
-            Explicação granular: peso configurado por critério, sub-score, contribuição e itens da Descrição de Cargo cobertos/faltando.
-          </DialogDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <DialogTitle className="text-2xl">
+                Match {candidatoNome ? `de ${candidatoNome}` : "do candidato"} com a vaga
+              </DialogTitle>
+              <DialogDescription className="text-base leading-relaxed">
+                Explicação granular: peso configurado por critério, sub-score, contribuição e itens da Descrição de Cargo cobertos/faltando.
+              </DialogDescription>
+            </div>
+            <WhatsAppContactButton size="sm" celular={candidatoCelular} fone={candidatoFone} />
+          </div>
         </DialogHeader>
 
         {loading && (
@@ -287,16 +295,28 @@ export default function MatchingBreakdownDialog({ open, onClose, vagaId, candida
 
 /** Hook utilitário pra abrir o breakdown a partir de qualquer card. */
 export function useMatchingBreakdownDialog() {
-  const [target, setTarget] = useState<{ vagaId: string; candidatoId: string; candidatoNome?: string } | null>(null);
+  const [target, setTarget] = useState<{
+    vagaId: string;
+    candidatoId: string;
+    candidatoNome?: string;
+    candidatoCelular?: string | null;
+    candidatoFone?: string | null;
+  } | null>(null);
 
   return {
     target,
-    open: (vagaId: string, candidatoId: string, candidatoNome?: string) => {
+    open: (
+      vagaId: string,
+      candidatoId: string,
+      candidatoNome?: string,
+      candidatoCelular?: string | null,
+      candidatoFone?: string | null,
+    ) => {
       if (!vagaId || !candidatoId) {
         toast.error("IDs de vaga e candidato são obrigatórios");
         return;
       }
-      setTarget({ vagaId, candidatoId, candidatoNome });
+      setTarget({ vagaId, candidatoId, candidatoNome, candidatoCelular, candidatoFone });
     },
     close: () => setTarget(null),
   };

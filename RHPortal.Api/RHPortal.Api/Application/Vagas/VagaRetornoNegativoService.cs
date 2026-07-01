@@ -120,6 +120,8 @@ public sealed class VagaRetornoNegativoService : IVagaRetornoNegativoService
                 c.CandidatoId,
                 cand.Nome,
                 cand.Email,
+                cand.Fone,
+                cand.Celular,
                 c.EtapaMacro))
             .ToListAsync(ct);
 

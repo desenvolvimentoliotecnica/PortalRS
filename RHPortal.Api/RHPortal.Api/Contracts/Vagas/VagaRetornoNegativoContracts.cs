@@ -7,6 +7,8 @@ public sealed record VagaRetornoNegativoPreviewItem(
     Guid CandidatoId,
     string CandidatoNome,
     string? CandidatoEmail,
+    string? CandidatoFone,
+    string? CandidatoCelular,
     EtapaMacroCandidatura EtapaAtual);
 
 public sealed record VagaRetornoNegativoPreviewResponse(

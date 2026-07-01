@@ -7,6 +7,8 @@ export type VagaRetornoNegativoPreviewItem = {
   candidatoId: string;
   candidatoNome: string;
   candidatoEmail: string | null;
+  candidatoFone: string | null;
+  candidatoCelular: string | null;
   etapaAtual: string | number;
 };
 

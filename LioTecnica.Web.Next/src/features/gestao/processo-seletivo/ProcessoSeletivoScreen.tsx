@@ -9,6 +9,8 @@ import {
     Users, GripVertical, ChevronDown, ChevronRight, Cpu, UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
+import { useCandidatoPhoneLookup } from "@/hooks/useCandidatoPhoneLookup";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -138,6 +140,7 @@ function TableSkeleton({ cols = 9, rows = 6 }: { cols?: number; rows?: number })
 export default function ProcessoSeletivoScreen() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { getPhone } = useCandidatoPhoneLookup();
     const [projetos, setProjetos] = useState<ProjetoMin[]>([]);
     const [selectedProjeto, setSelectedProjeto] = useState<ProjetoMin | null>(null);
     const [fases, setFases] = useState<Fase[]>([]);
@@ -424,14 +427,18 @@ export default function ProcessoSeletivoScreen() {
 
     /* ── Candidatos table row ── */
     function CandidatoRow({ c }: { c: CandidatoFase }) {
+        const phone = getPhone(c.candidatoId);
         return (
             <TableRow>
                 <TableCell className="font-semibold whitespace-nowrap">
-                    {c.candidatoLinkedinUrl ? (
-                        <a href={c.candidatoLinkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                            {c.candidatoNome}
-                        </a>
-                    ) : c.candidatoNome}
+                    <div className="space-y-1">
+                        {c.candidatoLinkedinUrl ? (
+                            <a href={c.candidatoLinkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                {c.candidatoNome}
+                            </a>
+                        ) : c.candidatoNome}
+                        <WhatsAppContactButton size="xs" celular={phone.celular} fone={phone.fone} />
+                    </div>
                 </TableCell>
                 <TableCell className="text-sm">
                     {c.candidatoTrabalhandoAtualmente === null ? "—"
@@ -711,10 +718,13 @@ export default function ProcessoSeletivoScreen() {
                                         candidatosDisponiveis.map((c) => (
                                             <TableRow key={c.id}>
                                                 <TableCell className="font-semibold whitespace-nowrap">
-                                                    <span className="inline-flex items-center gap-2">
-                                                        {c.candidatoNome}
-                                                        <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">Da Rodada Anterior</Badge>
-                                                    </span>
+                                                    <div className="space-y-1">
+                                                        <span className="inline-flex items-center gap-2">
+                                                            {c.candidatoNome}
+                                                            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">Da Rodada Anterior</Badge>
+                                                        </span>
+                                                        <WhatsAppContactButton size="xs" celular={getPhone(c.candidatoId).celular} fone={getPhone(c.candidatoId).fone} />
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-sm">
                                                     {c.candidatoTrabalhandoAtualmente === null ? "—"
@@ -799,7 +809,12 @@ export default function ProcessoSeletivoScreen() {
                                                         <TableBody>
                                                             {cs.map((c) => (
                                                                 <TableRow key={c.id}>
-                                                                    <TableCell className="font-semibold whitespace-nowrap">{c.candidatoNome}</TableCell>
+                                                                    <TableCell className="font-semibold whitespace-nowrap">
+                                                                        <div className="space-y-1">
+                                                                            {c.candidatoNome}
+                                                                            <WhatsAppContactButton size="xs" celular={getPhone(c.candidatoId).celular} fone={getPhone(c.candidatoId).fone} />
+                                                                        </div>
+                                                                    </TableCell>
                                                                     <TableCell className="text-sm">
                                                                         {c.candidatoTrabalhandoAtualmente === null ? "—"
                                                                             : c.candidatoTrabalhandoAtualmente

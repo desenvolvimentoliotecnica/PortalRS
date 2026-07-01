@@ -14,6 +14,7 @@ import type {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import {
   Calendar,
@@ -28,11 +29,16 @@ import {
 import {
   type AgendaEventApi,
   type AgendaType,
-  type AgendaCandidatoListItem as CandidatoListItem,
+  type AgendaCandidatoListItem as CandidatoListItemBase,
   type AgendaVagaListItem as VagaListItem,
 } from "@/lib/schemas/recrutamento";
 import { apiFetch } from "@/lib/api";
 
+
+type CandidatoListItem = CandidatoListItemBase & {
+  celular?: string | null;
+  fone?: string | null;
+};
 
 type Health = "idle" | "loading";
 
@@ -184,9 +190,35 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 function mapCandidatesPayload(payload: unknown): CandidatoListItem[] {
   if (!payload) return [];
-  if (Array.isArray(payload)) return payload as CandidatoListItem[];
-  const items = (payload as { items?: unknown }).items;
-  return Array.isArray(items) ? (items as CandidatoListItem[]) : [];
+  const raw = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { items?: unknown }).items)
+      ? (payload as { items: unknown[] }).items
+      : [];
+  const result: CandidatoListItem[] = [];
+  for (const item of raw) {
+    const record = item as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id : typeof record.Id === "string" ? record.Id : "";
+    if (!id) continue;
+    const nome = typeof record.nome === "string"
+      ? record.nome
+      : typeof record.Nome === "string"
+        ? record.Nome
+        : typeof record.nomeCompleto === "string"
+          ? record.nomeCompleto
+          : null;
+    const email = typeof record.email === "string" ? record.email : typeof record.Email === "string" ? record.Email : null;
+    const celular = typeof record.celular === "string" ? record.celular : typeof record.Celular === "string" ? record.Celular : null;
+    const fone = typeof record.fone === "string"
+      ? record.fone
+      : typeof record.Fone === "string"
+        ? record.Fone
+        : typeof record.telefone === "string"
+          ? record.telefone
+          : null;
+    result.push({ id, nome, email, celular, fone });
+  }
+  return result;
 }
 
 
@@ -1235,6 +1267,15 @@ export default function AgendasScreen() {
               <div className="card-soft p-3" style={{ boxShadow: "none" }}>
                 <div className="mini-title mb-1">Candidato</div>
                 <div className="font-semibold">{selectedEvent.candidate ?? "—"}</div>
+                {selectedEvent.candidatoId ? (
+                  <div className="mt-2">
+                    <WhatsAppContactButton
+                      size="xs"
+                      celular={candidatos.find((c) => c.id === selectedEvent.candidatoId)?.celular}
+                      fone={candidatos.find((c) => c.id === selectedEvent.candidatoId)?.fone}
+                    />
+                  </div>
+                ) : null}
               </div>
               <div className="card-soft p-3" style={{ boxShadow: "none" }}>
                 <div className="mini-title mb-1">Vaga</div>

@@ -8,6 +8,7 @@ import {
     Zap, Clock, WrenchIcon, Trash2, Coins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -683,6 +684,7 @@ export default function AdmissaoRevisaoScreen() {
                     <div className="text-muted-foreground text-sm">{data.nome} {data.cpf ? `— ${data.cpf}` : ""}</div>
                 </div>
                 <div className="flex gap-2">
+                    <WhatsAppContactButton size="sm" celular={data.celular} fone={data.telefone} />
                     <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold ${s.color}`}>
                         <Icon className="size-3.5" /> {s.label}
                     </span>
