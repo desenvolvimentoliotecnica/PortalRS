@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 173
+    "totalTarefas": 174
   },
   "tarefas": [
     {
@@ -4515,22 +4515,48 @@
       "descricaoAmigavel": "Corrigir exibição de eventos Outlook na agenda: cada analista vê apenas o próprio calendário (e-mail de login), em vez do UPN fixo configurado no tenant.",
       "inicio": "2026-07-01",
       "horarioInicio": "14:30",
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "13:46",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Julia viu eventos do Leonardo na agenda; UPN único no tenant estava sendo usado para todos.",
+      "entregavel": "Listagem Graph usa e-mail do usuário autenticado; UPN na config fica só para teste; textos de ajuda atualizados.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "2cebe6bf"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #50",
+        "prPrd": "Merge PR #51"
+      },
+      "observacoes": "MicrosoftGraphCalendarService + MicrosoftGraphCalendarConfigCard."
+    },
+    {
+      "id": "TASK-2026-174",
+      "nome": "[Portal RH] Hotfix 502 HML — migrations P2 sem atributo Migration",
+      "descricaoAmigavel": "API em HML não subia após backlog P2: migrations manuais não eram aplicadas pelo EF e o seed falhava na coluna EnviarEmailResponsavelNaCandidatura.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "14:05",
       "conclusao": null,
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
       "percentualConcluido": 90,
-      "prioridade": "Alta",
+      "prioridade": "Urgente",
       "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "Julia viu eventos do Leonardo na agenda; UPN único no tenant estava sendo usado para todos.",
-      "entregavel": "Listagem Graph usa e-mail do usuário autenticado; UPN na config fica só para teste; textos de ajuda atualizados.",
+      "pedidoOriginal": "502 em /api/health e branding após deploy; API fora do ar em HML.",
+      "entregavel": "Registrar migrations P2 com [Migration] para EF aplicar colunas e API voltar a responder.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
         "branch": "DEV",
         "prHml": null
       },
-      "observacoes": "MicrosoftGraphCalendarService + MicrosoftGraphCalendarConfigCard."
+      "observacoes": "Causa: 20260701150000 e 20260701150100 sem [DbContext]/[Migration]."
     }
   ]
 }
