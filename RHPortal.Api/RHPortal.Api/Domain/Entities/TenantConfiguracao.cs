@@ -162,7 +162,7 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// <summary>Client Secret criptografado do App Registration.</summary>
     public string? GraphCalendarClientSecretEncrypted { get; set; }
 
-    /// <summary>UPN do usuário cujo calendário será lido (ex: usuario@empresa.com).</summary>
+    /// <summary>UPN usado no botão de teste da integração Graph (não define a agenda de todos os usuários).</summary>
     public string? GraphCalendarUserUpn { get; set; }
 
     /// <summary>Quando true, eventos do Outlook são exibidos na agenda do portal.</summary>

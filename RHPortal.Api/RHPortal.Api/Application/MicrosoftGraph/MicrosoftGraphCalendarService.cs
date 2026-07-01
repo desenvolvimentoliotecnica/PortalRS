@@ -63,17 +63,20 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly ICurrentUserContext _currentUser;
     private readonly ISecretProtector _protector;
     private readonly IHttpClientFactory _httpClientFactory;
 
     public MicrosoftGraphCalendarService(
         AppDbContext db,
         ITenantContext tenantContext,
+        ICurrentUserContext currentUser,
         ISecretProtector protector,
         IHttpClientFactory httpClientFactory)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _currentUser = currentUser;
         _protector = protector;
         _httpClientFactory = httpClientFactory;
     }
@@ -104,13 +107,13 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
     public async Task<GraphCalendarTestResponse> TestConnectionAsync(CancellationToken ct)
     {
-        var credentials = await ResolveCredentialsAsync(ct, requireEnabled: false);
+        var credentials = await ResolveCredentialsAsync(ct, requireEnabled: false, requireUserUpn: true);
         if (credentials is null)
         {
             return new GraphCalendarTestResponse
             {
                 Success = false,
-                Message = "Configure Tenant ID, Client ID, Client Secret e UPN antes de testar.",
+                Message = "Configure Tenant ID, Client ID, Client Secret e UPN de teste antes de testar.",
             };
         }
 
@@ -119,7 +122,8 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
         try
         {
-            var events = await FetchEventsAsync(credentials, start, end, ct);
+            var app = new GraphAppCredentials(credentials.TenantId, credentials.ClientId, credentials.ClientSecret);
+            var events = await FetchEventsAsync(app, credentials.UserUpn, start, end, ct);
             return new GraphCalendarTestResponse
             {
                 Success = true,
@@ -142,8 +146,12 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
         DateTimeOffset? endUtc,
         CancellationToken ct)
     {
-        var credentials = await ResolveCredentialsAsync(ct, requireEnabled: true);
-        if (credentials is null || !credentials.Enabled)
+        var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: true);
+        if (credentials is null)
+            return Array.Empty<GraphCalendarEventDto>();
+
+        var userUpn = _currentUser.Email?.Trim();
+        if (string.IsNullOrWhiteSpace(userUpn))
             return Array.Empty<GraphCalendarEventDto>();
 
         var start = startUtc ?? DateTimeOffset.UtcNow.AddDays(-7);
@@ -151,7 +159,7 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
         try
         {
-            return await FetchEventsAsync(credentials, start, end, ct);
+            return await FetchEventsAsync(credentials, userUpn, start, end, ct);
         }
         catch
         {
@@ -159,29 +167,51 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
         }
     }
 
-    private async Task<GraphCredentials?> ResolveCredentialsAsync(CancellationToken ct, bool requireEnabled)
+    private async Task<GraphAppCredentials?> ResolveAppCredentialsAsync(CancellationToken ct, bool requireEnabled)
     {
         var config = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
         if (config is null
             || (requireEnabled && !config.GraphCalendarEnabled)
             || string.IsNullOrWhiteSpace(config.GraphCalendarTenantId)
             || string.IsNullOrWhiteSpace(config.GraphCalendarClientId)
-            || string.IsNullOrWhiteSpace(config.GraphCalendarClientSecretEncrypted)
-            || string.IsNullOrWhiteSpace(config.GraphCalendarUserUpn))
+            || string.IsNullOrWhiteSpace(config.GraphCalendarClientSecretEncrypted))
+        {
+            return null;
+        }
+
+        return new GraphAppCredentials(
+            config.GraphCalendarTenantId.Trim(),
+            config.GraphCalendarClientId.Trim(),
+            _protector.Decrypt(config.GraphCalendarClientSecretEncrypted));
+    }
+
+    private async Task<GraphCredentials?> ResolveCredentialsAsync(
+        CancellationToken ct,
+        bool requireEnabled,
+        bool requireUserUpn)
+    {
+        var app = await ResolveAppCredentialsAsync(ct, requireEnabled);
+        if (app is null)
+            return null;
+
+        var config = await _db.TenantConfiguracoes.AsNoTracking().FirstOrDefaultAsync(ct);
+        if (config is null
+            || (requireUserUpn && string.IsNullOrWhiteSpace(config.GraphCalendarUserUpn)))
         {
             return null;
         }
 
         return new GraphCredentials(
-            config.GraphCalendarEnabled,
-            config.GraphCalendarTenantId.Trim(),
-            config.GraphCalendarClientId.Trim(),
-            _protector.Decrypt(config.GraphCalendarClientSecretEncrypted),
-            config.GraphCalendarUserUpn.Trim());
+            config!.GraphCalendarEnabled,
+            app.TenantId,
+            app.ClientId,
+            app.ClientSecret,
+            config.GraphCalendarUserUpn!.Trim());
     }
 
     private async Task<IReadOnlyList<GraphCalendarEventDto>> FetchEventsAsync(
-        GraphCredentials credentials,
+        GraphAppCredentials credentials,
+        string userUpn,
         DateTimeOffset startUtc,
         DateTimeOffset endUtc,
         CancellationToken ct)
@@ -191,9 +221,9 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
         var start = Uri.EscapeDataString(startUtc.ToString("o"));
         var end = Uri.EscapeDataString(endUtc.ToString("o"));
-        var upn = Uri.EscapeDataString(credentials.UserUpn);
+        var upn = Uri.EscapeDataString(userUpn.Trim());
         var url =
-            $"{GraphBaseUrl}/users/{upn}/calendarView?startDateTime={start}&endDateTime={end}&$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer,webLink,isOnlineMeeting&$orderby=start/dateTime&$top=200";
+            $"{GraphBaseUrl}/users/{upn}/calendarView?startDateTime={start}&endDateTime={end}&$$select=id,subject,start,end,isAllDay,location,bodyPreview,organizer,webLink,isOnlineMeeting&$$orderby=start/dateTime&$$top=200";
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -365,6 +395,11 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
     private static string? NullIfBlank(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private sealed record GraphAppCredentials(
+        string TenantId,
+        string ClientId,
+        string ClientSecret);
 
     private sealed record GraphCredentials(
         bool Enabled,
