@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Contracts.Candidatos;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Entities;
@@ -66,19 +67,7 @@ public sealed class CandidatoPortalPerfilReader : ICandidatoPortalPerfilReader
 
         var avatarUrl = ResolveAvatarUrlIfFileExists(id, candidate.AvatarFileName);
 
-        return new PortalCandidateProfileResponse(
-            candidate.Id,
-            candidate.Nome,
-            candidate.Email,
-            candidate.Fone,
-            candidate.Celular,
-            candidate.Cidade,
-            candidate.Uf,
-            candidate.LinkedinUrl,
-            candidate.ResumoProfissional,
-            avatarUrl,
-            curriculo,
-            candidate.TrabalhandoAtualmente);
+        return PortalCandidateAuthService.MapProfileResponse(candidate, avatarUrl, curriculo);
     }
 
     private async Task<PortalCandidateSkillsPortfolioResponse> LoadSkillsPortfolioAsync(Guid id, CancellationToken ct)

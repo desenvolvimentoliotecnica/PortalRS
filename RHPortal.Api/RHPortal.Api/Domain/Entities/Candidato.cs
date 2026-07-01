@@ -14,6 +14,20 @@ public sealed class Candidato : ITenantEntity
     [Required, StringLength(180)]
     public string Email { get; set; } = string.Empty;
 
+    [StringLength(14)]
+    public string? Cpf { get; set; }
+
+    [StringLength(20)]
+    public string? Rg { get; set; }
+
+    public DateOnly? DataNascimento { get; set; }
+
+    [StringLength(160)]
+    public string? NomeMae { get; set; }
+
+    [StringLength(160)]
+    public string? NomePai { get; set; }
+
     [StringLength(40)]
     public string? Fone { get; set; }
 

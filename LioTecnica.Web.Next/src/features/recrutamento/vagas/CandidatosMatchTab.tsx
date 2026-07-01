@@ -20,6 +20,7 @@ import {
     Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -615,6 +616,9 @@ export default function CandidatosMatchTab({
                                             <td className="px-3 py-2">
                                                 <div className="font-medium">{r.nome}</div>
                                                 <div className="text-[11px] text-muted-foreground">{r.email ?? "—"}</div>
+                                                <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                                                    <WhatsAppContactButton size="xs" celular={r.celular} fone={r.fone} />
+                                                </div>
                                             </td>
                                             <td className="px-3 py-2">
                                                 <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-700">

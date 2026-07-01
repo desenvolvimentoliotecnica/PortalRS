@@ -123,6 +123,21 @@
   <data name="ServiceErrors.PortalAccessExists" xml:space="preserve">
     <value>Acesso ja cadastrado. Use o login.</value>
   </data>
+  <data name="ServiceErrors.PortalCpfInvalid" xml:space="preserve">
+    <value>CPF invalido.</value>
+  </data>
+  <data name="ServiceErrors.PortalCpfDuplicate" xml:space="preserve">
+    <value>CPF ja cadastrado para outro candidato.</value>
+  </data>
+  <data name="ServiceErrors.PortalRgRequired" xml:space="preserve">
+    <value>RG e obrigatorio.</value>
+  </data>
+  <data name="ServiceErrors.PortalDataNascimentoInvalid" xml:space="preserve">
+    <value>Data de nascimento invalida.</value>
+  </data>
+  <data name="ServiceErrors.PortalNomeMaeRequired" xml:space="preserve">
+    <value>Nome da mae e obrigatorio.</value>
+  </data>
   <data name="ServiceErrors.MenuPermissionRequired" xml:space="preserve">
     <value>Chave de permissao e obrigatoria.</value>
   </data>

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Hosting;
 using RhPortal.Api.Application.Candidatos;
+using RhPortal.Api.Application.Portal;
 using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Domain.Entities;
@@ -75,20 +76,7 @@ public sealed class PortalCandidatesController : ControllerBase
 
         var avatarUrl = ResolveAvatarUrlIfFileExists(hostEnvironment, tenantContext, id, candidate.AvatarFileName);
 
-        return Ok(new PortalCandidateProfileResponse(
-            candidate.Id,
-            candidate.Nome,
-            candidate.Email,
-            candidate.Fone,
-            candidate.Celular,
-            candidate.Cidade,
-            candidate.Uf,
-            candidate.LinkedinUrl,
-            candidate.ResumoProfissional,
-            avatarUrl,
-            curriculo,
-            candidate.TrabalhandoAtualmente
-        ));
+        return Ok(PortalCandidateAuthService.MapProfileResponse(candidate, avatarUrl, curriculo));
     }
 
     /// <summary>
@@ -102,6 +90,7 @@ public sealed class PortalCandidatesController : ControllerBase
         Guid id,
         [FromBody] PortalCandidateProfileUpdateRequest request,
         [FromServices] AppDbContext db,
+        [FromServices] IPortalCandidateAuthService authService,
         [FromServices] NotificationPublisher notificationPublisher,
         [FromServices] IHostEnvironment hostEnvironment,
         [FromServices] ITenantContext tenantContext,
@@ -115,6 +104,15 @@ public sealed class PortalCandidatesController : ControllerBase
 
         if (candidate is null)
             return NotFound(new { message = _localizer["ControllerErrors.CandidatoNotFound"] });
+
+        try
+        {
+            await ApplyDocumentacaoUpdateAsync(authService, candidate, request, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
 
         candidate.Nome = (request.Nome ?? string.Empty).Trim();
         candidate.Fone = NormalizeRequired(request.Fone);
@@ -138,20 +136,52 @@ public sealed class PortalCandidatesController : ControllerBase
 
         var avatarUrl = ResolveAvatarUrlIfFileExists(hostEnvironment, tenantContext, id, candidate.AvatarFileName);
 
-        return Ok(new PortalCandidateProfileResponse(
-            candidate.Id,
-            candidate.Nome,
-            candidate.Email,
-            candidate.Fone,
-            candidate.Celular,
-            candidate.Cidade,
-            candidate.Uf,
-            candidate.LinkedinUrl,
-            candidate.ResumoProfissional,
-            avatarUrl,
-            curriculo,
-            candidate.TrabalhandoAtualmente
-        ));
+        return Ok(PortalCandidateAuthService.MapProfileResponse(candidate, avatarUrl, curriculo));
+    }
+
+    private static async Task ApplyDocumentacaoUpdateAsync(
+        IPortalCandidateAuthService authService,
+        Candidato candidate,
+        PortalCandidateProfileUpdateRequest request,
+        CancellationToken ct)
+    {
+        var hasDocFields = !string.IsNullOrWhiteSpace(request.Cpf)
+            || !string.IsNullOrWhiteSpace(request.Rg)
+            || !string.IsNullOrWhiteSpace(request.DataNascimento)
+            || !string.IsNullOrWhiteSpace(request.NomeMae)
+            || !string.IsNullOrWhiteSpace(request.NomePai);
+
+        if (!hasDocFields) return;
+
+        if (!string.IsNullOrWhiteSpace(request.Cpf))
+        {
+            var cpfNorm = PortalCandidateAuthService.NormalizeCpf(request.Cpf);
+            if (!RhPortal.Api.Application.PreAdmissao.ValidacaoHelper.ValidarCpf(cpfNorm))
+                throw new InvalidOperationException("CPF inválido.");
+
+            await authService.EnsureCpfDisponivelAsync(cpfNorm, candidate.Id, ct);
+
+            candidate.Cpf = cpfNorm;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Rg))
+            candidate.Rg = request.Rg.Trim();
+
+        if (!string.IsNullOrWhiteSpace(request.DataNascimento))
+        {
+            if (!DateOnly.TryParse(request.DataNascimento.Trim(), out var dataNasc))
+                throw new InvalidOperationException("Data de nascimento inválida.");
+            candidate.DataNascimento = dataNasc;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.NomeMae))
+            candidate.NomeMae = request.NomeMae.Trim();
+
+        if (request.NomePai is not null)
+        {
+            var nomePai = request.NomePai.Trim();
+            candidate.NomePai = string.IsNullOrWhiteSpace(nomePai) ? null : nomePai;
+        }
     }
 
     /// <summary>

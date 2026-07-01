@@ -29,6 +29,7 @@ interface TenantConfiguracaoDto {
     rmImportacaoAutomaticaIntervaloMinutos: number;
     rmImportacaoAutomaticaMaxPorExecucao: number;
     aprovadorRhId: string | null;
+    enviarEmailResponsavelNaCandidatura: boolean;
 }
 
 interface RmImportacaoAutomaticaRunDto {
@@ -247,6 +248,7 @@ export default function TenantConfiguracaoScreen() {
     const [rmImportacaoAutomaticaIntervaloMinutos, setRmImportacaoAutomaticaIntervaloMinutos] = useState(15);
     const [rmImportacaoAutomaticaMaxPorExecucao, setRmImportacaoAutomaticaMaxPorExecucao] = useState(50);
     const [aprovadorRhId, setAprovadorRhId] = useState<string | null>(null);
+    const [enviarEmailResponsavelNaCandidatura, setEnviarEmailResponsavelNaCandidatura] = useState(false);
     const [rmRunsOpen, setRmRunsOpen] = useState(false);
     const [rmRunsLoading, setRmRunsLoading] = useState(false);
     const [rmRuns, setRmRuns] = useState<RmImportacaoAutomaticaRunDto[]>([]);
@@ -283,6 +285,7 @@ export default function TenantConfiguracaoScreen() {
             setRmImportacaoAutomaticaIntervaloMinutos(tenantRes.rmImportacaoAutomaticaIntervaloMinutos ?? 15);
             setRmImportacaoAutomaticaMaxPorExecucao(tenantRes.rmImportacaoAutomaticaMaxPorExecucao ?? 50);
             setAprovadorRhId(tenantRes.aprovadorRhId ?? null);
+            setEnviarEmailResponsavelNaCandidatura(!!tenantRes.enviarEmailResponsavelNaCandidatura);
             setSlaGroups(slaRes);
 
             const edits: Record<string, { slaHoras: number; ativo: boolean }> = {};
@@ -374,6 +377,7 @@ export default function TenantConfiguracaoScreen() {
                     rmImportacaoAutomaticaIntervaloMinutos,
                     rmImportacaoAutomaticaMaxPorExecucao,
                     aprovadorRhId,
+                    enviarEmailResponsavelNaCandidatura,
                 }),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -384,6 +388,7 @@ export default function TenantConfiguracaoScreen() {
             setRmImportacaoAutomaticaIntervaloMinutos(json.rmImportacaoAutomaticaIntervaloMinutos ?? 15);
             setRmImportacaoAutomaticaMaxPorExecucao(json.rmImportacaoAutomaticaMaxPorExecucao ?? 50);
             setAprovadorRhId(json.aprovadorRhId ?? null);
+            setEnviarEmailResponsavelNaCandidatura(!!json.enviarEmailResponsavelNaCandidatura);
             toast.success("Configurações de recrutamento salvas.");
         } catch (e) {
             toast.error(`Falha ao salvar recrutamento: ${e instanceof Error ? e.message : "erro"}`);
@@ -560,6 +565,22 @@ export default function TenantConfiguracaoScreen() {
                         </div>
 
                         <div className="rounded-xl border border-border/40 bg-card p-6 space-y-4 max-w-2xl">
+                            <label className="flex items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    checked={enviarEmailResponsavelNaCandidatura}
+                                    onChange={(e) => setEnviarEmailResponsavelNaCandidatura(e.target.checked)}
+                                    className="mt-1 h-4 w-4 rounded border-border accent-primary"
+                                />
+                                <span>
+                                    <span className="block text-sm font-medium">Enviar e-mail ao responsável na candidatura</span>
+                                    <span className="mt-1 block text-xs text-muted-foreground leading-relaxed">
+                                        Quando desligado (padrão), gestor e recrutador responsáveis pela vaga não recebem e-mail a cada nova candidatura.
+                                        A notificação in-app no portal continua funcionando normalmente.
+                                    </span>
+                                </span>
+                            </label>
+
                             <label className="flex items-start gap-3">
                                 <input
                                     type="checkbox"

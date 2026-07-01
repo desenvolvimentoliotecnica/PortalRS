@@ -49,6 +49,7 @@ import { Input } from "@/components/ui/input";
 
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
@@ -1810,6 +1811,13 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                 <div className="text-lg font-extrabold">{candidateFormReadOnly ? "Dados do candidato" : "Cadastro"}</div>
               </div>
               <div className="flex flex-wrap justify-end gap-2">
+                {candidateFormReadOnly && (
+                  <WhatsAppContactButton
+                    size="sm"
+                    celular={newCandForm.celular}
+                    fone={newCandForm.fone}
+                  />
+                )}
                 {candidateFormReadOnly && editingCandidateId && (
                   <Button
                     variant="outline"

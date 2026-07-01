@@ -23,6 +23,7 @@ import {
 import PortalVagasAgendaScreen from "@/features/portalvagas/agenda/PortalVagasAgendaScreen";
 import MinhasCandidaturasSection from "@/features/portalvagas/MinhasCandidaturasSection";
 import { addAppToHistory } from "@/features/portalvagas/appsStorage";
+import DocumentacaoBasicaFields, { validateDocumentacaoBasica } from "@/features/portalvagas/DocumentacaoBasicaFields";
 import {
   PortalVagasSkillsSection,
   PortalVagasEducationSection,
@@ -75,6 +76,12 @@ type Profile = {
   resumoProfissional?: string;
   avatarUrl?: string;
   trabalhandoAtualmente?: boolean | null;
+  cpf?: string;
+  rg?: string;
+  dataNascimento?: string;
+  nomeMae?: string;
+  nomePai?: string;
+  perfilDocumentacaoCompleta?: boolean;
 };
 
 type Tab = "vagas" | "candidaturas";
@@ -171,7 +178,14 @@ export default function PortalVagasScreen() {
   const [accessMode, setAccessMode] = useState<"login" | "register">("login");
   const [accessLoading, setAccessLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
-  const [registerForm, setRegisterForm] = useState({ nome: "", email: "", fone: "", uf: "", cidade: "", password: "", passwordConfirm: "" });
+  const [registerForm, setRegisterForm] = useState({
+    nome: "", email: "", fone: "", uf: "", cidade: "",
+    cpf: "", rg: "", dataNascimento: "", nomeMae: "", nomePai: "",
+    password: "", passwordConfirm: "",
+  });
+  const [completarDocOpen, setCompletarDocOpen] = useState(false);
+  const [pendingApplyJob, setPendingApplyJob] = useState<JobItem | null>(null);
+  const [savingDoc, setSavingDoc] = useState(false);
 
   const candidateSession = useMemo(() => getPortalCandidateSession(tenantId), [tenantId]);
   const lastVagaIdRef = useRef<string | null>(null);
@@ -226,7 +240,13 @@ export default function PortalVagasScreen() {
           cidade: data.cidade || "", uf: data.uf || "", linkedinUrl: data.linkedinUrl || "",
           resumoProfissional: data.resumoProfissional || "", avatarUrl: data.avatarUrl || "",
           trabalhandoAtualmente: data.trabalhandoAtualmente,
+          cpf: data.cpf || "", rg: data.rg || "", dataNascimento: data.dataNascimento || "",
+          nomeMae: data.nomeMae || "", nomePai: data.nomePai || "",
+          perfilDocumentacaoCompleta: data.perfilDocumentacaoCompleta !== false,
         });
+        if (data.perfilDocumentacaoCompleta === false) {
+          setCompletarDocOpen(true);
+        }
       })
       .catch(() => {});
   }, [tenantId, candidateSession?.id]);
@@ -250,6 +270,11 @@ export default function PortalVagasScreen() {
   // ── Handlers
 
   function openApply(job: JobItem) {
+    if (candidateSession?.id && profile.perfilDocumentacaoCompleta === false) {
+      setPendingApplyJob(job);
+      setCompletarDocOpen(true);
+      return;
+    }
     setSelectedJob(job);
     setApplyForm(f => ({
       ...f,
@@ -285,6 +310,11 @@ export default function PortalVagasScreen() {
 
   async function submitApply() {
     if (!selectedJob?.id || !tenantId) return;
+    if (candidateSession?.id && profile.perfilDocumentacaoCompleta === false) {
+      setPendingApplyJob(selectedJob);
+      setCompletarDocOpen(true);
+      return;
+    }
     if (!applyForm.consent) { toast.error("Aceite o uso dos dados para continuar."); return; }
     if (!applyForm.fullName || !applyForm.email || !applyForm.phone) {
       toast.error("Preencha nome, e-mail e celular."); return;
@@ -339,7 +369,7 @@ export default function PortalVagasScreen() {
       const data = (await res.json().catch(() => null)) as Profile | null;
       if (!res.ok || !data) { if (res.status === 401 || res.status === 403) { setAuthRequired(true); return; } throw new Error(); }
       setAuthRequired(false);
-      setProfile({ nome: data.nome || "", email: data.email || "", fone: data.fone || "", cidade: data.cidade || "", uf: data.uf || "", linkedinUrl: data.linkedinUrl || "", resumoProfissional: data.resumoProfissional || "", avatarUrl: data.avatarUrl || "", trabalhandoAtualmente: data.trabalhandoAtualmente });
+      setProfile({ nome: data.nome || "", email: data.email || "", fone: data.fone || "", cidade: data.cidade || "", uf: data.uf || "", linkedinUrl: data.linkedinUrl || "", resumoProfissional: data.resumoProfissional || "", avatarUrl: data.avatarUrl || "", trabalhandoAtualmente: data.trabalhandoAtualmente, cpf: data.cpf || "", rg: data.rg || "", dataNascimento: data.dataNascimento || "", nomeMae: data.nomeMae || "", nomePai: data.nomePai || "", perfilDocumentacaoCompleta: data.perfilDocumentacaoCompleta !== false });
     } catch { toast.error("Falha ao carregar perfil."); }
   }
 
@@ -347,13 +377,78 @@ export default function PortalVagasScreen() {
     if (!tenantId) return;
     setSavingProfile(true);
     try {
-      const res = await portalCandidateFetch(tenantId, "", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nome: profile.nome || "", fone: profile.fone || "", cidade: profile.cidade || "", uf: (profile.uf || "").toUpperCase(), linkedinUrl: profile.linkedinUrl || "", resumoProfissional: profile.resumoProfissional || "", trabalhandoAtualmente: profile.trabalhandoAtualmente ?? null }) });
+      const res = await portalCandidateFetch(tenantId, "", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        nome: profile.nome || "",
+        fone: profile.fone || "",
+        cidade: profile.cidade || "",
+        uf: (profile.uf || "").toUpperCase(),
+        linkedinUrl: profile.linkedinUrl || "",
+        resumoProfissional: profile.resumoProfissional || "",
+        trabalhandoAtualmente: profile.trabalhandoAtualmente ?? null,
+        cpf: profile.cpf || null,
+        rg: profile.rg || null,
+        dataNascimento: profile.dataNascimento || null,
+        nomeMae: profile.nomeMae || null,
+        nomePai: profile.nomePai || null,
+      }) });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) throw new Error();
       toast.success("Perfil salvo.");
-      setProfile(p => ({ ...p, ...data }));
+      setProfile(p => ({ ...p, ...data, perfilDocumentacaoCompleta: data.perfilDocumentacaoCompleta !== false }));
     } catch { toast.error("Falha ao salvar perfil."); }
     finally { setSavingProfile(false); }
+  }
+
+  async function saveDocumentacaoBasica() {
+    if (!tenantId) return;
+    const docErr = validateDocumentacaoBasica({
+      cpf: profile.cpf || "",
+      rg: profile.rg || "",
+      dataNascimento: profile.dataNascimento || "",
+      nomeMae: profile.nomeMae || "",
+      nomePai: profile.nomePai || "",
+    });
+    if (docErr) { toast.error(docErr); return; }
+    setSavingDoc(true);
+    try {
+      const res = await portalCandidateFetch(tenantId, "", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: profile.nome || "",
+          fone: profile.fone || "",
+          cidade: profile.cidade || "",
+          uf: (profile.uf || "").toUpperCase(),
+          linkedinUrl: profile.linkedinUrl || "",
+          resumoProfissional: profile.resumoProfissional || "",
+          trabalhandoAtualmente: profile.trabalhandoAtualmente ?? null,
+          cpf: profile.cpf?.trim() || null,
+          rg: profile.rg?.trim() || null,
+          dataNascimento: profile.dataNascimento || null,
+          nomeMae: profile.nomeMae?.trim() || null,
+          nomePai: profile.nomePai?.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => null) as Profile | null;
+      if (!res.ok || !data) {
+        const err = data as { message?: string } | null;
+        toast.error(err?.message || "Falha ao salvar documentação.");
+        return;
+      }
+      const completa = data.perfilDocumentacaoCompleta !== false;
+      setProfile(p => ({ ...p, ...data, perfilDocumentacaoCompleta: completa }));
+      if (completa) {
+        toast.success("Documentação salva.");
+        setCompletarDocOpen(false);
+        const job = pendingApplyJob;
+        setPendingApplyJob(null);
+        if (job) openApply(job);
+      }
+    } catch {
+      toast.error("Falha ao salvar documentação.");
+    } finally {
+      setSavingDoc(false);
+    }
   }
 
   async function upload(kind: "avatar" | "curriculo", file: File) {
@@ -378,11 +473,12 @@ export default function PortalVagasScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: loginForm.email.trim(), password: loginForm.password }),
       });
-      const data = await res.json().catch(() => null) as { id?: string; nome?: string; email?: string; message?: string } | null;
+      const data = await res.json().catch(() => null) as { id?: string; nome?: string; email?: string; perfilDocumentacaoCompleta?: boolean; message?: string } | null;
       if (!res.ok) { clearPortalCandidateSession(tenantId); toast.error(data?.message || "Falha ao entrar."); return; }
       if (!data?.id) { toast.error("Resposta inválida."); return; }
       savePortalCandidateSession({ tenantId, id: String(data.id), nome: data.nome, email: data.email });
       setAccessOpen(false);
+      if (data.perfilDocumentacaoCompleta === false) setCompletarDocOpen(true);
       void openProfile();
     } catch { toast.error("Falha ao entrar."); }
     finally { setAccessLoading(false); }
@@ -394,14 +490,34 @@ export default function PortalVagasScreen() {
     if (!registerForm.uf || !registerForm.cidade) { toast.error("Selecione UF e cidade."); return; }
     if (!PASSWORD_REGEX.test(registerForm.password)) { toast.error("Senha fora do padrão (mín. 8, 1 maiúscula, 1 número e 1 especial)."); return; }
     if (registerForm.password !== registerForm.passwordConfirm) { toast.error("As senhas não conferem."); return; }
+    const docErr = validateDocumentacaoBasica({
+      cpf: registerForm.cpf,
+      rg: registerForm.rg,
+      dataNascimento: registerForm.dataNascimento,
+      nomeMae: registerForm.nomeMae,
+      nomePai: registerForm.nomePai,
+    });
+    if (docErr) { toast.error(docErr); return; }
     setAccessLoading(true);
     try {
       const res = await portalAuthFetch(tenantId, "/api/public/portal-auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: registerForm.nome.trim(), email: registerForm.email.trim(), fone: registerForm.fone.trim(), cidade: registerForm.cidade, uf: registerForm.uf, password: registerForm.password }),
+        body: JSON.stringify({
+          nome: registerForm.nome.trim(),
+          email: registerForm.email.trim(),
+          cpf: registerForm.cpf.trim(),
+          rg: registerForm.rg.trim(),
+          dataNascimento: registerForm.dataNascimento,
+          nomeMae: registerForm.nomeMae.trim(),
+          nomePai: registerForm.nomePai.trim() || null,
+          fone: registerForm.fone.trim(),
+          cidade: registerForm.cidade,
+          uf: registerForm.uf,
+          password: registerForm.password,
+        }),
       });
-      const data = await res.json().catch(() => null) as { id?: string; nome?: string; email?: string; message?: string } | null;
+      const data = await res.json().catch(() => null) as { id?: string; nome?: string; email?: string; perfilDocumentacaoCompleta?: boolean; message?: string } | null;
       if (!res.ok) { toast.error(data?.message || "Falha ao criar acesso."); return; }
       if (!data?.id) { toast.error("Resposta inválida."); return; }
       savePortalCandidateSession({ tenantId, id: String(data.id), nome: data.nome, email: data.email });
@@ -493,6 +609,23 @@ export default function PortalVagasScreen() {
           </div>
         </div>
       </header>
+
+      {candidateSession?.id && profile.perfilDocumentacaoCompleta === false && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-amber-900">
+              Complete sua documentação básica (CPF, RG, nascimento e nome da mãe) para se candidatar às vagas.
+            </p>
+            <button
+              type="button"
+              onClick={() => setCompletarDocOpen(true)}
+              className="shrink-0 rounded-lg bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+            >
+              Completar agora
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════ HERO ══════════════════════ */}
       <div className="bg-gradient-to-br from-[#0a2f5c] via-[#105290] to-[#1a6bbf] px-4 pb-10 pt-10 text-white">
@@ -906,6 +1039,23 @@ export default function PortalVagasScreen() {
                         <div><label className={lbl}>LinkedIn</label><input className={inp} value={profile.linkedinUrl || ""} onChange={e => setProfile(p => ({ ...p, linkedinUrl: e.target.value }))} /></div>
                         <div className="sm:col-span-2"><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="rounded" checked={profile.trabalhandoAtualmente === true} onChange={e => setProfile(p => ({ ...p, trabalhandoAtualmente: e.target.checked }))} /><span className="text-sm text-muted-foreground">Está trabalhando atualmente</span></label></div>
                         <div className="sm:col-span-2"><label className={lbl}>Resumo profissional</label><textarea className={`${inp} resize-none`} rows={4} value={profile.resumoProfissional || ""} onChange={e => setProfile(p => ({ ...p, resumoProfissional: e.target.value }))} /></div>
+                        <div className="sm:col-span-2 border-t border-border/40 pt-4 mt-1">
+                          <p className="text-xs font-semibold text-foreground mb-3">Documentação básica</p>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <DocumentacaoBasicaFields
+                              values={{
+                                cpf: profile.cpf || "",
+                                rg: profile.rg || "",
+                                dataNascimento: profile.dataNascimento || "",
+                                nomeMae: profile.nomeMae || "",
+                                nomePai: profile.nomePai || "",
+                              }}
+                              onChange={patch => setProfile(p => ({ ...p, ...patch }))}
+                              inp={inp}
+                              lbl={lbl}
+                            />
+                          </div>
+                        </div>
                         <div><label className={lbl}>Foto</label><input className={inp} type="file" accept="image/*" onChange={e => e.target.files?.[0] && void upload("avatar", e.target.files[0])} /></div>
                         <div><label className={lbl}>Currículo (PDF/DOC)</label><input className={inp} type="file" accept=".pdf,.doc,.docx" onChange={e => e.target.files?.[0] && void upload("curriculo", e.target.files[0])} /></div>
                       </div>
@@ -935,10 +1085,57 @@ export default function PortalVagasScreen() {
         </div>
       )}
 
+      {/* ══════════════════════ COMPLETAR DOC MODAL ══════════════════════ */}
+      {completarDocOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-border/40 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-border/40 px-6 py-4">
+              <div>
+                <h2 className="text-base font-bold">Documentação básica</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {pendingApplyJob
+                    ? `Complete seus dados para se candidatar à vaga "${pendingApplyJob.titulo}".`
+                    : "Informe RG, CPF, data de nascimento e nome da mãe para continuar no portal."}
+                </p>
+              </div>
+              {!pendingApplyJob && (
+                <button type="button" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 transition-colors" onClick={() => setCompletarDocOpen(false)}>
+                  <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              )}
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <DocumentacaoBasicaFields
+                  values={{
+                    cpf: profile.cpf || "",
+                    rg: profile.rg || "",
+                    dataNascimento: profile.dataNascimento || "",
+                    nomeMae: profile.nomeMae || "",
+                    nomePai: profile.nomePai || "",
+                  }}
+                  onChange={patch => setProfile(p => ({ ...p, ...patch }))}
+                  inp={inp}
+                  lbl={lbl}
+                />
+              </div>
+              <button
+                type="button"
+                disabled={savingDoc}
+                onClick={() => void saveDocumentacaoBasica()}
+                className="w-full rounded-lg bg-[#105290] py-2 text-sm font-semibold text-white hover:bg-[#0d3f72] disabled:opacity-60 transition-colors"
+              >
+                {savingDoc ? "Salvando..." : pendingApplyJob ? "Salvar e continuar candidatura" : "Salvar documentação"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ══════════════════════ ACCESS MODAL ══════════════════════ */}
       {accessOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-2xl border border-border/40 bg-white shadow-2xl">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-border/40 bg-white shadow-2xl">
             <div className="flex items-start justify-between gap-3 border-b border-border/40 px-6 py-4">
               <div>
                 <h2 className="text-base font-bold">Acesso ao Portal</h2>
@@ -972,6 +1169,25 @@ export default function PortalVagasScreen() {
                     <div><label className={lbl}>Telefone</label><input className={inp} placeholder="(11) 99999-9999" value={registerForm.fone} onChange={e => setRegisterForm(f => ({ ...f, fone: e.target.value }))} /></div>
                     <div><label className={lbl}>UF</label><select className={sel} value={registerForm.uf} onChange={e => setRegisterForm(f => ({ ...f, uf: e.target.value.toUpperCase() }))}><option value="">Selecione</option>{UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}</select></div>
                     <div><label className={lbl}>Cidade</label><input className={inp} placeholder="São Paulo" value={registerForm.cidade} onChange={e => setRegisterForm(f => ({ ...f, cidade: e.target.value }))} /></div>
+                  </div>
+                  <div className="border-t border-border/40 pt-3">
+                    <p className="text-xs font-semibold text-foreground mb-2">Documentação básica</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <DocumentacaoBasicaFields
+                        values={{
+                          cpf: registerForm.cpf,
+                          rg: registerForm.rg,
+                          dataNascimento: registerForm.dataNascimento,
+                          nomeMae: registerForm.nomeMae,
+                          nomePai: registerForm.nomePai,
+                        }}
+                        onChange={patch => setRegisterForm(f => ({ ...f, ...patch }))}
+                        inp={inp}
+                        lbl={lbl}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <div><label className={lbl}>Senha</label><input className={inp} type="password" placeholder="••••••••" value={registerForm.password} onChange={e => setRegisterForm(f => ({ ...f, password: e.target.value }))} /></div>
                     <div><label className={lbl}>Confirmar senha</label><input className={inp} type="password" placeholder="••••••••" value={registerForm.passwordConfirm} onChange={e => setRegisterForm(f => ({ ...f, passwordConfirm: e.target.value }))} /></div>
                   </div>

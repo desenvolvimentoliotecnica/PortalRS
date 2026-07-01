@@ -2111,6 +2111,10 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<string>("Cpf")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
                     b.Property<string>("Cidade")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
@@ -2120,6 +2124,9 @@ namespace RhPortal.Api.Migrations
 
                     b.Property<string>("CvText")
                         .HasColumnType("text");
+
+                    b.Property<DateOnly?>("DataNascimento")
+                        .HasColumnType("date");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -2154,6 +2161,14 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
 
+                    b.Property<string>("NomeMae")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("NomePai")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
                     b.Property<string>("Obs")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -2172,6 +2187,10 @@ namespace RhPortal.Api.Migrations
                     b.Property<string>("ResumoProfissional")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Rg")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -11401,6 +11420,11 @@ namespace RhPortal.Api.Migrations
 
                     b.Property<string>("EmbeddingModel")
                         .HasColumnType("text");
+
+                    b.Property<bool>("EnviarEmailResponsavelNaCandidatura")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("EmbeddingProvider")
                         .HasColumnType("text");
