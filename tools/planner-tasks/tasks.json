@@ -4755,7 +4755,7 @@
         ],
         "branch": "origin/HML",
         "prHml": "Merge PR #82",
-        "prPrd": null
+        "prPrd": "Merge PR #83"
       },
       "observacoes": "Restaurado apos revert acidental (240f5630). Correcao allowlist Owner em tenant."
     },
