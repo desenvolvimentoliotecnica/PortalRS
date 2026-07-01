@@ -4485,21 +4485,25 @@
       "descricaoAmigavel": "Restaurar login e operação do portal em homologação após falha de inicialização da API causada por conflito de injeção de dependências no serviço de OTP do portal de admissão.",
       "inicio": "2026-07-01",
       "horarioInicio": "13:20",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "13:25",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Após último deploy em HML, erro 'Falha ao autenticar' e GET /api/health 502 — validar no servidor 10.0.0.80.",
       "entregavel": "API rhportal-api estável em HML; health check 200; login funcional.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "7cf32477"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #48",
+        "prPrd": "Merge PR #49"
       },
-      "observacoes": "Causa: AdmissaoPortalOtpService Singleton injetando IEmailQueueService Scoped. Fix: AddScoped em Program.cs. Container em restart loop exit 139."
+      "observacoes": "Causa: AdmissaoPortalOtpService Singleton injetando IEmailQueueService Scoped. Fix: AddScoped. Validado: /api/health 200 Healthy apos deploy."
     }
   ]
 }
