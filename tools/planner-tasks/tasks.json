@@ -4292,10 +4292,10 @@
       "descricaoAmigavel": "Configuração por tenant para ler calendário Outlook via Microsoft Graph, com teste de conexão e exibição dos eventos na agenda.",
       "inicio": "2026-07-01",
       "horarioInicio": "10:26",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "12:16",
+      "totalHoras": 1.83,
+      "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
@@ -4304,7 +4304,8 @@
       "ambiente": "HML",
       "referencias": {
         "commits": [
-          "7735b436"
+          "7735b436",
+          "ca854b98"
         ],
         "branch": "origin/HML",
         "prHml": "Merge PR #40",
