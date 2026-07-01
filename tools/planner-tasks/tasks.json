@@ -4452,10 +4452,12 @@
       "entregavel": "Badge Aberto/Fechado/Stand-by/Cancelada/Reprovada na grid de solicitações; botão Conversar com WhatsApp Web com E.164 BR em candidatos, matching, hub da vaga, triagem e tracking de admissão.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "54f50d4d"
+        ],
         "branch": "DEV"
       },
-      "observacoes": "Backlog docs/backlog-rh-analistas-2026-07-01.md itens 3 e 10. Frontend e backend prontos; aguardando commit."
+      "observacoes": "Backlog itens 3 e 10. Commit 54f50d4d em DEV; aguardando promoção HML."
     },
     {
       "id": "TASK-2026-171",
@@ -4474,10 +4476,12 @@
       "entregavel": "Campos de doc no registro/perfil com validação CPF; banner/modal para legados; bloqueio de candidatura com retomada da vaga; checkbox em Configurações do tenant (default desligado).",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "54f50d4d"
+        ],
         "branch": "DEV"
       },
-      "observacoes": "Backlog docs/backlog-rh-analistas-2026-07-01.md itens 1 e 2. Migrations e API prontos; frontend concluído nesta sessão."
+      "observacoes": "Backlog itens 1 e 2. Commit 54f50d4d em DEV; aguardando promoção HML."
     },
     {
       "id": "TASK-2026-172",
