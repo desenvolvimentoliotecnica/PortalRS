@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 183
+    "totalTarefas": 184
   },
   "tarefas": [
     {
@@ -4805,6 +4805,29 @@
         "prPrd": "Merge PR #77"
       },
       "observacoes": "Follow-up da TASK-2026-180. Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-184",
+      "nome": "[Portal RH] Wizard preview — requisições reais do analista logado",
+      "descricaoAmigavel": "Etapa 1 do wizard de publicar vaga passa a listar somente solicitações atribuídas ao analista de RH logado, via API do dashboard.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "15:35",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Trazer somente requisições atribuídas ao analista de RH logado no wizard preview, como no portal, sem fallback mock.",
+      "entregavel": "Etapa Requisição consumindo GET /api/dashboard/analista-rh/solicitacoes-vaga com filtro server-side por analista.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Mesmo endpoint do dashboard analista; apenas status Aprovada selecionável."
     }
   ]
 }
