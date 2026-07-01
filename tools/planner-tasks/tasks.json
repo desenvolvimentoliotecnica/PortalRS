@@ -4582,7 +4582,8 @@
           "2cc75773"
         ],
         "branch": "origin/HML",
-        "prHml": "Merge PR #54"
+        "prHml": "Merge PR #54",
+        "prPrd": "Merge PR #55"
       },
       "observacoes": "Mesma regra do dashboard analista-rh/agenda-events."
     }
