@@ -599,6 +599,7 @@ builder.Services.AddSingleton<RhPortal.Api.Messaging.WhatsApp.IWhatsAppMessageSe
         logger.CreateLogger<RhPortal.Api.Messaging.WhatsApp.LoggingWhatsAppMessageSender>());
 });
 builder.Services.AddScoped<ICandidatoService, CandidatoService>();
+builder.Services.AddScoped<RhPortal.Api.Application.TenantOperationalReset.ITenantOperationalResetService, RhPortal.Api.Application.TenantOperationalReset.TenantOperationalResetService>();
 builder.Services.AddScoped<ICandidatoPortalPerfilReader, CandidatoPortalPerfilReader>();
 builder.Services.AddScoped<IPessoaService, PessoaService>();
 builder.Services.AddScoped<ICvGptExtractor, CvGptExtractor>();

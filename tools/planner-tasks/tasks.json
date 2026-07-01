@@ -4741,18 +4741,20 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "percentualConcluido": 95,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar view dedicada de reset operacional (Owner, Dev/HML): apagar todos candidatos/talentos, vagas de teste e pré-admissões; preservar configurações e requisições RM; confirmação digitando RESETAR; progresso na tela.",
       "entregavel": "Página /admin/reset-operacional, APIs preview/execute, item de menu Owner-only, progresso SignalR.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "06f87fa7"
+        ],
         "branch": "DEV",
         "prHml": null
       },
-      "observacoes": "Correção extra: Owner em tenant sem claim * no JWT era bloqueado pelo RouteAllowlistGuard."
+      "observacoes": "Restaurado apos revert acidental (240f5630). Correcao allowlist Owner em tenant."
     },
     {
       "id": "TASK-2026-182",

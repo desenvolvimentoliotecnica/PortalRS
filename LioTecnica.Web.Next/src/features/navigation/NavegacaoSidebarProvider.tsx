@@ -102,10 +102,11 @@ export function NavegacaoSidebarProvider({ children }: { children: ReactNode }) 
 
     // Allowlist: hrefs do sidebar + hrefs das permissões JWT (sub-rotas como
     // /admissao/tracking/* herdam do prefixo /admissao via isHrefAllowed).
-    // Owner wildcard / owner-root → sem filtro.
+    // Owner wildcard / owner-root / role Owner em tenant → sem filtro.
     let visibleHrefs: Set<string> | null = null;
+    const isOwnerRole = !!me && (me.roles ?? []).some((r) => r.toLowerCase() === "owner");
     const isOwnerWildcard =
-      !!me && (me.permissions ?? []).includes("*");
+      !!me && ((me.permissions ?? []).includes("*") || isOwnerRole);
     if (!isOwnerRoot && !isOwnerWildcard) {
       const hrefs = new Set<string>();
       for (const g of grupos) {
