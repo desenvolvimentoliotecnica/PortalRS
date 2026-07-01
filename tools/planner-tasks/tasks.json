@@ -4741,7 +4741,7 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "percentualConcluido": 90,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar view dedicada de reset operacional (Owner, Dev/HML): apagar todos candidatos/talentos, vagas de teste e pré-admissões; preservar configurações e requisições RM; confirmação digitando RESETAR; progresso na tela.",
@@ -4749,10 +4749,10 @@
       "ambiente": "HML",
       "referencias": {
         "commits": [],
-        "branch": null,
+        "branch": "DEV",
         "prHml": null
       },
-      "observacoes": "Protótipo validado pelo usuário antes da implementação."
+      "observacoes": "Correção extra: Owner em tenant sem claim * no JWT era bloqueado pelo RouteAllowlistGuard."
     },
     {
       "id": "TASK-2026-182",
@@ -4821,16 +4821,17 @@
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Trazer somente requisições atribuídas ao analista de RH logado no wizard preview, como no portal, sem fallback mock.",
       "entregavel": "Etapa Requisição consumindo GET /api/dashboard/analista-rh/solicitacoes-vaga com filtro server-side por analista.",
-      "ambiente": "HML",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "ba2be455"
+          "ba2be455",
+          "3d34b538"
         ],
-        "branch": "origin/HML",
-        "prHml": null,
-        "prPrd": null
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #78",
+        "prPrd": "Merge PR #79"
       },
-      "observacoes": "Mesmo endpoint do dashboard analista; apenas status Aprovada selecionável."
+      "observacoes": "Mesmo endpoint do dashboard analista; apenas status Aprovada selecionável. Promovido DEV→HML→PRD."
     }
   ]
 }
