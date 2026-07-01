@@ -3,15 +3,14 @@
 import { useMemo, useState, type ElementType } from "react";
 import { toast } from "sonner";
 import {
-    AlertTriangle, CheckCircle2, Eye, FileText, Loader2, Upload, XCircle,
+    AlertTriangle, CheckCircle2, Loader2, Upload, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
-import DocumentPreviewLightbox, { type PreviewItem, isPdfPreview } from "@/components/documents/DocumentPreviewLightbox";
+import DocumentPreviewLightbox, { type PreviewItem } from "@/components/documents/DocumentPreviewLightbox";
 import DocumentFileActions from "@/components/documents/DocumentFileActions";
-import DocumentoTipoIcon from "@/components/documents/DocumentoTipoIcon";
-import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
+import { DocumentoIconSidebar } from "@/components/documents/DocumentoTipoIcon";
 import { sortDocumentosSolicitados } from "@/features/admissaoportal/admissaoDocumentoCatalog";
 import { TIPOS_COM_VERSO } from "@/features/admissaoportal/constants";
 import {
@@ -118,7 +117,7 @@ const STATUS_BADGE: Record<EnvioStatus, { label: string; className: string; icon
     },
 };
 
-function DocPreviewThumb({
+function DocFileActions({
     preAdmissaoId,
     doc,
     onPreview,
@@ -128,40 +127,29 @@ function DocPreviewThumb({
     onPreview: (item: PreviewItem) => void;
 }) {
     const previewUrl = usePreAdmissaoDocumentPreview(preAdmissaoId, doc);
-    const isPdf = isPdfPreview({ url: previewUrl ?? "", nomeArquivo: doc.nomeArquivo, contentType: doc.contentType });
+    const [downloading, setDownloading] = useState(false);
 
-    if (!previewUrl) {
-        return (
-            <div className="flex h-16 w-full items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/20">
-                <FileText className="size-5 text-muted-foreground" />
-            </div>
-        );
-    }
+    if (!doc.id) return null;
 
     return (
-        <button
-            type="button"
-            onClick={() => onPreview(toPreviewItem(previewUrl, doc.nomeArquivo, doc.contentType))}
-            className="group relative flex h-16 w-full items-center justify-center overflow-hidden rounded-lg border border-border/40 bg-muted/10"
-            aria-label={`Visualizar ${doc.nomeArquivo}`}
-        >
-            {isPdf ? (
-                <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
-                    <FileText className="size-5 text-red-500/80" />
-                    <span className="text-[9px] font-semibold uppercase">PDF</span>
-                </div>
-            ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={previewUrl} alt="" className="h-full w-full object-cover object-top" />
-            )}
-            <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/25 group-hover:opacity-100">
-                <Eye className="size-4 text-white drop-shadow" />
-            </span>
-        </button>
+        <DocumentFileActions
+            url={previewUrl ?? ""}
+            nomeArquivo={doc.nomeArquivo}
+            contentType={doc.contentType}
+            onPreview={onPreview}
+            onDownload={() => {
+                setDownloading(true);
+                void downloadPreAdmissaoDocument(preAdmissaoId, doc, previewUrl)
+                    .catch(() => toast.error("Não foi possível baixar o arquivo."))
+                    .finally(() => setDownloading(false));
+            }}
+            disabled={!previewUrl || downloading}
+            className="w-full"
+        />
     );
 }
 
-function DocSideBlock({
+function FileSideRow({
     preAdmissaoId,
     doc,
     sideLabel,
@@ -172,29 +160,14 @@ function DocSideBlock({
     sideLabel?: string;
     onPreview: (item: PreviewItem) => void;
 }) {
-    const previewUrl = usePreAdmissaoDocumentPreview(preAdmissaoId, doc);
-    const [downloading, setDownloading] = useState(false);
-
     return (
-        <div className="space-y-2">
-            {sideLabel ? (
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{sideLabel}</p>
-            ) : null}
-            <DocPreviewThumb preAdmissaoId={preAdmissaoId} doc={doc} onPreview={onPreview} />
-            <DocumentFileActions
-                url={previewUrl ?? ""}
-                nomeArquivo={doc.nomeArquivo}
-                contentType={doc.contentType}
-                onPreview={onPreview}
-                onDownload={() => {
-                    setDownloading(true);
-                    void downloadPreAdmissaoDocument(preAdmissaoId, doc, previewUrl)
-                        .catch(() => toast.error("Não foi possível baixar o arquivo."))
-                        .finally(() => setDownloading(false));
-                }}
-                disabled={!previewUrl || downloading}
-                className="w-full"
-            />
+        <div className="space-y-1.5 px-3 py-2">
+            {sideLabel && (
+                <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {sideLabel}
+                </span>
+            )}
+            <DocFileActions preAdmissaoId={preAdmissaoId} doc={doc} onPreview={onPreview} />
         </div>
     );
 }
@@ -271,35 +244,32 @@ function DocumentReviewCard({
     const showReenviar = canSolicitarReenvio && (envioStatus === "rejeitado" || envioStatus === "parcial");
 
     return (
-        <article className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_1px_8px_rgba(15,23,42,0.05)]">
-            <div className="flex gap-3 p-4 pb-3">
-                <DocumentoTipoIcon tipo={tipo} label={label} size="sm" className="shrink-0" />
-                <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 items-start gap-2">
-                            {index > 0 && (
-                                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--lt-primary))] text-xs font-bold text-white">
-                                    {index}
-                                </span>
-                            )}
-                            <div className="min-w-0">
-                                <h3 className="text-sm font-semibold leading-snug text-slate-900">{label}</h3>
-                                {obrigatorio && (
-                                    <p className="text-[11px] text-muted-foreground">Obrigatório</p>
-                                )}
-                            </div>
-                        </div>
-                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>
-                            <BadgeIcon className="size-3" />
-                            {badge.label}
-                        </span>
-                    </div>
-                </div>
-            </div>
+        <article className="flex h-full min-h-[10.5rem] flex-row overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <DocumentoIconSidebar tipo={tipo} label={label} />
 
-            <div className="flex flex-1 flex-col gap-3 px-4 pb-4">
+            <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex items-start gap-2 border-b border-slate-100 px-3 py-2.5">
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                        {index > 0 && (
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--lt-primary))] text-xs font-bold text-white">
+                                {index}
+                            </span>
+                        )}
+                        <div className="min-w-0">
+                            <h3 className="text-sm font-semibold leading-snug text-slate-900">{label}</h3>
+                            {obrigatorio && (
+                                <p className="text-[11px] text-muted-foreground">Obrigatório</p>
+                            )}
+                        </div>
+                    </div>
+                    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>
+                        <BadgeIcon className="size-3" />
+                        {badge.label}
+                    </span>
+                </div>
+
                 {showReenviar && (
-                    <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                    <div className="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-[11px] leading-snug text-red-800">
                         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                         <p>
                             <span className="font-semibold">Reenvio necessário.</span>
@@ -308,52 +278,44 @@ function DocumentReviewCard({
                     </div>
                 )}
 
-                {hasSides ? (
-                    <div className="grid grid-cols-2 gap-3">
-                        {latestFrente ? (
-                            <DocSideBlock preAdmissaoId={preAdmissaoId} doc={latestFrente} sideLabel="Frente" onPreview={onPreview} />
-                        ) : (
-                            <div className="space-y-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Frente</p>
-                                <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground">
-                                    Não enviada
-                                </div>
-                            </div>
-                        )}
-                        {latestVerso ? (
-                            <DocSideBlock preAdmissaoId={preAdmissaoId} doc={latestVerso} sideLabel="Verso" onPreview={onPreview} />
-                        ) : (
-                            <div className="space-y-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Verso</p>
-                                <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground">
-                                    Não enviado
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                ) : latestUnico ? (
-                    <DocSideBlock preAdmissaoId={preAdmissaoId} doc={latestUnico} onPreview={onPreview} />
-                ) : (
-                    <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground">
-                        Nenhum arquivo enviado
-                    </div>
-                )}
+                <div className="flex flex-1 flex-col divide-y divide-slate-100">
+                    {hasSides ? (
+                        <>
+                            {latestFrente ? (
+                                <FileSideRow preAdmissaoId={preAdmissaoId} doc={latestFrente} sideLabel="Frente" onPreview={onPreview} />
+                            ) : (
+                                <div className="px-3 py-2 text-xs text-muted-foreground">Frente não enviada</div>
+                            )}
+                            {latestVerso ? (
+                                <FileSideRow preAdmissaoId={preAdmissaoId} doc={latestVerso} sideLabel="Verso" onPreview={onPreview} />
+                            ) : (
+                                <div className="px-3 py-2 text-xs text-muted-foreground">Verso não enviado</div>
+                            )}
+                        </>
+                    ) : latestUnico ? (
+                        <FileSideRow preAdmissaoId={preAdmissaoId} doc={latestUnico} onPreview={onPreview} />
+                    ) : (
+                        <div className="px-3 py-3 text-xs text-muted-foreground">Nenhum arquivo enviado</div>
+                    )}
+                </div>
 
                 {showReenviar && (
-                    <Button
-                        type="button"
-                        size="sm"
-                        className="w-full gap-1.5 bg-red-600 hover:bg-red-700"
-                        disabled={reenviando}
-                        onClick={() => void handleReenviar()}
-                    >
-                        {reenviando ? (
-                            <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                            <Upload className="size-4" />
-                        )}
-                        Reenviar
-                    </Button>
+                    <div className="border-t border-slate-100 px-3 py-2.5">
+                        <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 w-full gap-1.5 bg-red-600 text-xs hover:bg-red-700"
+                            disabled={reenviando}
+                            onClick={() => void handleReenviar()}
+                        >
+                            {reenviando ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                                <Upload className="size-3.5" />
+                            )}
+                            Reenviar
+                        </Button>
+                    </div>
                 )}
             </div>
         </article>
@@ -428,7 +390,7 @@ export default function AdmissaoArquivosChecklist({
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             <div className="space-y-4">
                 <div>
                     <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Documentos Solicitados</h2>
@@ -448,7 +410,7 @@ export default function AdmissaoArquivosChecklist({
                                 </span>
                                 <span className="tabular-nums text-muted-foreground">{progress.pct}% concluído</span>
                             </div>
-                            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                                 <div
                                     className="h-full rounded-full bg-emerald-500 transition-all duration-500"
                                     style={{ width: `${progress.pct}%` }}
@@ -457,20 +419,18 @@ export default function AdmissaoArquivosChecklist({
                         </div>
 
                         <div className="flex shrink-0 gap-3">
-                            <div className="flex min-w-[8.5rem] items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
-                                <div>
-                                    <p className="text-lg font-bold leading-none text-emerald-700">{progress.enviados}</p>
-                                    <p className="text-[11px] text-emerald-700/80">enviados</p>
-                                    <p className="text-[10px] text-emerald-600/70">Documentos recebidos</p>
+                            <div className="flex min-w-[7.5rem] items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                                <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                                <div className="leading-tight">
+                                    <p className="text-base font-bold text-emerald-700">{progress.enviados} <span className="text-xs font-semibold">enviados</span></p>
+                                    <p className="text-[10px] text-emerald-600/80">Documentos recebidos</p>
                                 </div>
                             </div>
-                            <div className="flex min-w-[8.5rem] items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                                <AlertTriangle className="size-5 shrink-0 text-red-600" />
-                                <div>
-                                    <p className="text-lg font-bold leading-none text-red-700">{progress.pendentes}</p>
-                                    <p className="text-[11px] text-red-700/80">pendentes</p>
-                                    <p className="text-[10px] text-red-600/70">Requerem atenção</p>
+                            <div className="flex min-w-[7.5rem] items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                                <AlertTriangle className="size-4 shrink-0 text-red-600" />
+                                <div className="leading-tight">
+                                    <p className="text-base font-bold text-red-700">{progress.pendentes} <span className="text-xs font-semibold">pendentes</span></p>
+                                    <p className="text-[10px] text-red-600/80">Requerem atenção</p>
                                 </div>
                             </div>
                         </div>
@@ -479,7 +439,7 @@ export default function AdmissaoArquivosChecklist({
             </div>
 
             {sortedSolicitados.length > 0 && (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {sortedSolicitados.map((sol) => {
                         const arquivos = docsByTipo.get(sol.tipo) ?? [];
                         const envioStatus = resolveTipoEnvioStatus(arquivos, sol.tipo);
