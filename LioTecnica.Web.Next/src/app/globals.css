@@ -60,6 +60,15 @@ html {
   @apply max-w-2xl mx-auto px-4 sm:px-6;
 }
 
+/* Alvos de toque no wizard de admissão — escalados pelo WizardStepPanel */
+.wizard-touch-target {
+  min-height: 48px;
+}
+
+.wizard-touch-target-lg {
+  min-height: 56px;
+}
+
 @theme inline {
   /* LioTecnica palette — enables bg-lt-primary, from-lt-brand, text-lt-soft, etc. */
   --color-lt-primary: rgb(var(--lt-primary));
