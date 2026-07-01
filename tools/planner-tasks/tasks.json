@@ -4640,16 +4640,17 @@
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Seguir com P4 — etapa DNALIO no wizard preview de publicar vaga; integrar busca real via apiFetch sem fallback mock.",
       "entregavel": "Etapa DNALIO no wizard preview consumindo /api/descricoes-cargo/lookup e detalhe por id para match IA.",
-      "ambiente": "HML",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "88cfb2e4"
+          "88cfb2e4",
+          "4f279983"
         ],
-        "branch": "origin/HML",
-        "prHml": null,
-        "prPrd": null
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #62",
+        "prPrd": "Merge PR #63"
       },
-      "observacoes": "Lookup isTemplate=true + GET /api/descricoes-cargo/{id}; promocao DEV→HML→PRD em andamento."
+      "observacoes": "Lookup isTemplate=true + GET /api/descricoes-cargo/{id}; promovido DEV→HML→PRD."
     }
   ]
 }
