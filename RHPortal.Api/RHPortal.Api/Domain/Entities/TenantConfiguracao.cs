@@ -143,6 +143,25 @@ public sealed class TenantConfiguracao : ITenantEntity
     public string? AzureAdClientSecret { get; set; }
 
     // --------------------
+    // Microsoft Graph — Agenda (Outlook)
+    // --------------------
+
+    /// <summary>Azure AD Tenant ID para leitura de calendário via Microsoft Graph.</summary>
+    public string? GraphCalendarTenantId { get; set; }
+
+    /// <summary>App Registration Client ID com permissão Calendars.Read (application).</summary>
+    public string? GraphCalendarClientId { get; set; }
+
+    /// <summary>Client Secret criptografado do App Registration.</summary>
+    public string? GraphCalendarClientSecretEncrypted { get; set; }
+
+    /// <summary>UPN do usuário cujo calendário será lido (ex: usuario@empresa.com).</summary>
+    public string? GraphCalendarUserUpn { get; set; }
+
+    /// <summary>Quando true, eventos do Outlook são exibidos na agenda do portal.</summary>
+    public bool GraphCalendarEnabled { get; set; }
+
+    // --------------------
     // IA — Seleção de provider por tenant (Fase 3 LLM-agnóstico, 2026-04-25)
     // --------------------
 

@@ -153,7 +153,9 @@ public interface ITenantConfiguracaoService
     /// <summary>Retorna a configuração de IA do tenant, mais o "effective" depois de resolver fallbacks.</summary>
     Task<TenantAiConfigDto> GetAiConfigAsync(CancellationToken ct);
 
-    /// <summary>Atualiza os 4 campos de provider/modelo de IA. Strings vazias ou whitespace viram <c>null</c>.</summary>
+    /// <summary>
+    /// Atualiza os 4 campos de provider/modelo de IA. Strings vazias ou whitespace viram <c>null</c>.
+    /// </summary>
     Task<TenantAiConfigDto> UpsertAiConfigAsync(TenantAiConfigRequest request, CancellationToken ct);
 }
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 using RhPortal.Api.Application.Agenda;
+using RhPortal.Api.Application.MicrosoftGraph;
 using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Infrastructure.Localization;
 using RhPortal.Api.Infrastructure.Security;
@@ -53,6 +54,22 @@ public sealed class AgendaController : ControllerBase
         CancellationToken ct)
     {
         var items = await service.ListEventsAsync(query, ct);
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Lista eventos do calendário Outlook (Microsoft Graph) no período informado.
+    /// </summary>
+    [RequirePermission("agenda.view")]
+    [HttpGet("graph-events")]
+    [ProducesResponseType(typeof(IReadOnlyList<GraphCalendarEventDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<GraphCalendarEventDto>>> ListGraphEvents(
+        [FromQuery] DateTimeOffset? start,
+        [FromQuery] DateTimeOffset? end,
+        [FromServices] IMicrosoftGraphCalendarService graphService,
+        CancellationToken ct)
+    {
+        var items = await graphService.ListEventsAsync(start, end, ct);
         return Ok(items);
     }
 

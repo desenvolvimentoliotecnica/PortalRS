@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RhPortal.Api.Application.MicrosoftGraph;
 using RhPortal.Api.Application.TenantConfiguracao;
 using RhPortal.Api.Infrastructure.Tenancy;
 using System.Text;
@@ -14,13 +15,16 @@ namespace RhPortal.Api.Controllers;
 public sealed class TenantConfiguracaoController : ControllerBase
 {
     private readonly ITenantConfiguracaoService _service;
+    private readonly IMicrosoftGraphCalendarService _graphCalendarService;
     private readonly ICurrentUserContext _userContext;
 
     public TenantConfiguracaoController(
         ITenantConfiguracaoService service,
+        IMicrosoftGraphCalendarService graphCalendarService,
         ICurrentUserContext userContext)
     {
         _service = service;
+        _graphCalendarService = graphCalendarService;
         _userContext = userContext;
     }
 
@@ -112,5 +116,47 @@ public sealed class TenantConfiguracaoController : ControllerBase
 
         var dto = await _service.UpsertAiConfigAsync(request, ct);
         return Ok(dto);
+    }
+
+    // ────────── Microsoft Graph — Agenda (Outlook) ──────────
+
+    /// <summary>Retorna a configuração de integração com Microsoft Graph para agenda.</summary>
+    [HttpGet("microsoft-graph-calendar")]
+    [ProducesResponseType(typeof(GraphCalendarConfigView), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGraphCalendarConfig(CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        var dto = await _graphCalendarService.GetConfigAsync(ct);
+        return Ok(dto);
+    }
+
+    /// <summary>Salva a configuração de integração com Microsoft Graph para agenda.</summary>
+    [HttpPut("microsoft-graph-calendar")]
+    [ProducesResponseType(typeof(GraphCalendarConfigView), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpsertGraphCalendarConfig(
+        [FromBody] GraphCalendarConfigRequest request,
+        CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        var dto = await _graphCalendarService.SaveConfigAsync(request, ct);
+        return Ok(dto);
+    }
+
+    /// <summary>Testa a conexão com Microsoft Graph e retorna eventos da agenda do UPN configurado.</summary>
+    [HttpPost("microsoft-graph-calendar/test")]
+    [ProducesResponseType(typeof(GraphCalendarTestResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TestGraphCalendarConnection(CancellationToken ct)
+    {
+        if (!_userContext.IsAdmin)
+            return Forbid();
+
+        var result = await _graphCalendarService.TestConnectionAsync(ct);
+        return Ok(result);
     }
 }

@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 165
+    "totalTarefas": 166
   },
   "tarefas": [
     {
@@ -4266,21 +4266,51 @@
       "descricaoAmigavel": "Remove o FAB roxo Assistente IA que ficava sobre a barra de ações nas telas do portal.",
       "inicio": "2026-07-01",
       "horarioInicio": "10:00",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "10:18",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Remover o botão float Assistente de IA.",
       "entregavel": "FAB removido do AppShell; módulo Assistente IA continua acessível pelo menu.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "cbd34eec"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #38",
+        "prPrd": "Merge PR #39"
       },
-      "observacoes": null
+      "observacoes": "AssistenteIaFab.tsx removido. PR #38 HML, PR #39 PRD."
+    },
+    {
+      "id": "TASK-2026-165",
+      "nome": "[Portal RH] Integração Microsoft Graph na agenda",
+      "descricaoAmigavel": "Configuração por tenant para ler calendário Outlook via Microsoft Graph, com teste de conexão e exibição dos eventos na agenda.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "10:26",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Tela de configuração na área de tenant para gravar credenciais Microsoft Graph (Tenant ID, Client ID, UPN, secret) e botão de teste para ler agenda; exibir eventos na view de agenda.",
+      "entregavel": "Card de configuração em Configurações do tenant, endpoint de teste e eventos Outlook em azul no calendário da agenda.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "7735b436"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #40",
+        "prPrd": "Merge PR #41"
+      },
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
