@@ -4372,20 +4372,22 @@
       "inicio": "2026-07-01",
       "horarioInicio": "12:35",
       "conclusao": "2026-07-01",
-      "horarioConclusao": "14:30",
-      "totalHoras": 1.92,
+      "horarioConclusao": "14:46",
+      "totalHoras": 2.18,
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar view com mockup da home do analista de RH em rota oculta para avaliação.",
       "entregavel": "Rota /app/dashboard/preview/home-analista-rh com layout baseado no mockup e dados ilustrativos.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "81f1e532"
         ],
-        "branch": "DEV"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #56",
+        "prPrd": "Merge PR #57"
       },
       "observacoes": "Rota oculta /dashboard/preview/home-analista-rh; não listada no menu."
     },
@@ -4422,20 +4424,22 @@
       "inicio": "2026-07-01",
       "horarioInicio": "14:10",
       "conclusao": "2026-07-01",
-      "horarioConclusao": "14:30",
-      "totalHoras": 0.33,
+      "horarioConclusao": "14:46",
+      "totalHoras": 0.6,
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar view mockada com wizard (máx. 4 etapas) para publicar vaga a partir de requisição, acessível pelo atalho Publicar vaga.",
       "entregavel": "Rota /app/dashboard/preview/publicar-vaga com wizard ilustrativo e link na home preview.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "81f1e532"
         ],
-        "branch": "DEV"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #56",
+        "prPrd": "Merge PR #57"
       },
       "observacoes": "Rota oculta /dashboard/preview/publicar-vaga; link na home preview."
     },
