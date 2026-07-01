@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 174
+    "totalTarefas": 175
   },
   "tarefas": [
     {
@@ -4560,6 +4560,28 @@
         "prPrd": "Merge PR #53"
       },
       "observacoes": "Causa: 20260701150000 e 20260701150100 sem [DbContext]/[Migration]."
+    },
+    {
+      "id": "TASK-2026-175",
+      "nome": "[Portal RH] Agenda — filtrar eventos do portal por usuário",
+      "descricaoAmigavel": "Eventos verdes criados no portal apareciam para todos os usuários; agora cada pessoa vê só os seus, os que participa ou os das vagas da sua carteira.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "14:14",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Eventos criados no portal (verdes) estão aparecendo para todo mundo.",
+      "entregavel": "Listagem da agenda filtra eventos por responsável, participante ou vaga da carteira; novos eventos recebem responsável automaticamente.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Mesma regra do dashboard analista-rh/agenda-events."
     }
   ]
 }
