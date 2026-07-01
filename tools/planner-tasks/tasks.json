@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 164
+    "totalTarefas": 165
   },
   "tarefas": [
     {
@@ -4259,6 +4259,28 @@
         "prPrd": "Merge PR #37"
       },
       "observacoes": "Remove DocPreviewThumb; sidebar + Visualizar/Baixar. PR #36 HML, PR #37 PRD."
+    },
+    {
+      "id": "TASK-2026-164",
+      "nome": "[Portal RH] Remover botão flutuante Assistente IA",
+      "descricaoAmigavel": "Remove o FAB roxo Assistente IA que ficava sobre a barra de ações nas telas do portal.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "10:00",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Remover o botão float Assistente de IA.",
+      "entregavel": "FAB removido do AppShell; módulo Assistente IA continua acessível pelo menu.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": null
     }
   ]
 }
