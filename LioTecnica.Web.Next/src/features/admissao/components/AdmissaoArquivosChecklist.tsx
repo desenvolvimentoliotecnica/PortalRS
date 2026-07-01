@@ -3,15 +3,15 @@
 import { useMemo, useState, type ElementType } from "react";
 import { toast } from "sonner";
 import {
-    CheckCircle2, Loader2, Mail, XCircle, AlertTriangle,
+    AlertTriangle, CheckCircle2, Eye, FileText, Loader2, Upload, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
-import DocumentPreviewLightbox, { type PreviewItem } from "@/components/documents/DocumentPreviewLightbox";
+import DocumentPreviewLightbox, { type PreviewItem, isPdfPreview } from "@/components/documents/DocumentPreviewLightbox";
 import DocumentFileActions from "@/components/documents/DocumentFileActions";
-import { DocumentoIconSidebar } from "@/components/documents/DocumentoTipoIcon";
+import DocumentoTipoIcon from "@/components/documents/DocumentoTipoIcon";
+import { toPreviewItem } from "@/components/documents/DocumentThumbnail";
 import { sortDocumentosSolicitados } from "@/features/admissaoportal/admissaoDocumentoCatalog";
 import { TIPOS_COM_VERSO } from "@/features/admissaoportal/constants";
 import {
@@ -89,21 +89,79 @@ function resolveTipoEnvioStatus(arquivos: ArquivoDocumento[], tipo: number): Env
     return "rejeitado";
 }
 
-function cardBackgroundClass(envioStatus: EnvioStatus) {
-    if (envioStatus === "enviado") {
-        return "border-teal-200/90 bg-teal-50/80 dark:border-teal-800/60 dark:bg-teal-950/25";
-    }
-    return "border-red-200/90 bg-red-50/70 dark:border-red-800/60 dark:bg-red-950/20";
+function latestRejectionObs(arquivos: ArquivoDocumento[]): string | null {
+    const rejected = arquivos.filter((d) => !isValidDoc(d) && d.observacaoRh?.trim());
+    if (rejected.length === 0) return null;
+    return rejected.sort(byDate)[0].observacaoRh;
 }
 
 const STATUS_BADGE: Record<EnvioStatus, { label: string; className: string; icon: ElementType }> = {
-    pendente: { label: "Pendente", className: "bg-red-500/10 text-red-700 dark:text-red-400", icon: XCircle },
-    enviado: { label: "Enviado", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", icon: CheckCircle2 },
-    rejeitado: { label: "Rejeitado", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: AlertTriangle },
-    parcial: { label: "Incompleto", className: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: AlertTriangle },
+    pendente: {
+        label: "Pendente",
+        className: "bg-red-50 text-red-700 border border-red-200",
+        icon: XCircle,
+    },
+    enviado: {
+        label: "Enviado",
+        className: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+        icon: CheckCircle2,
+    },
+    rejeitado: {
+        label: "Rejeitado",
+        className: "bg-red-50 text-red-700 border border-red-200",
+        icon: AlertTriangle,
+    },
+    parcial: {
+        label: "Incompleto",
+        className: "bg-amber-50 text-amber-800 border border-amber-200",
+        icon: AlertTriangle,
+    },
 };
 
-function FileSideRow({
+function DocPreviewThumb({
+    preAdmissaoId,
+    doc,
+    onPreview,
+}: {
+    preAdmissaoId: string;
+    doc: ArquivoDocumento;
+    onPreview: (item: PreviewItem) => void;
+}) {
+    const previewUrl = usePreAdmissaoDocumentPreview(preAdmissaoId, doc);
+    const isPdf = isPdfPreview({ url: previewUrl ?? "", nomeArquivo: doc.nomeArquivo, contentType: doc.contentType });
+
+    if (!previewUrl) {
+        return (
+            <div className="flex h-16 w-full items-center justify-center rounded-lg border border-dashed border-border/50 bg-muted/20">
+                <FileText className="size-5 text-muted-foreground" />
+            </div>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={() => onPreview(toPreviewItem(previewUrl, doc.nomeArquivo, doc.contentType))}
+            className="group relative flex h-16 w-full items-center justify-center overflow-hidden rounded-lg border border-border/40 bg-muted/10"
+            aria-label={`Visualizar ${doc.nomeArquivo}`}
+        >
+            {isPdf ? (
+                <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
+                    <FileText className="size-5 text-red-500/80" />
+                    <span className="text-[9px] font-semibold uppercase">PDF</span>
+                </div>
+            ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewUrl} alt="" className="h-full w-full object-cover object-top" />
+            )}
+            <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/25 group-hover:opacity-100">
+                <Eye className="size-4 text-white drop-shadow" />
+            </span>
+        </button>
+    );
+}
+
+function DocSideBlock({
     preAdmissaoId,
     doc,
     sideLabel,
@@ -114,57 +172,191 @@ function FileSideRow({
     sideLabel?: string;
     onPreview: (item: PreviewItem) => void;
 }) {
-    const valid = isValidDoc(doc);
-    const showMeta = sideLabel || (!valid && doc.observacaoRh);
+    const previewUrl = usePreAdmissaoDocumentPreview(preAdmissaoId, doc);
+    const [downloading, setDownloading] = useState(false);
 
     return (
-        <div className={`px-3 py-2 space-y-2 ${!valid ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}>
-            {showMeta && (
-                <div className="space-y-1">
-                    {sideLabel && (
-                        <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">
-                            {sideLabel}
-                        </span>
-                    )}
-                    {!valid && doc.observacaoRh && (
-                        <p className="text-xs text-amber-700 dark:text-amber-400">{doc.observacaoRh}</p>
-                    )}
-                </div>
-            )}
-            <DocFileActions preAdmissaoId={preAdmissaoId} doc={doc} onPreview={onPreview} />
+        <div className="space-y-2">
+            {sideLabel ? (
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{sideLabel}</p>
+            ) : null}
+            <DocPreviewThumb preAdmissaoId={preAdmissaoId} doc={doc} onPreview={onPreview} />
+            <DocumentFileActions
+                url={previewUrl ?? ""}
+                nomeArquivo={doc.nomeArquivo}
+                contentType={doc.contentType}
+                onPreview={onPreview}
+                onDownload={() => {
+                    setDownloading(true);
+                    void downloadPreAdmissaoDocument(preAdmissaoId, doc, previewUrl)
+                        .catch(() => toast.error("Não foi possível baixar o arquivo."))
+                        .finally(() => setDownloading(false));
+                }}
+                disabled={!previewUrl || downloading}
+                className="w-full"
+            />
         </div>
     );
 }
 
-function DocFileActions({
+function DocumentReviewCard({
+    index,
+    tipo,
+    label,
+    obrigatorio,
+    arquivos,
+    envioStatus,
     preAdmissaoId,
-    doc,
+    canSolicitarReenvio,
+    candidatoEmail,
     onPreview,
+    onReenvioSuccess,
 }: {
+    index: number;
+    tipo: number;
+    label: string;
+    obrigatorio: boolean;
+    arquivos: ArquivoDocumento[];
+    envioStatus: EnvioStatus;
     preAdmissaoId: string;
-    doc: ArquivoDocumento;
+    canSolicitarReenvio: boolean;
+    candidatoEmail?: string | null;
     onPreview: (item: PreviewItem) => void;
+    onReenvioSuccess: () => void;
 }) {
-    const previewUrl = usePreAdmissaoDocumentPreview(preAdmissaoId, doc);
-    const [downloading, setDownloading] = useState(false);
+    const badge = STATUS_BADGE[envioStatus];
+    const BadgeIcon = badge.icon;
+    const { frentes, versos, unicos } = splitByLado(arquivos);
+    const hasSides = TIPOS_COM_VERSO.has(tipo);
+    const latestFrente = frentes[0];
+    const latestVerso = versos[0];
+    const latestUnico = unicos[0] ?? frentes[0];
+    const rejectionObs = latestRejectionObs(arquivos);
+    const [reenviando, setReenviando] = useState(false);
 
-    if (!doc.id) return null;
+    async function handleReenviar() {
+        const ok = await confirmDialog({
+            title: "Solicitar reenvio?",
+            description: `O candidato receberá um e-mail para reenviar: ${label}.${candidatoEmail ? ` Destino: ${candidatoEmail}` : ""}`,
+            confirmText: "Solicitar reenvio",
+            cancelText: "Cancelar",
+        });
+        if (!ok) return;
+
+        setReenviando(true);
+        try {
+            const res = await apiFetch(`/api/pre-admissao/${preAdmissaoId}/solicitar-reenvio-documentos`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    tiposDocumento: [tipo],
+                    observacaoRh: rejectionObs,
+                    enviarEmail: true,
+                }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => null) as { message?: string } | null;
+                toast.error(body?.message || "Não foi possível solicitar o reenvio.");
+                return;
+            }
+            toast.success("Reenvio solicitado ao candidato.");
+            onReenvioSuccess();
+        } catch {
+            toast.error("Erro de conexão ao solicitar reenvio.");
+        } finally {
+            setReenviando(false);
+        }
+    }
+
+    const showReenviar = canSolicitarReenvio && (envioStatus === "rejeitado" || envioStatus === "parcial");
 
     return (
-        <DocumentFileActions
-            url={previewUrl ?? ""}
-            nomeArquivo={doc.nomeArquivo}
-            contentType={doc.contentType}
-            onPreview={onPreview}
-            onDownload={() => {
-                setDownloading(true);
-                void downloadPreAdmissaoDocument(preAdmissaoId, doc, previewUrl)
-                    .catch(() => toast.error("Não foi possível baixar o arquivo."))
-                    .finally(() => setDownloading(false));
-            }}
-            disabled={!previewUrl || downloading}
-            className="w-full sm:w-auto"
-        />
+        <article className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-[0_1px_8px_rgba(15,23,42,0.05)]">
+            <div className="flex gap-3 p-4 pb-3">
+                <DocumentoTipoIcon tipo={tipo} label={label} size="sm" className="shrink-0" />
+                <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-start gap-2">
+                            {index > 0 && (
+                                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--lt-primary))] text-xs font-bold text-white">
+                                    {index}
+                                </span>
+                            )}
+                            <div className="min-w-0">
+                                <h3 className="text-sm font-semibold leading-snug text-slate-900">{label}</h3>
+                                {obrigatorio && (
+                                    <p className="text-[11px] text-muted-foreground">Obrigatório</p>
+                                )}
+                            </div>
+                        </div>
+                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}>
+                            <BadgeIcon className="size-3" />
+                            {badge.label}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-1 flex-col gap-3 px-4 pb-4">
+                {showReenviar && (
+                    <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                        <p>
+                            <span className="font-semibold">Reenvio necessário.</span>
+                            {rejectionObs ? ` ${rejectionObs}` : " Verifique a observação do RH."}
+                        </p>
+                    </div>
+                )}
+
+                {hasSides ? (
+                    <div className="grid grid-cols-2 gap-3">
+                        {latestFrente ? (
+                            <DocSideBlock preAdmissaoId={preAdmissaoId} doc={latestFrente} sideLabel="Frente" onPreview={onPreview} />
+                        ) : (
+                            <div className="space-y-2">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Frente</p>
+                                <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground">
+                                    Não enviada
+                                </div>
+                            </div>
+                        )}
+                        {latestVerso ? (
+                            <DocSideBlock preAdmissaoId={preAdmissaoId} doc={latestVerso} sideLabel="Verso" onPreview={onPreview} />
+                        ) : (
+                            <div className="space-y-2">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Verso</p>
+                                <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground">
+                                    Não enviado
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : latestUnico ? (
+                    <DocSideBlock preAdmissaoId={preAdmissaoId} doc={latestUnico} onPreview={onPreview} />
+                ) : (
+                    <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground">
+                        Nenhum arquivo enviado
+                    </div>
+                )}
+
+                {showReenviar && (
+                    <Button
+                        type="button"
+                        size="sm"
+                        className="w-full gap-1.5 bg-red-600 hover:bg-red-700"
+                        disabled={reenviando}
+                        onClick={() => void handleReenviar()}
+                    >
+                        {reenviando ? (
+                            <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                            <Upload className="size-4" />
+                        )}
+                        Reenviar
+                    </Button>
+                )}
+            </div>
+        </article>
     );
 }
 
@@ -176,9 +368,6 @@ export default function AdmissaoArquivosChecklist({
     canSolicitarReenvio,
     onSuccess,
 }: Props) {
-    const [selected, setSelected] = useState<Set<number>>(new Set());
-    const [mensagem, setMensagem] = useState("");
-    const [sending, setSending] = useState(false);
     const [preview, setPreview] = useState<PreviewItem | null>(null);
 
     const docsByTipo = useMemo(() => {
@@ -203,6 +392,23 @@ export default function AdmissaoArquivosChecklist({
         [documentosSolicitados],
     );
 
+    const obrigatorios = useMemo(
+        () => sortedSolicitados.filter((s) => s.obrigatorio),
+        [sortedSolicitados],
+    );
+
+    const progress = useMemo(() => {
+        let enviados = 0;
+        for (const sol of obrigatorios) {
+            const arquivos = docsByTipo.get(sol.tipo) ?? [];
+            if (resolveTipoEnvioStatus(arquivos, sol.tipo) === "enviado") enviados++;
+        }
+        const total = obrigatorios.length;
+        const pendentes = total - enviados;
+        const pct = total > 0 ? Math.round((enviados / total) * 100) : 0;
+        return { enviados, pendentes, total, pct };
+    }, [obrigatorios, docsByTipo]);
+
     const solicitadosKeys = useMemo(
         () => new Set(sortedSolicitados.map((s) => s.tipo)),
         [sortedSolicitados],
@@ -213,195 +419,112 @@ export default function AdmissaoArquivosChecklist({
         [documentos, solicitadosKeys],
     );
 
-    function toggleTipo(tipo: number) {
-        setSelected((prev) => {
-            const next = new Set(prev);
-            if (next.has(tipo)) next.delete(tipo);
-            else next.add(tipo);
-            return next;
-        });
-    }
-
-    async function handleSolicitarReenvio() {
-        if (selected.size === 0) {
-            toast.error("Selecione ao menos um documento.");
-            return;
-        }
-        const labels = sortedSolicitados
-            .filter((s) => selected.has(s.tipo))
-            .map((s) => s.label);
-        const ok = await confirmDialog({
-            title: "Solicitar reenvio por e-mail?",
-            description: `O candidato receberá um e-mail com link para reenviar: ${labels.join(", ")}.${candidatoEmail ? ` Destino: ${candidatoEmail}` : ""}`,
-            confirmText: "Enviar e-mail",
-            cancelText: "Cancelar",
-        });
-        if (!ok) return;
-
-        setSending(true);
-        try {
-            const res = await apiFetch(`/api/pre-admissao/${preAdmissaoId}/solicitar-reenvio-documentos`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    tiposDocumento: Array.from(selected),
-                    observacaoRh: mensagem.trim() || null,
-                    enviarEmail: true,
-                }),
-            });
-            if (!res.ok) {
-                const body = await res.json().catch(() => null) as { message?: string } | null;
-                toast.error(body?.message || "Não foi possível solicitar o reenvio.");
-                return;
-            }
-            const body = await res.json() as { emailEnviado?: boolean; publicUrl?: string };
-            if (body.emailEnviado) {
-                toast.success("E-mail de reenvio enviado ao candidato.");
-            } else if (candidatoEmail) {
-                toast.warning("Status atualizado, mas o e-mail não foi enviado. Verifique a configuração de e-mail.");
-            } else {
-                toast.success("Status atualizado para permitir novo envio pelo candidato.");
-            }
-            setSelected(new Set());
-            setMensagem("");
-            onSuccess();
-        } catch {
-            toast.error("Erro de conexão ao solicitar reenvio.");
-        } finally {
-            setSending(false);
-        }
-    }
-
     if (sortedSolicitados.length === 0 && documentos.length === 0) {
         return (
-            <div className="text-center py-8 text-sm text-muted-foreground">
+            <div className="py-12 text-center text-sm text-muted-foreground">
                 Nenhum documento solicitado ou enviado.
             </div>
         );
     }
 
     return (
-        <div className="space-y-5">
-            {canSolicitarReenvio && sortedSolicitados.length > 0 && (
-                <div className="rounded-xl border border-border/40 bg-muted/10 p-4 space-y-3">
-                    <div>
-                        <h3 className="text-sm font-semibold">Solicitar reenvio ao candidato</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            Marque os documentos que precisam ser enviados novamente. O candidato receberá um e-mail com o link do formulário.
-                        </p>
-                    </div>
-                    <Textarea
-                        value={mensagem}
-                        onChange={(e) => setMensagem(e.target.value)}
-                        placeholder="Mensagem ao candidato (opcional) — ex.: documento ilegível, data vencida…"
-                        rows={2}
-                        className="text-sm resize-none"
-                    />
-                    <div className="flex justify-end">
-                        <Button
-                            size="sm"
-                            onClick={() => void handleSolicitarReenvio()}
-                            disabled={sending || selected.size === 0}
-                        >
-                            {sending ? (
-                                <><Loader2 className="size-4 mr-1 animate-spin" /> Enviando…</>
-                            ) : (
-                                <><Mail className="size-4 mr-1" /> Solicitar novamente por e-mail ({selected.size})</>
-                            )}
-                        </Button>
-                    </div>
-                </div>
-            )}
-
-            {sortedSolicitados.length > 0 && (
-                <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Documentos solicitados ({sortedSolicitados.length})
+        <div className="space-y-6">
+            <div className="space-y-4">
+                <div>
+                    <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Documentos Solicitados</h2>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                        {progress.total > 0
+                            ? `${progress.total} documento${progress.total !== 1 ? "s" : ""} obrigatório${progress.total !== 1 ? "s" : ""} para conferência`
+                            : `${sortedSolicitados.length} documento${sortedSolicitados.length !== 1 ? "s" : ""} para conferência`}
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {sortedSolicitados.map((sol) => {
-                        const tipo = sol.tipo;
-                        const arquivos = docsByTipo.get(tipo) ?? [];
-                        const envioStatus = resolveTipoEnvioStatus(arquivos, tipo);
-                        const badge = STATUS_BADGE[envioStatus];
-                        const BadgeIcon = badge.icon;
-                        const { frentes, versos, unicos } = splitByLado(arquivos);
-                        const hasSides = TIPOS_COM_VERSO.has(tipo);
-                        const latestFrente = frentes[0];
-                        const latestVerso = versos[0];
-                        const latestUnico = unicos[0];
+                </div>
 
-                        return (
-                            <div
-                                key={tipo}
-                                className={`flex flex-row rounded-lg border overflow-hidden h-full min-h-[8.25rem] ${cardBackgroundClass(envioStatus)}`}
-                            >
-                                <DocumentoIconSidebar tipo={tipo} label={sol.label} />
+                {progress.total > 0 && (
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                        <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium text-slate-700">
+                                    {progress.enviados} de {progress.total} enviados
+                                </span>
+                                <span className="tabular-nums text-muted-foreground">{progress.pct}% concluído</span>
+                            </div>
+                            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                    className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                                    style={{ width: `${progress.pct}%` }}
+                                />
+                            </div>
+                        </div>
 
-                                <div className="flex min-w-0 flex-1 flex-col">
-                                <div className="flex items-start gap-2 px-3 py-2.5 border-b border-border/20">
-                                    {canSolicitarReenvio && (
-                                        <input
-                                            type="checkbox"
-                                            checked={selected.has(tipo)}
-                                            onChange={() => toggleTipo(tipo)}
-                                            className="size-4 rounded border-gray-300 accent-primary shrink-0 mt-0.5"
-                                            aria-label={`Selecionar ${sol.label}`}
-                                        />
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium leading-snug">{sol.label}</div>
-                                        {sol.obrigatorio && (
-                                            <span className="text-[10px] text-muted-foreground">Obrigatório</span>
-                                        )}
-                                    </div>
-                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge.className}`}>
-                                        <BadgeIcon className="size-3.5" />
-                                        {badge.label}
-                                    </span>
-                                </div>
-
-                                {hasSides ? (
-                                    <div className="divide-y divide-border/20">
-                                        {latestFrente ? (
-                                            <FileSideRow doc={latestFrente} sideLabel="Frente" preAdmissaoId={preAdmissaoId} onPreview={setPreview} />
-                                        ) : (
-                                            <div className="px-3 py-2 text-xs text-muted-foreground">Frente não enviada</div>
-                                        )}
-                                        {latestVerso ? (
-                                            <FileSideRow doc={latestVerso} sideLabel="Verso" preAdmissaoId={preAdmissaoId} onPreview={setPreview} />
-                                        ) : (
-                                            <div className="px-3 py-2 text-xs text-muted-foreground">Verso não enviado</div>
-                                        )}
-                                    </div>
-                                ) : latestUnico || latestFrente ? (
-                                    <FileSideRow
-                                        doc={latestUnico ?? latestFrente!}
-                                        preAdmissaoId={preAdmissaoId}
-                                        onPreview={setPreview}
-                                    />
-                                ) : (
-                                    <div className="px-3 py-2.5 text-xs text-muted-foreground">
-                                        Nenhum arquivo enviado ainda.
-                                    </div>
-                                )}
+                        <div className="flex shrink-0 gap-3">
+                            <div className="flex min-w-[8.5rem] items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
+                                <div>
+                                    <p className="text-lg font-bold leading-none text-emerald-700">{progress.enviados}</p>
+                                    <p className="text-[11px] text-emerald-700/80">enviados</p>
+                                    <p className="text-[10px] text-emerald-600/70">Documentos recebidos</p>
                                 </div>
                             </div>
+                            <div className="flex min-w-[8.5rem] items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                                <AlertTriangle className="size-5 shrink-0 text-red-600" />
+                                <div>
+                                    <p className="text-lg font-bold leading-none text-red-700">{progress.pendentes}</p>
+                                    <p className="text-[11px] text-red-700/80">pendentes</p>
+                                    <p className="text-[10px] text-red-600/70">Requerem atenção</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {sortedSolicitados.length > 0 && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {sortedSolicitados.map((sol) => {
+                        const arquivos = docsByTipo.get(sol.tipo) ?? [];
+                        const envioStatus = resolveTipoEnvioStatus(arquivos, sol.tipo);
+                        const obrigatorioIndex = obrigatorios.findIndex((o) => o.tipo === sol.tipo);
+                        const index = obrigatorioIndex >= 0 ? obrigatorioIndex + 1 : 0;
+
+                        return (
+                            <DocumentReviewCard
+                                key={sol.tipo}
+                                index={index}
+                                tipo={sol.tipo}
+                                label={sol.label}
+                                obrigatorio={sol.obrigatorio}
+                                arquivos={arquivos}
+                                envioStatus={envioStatus}
+                                preAdmissaoId={preAdmissaoId}
+                                canSolicitarReenvio={canSolicitarReenvio}
+                                candidatoEmail={candidatoEmail}
+                                onPreview={setPreview}
+                                onReenvioSuccess={onSuccess}
+                            />
                         );
                     })}
-                    </div>
                 </div>
             )}
 
             {extras.length > 0 && (
-                <details className="rounded-lg border border-border/30 bg-muted/5">
-                    <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <details className="rounded-xl border border-border/30 bg-muted/5">
+                    <summary className="cursor-pointer px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Outros arquivos enviados ({extras.length})
                     </summary>
                     <div className="divide-y divide-border/20 border-t border-border/20">
                         {extras.map((d) => (
-                            <div key={d.id} className="px-3 py-2">
-                                <DocFileActions preAdmissaoId={preAdmissaoId} doc={d} onPreview={setPreview} />
+                            <div key={d.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                                <span className="text-sm font-medium">{d.nomeArquivo}</span>
+                                <DocumentFileActions
+                                    url={d.presignedUrl}
+                                    nomeArquivo={d.nomeArquivo}
+                                    contentType={d.contentType}
+                                    onPreview={setPreview}
+                                    onDownload={() => {
+                                        void downloadPreAdmissaoDocument(preAdmissaoId, d, d.presignedUrl)
+                                            .catch(() => toast.error("Não foi possível baixar o arquivo."));
+                                    }}
+                                />
                             </div>
                         ))}
                     </div>
