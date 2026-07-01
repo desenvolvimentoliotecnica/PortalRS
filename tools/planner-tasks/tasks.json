@@ -4240,21 +4240,25 @@
       "descricaoAmigavel": "Corrigir poluição visual nos cards de revisão: remover miniaturas grandes, restaurar sidebar com ícone e ações compactas Visualizar/Baixar.",
       "inicio": "2026-07-01",
       "horarioInicio": "09:45",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "09:45",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Layout de revisão de documentos não ficou legal — ajustar conforme feedback do print HML.",
       "entregavel": "Cards limpos com sidebar, sem placeholders escuros, botões compactos.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "c5dba7be"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #36",
+        "prPrd": "Merge PR #37"
       },
-      "observacoes": null
+      "observacoes": "Remove DocPreviewThumb; sidebar + Visualizar/Baixar. PR #36 HML, PR #37 PRD."
     }
   ]
 }
