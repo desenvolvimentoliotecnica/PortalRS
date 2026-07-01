@@ -4319,20 +4319,23 @@
       "descricaoAmigavel": "Eventos criados no portal aparecem em verde; eventos do Microsoft Graph/Outlook permanecem em azul, facilitando a leitura do calendário.",
       "inicio": "2026-07-01",
       "horarioInicio": "12:30",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "12:32",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Eventos do portal devem ser verdes e eventos do Graph azuis na view de agenda.",
       "entregavel": "Calendário com verde para eventos do portal e azul para Outlook, com legenda visual.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "739fa498"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #42",
+        "prPrd": "Merge PR #43"
       },
       "observacoes": "Ajuste visual em AgendasScreen.tsx."
     }
