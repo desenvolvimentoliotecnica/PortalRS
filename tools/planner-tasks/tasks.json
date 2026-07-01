@@ -4775,7 +4775,8 @@
           "1a4b0978"
         ],
         "branch": "origin/HML",
-        "prHml": "Merge PR #74"
+        "prHml": "Merge PR #74",
+        "prPrd": "Merge PR #75"
       },
       "observacoes": "Causa: GetEventByIdAsync após create aplicava filtro e retornava null → 500."
     }
