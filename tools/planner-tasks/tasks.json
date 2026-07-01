@@ -4727,9 +4727,10 @@
           "68addfb0"
         ],
         "branch": "origin/HML",
-        "prHml": "Merge PR #72"
+        "prHml": "Merge PR #72",
+        "prPrd": "Merge PR #73"
       },
-      "observacoes": "Protótipos aprovados pelo usuário antes da implementação."
+      "observacoes": "Protótipos aprovados pelo usuário antes da implementação. Promovido DEV→HML→PRD."
     }
   ]
 }
