@@ -4371,21 +4371,23 @@
       "descricaoAmigavel": "Tela de conceito para avaliar a home ideal do analista de recrutamento, com KPIs, funil, agenda, requisições, ações rápidas e alertas, acessível por rota oculta.",
       "inicio": "2026-07-01",
       "horarioInicio": "12:35",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "14:30",
+      "totalHoras": 1.92,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar view com mockup da home do analista de RH em rota oculta para avaliação.",
       "entregavel": "Rota /app/dashboard/preview/home-analista-rh com layout baseado no mockup e dados ilustrativos.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "81f1e532"
+        ],
         "branch": "DEV"
       },
-      "observacoes": "Rota não listada no menu lateral; herda permissão de /dashboard."
+      "observacoes": "Rota oculta /dashboard/preview/home-analista-rh; não listada no menu."
     },
     {
       "id": "TASK-2026-168",
@@ -4419,21 +4421,23 @@
       "descricaoAmigavel": "Fluxo de validação em até 4 etapas para escolher requisição, preencher dados da vaga, configurar publicação e confirmar envio ao portal.",
       "inicio": "2026-07-01",
       "horarioInicio": "14:10",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "14:30",
+      "totalHoras": 0.33,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar view mockada com wizard (máx. 4 etapas) para publicar vaga a partir de requisição, acessível pelo atalho Publicar vaga.",
       "entregavel": "Rota /app/dashboard/preview/publicar-vaga com wizard ilustrativo e link na home preview.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "81f1e532"
+        ],
         "branch": "DEV"
       },
-      "observacoes": "Rota oculta; dados estáticos para validação de UX."
+      "observacoes": "Rota oculta /dashboard/preview/publicar-vaga; link na home preview."
     },
     {
       "id": "TASK-2026-170",
@@ -4441,23 +4445,25 @@
       "descricaoAmigavel": "Exibir status simplificado na grade de solicitações e oferecer atalho reutilizável para conversar com candidatos pelo WhatsApp Web nas telas de recrutamento e admissão.",
       "inicio": "2026-07-01",
       "horarioInicio": "13:09",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "14:03",
+      "totalHoras": 0.9,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar P2 itens 10 e 3 do backlog RH: coluna STATUS em SolicitacoesScreen e componente WhatsAppContactButton nas telas de candidato.",
       "entregavel": "Badge Aberto/Fechado/Stand-by/Cancelada/Reprovada na grid de solicitações; botão Conversar com WhatsApp Web com E.164 BR em candidatos, matching, hub da vaga, triagem e tracking de admissão.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "54f50d4d"
         ],
-        "branch": "DEV"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #52",
+        "prPrd": "Merge PR #53"
       },
-      "observacoes": "Backlog itens 3 e 10. Commit 54f50d4d em DEV; aguardando promoção HML."
+      "observacoes": "Backlog itens 3 e 10."
     },
     {
       "id": "TASK-2026-171",
@@ -4465,23 +4471,25 @@
       "descricaoAmigavel": "Coletar RG, CPF, nascimento e nome da mãe no cadastro do portal de vagas, exigir complemento para candidatos legados e permitir desligar e-mail ao gestor/recrutador em cada candidatura via configuração do tenant.",
       "inicio": "2026-07-01",
       "horarioInicio": "13:15",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "14:03",
+      "totalHoras": 0.8,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar P2 itens 1 e 2 do backlog RH: documentação básica no portal de vagas e flag tenant para e-mail ao responsável na candidatura.",
       "entregavel": "Campos de doc no registro/perfil com validação CPF; banner/modal para legados; bloqueio de candidatura com retomada da vaga; checkbox em Configurações do tenant (default desligado).",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "54f50d4d"
         ],
-        "branch": "DEV"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #52",
+        "prPrd": "Merge PR #53"
       },
-      "observacoes": "Backlog itens 1 e 2. Commit 54f50d4d em DEV; aguardando promoção HML."
+      "observacoes": "Backlog itens 1 e 2."
     },
     {
       "id": "TASK-2026-172",
@@ -4567,19 +4575,23 @@
       "descricaoAmigavel": "Eventos verdes criados no portal apareciam para todos os usuários; agora cada pessoa vê só os seus, os que participa ou os das vagas da sua carteira.",
       "inicio": "2026-07-01",
       "horarioInicio": "14:14",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "14:23",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Eventos criados no portal (verdes) estão aparecendo para todo mundo.",
       "entregavel": "Listagem da agenda filtra eventos por responsável, participante ou vaga da carteira; novos eventos recebem responsável automaticamente.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "2cc75773"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #54",
+        "prPrd": "Merge PR #55"
       },
       "observacoes": "Mesma regra do dashboard analista-rh/agenda-events."
     }
