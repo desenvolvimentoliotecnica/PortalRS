@@ -4541,20 +4541,23 @@
       "descricaoAmigavel": "API em HML não subia após backlog P2: migrations manuais não eram aplicadas pelo EF e o seed falhava na coluna EnviarEmailResponsavelNaCandidatura.",
       "inicio": "2026-07-01",
       "horarioInicio": "14:05",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "14:03",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Urgente",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "502 em /api/health e branding após deploy; API fora do ar em HML.",
       "entregavel": "Registrar migrations P2 com [Migration] para EF aplicar colunas e API voltar a responder.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "4089cecc"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #52",
+        "prPrd": "Merge PR #53"
       },
       "observacoes": "Causa: 20260701150000 e 20260701150100 sem [DbContext]/[Migration]."
     }
