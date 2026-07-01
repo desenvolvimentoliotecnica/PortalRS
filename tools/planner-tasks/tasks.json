@@ -4685,21 +4685,23 @@
       "descricaoAmigavel": "Ao criar evento verde no portal, o sistema cria o mesmo evento no Outlook do responsável e evita duplicata verde/azul na agenda.",
       "inicio": "2026-07-01",
       "horarioInicio": "15:47",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "15:50",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar criação no Outlook ao criar evento na agenda do portal; evitar duplicar verde e azul; todo evento verde vai pro Outlook.",
       "entregavel": "Sync portal→Graph em create/update/delete; dedup na listagem graph-events; entrevistas do funil também sincronizam.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
         "commits": [
-          "fcb24e4d"
+          "fcb24e4d",
+          "53c4ab83"
         ],
-        "branch": "DEV"
+        "branch": "origin/HML",
+        "prHml": "Merge PR #70"
       },
       "observacoes": "Requer Calendars.ReadWrite no app Azure AD."
     }
