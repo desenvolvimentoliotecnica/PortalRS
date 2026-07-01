@@ -4801,9 +4801,10 @@
           "cac1cca7"
         ],
         "branch": "origin/HML",
-        "prHml": "Merge PR #76"
+        "prHml": "Merge PR #76",
+        "prPrd": "Merge PR #77"
       },
-      "observacoes": "Follow-up da TASK-2026-180."
+      "observacoes": "Follow-up da TASK-2026-180. Promovido DEV→HML→PRD."
     }
   ]
 }
