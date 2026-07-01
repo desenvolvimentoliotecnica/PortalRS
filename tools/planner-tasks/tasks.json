@@ -4515,20 +4515,23 @@
       "descricaoAmigavel": "Corrigir exibição de eventos Outlook na agenda: cada analista vê apenas o próprio calendário (e-mail de login), em vez do UPN fixo configurado no tenant.",
       "inicio": "2026-07-01",
       "horarioInicio": "14:30",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "13:46",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Julia viu eventos do Leonardo na agenda; UPN único no tenant estava sendo usado para todos.",
       "entregavel": "Listagem Graph usa e-mail do usuário autenticado; UPN na config fica só para teste; textos de ajuda atualizados.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "2cebe6bf"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #50",
+        "prPrd": "Merge PR #51"
       },
       "observacoes": "MicrosoftGraphCalendarService + MicrosoftGraphCalendarConfigCard."
     }
