@@ -56,6 +56,8 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import VagaFormModal from "./VagaFormModal";
+import VagaRetornoNegativoModal from "./VagaRetornoNegativoModal";
+import { previewRetornoNegativo } from "./vagaRetornoNegativoApi";
 import SolicitacaoFormModal from "@/features/gestao/solicitacoes/SolicitacaoFormModal";
 import NextStepBanner from "@/components/feedback/NextStepBanner";
 import { VAGAS_FONT_135X_CLASS, VAGAS_FONT_135X_STYLE } from "@/styles/vagasFont135x";
@@ -595,25 +597,60 @@ export default function VagasScreen() {
     }, [currentUserId]);
 
     // ── Drag-drop status change ──
-    const STATUS_MAP_DND: Record<string, string> = { rascunho: "Rascunho", aberta: "Aberta", pausada: "Pausada", fechada: "Encerrada" };
+    const STATUS_MAP_DND: Record<string, string> = {
+        rascunho: "Rascunho",
+        aberta: "Aberta",
+        pausada: "Pausada",
+        fechada: "Encerrada",
+        preenchida: "Preenchida",
+    };
     const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+    const [retornoModal, setRetornoModal] = useState<{
+        vagaId: string;
+        vagaTitulo: string;
+        novoStatus: string;
+    } | null>(null);
+
+    async function patchVagaStatus(vagaId: string, newStatus: string) {
+        const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus }),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({})) as Record<string, string>;
+            throw new Error(body.message || `Erro ${res.status}`);
+        }
+        toast.success(`Status alterado para ${newStatus}`);
+        await syncList();
+    }
 
     async function handleDrop(vagaId: string, targetCol: string) {
         setDragOverCol(null);
         const newStatus = STATUS_MAP_DND[targetCol];
         if (!newStatus) return;
-        try {
-            const res = await apiFetch(`/api/vagas/${encodeURIComponent(vagaId)}/status`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: newStatus }),
-            });
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({})) as Record<string, string>;
-                throw new Error(body.message || `Erro ${res.status}`);
+
+        const vaga = rows.find((v) => v.id === vagaId);
+        const isFechamento = targetCol === "fechada" || targetCol === "preenchida";
+
+        if (isFechamento) {
+            try {
+                const preview = await previewRetornoNegativo(vagaId);
+                if (preview && preview.destinatarios.length > 0) {
+                    setRetornoModal({
+                        vagaId,
+                        vagaTitulo: preview.vagaTitulo || vaga?.titulo || "Vaga",
+                        novoStatus: newStatus,
+                    });
+                    return;
+                }
+            } catch {
+                // Sem preview: segue fechamento direto.
             }
-            toast.success(`Status alterado para ${newStatus}`);
-            await syncList();
+        }
+
+        try {
+            await patchVagaStatus(vagaId, newStatus);
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Falha ao alterar status");
         }
@@ -1850,6 +1887,24 @@ export default function VagasScreen() {
                     }
                 }}
             />
+
+            {retornoModal && (
+                <VagaRetornoNegativoModal
+                    open
+                    vagaId={retornoModal.vagaId}
+                    vagaTitulo={retornoModal.vagaTitulo}
+                    novoStatus={retornoModal.novoStatus}
+                    onClose={() => setRetornoModal(null)}
+                    onConfirm={async () => {
+                        try {
+                            await patchVagaStatus(retornoModal.vagaId, retornoModal.novoStatus);
+                            setRetornoModal(null);
+                        } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Falha ao alterar status");
+                        }
+                    }}
+                />
+            )}
         </section>
     );
 }

@@ -8632,6 +8632,12 @@ namespace RhPortal.Api.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<string>("BeneficiosSelecionadosJson")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IncluirBeneficiosNaProposta")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTimeOffset?>("EnviadaEmUtc")
                         .HasColumnType("timestamp with time zone");
 

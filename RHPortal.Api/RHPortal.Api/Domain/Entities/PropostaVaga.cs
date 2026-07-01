@@ -39,6 +39,12 @@ public sealed class PropostaVaga : ITenantEntity
     [StringLength(2000)]
     public string? DescricaoBeneficios { get; set; }
 
+    /// <summary>Quando true, a carta/e-mail inclui a lista estruturada de benefícios selecionados.</summary>
+    public bool IncluirBeneficiosNaProposta { get; set; } = true;
+
+    /// <summary>JSON de benefícios marcados (snapshot da vaga no momento da proposta).</summary>
+    public string? BeneficiosSelecionadosJson { get; set; }
+
     public DateOnly? DataPrevistaInicio { get; set; }
 
     /// <summary>Corpo livre da carta (pode ser editado antes do envio).</summary>

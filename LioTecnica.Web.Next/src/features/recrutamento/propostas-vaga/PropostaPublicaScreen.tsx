@@ -11,6 +11,7 @@ import {
   resolveStatus,
   type PropostaVagaPublicaResponse,
 } from "./propostaApi";
+import { formatBeneficioLinha } from "./propostaBeneficioUtils";
 
 type Props = { token: string };
 
@@ -227,8 +228,20 @@ export default function PropostaPublicaScreen({ token }: Props) {
               <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
                 Benefícios
               </div>
-              <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-900">
-                {proposta.descricaoBeneficios?.trim() || "—"}
+              <div className="mt-2 text-sm leading-6 text-neutral-900">
+                {proposta.incluirBeneficiosNaProposta && (proposta.beneficiosSelecionados?.length ?? 0) > 0 ? (
+                  <ul className="list-disc space-y-1 pl-5">
+                    {(proposta.beneficiosSelecionados ?? []).map((b, i) => (
+                      <li key={`${b.tipo}-${i}`}>{formatBeneficioLinha(b)}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {proposta.descricaoBeneficios?.trim() ? (
+                  <p className={`whitespace-pre-wrap ${proposta.incluirBeneficiosNaProposta ? "mt-3" : ""}`}>
+                    {proposta.descricaoBeneficios.trim()}
+                  </p>
+                ) : null}
+                {!proposta.incluirBeneficiosNaProposta && !proposta.descricaoBeneficios?.trim() && "—"}
               </div>
             </div>
 
