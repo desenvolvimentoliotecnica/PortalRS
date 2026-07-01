@@ -1,28 +1,30 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using RhPortal.Api.Infrastructure.Data;
 
 #nullable disable
 
-namespace RhPortal.Api.Migrations
+namespace RhPortal.Api.Migrations;
+
+[DbContext(typeof(AppDbContext))]
+[Migration("20260701150100_AddEnviarEmailResponsavelNaCandidaturaToTenantConfiguracao")]
+public partial class AddEnviarEmailResponsavelNaCandidaturaToTenantConfiguracao : Migration
 {
     /// <inheritdoc />
-    public partial class AddEnviarEmailResponsavelNaCandidaturaToTenantConfiguracao : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.Sql("""
-                ALTER TABLE "TenantConfiguracoes"
-                ADD COLUMN IF NOT EXISTS "EnviarEmailResponsavelNaCandidatura" boolean NOT NULL DEFAULT false;
-                """);
-        }
+        migrationBuilder.Sql("""
+            ALTER TABLE "TenantConfiguracoes"
+            ADD COLUMN IF NOT EXISTS "EnviarEmailResponsavelNaCandidatura" boolean NOT NULL DEFAULT false;
+            """);
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.Sql("""
-                ALTER TABLE "TenantConfiguracoes"
-                DROP COLUMN IF EXISTS "EnviarEmailResponsavelNaCandidatura";
-                """);
-        }
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.Sql("""
+            ALTER TABLE "TenantConfiguracoes"
+            DROP COLUMN IF EXISTS "EnviarEmailResponsavelNaCandidatura";
+            """);
     }
 }

@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 173
+    "totalTarefas": 174
   },
   "tarefas": [
     {
@@ -4534,6 +4534,29 @@
         "prPrd": "Merge PR #51"
       },
       "observacoes": "MicrosoftGraphCalendarService + MicrosoftGraphCalendarConfigCard."
+    },
+    {
+      "id": "TASK-2026-174",
+      "nome": "[Portal RH] Hotfix 502 HML — migrations P2 sem atributo Migration",
+      "descricaoAmigavel": "API em HML não subia após backlog P2: migrations manuais não eram aplicadas pelo EF e o seed falhava na coluna EnviarEmailResponsavelNaCandidatura.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "14:05",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Urgente",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "502 em /api/health e branding após deploy; API fora do ar em HML.",
+      "entregavel": "Registrar migrations P2 com [Migration] para EF aplicar colunas e API voltar a responder.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Causa: 20260701150000 e 20260701150100 sem [DbContext]/[Migration]."
     }
   ]
 }
