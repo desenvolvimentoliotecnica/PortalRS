@@ -2,6 +2,8 @@
 
 import { Mail, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
+import { useCandidatoPhoneLookup } from "@/hooks/useCandidatoPhoneLookup";
 import {
   Table,
   TableHeader,
@@ -59,6 +61,8 @@ function goToCreateVaga() {
 }
 
 export function TopMatchesWidget({ topMatches }: { topMatches: TopMatchRow[] }) {
+  const { getPhone } = useCandidatoPhoneLookup(topMatches.length > 0);
+
   return (
     <div className="flex h-full flex-col rounded-xl border border-border/50 bg-card shadow-sm p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -100,6 +104,13 @@ export function TopMatchesWidget({ topMatches }: { topMatches: TopMatchRow[] }) 
                   </TableCell>
                   <TableCell>
                     <div className="font-medium text-sm">{x.candidatoNome || "-"}</div>
+                    <div className="mt-1">
+                      <WhatsAppContactButton
+                        size="xs"
+                        celular={getPhone(x.candidatoId).celular}
+                        fone={getPhone(x.candidatoId).fone}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell>
                     <OriginBadge origem={x.origem || "-"} />

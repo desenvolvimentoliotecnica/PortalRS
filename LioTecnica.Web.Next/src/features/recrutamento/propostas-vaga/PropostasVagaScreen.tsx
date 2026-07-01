@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { apiJson } from "@/lib/api";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { getAccessToken, getTenantId, setTenantId, tryGetTenantIdFromJwt } from "@/lib/session";
 import {
   cancelarProposta,
@@ -36,7 +37,7 @@ import {
 } from "./propostaBeneficioUtils";
 
 type VagaLite = { id: string; titulo: string | null };
-type CandidatoLite = { id: string; nome: string | null; email: string | null };
+type CandidatoLite = { id: string; nome: string | null; email: string | null; celular: string | null; fone: string | null };
 type PropostaSentFeedback = {
   vagaTitulo: string | null;
   candidatoNome: string | null;
@@ -91,7 +92,21 @@ function toCandidatoLite(value: unknown): CandidatoLite | null {
     : typeof record?.Email === "string"
       ? record.Email
       : null;
-  return { id, nome, email };
+  const celular = typeof record?.celular === "string"
+    ? record.celular
+    : typeof record?.Celular === "string"
+      ? record.Celular
+      : null;
+  const fone = typeof record?.fone === "string"
+    ? record.fone
+    : typeof record?.Fone === "string"
+      ? record.Fone
+      : typeof record?.telefone === "string"
+        ? record.telefone
+        : typeof record?.Telefone === "string"
+          ? record.Telefone
+          : null;
+  return { id, nome, email, celular, fone };
 }
 
 function formatMoney(value: number | null, moeda: string | null) {
@@ -528,6 +543,8 @@ export default function PropostasVagaScreen() {
     return { p, statusStr: s };
   }), [items]);
 
+  const candidatosById = useMemo(() => new Map(candidatos.map((c) => [c.id, c])), [candidatos]);
+
   const filteredRows = useMemo(() => {
     const search = q.trim().toLowerCase();
     const from = dateOnlyTime(dateFrom);
@@ -722,6 +739,13 @@ export default function PropostasVagaScreen() {
                     <TableCell>
                       <div className="font-medium text-foreground">{p.candidatoNome ?? "—"}</div>
                       <div className="text-xs text-muted-foreground">{p.candidatoEmail ?? ""}</div>
+                      <div className="mt-1">
+                        <WhatsAppContactButton
+                          size="xs"
+                          celular={candidatosById.get(p.candidatoId)?.celular}
+                          fone={candidatosById.get(p.candidatoId)?.fone}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm tabular-nums">{formatMoney(p.salarioOferecido, p.moeda)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">

@@ -12,6 +12,8 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
+import { useCandidatoPhoneLookup } from "@/hooks/useCandidatoPhoneLookup";
 import { apiFetch } from "@/lib/api";
 import { MATCHING_LLM_FETCH_TIMEOUT_MS } from "@/features/recrutamento/matching/matchingHelpers";
 
@@ -74,6 +76,8 @@ function barColor(score: number): string {
 }
 
 export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, candidatoNome, onAnalyzed }: LlmMatchingDialogProps) {
+    const { getPhone } = useCandidatoPhoneLookup(open);
+    const phone = getPhone(candidatoId);
     const [data, setData] = useState<LlmResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -119,14 +123,19 @@ export default function LlmMatchingDialog({ open, onClose, vagaId, candidatoId, 
         <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
             <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Bot className="size-5 text-violet-600" />
-                        Análise por IA {candidatoNome ? `— ${candidatoNome}` : ""}
-                    </DialogTitle>
-                    <DialogDescription>
-                        O modelo configurado em Admin → IA lê o CV + descrição de cargo + pesos da vaga e produz avaliação em PT-BR.
-                        Cache automático — mesma combinação de CV/descrição/pesos retorna instantânea.
-                    </DialogDescription>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Bot className="size-5 text-violet-600" />
+                                Análise por IA {candidatoNome ? `— ${candidatoNome}` : ""}
+                            </DialogTitle>
+                            <DialogDescription>
+                                O modelo configurado em Admin → IA lê o CV + descrição de cargo + pesos da vaga e produz avaliação em PT-BR.
+                                Cache automático — mesma combinação de CV/descrição/pesos retorna instantânea.
+                            </DialogDescription>
+                        </div>
+                        <WhatsAppContactButton size="sm" celular={phone.celular} fone={phone.fone} />
+                    </div>
                 </DialogHeader>
 
                 {loading && (

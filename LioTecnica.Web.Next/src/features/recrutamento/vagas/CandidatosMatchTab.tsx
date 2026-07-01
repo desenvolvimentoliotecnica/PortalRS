@@ -662,7 +662,7 @@ export default function CandidatosMatchTab({
                                                     temDescricaoCargo={temDescricaoCargo}
                                                     isReadOnly={isReadOnly}
                                                     onCalcularMatch={() => void calcularMatch(r)}
-                                                    onBreakdown={() => breakdownDialog.open(vagaId, r.id, r.nome)}
+                                                    onBreakdown={() => breakdownDialog.open(vagaId, r.id, r.nome, r.celular, r.fone)}
                                                     onAnaliseIa={() => llmDialog.open(vagaId, r.id, r.nome)}
                                                     onView={() => void onViewCandidate(r.id)}
                                                     onEdit={() => void onEditCandidate(r.id)}
@@ -691,6 +691,8 @@ export default function CandidatosMatchTab({
                     vagaId={breakdownDialog.target.vagaId}
                     candidatoId={breakdownDialog.target.candidatoId}
                     candidatoNome={breakdownDialog.target.candidatoNome}
+                    candidatoCelular={breakdownDialog.target.candidatoCelular}
+                    candidatoFone={breakdownDialog.target.candidatoFone}
                 />
             )}
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AlertCircle, AlertTriangle, Bot, Loader2, RefreshCw, Sparkles, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { apiFetch } from "@/lib/api";
 import {
     MATCHING_FETCH_TIMEOUT_MS,
@@ -41,6 +42,8 @@ interface CandidateRow {
     nome: string;
     email: string | null;
     status: string;
+    celular?: string | null;
+    fone?: string | null;
 }
 
 type MatchingModo = "ai" | "semantic" | "lexical";
@@ -346,6 +349,9 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                                     <td className="px-3 py-2">
                                         <div className="font-medium">{r.nome}</div>
                                         <div className="text-[11px] text-muted-foreground">{r.email ?? "—"}</div>
+                                        <div className="mt-1">
+                                            <WhatsAppContactButton size="xs" celular={r.celular} fone={r.fone} />
+                                        </div>
                                     </td>
                                     <td className="px-3 py-2 text-center">
                                         <DualScoreCell bd={bd} />
@@ -382,7 +388,7 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                                             <Button
                                                 size="sm"
                                                 variant="outline"
-                                                onClick={() => breakdownDialog.open(vagaId, r.id, r.nome)}
+                                                onClick={() => breakdownDialog.open(vagaId, r.id, r.nome, r.celular, r.fone)}
                                                 disabled={bd?.loading}
                                                 title="Ver breakdown algorítmico (rápido)"
                                             >
@@ -442,6 +448,8 @@ export default function MatchingIaTab({ vagaId, candidates, temDescricaoCargo }:
                     vagaId={breakdownDialog.target.vagaId}
                     candidatoId={breakdownDialog.target.candidatoId}
                     candidatoNome={breakdownDialog.target.candidatoNome}
+                    candidatoCelular={breakdownDialog.target.candidatoCelular}
+                    candidatoFone={breakdownDialog.target.candidatoFone}
                 />
             )}
 
