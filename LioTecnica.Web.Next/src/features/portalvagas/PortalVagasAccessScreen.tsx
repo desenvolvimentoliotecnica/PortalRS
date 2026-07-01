@@ -7,6 +7,7 @@ import Script from "next/script";
 import { clearPortalCandidateSession, portalAuthFetch, savePortalCandidateSession } from "@/features/portalvagas/publicApi";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import DocumentacaoBasicaFields, { validateDocumentacaoBasica } from "@/features/portalvagas/DocumentacaoBasicaFields";
 
 type Mode = "login" | "register";
 type Locale = "pt-BR" | "en-US";
@@ -36,6 +37,11 @@ export default function PortalVagasAccessScreen() {
     fone: "",
     uf: "",
     cidade: "",
+    cpf: "",
+    rg: "",
+    dataNascimento: "",
+    nomeMae: "",
+    nomePai: "",
     password: "",
     passwordConfirm: "",
   });
@@ -99,6 +105,17 @@ export default function PortalVagasAccessScreen() {
       toast.error("Selecione UF e cidade.");
       return;
     }
+    const docErr = validateDocumentacaoBasica({
+      cpf: register.cpf,
+      rg: register.rg,
+      dataNascimento: register.dataNascimento,
+      nomeMae: register.nomeMae,
+      nomePai: register.nomePai,
+    });
+    if (docErr) {
+      toast.error(docErr);
+      return;
+    }
     if (!PASSWORD_REGEX.test(register.password)) {
       toast.error("Senha fora do padrão (mín. 8, 1 maiúscula, 1 número e 1 especial).");
       return;
@@ -116,6 +133,11 @@ export default function PortalVagasAccessScreen() {
         body: JSON.stringify({
           nome: register.nome.trim(),
           email: register.email.trim(),
+          cpf: register.cpf.trim(),
+          rg: register.rg.trim(),
+          dataNascimento: register.dataNascimento,
+          nomeMae: register.nomeMae.trim(),
+          nomePai: register.nomePai.trim() || null,
           fone: register.fone.trim(),
           cidade: register.cidade,
           uf: register.uf,
@@ -198,6 +220,23 @@ export default function PortalVagasAccessScreen() {
             <div className="md:col-span-6">
               <label className="mini-title mb-1 block">Telefone</label>
               <input className="form-input rounded-md border border-input bg-background px-3 py-1.5 text-sm" value={register.fone} onChange={(e) => setRegister((s) => ({ ...s, fone: e.target.value }))} />
+            </div>
+            <div className="md:col-span-12 pt-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Documentação básica</p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <DocumentacaoBasicaFields
+                  values={{
+                    cpf: register.cpf,
+                    rg: register.rg,
+                    dataNascimento: register.dataNascimento,
+                    nomeMae: register.nomeMae,
+                    nomePai: register.nomePai,
+                  }}
+                  onChange={(patch) => setRegister((s) => ({ ...s, ...patch }))}
+                  inp="form-input w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                  lbl="mini-title mb-1 block"
+                />
+              </div>
             </div>
             <div className="md:col-span-3">
               <label className="mini-title mb-1 block">UF</label>

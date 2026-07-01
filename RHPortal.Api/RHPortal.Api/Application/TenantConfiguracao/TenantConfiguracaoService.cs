@@ -11,6 +11,7 @@ namespace RhPortal.Api.Application.TenantConfiguracao;
 
 public sealed class TenantConfiguracaoDto
 {
+    public bool EnviarEmailResponsavelNaCandidatura { get; set; }
     public bool RhDeveAprovarAposGestor { get; set; }
     public bool RequisicoesVagaOrigemRm { get; set; }
     public bool RmImportacaoAutomaticaAtiva { get; set; }
@@ -22,6 +23,7 @@ public sealed class TenantConfiguracaoDto
 
 public sealed class TenantConfiguracaoUpsertRequest
 {
+    public bool EnviarEmailResponsavelNaCandidatura { get; set; }
     public bool RhDeveAprovarAposGestor { get; set; }
     public bool RequisicoesVagaOrigemRm { get; set; }
     public bool RmImportacaoAutomaticaAtiva { get; set; }
@@ -216,6 +218,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
             _db.TenantConfiguracoes.Add(config);
         }
 
+        config.EnviarEmailResponsavelNaCandidatura = request.EnviarEmailResponsavelNaCandidatura;
         config.RhDeveAprovarAposGestor = request.RhDeveAprovarAposGestor;
         config.RequisicoesVagaOrigemRm = request.RequisicoesVagaOrigemRm;
         config.RmImportacaoAutomaticaAtiva = request.RmImportacaoAutomaticaAtiva;
@@ -389,6 +392,7 @@ public sealed class TenantConfiguracaoService : ITenantConfiguracaoService
 
     private static TenantConfiguracaoDto MapToDto(Domain.Entities.TenantConfiguracao c) => new()
     {
+        EnviarEmailResponsavelNaCandidatura = c.EnviarEmailResponsavelNaCandidatura,
         RhDeveAprovarAposGestor = c.RhDeveAprovarAposGestor,
         RequisicoesVagaOrigemRm = c.RequisicoesVagaOrigemRm,
         RmImportacaoAutomaticaAtiva = c.RmImportacaoAutomaticaAtiva,

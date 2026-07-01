@@ -10,6 +10,13 @@ public sealed class TenantConfiguracao : ITenantEntity
     public string TenantId { get; set; } = default!;
 
     /// <summary>
+    /// Quando true, envia e-mail ao gestor requisitante e ao recrutador responsável
+    /// quando um candidato se candidata a uma vaga pelo portal público.
+    /// Default false — notificação suprimida até o tenant habilitar.
+    /// </summary>
+    public bool EnviarEmailResponsavelNaCandidatura { get; set; } = false;
+
+    /// <summary>
     /// Quando true, após a aprovação dos gestores, a solicitação de vaga
     /// requer aprovação de um recrutador/RH antes de gerar a vaga.
     /// Equivalente ao fluxo configurável do SuccessFactors.
@@ -155,7 +162,7 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// <summary>Client Secret criptografado do App Registration.</summary>
     public string? GraphCalendarClientSecretEncrypted { get; set; }
 
-    /// <summary>UPN do usuário cujo calendário será lido (ex: usuario@empresa.com).</summary>
+    /// <summary>UPN usado no botão de teste da integração Graph (não define a agenda de todos os usuários).</summary>
     public string? GraphCalendarUserUpn { get; set; }
 
     /// <summary>Quando true, eventos do Outlook são exibidos na agenda do portal.</summary>

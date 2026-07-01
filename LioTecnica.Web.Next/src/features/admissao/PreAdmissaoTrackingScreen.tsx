@@ -10,6 +10,7 @@ import {
     Eye, Trash2, Copy, Link, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -522,6 +523,9 @@ export default function PreAdmissaoTrackingScreen({ id }: { id: string }) {
                     <InfoRow icon={<User className="size-4" />} label="Nome" value={data.nome} />
                     <InfoRow icon={<Mail className="size-4" />} label="E-mail" value={data.email} />
                     <InfoRow icon={<Phone className="size-4" />} label="Celular" value={data.celular} />
+                    <div className="sm:col-span-2">
+                        <WhatsAppContactButton size="sm" celular={data.celular} fone={data.telefone} />
+                    </div>
                     <InfoRow icon={<FileText className="size-4" />} label="CPF" value={data.cpf} />
                     <InfoRow icon={<Building2 className="size-4" />} label="Centro de Custo" value={data.centroCustoNome ?? data.areaNome} />
                     <InfoRow icon={<Briefcase className="size-4" />} label="Cargo" value={data.jobPositionNome} />

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using RhPortal.Api.Application.PreAdmissao;
 using RhPortal.Api.Contracts.Portal;
 using RhPortal.Api.Contracts.Notifications;
 using RhPortal.Api.Domain.Entities;
@@ -17,6 +18,7 @@ public interface IPortalCandidateAuthService
 {
     Task<PortalCandidateAuthResponse?> LoginAsync(PortalCandidateLoginRequest request, CancellationToken ct);
     Task<PortalCandidateAuthResponse> RegisterAsync(PortalCandidateRegisterRequest request, CancellationToken ct);
+    Task EnsureCpfDisponivelAsync(string cpfNorm, Guid? excludeCandidatoId, CancellationToken ct);
 }
 
 public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
@@ -65,7 +67,7 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             await _db.SaveChangesAsync(ct);
         }
 
-        return new PortalCandidateAuthResponse(candidato.Id, candidato.Nome, candidato.Email);
+        return MapAuthResponse(candidato);
     }
 
     public async Task<PortalCandidateAuthResponse> RegisterAsync(PortalCandidateRegisterRequest request, CancellationToken ct)
@@ -74,6 +76,15 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
         if (string.IsNullOrWhiteSpace(email))
             throw new InvalidOperationException(_localizer["ServiceErrors.PortalEmailInvalid"]);
 
+        ValidateAndParseDocumentacao(
+            request.Cpf,
+            request.Rg,
+            request.DataNascimento,
+            request.NomeMae,
+            out var cpfNorm,
+            out var dataNascimento,
+            _localizer);
+
         var candidato = await _db.Candidatos
             .FirstOrDefaultAsync(x => x.Email == email, ct);
 
@@ -81,6 +92,8 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
         {
             if (!string.IsNullOrWhiteSpace(candidato.PortalPasswordHash))
                 throw new InvalidOperationException(_localizer["ServiceErrors.PortalAccessExists"]);
+
+            await EnsureCpfDisponivelAsync(cpfNorm, candidato.Id, ct);
 
             var (talento, _) = await _talentoService.GetOrCreateByEmailAsync(
                 email,
@@ -97,15 +110,23 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
 
             candidato.Nome = (request.Nome ?? string.Empty).Trim();
             candidato.Email = email;
+            candidato.Cpf = cpfNorm;
+            candidato.Rg = NormalizeRequired(request.Rg);
+            candidato.DataNascimento = dataNascimento;
+            candidato.NomeMae = NormalizeRequired(request.NomeMae);
+            candidato.NomePai = NormalizeOptional(request.NomePai);
             candidato.Fone = NormalizeRequired(request.Fone);
             candidato.Cidade = NormalizeRequired(request.Cidade);
             candidato.Uf = NormalizeUfRequired(request.Uf);
             candidato.PortalPasswordHash = _passwordHasher.HashPassword(candidato, request.Password);
+            candidato.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
             await _db.SaveChangesAsync(ct);
             await NotifyPortalRegisterAsync(candidato, ct);
-            return new PortalCandidateAuthResponse(candidato.Id, candidato.Nome, candidato.Email);
+            return MapAuthResponse(candidato);
         }
+
+        await EnsureCpfDisponivelAsync(cpfNorm, excludeCandidatoId: null, ct);
 
         var (talentoNew, _) = await _talentoService.GetOrCreateByEmailAsync(
             email,
@@ -126,6 +147,11 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             TenantId = tenantId,
             Nome = (request.Nome ?? string.Empty).Trim(),
             Email = email,
+            Cpf = cpfNorm,
+            Rg = NormalizeRequired(request.Rg),
+            DataNascimento = dataNascimento,
+            NomeMae = NormalizeRequired(request.NomeMae),
+            NomePai = NormalizeOptional(request.NomePai),
             Fone = NormalizeRequired(request.Fone),
             Cidade = NormalizeRequired(request.Cidade),
             Uf = NormalizeUfRequired(request.Uf),
@@ -133,7 +159,9 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
             Status = CandidateStatus.Novo,
             VagaId = null,
             TalentoId = talentoNew.Id,
-            PortalAccessKey = GeneratePortalAccessKey()
+            PortalAccessKey = GeneratePortalAccessKey(),
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
         };
 
         entity.PortalPasswordHash = _passwordHasher.HashPassword(entity, request.Password);
@@ -142,8 +170,85 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
         await _db.SaveChangesAsync(ct);
         await NotifyPortalRegisterAsync(entity, ct);
 
-        return new PortalCandidateAuthResponse(entity.Id, entity.Nome, entity.Email);
+        return MapAuthResponse(entity);
     }
+
+    public static bool IsDocumentacaoBasicaCompleta(Candidato candidato)
+        => !string.IsNullOrWhiteSpace(candidato.Cpf)
+           && !string.IsNullOrWhiteSpace(candidato.Rg)
+           && candidato.DataNascimento.HasValue
+           && !string.IsNullOrWhiteSpace(candidato.NomeMae);
+
+    public static string NormalizeCpf(string? cpf)
+        => (cpf ?? string.Empty).Replace(".", "").Replace("-", "").Replace(" ", "").Trim();
+
+    public static void ValidateAndParseDocumentacao(
+        string? cpf,
+        string? rg,
+        string? dataNascimento,
+        string? nomeMae,
+        out string cpfNorm,
+        out DateOnly dataNasc,
+        IStringLocalizer<ServiceMessages>? localizer = null)
+    {
+        cpfNorm = NormalizeCpf(cpf);
+        if (!ValidacaoHelper.ValidarCpf(cpfNorm))
+            throw new InvalidOperationException(
+                localizer?["ServiceErrors.PortalCpfInvalid"] ?? "CPF inválido.");
+
+        if (string.IsNullOrWhiteSpace(rg))
+            throw new InvalidOperationException(
+                localizer?["ServiceErrors.PortalRgRequired"] ?? "RG é obrigatório.");
+
+        if (string.IsNullOrWhiteSpace(dataNascimento)
+            || !DateOnly.TryParse(dataNascimento.Trim(), out dataNasc))
+            throw new InvalidOperationException(
+                localizer?["ServiceErrors.PortalDataNascimentoInvalid"] ?? "Data de nascimento inválida.");
+
+        if (string.IsNullOrWhiteSpace(nomeMae))
+            throw new InvalidOperationException(
+                localizer?["ServiceErrors.PortalNomeMaeRequired"] ?? "Nome da mãe é obrigatório.");
+    }
+
+    public async Task EnsureCpfDisponivelAsync(string cpfNorm, Guid? excludeCandidatoId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(cpfNorm)) return;
+
+        var query = _db.Candidatos.AsNoTracking().Where(x => x.Cpf != null && x.Cpf != "");
+        if (excludeCandidatoId.HasValue)
+            query = query.Where(x => x.Id != excludeCandidatoId.Value);
+
+        var candidatos = await query.Select(x => new { x.Id, x.Cpf }).ToListAsync(ct);
+        if (candidatos.Any(x => NormalizeCpf(x.Cpf) == cpfNorm))
+            throw new InvalidOperationException(_localizer["ServiceErrors.PortalCpfDuplicate"]);
+    }
+
+    public static PortalCandidateAuthResponse MapAuthResponse(Candidato candidato)
+        => new(candidato.Id, candidato.Nome, candidato.Email, IsDocumentacaoBasicaCompleta(candidato));
+
+    public static PortalCandidateProfileResponse MapProfileResponse(
+        Candidato candidate,
+        string? avatarUrl,
+        PortalCandidateDocumentoSummary? curriculo)
+        => new(
+            candidate.Id,
+            candidate.Nome,
+            candidate.Email,
+            candidate.Cpf,
+            candidate.Rg,
+            candidate.DataNascimento?.ToString("yyyy-MM-dd"),
+            candidate.NomeMae,
+            candidate.NomePai,
+            candidate.Fone,
+            candidate.Celular,
+            candidate.Cidade,
+            candidate.Uf,
+            candidate.LinkedinUrl,
+            candidate.ResumoProfissional,
+            avatarUrl,
+            curriculo,
+            candidate.TrabalhandoAtualmente,
+            IsDocumentacaoBasicaCompleta(candidate));
 
     private static string NormalizeEmail(string? email)
         => (email ?? string.Empty).Trim().ToLowerInvariant();
@@ -153,6 +258,12 @@ public sealed class PortalCandidateAuthService : IPortalCandidateAuthService
 
     private static string NormalizeRequired(string? value)
         => (value ?? string.Empty).Trim();
+
+    private static string? NormalizeOptional(string? value)
+    {
+        var trimmed = (value ?? string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
 
     private static string GeneratePortalAccessKey()
     {

@@ -20,6 +20,7 @@ import PaginationBar from "@/components/pagination/PaginationBar";
 import { apiFetch } from "@/lib/api";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -972,6 +973,13 @@ export default function CandidatosScreen() {
                                 </>
                               ) : null}
                             </div>
+                            <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                              <WhatsAppContactButton
+                                size="xs"
+                                celular={pickString((c as Record<string, unknown>)?.celular, "")}
+                                fone={c.fone}
+                              />
+                            </div>
                           </div>
                         </div>
                       </TableCell>
@@ -1163,6 +1171,11 @@ export default function CandidatosScreen() {
                     </Link>
                   </Button>
                 ) : null}
+                <WhatsAppContactButton
+                  size="sm"
+                  celular={pickString((detail as Record<string, unknown> | null)?.celular, "")}
+                  fone={detail?.fone}
+                />
                 <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>
                   Fechar
                 </Button>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { WhatsAppContactButton } from "@/components/contact/WhatsAppContactButton";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Search } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -1097,6 +1098,10 @@ export default function TriagemScreen({
               <Button variant="outline" size="sm" onClick={() => setDetailOpen(false)}>
                 Fechar
               </Button>
+            </div>
+
+            <div className="mt-3">
+              <WhatsAppContactButton size="sm" fone={selected.fone} />
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
