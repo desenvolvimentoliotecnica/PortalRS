@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 163
+    "totalTarefas": 164
   },
   "tarefas": [
     {
@@ -4214,15 +4214,41 @@
       "descricaoAmigavel": "Tela de revisão RH dos documentos de admissão com cabeçalho, barra de progresso, cards em grade e barra de ações conforme layout aprovado.",
       "inicio": "2026-07-01",
       "horarioInicio": "09:27",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 70,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "09:31",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Alterar view de revisão de documentos enviados pelo candidato para layout do print (Documentos Solicitados).",
       "entregavel": "AdmissaoArquivosChecklist e barra de ações da revisão alinhados ao mockup.",
+      "ambiente": "PRD",
+      "referencias": {
+        "commits": [
+          "b2ce86eb"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #34",
+        "prPrd": "Merge PR #35"
+      },
+      "observacoes": "Aba Documentos Solicitados como padrao; progresso, cards 3 colunas, Reenviar por card. PR #34 HML, PR #35 PRD."
+    },
+    {
+      "id": "TASK-2026-163",
+      "nome": "[Portal RH] Ajuste visual cards revisao documentos",
+      "descricaoAmigavel": "Corrigir poluição visual nos cards de revisão: remover miniaturas grandes, restaurar sidebar com ícone e ações compactas Visualizar/Baixar.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "09:45",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 80,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Layout de revisão de documentos não ficou legal — ajustar conforme feedback do print HML.",
+      "entregavel": "Cards limpos com sidebar, sem placeholders escuros, botões compactos.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
