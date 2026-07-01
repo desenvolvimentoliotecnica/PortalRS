@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 168
+    "totalTarefas": 169
   },
   "tarefas": [
     {
@@ -4345,20 +4345,23 @@
       "descricaoAmigavel": "Ao clicar em eventos azuis do Outlook, o usuário vê um painel com horário, local, organizador, descrição e link para abrir no Outlook.",
       "inicio": "2026-07-01",
       "horarioInicio": "12:40",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "12:54",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Permitir clicar nos eventos azuis (Graph) e ver detalhes, não apenas toast.",
       "entregavel": "Modal de detalhes para eventos Outlook e campos extras do Graph (organizador, descrição, link).",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "cddcee3b"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #44",
+        "prPrd": "Merge PR #45"
       },
       "observacoes": "AgendasScreen + MicrosoftGraphCalendarService."
     },
@@ -4383,6 +4386,28 @@
         "branch": "DEV"
       },
       "observacoes": "Rota não listada no menu lateral; herda permissão de /dashboard."
+    },
+    {
+      "id": "TASK-2026-168",
+      "nome": "[Portal RH] P1 Admissão — wizard RH, OTP portal, fluxo candidato e tracking",
+      "descricaoAmigavel": "Simplificar admissão para o RH (3 etapas contratuais), reforçar login do candidato com código por e-mail, enxugar portal do candidato e remover upload manual no acompanhamento.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "12:58",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Implementar P1 do backlog admissão (itens 5, 6, 7, 8): wizard RH simplificado, OTP no portal, portal candidato sem gerais/bancários, remover upload manual RH.",
+      "entregavel": "Wizard RH com 3 etapas; login candidato CPF+OTP; portal com pessoais/docs/revisão; tracking sem upload manual; API OTP.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Backlog docs/backlog-rh-analistas-2026-07-01.md itens 5-8."
     }
   ]
 }

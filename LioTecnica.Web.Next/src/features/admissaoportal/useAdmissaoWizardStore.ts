@@ -259,8 +259,8 @@ export const useAdmissaoWizardStore = create<AdmissaoWizardState>((set, get) => 
 
     computeCompletionPercent: () => {
         const s = get();
-        const mainSteps = 6;
-        const done = [1, 2, 3, 4, 5, 6].filter(
+        const mainSteps = 4;
+        const done = [1, 2, 3, 4].filter(
             (step) => s.completedSteps.has(step) || s.currentStep > step,
         ).length;
         return Math.min(100, Math.round((done / mainSteps) * 100));

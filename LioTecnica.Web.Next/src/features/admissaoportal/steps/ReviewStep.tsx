@@ -1,9 +1,8 @@
 "use client";
 
+import React from "react";
 import {
-    Building2,
     ClipboardList,
-    Info,
     Pencil,
     User,
 } from "lucide-react";
@@ -34,7 +33,7 @@ export default function ReviewStep({ disabled, documentosEnviados = [], onEditSt
         <WizardStepCard
             icon={ClipboardList}
             title="Revisão"
-            subtitle="Confira todas as informações antes de finalizar seu processo de admissão."
+            subtitle="Confira suas informações e documentos antes de finalizar."
         >
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ReviewCard
@@ -47,28 +46,15 @@ export default function ReviewStep({ disabled, documentosEnviados = [], onEditSt
                     <ReviewRow label="CPF" value={formData.cpf} />
                     <ReviewRow label="Data de nascimento" value={formData.dataNascimento} />
                     <ReviewRow label="RG" value={formData.rg} />
-                    <ReviewRow label="Estado civil" value={formData.estadoCivil} />
-                    <ReviewRow label="Órgão expedidor" value={formData.rgOrgaoExpedidor} />
-                </ReviewCard>
-
-                <ReviewCard
-                    icon={User}
-                    title="Dados Gerais"
-                    onEdit={onEditStep ? () => onEditStep(2) : undefined}
-                    disabled={disabled}
-                >
-                    <ReviewRow label="CEP" value={formData.cep} />
-                    <ReviewRow label="Cidade/Estado" value={[formData.cidade, formData.uf].filter(Boolean).join(" - ")} />
-                    <ReviewRow label="Endereço" value={[formData.logradouro, formData.numero].filter(Boolean).join(", ")} />
-                    <ReviewRow label="País" value={formData.paisNacionalidade} />
-                    <ReviewRow label="Bairro" value={formData.bairro} />
+                    <ReviewRow label="Nome da mãe" value={formData.nomeMae} />
                     <ReviewRow label="E-mail" value={formData.email} />
+                    <ReviewRow label="Celular" value={formData.celular ?? formData.telefone} />
                 </ReviewCard>
 
                 <ReviewCard
                     icon={ClipboardList}
                     title="Documentos"
-                    onEdit={onEditStep ? () => onEditStep(3) : undefined}
+                    onEdit={onEditStep ? () => onEditStep(2) : undefined}
                     disabled={disabled}
                 >
                     {docsList.length === 0 ? (
@@ -78,40 +64,18 @@ export default function ReviewStep({ disabled, documentosEnviados = [], onEditSt
                             const tipoCode = tipoDocumentoToCode(doc.tipo);
                             return (
                             <div key={`${tipoCode}-${i}`} className="flex items-center justify-between gap-2 text-sm">
-                                <span className="text-slate-700">
-                                    {TIPO_DOC_LABELS[tipoCode] || `Documento ${doc.tipo}`}
-                                </span>
-                                <span className="truncate text-xs text-emerald-600">Enviado</span>
+                                <span className="text-slate-600">{TIPO_DOC_LABELS[tipoCode] ?? "Documento"}</span>
+                                <span className="truncate text-slate-900 font-medium max-w-[55%]">{doc.nomeArquivo}</span>
                             </div>
                             );
                         })
                     )}
                 </ReviewCard>
-
-                <ReviewCard
-                    icon={Building2}
-                    title="Informações Bancárias"
-                    onEdit={onEditStep ? () => onEditStep(4) : undefined}
-                    disabled={disabled}
-                >
-                    <ReviewRow label="Banco" value={[formData.bancoCodigo, formData.bancoNome].filter(Boolean).join(" - ")} />
-                    <ReviewRow label="Conta" value={formData.conta} />
-                    <ReviewRow label="Tipo de conta" value={formData.tipoConta} />
-                    <ReviewRow label="Dígito" value={formData.contaDigito} />
-                    <ReviewRow label="Agência" value={formData.agencia} />
-                    <ReviewRow label="Favorecido" value={formData.nome} />
-                </ReviewCard>
             </div>
 
-            <div className="mt-6">
-                <PortalInfoBox>
-                    <Info className="mt-0.5 size-5 shrink-0" />
-                    <p>
-                        Após confirmar, seus dados serão enviados para análise do RH. Você não poderá alterá-los
-                        diretamente após a confirmação.
-                    </p>
-                </PortalInfoBox>
-            </div>
+            <PortalInfoBox>
+                Ao confirmar, seus dados serão enviados para análise do RH. Você receberá retorno por e-mail se necessário.
+            </PortalInfoBox>
         </WizardStepCard>
     );
 }
@@ -123,36 +87,35 @@ function ReviewCard({
     onEdit,
     disabled,
 }: {
-    icon: React.ElementType;
+    icon: React.ComponentType<{ className?: string }>;
     title: string;
     children: React.ReactNode;
     onEdit?: () => void;
     disabled?: boolean;
 }) {
     return (
-        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                     <Icon className="size-4 text-[#0047BB]" />
-                    <h3 className="font-semibold text-slate-900">{title}</h3>
+                    <h3 className="font-semibold text-sm">{title}</h3>
                 </div>
                 {onEdit && !disabled && (
-                    <Button variant="ghost" size="sm" onClick={onEdit} className="h-8 gap-1 text-[#0047BB]">
+                    <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={onEdit}>
                         <Pencil className="size-3.5" /> Editar
                     </Button>
                 )}
             </div>
-            <div className="space-y-1.5">{children}</div>
+            <div className="space-y-2">{children}</div>
         </div>
     );
 }
 
-function ReviewRow({ label, value }: { label: string; value?: unknown }) {
-    const display = value == null || String(value).trim() === "" ? "—" : String(value);
+function ReviewRow({ label, value }: { label: string; value?: string | null }) {
     return (
         <div className="flex justify-between gap-3 text-sm">
-            <span className="text-slate-500">{label}</span>
-            <span className="max-w-[55%] truncate text-right font-medium text-slate-800">{display}</span>
+            <span className="text-slate-500 shrink-0">{label}</span>
+            <span className="text-slate-900 font-medium text-right truncate">{value?.trim() || "—"}</span>
         </div>
     );
 }
