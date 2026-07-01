@@ -4567,19 +4567,22 @@
       "descricaoAmigavel": "Eventos verdes criados no portal apareciam para todos os usuários; agora cada pessoa vê só os seus, os que participa ou os das vagas da sua carteira.",
       "inicio": "2026-07-01",
       "horarioInicio": "14:14",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "14:23",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Eventos criados no portal (verdes) estão aparecendo para todo mundo.",
       "entregavel": "Listagem da agenda filtra eventos por responsável, participante ou vaga da carteira; novos eventos recebem responsável automaticamente.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "2cc75773"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #54"
       },
       "observacoes": "Mesma regra do dashboard analista-rh/agenda-events."
     }
