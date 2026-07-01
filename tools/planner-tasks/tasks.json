@@ -4296,18 +4296,21 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Tela de configuração na área de tenant para gravar credenciais Microsoft Graph (Tenant ID, Client ID, UPN, secret) e botão de teste para ler agenda; exibir eventos na view de agenda.",
       "entregavel": "Card de configuração em Configurações do tenant, endpoint de teste e eventos Outlook em azul no calendário da agenda.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "7735b436"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #40",
+        "prPrd": "Merge PR #41"
       },
-      "observacoes": "Implementação local aguardando commit e promoção HML."
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
