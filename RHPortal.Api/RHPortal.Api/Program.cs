@@ -649,6 +649,7 @@ builder.Services.AddScoped<RhPortal.Api.Application.Ai.EmbeddingReindexIntercept
 builder.Services.AddHostedService<RhPortal.Api.Application.Ai.EmbeddingIndexerHostedService>();
 builder.Services.AddScoped<IVagaUnifiedMatchingCacheService, VagaUnifiedMatchingCacheService>();
 builder.Services.AddScoped<AgendaService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Agenda.IAgendaGraphSyncService, RhPortal.Api.Application.Agenda.AgendaGraphSyncService>();
 builder.Services.AddScoped<CelebrationService>();
 builder.Services.AddScoped<FeedbackService>();
 builder.Services.AddScoped<DevelopmentPlanService>();

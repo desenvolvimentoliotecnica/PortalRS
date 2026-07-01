@@ -156,7 +156,7 @@ public sealed class TenantConfiguracao : ITenantEntity
     /// <summary>Azure AD Tenant ID para leitura de calendário via Microsoft Graph.</summary>
     public string? GraphCalendarTenantId { get; set; }
 
-    /// <summary>App Registration Client ID com permissão Calendars.Read (application).</summary>
+    /// <summary>App Registration Client ID com permissão Calendars.ReadWrite (application).</summary>
     public string? GraphCalendarClientId { get; set; }
 
     /// <summary>Client Secret criptografado do App Registration.</summary>

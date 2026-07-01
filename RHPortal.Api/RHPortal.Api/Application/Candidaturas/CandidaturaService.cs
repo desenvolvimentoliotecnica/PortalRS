@@ -4,6 +4,7 @@ using RhPortal.Api.Contracts.Candidatura;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Application.Matching;
+using RhPortal.Api.Application.Agenda;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -48,6 +49,7 @@ public sealed class CandidaturaService : ICandidaturaService
     private readonly ITenantContext _tenant;
     private readonly ICurrentUserContext _currentUser;
     private readonly ICandidaturaNotificacaoService _notificacaoService;
+    private readonly IAgendaGraphSyncService _agendaGraphSync;
     private readonly ILogger<CandidaturaService> _logger;
     private readonly HybridMatchingService? _hybridMatchingService;
 
@@ -56,6 +58,7 @@ public sealed class CandidaturaService : ICandidaturaService
         ITenantContext tenant,
         ICurrentUserContext currentUser,
         ICandidaturaNotificacaoService notificacaoService,
+        IAgendaGraphSyncService agendaGraphSync,
         ILogger<CandidaturaService> logger,
         HybridMatchingService? hybridMatchingService = null)
     {
@@ -63,6 +66,7 @@ public sealed class CandidaturaService : ICandidaturaService
         _tenant = tenant;
         _currentUser = currentUser;
         _notificacaoService = notificacaoService;
+        _agendaGraphSync = agendaGraphSync;
         _logger = logger;
         _hybridMatchingService = hybridMatchingService;
     }
@@ -255,12 +259,16 @@ public sealed class CandidaturaService : ICandidaturaService
             _ => cand.Status,
         };
 
+        AgendaEvent? agendaEntrevista = null;
         if (IsEtapaComAgendaEntrevista(novaEtapa) && entrevista is not null)
         {
-            await CriarEventoEntrevistaAsync(cand, novaEtapa, entrevista, ct);
+            agendaEntrevista = await CriarEventoEntrevistaAsync(cand, novaEtapa, entrevista, ct);
         }
 
         await _db.SaveChangesAsync(ct);
+
+        if (agendaEntrevista is not null)
+            await _agendaGraphSync.TrySyncCreateAsync(agendaEntrevista.Id, ct);
 
         // Mantém o cache Candidato.VagaId alinhado com a candidatura ativa mais recente:
         //  - se esta candidatura acabou de ser encerrada, Candidato aponta pra próxima ativa (ou preserva cache).
@@ -279,7 +287,7 @@ public sealed class CandidaturaService : ICandidaturaService
         return await BuildSingle(cand.Id, ct);
     }
 
-    private async Task CriarEventoEntrevistaAsync(Candidatura cand, EtapaMacroCandidatura etapa, AgendarEntrevistaCandidaturaRequest request, CancellationToken ct)
+    private async Task<AgendaEvent> CriarEventoEntrevistaAsync(Candidatura cand, EtapaMacroCandidatura etapa, AgendarEntrevistaCandidaturaRequest request, CancellationToken ct)
     {
         if (request.DuracaoMinutos < 15 || request.DuracaoMinutos > 480)
             throw new InvalidOperationException("Informe uma duração de entrevista entre 15 e 480 minutos.");
@@ -355,7 +363,7 @@ public sealed class CandidaturaService : ICandidaturaService
             ? "Entrevista Técnica/Gestão"
             : "Entrevista RH";
 
-        _db.AgendaEvents.Add(new AgendaEvent
+        var entity = new AgendaEvent
         {
             Id = Guid.NewGuid(),
             Type = type,
@@ -375,7 +383,10 @@ public sealed class CandidaturaService : ICandidaturaService
             VagaId = details?.VagaId ?? cand.VagaId,
             CandidateConfirmationToken = Convert.ToHexString(Guid.NewGuid().ToByteArray()).ToLowerInvariant(),
             CandidateResponseStatus = "pendente",
-        });
+        };
+
+        _db.AgendaEvents.Add(entity);
+        return entity;
     }
 
     public async Task<CandidaturaResponse?> RegistrarObservacaoAsync(Guid candidaturaId, string observacao, CancellationToken ct)

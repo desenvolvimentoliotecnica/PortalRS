@@ -2913,6 +2913,8 @@ public sealed class AppDbContext : IdentityDbContext<ApplicationUser, Applicatio
             b.Property(x => x.CandidateConfirmationToken).HasMaxLength(80);
             b.Property(x => x.CandidateResponseStatus).HasMaxLength(40);
             b.Property(x => x.CandidateResponseMessage).HasMaxLength(1000);
+            b.Property(x => x.GraphCalendarEventId).HasMaxLength(512);
+            b.Property(x => x.GraphCalendarUserUpn).HasMaxLength(256);
 
             b.HasOne(x => x.Type)
                 .WithMany()

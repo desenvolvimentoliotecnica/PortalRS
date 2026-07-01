@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RhPortal.Api.Domain.Entities;
@@ -48,18 +49,40 @@ public sealed class GraphCalendarTestResponse
     public IReadOnlyList<GraphCalendarEventDto> Events { get; set; } = Array.Empty<GraphCalendarEventDto>();
 }
 
+public sealed class GraphCalendarEventWriteRequest
+{
+    public required string UserUpn { get; init; }
+    public required string Subject { get; init; }
+    public required DateTime StartAtUtc { get; init; }
+    public required DateTime EndAtUtc { get; init; }
+    public bool AllDay { get; init; }
+    public string? Location { get; init; }
+    public string? Body { get; init; }
+    public bool IsOnlineMeeting { get; init; }
+}
+
 public interface IMicrosoftGraphCalendarService
 {
     Task<GraphCalendarConfigView> GetConfigAsync(CancellationToken ct);
     Task<GraphCalendarConfigView> SaveConfigAsync(GraphCalendarConfigRequest request, CancellationToken ct);
     Task<GraphCalendarTestResponse> TestConnectionAsync(CancellationToken ct);
     Task<IReadOnlyList<GraphCalendarEventDto>> ListEventsAsync(DateTimeOffset? startUtc, DateTimeOffset? endUtc, CancellationToken ct);
+    Task<string?> CreateCalendarEventAsync(GraphCalendarEventWriteRequest request, CancellationToken ct);
+    Task UpdateCalendarEventAsync(string userUpn, string graphEventId, GraphCalendarEventWriteRequest request, CancellationToken ct);
+    Task DeleteCalendarEventAsync(string userUpn, string graphEventId, CancellationToken ct);
 }
 
 public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarService
 {
     private const string GraphBaseUrl = "https://graph.microsoft.com/v1.0";
     private const string TokenEndpointTemplate = "https://login.microsoftonline.com/{0}/oauth2/v2.0/token";
+    private const string BrazilTimeZoneId = "America/Sao_Paulo";
+
+    private static readonly JsonSerializerOptions JsonWriteOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
 
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
@@ -159,12 +182,159 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
         try
         {
-            return await FetchEventsAsync(credentials, userUpn, start, end, ct);
+            var events = await FetchEventsAsync(credentials, userUpn, start, end, ct);
+            var linkedIds = await GetLinkedGraphEventIdsAsync(ct);
+            if (linkedIds.Count == 0)
+                return events;
+
+            return events
+                .Where(e => !linkedIds.Contains(StripGraphPrefix(e.Id)))
+                .ToList();
         }
         catch
         {
             return Array.Empty<GraphCalendarEventDto>();
         }
+    }
+
+    public async Task<string?> CreateCalendarEventAsync(GraphCalendarEventWriteRequest request, CancellationToken ct)
+    {
+        var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: true);
+        if (credentials is null)
+            return null;
+
+        var http = _httpClientFactory.CreateClient("AzureAdGraph");
+        var token = await ObtainTokenAsync(http, credentials.TenantId, credentials.ClientId, credentials.ClientSecret, ct);
+        var upn = Uri.EscapeDataString(request.UserUpn.Trim());
+        var url = $"{GraphBaseUrl}/users/{upn}/events";
+        var payload = BuildEventJson(request);
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await http.SendAsync(req, ct);
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Microsoft Graph retornou {(int)resp.StatusCode}: {TrimGraphError(body)}");
+
+        using var doc = JsonDocument.Parse(body);
+        return doc.RootElement.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+    }
+
+    public async Task UpdateCalendarEventAsync(
+        string userUpn,
+        string graphEventId,
+        GraphCalendarEventWriteRequest request,
+        CancellationToken ct)
+    {
+        var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: true);
+        if (credentials is null)
+            return;
+
+        var http = _httpClientFactory.CreateClient("AzureAdGraph");
+        var token = await ObtainTokenAsync(http, credentials.TenantId, credentials.ClientId, credentials.ClientSecret, ct);
+        var upn = Uri.EscapeDataString(userUpn.Trim());
+        var eventId = Uri.EscapeDataString(graphEventId.Trim());
+        var url = $"{GraphBaseUrl}/users/{upn}/events/{eventId}";
+        var payload = BuildEventJson(request);
+
+        using var req = new HttpRequestMessage(HttpMethod.Patch, url)
+        {
+            Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await http.SendAsync(req, ct);
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Microsoft Graph retornou {(int)resp.StatusCode}: {TrimGraphError(body)}");
+    }
+
+    public async Task DeleteCalendarEventAsync(string userUpn, string graphEventId, CancellationToken ct)
+    {
+        var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: true);
+        if (credentials is null)
+            return;
+
+        var http = _httpClientFactory.CreateClient("AzureAdGraph");
+        var token = await ObtainTokenAsync(http, credentials.TenantId, credentials.ClientId, credentials.ClientSecret, ct);
+        var upn = Uri.EscapeDataString(userUpn.Trim());
+        var eventId = Uri.EscapeDataString(graphEventId.Trim());
+        var url = $"{GraphBaseUrl}/users/{upn}/events/{eventId}";
+
+        using var req = new HttpRequestMessage(HttpMethod.Delete, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var resp = await http.SendAsync(req, ct);
+        if (resp.IsSuccessStatusCode || resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return;
+
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        throw new InvalidOperationException($"Microsoft Graph retornou {(int)resp.StatusCode}: {TrimGraphError(body)}");
+    }
+
+    private async Task<HashSet<string>> GetLinkedGraphEventIdsAsync(CancellationToken ct)
+    {
+        var ids = await _db.AgendaEvents.AsNoTracking()
+            .Where(e => e.GraphCalendarEventId != null && e.GraphCalendarEventId != "")
+            .Select(e => e.GraphCalendarEventId!)
+            .ToListAsync(ct);
+
+        return ids.ToHashSet(StringComparer.Ordinal);
+    }
+
+    private static string StripGraphPrefix(string graphPrefixedId)
+    {
+        const string prefix = "graph:";
+        return graphPrefixedId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? graphPrefixedId[prefix.Length..]
+            : graphPrefixedId;
+    }
+
+    private static string BuildEventJson(GraphCalendarEventWriteRequest request)
+    {
+        var startLocal = ToBrazilLocal(request.StartAtUtc);
+        var endLocal = ToBrazilLocal(request.EndAtUtc);
+
+        object payload = request.AllDay
+            ? new
+            {
+                subject = request.Subject,
+                body = new { contentType = "text", content = request.Body ?? string.Empty },
+                start = new { dateTime = startLocal.ToString("yyyy-MM-dd"), timeZone = BrazilTimeZoneId },
+                end = new { dateTime = endLocal.ToString("yyyy-MM-dd"), timeZone = BrazilTimeZoneId },
+                isAllDay = true,
+                location = string.IsNullOrWhiteSpace(request.Location)
+                    ? null
+                    : new { displayName = request.Location },
+            }
+            : new
+            {
+                subject = request.Subject,
+                body = new { contentType = "text", content = request.Body ?? string.Empty },
+                start = new { dateTime = startLocal.ToString("yyyy-MM-ddTHH:mm:ss"), timeZone = BrazilTimeZoneId },
+                end = new { dateTime = endLocal.ToString("yyyy-MM-ddTHH:mm:ss"), timeZone = BrazilTimeZoneId },
+                isAllDay = false,
+                location = string.IsNullOrWhiteSpace(request.Location)
+                    ? null
+                    : new { displayName = request.Location },
+                isOnlineMeeting = request.IsOnlineMeeting,
+                onlineMeetingProvider = request.IsOnlineMeeting ? "teamsForBusiness" : null,
+            };
+
+        return JsonSerializer.Serialize(payload, JsonWriteOptions);
+    }
+
+    private static DateTime ToBrazilLocal(DateTime utc)
+    {
+        var normalized = utc.Kind == DateTimeKind.Utc
+            ? utc
+            : DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
+        return TimeZoneInfo.ConvertTimeFromUtc(normalized, tz);
     }
 
     private async Task<GraphAppCredentials?> ResolveAppCredentialsAsync(CancellationToken ct, bool requireEnabled)

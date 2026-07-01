@@ -4689,14 +4689,16 @@
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "percentualConcluido": 95,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar criação no Outlook ao criar evento na agenda do portal; evitar duplicar verde e azul; todo evento verde vai pro Outlook.",
       "entregavel": "Sync portal→Graph em create/update/delete; dedup na listagem graph-events; entrevistas do funil também sincronizam.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "fcb24e4d"
+        ],
         "branch": "DEV"
       },
       "observacoes": "Requer Calendars.ReadWrite no app Azure AD."
