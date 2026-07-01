@@ -4266,21 +4266,25 @@
       "descricaoAmigavel": "Remove o FAB roxo Assistente IA que ficava sobre a barra de ações nas telas do portal.",
       "inicio": "2026-07-01",
       "horarioInicio": "10:00",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "10:18",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Baixa",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Remover o botão float Assistente de IA.",
       "entregavel": "FAB removido do AppShell; módulo Assistente IA continua acessível pelo menu.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV"
+        "commits": [
+          "cbd34eec"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #38",
+        "prPrd": "Merge PR #39"
       },
-      "observacoes": null
+      "observacoes": "AssistenteIaFab.tsx removido. PR #38 HML, PR #39 PRD."
     }
   ]
 }
