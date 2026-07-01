@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 179
+    "totalTarefas": 180
   },
   "tarefas": [
     {
@@ -4685,23 +4685,48 @@
       "descricaoAmigavel": "Ao criar evento verde no portal, o sistema cria o mesmo evento no Outlook do responsável e evita duplicata verde/azul na agenda.",
       "inicio": "2026-07-01",
       "horarioInicio": "15:47",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "15:50",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar criação no Outlook ao criar evento na agenda do portal; evitar duplicar verde e azul; todo evento verde vai pro Outlook.",
       "entregavel": "Sync portal→Graph em create/update/delete; dedup na listagem graph-events; entrevistas do funil também sincronizam.",
-      "ambiente": "DEV",
+      "ambiente": "HML",
       "referencias": {
         "commits": [
-          "fcb24e4d"
+          "fcb24e4d",
+          "53c4ab83"
         ],
-        "branch": "DEV"
+        "branch": "origin/HML",
+        "prHml": "Merge PR #70",
+        "prPrd": "Merge PR #71"
       },
       "observacoes": "Requer Calendars.ReadWrite no app Azure AD."
+    },
+    {
+      "id": "TASK-2026-180",
+      "nome": "[Portal RH] Melhorar UI/UX dos modais de candidatos",
+      "descricaoAmigavel": "Redesign dos modais de detalhe e edição de candidatos: layout sem scroll duplo, status/vaga bloqueados quando aprovado, aba CV ampliada e remoção do botão Excluir no detalhe.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "15:58",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Melhorar UI/UX do modal de candidatos (Resumo, Editar, Texto do CV): corrigir status vs badge, travar vaga se aprovado, ocultar Salvar status/vaga, remover Excluir, layout flex sem scrolls desnecessários.",
+      "entregavel": "Modais de detalhe e edição com layout flex 85vh, bloqueio de status/vaga para aprovados, aba CV em tela cheia com contador de caracteres, campo Status removido do editar.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV"
+      },
+      "observacoes": "Protótipos aprovados pelo usuário antes da implementação."
     }
   ]
 }
