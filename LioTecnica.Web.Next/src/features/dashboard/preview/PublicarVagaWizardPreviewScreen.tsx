@@ -35,48 +35,122 @@ const STEPS = [
 
 const TOTAL_STEPS = STEPS.length;
 
-const REQUISICOES_MOCK = [
-  {
-    id: "req-3042",
-    code: "REQ-3042",
-    titulo: "Analista de Dados",
-    area: "TI",
-    unidade: "São Paulo — Matriz",
-    status: "Aprovada",
-    gestor: "Roberto Diretor",
-    vagas: 1,
-  },
-  {
-    id: "req-2987",
-    code: "REQ-2987",
-    titulo: "Desenvolvedor .NET",
-    area: "Engenharia",
-    unidade: "Campinas",
-    status: "Aprovada",
-    gestor: "Carlos Gestor",
-    vagas: 2,
-  },
-  {
-    id: "req-3015",
-    code: "REQ-3015",
-    titulo: "Assistente Financeiro",
-    area: "Financeiro",
-    unidade: "São Paulo — Matriz",
-    status: "Em análise",
-    gestor: "Ana RH",
-    vagas: 1,
-  },
-  {
-    id: "req-2940",
-    code: "REQ-2940",
-    titulo: "Analista de RH",
-    area: "Gente e Gestão",
-    unidade: "Remoto",
-    status: "Aprovada",
-    gestor: "Mariana Santos",
-    vagas: 1,
-  },
-];
+type AnalistaRequisicaoApi = {
+  id: string;
+  titulo: string;
+  status: number | string;
+  centroCustoNome?: string | null;
+  unitName?: string | null;
+  createdAtUtc?: string;
+  rmIdReq?: number | string | null;
+};
+
+type SolicitacaoDetailApi = {
+  id: string;
+  titulo: string;
+  justificativa?: string | null;
+  solicitanteNome?: string | null;
+  centroCustoName?: string | null;
+  centroCustoNome?: string | null;
+  unidadeLotacaoNome?: string | null;
+  qtdPosicoes?: number;
+  faixaSalarialMin?: number | string | null;
+  faixaSalarialMax?: number | string | null;
+};
+
+export type RequisicaoWizardItem = {
+  id: string;
+  code: string;
+  titulo: string;
+  area: string;
+  unidade: string;
+  status: string;
+  statusLabel: string;
+  gestor: string;
+  publishable: boolean;
+};
+
+function normalizeStatusKey(status: unknown): string {
+  return String(status ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function resolveRequisicaoStatus(status: unknown): { label: string; publishable: boolean } {
+  const key = normalizeStatusKey(status);
+  if (key === "2" || key === "aprovada") {
+    return { label: "Aprovada", publishable: true };
+  }
+  if (key === "5" || key === "pendenteaprovacaorh") {
+    return { label: "Pendente aprovação RH", publishable: false };
+  }
+  if (key === "1" || key === "pendenteaprovacao") {
+    return { label: "Pendente aprovação", publishable: false };
+  }
+  if (key === "0" || key === "rascunho") {
+    return { label: "Rascunho", publishable: false };
+  }
+  if (key === "4" || key === "ajustesnecessarios") {
+    return { label: "Ajustes necessários", publishable: false };
+  }
+  if (key === "3" || key === "reprovada") {
+    return { label: "Reprovada", publishable: false };
+  }
+  return { label: "Em análise", publishable: false };
+}
+
+function mapApiRequisicao(row: AnalistaRequisicaoApi): RequisicaoWizardItem {
+  const statusMeta = resolveRequisicaoStatus(row.status);
+  const rmId = row.rmIdReq != null && String(row.rmIdReq).trim() !== "" ? String(row.rmIdReq) : "";
+  return {
+    id: row.id,
+    code: rmId ? `REQ-${rmId}` : "REQ",
+    titulo: row.titulo?.trim() || "Requisição de vaga",
+    area: row.centroCustoNome?.trim() || "Área não informada",
+    unidade: row.unitName?.trim() || "Unidade não informada",
+    status: String(row.status ?? ""),
+    statusLabel: statusMeta.label,
+    gestor: "",
+    publishable: statusMeta.publishable,
+  };
+}
+
+function formatFaixaSalarial(min?: number | string | null, max?: number | string | null): string {
+  const minText = min != null && String(min).trim() !== "" ? String(min).trim() : "";
+  const maxText = max != null && String(max).trim() !== "" ? String(max).trim() : "";
+  if (minText && maxText) return `R$ ${minText} — R$ ${maxText}`;
+  if (minText) return `A partir de R$ ${minText}`;
+  if (maxText) return `Até R$ ${maxText}`;
+  return "A combinar";
+}
+
+async function fetchAnalistaRequisicoes(): Promise<AnalistaRequisicaoApi[]> {
+  const res = await apiFetch("/api/dashboard/analista-rh/solicitacoes-vaga?pageSize=100", {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Falha ao carregar requisições (HTTP ${res.status})`);
+  }
+  const data = (await res.json()) as AnalistaRequisicaoApi[];
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchSolicitacaoDetail(id: string): Promise<SolicitacaoDetailApi> {
+  const res = await apiFetch(`/api/solicitacoes-vaga/${encodeURIComponent(id)}`, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Falha ao carregar requisição (HTTP ${res.status})`);
+  }
+  return (await res.json()) as SolicitacaoDetailApi;
+}
 
 type DescricaoCargoLookupItem = {
   id: string;
@@ -256,32 +330,87 @@ export default function PublicarVagaWizardPreviewScreen() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
+  const [requisicoes, setRequisicoes] = useState<RequisicaoWizardItem[]>([]);
+  const [requisicoesLoading, setRequisicoesLoading] = useState(true);
+  const [requisicoesError, setRequisicoesError] = useState<string | null>(null);
+  const [requisicoesReloadKey, setRequisicoesReloadKey] = useState(0);
+  const [selectingRequisicao, setSelectingRequisicao] = useState(false);
+
+  const loadRequisicoes = useCallback(async () => {
+    setRequisicoesLoading(true);
+    setRequisicoesError(null);
+    try {
+      const rows = await fetchAnalistaRequisicoes();
+      setRequisicoes(rows.map(mapApiRequisicao));
+    } catch (err) {
+      setRequisicoes([]);
+      setRequisicoesError(err instanceof Error ? err.message : "Falha ao carregar requisições.");
+    } finally {
+      setRequisicoesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRequisicoes();
+  }, [loadRequisicoes, requisicoesReloadKey]);
 
   const requisicao = useMemo(
-    () => REQUISICOES_MOCK.find((item) => item.id === form.requisicaoId) ?? null,
-    [form.requisicaoId],
+    () => requisicoes.find((item) => item.id === form.requisicaoId) ?? null,
+    [form.requisicaoId, requisicoes],
   );
 
   function patchForm(patch: Partial<FormState>) {
     setForm((current) => ({ ...current, ...patch }));
   }
 
-  function selectRequisicao(id: string) {
-    const item = REQUISICOES_MOCK.find((row) => row.id === id);
-    if (!item) return;
+  async function selectRequisicao(id: string) {
+    const item = requisicoes.find((row) => row.id === id);
+    if (!item?.publishable) return;
 
+    const area = item.area !== "Área não informada" ? item.area : "";
+    setSelectingRequisicao(true);
     patchForm({
       requisicaoId: id,
       titulo: item.titulo,
-      local: item.unidade,
-      resumo: `Oportunidade para ${item.titulo} na área de ${item.area}.`,
-      descricao: `Buscamos profissional para atuar como ${item.titulo}, contribuindo com o time de ${item.area} em projetos estratégicos da empresa.`,
+      local: item.unidade !== "Unidade não informada" ? item.unidade : "",
+      resumo: area
+        ? `Oportunidade para ${item.titulo} na área de ${area}.`
+        : `Oportunidade para ${item.titulo}.`,
+      descricao: area
+        ? `Buscamos profissional para atuar como ${item.titulo}, contribuindo com o time de ${area} em projetos estratégicos da empresa.`
+        : `Buscamos profissional para atuar como ${item.titulo} em projetos estratégicos da empresa.`,
       requisitos: "Experiência na função; comunicação clara; disponibilidade para início em até 30 dias.",
       faixaSalarial: "A combinar",
       descricaoCargoId: "",
       descricaoCargoCode: "",
       descricaoCargoTitle: "",
     });
+
+    try {
+      const detail = await fetchSolicitacaoDetail(id);
+      const detailArea =
+        detail.centroCustoNome?.trim() ||
+        detail.centroCustoName?.trim() ||
+        area;
+      const detailLocal = detail.unidadeLotacaoNome?.trim() || item.unidade;
+      const justificativa = detail.justificativa?.trim();
+
+      patchForm({
+        titulo: detail.titulo?.trim() || item.titulo,
+        local: detailLocal !== "Unidade não informada" ? detailLocal : "",
+        resumo: justificativa
+          ? justificativa.slice(0, 160)
+          : detailArea
+            ? `Oportunidade para ${detail.titulo} na área de ${detailArea}.`
+            : `Oportunidade para ${detail.titulo}.`,
+        descricao: justificativa || undefined,
+        faixaSalarial: formatFaixaSalarial(detail.faixaSalarialMin, detail.faixaSalarialMax),
+      });
+    } catch {
+      // Mantém pré-preenchimento da listagem; detalhe é enriquecimento opcional.
+    } finally {
+      setSelectingRequisicao(false);
+    }
   }
 
   function selectDnalio(item: DescricaoCargoLookupItem) {
@@ -352,7 +481,16 @@ export default function PublicarVagaWizardPreviewScreen() {
                 step >= 2 && step !== 3 && "overflow-hidden",
               )}
             >
-              {step === 1 ? <StepRequisicao selectedId={form.requisicaoId} onSelect={selectRequisicao} /> : null}
+              {step === 1 ? (
+                <StepRequisicao
+                  items={requisicoes}
+                  loading={requisicoesLoading || selectingRequisicao}
+                  error={requisicoesError}
+                  selectedId={form.requisicaoId}
+                  onSelect={(id) => void selectRequisicao(id)}
+                  onRetry={() => setRequisicoesReloadKey((key) => key + 1)}
+                />
+              ) : null}
               {step === 2 ? <StepDadosVaga form={form} onChange={patchForm} requisicao={requisicao} /> : null}
               {step === 3 ? (
                 <StepDnalio
@@ -452,64 +590,109 @@ function WizardStepper({ currentStep, published }: { currentStep: number; publis
 }
 
 function StepRequisicao({
+  items,
+  loading,
+  error,
   selectedId,
   onSelect,
+  onRetry,
 }: {
+  items: RequisicaoWizardItem[];
+  loading: boolean;
+  error: string | null;
   selectedId: string;
   onSelect: (id: string) => void;
+  onRetry: () => void;
 }) {
   return (
     <div className="space-y-3">
       <div>
         <h2 className="text-base font-bold text-slate-900">Selecione a requisição</h2>
-        <p className="text-xs text-slate-500">Apenas requisições aprovadas podem ser publicadas.</p>
+        <p className="text-xs text-slate-500">
+          Requisições distribuídas para você. Apenas as aprovadas podem ser publicadas.
+        </p>
       </div>
 
-      <div className="grid gap-2 lg:grid-cols-2">
-        {REQUISICOES_MOCK.map((item) => {
-          const selected = selectedId === item.id;
-          const bloqueada = item.status !== "Aprovada";
-          return (
-            <button
-              key={item.id}
+      {error ? (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Não foi possível carregar suas requisições</p>
+            <p className="mt-0.5">{error}</p>
+            <Button
               type="button"
-              disabled={bloqueada}
-              onClick={() => onSelect(item.id)}
-              className={cn(
-                "w-full rounded-lg border p-3 text-left transition",
-                selected && "border-blue-300 bg-blue-50/70 ring-1 ring-blue-200",
-                !selected && !bloqueada && "border-slate-200 hover:border-blue-200 hover:bg-slate-50",
-                bloqueada && "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60",
-              )}
+              variant="outline"
+              size="sm"
+              className="mt-2 h-7 border-red-200 bg-white text-red-800 hover:bg-red-50"
+              onClick={onRetry}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="rounded-md bg-blue-100 p-1.5 text-blue-600">
-                    <BriefcaseBusiness className="size-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      <span className="text-[10px] font-bold text-slate-500">{item.code}</span>
-                      <span className="truncate text-sm font-bold text-slate-900">{item.titulo}</span>
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {loading && items.length === 0 ? (
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+          <Loader2 className="size-4 animate-spin" />
+          Carregando requisições atribuídas a você...
+        </div>
+      ) : null}
+
+      {!error && (!loading || items.length > 0) ? (
+        <div className="grid gap-2 lg:grid-cols-2">
+          {items.map((item) => {
+            const selected = selectedId === item.id;
+            const bloqueada = !item.publishable;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                disabled={bloqueada || loading}
+                onClick={() => onSelect(item.id)}
+                className={cn(
+                  "w-full rounded-lg border p-3 text-left transition",
+                  selected && "border-blue-300 bg-blue-50/70 ring-1 ring-blue-200",
+                  !selected && !bloqueada && "border-slate-200 hover:border-blue-200 hover:bg-slate-50",
+                  bloqueada && "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="rounded-md bg-blue-100 p-1.5 text-blue-600">
+                      <BriefcaseBusiness className="size-4" />
                     </div>
-                    <div className="truncate text-xs text-slate-600">
-                      {item.area} · {item.unidade} · {item.gestor}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="text-[10px] font-bold text-slate-500">{item.code}</span>
+                        <span className="truncate text-sm font-bold text-slate-900">{item.titulo}</span>
+                      </div>
+                      <div className="truncate text-xs text-slate-600">
+                        {item.area} · {item.unidade}
+                        {item.gestor ? ` · ${item.gestor}` : ""}
+                      </div>
                     </div>
                   </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                      item.publishable ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700",
+                    )}
+                  >
+                    {item.statusLabel}
+                  </span>
                 </div>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
-                    item.status === "Aprovada" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700",
-                  )}
-                >
-                  {item.status}
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {!loading && !error && items.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-xs text-slate-500">
+          Nenhuma requisição atribuída a você no momento.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -521,7 +704,7 @@ function StepDadosVaga({
 }: {
   form: FormState;
   onChange: (patch: Partial<FormState>) => void;
-  requisicao: (typeof REQUISICOES_MOCK)[number] | null;
+  requisicao: RequisicaoWizardItem | null;
 }) {
   const filledCount = [
     form.titulo.trim().length > 2,
@@ -611,7 +794,7 @@ function StepDnalio({
   onChange,
 }: {
   form: FormState;
-  requisicao: (typeof REQUISICOES_MOCK)[number] | null;
+  requisicao: RequisicaoWizardItem | null;
   onSelect: (item: DescricaoCargoLookupItem) => void;
   onClear: () => void;
   onChange: (patch: Partial<FormState>) => void;
@@ -924,7 +1107,7 @@ function StepConteudoCandidatos({
 }: {
   form: FormState;
   onChange: (patch: Partial<FormState>) => void;
-  requisicao: (typeof REQUISICOES_MOCK)[number] | null;
+  requisicao: RequisicaoWizardItem | null;
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -1074,7 +1257,7 @@ function StepConfirmacao({
   requisicao,
 }: {
   form: FormState;
-  requisicao: (typeof REQUISICOES_MOCK)[number] | null;
+  requisicao: RequisicaoWizardItem | null;
 }) {
   const rows = [
     { label: "Requisição", value: requisicao ? `${requisicao.code} — ${requisicao.titulo}` : "—" },
