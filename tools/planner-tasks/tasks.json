@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-01",
-    "totalTarefas": 182
+    "totalTarefas": 183
   },
   "tarefas": [
     {
@@ -4760,21 +4760,47 @@
       "descricaoAmigavel": "Corrigido erro ao salvar evento na agenda após sync Outlook; modal de criação com campos obrigatórios e responsável pré-preenchido.",
       "inicio": "2026-07-01",
       "horarioInicio": "16:22",
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "16:23",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Urgente",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "POST /api/agenda/events retornava 500 ao criar evento; melhorar UX do modal de agendamento.",
+      "entregavel": "Create retorna evento sem filtro de visibilidade pós-criação; validação e labels no modal; mensagens de erro da API.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "1a4b0978"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #74",
+        "prPrd": "Merge PR #75"
+      },
+      "observacoes": "Causa: GetEventByIdAsync após create aplicava filtro e retornava null → 500."
+    },
+    {
+      "id": "TASK-2026-183",
+      "nome": "[Portal RH] Ajustar largura do modal de candidatos",
+      "descricaoAmigavel": "Correção da largura e do header do modal de detalhe de candidatos para os botões (Fechar, WhatsApp, Abrir em página) não serem cortados.",
+      "inicio": "2026-07-01",
+      "horarioInicio": "16:27",
       "conclusao": null,
       "horarioConclusao": null,
       "totalHoras": null,
       "bucket": "Em andamento",
       "percentualConcluido": 90,
-      "prioridade": "Urgente",
+      "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "POST /api/agenda/events retornava 500 ao criar evento; melhorar UX do modal de agendamento.",
-      "entregavel": "Create retorna evento sem filtro de visibilidade pós-criação; validação e labels no modal; mensagens de erro da API.",
+      "pedidoOriginal": "Largura do modal ainda ruim — botão Fechar sendo cortado no header.",
+      "entregavel": "Modal mais largo (72rem), header responsivo com flex-wrap e min-w-0 no bloco do candidato.",
       "ambiente": "DEV",
       "referencias": {
         "commits": [],
         "branch": "DEV"
       },
-      "observacoes": "Causa: GetEventByIdAsync após create aplicava filtro e retornava null → 500."
+      "observacoes": "Follow-up da TASK-2026-180."
     }
   ]
 }
