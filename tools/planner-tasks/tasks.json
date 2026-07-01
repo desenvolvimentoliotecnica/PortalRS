@@ -4738,10 +4738,11 @@
       "descricaoAmigavel": "Nova página no menu Configurações para limpar dados de recrutamento e admissão de teste sem apagar configurações nem requisições RM, com prévia, confirmação RESETAR e progresso em tempo real.",
       "inicio": "2026-07-01",
       "horarioInicio": "16:30",
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-01",
+      "horarioConclusao": "16:48",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Implementar view dedicada de reset operacional (Owner, Dev/HML): apagar todos candidatos/talentos, vagas de teste e pré-admissões; preservar configurações e requisições RM; confirmação digitando RESETAR; progresso na tela.",
@@ -4749,10 +4750,12 @@
       "ambiente": "HML",
       "referencias": {
         "commits": [
-          "06f87fa7"
+          "06f87fa7",
+          "adad13f7"
         ],
-        "branch": "DEV",
-        "prHml": null
+        "branch": "origin/HML",
+        "prHml": "Merge PR #82",
+        "prPrd": null
       },
       "observacoes": "Restaurado apos revert acidental (240f5630). Correcao allowlist Owner em tenant."
     },
