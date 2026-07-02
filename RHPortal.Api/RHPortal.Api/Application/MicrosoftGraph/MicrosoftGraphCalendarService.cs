@@ -348,9 +348,16 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
             {
                 foreach (var item in value.EnumerateArray())
                 {
-                    var room = ParseMeetingRoom(item);
-                    if (!string.IsNullOrWhiteSpace(room.Email))
-                        rooms.Add(room);
+                    try
+                    {
+                        var room = ParseMeetingRoom(item);
+                        if (!string.IsNullOrWhiteSpace(room.Email))
+                            rooms.Add(room);
+                    }
+                    catch
+                    {
+                        // Ignora entradas malformadas do Graph sem expor erro técnico ao usuário.
+                    }
                 }
             }
 
@@ -418,21 +425,19 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
     private static GraphMeetingRoomDto ParseMeetingRoom(JsonElement item)
     {
-        var email = item.TryGetProperty("emailAddress", out var emailNode)
-                    && emailNode.TryGetProperty("address", out var addressEl)
-            ? addressEl.GetString() ?? ""
-            : "";
+        var email = ReadEmailAddress(item);
 
-        var displayName = item.TryGetProperty("displayName", out var nameEl)
+        var displayName = item.TryGetProperty("displayName", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
             ? nameEl.GetString() ?? email
             : email;
 
         string? building = null;
-        if (item.TryGetProperty("building", out var buildingEl))
+        if (item.TryGetProperty("building", out var buildingEl) && buildingEl.ValueKind == JsonValueKind.String)
             building = buildingEl.GetString();
 
         int? capacity = null;
-        if (item.TryGetProperty("capacity", out var capacityEl) && capacityEl.TryGetInt32(out var cap))
+        if (item.TryGetProperty("capacity", out var capacityEl) && capacityEl.ValueKind == JsonValueKind.Number
+            && capacityEl.TryGetInt32(out var cap))
             capacity = cap;
 
         return new GraphMeetingRoomDto
@@ -442,6 +447,22 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
             Building = string.IsNullOrWhiteSpace(building) ? null : building.Trim(),
             Capacity = capacity,
         };
+    }
+
+    private static string ReadEmailAddress(JsonElement item)
+    {
+        if (!item.TryGetProperty("emailAddress", out var emailNode))
+            return "";
+
+        if (emailNode.ValueKind == JsonValueKind.String)
+            return emailNode.GetString() ?? "";
+
+        if (emailNode.ValueKind == JsonValueKind.Object
+            && emailNode.TryGetProperty("address", out var addressEl)
+            && addressEl.ValueKind == JsonValueKind.String)
+            return addressEl.GetString() ?? "";
+
+        return "";
     }
 
     private static async Task<IReadOnlyDictionary<string, bool>> FetchRoomAvailabilityBatchAsync(
