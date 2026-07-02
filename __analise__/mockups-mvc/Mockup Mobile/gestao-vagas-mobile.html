@@ -612,7 +612,7 @@
     </main>
 
     <div class="cta-bar">
-      <button type="button" class="btn-nova-vaga" id="btnNovaVaga">
+      <button type="button" class="btn-nova-vaga" id="btnNovaVaga" data-route="rh-vaga-detalhe" data-route-toast="Nova vaga criada">
         <i class="fa-solid fa-plus"></i>
         Nova vaga
       </button>
@@ -821,7 +821,7 @@
         const empty = $('#emptyState');
 
         container.innerHTML = list.map((v) => `
-          <article class="vacancy-card" data-id="${v.id}" data-title="${escapeHtml(v.title)}">
+          <article class="vacancy-card" data-id="${v.id}" data-title="${escapeHtml(v.title)}" data-status="${v.status}"${v.status === 'publicada' ? ' data-route="rh-vaga-detalhe"' : ''}>
             <div class="vacancy-top">
               <h2 class="vacancy-title">${escapeHtml(v.title)}</h2>
               <span class="status-badge ${v.status}">${escapeHtml(v.statusLabel)}</span>
@@ -870,7 +870,6 @@
       function bindEvents() {
         $('#btnNotifications').addEventListener('click', () => showToast('8 notificações não lidas'));
         $('#btnFilters').addEventListener('click', () => showToast('Filtros avançados'));
-        $('#btnNovaVaga').addEventListener('click', () => showToast('Criar nova vaga'));
 
         $('#filtersRow').addEventListener('click', (e) => {
           const chip = e.target.closest('.filter-chip');
@@ -891,22 +890,19 @@
             e.stopPropagation();
             const vacancy = vacancies.find((v) => v.id === Number(btn.dataset.vacancy));
             const action = btn.dataset.action;
+            if (action === 'view') {
+              window.location.href = 'detalhe-vaga-publicada-mobile.html';
+              return;
+            }
             showToast(`${actionMessages[action] || action}: ${vacancy?.title || ''}`);
             return;
           }
 
           const card = e.target.closest('.vacancy-card');
+          if (card && card.dataset.status === 'publicada') return;
           if (card) showToast(`Detalhes: ${card.dataset.title}`);
         });
 
-        document.querySelectorAll('.nav-item').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            const href = link.getAttribute('href');
-            if (href && href !== '#') return;
-            e.preventDefault();
-            showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
-          });
-        });
       }
 
       renderFilters();
@@ -916,6 +912,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('rh-vagas');
   </script>
 </body>
 </html>

@@ -726,11 +726,11 @@
     </main>
 
     <nav class="bottom-nav" aria-label="Navegação do candidato">
-      <a href="portal-oportunidades-mobile.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Início</span></a>
-      <a href="portal-oportunidades-mobile.html" class="nav-item"><i class="fa-solid fa-magnifying-glass"></i><span>Vagas</span></a>
-      <a href="portal-area-candidato-mobile.html" class="nav-item active"><i class="fa-solid fa-briefcase"></i><span>Candidaturas</span></a>
-      <a href="#" class="nav-item" data-dev><i class="fa-regular fa-user"></i><span>Perfil</span></a>
-      <a href="#" class="nav-item" data-dev><i class="fa-solid fa-ellipsis"></i><span>Mais</span></a>
+      <a href="#" class="nav-item" data-nav="inicio"><i class="fa-solid fa-house"></i><span>Início</span></a>
+      <a href="#" class="nav-item" data-nav="vagas"><i class="fa-solid fa-magnifying-glass"></i><span>Vagas</span></a>
+      <a href="#" class="nav-item active" data-nav="candidaturas"><i class="fa-solid fa-briefcase"></i><span>Candidaturas</span></a>
+      <a href="#" class="nav-item"><i class="fa-regular fa-user"></i><span>Perfil</span></a>
+      <a href="#" class="nav-item"><i class="fa-solid fa-ellipsis"></i><span>Mais</span></a>
     </nav>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -841,16 +841,10 @@
 
         document.querySelectorAll('[data-action]').forEach((el) => {
           el.addEventListener('click', (e) => {
-            if (el.getAttribute('href') && el.getAttribute('href') !== '#') return;
+            const href = el.getAttribute('href');
+            if (href && href !== '#') return;
             e.preventDefault();
             showToast(actionMessages[el.dataset.action] || 'Em desenvolvimento');
-          });
-        });
-
-        document.querySelectorAll('[data-dev]').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
           });
         });
       }
@@ -862,6 +856,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('pub-area');
   </script>
 </body>
 </html>

@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 215
+    "totalTarefas": 216
   },
   "tarefas": [
     {
@@ -5404,14 +5404,14 @@
       "inicio": "2026-07-02",
       "horarioInicio": "12:50",
       "conclusao": "2026-07-02",
-      "horarioConclusao": "12:49",
+      "horarioConclusao": "13:00",
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "pedidoOriginal": "Fazer geocoding na hora da importação do RM e backfill nos 3 ambientes; commit/push DEV e promover HML/PRD.",
       "entregavel": "EmpresaGeocodificacaoService; pós-sync RM chama geocodificar-pendentes; backfill idempotente no DbSeeder a cada deploy.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": 0.5,
-      "observacoes": "Promovido DEV->HML->PRD (PR #111, #112). Backfill roda no restart da API em cada ambiente.",
+      "totalHoras": 1,
+      "observacoes": "Protótipo implementado localmente; aguardando commit/promoção.",
       "referencias": {
         "commits": [
           "1126aefb"
@@ -5527,6 +5527,27 @@
           "6cfe5981"
         ],
         "prHml": "Merge PR #117 (DEV->HML), PR #118 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-215",
+      "nome": "[Portal RH] Protótipo mobile unificado com navegação entre 17 telas",
+      "descricaoAmigavel": "Hub index.html e camada JS de rotas ligando mockups RH e portal candidato em fluxo demonstrável.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "16:59",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Unir 17 mockups mobile em app protótipo funcional com navegação entre telas; commit/push e promover HML/PRD.",
+      "entregavel": "index.html, js/routes.js, js/nav.js, README e ligação de ações nas 17 telas.",
+      "observacoes": null,
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]

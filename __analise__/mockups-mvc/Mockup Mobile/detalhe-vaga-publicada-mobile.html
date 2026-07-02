@@ -762,7 +762,7 @@
     </main>
 
     <div class="actions-bar">
-      <button type="button" class="btn btn-primary" id="btnVerCandidatos">
+      <button type="button" class="btn btn-primary" id="btnVerCandidatos" data-route="rh-kanban">
         <i class="fa-solid fa-user-group"></i>
         Ver candidatos
       </button>
@@ -940,23 +940,24 @@
 
       function bindEvents() {
         $('#btnNotifications').addEventListener('click', () => showToast('8 notificações não lidas'));
-        $('#btnVerCandidatos').addEventListener('click', () => showToast('Ver candidatos da vaga'));
         $('#btnMaisAcoes').addEventListener('click', () => showToast('Mais ações disponíveis'));
 
         $('#quickActions').addEventListener('click', (e) => {
           const btn = e.target.closest('.quick-btn');
           if (!btn) return;
-          showToast(actionMessages[btn.dataset.action] || 'Ação executada');
+          const action = btn.dataset.action;
+          if (action === 'share') {
+            showToast('Abrindo página pública da vaga…');
+            setTimeout(() => { window.location.href = 'portal-detalhe-vaga-mobile.html'; }, 700);
+            return;
+          }
+          if (action === 'candidatos') {
+            window.location.href = 'kanban-candidatos-mobile.html';
+            return;
+          }
+          showToast(actionMessages[action] || 'Ação executada');
         });
 
-        document.querySelectorAll('.nav-item').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            const href = link.getAttribute('href');
-            if (href && href !== '#') return;
-            e.preventDefault();
-            showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
-          });
-        });
       }
 
       renderDetails();
@@ -968,6 +969,10 @@
       bindEvents();
       setInterval(updateClock, 60000);
     })();
+  </script>
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    initPage('rh-vaga-detalhe');
   </script>
 </body>
 </html>
