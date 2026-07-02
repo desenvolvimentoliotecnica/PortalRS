@@ -5381,18 +5381,20 @@
       "descricaoAmigavel": "Formato Online, Presencial ou Híbrido no modal de agenda, com listagem de salas M365, consulta de disponibilidade e reserva real no Outlook via Graph.",
       "inicio": "2026-07-02",
       "horarioInicio": "12:15",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:45",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Implementar seleção de sala de reunião no modal de agenda com 3 opções: Online (Teams), Presencial (sala com disponibilidade) e Híbrido (Teams + sala). Sem fallback — bloquear campo se Graph não retornar salas.",
       "entregavel": "Endpoints meeting-rooms e availability; campos MeetingFormat/RoomEmail na API; seletor de formato e sala no frontend; reserva como resource attendee no Outlook.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": "Requer permissões Graph: Place.Read.All e Calendars.ReadWrite. Infra concederá permissões.",
+      "totalHoras": 0.5,
+      "observacoes": "Promovido DEV->HML->PRD (PR #109, #110). Requer permissões Graph: Place.Read.All e Calendars.ReadWrite.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "fe09ce8f"
+        ],
+        "prHml": "Merge PR #109 (DEV->HML), PR #110 (HML->PRD)"
       }
     }
   ]
