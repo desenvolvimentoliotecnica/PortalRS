@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 209
+    "totalTarefas": 210
   },
   "tarefas": [
     {
@@ -5381,15 +5381,37 @@
       "descricaoAmigavel": "Formato Online, Presencial ou Híbrido no modal de agenda, com listagem de salas M365, consulta de disponibilidade e reserva real no Outlook via Graph.",
       "inicio": "2026-07-02",
       "horarioInicio": "12:15",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 95,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:45",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Implementar seleção de sala de reunião no modal de agenda com 3 opções: Online (Teams), Presencial (sala com disponibilidade) e Híbrido (Teams + sala). Sem fallback — bloquear campo se Graph não retornar salas.",
       "entregavel": "Endpoints meeting-rooms e availability; campos MeetingFormat/RoomEmail na API; seletor de formato e sala no frontend; reserva como resource attendee no Outlook.",
       "responsavel": "Lucas Muniz Machado",
+      "totalHoras": 0.5,
+      "observacoes": "Promovido DEV->HML->PRD (PR #109, #110). Requer permissões Graph: Place.Read.All e Calendars.ReadWrite.",
+      "referencias": {
+        "commits": [
+          "fe09ce8f"
+        ],
+        "prHml": "Merge PR #109 (DEV->HML), PR #110 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-209",
+      "nome": "[Portal RH] Geocodificação na importação RM e backfill multi-ambiente",
+      "descricaoAmigavel": "Geocodificar empresas automaticamente após sync GFILIAL do RM e preencher coordenadas históricas no startup de cada ambiente (DEV/HML/PRD).",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:50",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Fazer geocoding na hora da importação do RM e backfill nos 3 ambientes; commit/push DEV e promover HML/PRD.",
+      "entregavel": "EmpresaGeocodificacaoService; pós-sync RM chama geocodificar-pendentes; backfill idempotente no DbSeeder a cada deploy.",
+      "responsavel": "Lucas Muniz Machado",
       "totalHoras": null,
-      "observacoes": "Requer permissões Graph: Place.Read.All e Calendars.ReadWrite. Infra concederá permissões.",
+      "observacoes": null,
       "referencias": {
         "commits": [],
         "prHml": null

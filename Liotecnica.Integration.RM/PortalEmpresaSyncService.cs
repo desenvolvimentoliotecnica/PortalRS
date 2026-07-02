@@ -128,6 +128,41 @@ public sealed class PortalEmpresaSyncService
 
         _logWriter.WriteLine($"Sync Empresas: concluído. Criadas: {created}, atualizadas: {updated}, total RM ativas: {ativas.Count}");
         _logger.LogInformation("Sync Empresas: criadas={Created}, atualizadas={Updated}, total={Total}", created, updated, ativas.Count);
+
+        await GeocodificarPendentesAsync(ct);
+    }
+
+    /// <summary>
+    /// Após importar/atualizar filiais do RM, geocodifica empresas sem coordenadas
+    /// (rate limit Nominatim respeitado no endpoint da API).
+    /// </summary>
+    private async Task GeocodificarPendentesAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var resp = await _portalClient.Http.PostAsync(
+                "api/empresas/geocodificar-pendentes?take=200", null, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logWriter.WriteLine($"Sync Empresas: geocodificar-pendentes retornou {resp.StatusCode}");
+                return;
+            }
+
+            var result = await resp.Content.ReadFromJsonAsync<GeocodificarPendentesResult>(JsonOptions, ct);
+            if (result is null)
+                return;
+
+            _logWriter.WriteLine(
+                $"Sync Empresas: geocodificação pendentes — total={result.Total}, ok={result.Geocodificadas}, falhas={result.Falhas}");
+            _logger.LogInformation(
+                "Sync Empresas geocodificar-pendentes: total={Total}, ok={Ok}, falhas={Falhas}",
+                result.Total, result.Geocodificadas, result.Falhas);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Sync Empresas: falha ao geocodificar pendentes");
+            _logWriter.WriteLine($"Sync Empresas: geocodificar-pendentes ERRO - {ex.Message}");
+        }
     }
 
     private async Task<Dictionary<string, Guid>> LoadExistingEmpresasAsync(CancellationToken ct)
@@ -186,4 +221,6 @@ public sealed class PortalEmpresaSyncService
     }
 
     private sealed record EmpresaItem(Guid Id, string Code);
+
+    private sealed record GeocodificarPendentesResult(int Total, int Geocodificadas, int Falhas);
 }
