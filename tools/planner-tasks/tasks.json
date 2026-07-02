@@ -4871,23 +4871,25 @@
       "inicio": "2026-07-02",
       "horarioInicio": "08:47",
       "conclusao": "2026-07-02",
-      "horarioConclusao": "09:15",
-      "totalHoras": 0.47,
+      "horarioConclusao": "09:01",
+      "totalHoras": 0.5,
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Exibir link de ingresso da reunião após criar evento de entrevista (kanban e agenda) e corrigir busca de participantes (ex.: Lucas Machado Muniz).",
       "entregavel": "Link Teams retornado após sync Outlook, modal de confirmação no kanban, detalhes na agenda e endpoint participantes-agenda unificando usuários e funcionários.",
-      "ambiente": "HML",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "faf6f492"
+          "faf6f492",
+          "999d5e9c"
         ],
-        "branch": "origin/HML",
-        "prHml": "Merge PR pendente DEV→HML"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #86",
+        "prPrd": "Merge PR #87"
       },
-      "observacoes": "Aguardando merge PR DEV→HML."
+      "observacoes": "Promovido DEV→HML→PRD."
     }
   ]
 }
