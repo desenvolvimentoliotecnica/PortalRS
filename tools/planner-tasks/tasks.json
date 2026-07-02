@@ -5492,20 +5492,19 @@
       "inicio": "2026-07-02",
       "horarioInicio": "15:10",
       "conclusao": "2026-07-02",
-      "horarioConclusao": "14:46",
+      "horarioConclusao": "14:47",
       "bucket": "Concluído",
       "percentualConcluido": 100,
       "pedidoOriginal": "Os KPIs da view /app/agendas devem refletir todo tipo de evento (portal + Microsoft Graph/Outlook), exceto cancelados.",
       "entregavel": "KPIs Hoje e Semana somam eventos do portal e do Outlook; cancelados excluídos via status ou isCancelled do Graph; contagem independente dos filtros da tela.",
       "responsavel": "Lucas Muniz Machado",
       "totalHoras": 0.5,
-      "observacoes": null,
+      "observacoes": "Promovido DEV->HML->PRD (PR #119, #120).",
       "referencias": {
         "commits": [
           "389cdc6b"
         ],
-        "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #119 (DEV->HML), PR #120 (HML->PRD)"
       }
     },
     {
