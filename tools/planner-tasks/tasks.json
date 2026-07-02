@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 213
+    "totalTarefas": 214
   },
   "tarefas": [
     {
@@ -5483,6 +5483,28 @@
           "6cfe5981"
         ],
         "prHml": "Merge PR #117 (DEV->HML), PR #118 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-213",
+      "nome": "[Portal RH] KPIs da agenda com eventos do portal e Outlook",
+      "descricaoAmigavel": "Corrigir os indicadores da tela de agendas para contar eventos do portal e do calendário Outlook, excluindo apenas os cancelados.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "15:10",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Os KPIs da view /app/agendas devem refletir todo tipo de evento (portal + Microsoft Graph/Outlook), exceto cancelados.",
+      "entregavel": "KPIs Hoje e Semana somam eventos do portal e do Outlook; cancelados excluídos via status ou isCancelled do Graph; contagem independente dos filtros da tela.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": null,
+      "referencias": {
+        "commits": [
+          "f63060c0"
+        ],
+        "branch": "DEV"
       }
     }
   ]
