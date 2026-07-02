@@ -5308,12 +5308,12 @@
       "entregavel": "Modal de agendamento com grid responsivo, campos com largura consistente, seções agrupadas e footer fixo.",
       "responsavel": "Lucas Muniz Machado",
       "totalHoras": 0.5,
-      "observacoes": null,
+      "observacoes": "Promovido DEV->HML->PRD (PR #102, #103).",
       "referencias": {
         "commits": [
           "800a0099"
         ],
-        "prHml": "Merge PR #102 (DEV->HML)"
+        "prHml": "Merge PR #102 (DEV->HML), PR #103 (HML->PRD)"
       }
     }
   ]
