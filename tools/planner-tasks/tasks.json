@@ -4853,15 +4853,16 @@
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Pipeline de Recrutamento no dashboard do Analista de RH exibe 0 aprovados mesmo existindo candidato aprovado.",
       "entregavel": "Contagem correta das etapas do funil, incluindo aprovados, alinhada à carteira distribuída ao analista.",
-      "ambiente": "HML",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
           "fd793a60"
         ],
-        "branch": "origin/HML",
-        "prHml": "Merge PR #84"
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #84",
+        "prPrd": "Merge PR #85"
       },
-      "observacoes": "Causa: escopo restrito a RecrutadorResponsavelUserId, etapa Proposta omitida e título da API não mapeado no frontend."
+      "observacoes": "Causa: escopo restrito a RecrutadorResponsavelUserId, etapa Proposta omitida e título da API não mapeado no frontend. Promovido DEV→HML→PRD."
     }
   ]
 }
