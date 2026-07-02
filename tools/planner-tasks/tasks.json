@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 185
+    "totalTarefas": 186
   },
   "tarefas": [
     {
@@ -4863,6 +4863,31 @@
         "prPrd": "Merge PR #85"
       },
       "observacoes": "Causa: escopo restrito a RecrutadorResponsavelUserId, etapa Proposta omitida e título da API não mapeado no frontend. Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-186",
+      "nome": "[Portal RH] Link Teams na entrevista e busca de participantes na agenda",
+      "descricaoAmigavel": "Após agendar entrevista online, o portal exibe o link de ingresso Teams no kanban e na agenda. A busca de participantes passa a incluir usuários do portal além de funcionários, com pesquisa server-side por nome.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "08:47",
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "09:15",
+      "totalHoras": 0.47,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Exibir link de ingresso da reunião após criar evento de entrevista (kanban e agenda) e corrigir busca de participantes (ex.: Lucas Machado Muniz).",
+      "entregavel": "Link Teams retornado após sync Outlook, modal de confirmação no kanban, detalhes na agenda e endpoint participantes-agenda unificando usuários e funcionários.",
+      "ambiente": "HML",
+      "referencias": {
+        "commits": [
+          "faf6f492"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR pendente DEV→HML"
+      },
+      "observacoes": "Aguardando merge PR DEV→HML."
     }
   ]
 }
