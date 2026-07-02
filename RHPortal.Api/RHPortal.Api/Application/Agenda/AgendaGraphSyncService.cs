@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using RhPortal.Api.Application.Funcionarios;
 using RhPortal.Api.Application.MicrosoftGraph;
 using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Domain.Entities;
+using RhPortal.Api.Domain.Enums;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
 
@@ -20,17 +22,20 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
     private readonly AppDbContext _db;
     private readonly ICurrentUserContext _currentUser;
     private readonly IMicrosoftGraphCalendarService _graph;
+    private readonly IFuncionarioCorporateEmailResolver _corporateEmailResolver;
     private readonly ILogger<AgendaGraphSyncService> _logger;
 
     public AgendaGraphSyncService(
         AppDbContext db,
         ICurrentUserContext currentUser,
         IMicrosoftGraphCalendarService graph,
+        IFuncionarioCorporateEmailResolver corporateEmailResolver,
         ILogger<AgendaGraphSyncService> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _graph = graph;
+        _corporateEmailResolver = corporateEmailResolver;
         _logger = logger;
     }
 
@@ -123,8 +128,30 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
     private async Task<string?> ResolveCalendarUserUpnAsync(string? owner, CancellationToken ct)
     {
         var ownerTrim = owner?.Trim();
-        if (!string.IsNullOrWhiteSpace(ownerTrim) && ownerTrim.Contains('@', StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(ownerTrim))
+        {
+            var currentEmail = _currentUser.Email?.Trim();
+            return string.IsNullOrWhiteSpace(currentEmail) ? null : currentEmail;
+        }
+
+        var extractedEmail = ExtractEmailAddress(ownerTrim);
+        if (!string.IsNullOrWhiteSpace(extractedEmail))
+            return extractedEmail;
+
+        if (ownerTrim.Contains('@', StringComparison.Ordinal))
             return ownerTrim;
+
+        var funcionarioId = await _db.Funcionarios.AsNoTracking()
+            .Where(f => f.Status == FuncionarioStatus.Active && f.Name == ownerTrim)
+            .Select(f => f.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (funcionarioId != Guid.Empty)
+        {
+            var corporateEmail = await _corporateEmailResolver.ResolveEmailAsync(funcionarioId, ct);
+            if (!string.IsNullOrWhiteSpace(corporateEmail))
+                return corporateEmail.Trim();
+        }
 
         if (!string.IsNullOrWhiteSpace(ownerTrim))
         {
@@ -141,8 +168,18 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
                 return email.Trim();
         }
 
-        var currentEmail = _currentUser.Email?.Trim();
-        return string.IsNullOrWhiteSpace(currentEmail) ? null : currentEmail;
+        var current = _currentUser.Email?.Trim();
+        return string.IsNullOrWhiteSpace(current) ? null : current;
+    }
+
+    private static string? ExtractEmailAddress(string value)
+    {
+        var start = value.LastIndexOf('<');
+        var end = value.LastIndexOf('>');
+        if (start >= 0 && end > start)
+            return value[(start + 1)..end].Trim();
+
+        return null;
     }
 
     private static GraphCalendarEventWriteRequest BuildWriteRequest(AgendaEvent entity, string userUpn)

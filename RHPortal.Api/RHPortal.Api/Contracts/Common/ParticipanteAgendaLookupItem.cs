@@ -4,5 +4,6 @@ public sealed record ParticipanteAgendaLookupItem(
     string Id,
     string Nome,
     string? Email,
-    string Origem
-);
+    string Origem,
+    string? MatriculaRm = null,
+    string? EmailPessoalRm = null);

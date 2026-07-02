@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using RhPortal.Api.Application.Funcionarios;
 using RhPortal.Api.Application.MicrosoftGraph;
 using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Domain.Enums;
@@ -46,6 +47,7 @@ internal static class AgendaEventParticipants
 
     public static async Task<IReadOnlyList<ScheduleEventParticipantDto>> NormalizeAndValidateAsync(
         AppDbContext db,
+        IFuncionarioCorporateEmailResolver emailResolver,
         IReadOnlyList<ScheduleEventParticipantDto>? participants,
         CancellationToken ct)
     {
@@ -66,11 +68,11 @@ internal static class AgendaEventParticipants
 
         var funcionarios = await db.Funcionarios.AsNoTracking()
             .Where(x => ids.Contains(x.Id) && x.Status == FuncionarioStatus.Active)
-            .Where(x => x.Email != null && x.Email != "")
-            .Select(x => new { x.Id, x.Name, x.Email })
+            .Select(x => new { x.Id, x.Name })
             .ToListAsync(ct);
 
         var byId = funcionarios.ToDictionary(x => x.Id);
+        var resolvedEmails = await emailResolver.ResolveEmailsAsync(ids, ct);
 
         var normalized = new List<ScheduleEventParticipantDto>();
         var seenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -83,7 +85,11 @@ internal static class AgendaEventParticipants
             if (!byId.TryGetValue(item.FuncionarioId, out var funcionario))
                 throw new InvalidOperationException("Participante inválido ou inativo.");
 
-            var email = funcionario.Email!.Trim();
+            if (!resolvedEmails.TryGetValue(funcionario.Id, out var email) || string.IsNullOrWhiteSpace(email))
+                throw new InvalidOperationException(
+                    $"Não foi possível obter e-mail corporativo para {funcionario.Name.Trim()} (chapa no AD).");
+
+            email = email.Trim();
             if (!seenEmails.Add(email))
                 continue;
 

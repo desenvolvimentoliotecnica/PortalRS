@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using RhPortal.Api.Application.Funcionarios;
 using RhPortal.Api.Contracts.Common;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Domain.Enums;
@@ -22,11 +23,16 @@ public sealed class LookupController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IStringLocalizer<ControllerMessages> _localizer;
+    private readonly IFuncionarioCorporateEmailResolver _corporateEmailResolver;
 
-    public LookupController(AppDbContext db, IStringLocalizer<ControllerMessages> localizer)
+    public LookupController(
+        AppDbContext db,
+        IStringLocalizer<ControllerMessages> localizer,
+        IFuncionarioCorporateEmailResolver corporateEmailResolver)
     {
         _db = db;
         _localizer = localizer;
+        _corporateEmailResolver = corporateEmailResolver;
     }
 
     /// <summary>
@@ -493,7 +499,9 @@ public sealed class LookupController : ControllerBase
                 u.Id.ToString(),
                 u.FullName ?? u.Email ?? "",
                 u.Email,
-                "usuario"))
+                "usuario",
+                null,
+                null))
             .ToListAsync(ct);
 
         var funcQuery = _db.Funcionarios.AsNoTracking()
@@ -509,12 +517,33 @@ public sealed class LookupController : ControllerBase
         var funcionarios = await funcQuery
             .OrderBy(f => f.Name)
             .Take(pageSize * 2)
-            .Select(f => new ParticipanteAgendaLookupItem(
-                f.Id.ToString(),
+            .Select(f => new
+            {
+                f.Id,
                 f.Name,
                 f.Email,
-                "funcionario"))
+                f.MatriculaRm,
+            })
             .ToListAsync(ct);
+
+        var funcionarioIds = funcionarios.Select(f => f.Id).ToList();
+        var corporateEmails = funcionarioIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _corporateEmailResolver.ResolveEmailsAsync(funcionarioIds, ct);
+
+        var funcionarioItems = funcionarios
+            .Select(f =>
+            {
+                corporateEmails.TryGetValue(f.Id, out var inviteEmail);
+                return new ParticipanteAgendaLookupItem(
+                    f.Id.ToString(),
+                    f.Name,
+                    inviteEmail ?? f.Email,
+                    "funcionario",
+                    f.MatriculaRm,
+                    f.Email);
+            })
+            .ToList();
 
         var merged = new List<ParticipanteAgendaLookupItem>(pageSize);
         var seenEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -529,14 +558,37 @@ public sealed class LookupController : ControllerBase
         }
 
         foreach (var item in users) TryAdd(item);
-        foreach (var item in funcionarios) TryAdd(item);
+        foreach (var item in funcionarioItems) TryAdd(item);
 
         return Ok(new LookupResponse<ParticipanteAgendaLookupItem>
         {
             Items = merged,
             Total = merged.Count,
-            HasMore = users.Count + funcionarios.Count > merged.Count,
+            HasMore = users.Count + funcionarioItems.Count > merged.Count,
         });
+    }
+
+    /// <summary>
+    /// Diagnóstico: resolve e-mail corporativo no Azure AD pela chapa (employeeId).
+    /// </summary>
+    [HttpGet("ad-email-by-chapa")]
+    [ProducesResponseType(typeof(CorporateEmailByChapaResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<CorporateEmailByChapaResult>> AdEmailByChapa(
+        [FromQuery] string chapa,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(chapa))
+            return BadRequest(new { message = "Informe a chapa (employeeId)." });
+
+        var result = await _corporateEmailResolver.ResolveByChapaAsync(chapa, ct);
+        return Ok(result ?? new CorporateEmailByChapaResult(
+            chapa.Trim(),
+            null,
+            null,
+            null,
+            null,
+            "nao-encontrado"));
     }
 
     /// <summary>
