@@ -6,7 +6,7 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-01",
+    "atualizadoEm": "2026-07-02",
     "totalTarefas": 185
   },
   "tarefas": [
@@ -4844,20 +4844,22 @@
       "descricaoAmigavel": "A seção Pipeline de Recrutamento passa a contar candidatos aprovados e demais etapas usando a mesma carteira de vagas do Kanban e da lista de candidatos.",
       "inicio": "2026-07-01",
       "horarioInicio": "16:54",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 70,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "08:33",
+      "totalHoras": 1.65,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Pipeline de Recrutamento no dashboard do Analista de RH exibe 0 aprovados mesmo existindo candidato aprovado.",
       "entregavel": "Contagem correta das etapas do funil, incluindo aprovados, alinhada à carteira distribuída ao analista.",
       "ambiente": "HML",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "fd793a60"
+        ],
+        "branch": "origin/HML",
+        "prHml": "Merge PR #84"
       },
       "observacoes": "Causa: escopo restrito a RecrutadorResponsavelUserId, etapa Proposta omitida e título da API não mapeado no frontend."
     }
