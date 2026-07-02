@@ -4,9 +4,18 @@ Protótipo navegável com **17 telas** do recrutamento (analista RH) e portal de
 
 ## Como abrir
 
+### Local (desenvolvimento)
+
 1. Execute **`servir-mockups.bat`** nesta pasta (duplo clique).
 2. O navegador abrirá em `http://localhost:8080/index.html`.
-3. Escolha **Analista RH** ou **Candidato**.
+
+### Homologação / produção (HMG/PRD)
+
+Use a URL publicada pelo Next (após deploy):
+
+**http://10.0.0.80:3000/app/mockups-mobile/index.html**
+
+A URL antiga com `__analise__/mockups-mvc/Mockup Mobile` redireciona automaticamente para `/app/mockups-mobile/`.
 
 > **Não abra `index.html` direto no Explorer** — módulos ES (`import`) são bloqueados pelo navegador via `file://` (erro de CORS).
 

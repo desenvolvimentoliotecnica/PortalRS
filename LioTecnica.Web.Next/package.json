@@ -3,7 +3,9 @@
   "version": "1.0.1",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-mockups-mobile.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-mockups-mobile.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
