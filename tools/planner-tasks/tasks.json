@@ -5064,25 +5064,26 @@
       "descricaoAmigavel": "Redesenho da área de distribuição para analista de RH no modal Visualizar Requisição de Pessoal, com lista inline e seleção por linha, eliminando o corte do dropdown.",
       "inicio": "2026-07-02",
       "horarioInicio": "09:58",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "10:26",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Melhorar UI/UX de distribuição para analista de RH no modal Visualizar Requisição de Pessoal; dropdown cortando. Mock aprovado e implementação promovida DEV→HML→PRD.",
       "entregavel": "Seletor inline de analistas com busca, linha selecionada destacada e painel azul no rodapé do modal, sem clipping.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "3236c804"
+          "3236c804",
+          "55d80988"
         ],
-        "branch": "DEV",
-        "prHml": null,
-        "prPrd": null
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #94",
+        "prPrd": "Merge PR #95"
       },
-      "observacoes": "Aguardando merge DEV→HML→PRD para preencher horarioConclusao e PRs."
+      "observacoes": "Promovido DEV→HML→PRD. Deploy automático via GitHub Actions."
     }
   ]
 }
