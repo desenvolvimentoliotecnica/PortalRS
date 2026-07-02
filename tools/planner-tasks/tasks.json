@@ -5303,7 +5303,7 @@
       "conclusao": null,
       "horarioConclusao": null,
       "bucket": "Em andamento",
-      "percentualConcluido": 75,
+      "percentualConcluido": 90,
       "pedidoOriginal": "Melhorar a UI/UX do modal de criação de Novo evento na view /app/agendas — campos sobrepostos e layout desalinhado.",
       "entregavel": "Modal de agendamento com grid responsivo, campos com largura consistente, seções agrupadas e footer fixo.",
       "responsavel": "Lucas Muniz Machado",
