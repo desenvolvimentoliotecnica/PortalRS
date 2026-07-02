@@ -6,8 +6,8 @@
     "horasUteisPorDia": 8,
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
-    "atualizadoEm": "2026-07-02T13:12:06.424Z",
-    "totalTarefas": 193
+    "atualizadoEm": "2026-07-02T13:17:04.516Z",
+    "totalTarefas": 195
   },
   "tarefas": [
     {
@@ -5038,23 +5038,25 @@
       "descricaoAmigavel": "Correção de tipagem TypeScript no pré-preenchimento de vagas a partir de solicitações, para destravar o pipeline de deploy em DEV, HML e PRD.",
       "inicio": "2026-07-02",
       "horarioInicio": "10:08",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 80,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "10:13",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Corrigir falha de CI/CD nos últimos commits/merges (erro TypeScript em VagasScreen.tsx) e promover DEV→HML→PRD.",
       "entregavel": "Interface SolicitacaoDetail atualizada com empresaId, empresaNome, unitId e unitName; build do Portal Admin passando no CI.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null,
-        "prPrd": null
+        "commits": [
+          "a31e17d8"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #92",
+        "prPrd": "Merge PR #93"
       },
-      "observacoes": "Falha no step Build & push Portal Admin (Web.Next): Property 'empresaId' does not exist on type 'SolicitacaoDetail'."
+      "observacoes": "Promovido DEV→HML→PRD. Corrige TypeScript em SolicitacaoDetail após feat local da vaga."
     }
   ]
 }
