@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 191
+    "totalTarefas": 192
   },
   "tarefas": [
     {
@@ -4966,22 +4966,25 @@
       "descricaoAmigavel": "Vincular o preenchimento da vaga aos locais físicos cadastrados por empresa no tenant, com seleção em cascata e endereço automático na aba Localização.",
       "inicio": "2026-07-02",
       "horarioInicio": "09:45",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "09:56",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Na tela de preenchimento dos dados da vaga, preencher o local da vaga com base nas empresas e estabelecimentos do tenant (Fábrica, Sede, etc.).",
       "entregavel": "Campos Empresa + Local da vaga na aba Localização, endereço somente leitura, validação para presencial/híbrido, API com EmpresaId/UnitId e mock visual da aba.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
-        "commits": [],
-        "branch": "DEV",
-        "prHml": null
+        "commits": [
+          "0c3306c8"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #88",
+        "prPrd": "Merge PR #89"
       },
-      "observacoes": "Implementação local; aguardando commit e promoção HML."
+      "observacoes": "Promovido DEV→HML→PRD."
     },
     {
       "id": "TASK-2026-191",
@@ -5005,6 +5008,29 @@
         "prHml": null
       },
       "observacoes": "Mockup estático com filtros e seleção de candidatos no frontend; links para banco de talentos e dashboard."
+    },
+    {
+      "id": "TASK-2026-192",
+      "nome": "[Portal RH] Mockup mobile kanban de candidatos",
+      "descricaoAmigavel": "Protótipo HTML mobile-first do kanban de candidatos por etapa do funil, com abas de status, colunas horizontais, cards com match e ações de mover etapa.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "09:55",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar HTML mobile-first da tela Kanban de Candidatos seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
+      "entregavel": "Arquivo kanban-candidatos-mobile.html em mockups-mvc com card da vaga, tabs de etapas, board horizontal, zona de drop e botões Mover etapa / Ver perfil.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Mockup estático com seleção de cards e navegação entre etapas; link de volta para matching-candidatos-mobile.html."
     }
   ]
 }
