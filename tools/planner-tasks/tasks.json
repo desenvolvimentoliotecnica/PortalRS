@@ -5280,18 +5280,20 @@
       "descricaoAmigavel": "Antes de geocodificar, consultar BrasilAPI pelo CEP para corrigir logradouro abreviado (ex. RM) e aumentar taxa de sucesso no Nominatim.",
       "inicio": "2026-07-02",
       "horarioInicio": "11:20",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "11:38",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Implementar enriquecimento automático do endereço via CEP na API após diagnóstico HMG: rede OK, falha por logradouro abreviado (JOAO PAULO I vs Avenida João Paulo I).",
       "entregavel": "BrasilApiCepLookupService + CepAddressEnrichment integrados ao CompositeGeocodingService; mensagem 422 mais clara; testes unitários.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": "Diagnóstico HMG: empresa f4ed24ef Matriz Liotecnica Embu. Nominatim OK com Avenida João Paulo I.",
+      "totalHoras": 0.5,
+      "observacoes": "Promovido DEV->HML->PRD (PR #104, #105). Diagnóstico HMG: empresa f4ed24ef Matriz Liotecnica Embu.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "c4097464"
+        ],
+        "prHml": "Merge PR #104 (DEV->HML), PR #105 (HML->PRD)"
       }
     },
     {
