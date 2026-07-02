@@ -515,6 +515,7 @@ builder.Services.AddScoped<IAprovacaoFaixaService, AprovacaoFaixaService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Dashboard.IDashboardAgregadoService, RhPortal.Api.Application.Dashboard.DashboardAgregadoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.TenantConfiguracao.ITenantConfiguracaoService, RhPortal.Api.Application.TenantConfiguracao.TenantConfiguracaoService>();
 builder.Services.AddScoped<RhPortal.Api.Application.MicrosoftGraph.IMicrosoftGraphCalendarService, RhPortal.Api.Application.MicrosoftGraph.MicrosoftGraphCalendarService>();
+builder.Services.AddScoped<RhPortal.Api.Application.Funcionarios.IFuncionarioCorporateEmailResolver, RhPortal.Api.Application.Funcionarios.FuncionarioCorporateEmailResolver>();
 builder.Services.AddScoped<RhPortal.Api.Application.TenantBranding.ITenantBrandingService, RhPortal.Api.Application.TenantBranding.TenantBrandingService>();
 builder.Services.AddScoped<RhPortal.Api.Application.NineBox.INineBoxService, RhPortal.Api.Application.NineBox.NineBoxService>();
 builder.Services.AddScoped<RhPortal.Api.Application.Metas.IMetaService, RhPortal.Api.Application.Metas.MetaService>();

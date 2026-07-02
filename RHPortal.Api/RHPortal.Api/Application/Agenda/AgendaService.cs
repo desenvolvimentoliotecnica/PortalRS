@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using RhPortal.Api.Application.Agenda;
+using RhPortal.Api.Application.Funcionarios;
 using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
@@ -17,6 +19,7 @@ public sealed class AgendaService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserContext _currentUser;
     private readonly IAgendaGraphSyncService _graphSync;
+    private readonly IFuncionarioCorporateEmailResolver _corporateEmailResolver;
     private readonly NotificationPublisher _notifications;
     private readonly IEmailQueueService _emailQueue;
 
@@ -26,6 +29,7 @@ public sealed class AgendaService
         ITenantContext tenantContext,
         ICurrentUserContext currentUser,
         IAgendaGraphSyncService graphSync,
+        IFuncionarioCorporateEmailResolver corporateEmailResolver,
         NotificationPublisher notifications,
         IEmailQueueService emailQueue)
     {
@@ -34,6 +38,7 @@ public sealed class AgendaService
         _tenantContext = tenantContext;
         _currentUser = currentUser;
         _graphSync = graphSync;
+        _corporateEmailResolver = corporateEmailResolver;
         _notifications = notifications;
         _emailQueue = emailQueue;
     }
@@ -134,7 +139,7 @@ public sealed class AgendaService
             owner = TrimOrNull(_currentUser.Email);
 
         var meeting = NormalizeMeetingFields(request.MeetingFormat, request.RoomEmail, request.RoomDisplayName, request.Location);
-        var participants = await AgendaEventParticipants.NormalizeAndValidateAsync(_db, request.Participants, ct);
+        var participants = await AgendaEventParticipants.NormalizeAndValidateAsync(_db, _corporateEmailResolver, request.Participants, ct);
 
         var entity = new AgendaEvent
         {
@@ -183,7 +188,7 @@ public sealed class AgendaService
         entity.Status = request.Status.Trim();
 
         var meeting = NormalizeMeetingFields(request.MeetingFormat, request.RoomEmail, request.RoomDisplayName, request.Location);
-        var participants = await AgendaEventParticipants.NormalizeAndValidateAsync(_db, request.Participants, ct);
+        var participants = await AgendaEventParticipants.NormalizeAndValidateAsync(_db, _corporateEmailResolver, request.Participants, ct);
 
         entity.Location = meeting.Location;
         entity.MeetingFormat = meeting.MeetingFormat;
