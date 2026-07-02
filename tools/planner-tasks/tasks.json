@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 186
+    "totalTarefas": 191
   },
   "tarefas": [
     {
@@ -4890,6 +4890,121 @@
         "prPrd": "Merge PR #87"
       },
       "observacoes": "Promovido DEV→HML→PRD."
+    },
+    {
+      "id": "TASK-2026-187",
+      "nome": "[Portal RH] Mockup mobile detalhe da requisição",
+      "descricaoAmigavel": "Protótipo HTML mobile-first da tela de detalhe da requisição de pessoal, fiel ao layout de referência com cards, timeline de aprovações e ações de distribuição.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "09:14",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar HTML com JS e ícones FontAwesome para layout mobile-first de detalhe da requisição, o mais idêntico possível ao design de referência.",
+      "entregavel": "Arquivo HTML standalone em mockups-mvc com layout mobile, cards de resumo/solicitante/motivo/aprovações/histórico, botões de ação e navegação inferior.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Mockup estático para validação visual; sem integração com API."
+    },
+    {
+      "id": "TASK-2026-188",
+      "nome": "[Portal RH] Mockup mobile dashboard RH",
+      "descricaoAmigavel": "Protótipo HTML mobile-first da tela inicial (dashboard) do Talent RH com métricas, funil, entrevistas da semana, pendências e ações rápidas.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "09:38",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar HTML dashboard mobile-first seguindo o mesmo padrão visual do mock de detalhe da requisição, com base no layout em anexo.",
+      "entregavel": "Arquivo dashboard-mobile.html em mockups-mvc com greeting, cards de métricas, funil horizontal, entrevistas, pendências, ações rápidas e bottom nav.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Mockup estático; link de navegação para detalhe-requisicao-mobile.html."
+    },
+    {
+      "id": "TASK-2026-189",
+      "nome": "[Portal RH] Mockup mobile banco de talentos",
+      "descricaoAmigavel": "Protótipo HTML mobile-first da tela de banco de talentos com busca, filtros, KPIs, cards de candidatos com match score e FAB para novo talento.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "09:42",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar HTML mobile-first do Banco de Talentos seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
+      "entregavel": "Arquivo banco-talentos-mobile.html em mockups-mvc com busca, chips de filtro, KPIs, lista de candidatos, anel de match, FAB e bottom nav.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Mockup estático com busca e filtros funcionais no frontend; links para dashboard e requisições."
+    },
+    {
+      "id": "TASK-2026-190",
+      "nome": "[Portal RH] Local da vaga por empresa e estabelecimento",
+      "descricaoAmigavel": "Vincular o preenchimento da vaga aos locais físicos cadastrados por empresa no tenant, com seleção em cascata e endereço automático na aba Localização.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "09:45",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Na tela de preenchimento dos dados da vaga, preencher o local da vaga com base nas empresas e estabelecimentos do tenant (Fábrica, Sede, etc.).",
+      "entregavel": "Campos Empresa + Local da vaga na aba Localização, endereço somente leitura, validação para presencial/híbrido, API com EmpresaId/UnitId e mock visual da aba.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Implementação local; aguardando commit e promoção HML."
+    },
+    {
+      "id": "TASK-2026-191",
+      "nome": "[Portal RH] Mockup mobile matching de candidatos",
+      "descricaoAmigavel": "Protótipo HTML mobile-first da tela de matching IA com vaga selecionada, KPIs de aderência, filtros, cards com score e ações de seleção para entrevista.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "09:48",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar HTML mobile-first da tela Matching de Candidatos seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
+      "entregavel": "Arquivo matching-candidatos-mobile.html em mockups-mvc com card da vaga, KPIs, filtros, lista ranqueada, seleção múltipla e botões de ação fixos.",
+      "ambiente": "DEV",
+      "referencias": {
+        "commits": [],
+        "branch": "DEV",
+        "prHml": null
+      },
+      "observacoes": "Mockup estático com filtros e seleção de candidatos no frontend; links para banco de talentos e dashboard."
     }
   ]
 }
