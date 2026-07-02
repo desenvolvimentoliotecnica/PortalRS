@@ -1551,8 +1551,8 @@ export default function VagaHubScreen({ vagaId }: { vagaId: string }) {
                 <p className="mx-auto mt-1 max-w-xl text-xs text-muted-foreground">
                   As etapas definem o roteiro da seleção desta vaga, como triagem, entrevistas, proposta e admissão, com responsável e SLA por fase.
                 </p>
-                <Button size="sm" variant="outline" className="mt-2" onClick={() => router.push(`/vagas/editar?id=${encodeURIComponent(vagaId)}&tab=processo`)}>
-                  Configurar Etapas
+                <Button size="sm" variant="outline" className="mt-2" asChild>
+                  <Link href="/recrutamento/candidaturas">Abrir Kanban de Candidaturas</Link>
                 </Button>
               </div>
             )}
