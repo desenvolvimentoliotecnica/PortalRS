@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 210
+    "totalTarefas": 211
   },
   "tarefas": [
     {
@@ -5417,6 +5417,26 @@
           "1126aefb"
         ],
         "prHml": "Merge PR #111 (DEV->HML), PR #112 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-210",
+      "nome": "[Portal RH] Corrigir parse de salas M365 e mensagens técnicas na agenda",
+      "descricaoAmigavel": "Corrigir leitura do emailAddress das salas no Graph (string vs objeto) e substituir erros JSON/técnicos por mensagens amigáveis no modal de agendamento.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "14:03",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Erro técnico 'element of type Object/String' exibido ao usuário no seletor de sala — corrigir parse e mensagens amigáveis.",
+      "entregavel": "Parse robusto de emailAddress no Graph; catch genérico nos endpoints de salas; filtro toUserFriendlyApiError no frontend.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": null,
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]

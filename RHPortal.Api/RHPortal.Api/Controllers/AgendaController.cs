@@ -99,6 +99,15 @@ public sealed class AgendaController : ControllerBase
                 Status = StatusCodes.Status503ServiceUnavailable,
             });
         }
+        catch (Exception)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Salas indisponíveis",
+                Detail = "Não foi possível carregar as salas do Microsoft 365. Verifique a integração Outlook e a permissão Place.Read.All.",
+                Status = StatusCodes.Status503ServiceUnavailable,
+            });
+        }
     }
 
     /// <summary>
@@ -143,6 +152,15 @@ public sealed class AgendaController : ControllerBase
             {
                 Title = "Disponibilidade indisponível",
                 Detail = ex.Message,
+                Status = StatusCodes.Status503ServiceUnavailable,
+            });
+        }
+        catch (Exception)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Disponibilidade indisponível",
+                Detail = "Não foi possível consultar a disponibilidade das salas. Tente novamente ou escolha o formato Online.",
                 Status = StatusCodes.Status503ServiceUnavailable,
             });
         }
