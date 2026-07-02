@@ -5604,19 +5604,21 @@
       "descricaoAmigavel": "Fix COPY pasta Mockup Mobile com espaco e dockerignore para incluir mockups no contexto do build.",
       "inicio": "2026-07-02",
       "horarioInicio": "17:30",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "17:40",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Alta",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Validar e corrigir falha CI/CD nos 3 ambientes no build web-next.",
       "entregavel": "Dockerfile + .dockerignore corrigidos.",
       "observacoes": "Erro: COPY interpretava Mockup Mobile como dois paths.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "77859408"
+        ],
+        "prHml": "Merge PR #135 (DEV->HML), PR #136 (HML->PRD)"
       }
     }
   ]
