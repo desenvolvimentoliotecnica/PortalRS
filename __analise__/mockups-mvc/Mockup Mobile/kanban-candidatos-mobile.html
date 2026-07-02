@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Talent RH — Kanban de candidatos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    :root {
+      --primary: #005691;
+      --primary-soft: #e8f2fa;
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1a2b3c;
+      --muted: #6c7a89;
+      --muted-light: #9aa5b1;
+      --border: #e8ecf0;
+      --green: #1a9e5c;
+      --green-soft: #e6f7ee;
+      --red: #d93025;
+      --red-soft: #fdecea;
+      --orange: #e67e22;
+      --orange-soft: #fef3e6;
+      --purple: #7c3aed;
+      --purple-soft: #f0e8fd;
+      --blue: #2b7fd4;
+      --blue-soft: #e3f0fb;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 1px 3px rgba(0, 40, 80, 0.06);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --bottom-nav-h: 64px;
+      --actions-h: 68px;
+      --col-w: 268px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #dfe3e8;
+      color: var(--text);
+      line-height: 1.45;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: 430px;
+      min-height: 100dvh;
+      background: var(--bg);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.12);
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px 4px;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--card);
+    }
+    .status-icons { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .status-icons .signal { letter-spacing: 1px; font-size: 11px; }
+    .battery {
+      width: 24px; height: 11px;
+      border: 1.5px solid var(--text);
+      border-radius: 3px;
+      position: relative;
+      margin-left: 2px;
+    }
+    .battery::after {
+      content: '';
+      position: absolute;
+      right: -4px; top: 2px;
+      width: 2px; height: 5px;
+      background: var(--text);
+      border-radius: 0 1px 1px 0;
+    }
+    .battery .level {
+      position: absolute;
+      inset: 1.5px;
+      right: 30%;
+      background: var(--text);
+      border-radius: 1px;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px 12px;
+      background: var(--card);
+    }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-logo { width: 32px; height: 32px; }
+    .brand-name { font-size: 17px; font-weight: 700; color: var(--primary); }
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .btn-icon {
+      position: relative;
+      width: 36px; height: 36px;
+      border: none; background: transparent;
+      color: var(--primary); font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+    }
+    .badge-count {
+      position: absolute;
+      top: 2px; right: 0;
+      min-width: 16px; height: 16px;
+      padding: 0 4px;
+      background: #e53935; color: #fff;
+      font-size: 10px; font-weight: 700;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .avatar-header {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+    }
+
+    .page-header {
+      padding: 4px 16px 12px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .page-header-top { display: flex; align-items: flex-start; gap: 10px; }
+    .btn-back {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--primary);
+      font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .page-subtitle { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+
+    /* Job card */
+    .job-card {
+      margin: 12px 16px 0;
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .job-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: var(--purple-soft);
+      color: var(--purple);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .job-body { flex: 1; min-width: 0; }
+    .job-label { font-size: 10px; color: var(--muted-light); margin-bottom: 2px; }
+    .job-title { font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+    .job-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--muted-light);
+    }
+    .job-meta span { display: flex; align-items: center; gap: 3px; }
+    .job-count {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 9px;
+      border-radius: 16px;
+      background: var(--purple-soft);
+      color: var(--purple);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* Stage tabs */
+    .stage-tabs-wrap {
+      padding: 12px 0 8px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .stage-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 0 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .stage-tabs::-webkit-scrollbar { display: none; }
+    .stage-tab {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .stage-tab .count {
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      background: var(--bg);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage-tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      font-weight: 600;
+    }
+    .stage-tab.active .count { background: rgba(255,255,255,.22); color: #fff; }
+    .stage-tab.approved { color: var(--green); border-color: rgba(26,158,92,.25); background: var(--green-soft); }
+    .stage-tab.approved .count { background: rgba(26,158,92,.15); color: var(--green); }
+    .stage-tab.rejected { color: var(--red); border-color: rgba(217,48,37,.2); background: var(--red-soft); }
+    .stage-tab.rejected .count { background: rgba(217,48,37,.12); color: var(--red); }
+
+    /* Kanban board */
+    .kanban-wrap {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .kanban-board {
+      flex: 1;
+      display: flex;
+      gap: 10px;
+      padding: 12px 16px;
+      padding-bottom: calc(var(--bottom-nav-h) + var(--actions-h) + 16px + var(--safe-bottom));
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
+      align-items: flex-start;
+    }
+    .kanban-board::-webkit-scrollbar { height: 4px; }
+    .kanban-board::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .kanban-col {
+      flex: 0 0 var(--col-w);
+      width: var(--col-w);
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      max-height: 100%;
+      scroll-snap-align: start;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .kanban-col.focused {
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(26, 158, 92, 0.15);
+      background: linear-gradient(180deg, #f8fdf9 0%, var(--card) 40%);
+    }
+
+    .col-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .col-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .kanban-col.focused .col-title { color: var(--green); }
+    .col-count {
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      border-radius: 11px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .kanban-col.focused .col-count { background: var(--green-soft); color: var(--green); }
+    .kanban-col.purple .col-count { background: var(--purple-soft); color: var(--purple); }
+
+    .col-cards {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 120px;
+    }
+
+    .k-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .k-card:active { transform: scale(0.98); }
+    .k-card.selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(0, 86, 145, 0.12);
+      background: var(--card);
+    }
+
+    .k-card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .k-avatar-wrap { position: relative; flex-shrink: 0; }
+    .k-avatar {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+    }
+    .k-dot {
+      position: absolute;
+      bottom: 0; right: 0;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--card);
+    }
+    .k-dot.green { background: var(--green); }
+    .k-dot.orange { background: var(--orange); }
+
+    .k-info { flex: 1; min-width: 0; }
+    .k-name { font-size: 12px; font-weight: 700; color: var(--primary); line-height: 1.25; }
+    .k-role { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+    .k-city { font-size: 10px; color: var(--muted-light); margin-top: 2px; }
+
+    .k-match {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+    .k-match.high { background: var(--green-soft); color: var(--green); }
+    .k-match.mid { background: var(--orange-soft); color: var(--orange); }
+
+    .k-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .k-tag {
+      padding: 2px 7px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .col-more {
+      margin: 0 10px 10px;
+      padding: 10px;
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted-light);
+      cursor: pointer;
+      text-align: center;
+    }
+    .col-more:active { background: var(--bg); }
+
+    .drop-zone {
+      margin: 0 10px 10px;
+      padding: 14px 10px;
+      border: 1.5px dashed var(--green);
+      border-radius: var(--radius-sm);
+      background: var(--green-soft);
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--green);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .drop-zone i { font-size: 14px; }
+
+    /* Sticky actions */
+    .sticky-actions {
+      position: fixed;
+      bottom: calc(var(--bottom-nav-h) + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      padding: 10px 16px;
+      background: linear-gradient(to top, var(--bg) 80%, transparent);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      z-index: 10;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 10px;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0, 86, 145, 0.25);
+    }
+    .btn-outline {
+      background: var(--card);
+      color: var(--primary);
+      border: 1.5px solid var(--primary);
+    }
+    .btn:active { transform: scale(0.98); opacity: 0.92; }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      height: calc(var(--bottom-nav-h) + var(--safe-bottom));
+      padding-bottom: var(--safe-bottom);
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      padding-top: 8px;
+      z-index: 20;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      text-decoration: none;
+      color: var(--muted-light);
+      font-size: 10px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 10px;
+      min-width: 56px;
+    }
+    .nav-item i { font-size: 18px; }
+    .nav-item.active { color: var(--primary); background: var(--primary-soft); }
+
+    .toast {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(26, 43, 60, 0.92);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 100;
+      max-width: 90%;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    @media (min-width: 431px) {
+      body { padding: 20px 0; align-items: flex-start; }
+      .phone { min-height: calc(100dvh - 40px); border-radius: 24px; overflow: hidden; }
+    }
+  </style>
+</head>
+<body>
+  <div class="phone" id="app">
+    <div class="status-bar" aria-hidden="true">
+      <span id="statusTime">9:41</span>
+      <div class="status-icons">
+        <span class="signal">●●●●</span>
+        <i class="fa-solid fa-wifi"></i>
+        <div class="battery"><div class="level"></div></div>
+      </div>
+    </div>
+
+    <header class="app-header">
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" fill="#005691"/>
+          <path d="M12 10H20V12H17V22H15V12H12V10Z" fill="white"/>
+        </svg>
+        <span class="brand-name">Talent RH</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="btnNotifications" aria-label="Notificações">
+          <i class="fa-regular fa-bell"></i>
+          <span class="badge-count">8</span>
+        </button>
+        <img class="avatar-header" src="https://i.pravatar.cc/80?img=32" alt="Usuário" />
+      </div>
+    </header>
+
+    <div class="page-header">
+      <div class="page-header-top">
+        <a href="matching-candidatos-mobile.html" class="btn-back" aria-label="Voltar">
+          <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <div>
+          <h1 class="page-title">Kanban de candidatos</h1>
+          <p class="page-subtitle">Acompanhe o funil da vaga e mova talentos entre etapas.</p>
+        </div>
+      </div>
+    </div>
+
+    <article class="job-card">
+      <div class="job-icon"><i class="fa-solid fa-briefcase"></i></div>
+      <div class="job-body">
+        <div class="job-label">Vaga selecionada</div>
+        <div class="job-title">Analista de RH</div>
+        <div class="job-meta">
+          <span><i class="fa-solid fa-users"></i>Gente &amp; Cultura</span>
+          <span><i class="fa-solid fa-location-dot"></i>Matriz — SP</span>
+          <span><i class="fa-solid fa-building"></i>Híbrido</span>
+        </div>
+      </div>
+      <div class="job-count">
+        <i class="fa-solid fa-user-group"></i>
+        32 candidatos
+      </div>
+    </article>
+
+    <div class="stage-tabs-wrap">
+      <div class="stage-tabs" id="stageTabs"></div>
+    </div>
+
+    <div class="kanban-wrap">
+      <div class="kanban-board" id="kanbanBoard"></div>
+    </div>
+
+    <div class="sticky-actions">
+      <button type="button" class="btn btn-primary" id="btnMover">
+        <i class="fa-solid fa-right-left"></i>
+        Mover etapa
+      </button>
+      <button type="button" class="btn btn-outline" id="btnPerfil">
+        <i class="fa-solid fa-user"></i>
+        Ver perfil
+      </button>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navegação principal">
+      <a href="dashboard-mobile.html" class="nav-item"><i class="fa-solid fa-house"></i><span>Início</span></a>
+      <a href="detalhe-requisicao-mobile.html" class="nav-item"><i class="fa-solid fa-clipboard-list"></i><span>Requisições</span></a>
+      <a href="#" class="nav-item" data-dev><i class="fa-solid fa-briefcase"></i><span>Vagas</span></a>
+      <a href="banco-talentos-mobile.html" class="nav-item active"><i class="fa-solid fa-user-group"></i><span>Candidatos</span></a>
+      <a href="#" class="nav-item" data-dev><i class="fa-solid fa-ellipsis"></i><span>Mais</span></a>
+    </nav>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const stages = [
+        { id: 'novo', label: 'Novo', count: 8 },
+        { id: 'triagem', label: 'Triagem', count: 6, focused: true },
+        { id: 'entrevista', label: 'Entrevista RH', count: 5, theme: 'purple' },
+        { id: 'gestor', label: 'Gestor', count: 4 },
+        { id: 'teste', label: 'Teste', count: 3 },
+        { id: 'proposta', label: 'Proposta', count: 2 },
+        { id: 'aprovado', label: 'Aprovado', count: 2, variant: 'approved' },
+        { id: 'reprovado', label: 'Reprovado', count: 2, variant: 'rejected' }
+      ];
+
+      const columns = {
+        novo: {
+          more: 6,
+          cards: [
+            { id: 1, name: 'Pedro Lima', role: 'Analista de RH', city: 'Jundiaí/SP', dot: 'green', tags: ['Triagem'], avatar: 'https://i.pravatar.cc/80?img=33' },
+            { id: 2, name: 'Vanessa Dias', role: 'Assistente de RH', city: 'Santos/SP', dot: 'green', tags: ['Recrutamento'], avatar: 'https://i.pravatar.cc/80?img=9' }
+          ]
+        },
+        triagem: {
+          dropZone: true,
+          cards: [
+            { id: 3, name: 'Juliana Alves', role: 'Analista de RH Sênior', city: 'São Paulo/SP', dot: 'green', match: 92, matchLevel: 'high', tags: ['Triagem', 'Recrutamento'], avatar: 'https://i.pravatar.cc/80?img=47' },
+            { id: 4, name: 'Camila Souza', role: 'Analista de RH Pleno', city: 'Sorocaba/SP', dot: 'green', match: 89, matchLevel: 'high', tags: ['Triagem', 'Entrevista'], avatar: 'https://i.pravatar.cc/80?img=20' },
+            { id: 5, name: 'Bruno Martins', role: 'Assistente de Produção', city: 'Campinas/SP', dot: 'orange', match: 76, matchLevel: 'mid', tags: ['Triagem', 'Recrutamento'], avatar: 'https://i.pravatar.cc/80?img=12' }
+          ]
+        },
+        entrevista: {
+          more: 3,
+          theme: 'purple',
+          cards: [
+            { id: 6, name: 'Rafael Costa', role: 'Analista de RH Pleno', city: 'São Paulo/SP', dot: 'green', tags: ['Entrevista'], avatar: 'https://i.pravatar.cc/80?img=25' },
+            { id: 7, name: 'Larissa Gomes', role: 'Analista de RH', city: 'São Bernardo/SP', dot: 'green', tags: ['Entrevista'], avatar: 'https://i.pravatar.cc/80?img=44' }
+          ]
+        }
+      };
+
+      let activeStage = 'triagem';
+      let selectedCardId = null;
+
+      const $ = (sel) => document.querySelector(sel);
+      const toast = $('#toast');
+      let toastTimer;
+
+      function showToast(msg) {
+        clearTimeout(toastTimer);
+        toast.textContent = msg;
+        toast.classList.add('show');
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      function renderTabs() {
+        $('#stageTabs').innerHTML = stages.map((s) => `
+          <button type="button" class="stage-tab${s.id === activeStage ? ' active' : ''}${s.variant === 'approved' ? ' approved' : ''}${s.variant === 'rejected' ? ' rejected' : ''}"
+            data-stage="${s.id}">
+            ${escapeHtml(s.label)}
+            <span class="count">${s.count}</span>
+          </button>
+        `).join('');
+      }
+
+      function renderCard(c) {
+        return `
+          <div class="k-card${selectedCardId === c.id ? ' selected' : ''}" data-id="${c.id}" data-name="${escapeHtml(c.name)}">
+            <div class="k-card-top">
+              <div class="k-avatar-wrap">
+                <img class="k-avatar" src="${c.avatar}" alt="${escapeHtml(c.name)}" />
+                <span class="k-dot ${c.dot}"></span>
+              </div>
+              <div class="k-info">
+                <div class="k-name">${escapeHtml(c.name)}</div>
+                <div class="k-role">${escapeHtml(c.role)}</div>
+                <div class="k-city">${escapeHtml(c.city)}</div>
+              </div>
+              ${c.match ? `<span class="k-match ${c.matchLevel}">${c.match}% match</span>` : ''}
+            </div>
+            <div class="k-tags">
+              ${c.tags.map((t) => `<span class="k-tag">${escapeHtml(t)}</span>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      function renderBoard() {
+        const visibleStages = ['novo', 'triagem', 'entrevista'];
+        $('#kanbanBoard').innerHTML = visibleStages.map((stageId) => {
+          const stage = stages.find((s) => s.id === stageId);
+          const col = columns[stageId];
+          const focused = stageId === activeStage;
+          return `
+            <div class="kanban-col${focused ? ' focused' : ''}${col.theme ? ' ' + col.theme : ''}" data-col="${stageId}">
+              <div class="col-header">
+                <span class="col-title">${escapeHtml(stage.label)}</span>
+                <span class="col-count">${stage.count}</span>
+              </div>
+              <div class="col-cards">
+                ${col.cards.map(renderCard).join('')}
+              </div>
+              ${col.dropZone ? `
+                <div class="drop-zone">
+                  <i class="fa-regular fa-hand-pointer"></i>
+                  Solte aqui para mover
+                </div>
+              ` : col.more ? `
+                <button type="button" class="col-more" data-more="${stageId}">+${col.more} candidatos</button>
+              ` : ''}
+            </div>
+          `;
+        }).join('');
+      }
+
+      function scrollToColumn(stageId) {
+        const col = document.querySelector(`[data-col="${stageId}"]`);
+        if (col) col.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+      }
+
+      function updateClock() {
+        const now = new Date();
+        $('#statusTime').textContent = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+      }
+
+      function bindEvents() {
+        $('#btnNotifications').addEventListener('click', () => showToast('8 notificações não lidas'));
+
+        $('#stageTabs').addEventListener('click', (e) => {
+          const tab = e.target.closest('.stage-tab');
+          if (!tab) return;
+          activeStage = tab.dataset.stage;
+          renderTabs();
+          renderBoard();
+          scrollToColumn(activeStage);
+        });
+
+        $('#kanbanBoard').addEventListener('click', (e) => {
+          const more = e.target.closest('.col-more');
+          if (more) {
+            showToast(`Carregar mais candidatos em ${more.dataset.more}`);
+            return;
+          }
+          const card = e.target.closest('.k-card');
+          if (!card) return;
+          selectedCardId = Number(card.dataset.id);
+          renderBoard();
+        });
+
+        $('#btnMover').addEventListener('click', () => {
+          if (!selectedCardId) {
+            showToast('Selecione um candidato no kanban');
+            return;
+          }
+          const name = document.querySelector(`[data-id="${selectedCardId}"]`)?.dataset.name;
+          showToast(`Mover ${name} de etapa`);
+        });
+
+        $('#btnPerfil').addEventListener('click', () => {
+          if (!selectedCardId) {
+            showToast('Selecione um candidato para ver o perfil');
+            return;
+          }
+          const name = document.querySelector(`[data-id="${selectedCardId}"]`)?.dataset.name;
+          showToast(`Abrir perfil: ${name}`);
+        });
+
+        document.querySelectorAll('[data-dev]').forEach((link) => {
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
+          });
+        });
+      }
+
+      renderTabs();
+      renderBoard();
+      updateClock();
+      bindEvents();
+      setInterval(updateClock, 60000);
+      requestAnimationFrame(() => scrollToColumn('triagem'));
+    })();
+  </script>
+</body>
+</html>
