@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 214
+    "totalTarefas": 215
   },
   "tarefas": [
     {
@@ -5491,20 +5491,43 @@
       "descricaoAmigavel": "Corrigir os indicadores da tela de agendas para contar eventos do portal e do calendário Outlook, excluindo apenas os cancelados.",
       "inicio": "2026-07-02",
       "horarioInicio": "15:10",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "14:46",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Os KPIs da view /app/agendas devem refletir todo tipo de evento (portal + Microsoft Graph/Outlook), exceto cancelados.",
       "entregavel": "KPIs Hoje e Semana somam eventos do portal e do Outlook; cancelados excluídos via status ou isCancelled do Graph; contagem independente dos filtros da tela.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
+      "totalHoras": 0.5,
       "observacoes": null,
       "referencias": {
         "commits": [
-          "f63060c0"
+          "389cdc6b"
         ],
-        "branch": "DEV"
+        "branch": "DEV",
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-214",
+      "nome": "[Portal RH] Eventos cancelados em cinza e ocultos em Próximos",
+      "descricaoAmigavel": "Exibir eventos cancelados em cinza no calendário da agenda e ocultá-los da lista lateral Próximos.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "14:30",
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "14:44",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "pedidoOriginal": "Eventos cancelados na view devem aparecer em cinza; na lateral Próximos não deve exibir eventos cancelados.",
+      "entregavel": "Calendário usa cinza para cancelados (portal e Outlook); sidebar Próximos filtra status cancelado e assunto Cancelado:.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": 0.5,
+      "observacoes": "Entregue junto ao commit de participantes (6cfe5981), promovido em PR #117/#118.",
+      "referencias": {
+        "commits": [
+          "6cfe5981"
+        ],
+        "prHml": "Merge PR #117 (DEV->HML), PR #118 (HML->PRD)"
       }
     }
   ]
