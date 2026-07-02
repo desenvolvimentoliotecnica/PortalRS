@@ -106,6 +106,10 @@ interface SolicitacaoDetail extends SolicitacaoRow {
     turnoDescription?: string | null;
     centroCustoId?: string | null;
     centroCustoNome?: string | null;
+    empresaId?: string | null;
+    empresaNome?: string | null;
+    unitId?: string | null;
+    unitName?: string | null;
     unidadeLotacaoId?: string | null;
     unidadeLotacaoNome?: string | null;
     faixaSalarialMin?: number | string | null;
