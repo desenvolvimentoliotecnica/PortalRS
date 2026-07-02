@@ -741,7 +741,7 @@ function LookupSelect({
 /* ── Tab definitions ─────────────────────────────────────────────────── */
 
 type TabKey = "identificacao" | "horario" | "dados" | "projeto" | "local" | "remuneracao" | "requisitos" | "matching" | "processo" | "publicacao" | "campos" | "candidatos" | "posicao";
-const REMOVED_EDIT_TAB_KEYS = new Set<string>(["publicacao", "campos", "posicao", "diversidade"]);
+const REMOVED_EDIT_TAB_KEYS = new Set<string>(["publicacao", "campos", "posicao", "diversidade", "processo"]);
 
 function normalizeEditTab(tab?: TabKey): TabKey {
   return tab && !REMOVED_EDIT_TAB_KEYS.has(tab) ? tab : "identificacao";
@@ -756,7 +756,6 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: "remuneracao", icon: "💰", label: "Remuneração" },
   { key: "requisitos", icon: "✅", label: "Requisitos" },
   { key: "matching", icon: "✨", label: "Filtros matching (IA)" },
-  { key: "processo", icon: "🧭", label: "Etapas" },
   { key: "candidatos", icon: "👥", label: "Candidatos" },
 ];
 
@@ -969,13 +968,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
   /** Grade JSON do cadastro do turno (última carga da API) — usado em "Recarregar do turno". */
   const turnoGradeJsonRef = useRef<string | null>(null);
 
-  // Histórico da decisão de headcount registrada na solicitação de vaga (read-only).
-  // Decisão agora é feita pelo GESTOR na criação da solicitação — RH não decide mais aqui.
-  const [decisaoRHFeita, setDecisaoRHFeita] = useState<{
-    tipo: number; revisadoPorNome: string | null; emUtc: string | null; prazoMeses: number | null;
-    expiresAtUtc: string | null;
-  } | null>(null);
-
   const stepCompletion = useMemo(() => {
     const s = new Map<TabKey, boolean>();
     s.set("dados", !!(draft.titulo.trim() && draft.centroCustoId && draft.status));
@@ -1157,7 +1149,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       lastBootstrapKeyRef.current = "";
       turnoGradeJsonRef.current = null;
       setEmbeddedBootstrapLoading(false);
-      setDecisaoRHFeita(null);
       setDescricaoCargoSearch("");
       setDescricaoCargoOptions([]);
       return;
@@ -1320,19 +1311,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
       const descricaoCargoCode = pick(v.descricaoCargoCode);
       const descricaoCargoTitle = pick(v.descricaoCargoTitle);
       setDescricaoCargoSearch(descricaoCargoCode ? `${descricaoCargoCode} - ${descricaoCargoTitle}` : "");
-
-      // Histórico da decisão de headcount (read-only — decisão é feita na criação da solicitação pelo gestor)
-      if (v.decisaoRH != null) {
-        setDecisaoRHFeita({
-          tipo: Number(v.decisaoRH),
-          revisadoPorNome: v.decisaoRHRevisadoPorNome ? String(v.decisaoRHRevisadoPorNome) : null,
-          emUtc: v.decisaoRHEmUtc ? String(v.decisaoRHEmUtc) : null,
-          prazoMeses: v.decisaoRHPrazoMeses != null ? Number(v.decisaoRHPrazoMeses) : null,
-          expiresAtUtc: v.headcountProvisorioExpiresAtUtc ? String(v.headcountProvisorioExpiresAtUtc) : null,
-        });
-      } else {
-        setDecisaoRHFeita(null);
-      }
     } catch { toast.error("Falha ao carregar dados da vaga."); }
   }
 
@@ -1514,26 +1492,6 @@ export default function VagaFormModal({ open, editId: vagaId, prefill, defaultTa
             ))}
           </div>
         </div>
-
-        {/* Histórico de decisão de headcount — quando já registrada (read-only) */}
-        {decisaoRHFeita && (
-          <div className="mx-4 mb-1 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 px-4 py-3 shrink-0">
-            <p className="text-xs text-emerald-700 dark:text-emerald-400">
-              <strong>Decisão de HC:</strong>{" "}
-              {decisaoRHFeita.tipo === 1
-                ? `Substituição provisória${decisaoRHFeita.expiresAtUtc
-                    ? ` — revisão em ${new Date(decisaoRHFeita.expiresAtUtc).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}`
-                    : decisaoRHFeita.prazoMeses
-                      ? ` (${decisaoRHFeita.prazoMeses} meses)`
-                      : ""}`
-                : decisaoRHFeita.tipo === 3
-                  ? "Headcount existente consumido — posição em aberto utilizada"
-                  : "Aumento definitivo (encaminhado para aprovação)"}
-              {decisaoRHFeita.revisadoPorNome && ` — por ${decisaoRHFeita.revisadoPorNome}`}
-              {decisaoRHFeita.emUtc && ` em ${new Date(decisaoRHFeita.emUtc).toLocaleDateString("pt-BR")}`}
-            </p>
-          </div>
-        )}
 
         {/* Tab content (scrollable) */}
         <div className="flex-1 overflow-y-auto px-4 pb-4">
