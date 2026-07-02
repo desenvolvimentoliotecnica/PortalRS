@@ -102,6 +102,10 @@ public interface IMicrosoftGraphCalendarService
         DateTime startUtc,
         DateTime endUtc,
         CancellationToken ct);
+    Task<GraphAdUserDto?> FindUserByMatriculaRmAsync(string matriculaRm, CancellationToken ct);
+    Task<IReadOnlyDictionary<string, GraphAdUserDto>> FindUsersByMatriculasRmAsync(
+        IReadOnlyList<string> matriculasRm,
+        CancellationToken ct);
 }
 
 public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarService
@@ -319,6 +323,128 @@ public sealed class MicrosoftGraphCalendarService : IMicrosoftGraphCalendarServi
 
         var body = await resp.Content.ReadAsStringAsync(ct);
         throw new InvalidOperationException($"Microsoft Graph retornou {(int)resp.StatusCode}: {TrimGraphError(body)}");
+    }
+
+    public async Task<GraphAdUserDto?> FindUserByMatriculaRmAsync(string matriculaRm, CancellationToken ct)
+    {
+        foreach (var variant in GraphEmployeeIdVariants.FromMatriculaRm(matriculaRm))
+        {
+            var user = await FindUserByEmployeeIdAsync(variant, ct);
+            if (user is not null)
+                return user;
+        }
+
+        return null;
+    }
+
+    public async Task<IReadOnlyDictionary<string, GraphAdUserDto>> FindUsersByMatriculasRmAsync(
+        IReadOnlyList<string> matriculasRm,
+        CancellationToken ct)
+    {
+        if (matriculasRm.Count == 0)
+            return new Dictionary<string, GraphAdUserDto>(StringComparer.OrdinalIgnoreCase);
+
+        var variants = matriculasRm
+            .SelectMany(GraphEmployeeIdVariants.FromMatriculaRm)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (variants.Count == 0)
+            return new Dictionary<string, GraphAdUserDto>(StringComparer.OrdinalIgnoreCase);
+
+        var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: false);
+        if (credentials is null)
+            return new Dictionary<string, GraphAdUserDto>(StringComparer.OrdinalIgnoreCase);
+
+        var http = _httpClientFactory.CreateClient("AzureAdGraph");
+        var token = await ObtainTokenAsync(http, credentials.TenantId, credentials.ClientId, credentials.ClientSecret, ct);
+
+        var found = new Dictionary<string, GraphAdUserDto>(StringComparer.OrdinalIgnoreCase);
+        foreach (var chunk in variants.Chunk(15))
+        {
+            var users = await FetchUsersByEmployeeIdsAsync(http, token, chunk, ct);
+            foreach (var user in users)
+            {
+                if (!string.IsNullOrWhiteSpace(user.EmployeeId))
+                    found[user.EmployeeId] = user;
+
+                foreach (var variant in chunk)
+                {
+                    if (!string.IsNullOrWhiteSpace(user.EmployeeId)
+                        && string.Equals(user.EmployeeId, variant, StringComparison.OrdinalIgnoreCase))
+                    {
+                        found[variant] = user;
+                    }
+                }
+            }
+        }
+
+        return found;
+    }
+
+    private async Task<GraphAdUserDto?> FindUserByEmployeeIdAsync(string employeeId, CancellationToken ct)
+    {
+        var credentials = await ResolveAppCredentialsAsync(ct, requireEnabled: false);
+        if (credentials is null)
+            return null;
+
+        var http = _httpClientFactory.CreateClient("AzureAdGraph");
+        var token = await ObtainTokenAsync(http, credentials.TenantId, credentials.ClientId, credentials.ClientSecret, ct);
+        var users = await FetchUsersByEmployeeIdsAsync(http, token, [employeeId], ct);
+        return users.Count > 0 ? users[0] : null;
+    }
+
+    private static async Task<IReadOnlyList<GraphAdUserDto>> FetchUsersByEmployeeIdsAsync(
+        HttpClient http,
+        string token,
+        IReadOnlyList<string> employeeIds,
+        CancellationToken ct)
+    {
+        if (employeeIds.Count == 0)
+            return Array.Empty<GraphAdUserDto>();
+
+        var filters = employeeIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => $"employeeId eq '{GraphEmployeeIdVariants.EscapeODataLiteral(x.Trim())}'");
+        var filter = string.Join(" or ", filters);
+        if (string.IsNullOrWhiteSpace(filter))
+            return Array.Empty<GraphAdUserDto>();
+
+        var url =
+            $"{GraphBaseUrl}/users?$filter={Uri.EscapeDataString(filter)}&$select=id,displayName,mail,userPrincipalName,employeeId&$top={employeeIds.Count}";
+
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var resp = await http.SendAsync(req, ct);
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (!resp.IsSuccessStatusCode)
+            return Array.Empty<GraphAdUserDto>();
+
+        return ParseAdUsers(body);
+    }
+
+    private static IReadOnlyList<GraphAdUserDto> ParseAdUsers(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Array)
+            return Array.Empty<GraphAdUserDto>();
+
+        var list = new List<GraphAdUserDto>();
+        foreach (var item in value.EnumerateArray())
+        {
+            var id = item.TryGetProperty("id", out var idEl) ? idEl.GetString() ?? "" : "";
+            if (string.IsNullOrWhiteSpace(id))
+                continue;
+
+            list.Add(new GraphAdUserDto(
+                id,
+                item.TryGetProperty("displayName", out var nameEl) ? nameEl.GetString() : null,
+                item.TryGetProperty("mail", out var mailEl) ? mailEl.GetString() : null,
+                item.TryGetProperty("userPrincipalName", out var upnEl) ? upnEl.GetString() : null,
+                item.TryGetProperty("employeeId", out var empEl) ? empEl.GetString() : null));
+        }
+
+        return list;
     }
 
     public async Task<IReadOnlyList<GraphMeetingRoomDto>> ListMeetingRoomsAsync(CancellationToken ct)
