@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RhPortal.Api.Application.MicrosoftGraph;
+using RhPortal.Api.Contracts.Schedule;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Data;
 using RhPortal.Api.Infrastructure.Tenancy;
@@ -148,6 +149,7 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
     {
         var format = AgendaMeetingFormats.Normalize(entity.MeetingFormat);
         var requiresRoom = AgendaMeetingFormats.RequiresRoom(format);
+        var participants = AgendaEventParticipants.Deserialize(entity.ParticipantsJson);
 
         return new GraphCalendarEventWriteRequest
         {
@@ -157,14 +159,15 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
             EndAtUtc = entity.EndAtUtc,
             AllDay = entity.AllDay,
             Location = AgendaMeetingFormats.ResolveLocationDisplay(format, entity.RoomDisplayName, entity.RoomEmail),
-            Body = BuildGraphBody(entity),
+            Body = BuildGraphBody(entity, participants),
             IsOnlineMeeting = AgendaMeetingFormats.RequiresOnlineMeeting(format),
             RoomEmail = requiresRoom ? entity.RoomEmail : null,
             RoomDisplayName = requiresRoom ? entity.RoomDisplayName : null,
+            ParticipantAttendees = AgendaEventParticipants.ToGraphAttendees(participants),
         };
     }
 
-    private static string BuildGraphBody(AgendaEvent entity)
+    private static string BuildGraphBody(AgendaEvent entity, IReadOnlyList<ScheduleEventParticipantDto> participants)
     {
         var lines = new List<string>();
         if (!string.IsNullOrWhiteSpace(entity.Candidate))
@@ -178,6 +181,8 @@ public sealed class AgendaGraphSyncService : IAgendaGraphSyncService
         }
         if (!string.IsNullOrWhiteSpace(entity.Owner))
             lines.Add($"Responsável: {entity.Owner.Trim()}");
+        if (participants.Count > 0)
+            lines.Add($"Participantes: {string.Join(", ", participants.Select(x => x.Nome.Trim()))}");
         if (!string.IsNullOrWhiteSpace(entity.Status))
             lines.Add($"Status: {entity.Status.Trim()}");
         if (!string.IsNullOrWhiteSpace(entity.Notes))

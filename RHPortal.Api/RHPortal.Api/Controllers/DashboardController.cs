@@ -560,7 +560,8 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
                 x.Type != null ? x.Type.Label : string.Empty,
                 x.Type != null ? x.Type.Color : "#6c757d",
                 x.Type != null ? x.Type.Icon : "bi-calendar",
-                x.OnlineMeetingJoinUrl
+                x.OnlineMeetingJoinUrl,
+                null
             ))
             .ToListAsync(ct);
 
@@ -870,7 +871,8 @@ public sealed class DashboardController(ILogger<DashboardController> logger) : C
                 x.Type != null ? x.Type.Label : string.Empty,
                 x.Type != null ? x.Type.Color : "#6c757d",
                 x.Type != null ? x.Type.Icon : "bi-calendar",
-                x.OnlineMeetingJoinUrl
+                x.OnlineMeetingJoinUrl,
+                null
             ))
             .ToListAsync(ct);
 

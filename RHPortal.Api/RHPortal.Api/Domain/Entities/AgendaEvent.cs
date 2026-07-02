@@ -30,6 +30,9 @@ public sealed class AgendaEvent : ITenantEntity
     public string? VagaCode { get; set; }
     public string? Notes { get; set; }
 
+    /// <summary>JSON array de participantes: [{ funcionarioId, nome, email }].</summary>
+    public string? ParticipantsJson { get; set; }
+
     public Guid? CandidaturaId { get; set; }
     public Guid? CandidatoId { get; set; }
     public Guid? VagaId { get; set; }

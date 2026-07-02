@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 212
+    "totalTarefas": 213
   },
   "tarefas": [
     {
@@ -5461,6 +5461,26 @@
           "106c5691"
         ],
         "prHml": "Merge PR #115 (DEV->HML), PR #116 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-212",
+      "nome": "[Portal RH] Participantes na criação de eventos da agenda",
+      "descricaoAmigavel": "Permitir incluir funcionários da empresa como participantes ao agendar compromissos, com convite automático no Outlook.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "14:32",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "pedidoOriginal": "Na criação do evento, incluir participantes buscados na lista de funcionários da empresa.",
+      "entregavel": "Campo multi-select de participantes no modal Agendar; persistência estruturada; sincronização como convidados no Outlook.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Implementação local em DEV — aguardando commit/promoção.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]
