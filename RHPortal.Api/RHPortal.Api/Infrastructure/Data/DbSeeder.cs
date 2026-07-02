@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using RhPortal.Api.Application.Owner;
 using RhPortal.Api.Domain.Entities;
 using RhPortal.Api.Infrastructure.Localization;
@@ -170,6 +171,10 @@ public static class DbSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.UnitEmpresaBackfillSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
+                    var empresaGeocoding = tenantScope.ServiceProvider.GetRequiredService<RhPortal.Api.Application.Geocoding.EmpresaGeocodificacaoService>();
+                    var tenantLogger = tenantScope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("EmpresaGeocodificacaoBackfill");
+                    await global::RhPortal.Api.Infrastructure.Data.Seeders.EmpresaGeocodificacaoBackfillSeeder
+                        .EnsureAsync(tenantDb, tenantId, empresaGeocoding, tenantLogger, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.TenantRmIntegrationDefaultsSeeder
                         .EnsureAsync(tenantDb, tenantId, ct);
                     await global::RhPortal.Api.Infrastructure.Data.Seeders.RmRequisicaoStatusMapSeeder
