@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 196
+    "totalTarefas": 201
   },
   "tarefas": [
     {
@@ -5064,25 +5064,126 @@
       "descricaoAmigavel": "Redesenho da área de distribuição para analista de RH no modal Visualizar Requisição de Pessoal, com lista inline e seleção por linha, eliminando o corte do dropdown.",
       "inicio": "2026-07-02",
       "horarioInicio": "09:58",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "10:26",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Melhorar UI/UX de distribuição para analista de RH no modal Visualizar Requisição de Pessoal; dropdown cortando. Mock aprovado e implementação promovida DEV→HML→PRD.",
       "entregavel": "Seletor inline de analistas com busca, linha selecionada destacada e painel azul no rodapé do modal, sem clipping.",
-      "ambiente": "DEV",
+      "ambiente": "PRD",
       "referencias": {
         "commits": [
-          "3236c804"
+          "3236c804",
+          "55d80988"
         ],
-        "branch": "DEV",
-        "prHml": null,
-        "prPrd": null
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #94",
+        "prPrd": "Merge PR #95"
       },
-      "observacoes": "Aguardando merge DEV→HML→PRD para preencher horarioConclusao e PRs."
+      "observacoes": "Promovido DEV→HML→PRD. Deploy automático via GitHub Actions."
+    },
+    {
+      "id": "TASK-2026-195",
+      "nome": "[Portal RH] Mockup mobile gestão de vagas",
+      "descricaoAmigavel": "Mockup HTML mobile-first da tela Gestão de Vagas para acompanhamento e gestão de vagas abertas.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "10:35",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Criar HTML mobile-first da tela Gestão de Vagas seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
+      "entregavel": "Arquivo gestao-vagas-mobile.html em mockups-mvc com busca, filtros por status, KPIs, lista de vagas com badges e ações, botão Nova vaga e bottom nav.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Mockup estático com busca/filtro interativos; aba Vagas ativa na bottom nav.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-196",
+      "nome": "[Portal RH] Mockup mobile detalhe da vaga publicada",
+      "descricaoAmigavel": "Mockup HTML mobile-first da tela de detalhe de vaga publicada com métricas, canais e pipeline de candidatos.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "10:42",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Criar HTML mobile-first da tela Detalhe da vaga publicada seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
+      "entregavel": "Arquivo detalhe-vaga-publicada-mobile.html em mockups-mvc com resumo da vaga, KPIs, canais, pipeline, ações rápidas, insights e botões fixos.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Mockup estático com link de volta para gestao-vagas-mobile.html; aba Vagas ativa.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-197",
+      "nome": "[Portal RH] Dropdowns Empresa e Local da vaga no formulário de vagas",
+      "descricaoAmigavel": "Substituir campos de texto por listas suspensas na aba Localização do cadastro de vagas, com opções do tenant e cascata empresa → local.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "10:47",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Trocar os campos Empresa e Local da Vaga para dropdowns ao invés de text inputs.",
+      "entregavel": "Aba Localização do VagaFormModal com selects de empresa e local da vaga, carregados da API e com endereço automático ao selecionar o local.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Alteração local em VagaFormModal.tsx; aguardando commit/push.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-199",
+      "nome": "[Portal RH] Mockup mobile aprovação do gestor",
+      "descricaoAmigavel": "Mockup HTML mobile-first da tela de aprovação do gestor para candidato finalista com critérios, decisão e próximos passos.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "10:47",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Criar HTML mobile-first da tela Aprovação do gestor seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
+      "entregavel": "Arquivo aprovacao-gestor-mobile.html em mockups-mvc com perfil do candidato, vaga, parecer RH, critérios do gestor, decisão final e botões de ação.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Mockup estático com seleção de decisão e toasts; aba Candidatos ativa.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-198",
+      "nome": "[Portal RH] Vincular estabelecimentos RM à Empresa no Portal",
+      "descricaoAmigavel": "Corrigir sync de unidades do integrador RM para enviar EmpresaId e backfill idempotente nos tenants existentes no deploy.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "10:49",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 85,
+      "pedidoOriginal": "Implementar correção do vínculo Empresa nos estabelecimentos importados do RM e rodar backfill nos 3 ambientes no deploy.",
+      "entregavel": "Estabelecimentos (Units) exibem empresa vinculada na UI; novos syncs e registros legados corrigidos automaticamente no startup.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Fix PortalUnitSyncService + UnitEmpresaBackfillSeeder no DbSeeder/TenantProvisioning.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
     }
   ]
 }
