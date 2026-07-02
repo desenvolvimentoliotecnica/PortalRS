@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Talent RH — Gestão de vagas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    :root {
+      --primary: #005691;
+      --primary-dark: #004578;
+      --primary-soft: #e8f2fa;
+      --teal: #0d9488;
+      --teal-soft: #e6f5f3;
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1a2b3c;
+      --muted: #6c7a89;
+      --muted-light: #9aa5b1;
+      --border: #e8ecf0;
+      --green: #1a9e5c;
+      --green-soft: #e6f7ee;
+      --orange: #e67e22;
+      --orange-soft: #fef3e6;
+      --purple: #7c3aed;
+      --purple-soft: #f0e8fd;
+      --blue: #2b7fd4;
+      --blue-soft: #e3f0fb;
+      --grey: #6b7280;
+      --grey-soft: #f3f4f6;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 1px 3px rgba(0, 40, 80, 0.06);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --bottom-nav-h: 64px;
+      --cta-h: 52px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #dfe3e8;
+      color: var(--text);
+      line-height: 1.45;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: 430px;
+      min-height: 100dvh;
+      background: var(--bg);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.12);
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px 4px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--card);
+    }
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .status-icons .signal { letter-spacing: 1px; font-size: 11px; }
+    .battery {
+      width: 24px;
+      height: 11px;
+      border: 1.5px solid var(--text);
+      border-radius: 3px;
+      position: relative;
+      margin-left: 2px;
+    }
+    .battery::after {
+      content: '';
+      position: absolute;
+      right: -4px;
+      top: 2px;
+      width: 2px;
+      height: 5px;
+      background: var(--text);
+      border-radius: 0 1px 1px 0;
+    }
+    .battery .level {
+      position: absolute;
+      inset: 1.5px;
+      right: 30%;
+      background: var(--text);
+      border-radius: 1px;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px 12px;
+      background: var(--card);
+    }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-logo { width: 32px; height: 32px; flex-shrink: 0; }
+    .brand-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.02em;
+    }
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .btn-icon {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: transparent;
+      color: var(--primary);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+    .btn-icon:active { background: var(--primary-soft); }
+    .badge-count {
+      position: absolute;
+      top: 2px;
+      right: 0;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      background: #e53935;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .avatar-header {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+    }
+
+    .greeting {
+      padding: 4px 16px 14px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .greeting-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .greeting-subtitle {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .search-section {
+      padding: 12px 16px 0;
+      background: var(--card);
+    }
+    .search-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+    .search-wrap i {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted-light);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      padding: 11px 14px 11px 40px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      font-family: inherit;
+      font-size: 12.5px;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search-input::placeholder { color: var(--muted-light); }
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 86, 145, 0.1);
+      background: var(--card);
+    }
+    .btn-filters {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: var(--card);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-filters i { color: var(--primary); font-size: 13px; }
+    .btn-filters:active { background: var(--bg); }
+
+    .filters-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 14px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .filters-row::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0;
+      padding: 7px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .filter-chip.active {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: #fff;
+      font-weight: 600;
+    }
+    .filter-chip:active { opacity: 0.85; }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 0 16px 14px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .kpi-card {
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+    .kpi-card.blue { background: linear-gradient(180deg, #f8fbff 0%, var(--card) 100%); }
+    .kpi-card.green { background: linear-gradient(180deg, #f6fcf9 0%, var(--card) 100%); }
+    .kpi-card.orange { background: linear-gradient(180deg, #fffaf5 0%, var(--card) 100%); }
+    .kpi-card.purple { background: linear-gradient(180deg, #faf8ff 0%, var(--card) 100%); }
+    .kpi-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .kpi-card.blue .kpi-icon { background: var(--blue-soft); color: var(--blue); }
+    .kpi-card.green .kpi-icon { background: var(--green-soft); color: var(--green); }
+    .kpi-card.orange .kpi-icon { background: var(--orange-soft); color: var(--orange); }
+    .kpi-card.purple .kpi-icon { background: var(--purple-soft); color: var(--purple); }
+    .kpi-label {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+    .kpi-value {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .kpi-card.blue .kpi-value { color: var(--blue); }
+    .kpi-card.green .kpi-value { color: var(--green); }
+    .kpi-card.orange .kpi-value { color: var(--orange); }
+    .kpi-card.purple .kpi-value { color: var(--purple); }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      padding-bottom: calc(var(--bottom-nav-h) + var(--cta-h) + 28px + var(--safe-bottom));
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .vacancy-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .vacancy-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      transition: transform 0.1s;
+    }
+    .vacancy-card.hidden { display: none; }
+
+    .vacancy-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .vacancy-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1.25;
+    }
+    .status-badge {
+      flex-shrink: 0;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .status-badge.rascunho { background: var(--purple-soft); color: var(--purple); }
+    .status-badge.publicada { background: var(--green-soft); color: var(--green); }
+    .status-badge.pausada { background: var(--orange-soft); color: var(--orange); }
+    .status-badge.encerrada { background: var(--grey-soft); color: var(--grey); }
+    .status-badge.aprovacao { background: #fff4e6; color: #d97706; }
+    .status-badge.preenchida { background: var(--green-soft); color: var(--green); }
+
+    .vacancy-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .vacancy-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .vacancy-meta i { font-size: 10px; color: var(--muted-light); }
+
+    .vacancy-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--muted-light);
+      margin-bottom: 12px;
+    }
+    .vacancy-stats span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .vacancy-stats i { font-size: 10px; }
+
+    .vacancy-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 6px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--card);
+      color: var(--primary);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      min-width: 0;
+    }
+    .action-btn i { font-size: 12px; }
+    .action-btn:active { background: var(--primary-soft); }
+    .action-btn.more {
+      flex: 0 0 40px;
+      padding: 8px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+      font-size: 14px;
+      display: none;
+    }
+    .empty-state.show { display: block; }
+
+    .cta-bar {
+      position: fixed;
+      bottom: calc(var(--bottom-nav-h) + var(--safe-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      padding: 10px 16px;
+      background: linear-gradient(180deg, rgba(244, 246, 248, 0) 0%, var(--bg) 30%);
+      z-index: 15;
+    }
+    .btn-nova-vaga {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 20px;
+      background: var(--teal);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(13, 148, 136, 0.35);
+    }
+    .btn-nova-vaga i {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    .btn-nova-vaga:active { transform: scale(0.98); }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      height: calc(var(--bottom-nav-h) + var(--safe-bottom));
+      padding-bottom: var(--safe-bottom);
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      padding-top: 8px;
+      z-index: 20;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      text-decoration: none;
+      color: var(--muted-light);
+      font-size: 10px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 10px;
+      min-width: 56px;
+    }
+    .nav-item i { font-size: 18px; }
+    .nav-item.active {
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+    .nav-item:active { opacity: 0.7; }
+
+    .toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(26, 43, 60, 0.92);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 100;
+      max-width: 90%;
+      text-align: center;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    @media (min-width: 431px) {
+      body { padding: 20px 0; align-items: flex-start; }
+      .phone { min-height: calc(100dvh - 40px); border-radius: 24px; overflow: hidden; }
+    }
+  </style>
+</head>
+<body>
+  <div class="phone" id="app">
+    <div class="status-bar" aria-hidden="true">
+      <span id="statusTime">9:41</span>
+      <div class="status-icons">
+        <span class="signal">●●●●</span>
+        <i class="fa-solid fa-wifi"></i>
+        <div class="battery"><div class="level"></div></div>
+      </div>
+    </div>
+
+    <header class="app-header">
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" fill="#005691"/>
+          <path d="M12 10H20V12H17V22H15V12H12V10Z" fill="white"/>
+        </svg>
+        <span class="brand-name">Talent RH</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="btnNotifications" aria-label="Notificações">
+          <i class="fa-regular fa-bell"></i>
+          <span class="badge-count">8</span>
+        </button>
+        <img class="avatar-header" src="https://i.pravatar.cc/80?img=32" alt="Usuário" />
+      </div>
+    </header>
+
+    <div class="greeting">
+      <h1 class="greeting-title">Gestão de vagas</h1>
+      <p class="greeting-subtitle">Acompanhe e gerencie todas as vagas em um só lugar</p>
+    </div>
+
+    <div class="search-section">
+      <div class="search-toolbar">
+        <div class="search-wrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input
+            type="search"
+            class="search-input"
+            id="searchInput"
+            placeholder="Buscar vagas por título, área ou local"
+            autocomplete="off"
+          />
+        </div>
+        <button type="button" class="btn-filters" id="btnFilters">
+          <i class="fa-solid fa-sliders"></i>
+          Filtros
+        </button>
+      </div>
+      <div class="filters-row" id="filtersRow"></div>
+    </div>
+
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <main class="content">
+      <div class="vacancy-list" id="vacancyList"></div>
+      <div class="empty-state" id="emptyState">
+        <i class="fa-solid fa-briefcase" style="font-size:32px;margin-bottom:12px;opacity:.4"></i>
+        <p>Nenhuma vaga encontrada para esta busca.</p>
+      </div>
+    </main>
+
+    <div class="cta-bar">
+      <button type="button" class="btn-nova-vaga" id="btnNovaVaga">
+        <i class="fa-solid fa-plus"></i>
+        Nova vaga
+      </button>
+    </div>
+
+    <nav class="bottom-nav" aria-label="Navegação principal">
+      <a href="dashboard-mobile.html" class="nav-item" data-nav="inicio">
+        <i class="fa-solid fa-house"></i>
+        <span>Início</span>
+      </a>
+      <a href="detalhe-requisicao-mobile.html" class="nav-item" data-nav="requisicoes">
+        <i class="fa-solid fa-clipboard-list"></i>
+        <span>Requisições</span>
+      </a>
+      <a href="gestao-vagas-mobile.html" class="nav-item active" data-nav="vagas">
+        <i class="fa-solid fa-briefcase"></i>
+        <span>Vagas</span>
+      </a>
+      <a href="banco-talentos-mobile.html" class="nav-item" data-nav="candidatos">
+        <i class="fa-solid fa-user-group"></i>
+        <span>Candidatos</span>
+      </a>
+      <a href="#" class="nav-item" data-nav="mais">
+        <i class="fa-solid fa-ellipsis"></i>
+        <span>Mais</span>
+      </a>
+    </nav>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const filters = [
+        { id: 'todas', label: 'Todas' },
+        { id: 'rascunho', label: 'Rascunho' },
+        { id: 'publicada', label: 'Publicada' },
+        { id: 'pausada', label: 'Pausada' },
+        { id: 'encerrada', label: 'Encerrada' },
+        { id: 'aprovacao', label: 'Em aprovação' },
+        { id: 'preenchida', label: 'Preenchida' }
+      ];
+
+      const kpis = [
+        { color: 'blue', icon: 'fa-briefcase', label: 'Total de vagas', value: 28 },
+        { color: 'green', icon: 'fa-paper-plane', label: 'Publicadas', value: 12 },
+        { color: 'orange', icon: 'fa-clock', label: 'Em aprovação', value: 4 },
+        { color: 'purple', icon: 'fa-user-group', label: 'Preenchidas', value: 6 }
+      ];
+
+      const vacancies = [
+        {
+          id: 1,
+          title: 'Analista de RH',
+          status: 'rascunho',
+          statusLabel: 'Rascunho',
+          department: 'Recursos Humanos',
+          location: 'São Paulo - SP',
+          modality: 'Híbrido',
+          modalityIcon: 'fa-building-circle-check',
+          updated: 'Atualizado hoje',
+          candidates: '8 candidatos',
+          actions: [
+            { id: 'edit', icon: 'fa-pen', label: 'Editar' },
+            { id: 'duplicate', icon: 'fa-copy', label: 'Duplicar' }
+          ]
+        },
+        {
+          id: 2,
+          title: 'Assistente de Produção',
+          status: 'publicada',
+          statusLabel: 'Publicada',
+          department: 'Produção',
+          location: 'Campinas - SP',
+          modality: 'Presencial',
+          modalityIcon: 'fa-building',
+          updated: 'Publicada há 3 dias',
+          candidates: '23 candidatos',
+          actions: [
+            { id: 'pause', icon: 'fa-pause', label: 'Pausar' },
+            { id: 'duplicate', icon: 'fa-copy', label: 'Duplicar' }
+          ]
+        },
+        {
+          id: 3,
+          title: 'Desenvolvedor .NET',
+          status: 'pausada',
+          statusLabel: 'Pausada',
+          department: 'Tecnologia da Informação',
+          location: 'Remoto',
+          modality: 'Remoto',
+          modalityIcon: 'fa-laptop-house',
+          updated: 'Pausada há 5 dias',
+          candidates: '15 candidatos',
+          actions: [
+            { id: 'play', icon: 'fa-play', label: 'Retomar' },
+            { id: 'duplicate', icon: 'fa-copy', label: 'Duplicar' }
+          ]
+        },
+        {
+          id: 4,
+          title: 'Supervisor de Logística',
+          status: 'encerrada',
+          statusLabel: 'Encerrada',
+          department: 'Logística',
+          location: 'Curitiba - PR',
+          modality: 'Presencial',
+          modalityIcon: 'fa-building',
+          updated: 'Encerrada há 10 dias',
+          candidates: '32 candidatos',
+          actions: [
+            { id: 'view', icon: 'fa-eye', label: 'Ver' },
+            { id: 'duplicate', icon: 'fa-copy', label: 'Duplicar' }
+          ]
+        },
+        {
+          id: 5,
+          title: 'Analista de Qualidade',
+          status: 'aprovacao',
+          statusLabel: 'Em aprovação',
+          department: 'Qualidade',
+          location: 'Joinville - SC',
+          modality: 'Híbrido',
+          modalityIcon: 'fa-building-circle-check',
+          updated: 'Em aprovação há 2 dias',
+          candidates: '6 candidatos',
+          actions: [
+            { id: 'view', icon: 'fa-eye', label: 'Ver' },
+            { id: 'duplicate', icon: 'fa-copy', label: 'Duplicar' }
+          ]
+        },
+        {
+          id: 6,
+          title: 'Coordenador Comercial',
+          status: 'preenchida',
+          statusLabel: 'Preenchida',
+          department: 'Comercial',
+          location: 'Belo Horizonte - MG',
+          modality: 'Híbrido',
+          modalityIcon: 'fa-building-circle-check',
+          updated: 'Preenchida há 7 dias',
+          candidates: '1 contratação',
+          actions: [
+            { id: 'view', icon: 'fa-eye', label: 'Ver' },
+            { id: 'duplicate', icon: 'fa-copy', label: 'Duplicar' }
+          ]
+        }
+      ];
+
+      let activeFilter = 'todas';
+      let searchQuery = '';
+
+      const $ = (sel) => document.querySelector(sel);
+      const toast = $('#toast');
+      let toastTimer;
+
+      function showToast(message) {
+        clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add('show');
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function renderFilters() {
+        $('#filtersRow').innerHTML = filters.map((f) => `
+          <button type="button" class="filter-chip${f.id === activeFilter ? ' active' : ''}"
+            data-filter="${f.id}">${escapeHtml(f.label)}</button>
+        `).join('');
+      }
+
+      function renderKpis() {
+        $('#kpiGrid').innerHTML = kpis.map((k) => `
+          <div class="kpi-card ${k.color}">
+            <div class="kpi-icon"><i class="fa-solid ${k.icon}"></i></div>
+            <div class="kpi-label">${escapeHtml(k.label)}</div>
+            <div class="kpi-value">${k.value}</div>
+          </div>
+        `).join('');
+      }
+
+      function filterVacancies() {
+        const q = searchQuery.toLowerCase().trim();
+        return vacancies.filter((v) => {
+          if (activeFilter !== 'todas' && v.status !== activeFilter) return false;
+          if (!q) return true;
+
+          const haystack = [
+            v.title, v.department, v.location, v.modality, v.statusLabel
+          ].join(' ').toLowerCase();
+
+          return haystack.includes(q);
+        });
+      }
+
+      function renderVacancies() {
+        const list = filterVacancies();
+        const container = $('#vacancyList');
+        const empty = $('#emptyState');
+
+        container.innerHTML = list.map((v) => `
+          <article class="vacancy-card" data-id="${v.id}" data-title="${escapeHtml(v.title)}">
+            <div class="vacancy-top">
+              <h2 class="vacancy-title">${escapeHtml(v.title)}</h2>
+              <span class="status-badge ${v.status}">${escapeHtml(v.statusLabel)}</span>
+            </div>
+            <div class="vacancy-meta">
+              <span><i class="fa-solid fa-sitemap"></i>${escapeHtml(v.department)}</span>
+              <span><i class="fa-solid fa-location-dot"></i>${escapeHtml(v.location)}</span>
+              <span><i class="fa-solid ${v.modalityIcon}"></i>${escapeHtml(v.modality)}</span>
+            </div>
+            <div class="vacancy-stats">
+              <span><i class="fa-regular fa-clock"></i>${escapeHtml(v.updated)}</span>
+              <span><i class="fa-solid fa-user-group"></i>${escapeHtml(v.candidates)}</span>
+            </div>
+            <div class="vacancy-actions">
+              ${v.actions.map((a) => `
+                <button type="button" class="action-btn" data-action="${a.id}" data-vacancy="${v.id}">
+                  <i class="fa-solid ${a.icon}"></i>
+                  ${escapeHtml(a.label)}
+                </button>
+              `).join('')}
+              <button type="button" class="action-btn more" data-action="more" data-vacancy="${v.id}" aria-label="Mais opções">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+              </button>
+            </div>
+          </article>
+        `).join('');
+
+        empty.classList.toggle('show', list.length === 0);
+      }
+
+      function updateClock() {
+        const now = new Date();
+        $('#statusTime').textContent =
+          `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+      }
+
+      const actionMessages = {
+        edit: 'Editar vaga',
+        duplicate: 'Duplicar vaga',
+        pause: 'Vaga pausada',
+        play: 'Vaga retomada',
+        view: 'Visualizar vaga',
+        more: 'Mais opções'
+      };
+
+      function bindEvents() {
+        $('#btnNotifications').addEventListener('click', () => showToast('8 notificações não lidas'));
+        $('#btnFilters').addEventListener('click', () => showToast('Filtros avançados'));
+        $('#btnNovaVaga').addEventListener('click', () => showToast('Criar nova vaga'));
+
+        $('#filtersRow').addEventListener('click', (e) => {
+          const chip = e.target.closest('.filter-chip');
+          if (!chip) return;
+          activeFilter = chip.dataset.filter;
+          renderFilters();
+          renderVacancies();
+        });
+
+        $('#searchInput').addEventListener('input', (e) => {
+          searchQuery = e.target.value;
+          renderVacancies();
+        });
+
+        $('#vacancyList').addEventListener('click', (e) => {
+          const btn = e.target.closest('.action-btn');
+          if (btn) {
+            e.stopPropagation();
+            const vacancy = vacancies.find((v) => v.id === Number(btn.dataset.vacancy));
+            const action = btn.dataset.action;
+            showToast(`${actionMessages[action] || action}: ${vacancy?.title || ''}`);
+            return;
+          }
+
+          const card = e.target.closest('.vacancy-card');
+          if (card) showToast(`Detalhes: ${card.dataset.title}`);
+        });
+
+        document.querySelectorAll('.nav-item').forEach((link) => {
+          link.addEventListener('click', (e) => {
+            const href = link.getAttribute('href');
+            if (href && href !== '#') return;
+            e.preventDefault();
+            showToast(`${link.querySelector('span').textContent} — em desenvolvimento`);
+          });
+        });
+      }
+
+      renderFilters();
+      renderKpis();
+      renderVacancies();
+      updateClock();
+      bindEvents();
+      setInterval(updateClock, 60000);
+    })();
+  </script>
+</body>
+</html>

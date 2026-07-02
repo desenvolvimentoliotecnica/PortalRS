@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 207
+    "totalTarefas": 209
   },
   "tarefas": [
     {
@@ -4366,32 +4366,6 @@
       "observacoes": "AgendasScreen + MicrosoftGraphCalendarService."
     },
     {
-      "id": "TASK-2026-167",
-      "nome": "[Portal RH] Preview oculta da home do analista de RH (R&S)",
-      "descricaoAmigavel": "Tela de conceito para avaliar a home ideal do analista de recrutamento, com KPIs, funil, agenda, requisições, ações rápidas e alertas, acessível por rota oculta.",
-      "inicio": "2026-07-01",
-      "horarioInicio": "12:35",
-      "conclusao": "2026-07-01",
-      "horarioConclusao": "14:46",
-      "totalHoras": 2.18,
-      "bucket": "Concluído",
-      "percentualConcluido": 100,
-      "prioridade": "Média",
-      "atribuidaA": "Lucas Muniz Machado",
-      "pedidoOriginal": "Criar view com mockup da home do analista de RH em rota oculta para avaliação.",
-      "entregavel": "Rota /app/dashboard/preview/home-analista-rh com layout baseado no mockup e dados ilustrativos.",
-      "ambiente": "PRD",
-      "referencias": {
-        "commits": [
-          "81f1e532"
-        ],
-        "branch": "origin/PRD",
-        "prHml": "Merge PR #56",
-        "prPrd": "Merge PR #57"
-      },
-      "observacoes": "Rota oculta /dashboard/preview/home-analista-rh; não listada no menu."
-    },
-    {
       "id": "TASK-2026-168",
       "nome": "[Portal RH] P1 Admissão — wizard RH, OTP portal, fluxo candidato e tracking",
       "descricaoAmigavel": "Simplificar admissão para o RH (3 etapas contratuais), reforçar login do candidato com código por e-mail, enxugar portal do candidato e remover upload manual no acompanhamento.",
@@ -4897,20 +4871,22 @@
       "descricaoAmigavel": "Protótipo HTML mobile-first da tela de detalhe da requisição de pessoal, fiel ao layout de referência com cards, timeline de aprovações e ações de distribuição.",
       "inicio": "2026-07-02",
       "horarioInicio": "09:14",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 3.42,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar HTML com JS e ícones FontAwesome para layout mobile-first de detalhe da requisição, o mais idêntico possível ao design de referência.",
       "entregavel": "Arquivo HTML standalone em mockups-mvc com layout mobile, cards de resumo/solicitante/motivo/aprovações/histórico, botões de ação e navegação inferior.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "ac8d350f"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #106 (DEV->HML)"
       },
       "observacoes": "Mockup estático para validação visual; sem integração com API."
     },
@@ -4920,20 +4896,22 @@
       "descricaoAmigavel": "Protótipo HTML mobile-first da tela inicial (dashboard) do Talent RH com métricas, funil, entrevistas da semana, pendências e ações rápidas.",
       "inicio": "2026-07-02",
       "horarioInicio": "09:38",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 3.02,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar HTML dashboard mobile-first seguindo o mesmo padrão visual do mock de detalhe da requisição, com base no layout em anexo.",
       "entregavel": "Arquivo dashboard-mobile.html em mockups-mvc com greeting, cards de métricas, funil horizontal, entrevistas, pendências, ações rápidas e bottom nav.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "ac8d350f"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #106 (DEV->HML)"
       },
       "observacoes": "Mockup estático; link de navegação para detalhe-requisicao-mobile.html."
     },
@@ -4943,20 +4921,22 @@
       "descricaoAmigavel": "Protótipo HTML mobile-first da tela de banco de talentos com busca, filtros, KPIs, cards de candidatos com match score e FAB para novo talento.",
       "inicio": "2026-07-02",
       "horarioInicio": "09:42",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 2.95,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar HTML mobile-first do Banco de Talentos seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
       "entregavel": "Arquivo banco-talentos-mobile.html em mockups-mvc com busca, chips de filtro, KPIs, lista de candidatos, anel de match, FAB e bottom nav.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "ac8d350f"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #106 (DEV->HML)"
       },
       "observacoes": "Mockup estático com busca e filtros funcionais no frontend; links para dashboard e requisições."
     },
@@ -4992,20 +4972,22 @@
       "descricaoAmigavel": "Protótipo HTML mobile-first da tela de matching IA com vaga selecionada, KPIs de aderência, filtros, cards com score e ações de seleção para entrevista.",
       "inicio": "2026-07-02",
       "horarioInicio": "09:48",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 2.85,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar HTML mobile-first da tela Matching de Candidatos seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
       "entregavel": "Arquivo matching-candidatos-mobile.html em mockups-mvc com card da vaga, KPIs, filtros, lista ranqueada, seleção múltipla e botões de ação fixos.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "ac8d350f"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #106 (DEV->HML)"
       },
       "observacoes": "Mockup estático com filtros e seleção de candidatos no frontend; links para banco de talentos e dashboard."
     },
@@ -5015,20 +4997,22 @@
       "descricaoAmigavel": "Protótipo HTML mobile-first do kanban de candidatos por etapa do funil, com abas de status, colunas horizontais, cards com match e ações de mover etapa.",
       "inicio": "2026-07-02",
       "horarioInicio": "09:55",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "totalHoras": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 2.73,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "prioridade": "Média",
       "atribuidaA": "Lucas Muniz Machado",
       "pedidoOriginal": "Criar HTML mobile-first da tela Kanban de Candidatos seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
       "entregavel": "Arquivo kanban-candidatos-mobile.html em mockups-mvc com card da vaga, tabs de etapas, board horizontal, zona de drop e botões Mover etapa / Ver perfil.",
       "ambiente": "DEV",
       "referencias": {
-        "commits": [],
+        "commits": [
+          "ac8d350f"
+        ],
         "branch": "DEV",
-        "prHml": null
+        "prHml": "Merge PR #106 (DEV->HML)"
       },
       "observacoes": "Mockup estático com seleção de cards e navegação entre etapas; link de volta para matching-candidatos-mobile.html."
     },
@@ -5091,18 +5075,20 @@
       "descricaoAmigavel": "Mockup HTML mobile-first da tela Gestão de Vagas para acompanhamento e gestão de vagas abertas.",
       "inicio": "2026-07-02",
       "horarioInicio": "10:35",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Criar HTML mobile-first da tela Gestão de Vagas seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
       "entregavel": "Arquivo gestao-vagas-mobile.html em mockups-mvc com busca, filtros por status, KPIs, lista de vagas com badges e ações, botão Nova vaga e bottom nav.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
+      "totalHoras": 2.07,
       "observacoes": "Mockup estático com busca/filtro interativos; aba Vagas ativa na bottom nav.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "ac8d350f"
+        ],
+        "prHml": "Merge PR #106 (DEV->HML)"
       }
     },
     {
@@ -5111,18 +5097,20 @@
       "descricaoAmigavel": "Mockup HTML mobile-first da tela de detalhe de vaga publicada com métricas, canais e pipeline de candidatos.",
       "inicio": "2026-07-02",
       "horarioInicio": "10:42",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Criar HTML mobile-first da tela Detalhe da vaga publicada seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
       "entregavel": "Arquivo detalhe-vaga-publicada-mobile.html em mockups-mvc com resumo da vaga, KPIs, canais, pipeline, ações rápidas, insights e botões fixos.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
+      "totalHoras": 1.95,
       "observacoes": "Mockup estático com link de volta para gestao-vagas-mobile.html; aba Vagas ativa.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "ac8d350f"
+        ],
+        "prHml": "Merge PR #106 (DEV->HML)"
       }
     },
     {
@@ -5156,18 +5144,20 @@
       "descricaoAmigavel": "Mockup HTML mobile-first da tela de aprovação do gestor para candidato finalista com critérios, decisão e próximos passos.",
       "inicio": "2026-07-02",
       "horarioInicio": "10:47",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Criar HTML mobile-first da tela Aprovação do gestor seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
       "entregavel": "Arquivo aprovacao-gestor-mobile.html em mockups-mvc com perfil do candidato, vaga, parecer RH, critérios do gestor, decisão final e botões de ação.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
+      "totalHoras": 1.87,
       "observacoes": "Mockup estático com seleção de decisão e toasts; aba Candidatos ativa.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "ac8d350f"
+        ],
+        "prHml": "Merge PR #106 (DEV->HML)"
       }
     },
     {
@@ -5193,63 +5183,25 @@
       }
     },
     {
-      "id": "TASK-2026-198",
-      "nome": "[Portal RH] Mockup mobile proposta e pré-admissão",
-      "descricaoAmigavel": "Mockup HTML mobile-first da tela de proposta e pré-admissão com dados da vaga, documentos e fluxo de etapas.",
-      "inicio": "2026-07-02",
-      "horarioInicio": "10:53",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
-      "pedidoOriginal": "Criar HTML mobile-first da tela Proposta e pré-admissão seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
-      "entregavel": "Arquivo proposta-pre-admissao-mobile.html em mockups-mvc com proposta salarial, status, documentos, stepper, observações e botões de ação.",
-      "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": "Mockup estático com link de volta para aprovacao-gestor-mobile.html; aba Candidatos ativa.",
-      "referencias": {
-        "commits": [],
-        "prHml": null
-      }
-    },
-    {
-      "id": "TASK-2026-199",
-      "nome": "[Portal RH] Mockup mobile relatórios",
-      "descricaoAmigavel": "Mockup HTML mobile-first da tela de Relatórios com KPIs, gráficos, funil de conversão e alertas.",
-      "inicio": "2026-07-02",
-      "horarioInicio": "11:03",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
-      "pedidoOriginal": "Criar HTML mobile-first da tela Relatórios seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
-      "entregavel": "Arquivo relatorios-mobile.html em mockups-mvc com filtros, KPIs, vagas por analista, donut por canal, funil, alertas e botões de exportação.",
-      "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": "Mockup estático com filtros cíclicos e gráfico donut em SVG; aba Mais ativa.",
-      "referencias": {
-        "commits": [],
-        "prHml": null
-      }
-    },
-    {
       "id": "TASK-2026-200",
       "nome": "[Portal] Mockup mobile portal público de vagas",
       "descricaoAmigavel": "Mockup HTML mobile-first do portal público Encontre sua próxima oportunidade para candidatos externos.",
       "inicio": "2026-07-02",
       "horarioInicio": "11:10",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Criar HTML mobile-first da tela Encontre sua próxima oportunidade (portal público) seguindo o padrão visual dos mockups, com base no layout em anexo.",
       "entregavel": "Arquivo portal-oportunidades-mobile.html em mockups-mvc com busca, filtros, listagem de vagas, badges e CTA de cadastro.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
+      "totalHoras": 1.48,
       "observacoes": "Portal público sem bottom nav interna; menu hamburger e botões Entrar/Criar conta.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "ac8d350f"
+        ],
+        "prHml": "Merge PR #106 (DEV->HML)"
       }
     },
     {
@@ -5280,18 +5232,20 @@
       "descricaoAmigavel": "Antes de geocodificar, consultar BrasilAPI pelo CEP para corrigir logradouro abreviado (ex. RM) e aumentar taxa de sucesso no Nominatim.",
       "inicio": "2026-07-02",
       "horarioInicio": "11:20",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "11:38",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Implementar enriquecimento automático do endereço via CEP na API após diagnóstico HMG: rede OK, falha por logradouro abreviado (JOAO PAULO I vs Avenida João Paulo I).",
       "entregavel": "BrasilApiCepLookupService + CepAddressEnrichment integrados ao CompositeGeocodingService; mensagem 422 mais clara; testes unitários.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": "Diagnóstico HMG: empresa f4ed24ef Matriz Liotecnica Embu. Nominatim OK com Avenida João Paulo I.",
+      "totalHoras": 0.5,
+      "observacoes": "Promovido DEV->HML->PRD (PR #104, #105). Diagnóstico HMG: empresa f4ed24ef Matriz Liotecnica Embu.",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "c4097464"
+        ],
+        "prHml": "Merge PR #104 (DEV->HML), PR #105 (HML->PRD)"
       }
     },
     {
@@ -5314,6 +5268,118 @@
           "800a0099"
         ],
         "prHml": "Merge PR #102 (DEV->HML), PR #103 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-204",
+      "nome": "[Portal RH] Organizar suite mockups mobile Talent RH",
+      "descricaoAmigavel": "Consolidar 17 protótipos HTML mobile-first (RH interno e portal público) na pasta Mockup Mobile para versionamento e validação visual.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:36",
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Mover todos os HTMLs mobile para __analise__/mockups-mvc/Mockup Mobile e promover para HML/PRD.",
+      "entregavel": "Pasta __analise__/mockups-mvc/Mockup Mobile com 17 HTMLs mobile-first versionados no repositório.",
+      "observacoes": "Mockups estáticos para validação de UX; sem integração com API.",
+      "referencias": {
+        "commits": [
+          "ac8d350f"
+        ],
+        "prHml": "Merge PR #106 (DEV->HML)"
+      }
+    },
+    {
+      "id": "TASK-2026-205",
+      "nome": "[Portal] Mockup mobile detalhe da vaga (portal público)",
+      "descricaoAmigavel": "Mockup mobile detalhe da vaga (portal público)",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:08",
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 0.52,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar portal-detalhe-vaga-mobile.html no padrão visual mobile Liotécnica.",
+      "entregavel": "Arquivo portal-detalhe-vaga-mobile.html em Mockup Mobile.",
+      "observacoes": "Incluído na suite promovida em TASK-2026-204.",
+      "referencias": {
+        "commits": [
+          "ac8d350f"
+        ],
+        "prHml": "Merge PR #106 (DEV->HML)"
+      }
+    },
+    {
+      "id": "TASK-2026-206",
+      "nome": "[Portal] Mockup mobile candidatura (portal público)",
+      "descricaoAmigavel": "Mockup mobile candidatura (portal público)",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:12",
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar portal-candidatura-mobile.html no padrão visual mobile Liotécnica.",
+      "entregavel": "Arquivo portal-candidatura-mobile.html em Mockup Mobile.",
+      "observacoes": "Incluído na suite promovida em TASK-2026-204.",
+      "referencias": {
+        "commits": [
+          "ac8d350f"
+        ],
+        "prHml": "Merge PR #106 (DEV->HML)"
+      }
+    },
+    {
+      "id": "TASK-2026-207",
+      "nome": "[Portal] Mockup mobile área do candidato (portal público)",
+      "descricaoAmigavel": "Mockup mobile área do candidato (portal público)",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:18",
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "12:39",
+      "totalHoras": 0.5,
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
+      "prioridade": "Média",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar portal-area-candidato-mobile.html no padrão visual mobile Liotécnica.",
+      "entregavel": "Arquivo portal-area-candidato-mobile.html em Mockup Mobile.",
+      "observacoes": "Incluído na suite promovida em TASK-2026-204.",
+      "referencias": {
+        "commits": [
+          "ac8d350f"
+        ],
+        "prHml": "Merge PR #106 (DEV->HML)"
+      }
+    },
+    {
+      "id": "TASK-2026-208",
+      "nome": "[Portal RH] Seleção de sala e modalidade no agendamento",
+      "descricaoAmigavel": "Formato Online, Presencial ou Híbrido no modal de agenda, com listagem de salas M365, consulta de disponibilidade e reserva real no Outlook via Graph.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "12:15",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Implementar seleção de sala de reunião no modal de agenda com 3 opções: Online (Teams), Presencial (sala com disponibilidade) e Híbrido (Teams + sala). Sem fallback — bloquear campo se Graph não retornar salas.",
+      "entregavel": "Endpoints meeting-rooms e availability; campos MeetingFormat/RoomEmail na API; seletor de formato e sala no frontend; reserva como resource attendee no Outlook.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Requer permissões Graph: Place.Read.All e Calendars.ReadWrite. Infra concederá permissões.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]

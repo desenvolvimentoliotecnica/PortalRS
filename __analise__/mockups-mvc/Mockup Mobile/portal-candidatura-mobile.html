@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Liotécnica — Candidatura</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    :root {
+      --accent: #6246ea;
+      --accent-dark: #5038c9;
+      --accent-soft: #f0ecfd;
+      --brand: #1a2b3c;
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1a2b3c;
+      --muted: #6c7a89;
+      --muted-light: #9aa5b1;
+      --border: #e8ecf0;
+      --red: #d93025;
+      --red-soft: #fdecea;
+      --blue: #2b7fd4;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 1px 3px rgba(0, 40, 80, 0.06);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --actions-h: 132px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #dfe3e8;
+      color: var(--text);
+      line-height: 1.45;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: 430px;
+      min-height: 100dvh;
+      background: var(--bg);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.12);
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px 4px;
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--card);
+    }
+    .status-icons { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .status-icons .signal { letter-spacing: 1px; font-size: 11px; }
+    .battery {
+      width: 24px; height: 11px;
+      border: 1.5px solid var(--text);
+      border-radius: 3px;
+      position: relative;
+      margin-left: 2px;
+    }
+    .battery::after {
+      content: '';
+      position: absolute;
+      right: -4px; top: 2px;
+      width: 2px; height: 5px;
+      background: var(--text);
+      border-radius: 0 1px 1px 0;
+    }
+    .battery .level {
+      position: absolute;
+      inset: 1.5px;
+      right: 30%;
+      background: var(--text);
+      border-radius: 1px;
+    }
+
+    .pub-header {
+      display: grid;
+      grid-template-columns: 40px 1fr 40px;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px 10px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .btn-back {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: none;
+    }
+    .btn-back:active { background: var(--accent-soft); }
+    .company-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .company-logo {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px dashed var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--accent);
+    }
+    .company-name {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--brand);
+    }
+    .btn-profile {
+      width: 36px; height: 36px;
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+    .btn-profile:active { background: var(--accent-soft); }
+
+    .page-top {
+      padding: 8px 16px 12px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .link-back-vaga {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+      margin-bottom: 10px;
+    }
+    .link-back-vaga:active { opacity: 0.7; }
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--brand);
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .page-subtitle { font-size: 12.5px; color: var(--muted); }
+
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      padding-bottom: calc(var(--actions-h) + 16px + var(--safe-bottom));
+    }
+
+    .job-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .job-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .job-info { flex: 1; min-width: 0; }
+    .job-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--brand);
+      line-height: 1.25;
+      margin-bottom: 2px;
+    }
+    .job-company {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .job-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .job-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .job-meta i { font-size: 10px; color: var(--muted-light); }
+    .meta-sep {
+      width: 1px;
+      height: 12px;
+      background: var(--border);
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brand);
+      margin-bottom: 6px;
+    }
+    .input-wrap { position: relative; }
+    .input-wrap i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted-light);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .input-wrap .fab-linkedin {
+      font-weight: 800;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .form-input,
+    .form-textarea {
+      width: 100%;
+      padding: 12px 12px 12px 40px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--card);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-textarea {
+      padding: 12px;
+      min-height: 100px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    .form-input::placeholder,
+    .form-textarea::placeholder { color: var(--muted-light); }
+    .form-input:focus,
+    .form-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(98, 70, 234, 0.12);
+    }
+    .char-count {
+      text-align: right;
+      font-size: 10px;
+      color: var(--muted-light);
+      margin-top: 4px;
+    }
+
+    .upload-box {
+      border: 2px dashed rgba(98, 70, 234, 0.35);
+      border-radius: var(--radius);
+      background: var(--accent-soft);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .upload-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .upload-icon {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--card);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .upload-text { flex: 1; min-width: 0; }
+    .upload-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--brand);
+      margin-bottom: 3px;
+    }
+    .upload-hint {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .file-badges {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .file-badge {
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .file-badge.pdf { background: var(--red); }
+    .file-badge.doc { background: var(--blue); }
+    .btn-upload {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      background: var(--card);
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-upload:active { background: var(--accent-soft); }
+    .file-name {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .file-input-hidden {
+      position: absolute;
+      width: 0;
+      height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .consent-wrap {
+      margin-bottom: 14px;
+    }
+    .consent-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .consent-label input {
+      width: 18px; height: 18px;
+      margin-top: 1px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .privacy-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      margin-left: 28px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .privacy-link:active { opacity: 0.7; }
+
+    .sticky-actions {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      padding: 12px 16px calc(12px + var(--safe-bottom));
+      background: linear-gradient(to top, var(--card) 85%, rgba(255,255,255,0));
+      border-top: 1px solid var(--border);
+      z-index: 10;
+    }
+    .btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      margin-bottom: 8px;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(98, 70, 234, 0.35);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .btn-outline {
+      background: var(--card);
+      color: var(--accent);
+      border: 1.5px solid var(--accent);
+      margin-bottom: 0;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.98); opacity: 0.92; }
+
+    .toast {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(26, 43, 60, 0.92);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 100;
+      max-width: 90%;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    @media (min-width: 431px) {
+      body { padding: 20px 0; align-items: flex-start; }
+      .phone { min-height: calc(100dvh - 40px); border-radius: 24px; overflow: hidden; }
+    }
+  </style>
+</head>
+<body>
+  <div class="phone" id="app">
+    <div class="status-bar" aria-hidden="true">
+      <span id="statusTime">9:41</span>
+      <div class="status-icons">
+        <span class="signal">●●●●</span>
+        <i class="fa-solid fa-wifi"></i>
+        <div class="battery"><div class="level"></div></div>
+      </div>
+    </div>
+
+    <header class="pub-header">
+      <a href="portal-detalhe-vaga-mobile.html" class="btn-back" aria-label="Voltar">
+        <i class="fa-solid fa-arrow-left"></i>
+      </a>
+      <div class="company-brand">
+        <div class="company-logo" aria-hidden="true"><i class="fa-solid fa-circle-nodes"></i></div>
+        <span class="company-name">LIOTÉCNICA</span>
+      </div>
+      <button type="button" class="btn-profile" id="btnProfile" aria-label="Perfil">
+        <i class="fa-regular fa-circle-user"></i>
+      </button>
+    </header>
+
+    <div class="page-top">
+      <a href="portal-detalhe-vaga-mobile.html" class="link-back-vaga">
+        <i class="fa-solid fa-arrow-left"></i>
+        Voltar para vaga
+      </a>
+      <h1 class="page-title">Candidatura</h1>
+      <p class="page-subtitle">Preencha seus dados para se candidatar à vaga</p>
+    </div>
+
+    <main class="content">
+      <article class="job-card">
+        <div class="job-icon" aria-hidden="true"><i class="fa-solid fa-code"></i></div>
+        <div class="job-info">
+          <h2 class="job-title">Desenvolvedor(a) Backend .NET Pleno</h2>
+          <div class="job-company">Liotécnica</div>
+          <div class="job-meta">
+            <span><i class="fa-solid fa-location-dot"></i>Praia Grande, SP</span>
+            <span class="meta-sep" aria-hidden="true"></span>
+            <span><i class="fa-solid fa-briefcase"></i>Híbrido</span>
+          </div>
+        </div>
+      </article>
+
+      <form id="candidaturaForm" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="nome">Nome completo</label>
+          <div class="input-wrap">
+            <i class="fa-regular fa-user"></i>
+            <input type="text" class="form-input" id="nome" name="nome" placeholder="Digite seu nome completo" required autocomplete="name" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">E-mail</label>
+          <div class="input-wrap">
+            <i class="fa-regular fa-envelope"></i>
+            <input type="email" class="form-input" id="email" name="email" placeholder="seu@email.com" required autocomplete="email" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="telefone">Telefone</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-phone"></i>
+            <input type="tel" class="form-input" id="telefone" name="telefone" placeholder="(11) 99999-9999" required autocomplete="tel" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cidade">Cidade / Estado</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-location-dot"></i>
+            <input type="text" class="form-input" id="cidade" name="cidade" placeholder="Ex.: São Paulo / SP" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="linkedin">LinkedIn</label>
+          <div class="input-wrap">
+            <i class="fab fa-linkedin fab-linkedin"></i>
+            <input type="url" class="form-input" id="linkedin" name="linkedin" placeholder="linkedin.com/in/seu-perfil" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="salario">Pretensão salarial</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-circle-dollar-to-slot"></i>
+            <input type="text" class="form-input" id="salario" name="salario" placeholder="Ex.: R$ 8.000,00" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="mensagem">Mensagem de apresentação (opcional)</label>
+          <textarea class="form-textarea" id="mensagem" name="mensagem" maxlength="500" placeholder="Fale um pouco sobre você, sua experiência e o que te motiva..."></textarea>
+          <div class="char-count" id="charCount">0/500</div>
+        </div>
+
+        <div class="upload-box">
+          <div class="upload-top">
+            <div class="upload-icon"><i class="fa-regular fa-file-lines"></i></div>
+            <div class="upload-text">
+              <div class="upload-title">Anexar currículo</div>
+              <div class="upload-hint">Envie seu currículo em PDF ou DOC. Tamanho máximo: 5MB</div>
+            </div>
+            <div class="file-badges" aria-hidden="true">
+              <span class="file-badge pdf">PDF</span>
+              <span class="file-badge doc">DOC</span>
+            </div>
+          </div>
+          <input type="file" class="file-input-hidden" id="curriculo" accept=".pdf,.doc,.docx" />
+          <button type="button" class="btn-upload" id="btnUpload">
+            <i class="fa-solid fa-arrow-up-from-bracket"></i>
+            Selecionar arquivo
+          </button>
+          <div class="file-name" id="fileName"></div>
+        </div>
+
+        <div class="consent-wrap">
+          <label class="consent-label">
+            <input type="checkbox" id="lgpdConsent" />
+            <span>Autorizo o uso dos meus dados para fins de recrutamento e seleção, conforme a LGPD.</span>
+          </label>
+          <a href="#" class="privacy-link" id="privacyLink">
+            Política de Privacidade
+            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px"></i>
+          </a>
+        </div>
+      </form>
+    </main>
+
+    <div class="sticky-actions">
+      <button type="button" class="btn btn-primary" id="btnEnviar" disabled>
+        <i class="fa-solid fa-paper-plane"></i>
+        Enviar candidatura
+      </button>
+      <button type="button" class="btn btn-outline" id="btnSalvar">
+        <i class="fa-regular fa-bookmark"></i>
+        Salvar para depois
+      </button>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+      const $ = (sel) => document.querySelector(sel);
+      const toast = $('#toast');
+      let toastTimer;
+
+      function showToast(msg) {
+        clearTimeout(toastTimer);
+        toast.textContent = msg;
+        toast.classList.add('show');
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+      }
+
+      function updateClock() {
+        const now = new Date();
+        $('#statusTime').textContent =
+          `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+      }
+
+      function updateCharCount() {
+        const len = $('#mensagem').value.length;
+        $('#charCount').textContent = `${len}/500`;
+      }
+
+      function validateSubmit() {
+        const nome = $('#nome').value.trim();
+        const email = $('#email').value.trim();
+        const telefone = $('#telefone').value.trim();
+        const consent = $('#lgpdConsent').checked;
+        $('#btnEnviar').disabled = !(nome && email && telefone && consent);
+      }
+
+      function bindEvents() {
+        $('#btnProfile').addEventListener('click', () => showToast('Acessar perfil do candidato'));
+        $('#privacyLink').addEventListener('click', (e) => {
+          e.preventDefault();
+          showToast('Abrir Política de Privacidade');
+        });
+
+        ['nome', 'email', 'telefone'].forEach((id) => {
+          $('#' + id).addEventListener('input', validateSubmit);
+        });
+        $('#lgpdConsent').addEventListener('change', validateSubmit);
+
+        $('#mensagem').addEventListener('input', updateCharCount);
+
+        $('#btnUpload').addEventListener('click', () => $('#curriculo').click());
+        $('#curriculo').addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) {
+            $('#fileName').textContent = '';
+            return;
+          }
+          if (file.size > MAX_FILE_SIZE) {
+            showToast('Arquivo excede 5MB');
+            e.target.value = '';
+            $('#fileName').textContent = '';
+            return;
+          }
+          $('#fileName').textContent = file.name;
+          showToast('Currículo selecionado');
+        });
+
+        $('#btnSalvar').addEventListener('click', () => showToast('Rascunho salvo para continuar depois'));
+
+        $('#btnEnviar').addEventListener('click', () => {
+          if ($('#btnEnviar').disabled) {
+            showToast('Preencha os campos obrigatórios e aceite a LGPD');
+            return;
+          }
+          showToast('Candidatura enviada com sucesso!');
+        });
+
+        $('#candidaturaForm').addEventListener('submit', (e) => e.preventDefault());
+      }
+
+      updateCharCount();
+      validateSubmit();
+      updateClock();
+      bindEvents();
+      setInterval(updateClock, 60000);
+    })();
+  </script>
+</body>
+</html>
