@@ -5469,18 +5469,20 @@
       "descricaoAmigavel": "Permitir incluir funcionários da empresa como participantes ao agendar compromissos, com convite automático no Outlook.",
       "inicio": "2026-07-02",
       "horarioInicio": "14:32",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 85,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "14:44",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Na criação do evento, incluir participantes buscados na lista de funcionários da empresa.",
       "entregavel": "Campo multi-select de participantes no modal Agendar; persistência estruturada; sincronização como convidados no Outlook.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": "Implementação local em DEV — aguardando commit/promoção.",
+      "totalHoras": 0.5,
+      "observacoes": "Promovido DEV->HML->PRD (PR #117, #118).",
       "referencias": {
-        "commits": [],
-        "prHml": null
+        "commits": [
+          "6cfe5981"
+        ],
+        "prHml": "Merge PR #117 (DEV->HML), PR #118 (HML->PRD)"
       }
     }
   ]
