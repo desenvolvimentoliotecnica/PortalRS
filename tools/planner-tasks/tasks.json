@@ -4883,10 +4883,11 @@
       "ambiente": "DEV",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
         "branch": "DEV",
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       },
       "observacoes": "Mockup estático para validação visual; sem integração com API."
     },
@@ -4908,10 +4909,11 @@
       "ambiente": "DEV",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
         "branch": "DEV",
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       },
       "observacoes": "Mockup estático; link de navegação para detalhe-requisicao-mobile.html."
     },
@@ -4933,10 +4935,11 @@
       "ambiente": "DEV",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
         "branch": "DEV",
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       },
       "observacoes": "Mockup estático com busca e filtros funcionais no frontend; links para dashboard e requisições."
     },
@@ -4984,10 +4987,11 @@
       "ambiente": "DEV",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
         "branch": "DEV",
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       },
       "observacoes": "Mockup estático com filtros e seleção de candidatos no frontend; links para banco de talentos e dashboard."
     },
@@ -5009,10 +5013,11 @@
       "ambiente": "DEV",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
         "branch": "DEV",
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       },
       "observacoes": "Mockup estático com seleção de cards e navegação entre etapas; link de volta para matching-candidatos-mobile.html."
     },
@@ -5086,9 +5091,10 @@
       "observacoes": "Mockup estático com busca/filtro interativos; aba Vagas ativa na bottom nav.",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       }
     },
     {
@@ -5108,9 +5114,10 @@
       "observacoes": "Mockup estático com link de volta para gestao-vagas-mobile.html; aba Vagas ativa.",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       }
     },
     {
@@ -5155,9 +5162,10 @@
       "observacoes": "Mockup estático com seleção de decisão e toasts; aba Candidatos ativa.",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       }
     },
     {
@@ -5199,9 +5207,10 @@
       "observacoes": "Portal público sem bottom nav interna; menu hamburger e botões Entrar/Criar conta.",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       }
     },
     {
@@ -5288,9 +5297,10 @@
       "observacoes": "Mockups estáticos para validação de UX; sem integração com API.",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       }
     },
     {
@@ -5311,9 +5321,10 @@
       "observacoes": "Incluído na suite promovida em TASK-2026-204.",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       }
     },
     {
@@ -5334,9 +5345,10 @@
       "observacoes": "Incluído na suite promovida em TASK-2026-204.",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       }
     },
     {
@@ -5357,9 +5369,10 @@
       "observacoes": "Incluído na suite promovida em TASK-2026-204.",
       "referencias": {
         "commits": [
-          "ac8d350f"
+          "ac8d350f",
+          "7e4af79a"
         ],
-        "prHml": "Merge PR #106 (DEV->HML)"
+        "prHml": "Merge PR #106 (DEV->HML), PR #107 (planner DEV->HML), PR #108 (HML->PRD)"
       }
     },
     {
