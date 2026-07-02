@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 201
+    "totalTarefas": 202
   },
   "tarefas": [
     {
@@ -5131,19 +5131,24 @@
       "descricaoAmigavel": "Substituir campos de texto por listas suspensas na aba Localização do cadastro de vagas, com opções do tenant e cascata empresa → local.",
       "inicio": "2026-07-02",
       "horarioInicio": "10:47",
-      "conclusao": null,
-      "horarioConclusao": null,
-      "bucket": "Em andamento",
-      "percentualConcluido": 90,
+      "conclusao": "2026-07-02",
+      "horarioConclusao": "10:54",
+      "bucket": "Concluído",
+      "percentualConcluido": 100,
       "pedidoOriginal": "Trocar os campos Empresa e Local da Vaga para dropdowns ao invés de text inputs.",
       "entregavel": "Aba Localização do VagaFormModal com selects de empresa e local da vaga, carregados da API e com endereço automático ao selecionar o local.",
       "responsavel": "Lucas Muniz Machado",
-      "totalHoras": null,
-      "observacoes": "Alteração local em VagaFormModal.tsx; aguardando commit/push.",
+      "totalHoras": 0.5,
+      "observacoes": "Promovido DEV→HML→PRD. Deploy automático via GitHub Actions.",
       "referencias": {
-        "commits": [],
-        "prHml": null
-      }
+        "commits": [
+          "c2e8078c"
+        ],
+        "branch": "origin/PRD",
+        "prHml": "Merge PR #96",
+        "prPrd": "Merge PR #97"
+      },
+      "ambiente": "PRD"
     },
     {
       "id": "TASK-2026-199",
@@ -5180,6 +5185,26 @@
       "responsavel": "Lucas Muniz Machado",
       "totalHoras": null,
       "observacoes": "Fix PortalUnitSyncService + UnitEmpresaBackfillSeeder no DbSeeder/TenantProvisioning.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
+      }
+    },
+    {
+      "id": "TASK-2026-198",
+      "nome": "[Portal RH] Mockup mobile proposta e pré-admissão",
+      "descricaoAmigavel": "Mockup HTML mobile-first da tela de proposta e pré-admissão com dados da vaga, documentos e fluxo de etapas.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "10:53",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "pedidoOriginal": "Criar HTML mobile-first da tela Proposta e pré-admissão seguindo o mesmo padrão visual dos mockups anteriores, com base no layout em anexo.",
+      "entregavel": "Arquivo proposta-pre-admissao-mobile.html em mockups-mvc com proposta salarial, status, documentos, stepper, observações e botões de ação.",
+      "responsavel": "Lucas Muniz Machado",
+      "totalHoras": null,
+      "observacoes": "Mockup estático com link de volta para aprovacao-gestor-mobile.html; aba Candidatos ativa.",
       "referencias": {
         "commits": [],
         "prHml": null
