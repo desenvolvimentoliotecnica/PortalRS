@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 218
+    "totalTarefas": 219
   },
   "tarefas": [
     {
@@ -5596,6 +5596,27 @@
           "546b3d38"
         ],
         "prHml": "Merge PR #131 (DEV->HML), PR #132 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-218",
+      "nome": "[Infra] Corrigir build Docker mockups mobile (CI)",
+      "descricaoAmigavel": "Fix COPY pasta Mockup Mobile com espaco e dockerignore para incluir mockups no contexto do build.",
+      "inicio": "2026-07-02",
+      "horarioInicio": "17:30",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Alta",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Validar e corrigir falha CI/CD nos 3 ambientes no build web-next.",
+      "entregavel": "Dockerfile + .dockerignore corrigidos.",
+      "observacoes": "Erro: COPY interpretava Mockup Mobile como dois paths.",
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]

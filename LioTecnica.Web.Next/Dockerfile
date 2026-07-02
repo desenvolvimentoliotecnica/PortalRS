@@ -22,9 +22,10 @@ COPY LioTecnica.Web.Next/package.json LioTecnica.Web.Next/pnpm-lock.yaml ./
 RUN --mount=type=cache,id=rhportal-web-pnpm,target=/root/.local/share/pnpm/store \
     corepack enable && pnpm install --frozen-lockfile --ignore-scripts
 
-# Copia source e faz o build estático
+# Copia source e mockups mobile (pasta com espaço exige cp, não COPY direto)
 COPY LioTecnica.Web.Next/ ./
-COPY __analise__/mockups-mvc/Mockup Mobile ./public/mockups-mobile
+COPY __analise__/mockups-mvc/ /tmp/mockups-mvc/
+RUN cp -r "/tmp/mockups-mvc/Mockup Mobile/." ./public/mockups-mobile/
 RUN --mount=type=cache,id=rhportal-web-next,target=/app/.next/cache \
     npm run build
 
