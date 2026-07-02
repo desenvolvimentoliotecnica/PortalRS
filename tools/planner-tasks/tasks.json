@@ -7,7 +7,7 @@
     "minutosMinimos": 30,
     "jornadaComercial": "08:00-18:00",
     "atualizadoEm": "2026-07-02",
-    "totalTarefas": 216
+    "totalTarefas": 217
   },
   "tarefas": [
     {
@@ -5550,6 +5550,27 @@
           "38c4556e"
         ],
         "prHml": "Merge PR #123 (DEV->HML), PR #124 (HML->PRD)"
+      }
+    },
+    {
+      "id": "TASK-2026-216",
+      "nome": "[Portal RH] Script BAT para servir mockups mobile",
+      "descricaoAmigavel": "Arquivo servir-mockups.bat sobe servidor HTTP local para o prototipo (evita erro CORS com modulos ES).",
+      "inicio": "2026-07-02",
+      "horarioInicio": "17:03",
+      "conclusao": null,
+      "horarioConclusao": null,
+      "totalHoras": null,
+      "bucket": "Em andamento",
+      "percentualConcluido": 90,
+      "prioridade": "Baixa",
+      "atribuidaA": "Lucas Muniz Machado",
+      "pedidoOriginal": "Criar bat para servir arquivos do prototipo mobile (index.html nao funciona via file://).",
+      "entregavel": "servir-mockups.bat + README atualizado.",
+      "observacoes": null,
+      "referencias": {
+        "commits": [],
+        "prHml": null
       }
     }
   ]

@@ -4,11 +4,19 @@ Protótipo navegável com **17 telas** do recrutamento (analista RH) e portal de
 
 ## Como abrir
 
-1. Abra [`index.html`](index.html) no navegador (duplo clique ou servidor estático).
-2. Escolha **Analista RH** ou **Candidato**.
+1. Execute **`servir-mockups.bat`** nesta pasta (duplo clique).
+2. O navegador abrirá em `http://localhost:8080/index.html`.
+3. Escolha **Analista RH** ou **Candidato**.
 
-> Para módulos ES (`import`), use servidor local se o navegador bloquear `file://`:
-> `npx serve "__analise__/mockups-mvc/Mockup Mobile"`
+> **Não abra `index.html` direto no Explorer** — módulos ES (`import`) são bloqueados pelo navegador via `file://` (erro de CORS).
+
+Alternativa manual:
+
+```bash
+cd "__analise__/mockups-mvc/Mockup Mobile"
+python -m http.server 8080
+# ou: npx serve -l 8080 .
+```
 
 ## Mapa de telas
 
